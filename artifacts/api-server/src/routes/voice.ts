@@ -8,6 +8,8 @@ import {
   leadsTable,
   expensesTable,
   activitiesTable,
+  crewsTable,
+  schedulesTable,
 } from "@workspace/db";
 import {
   ParseVoiceBody,
@@ -29,9 +31,12 @@ type Action = {
 };
 
 const TOOLS = `Available tools and their fields:
+- create_property { name, pmcName? (property management company), city?, units? (number), accessNotes? }
+- create_crew { name, trade?, phone?, isLeader? (boolean) }
+- create_job { description, propertyName, unitNo?, category? }
+- schedule_job { jobNo, scheduledOn (date as YYYY-MM-DD), crewName?, windowStart? }
 - log_expense { vendor, category, amount (number), propertyName?, jobNo? }
 - create_lead { summary, source?, propertyName? }
-- create_job { description, propertyName, unitNo?, category? }
 - add_note { entityType (property|job), entityRef (name or job number), body }
 - complete_job { jobNo }`;
 
@@ -39,13 +44,18 @@ router.post("/voice/parse", async (req, res): Promise<void> => {
   const { transcript } = ParseVoiceBody.parse(req.body);
   const props = await db.select().from(propertiesTable);
   const jobs = await db.select().from(jobsTable);
+  const crews = await db.select().from(crewsTable);
+  const today = new Date().toISOString().slice(0, 10);
 
   let actions: Action[] = [];
   try {
     const result = await completeJson<{ actions: Action[] }>(
       `You are HALO's voice intake. Convert a contractor's spoken note into structured actions. ${TOOLS}
+Today's date is ${today}. Convert relative dates like "tomorrow" or "next Monday" into an absolute YYYY-MM-DD date.
 Known properties: ${props.map((p) => p.name).join(", ") || "none"}.
 Known jobs: ${jobs.map((j) => j.jobNo).join(", ") || "none"}.
+Known crews: ${crews.map((c) => c.name).join(", ") || "none"}.
+Use create_property when the user describes a new property/building not in the known list. Use create_crew when they mention adding a new crew member or subcontractor. Use schedule_job when they want to set a date for existing work.
 For each action include: tool, title (short), summary (one sentence of what will happen), confidence (0-1), needsReview (true if amounts/names are uncertain), and fields. Return {"actions": [...]}. If nothing actionable, return {"actions": []}.`,
       transcript,
       2048,
@@ -84,6 +94,8 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
     props.map((p) => [p.name.toLowerCase(), p]),
   );
   const jobByNo = new Map(jobs.map((j) => [j.jobNo.toLowerCase(), j]));
+  const crews = await db.select().from(crewsTable);
+  const crewByName = new Map(crews.map((c) => [c.name.toLowerCase(), c]));
   const messages: string[] = [];
   let applied = 0;
 
@@ -118,6 +130,64 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
         });
         applied++;
         messages.push("Created lead");
+      } else if (a.tool === "create_property") {
+        const name = String(f.name ?? "").trim();
+        if (!name) {
+          messages.push("Skipped property — no name given");
+          continue;
+        }
+        const units = Number(f.units);
+        await db.insert(propertiesTable).values({
+          name,
+          pmcName: f.pmcName ? String(f.pmcName) : null,
+          city: f.city ? String(f.city) : null,
+          units: Number.isFinite(units) ? Math.round(units) : null,
+          accessNotes: f.accessNotes ? String(f.accessNotes) : null,
+        });
+        applied++;
+        messages.push(`Added property ${name}`);
+      } else if (a.tool === "create_crew") {
+        const name = String(f.name ?? "").trim();
+        if (!name) {
+          messages.push("Skipped crew — no name given");
+          continue;
+        }
+        await db.insert(crewsTable).values({
+          name,
+          trade: f.trade ? String(f.trade) : null,
+          phone: f.phone ? String(f.phone) : null,
+          isLeader: f.isLeader === true || String(f.isLeader).toLowerCase() === "true",
+        });
+        applied++;
+        messages.push(`Added crew ${name}`);
+      } else if (a.tool === "schedule_job") {
+        const job = f.jobNo
+          ? jobByNo.get(String(f.jobNo).toLowerCase())
+          : undefined;
+        if (!job) {
+          messages.push(`Skipped schedule — unknown job "${f.jobNo}"`);
+          continue;
+        }
+        const scheduledOn = String(f.scheduledOn ?? "").trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduledOn)) {
+          messages.push(`Skipped schedule — no valid date for ${job.jobNo}`);
+          continue;
+        }
+        const crew = f.crewName
+          ? crewByName.get(String(f.crewName).toLowerCase())
+          : undefined;
+        await db.insert(schedulesTable).values({
+          jobId: job.id,
+          scheduledOn,
+          windowStart: f.windowStart ? String(f.windowStart) : null,
+          crewLeaderId: crew?.id ?? null,
+        });
+        await db
+          .update(jobsTable)
+          .set({ scheduledOn, crewLeaderId: crew?.id ?? job.crewLeaderId })
+          .where(eqId(jobsTable.id, job.id));
+        applied++;
+        messages.push(`Scheduled ${job.jobNo} for ${scheduledOn}`);
       } else if (a.tool === "create_job") {
         const prop = f.propertyName
           ? propByName.get(String(f.propertyName).toLowerCase())
