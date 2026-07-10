@@ -1,7 +1,11 @@
 import { ReplitConnectors } from "@replit/connectors-sdk";
 import { logger } from "./logger";
 
-const FROM = "HALO <onboarding@resend.dev>";
+// Sender must be an address on a Resend-verified domain (megprimepay.com is
+// verified on the connected account). Client replies are routed to the
+// ArchAngel admin inbox via reply-to.
+const FROM = "ArchAngel Contractors <bryce@megprimepay.com>";
+const REPLY_TO = "admin@archangelcontractors.com";
 
 export interface EmailAttachment {
   filename: string;
@@ -23,6 +27,7 @@ export async function sendEmail(opts: {
       body: JSON.stringify({
         from: FROM,
         to: [opts.to],
+        reply_to: REPLY_TO,
         subject: opts.subject,
         html: opts.html,
         ...(opts.attachments && opts.attachments.length

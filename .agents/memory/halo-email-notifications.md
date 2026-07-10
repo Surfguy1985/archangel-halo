@@ -11,11 +11,15 @@ Emails render the same `computeQueues()` feed the app uses. Each `FeedItem.tier`
 tier: now=red (#be3c3c), today=gold (#8f6a1f), week=gray. All mail goes to
 `ADMIN_EMAIL` (admin@archangelcontractors.com) via the existing `sendEmail` Resend proxy.
 
-## Resend sandbox limitation
-The `FROM` is `onboarding@resend.dev` (Resend sandbox). In sandbox mode Resend only
-delivers to the connected account's own verified address; delivery to arbitrary addresses
-like admin@archangelcontractors.com requires verifying a sending domain in Resend.
-`sendEmail` returning `true` means the proxy accepted the request, not that it was delivered.
+## Resend sender is a verified domain, not the sandbox
+Production sends go from `ArchAngel Contractors <bryce@megprimepay.com>` with reply-to
+`admin@archangelcontractors.com`. megprimepay.com is the verified domain on the connected
+Resend account (authorized by brycebeck85@gmail.com — a gmail login can never be a FROM
+address; Resend requires a verifiable domain). The sender/reply-to are constants in email.ts.
+**Why this shape:** the app is single-org and the connector proxy only whitelists `/emails`
+(cannot list/verify domains via proxy — the api_key setting is a proxy token, not a raw
+Resend key, so direct api.resend.com and sandbox `connectors.proxy` calls both 400).
+`sendEmail` returning `true` means the proxy accepted the request, not guaranteed delivery.
 
 ## Scheduler is in-process (setInterval), state is in-memory
 The scheduler runs via `setInterval` started from `index.ts` after listen — it only runs
