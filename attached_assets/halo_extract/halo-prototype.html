@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HALO — Archangel Operations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#17181C; --ink2:#3A3B40; --muted:#6E6A61; --faint:#96917F;
+  --paper:#F4F3EF; --card:#FFFFFF; --hair:rgba(23,24,28,.08); --hair2:rgba(23,24,28,.14);
+  --gold:#B98A2F; --gold-d:#8F6A1F; --gold-l:#E4C577; --gold-tint:rgba(185,138,47,.10);
+  --red:#C0453A; --orange:#CF7A2A; --yellow:#B99420; --green:#3D8B5F; --blue:#3B6FB5; --purple:#7B5CB8; --slate:#4A4650; --stone:#8A8578;
+  --r:16px; --shadow:0 1px 2px rgba(23,24,28,.05), 0 8px 28px rgba(23,24,28,.07);
+  --sf:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --disp:"Bricolage Grotesque",var(--sf);
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--sf);background:#E9E6E0;color:var(--ink);-webkit-font-smoothing:antialiased;font-size:15px;line-height:1.45}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:8px}
+input{font:inherit}
+
+/* ---------- stage ---------- */
+.stage{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:28px 16px}
+.stage-cap{font-family:var(--disp);font-weight:600;font-size:12px;letter-spacing:.22em;color:#8B8577;text-transform:uppercase}
+.stage-cap b{color:var(--gold-d)}
+.stage-hint{font-size:12.5px;color:#9A9485}
+.frame{width:min(430px,100%);height:clamp(660px,92dvh,920px);background:var(--paper);border-radius:42px;box-shadow:0 2px 3px rgba(0,0,0,.06),0 30px 80px rgba(23,24,28,.22);overflow:hidden;position:relative;display:flex;flex-direction:column}
+@media (max-width:520px){
+  .stage{padding:0}
+  .stage-cap,.stage-hint{display:none}
+  .frame{width:100%;height:100dvh;border-radius:0;box-shadow:none}
+}
+
+/* ---------- app bar ---------- */
+.appbar{display:flex;align-items:center;gap:10px;padding:16px 18px 12px;flex:0 0 auto}
+.logo-ring{width:30px;height:30px;flex:0 0 auto}
+.brandcol{display:flex;flex-direction:column;line-height:1.05}
+.wordmark{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:.14em}
+.brandsub{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.bell{margin-left:auto;position:relative;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--card);box-shadow:var(--shadow)}
+.badge{position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;font-family:var(--disp)}
+.badge.hide{display:none}
+
+/* ---------- views ---------- */
+.views{flex:1;overflow-y:auto;padding:2px 18px 118px;scroll-behavior:smooth}
+.view{display:none;animation:fadein .25s ease}
+.view.on{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.datesub{font-size:13px;color:var(--muted);margin:2px 2px 12px}
+
+/* ---------- brief / AI cards ---------- */
+.brief-card{background:linear-gradient(135deg,#FFFDF8,#FBF6EA);border:1px solid rgba(185,138,47,.28);border-radius:var(--r);padding:14px 15px;box-shadow:var(--shadow);margin-bottom:18px}
+.brief-top{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.brief-top .mini-ring{width:16px;height:16px}
+.brief-tag{font-family:var(--disp);font-weight:600;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-d)}
+.brief-when{margin-left:auto;font-size:11.5px;color:var(--faint)}
+.brief-card p{font-size:14px;color:var(--ink2)}
+.brief-foot{margin-top:9px;display:flex;gap:6px}
+.tagchip{font-size:11px;font-weight:600;color:var(--gold-d);background:var(--gold-tint);border-radius:20px;padding:3px 9px}
+
+/* ---------- feed ---------- */
+.eyebrow{display:flex;align-items:center;gap:8px;margin:20px 2px 9px;font-family:var(--disp);font-weight:600;font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.eyebrow:first-child{margin-top:4px}
+.count-pill{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--ink);color:#fff;font-size:11px;display:grid;place-items:center;letter-spacing:0}
+.count-pill.soft{background:rgba(23,24,28,.08);color:var(--ink2)}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:13px 14px;margin-bottom:10px;border:1px solid transparent}
+.card .row1{display:flex;gap:9px;align-items:flex-start}
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;margin-top:6px}
+.c-body{flex:1;min-width:0}
+.c-title{font-weight:600;font-size:15px;letter-spacing:-.01em}
+.c-sub{font-size:13px;color:var(--muted);margin-top:2px}
+.c-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{font-size:11.5px;color:var(--ink2);background:rgba(23,24,28,.055);border-radius:20px;padding:3px 9px;font-weight:500}
+.chip-mono{font-family:var(--mono);font-size:10.5px;letter-spacing:.02em}
+.chip.warn{color:var(--red);background:rgba(192,69,58,.09);font-weight:600}
+.chip.gold{color:var(--gold-d);background:var(--gold-tint);font-weight:600}
+.actions{display:flex;gap:8px;margin-top:11px}
+.btn{border-radius:11px;padding:8px 13px;font-size:13.5px;font-weight:600;transition:transform .08s ease, background .15s ease}
+.btn:active{transform:scale(.97)}
+.btn-gold{background:linear-gradient(135deg,var(--gold-l),var(--gold) 55%,var(--gold-d));color:#171410;box-shadow:0 1px 2px rgba(143,106,31,.4)}
+.btn-ghost{background:rgba(23,24,28,.06);color:var(--ink)}
+.btn-line{border:1px solid var(--hair2);color:var(--ink2);background:#fff}
+.card.done{opacity:.62;background:#FCFBF9}
+.card.done .c-title{text-decoration:none}
+.done-check{color:var(--green);font-weight:700}
+.empty{font-size:13px;color:var(--faint);padding:6px 4px 2px}
+.crewline{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--hair)}
+.crewline:first-of-type{border-top:0;padding-top:2px}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--gold-l);font-family:var(--disp);font-weight:700;font-size:11.5px;display:grid;place-items:center;flex:0 0 auto}
+.cl-main{flex:1;min-width:0}
+.cl-t{font-size:13.5px;font-weight:600}
+.cl-s{font-size:12px;color:var(--muted)}
+.status-chip{font-size:11px;font-weight:700;border-radius:20px;padding:4px 10px;flex:0 0 auto}
+.st-route{background:rgba(59,111,181,.12);color:var(--blue)}
+.st-site{background:rgba(185,138,47,.14);color:var(--gold-d)}
+.st-done{background:rgba(61,139,95,.13);color:var(--green)}
+
+/* ---------- properties ---------- */
+.search{width:100%;background:var(--card);border:1px solid var(--hair);border-radius:13px;padding:11px 14px;font-size:14.5px;box-shadow:var(--shadow);margin-bottom:14px;color:var(--ink)}
+.search::placeholder{color:var(--faint)}
+.prop-row{width:100%;text-align:left;display:flex;align-items:center;gap:12px;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:14px;margin-bottom:10px}
+.prop-ic{width:38px;height:38px;border-radius:12px;background:var(--gold-tint);display:grid;place-items:center;color:var(--gold-d);flex:0 0 auto}
+.pr-main{flex:1;min-width:0}
+.pr-name{font-weight:600;font-size:15px}
+.pr-sub{font-size:12.5px;color:var(--muted)}
+.pr-right{text-align:right}
+.pr-owed{font-family:var(--disp);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+.pr-margin{font-size:11.5px;color:var(--muted)}
+.backrow{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13.5px;font-weight:600;margin:2px 0 10px}
+.pd-name{font-family:var(--disp);font-weight:700;font-size:26px;letter-spacing:-.015em;line-height:1.1}
+.pd-sub{font-size:13px;color:var(--muted);margin:3px 0 14px}
+.stat-row{display:flex;gap:9px;margin-bottom:16px}
+.stat{flex:1;background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:11px 12px}
+.stat b{display:block;font-family:var(--disp);font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.sec-t{font-family:var(--disp);font-weight:600;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin:18px 2px 8px}
+.linerow{display:flex;align-items:center;gap:10px;padding:10px 2px;border-top:1px solid var(--hair);font-size:14px}
+.linerow:first-of-type{border-top:0}
+.lr-main{flex:1;min-width:0}
+.lr-sub{font-size:12px;color:var(--muted)}
+.lr-amt{font-family:var(--disp);font-weight:600;font-variant-numeric:tabular-nums}
+.docchip{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--hair);border-radius:11px;padding:8px 11px;font-size:12.5px;font-weight:600;margin:0 6px 8px 0;box-shadow:var(--shadow)}
+.docchip small{color:var(--faint);font-weight:500}
+.panelcard{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:6px 14px;margin-bottom:6px}
+
+/* ---------- money ---------- */
+.bignum{font-family:var(--disp);font-weight:700;font-size:38px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1}
+.bigsub{font-size:12.5px;color:var(--muted);margin-top:5px}
+.moneytop{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:18px 16px;margin-bottom:10px}
+.bar{height:9px;border-radius:5px;background:rgba(23,24,28,.07);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--gold-l),var(--gold-d))}
+.agerow{display:flex;gap:5px;margin-top:10px}
+.agecell{flex:1;text-align:center}
+.agecell i{display:block;height:8px;border-radius:4px;margin-bottom:5px}
+.agecell span{font-size:10.5px;color:var(--muted)}
+.agecell b{display:block;font-size:12.5px;font-family:var(--disp);font-variant-numeric:tabular-nums}
+
+/* ---------- tab bar + mic ---------- */
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:86px;background:rgba(247,246,242,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--hair);display:flex;align-items:flex-start;justify-content:space-around;padding:10px 6px calc(12px + env(safe-area-inset-bottom))}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;width:64px;color:var(--faint);font-size:10.5px;font-weight:600;letter-spacing:.02em;padding-top:5px}
+.tab svg{width:22px;height:22px}
+.tab.on{color:var(--ink)}
+.tab-mic{width:74px;position:relative;top:-26px}
+.mic-btn{width:66px;height:66px;border-radius:50%;position:relative;display:grid;place-items:center;box-shadow:0 6px 20px rgba(143,106,31,.38)}
+.mic-btn::before{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 210deg,var(--gold-d),var(--gold-l),var(--gold),var(--gold-d))}
+.mic-btn::after{content:"";position:absolute;inset:3.5px;border-radius:50%;background:var(--ink)}
+.mic-btn svg{position:relative;z-index:1;width:24px;height:24px;color:var(--gold-l)}
+.mic-btn.listening::before{animation:spin 1.5s linear infinite}
+.mic-btn.listening{animation:pulse 1.5s ease infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{box-shadow:0 6px 20px rgba(143,106,31,.38)}50%{box-shadow:0 6px 30px rgba(185,138,47,.65)}}
+.mic-cap{display:block;text-align:center;font-size:10.5px;font-weight:700;letter-spacing:.14em;color:var(--gold-d);margin-top:6px}
+
+/* ---------- sheets & drawer ---------- */
+.backdrop{position:absolute;inset:0;background:rgba(23,24,28,.34);opacity:0;pointer-events:none;transition:opacity .25s ease;z-index:8}
+.backdrop.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:86%;background:var(--paper);border-radius:26px 26px 0 0;box-shadow:0 -12px 44px rgba(23,24,28,.24);transform:translateY(105%);transition:transform .32s cubic-bezier(.32,.72,.26,1);z-index:9;display:flex;flex-direction:column}
+.sheet.on{transform:none}
+.grabber{width:40px;height:4.5px;border-radius:3px;background:rgba(23,24,28,.16);margin:10px auto 4px;flex:0 0 auto}
+.sheet-inner{overflow-y:auto;padding:8px 20px 26px}
+.sheet-title{font-family:var(--disp);font-weight:700;font-size:19px;margin:6px 0 2px}
+.sheet-sub{font-size:13px;color:var(--muted);margin-bottom:14px}
+.scn-chip{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:13px 14px;margin-bottom:9px;box-shadow:var(--shadow);font-weight:600;font-size:14.5px}
+.scn-chip small{display:block;font-weight:500;font-size:12px;color:var(--muted);margin-top:1px}
+.scn-ic{width:34px;height:34px;border-radius:11px;background:var(--gold-tint);color:var(--gold-d);display:grid;place-items:center;flex:0 0 auto}
+.wave{display:flex;align-items:center;justify-content:center;gap:3px;height:52px;margin:10px 0 4px}
+.wave b{width:3.5px;border-radius:2px;background:linear-gradient(180deg,var(--gold-l),var(--gold-d));animation:wv .9s ease-in-out infinite}
+@keyframes wv{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+.transcript{background:var(--card);border-radius:14px;border:1px solid var(--hair);box-shadow:var(--shadow);padding:14px 15px;font-size:15px;color:var(--ink2);min-height:66px}
+.transcript::before{content:"“";font-family:var(--disp);font-size:22px;color:var(--gold);line-height:0;margin-right:2px}
+.listen-cap{text-align:center;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-d);font-weight:700;margin:12px 0 2px}
+.parse-wrap{display:flex;align-items:center;gap:10px;justify-content:center;padding:20px 0 8px;color:var(--muted);font-size:13.5px;font-weight:600}
+.parse-spin{width:20px;height:20px;border-radius:50%;background:conic-gradient(var(--gold-d),var(--gold-l),transparent 70%);-webkit-mask:radial-gradient(farthest-side,transparent 62%,#000 64%);mask:radial-gradient(farthest-side,transparent 62%,#000 64%);animation:spin .9s linear infinite}
+.acard{display:flex;gap:11px;background:var(--card);border:1px solid var(--hair);border-radius:14px;box-shadow:var(--shadow);padding:12px 13px;margin-bottom:9px;animation:fadein .3s ease}
+.acard .scn-ic{width:32px;height:32px}
+.a-main{flex:1;min-width:0}
+.a-t{font-weight:700;font-size:14px}
+.a-l{font-size:12.5px;color:var(--muted);margin-top:2px}
+.acard-x{color:var(--faint);font-size:17px;line-height:1;padding:2px 4px;align-self:flex-start}
+.confirm-bar{display:flex;gap:9px;margin-top:12px}
+.confirm-bar .btn{flex:1;padding:12px;font-size:14.5px;border-radius:13px}
+.drawer{position:absolute;inset:0;background:var(--paper);transform:translateX(102%);transition:transform .3s cubic-bezier(.32,.72,.26,1);z-index:10;display:flex;flex-direction:column}
+.drawer.on{transform:none}
+.drawer-head{display:flex;align-items:center;gap:8px;padding:18px 18px 10px}
+.drawer-head h2{font-family:var(--disp);font-size:20px;font-weight:700;flex:1}
+.drawer-body{overflow-y:auto;padding:4px 18px 30px}
+.email-card{background:var(--card);border:1px solid var(--hair);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 15px;margin-bottom:11px}
+.em-from{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:6px}
+.em-subj{font-weight:700;font-size:14.5px;margin-bottom:4px}
+.em-body{font-size:13.5px;color:var(--ink2)}
+.notif-item{display:flex;gap:10px;background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 13px;margin-bottom:9px}
+.notif-item.read{opacity:.55}
+.n-main{flex:1}
+.n-t{font-weight:600;font-size:14px}
+.n-s{font-size:12.5px;color:var(--muted);margin-top:1px}
+.n-when{font-size:11px;color:var(--faint);flex:0 0 auto}
+
+/* ---------- toasts ---------- */
+.toasts{position:absolute;left:0;right:0;bottom:104px;display:flex;flex-direction:column;align-items:center;gap:8px;z-index:12;pointer-events:none}
+.toast{display:flex;align-items:center;gap:8px;background:var(--ink);color:#F3F1EC;border-radius:30px;padding:9px 16px;font-size:13px;font-weight:600;box-shadow:0 10px 30px rgba(23,24,28,.35);animation:toastin .3s cubic-bezier(.32,.72,.26,1)}
+.toast svg{width:15px;height:15px;color:var(--gold-l);flex:0 0 auto}
+@keyframes toastin{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}
+.toast.out{opacity:0;transform:translateY(8px);transition:all .3s ease}
+
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="gg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E4C577"/><stop offset=".55" stop-color="#B98A2F"/><stop offset="1" stop-color="#8F6A1F"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="stage">
+  <div class="stage-cap">ARCHANGEL · <b>HALO</b> · OPERATIONS LAYER</div>
+
+  <div class="frame">
+
+    <!-- App bar -->
+    <header class="appbar">
+      <svg class="logo-ring" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="12.5" fill="none" stroke="url(#gg)" stroke-width="3" stroke-linecap="round" stroke-dasharray="70 9" transform="rotate(-58 16 16)"/>
+      </svg>
+      <div class="brandcol">
+        <span class="wordmark">HALO</span>
+        <span class="brandsub">Archangel Operations</span>
+      </div>
+      <button class="bell" id="bellBtn" aria-label="Notifications">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span class="badge" id="badge">2</span>
+      </button>
+    </header>
+
+    <!-- Views -->
+    <main class="views" id="views">
+
+      <!-- TODAY -->
+      <section class="view on" id="view-today">
+        <div class="datesub" id="todayDate"></div>
+        <div class="brief-card">
+          <div class="brief-top">
+            <svg class="mini-ring" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="12.5" fill="none" stroke="url(#gg)" stroke-width="4" stroke-linecap="round" stroke-dasharray="70 9" transform="rotate(-58 16 16)"/></svg>
+            <span class="brief-tag">Morning brief</span>
+            <span class="brief-when">6:45 AM · emailed</span>
+          </div>
+          <p>Three crews out: Miguel at Lakeside 118, Danny on the Copper Ridge 322 leak, Cole painting Meridian corridors. <b>$4,735 expected this week.</b> One blocker: Ferguson is late on the water heaters for tomorrow's Meridian job. Copper Ridge is 9 days past due, reminder drafted and waiting on you.</p>
+          <div class="brief-foot"><span class="tagchip">Written by HALO</span><span class="tagchip">2 need you</span></div>
+        </div>
+        <div id="feed"></div>
+      </section>
+
+      <!-- PROPERTIES -->
+      <section class="view" id="view-properties">
+        <div class="datesub">One page per property. Prices, paper, people, money.</div>
+        <input class="search" id="propSearch" type="search" placeholder="Search properties or management companies" aria-label="Search properties">
+        <div id="plist"></div>
+      </section>
+
+      <!-- PROPERTY DETAIL -->
+      <section class="view" id="view-prop">
+        <div id="pdetail"></div>
+      </section>
+
+      <!-- MONEY -->
+      <section class="view" id="view-money">
+        <div class="datesub">Cash radar. Computed live, never typed.</div>
+        <div id="money"></div>
+      </section>
+
+      <!-- CREWS -->
+      <section class="view" id="view-crews">
+        <div class="datesub" id="crewDate"></div>
+        <div id="crews"></div>
+      </section>
+
+    </main>
+
+    <!-- Tab bar -->
+    <nav class="tabbar" aria-label="Primary">
+      <button class="tab on" data-nav="today">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>
+        Today
+      </button>
+      <button class="tab" data-nav="properties">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6l6-3v18M10 21h10V10l-6-2.5"/><path d="M6.5 9h1M6.5 12.5h1M6.5 16h1M14 13h1M14 16.5h1"/></svg>
+        Properties
+      </button>
+      <div class="tab tab-mic">
+        <button class="mic-btn" id="micBtn" aria-label="Talk to HALO">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
+        <span class="mic-cap">TALK</span>
+      </div>
+      <button class="tab" data-nav="money">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M14.8 9.2c-.6-1-1.6-1.4-2.8-1.4-1.7 0-2.8.9-2.8 2.2 0 2.9 5.6 1.5 5.6 4.3 0 1.3-1.2 2.2-2.8 2.2-1.3 0-2.4-.5-3-1.5"/></svg>
+        Money
+      </button>
+      <button class="tab" data-nav="crews">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9.5" r="2.5"/><path d="M15.5 14.7c2.6.2 4.4 1.9 5 4.8"/></svg>
+        Crews
+      </button>
+    </nav>
+
+    <!-- Voice sheet -->
+    <div class="backdrop" id="backdrop"></div>
+    <div class="sheet" id="sheet" role="dialog" aria-label="Talk to HALO">
+      <div class="grabber"></div>
+      <div class="sheet-inner" id="sheetInner"></div>
+    </div>
+
+    <!-- Notifications drawer -->
+    <div class="drawer" id="drawer" aria-label="Notifications">
+      <div class="drawer-head">
+        <h2>Notifications</h2>
+        <span class="tagchip">AI-triaged</span>
+        <button class="btn btn-ghost" id="drawerClose" style="margin-left:8px">Done</button>
+      </div>
+      <div class="drawer-body" id="drawerBody"></div>
+    </div>
+
+    <div class="toasts" id="toasts"></div>
+  </div>
+
+  <div class="stage-hint">Interactive concept · tap the gold ring and pick a voice demo</div>
+</div>
+<script>
+/* ============ helpers ============ */
+const $ = s => document.querySelector(s);
+const fmt = n => '$' + n.toLocaleString('en-US',{minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: n % 1 ? 2 : 0});
+const QC = {pastdue:'var(--red)', blocker:'var(--slate)', invoice:'var(--orange)', dispatch:'var(--green)', bid:'var(--blue)', inventory:'var(--purple)', materials:'var(--yellow)', compliance:'var(--stone)'};
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+/* ============ data ============ */
+const db = {
+  money:{ landing:4735, atRisk:3250, mtd:38240, margin:39,
+    aging:[{l:'Current',v:8940,c:'var(--green)'},{l:'1–30',v:5230,c:'var(--yellow)'},{l:'31–60',v:3250,c:'var(--red)'},{l:'60+',v:0,c:'var(--slate)'}] },
+  feed:[
+    {id:'pd1042', q:'pastdue', tier:'now', title:'Past due · Copper Ridge', sub:'INV-1042 · $3,250 · 9 days late. Reminder is drafted, BlueOak AP contact copied.',
+      meta:[{t:'INV-1042',m:1},{t:'BlueOak PM'},{t:'9 days',w:1}], acts:[{l:'Send reminder',a:'remind',k:'gold'},{l:'View invoice',a:'ghosttoast',k:'ghost'}]},
+    {id:'po118', q:'blocker', tier:'now', title:'Blocker · water heaters late', sub:'PO-118 (Ferguson) hasn\u2019t landed and JOB-214 is set for tomorrow 8:00a at The Meridian.',
+      meta:[{t:'PO-118',m:1},{t:'JOB-214',m:1},{t:'Blocks tomorrow',w:1}], acts:[{l:'Call Ferguson',a:'callvendor',k:'gold'},{l:'Push job',a:'pushjob',k:'ghost'}]},
+    {id:'inv208', q:'invoice', tier:'today', title:'Ready to invoice · Lakeside 204', sub:'Full turn complete. Before/afters in, inspection passed, recap drafted. Agreed rate applies.',
+      meta:[{t:'JOB-208',m:1},{t:'$1,485',g:1},{t:'Northline'}], acts:[{l:'Send invoice + recap',a:'sendinv',k:'gold'}]},
+    {id:'disp', q:'dispatch', tier:'today', title:'Dispatch · 3 crews out', sub:'', special:'dispatch', meta:[], acts:[]},
+    {id:'bid77', q:'bid', tier:'today', title:'Bid quiet for 6 days', sub:'BID-77 · Stonebriar stairwell rail repair · $2,140. Trinity opened it twice, no reply.',
+      meta:[{t:'BID-77',m:1},{t:'$2,140',g:1},{t:'Trinity PG'}], acts:[{l:'Nudge PM',a:'nudge',k:'gold'},{l:'Revise bid',a:'ghosttoast',k:'ghost'}]},
+    {id:'lowinv', q:'inventory', tier:'week', title:'Low inventory · door slabs', sub:'3 left at the shop, reorder point is 5. BuildMart PO is pre-filled at last price.',
+      meta:[{t:'Interior slabs'},{t:'3 / 5',w:1}], acts:[{l:'Send PO draft',a:'draftpo',k:'gold'}]},
+    {id:'coi', q:'compliance', tier:'week', title:'Vendor COI expiring', sub:'Apex Electric\u2019s certificate lapses in 12 days. They\u2019re on next week\u2019s Meridian panel job.',
+      meta:[{t:'Apex Electric'},{t:'12 days',w:1}], acts:[{l:'Request renewal',a:'coirenew',k:'gold'}]}
+  ],
+  dispatch:[
+    {i:'MR', n:'Miguel Reyes', s:'Lakeside 118 · full turn', t:'8:00a', st:'site'},
+    {i:'DT', n:'Danny Tran', s:'Copper Ridge 322 · water leak', t:'8:30a', st:'site'},
+    {i:'CW', n:'Cole Whitfield', s:'Meridian · corridor paint L2', t:'9:00a', st:'route'}
+  ],
+  crewsWeek:[
+    {i:'MR', n:'Miguel Reyes', tr:'Make-ready lead', done:8, cb:0},
+    {i:'DT', n:'Danny Tran', tr:'Plumbing lead', done:6, cb:0},
+    {i:'CW', n:'Cole Whitfield', tr:'Paint & drywall lead', done:7, cb:1},
+    {i:'JO', n:'J. Okafor', tr:'HVAC lead', done:4, cb:0}
+  ],
+  props:{
+    lakeside:{ name:'Lakeside Commons', pmc:'Northline Residential', city:'Frisco', units:312, owed:8940, margin:41, pay:22, open:4,
+      brief:'Northline pays in 22 days like clockwork. Turn volume is up: six this month against four last. Sarah prefers a text before 3pm. Gate 4482#. Watch: the hallway paint (SW 7029) is special order, keep two gallons staged.',
+      price:[{s:'Full unit turn', sub:'Paint, CRP, clean, punch', amt:1485},{s:'Paint only · 1BR', sub:'Walls + ceiling, SW base', amt:585},{s:'CRP resurface', sub:'Tub + surround', amt:340},{s:'Trip charge', sub:'After-hours call-out', amt:95}],
+      jobs:[{id:'JOB-208', t:'Unit 204 · full turn', st:'Ready to invoice', c:'var(--orange)'},{id:'JOB-213', t:'Unit 118 · full turn', st:'On site today', c:'var(--green)'},{id:'JOB-209', t:'Bldg C breezeway lights', st:'Materials ordered', c:'var(--yellow)'},{id:'JOB-201', t:'Unit 342 · CRP', st:'Invoiced · unpaid', c:'var(--blue)'}],
+      exp:[{v:'Sherwin-Williams', d:'Paint · JOB-213', amt:212.40},{v:'BuildMart', d:'CRP kit · JOB-201', amt:96.10},{v:'Shop stock', d:'2 door slabs · JOB-208', amt:118.00}],
+      docs:[{n:'Master service agreement', d:'Renews Mar 2027'},{n:'2026 price list', d:'Signed Jan 6'},{n:'COI on file', d:'Exp Nov 2026'}],
+      pm:{n:'Sarah Whitmore', r:'Community manager · Northline', ph:'(214) 555-0164'} },
+    copper:{ name:'Copper Ridge', pmc:'BlueOak Property Mgmt', city:'McKinney', units:248, owed:12410, margin:34, pay:31, open:3,
+      brief:'BlueOak is your slowest payer at 31 days, and INV-1042 is 9 days past due; the reminder is drafted for you. Margin slipped to 34% on plumbing materials this month. The agreed rates here are a year old and due for a review.',
+      price:[{s:'Full unit turn', sub:'Paint, CRP, clean, punch', amt:1395},{s:'Leak call-out', sub:'First hour + materials', amt:185},{s:'Water heater swap', sub:'40-gal, unit supplied', amt:465},{s:'Make-ready clean', sub:'2BR standard', amt:265}],
+      jobs:[{id:'JOB-212', t:'Unit 322 · water leak', st:'On site today', c:'var(--green)'},{id:'JOB-206', t:'Unit 107 · turn', st:'Scheduled Fri', c:'var(--blue)'},{id:'JOB-198', t:'Clubhouse drywall', st:'Invoiced · past due', c:'var(--red)'}],
+      exp:[{v:'Ferguson', d:'Valves + PEX · JOB-212', amt:164.22},{v:'BuildMart', d:'Drywall · JOB-198', amt:88.50}],
+      docs:[{n:'Master service agreement', d:'Renews Aug 2026'},{n:'2025 price list', d:'Review overdue'},{n:'COI on file', d:'Exp Nov 2026'}],
+      pm:{n:'Marcus Bell', r:'Regional maintenance · BlueOak', ph:'(469) 555-0122'} },
+    meridian:{ name:'The Meridian at Legacy', pmc:'Trinity Property Group', city:'Plano', units:421, owed:6400, margin:46, pay:18, open:3,
+      brief:'Best margin in the book at 46% and Trinity pays in 18 days. BID-81 was approved yesterday at $6,400; scheduling is the only thing between you and it. Corridor paint runs all week.',
+      price:[{s:'Corridor paint · per floor', sub:'Two coats, low-VOC', amt:1150},{s:'Full unit turn', sub:'Paint, CRP, clean, punch', amt:1520},{s:'Panel + breaker work', sub:'Licensed sub · Apex', amt:640}],
+      jobs:[{id:'JOB-214', t:'Bldg 4 · water heaters ×2', st:'Blocked · PO late', c:'var(--slate)'},{id:'JOB-210', t:'Corridor paint L2', st:'On site today', c:'var(--green)'},{id:'BID-81', t:'Pool fence repair', st:'Approved · schedule it', c:'var(--gold)'}],
+      exp:[{v:'Sherwin-Williams', d:'Corridor paint · JOB-210', amt:388.90}],
+      docs:[{n:'Master service agreement', d:'Renews Jan 2027'},{n:'2026 price list', d:'Signed Feb 2'},{n:'COI on file', d:'Exp Nov 2026'}],
+      pm:{n:'Dana Okoye', r:'Property manager · Trinity', ph:'(972) 555-0187'} },
+    stonebriar:{ name:'Stonebriar Flats', pmc:'Northline Residential', city:'The Colony', units:196, owed:2140, margin:38, pay:24, open:1,
+      brief:'Quiet property, steady turns. BID-77 for the stairwell rail has sat six days; Northline usually answers in two, so a nudge is queued on Today.',
+      price:[{s:'Full unit turn', sub:'Paint, CRP, clean, punch', amt:1420},{s:'Stairwell rail · per run', sub:'Weld + paint', amt:535}],
+      jobs:[{id:'BID-77', t:'Stairwell rail repair', st:'Bid out · 6 days', c:'var(--blue)'}],
+      exp:[],
+      docs:[{n:'Master service agreement', d:'Renews Mar 2027'},{n:'COI on file', d:'Exp Nov 2026'}],
+      pm:{n:'Sarah Whitmore', r:'Community manager · Northline', ph:'(214) 555-0164'} },
+    prosper:{ name:'Prosper Trail Villas', pmc:'Ironwood Realty Advisors', city:'Prosper', units:164, owed:0, margin:44, pay:20, open:1,
+      brief:'Newest account, five minutes from the house. First month closed clean at 44%. Ironwood asked about a standing make-ready package; a quarterly proposal is drafted in Bids.',
+      price:[{s:'Full unit turn', sub:'Paint, CRP, clean, punch', amt:1510},{s:'Fire watch · per shift', sub:'Licensed, 8-hr', amt:720}],
+      jobs:[{id:'JOB-215', t:'Unit 12 · appliance swap', st:'Scheduled Mon', c:'var(--blue)'}],
+      exp:[],
+      docs:[{n:'Master service agreement', d:'Signed Jun 2026'},{n:'COI on file', d:'Exp Nov 2026'}],
+      pm:{n:'Reid Calloway', r:'Asset manager · Ironwood', ph:'(945) 555-0139'} }
+  },
+  notifs:[
+    {t:'BID-81 approved · The Meridian', s:'$6,400 pool fence repair. Tap to schedule Danny or a sub.', w:'Yesterday 4:12p', read:false},
+    {t:'Payment received · Northline', s:'INV-1031 · $2,870 cleared. 21 days, right on pattern.', w:'Yesterday 11:03a', read:false},
+    {t:'Evening close sent', s:'2 jobs completed, 1 invoiced, $1,940 booked Tuesday.', w:'Tue 6:30p', read:true}
+  ],
+  flags:{ j208:false }
+};
+
+/* ============ renderers ============ */
+function chipHTML(m){ return `<span class="chip${m.m?' chip-mono':''}${m.w?' warn':''}${m.g?' gold':''}">${m.t}</span>`; }
+function stChip(st){ const map={route:['st-route','En route'],site:['st-site','On site'],done:['st-done','Done']}; const x=map[st]; return `<button class="status-chip ${x[0]}" data-act="cyclest">${x[1]}</button>`; }
+
+function cardHTML(f){
+  const dot = `<span class="dot" style="background:${QC[f.q]}"></span>`;
+  let inner = `<div class="c-title">${f.tier==='done'?'<span class="done-check">✓</span> ':''}${f.title}</div>`;
+  if(f.special==='dispatch'){
+    inner += db.dispatch.map(d=>`<div class="crewline"><span class="avatar">${d.i}</span><div class="cl-main"><div class="cl-t">${d.n}</div><div class="cl-s">${d.s} · ${d.t}</div></div>${stChip(d.st)}</div>`).join('');
+  } else {
+    if(f.sub) inner += `<div class="c-sub">${f.sub}</div>`;
+    if(f.meta.length) inner += `<div class="c-meta">${f.meta.map(chipHTML).join('')}</div>`;
+  }
+  if(f.acts.length && f.tier!=='done') inner += `<div class="actions">${f.acts.map(a=>`<button class="btn btn-${a.k}" data-act="${a.a}" data-id="${f.id}">${a.l}</button>`).join('')}</div>`;
+  return `<article class="card${f.tier==='done'?' done':''}" data-card="${f.id}"><div class="row1">${dot}<div class="c-body">${inner}</div></div></article>`;
+}
+
+function renderFeed(){
+  const tiers=[['now','Now'],['today','Today'],['week','This week'],['done','Handled']];
+  $('#feed').innerHTML = tiers.map(([k,label])=>{
+    const items = db.feed.filter(f=>f.tier===k);
+    const pill = k==='done' ? `<span class="count-pill soft">${items.length}</span>` : `<span class="count-pill">${items.length}</span>`;
+    const body = items.length ? items.map(cardHTML).join('') : `<div class="empty">${k==='done'?'Nothing handled yet. It\u2019s early.':'Clear.'}</div>`;
+    return `<div class="eyebrow">${label} ${pill}</div>${body}`;
+  }).join('');
+}
+
+function renderProps(filter=''){
+  const q=filter.trim().toLowerCase();
+  $('#plist').innerHTML = Object.entries(db.props)
+    .filter(([,p])=>!q || p.name.toLowerCase().includes(q) || p.pmc.toLowerCase().includes(q))
+    .map(([k,p])=>`<button class="prop-row" data-prop="${k}">
+      <span class="prop-ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6l6-3v18M10 21h10V10l-6-2.5"/></svg></span>
+      <span class="pr-main"><span class="pr-name">${p.name}</span><br><span class="pr-sub">${p.pmc} · ${p.units} units · ${p.city}</span></span>
+      <span class="pr-right"><span class="pr-owed">${p.owed?fmt(p.owed):'—'}</span><br><span class="pr-margin">${p.owed?'open AR':'paid up'} · ${p.margin}% mgn</span></span>
+    </button>`).join('') || `<div class="empty">No property matches that. Say it to HALO and it\u2019ll be created.</div>`;
+}
+
+function renderPropDetail(k){
+  const p=db.props[k]; if(!p) return;
+  $('#pdetail').innerHTML = `
+    <button class="backrow" data-nav="properties"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg> Properties</button>
+    <div class="pd-name">${p.name}</div>
+    <div class="pd-sub">${p.pmc} · ${p.units} units · ${p.city}, TX</div>
+    <div class="stat-row">
+      <div class="stat"><b>${p.margin}%</b><span>MTD margin</span></div>
+      <div class="stat"><b>${p.pay}d</b><span>Avg to pay</span></div>
+      <div class="stat"><b>${p.open}</b><span>Open jobs</span></div>
+    </div>
+    <div class="brief-card">
+      <div class="brief-top"><svg class="mini-ring" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12.5" fill="none" stroke="url(#gg)" stroke-width="4" stroke-linecap="round" stroke-dasharray="70 9" transform="rotate(-58 16 16)"/></svg><span class="brief-tag">Property brief</span><span class="brief-when">Updated 6:45a</span></div>
+      <p>${p.brief}</p>
+    </div>
+    <div class="sec-t">Agreed price list</div>
+    <div class="panelcard">${p.price.map(r=>`<div class="linerow"><div class="lr-main">${r.s}<div class="lr-sub">${r.sub}</div></div><span class="chip gold">agreed</span><span class="lr-amt">${fmt(r.amt)}</span></div>`).join('')}</div>
+    <div class="sec-t">Active jobs & bids</div>
+    <div class="panelcard" id="pjobs-${k}">${p.jobs.map(j=>`<div class="linerow"><span class="dot" style="background:${j.c};margin-top:0"></span><div class="lr-main">${j.t}<div class="lr-sub">${j.id} · ${j.st}</div></div></div>`).join('')}</div>
+    <div class="sec-t">Expenses · this month</div>
+    <div class="panelcard">${p.exp.length?p.exp.map(e=>`<div class="linerow"><div class="lr-main">${e.v}<div class="lr-sub">${e.d}</div></div><span class="lr-amt">${fmt(e.amt)}</span></div>`).join(''):'<div class="linerow"><div class="lr-main lr-sub">No expenses logged this month.</div></div>'}
+    ${p.exp.length?`<div class="linerow"><div class="lr-main" style="font-weight:700">Total</div><span class="lr-amt">${fmt(p.exp.reduce((s,e)=>s+e.amt,0))}</span></div>`:''}</div>
+    <div class="sec-t">Paper</div>
+    <div>${p.docs.map(d=>`<span class="docchip">${d.n} <small>${d.d}</small></span>`).join('')}</div>
+    <div class="sec-t">Contact</div>
+    <div class="panelcard"><div class="linerow"><span class="avatar">${p.pm.n.split(' ').map(x=>x[0]).join('')}</span><div class="lr-main">${p.pm.n}<div class="lr-sub">${p.pm.r} · ${p.pm.ph}</div></div></div>
+    <div class="actions" style="margin:2px 0 10px"><button class="btn btn-gold" data-act="textpm" data-id="${k}">Text</button><button class="btn btn-line" data-act="callpm" data-id="${k}">Call</button></div></div>`;
+}
+
+function renderMoney(){
+  const m=db.money, total=m.aging.reduce((s,a)=>s+a.v,0);
+  const rows=Object.values(db.props).map(p=>({n:p.name,v:p.margin}));
+  $('#money').innerHTML = `
+    <div class="moneytop">
+      <div class="bignum">${fmt(m.landing)}</div>
+      <div class="bigsub">expected to land this week, based on each PMC\u2019s real pay pattern</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><b style="color:var(--red)">${fmt(m.atRisk)}</b><span>At risk · 30+ days</span></div>
+      <div class="stat"><b>${fmt(m.mtd)}</b><span>Revenue MTD</span></div>
+      <div class="stat"><b>${m.margin}%</b><span>Blended margin</span></div>
+    </div>
+    <div class="sec-t">Receivables aging</div>
+    <div class="panelcard" style="padding:14px"><div class="agerow">${m.aging.map(a=>`<div class="agecell"><i style="background:${a.c};opacity:${a.v?1:.25}"></i><b>${a.v?fmt(a.v):'—'}</b><span>${a.l}</span></div>`).join('')}</div></div>
+    <div class="sec-t">Margin by property</div>
+    <div class="panelcard" style="padding:12px 14px">${rows.map(r=>`<div style="padding:7px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${r.n}</span><b style="font-family:var(--disp)">${r.v}%</b></div><div class="bar"><i style="width:${r.v*1.9}%"></i></div></div>`).join('')}</div>
+    <div class="brief-card" style="margin-top:16px">
+      <div class="brief-top"><svg class="mini-ring" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12.5" fill="none" stroke="url(#gg)" stroke-width="4" stroke-linecap="round" stroke-dasharray="70 9" transform="rotate(-58 16 16)"/></svg><span class="brief-tag">Cash radar</span></div>
+      <p>Copper Ridge is the drag: 31-day pay and $3,250 past due. If the reminder lands today, this week clears <b>${fmt(m.landing+3250)}</b>. Meridian margin says raise Stonebriar\u2019s turn rate at renewal.</p>
+    </div>`;
+}
+
+function renderCrews(){
+  $('#crews').innerHTML = `
+    <div class="sec-t" style="margin-top:2px">Out right now</div>
+    <div class="panelcard">${db.dispatch.map((d,ix)=>`<div class="crewline"><span class="avatar">${d.i}</span><div class="cl-main"><div class="cl-t">${d.n}</div><div class="cl-s">${d.s} · ${d.t}</div></div><button class="status-chip st-${d.st==='route'?'route':d.st==='site'?'site':'done'}" data-act="cycledisp" data-id="${ix}">${d.st==='route'?'En route':d.st==='site'?'On site':'Done'}</button></div>`).join('')}</div>
+    <div class="sec-t">This week</div>
+    ${db.crewsWeek.map(c=>`<div class="card"><div class="row1"><span class="avatar">${c.i}</span><div class="c-body"><div class="c-title">${c.n}</div><div class="c-sub">${c.tr}</div><div class="c-meta"><span class="chip">${c.done} jobs closed</span><span class="chip ${c.cb?'warn':''}">${c.cb} warranty callback${c.cb===1?'':'s'}</span></div></div></div></div>`).join('')}
+    <div class="empty" style="margin-top:2px">Crews get a morning text with their day sheet. No app to download; their voice notes and photos file straight into the job.</div>`;
+}
+
+function renderNotifs(){
+  const unread=db.notifs.filter(n=>!n.read).length;
+  $('#badge').textContent=unread; $('#badge').classList.toggle('hide',!unread);
+  $('#drawerBody').innerHTML = `
+    <div class="email-card">
+      <div class="em-from"><svg class="mini-ring" width="14" height="14" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12.5" fill="none" stroke="url(#gg)" stroke-width="4" stroke-linecap="round" stroke-dasharray="70 9" transform="rotate(-58 16 16)"/></svg> HALO · to you · 6:45 AM</div>
+      <div class="em-subj">Morning brief — 3 crews out, 1 blocker, $4,735 landing</div>
+      <div class="em-body">Miguel: Lakeside 118 turn. Danny: Copper Ridge 322 leak. Cole: Meridian corridors. Ferguson\u2019s water heaters are late against tomorrow\u2019s job; call queued. Copper Ridge reminder drafted. Everything else is handled.</div>
+      <div class="actions"><button class="btn btn-ghost" data-act="ghosttoast">Open full email</button></div>
+    </div>
+    ${db.notifs.map((n,ix)=>`<div class="notif-item${n.read?' read':''}" data-act="readnotif" data-id="${ix}"><div class="n-main"><div class="n-t">${n.t}</div><div class="n-s">${n.s}</div></div><span class="n-when">${n.w}</span></div>`).join('')}
+    <div class="empty">Instant alerts fire only for money and blockers. Everything else waits for the 6:45a brief or the 6:30p close. Quiet hours are law.</div>`;
+}
+
+function toast(msg){
+  const t=document.createElement('div'); t.className='toast';
+  t.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${msg}`;
+  $('#toasts').appendChild(t);
+  setTimeout(()=>{t.classList.add('out'); setTimeout(()=>t.remove(),320)},2600);
+}
+function pushNotif(t,s){ db.notifs.unshift({t,s,w:'Just now',read:false}); renderNotifs(); }
+/* ============ navigation ============ */
+function nav(view, propKey){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  document.querySelectorAll('.tab[data-nav]').forEach(t=>t.classList.toggle('on', t.dataset.nav===view || (view==='prop'&&t.dataset.nav==='properties')));
+  if(view==='prop'){ renderPropDetail(propKey); $('#view-prop').classList.add('on'); }
+  else $('#view-'+view).classList.add('on');
+  $('#views').scrollTop=0;
+}
+
+/* ============ voice sheet ============ */
+const SCN = {
+  newjob:{
+    label:'New job + schedule', sub:'One breath: job, crew, day, price',
+    words:'New job at Lakeside Commons, unit 118 across the hall, uh, unit 120 — full make-ready, paint and CRP. PM is Sarah with Northline. Put Miguel\u2019s crew on it Thursday morning and use the agreed turn price.',
+    acts:[
+      {t:'Create JOB-216 · Make-ready', l:'Lakeside Commons · Unit 120 · contact Sarah Whitmore (Northline)'},
+      {t:'Schedule dispatch', l:'Miguel Reyes crew · Thursday 8:00a · day sheet will text at 6:30a'},
+      {t:'Apply agreed rate', l:'Full unit turn · $1,485 from the Lakeside 2026 price list'}
+    ],
+    apply(){
+      db.feed.push({id:'j216', q:'dispatch', tier:'week', title:'Scheduled · Lakeside 120 full turn', sub:'JOB-216 · Miguel\u2019s crew · Thu 8:00a · agreed rate $1,485 attached.', meta:[{t:'JOB-216',m:1},{t:'$1,485',g:1}], acts:[]});
+      const p=db.props.lakeside; p.open++; p.jobs.unshift({id:'JOB-216', t:'Unit 120 · full turn', st:'Scheduled Thu', c:'var(--blue)'});
+      renderFeed(); pushNotif('Filed from voice · 3 actions','JOB-216 created, scheduled Thu, agreed rate attached.');
+      toast('JOB-216 created · Lakeside 120'); setTimeout(()=>toast('Miguel scheduled · Thu 8:00a'),700); setTimeout(()=>toast('Agreed rate $1,485 attached'),1400);
+    }
+  },
+  expense:{
+    label:'Log an expense', sub:'Receipt math, filed to the right job',
+    words:'Record an expense — Home Depot, four eighty-two sixteen, materials for the Copper Ridge water leak. Put it on Danny\u2019s job and snap the receipt to it.',
+    acts:[
+      {t:'Log expense · $482.16', l:'Home Depot · materials · JOB-212 (Copper Ridge 322 leak)'},
+      {t:'Attach receipt photo', l:'Camera opens on confirm · OCR checks the total against what you said'},
+      {t:'Margin guardian', l:'JOB-212 margin moves 38% → 31% · still above your 25% floor'}
+    ],
+    apply(){
+      const p=db.props.copper; p.exp.unshift({v:'Home Depot', d:'Materials · JOB-212 water leak', amt:482.16});
+      pushNotif('Expense filed · JOB-212','$482.16 Home Depot · Copper Ridge margin now 31%, above floor.');
+      toast('$482.16 filed to JOB-212'); setTimeout(()=>toast('Margin 31% · above your 25% floor'),800);
+    }
+  },
+  closeout:{
+    label:'Close out & invoice', sub:'Done, recap, invoice — one sentence',
+    words:'Mark the Lakeside two-oh-four turn done. Before and afters are uploaded. Send Northline the recap and invoice it at the agreed price.',
+    acts:[
+      {t:'Complete JOB-208', l:'Checklist closed: inspection ✓ photos ✓ warranty logged 90 days'},
+      {t:'Send work recap', l:'HALO drafted it from the photos + your notes · to Sarah @ Northline'},
+      {t:'Invoice INV-1047 · $1,485', l:'Agreed turn rate · net-30 · lands on the cash radar for next week'}
+    ],
+    apply(){ invoice208(true); }
+  }
+};
+
+function invoice208(fromVoice){
+  if(db.flags.j208){ toast('JOB-208 already invoiced'); return; }
+  db.flags.j208=true;
+  const f=db.feed.find(x=>x.id==='inv208');
+  f.tier='done'; f.title='Invoiced · Lakeside 204 full turn'; f.sub='INV-1047 · $1,485 · recap emailed to Northline · net-30.'; f.acts=[]; f.meta=[{t:'INV-1047',m:1},{t:'$1,485',g:1}];
+  db.money.landing+=1485; db.money.mtd+=1485;
+  const p=db.props.lakeside; p.owed+=1485; const j=p.jobs.find(x=>x.id==='JOB-208'); if(j){j.st='Invoiced · net-30'; j.c='var(--blue)';}
+  renderFeed(); renderMoney();
+  pushNotif('INV-1047 sent · Lakeside Commons','$1,485 · recap delivered to Sarah. Expected to clear in ~22 days.');
+  toast('JOB-208 closed · warranty logged'); setTimeout(()=>toast('Recap emailed to Northline'),700); setTimeout(()=>toast('INV-1047 sent · $1,485'),1400);
+}
+
+let sheetStage='closed', scnRun=null, typer=null;
+function openSheet(){ $('#backdrop').classList.add('on'); $('#sheet').classList.add('on'); sheetMenu(); }
+function closeSheet(){ $('#backdrop').classList.remove('on'); $('#sheet').classList.remove('on'); $('#micBtn').classList.remove('listening'); sheetStage='closed'; if(typer)clearInterval(typer); }
+function sheetMenu(){
+  sheetStage='menu'; $('#micBtn').classList.remove('listening');
+  $('#sheetInner').innerHTML = `
+    <div class="sheet-title">Talk to HALO</div>
+    <div class="sheet-sub">Tap the ring and just talk — jobs, money, schedules, all of it. Or run a demo:</div>
+    ${Object.entries(SCN).map(([k,s])=>`<button class="scn-chip" data-scn="${k}">
+      <span class="scn-ic">${k==='newjob'?'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>':k==='expense'?'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2-1.4L14 21l-2-1.4L10 21l-2-1.4L6 21zM9 8h6M9 12h6"/></svg>':'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>'}</span>
+      <span>${s.label}<small>${s.sub}</small></span>
+    </button>`).join('')}
+    <div class="empty" style="text-align:center;margin-top:6px">Every recording is kept with its transcript — a clean audit trail.</div>`;
+}
+async function runScenario(k){
+  const s=SCN[k]; scnRun=k; sheetStage='listening';
+  $('#micBtn').classList.add('listening');
+  const bars=Array.from({length:26},()=>`<b style="height:${8+Math.round(Math.random()*36)}px;animation-duration:${(.6+Math.random()*.7).toFixed(2)}s;animation-delay:${(Math.random()*-.9).toFixed(2)}s"></b>`).join('');
+  $('#sheetInner').innerHTML=`<div class="listen-cap">Listening</div><div class="wave">${bars}</div><div class="transcript" id="tsc"></div>`;
+  const words=s.words.split(' '); let i=0;
+  await new Promise(res=>{ typer=setInterval(()=>{ if(sheetStage!=='listening'){clearInterval(typer);res();return;} $('#tsc').append(words[i]+' '); i++; if(i>=words.length){clearInterval(typer);res();} },62); });
+  if(sheetStage!=='listening')return;
+  sheetStage='parsing'; $('#micBtn').classList.remove('listening');
+  $('#sheetInner').insertAdjacentHTML('beforeend',`<div class="parse-wrap"><span class="parse-spin"></span> HALO is filing it…</div>`);
+  await sleep(1250); if(sheetStage!=='parsing')return;
+  sheetStage='preview';
+  $('#sheetInner').innerHTML=`
+    <div class="sheet-title">Here\u2019s what I heard</div>
+    <div class="sheet-sub">${s.acts.length} actions, ready to file. Toss any that are wrong — nothing writes until you say so.</div>
+    <div id="acards">${s.acts.map((a,ix)=>`<div class="acard" data-aix="${ix}"><span class="scn-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span><div class="a-main"><div class="a-t">${a.t}</div><div class="a-l">${a.l}</div></div><button class="acard-x" data-act="dropcard" aria-label="Remove this action">✕</button></div>`).join('')}</div>
+    <div class="confirm-bar"><button class="btn btn-ghost" data-act="retalk">Re-record</button><button class="btn btn-gold" data-act="confirmscn">Confirm & file</button></div>`;
+}
+
+/* ============ event delegation ============ */
+document.addEventListener('click', e=>{
+  const nv=e.target.closest('[data-nav]'); if(nv){ nav(nv.dataset.nav); return; }
+  const pr=e.target.closest('[data-prop]'); if(pr){ nav('prop', pr.dataset.prop); return; }
+  const sc=e.target.closest('[data-scn]'); if(sc){ runScenario(sc.dataset.scn); return; }
+  const el=e.target.closest('[data-act]'); if(!el) return;
+  const id=el.dataset.id, act=el.dataset.act;
+  const item=db.feed.find(f=>f.id===id);
+  switch(act){
+    case 'remind': item.tier='done'; item.title='Reminder sent · Copper Ridge'; item.sub='BlueOak AP + Marcus copied. HALO escalates to a call task in 5 days if unpaid.'; item.acts=[]; renderFeed(); toast('Reminder sent to BlueOak'); pushNotif('Reminder sent · INV-1042','Escalates automatically in 5 days if unpaid.'); break;
+    case 'callvendor': item.sub='Called Ferguson 2:14p — truck lands 6:30a, before the crew rolls. HALO holds the job and watches the delivery scan.'; item.acts=[{l:'Push job anyway',a:'pushjob',k:'ghost'}]; renderFeed(); toast('Ferguson call logged to PO-118'); break;
+    case 'pushjob': item.tier='done'; item.title='Rescheduled · Meridian heaters'; item.sub='JOB-214 moved to Fri 8:00a. Dana at Trinity notified, crew day sheet updated.'; item.acts=[]; renderFeed(); toast('JOB-214 pushed to Friday · PM notified'); break;
+    case 'sendinv': invoice208(); break;
+    case 'nudge': item.sub='Nudged Dana at Trinity just now (3rd touch). BID-77 auto-expires in 8 days and HALO will ask if you want to re-price.'; item.acts=[]; item.meta.push({t:'Nudged today',g:1}); renderFeed(); toast('Nudge sent · BID-77'); break;
+    case 'draftpo': item.tier='done'; item.title='PO-121 sent · door slabs'; item.sub='10 interior slabs · BuildMart · last price honored · ETA Tuesday. Inventory watch resolved.'; item.acts=[]; renderFeed(); toast('PO-121 sent to BuildMart'); break;
+    case 'coirenew': item.tier='done'; item.title='COI renewal requested · Apex'; item.sub='Auto-email sent with a reply-to upload link. Apex stays dispatchable until day 0, then HALO blocks assignment.'; item.acts=[]; renderFeed(); toast('Renewal request emailed to Apex'); break;
+    case 'ghosttoast': toast('Opens in the full build'); break;
+    case 'textpm': toast('Message drafted · opens in Messages'); break;
+    case 'callpm': toast('Calling… HALO will log the call'); break;
+    case 'readnotif': db.notifs[+id].read=true; renderNotifs(); break;
+    case 'cycledisp': { const d=db.dispatch[+id]; d.st = d.st==='route'?'site':d.st==='site'?'done':'route'; renderCrews(); renderFeed(); toast(`${d.n.split(' ')[0]} · ${d.st==='route'?'en route':d.st==='site'?'on site':'done'}`); if(d.st==='done') pushNotif(`${d.n} wrapped`, d.s+' · photos and voice note filed.'); break; }
+    case 'cyclest': toast('Crew status updates live from the field'); break;
+    case 'dropcard': { const c=el.closest('.acard'); c.style.opacity=.35; c.style.pointerEvents='none'; c.dataset.dropped='1'; toast('Dropped — won\u2019t be filed'); break; }
+    case 'retalk': runScenario(scnRun); break;
+    case 'confirmscn': { const dropped=[...document.querySelectorAll('.acard[data-dropped]')].length; closeSheet(); const s=SCN[scnRun]; setTimeout(()=>{ if(dropped>=s.acts.length){toast('Nothing filed');return;} s.apply(); },380); break; }
+  }
+});
+$('#micBtn').addEventListener('click', ()=>{ if(sheetStage==='closed') openSheet(); else if(sheetStage==='listening'){ /* finish typing fast */ } else closeSheet(); });
+$('#backdrop').addEventListener('click', closeSheet);
+$('#bellBtn').addEventListener('click', ()=>$('#drawer').classList.add('on'));
+$('#drawerClose').addEventListener('click', ()=>$('#drawer').classList.remove('on'));
+$('#propSearch').addEventListener('input', e=>renderProps(e.target.value));
+
+/* ============ init ============ */
+const now=new Date();
+$('#todayDate').textContent = now.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric'}) + ' · Prosper, TX';
+$('#crewDate').textContent = 'Dispatch · ' + now.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric'});
+renderFeed(); renderProps(); renderMoney(); renderCrews(); renderNotifs();
+</script>
+</body>
+</html>

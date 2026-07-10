@@ -1,0 +1,1 @@
+- [HALO API contract](halo-api-contract.md) — openapi.yaml is source of truth; server route paths + response shapes must match generated Zod/client or you get 404/500.

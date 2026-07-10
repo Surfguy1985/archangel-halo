@@ -1,0 +1,98 @@
+import { Link, useLocation } from "wouter";
+import { HaloRing } from "./HaloRing";
+import { Mic, Bell } from "lucide-react";
+import { useGetToday } from "@workspace/api-client-react";
+import { useState } from "react";
+import { VoiceCaptureSheet } from "./VoiceCaptureSheet";
+import { NotificationsDrawer } from "./NotificationsDrawer";
+
+export function Layout({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const { data: today } = useGetToday();
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  return (
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center py-0 sm:py-7">
+      <div className="hidden sm:block text-[12px] font-display font-semibold tracking-[0.22em] text-[#8B8577] uppercase mb-[14px]">
+        ARCHANGEL · <b className="text-[var(--gold-dark)]">HALO</b> · OPERATIONS LAYER
+      </div>
+
+      <div className="w-full sm:w-[430px] h-[100dvh] sm:h-[850px] bg-background sm:rounded-[42px] sm:shadow-[0_2px_3px_rgba(0,0,0,0.06),0_30px_80px_rgba(23,24,28,0.22)] overflow-hidden relative flex flex-col">
+        {/* App Bar */}
+        <header className="flex items-center gap-[10px] px-[18px] pt-[16px] pb-[12px] shrink-0">
+          <HaloRing className="w-[30px] h-[30px] shrink-0" />
+          <div className="flex flex-col leading-[1.05]">
+            <span className="font-display font-bold text-[19px] tracking-[0.14em]">HALO</span>
+            <span className="text-[10.5px] tracking-[0.14em] uppercase text-muted-foreground">Archangel Operations</span>
+          </div>
+          <button 
+            className="ml-auto relative w-[40px] h-[40px] rounded-full grid place-items-center bg-card shadow-[var(--shadow)]"
+            onClick={() => setNotificationsOpen(true)}
+          >
+            <Bell className="w-[19px] h-[19px]" strokeWidth={1.9} />
+            {today?.unreadNotifications ? (
+              <span className="absolute -top-[2px] -right-[2px] min-w-[18px] h-[18px] px-[5px] rounded-[9px] bg-destructive text-white text-[11px] font-bold grid place-items-center font-display">
+                {today.unreadNotifications}
+              </span>
+            ) : null}
+          </button>
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto px-[18px] pb-[118px] scroll-smooth">
+          {children}
+        </main>
+
+        {/* Tab Bar */}
+        <nav className="absolute left-0 right-0 bottom-0 h-[86px] bg-[rgba(247,246,242,0.92)] backdrop-blur-[14px] border-t border-border flex items-start justify-around px-[6px] pt-[10px] pb-[calc(12px+env(safe-area-inset-bottom))]">
+          <Link href="/">
+            <button className={`flex flex-col items-center gap-[3px] w-[64px] text-[10.5px] font-semibold tracking-[0.02em] pt-[5px] ${location === "/" ? "text-foreground" : "text-muted-foreground"}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" className="w-[22px] h-[22px]">
+                <circle cx="12" cy="12" r="9"/>
+                {location === "/" && <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/>}
+              </svg>
+              Today
+            </button>
+          </Link>
+          <Link href="/properties">
+            <button className={`flex flex-col items-center gap-[3px] w-[64px] text-[10.5px] font-semibold tracking-[0.02em] pt-[5px] ${location.startsWith("/properties") ? "text-foreground" : "text-muted-foreground"}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="w-[22px] h-[22px]">
+                <path d="M4 21V6l6-3v18M10 21h10V10l-6-2.5"/><path d="M6.5 9h1M6.5 12.5h1M6.5 16h1M14 13h1M14 16.5h1"/>
+              </svg>
+              Properties
+            </button>
+          </Link>
+          <div className="w-[74px] relative -top-[26px]">
+            <button 
+              className="w-[66px] h-[66px] rounded-full relative grid place-items-center shadow-[0_6px_20px_rgba(143,106,31,0.38)] mx-auto before:content-[''] before:absolute before:inset-0 before:rounded-full before:bg-[conic-gradient(from_210deg,var(--gold-dark),var(--gold-light),var(--gold),var(--gold-dark))] after:content-[''] after:absolute after:inset-[3.5px] after:rounded-full after:bg-[var(--ink)]"
+              onClick={() => setVoiceOpen(true)}
+            >
+              <Mic className="relative z-10 w-[24px] h-[24px] text-[var(--gold-light)]" strokeWidth={1.9} />
+            </button>
+            <span className="block text-center text-[10.5px] font-bold tracking-[0.14em] text-[var(--gold-dark)] mt-[6px]">TALK</span>
+          </div>
+          <Link href="/money">
+            <button className={`flex flex-col items-center gap-[3px] w-[64px] text-[10.5px] font-semibold tracking-[0.02em] pt-[5px] ${location.startsWith("/money") ? "text-foreground" : "text-muted-foreground"}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" className="w-[22px] h-[22px]">
+                <circle cx="12" cy="12" r="9"/><path d="M12 7v10M14.8 9.2c-.6-1-1.6-1.4-2.8-1.4-1.7 0-2.8.9-2.8 2.2 0 2.9 5.6 1.5 5.6 4.3 0 1.3-1.2 2.2-2.8 2.2-1.3 0-2.4-.5-3-1.5"/>
+              </svg>
+              Money
+            </button>
+          </Link>
+          <Link href="/crews">
+            <button className={`flex flex-col items-center gap-[3px] w-[64px] text-[10.5px] font-semibold tracking-[0.02em] pt-[5px] ${location.startsWith("/crews") ? "text-foreground" : "text-muted-foreground"}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="w-[22px] h-[22px]">
+                <circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9.5" r="2.5"/><path d="M15.5 14.7c2.6.2 4.4 1.9 5 4.8"/>
+              </svg>
+              Crews
+            </button>
+          </Link>
+        </nav>
+
+        <VoiceCaptureSheet open={voiceOpen} onOpenChange={setVoiceOpen} />
+        <NotificationsDrawer open={notificationsOpen} onOpenChange={setNotificationsOpen} />
+      </div>
+    </div>
+  );
+}

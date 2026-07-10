@@ -3,13 +3,31 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: HALO — Archangel Operations Layer API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: today
+    description: Today feed, morning brief, computed queues
+  - name: properties
+    description: Properties, price lists, contacts, agreements
+  - name: pipeline
+    description: Leads and bids
+  - name: jobs
+    description: Jobs, schedules, crews
+  - name: money
+    description: Invoices, payments, expenses, money summary
+  - name: inventory
+    description: Inventory, vendors, purchase orders
+  - name: activity
+    description: Activities and notifications
+  - name: voice
+    description: Voice capture, parsing, and confirmation
+  - name: ingest
+    description: File upload and parsing
 paths:
   /healthz:
     get:
@@ -24,6 +42,906 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /today:
+    get:
+      operationId: getToday
+      tags: [today]
+      summary: Today feed with triaged queues and morning brief
+      responses:
+        "200":
+          description: Today payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TodayPayload"
+
+  /brief/refresh:
+    post:
+      operationId: refreshBrief
+      tags: [today]
+      summary: Regenerate the AI morning brief from live data
+      responses:
+        "200":
+          description: Fresh brief
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Brief"
+
+  /queues:
+    get:
+      operationId: getQueues
+      tags: [today]
+      summary: The eight computed operational queues
+      responses:
+        "200":
+          description: Queue counts and items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Queue"
+
+  /ask:
+    post:
+      operationId: askHalo
+      tags: [today]
+      summary: Ask HALO a natural-language question about the business
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskInput"
+      responses:
+        "200":
+          description: Answer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AskAnswer"
+
+  /properties:
+    get:
+      operationId: listProperties
+      tags: [properties]
+      summary: List properties with computed money rollups
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Properties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PropertySummary"
+    post:
+      operationId: createProperty
+      tags: [properties]
+      summary: Create a property
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PropertyInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Property"
+  /properties/{id}:
+    get:
+      operationId: getProperty
+      tags: [properties]
+      summary: Full property detail — brief, price list, jobs, money, paper, people
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Property detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      operationId: updateProperty
+      tags: [properties]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PropertyUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Property"
+  /properties/{id}/brief:
+    post:
+      operationId: writePropertyBrief
+      tags: [properties]
+      summary: AI-write the property brief from live data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Brief written
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Property"
+
+  /properties/{id}/price-items:
+    post:
+      operationId: createPriceItem
+      tags: [properties]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriceItemInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceItem"
+
+  /contacts:
+    post:
+      operationId: createContact
+      tags: [properties]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+
+  /leads:
+    get:
+      operationId: listLeads
+      tags: [pipeline]
+      responses:
+        "200":
+          description: Leads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lead"
+    post:
+      operationId: createLead
+      tags: [pipeline]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+
+  /bids:
+    get:
+      operationId: listBids
+      tags: [pipeline]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bids
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bid"
+    post:
+      operationId: createBid
+      tags: [pipeline]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BidInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bid"
+  /bids/{id}:
+    patch:
+      operationId: updateBid
+      tags: [pipeline]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BidUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bid"
+  /bids/{id}/nudge:
+    post:
+      operationId: nudgeBid
+      tags: [pipeline]
+      summary: Send a nudge email for a quiet bid
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Nudged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bid"
+
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: propertyId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+    post:
+      operationId: createJob
+      tags: [jobs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      operationId: updateJob
+      tags: [jobs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+  /jobs/{id}/complete:
+    post:
+      operationId: completeJob
+      tags: [jobs]
+      summary: Mark a job complete (sets warranty, opens ready-to-invoice)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+  /jobs/{id}/schedule:
+    post:
+      operationId: scheduleJob
+      tags: [jobs]
+      summary: Schedule a job for a date and crew leader
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleInput"
+      responses:
+        "200":
+          description: Scheduled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /crews:
+    get:
+      operationId: listCrews
+      tags: [jobs]
+      summary: Crew members with today's dispatch status
+      responses:
+        "200":
+          description: Crews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewToday"
+    post:
+      operationId: createCrew
+      tags: [jobs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Crew"
+
+  /money/summary:
+    get:
+      operationId: getMoneySummary
+      tags: [money]
+      summary: Cash radar — landing, at-risk, MTD, margin, aging buckets
+      responses:
+        "200":
+          description: Money summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoneySummary"
+
+  /invoices:
+    get:
+      operationId: listInvoices
+      tags: [money]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invoice"
+    post:
+      operationId: createInvoice
+      tags: [money]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+  /invoices/{id}/send:
+    post:
+      operationId: sendInvoice
+      tags: [money]
+      summary: Send an invoice (and its recap) to the property contact via email
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+  /invoices/{id}/remind:
+    post:
+      operationId: remindInvoice
+      tags: [money]
+      summary: Send a past-due reminder email
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reminder sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /payments:
+    post:
+      operationId: recordPayment
+      tags: [money]
+      summary: Record a payment against an invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentInput"
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+
+  /expenses:
+    get:
+      operationId: listExpenses
+      tags: [money]
+      parameters:
+        - name: propertyId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: jobId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Expenses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Expense"
+    post:
+      operationId: createExpense
+      tags: [money]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+
+  /inventory:
+    get:
+      operationId: listInventory
+      tags: [inventory]
+      responses:
+        "200":
+          description: Inventory items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+    post:
+      operationId: createInventoryItem
+      tags: [inventory]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+  /inventory/{id}/adjust:
+    post:
+      operationId: adjustInventory
+      tags: [inventory]
+      summary: Adjust inventory quantity by a delta
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryAdjust"
+      responses:
+        "200":
+          description: Adjusted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+
+  /vendors:
+    get:
+      operationId: listVendors
+      tags: [inventory]
+      responses:
+        "200":
+          description: Vendors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+    post:
+      operationId: createVendor
+      tags: [inventory]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+
+  /purchase-orders:
+    get:
+      operationId: listPurchaseOrders
+      tags: [inventory]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Purchase orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PurchaseOrder"
+    post:
+      operationId: createPurchaseOrder
+      tags: [inventory]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseOrderInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseOrder"
+  /purchase-orders/{id}/receive:
+    post:
+      operationId: receivePurchaseOrder
+      tags: [inventory]
+      summary: Mark a purchase order received
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseOrder"
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [activity]
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+  /notifications/{id}/read:
+    post:
+      operationId: readNotification
+      tags: [activity]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Marked read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+
+  /activities:
+    get:
+      operationId: listActivities
+      tags: [activity]
+      parameters:
+        - name: entityType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: entityId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Activities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Activity"
+    post:
+      operationId: createActivity
+      tags: [activity]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivityInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Activity"
+
+  /voice/parse:
+    post:
+      operationId: parseVoice
+      tags: [voice]
+      summary: Parse a spoken transcript into structured, confirmable actions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceParseInput"
+      responses:
+        "200":
+          description: Parsed actions preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceParseResult"
+  /voice/confirm:
+    post:
+      operationId: confirmVoice
+      tags: [voice]
+      summary: Apply confirmed voice actions as real writes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceConfirmInput"
+      responses:
+        "200":
+          description: Applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceConfirmResult"
+
+  /ingest/parse:
+    post:
+      operationId: parseIngest
+      tags: [ingest]
+      summary: Parse an uploaded CSV/PDF/text file into structured record previews
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestParseInput"
+      responses:
+        "200":
+          description: Parsed preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestParseResult"
+  /ingest/commit:
+    post:
+      operationId: commitIngest
+      tags: [ingest]
+      summary: Commit reviewed ingest records into the database
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestCommitInput"
+      responses:
+        "200":
+          description: Committed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestCommitResult"
+
 components:
   schemas:
     HealthStatus:
@@ -33,4 +951,673 @@ components:
           type: string
       required:
         - status
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
 
+    Brief:
+      type: object
+      required: [body, when, needsYou, generatedAt]
+      properties:
+        body: { type: string }
+        when: { type: string }
+        needsYou: { type: integer }
+        generatedAt: { type: string }
+
+    FeedCard:
+      type: object
+      required: [id, queue, tier, title, sub]
+      properties:
+        id: { type: string }
+        queue: { type: string }
+        tier: { type: string, description: "now | today | week | handled" }
+        title: { type: string }
+        sub: { type: string }
+        entityType: { type: ["string", "null"] }
+        entityId: { type: ["string", "null"] }
+        amount: { type: ["number", "null"] }
+        meta:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardChip"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardAction"
+    CardChip:
+      type: object
+      required: [label]
+      properties:
+        label: { type: string }
+        mono: { type: ["boolean", "null"] }
+        warn: { type: ["boolean", "null"] }
+        gold: { type: ["boolean", "null"] }
+    CardAction:
+      type: object
+      required: [label, action, kind]
+      properties:
+        label: { type: string }
+        action: { type: string }
+        kind: { type: string, description: "gold | ghost | line" }
+    TodayPayload:
+      type: object
+      required: [date, brief, feed, queues, unreadNotifications]
+      properties:
+        date: { type: string }
+        brief:
+          $ref: "#/components/schemas/Brief"
+        feed:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedCard"
+        queues:
+          type: array
+          items:
+            $ref: "#/components/schemas/Queue"
+        unreadNotifications: { type: integer }
+    Queue:
+      type: object
+      required: [key, label, count]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        count: { type: integer }
+        color: { type: ["string", "null"] }
+
+    AskInput:
+      type: object
+      required: [question]
+      properties:
+        question: { type: string, minLength: 1 }
+    AskAnswer:
+      type: object
+      required: [answer]
+      properties:
+        answer: { type: string }
+
+    Property:
+      type: object
+      required: [id, name, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        pmcName: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        units: { type: ["integer", "null"] }
+        accessNotes: { type: ["string", "null"] }
+        brief: { type: ["string", "null"] }
+        briefUpdatedAt: { type: ["string", "null"] }
+        avgDaysToPay: { type: ["number", "null"] }
+        status: { type: string }
+        createdAt: { type: ["string", "null"] }
+    PropertySummary:
+      type: object
+      required: [id, name, owed, openJobs]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        pmcName: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        units: { type: ["integer", "null"] }
+        owed: { type: number }
+        openJobs: { type: integer }
+        marginPct: { type: ["number", "null"] }
+    PropertyDetail:
+      type: object
+      required: [property, contacts, priceItems, jobs, expenses, agreements, stats]
+      properties:
+        property:
+          $ref: "#/components/schemas/Property"
+        contacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contact"
+        priceItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/PriceItem"
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+        expenses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Expense"
+        agreements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Agreement"
+        stats:
+          $ref: "#/components/schemas/PropertyStats"
+    PropertyStats:
+      type: object
+      required: [owed, openJobs, marginPct, mtdRevenue]
+      properties:
+        owed: { type: number }
+        openJobs: { type: integer }
+        marginPct: { type: ["number", "null"] }
+        mtdRevenue: { type: number }
+    PropertyInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        pmcName: { type: string }
+        city: { type: string }
+        units: { type: integer }
+        accessNotes: { type: string }
+    PropertyUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        pmcName: { type: string }
+        city: { type: string }
+        units: { type: integer }
+        accessNotes: { type: string }
+        brief: { type: string }
+        status: { type: string }
+
+    Contact:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        propertyId: { type: ["string", "null"] }
+        name: { type: string }
+        role: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        prefers: { type: ["string", "null"] }
+    ContactInput:
+      type: object
+      required: [name]
+      properties:
+        propertyId: { type: string }
+        name: { type: string, minLength: 1 }
+        role: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        prefers: { type: string }
+
+    PriceItem:
+      type: object
+      required: [id, propertyId, service, rate]
+      properties:
+        id: { type: string }
+        propertyId: { type: string }
+        service: { type: string }
+        detail: { type: ["string", "null"] }
+        unit: { type: ["string", "null"] }
+        rate: { type: number }
+        marginFloor: { type: ["number", "null"] }
+    PriceItemInput:
+      type: object
+      required: [service, rate]
+      properties:
+        service: { type: string, minLength: 1 }
+        detail: { type: string }
+        unit: { type: string }
+        rate: { type: number }
+        marginFloor: { type: number }
+
+    Agreement:
+      type: object
+      required: [id, title]
+      properties:
+        id: { type: string }
+        propertyId: { type: ["string", "null"] }
+        title: { type: string }
+        storagePath: { type: ["string", "null"] }
+        effectiveFrom: { type: ["string", "null"] }
+        renewsOn: { type: ["string", "null"] }
+
+    Lead:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string }
+        propertyId: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        source: { type: ["string", "null"] }
+        summary: { type: ["string", "null"] }
+        status: { type: string }
+        createdAt: { type: ["string", "null"] }
+    LeadInput:
+      type: object
+      required: [summary]
+      properties:
+        propertyId: { type: string }
+        source: { type: string }
+        summary: { type: string, minLength: 1 }
+
+    Bid:
+      type: object
+      required: [id, bidNo, amount, status]
+      properties:
+        id: { type: string }
+        bidNo: { type: string }
+        propertyId: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        scope: { type: ["string", "null"] }
+        amount: { type: number }
+        estCost: { type: ["number", "null"] }
+        status: { type: string }
+        sentAt: { type: ["string", "null"] }
+        decidedAt: { type: ["string", "null"] }
+        lastNudgeAt: { type: ["string", "null"] }
+    BidInput:
+      type: object
+      required: [scope, amount]
+      properties:
+        propertyId: { type: string }
+        unitNo: { type: string }
+        scope: { type: string, minLength: 1 }
+        amount: { type: number }
+        estCost: { type: number }
+    BidUpdate:
+      type: object
+      properties:
+        scope: { type: string }
+        amount: { type: number }
+        estCost: { type: number }
+        status: { type: string }
+
+    Job:
+      type: object
+      required: [id, jobNo, status]
+      properties:
+        id: { type: string }
+        jobNo: { type: string }
+        woNo: { type: ["string", "null"] }
+        propertyId: { type: string }
+        propertyName: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        status: { type: string }
+        crewLeaderId: { type: ["string", "null"] }
+        crewLeaderName: { type: ["string", "null"] }
+        bidId: { type: ["string", "null"] }
+        contactId: { type: ["string", "null"] }
+        inspectionRequired: { type: ["boolean", "null"] }
+        inspectionPassedAt: { type: ["string", "null"] }
+        completedAt: { type: ["string", "null"] }
+        recapSentAt: { type: ["string", "null"] }
+        warrantyUntil: { type: ["string", "null"] }
+        scheduledOn: { type: ["string", "null"] }
+        grossProfit: { type: ["number", "null"] }
+        marginPct: { type: ["number", "null"] }
+        createdAt: { type: ["string", "null"] }
+    JobDetail:
+      type: object
+      required: [job, activities, expenses, schedules]
+      properties:
+        job:
+          $ref: "#/components/schemas/Job"
+        activities:
+          type: array
+          items:
+            $ref: "#/components/schemas/Activity"
+        expenses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Expense"
+        schedules:
+          type: array
+          items:
+            $ref: "#/components/schemas/Schedule"
+    JobInput:
+      type: object
+      required: [propertyId, description]
+      properties:
+        propertyId: { type: string }
+        woNo: { type: string }
+        unitNo: { type: string }
+        category: { type: string }
+        description: { type: string, minLength: 1 }
+        crewLeaderId: { type: string }
+        contactId: { type: string }
+        inspectionRequired: { type: boolean }
+    JobUpdate:
+      type: object
+      properties:
+        woNo: { type: string }
+        unitNo: { type: string }
+        category: { type: string }
+        description: { type: string }
+        status: { type: string }
+        crewLeaderId: { type: string }
+        inspectionRequired: { type: boolean }
+
+    Schedule:
+      type: object
+      required: [id, jobId, scheduledOn, status]
+      properties:
+        id: { type: string }
+        jobId: { type: string }
+        scheduledOn: { type: string }
+        windowStart: { type: ["string", "null"] }
+        crewLeaderId: { type: ["string", "null"] }
+        status: { type: string }
+    ScheduleInput:
+      type: object
+      required: [scheduledOn]
+      properties:
+        scheduledOn: { type: string }
+        windowStart: { type: string }
+        crewLeaderId: { type: string }
+
+    Crew:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        trade: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        isLeader: { type: ["boolean", "null"] }
+        active: { type: ["boolean", "null"] }
+    CrewToday:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        trade: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        isLeader: { type: ["boolean", "null"] }
+        todayStatus: { type: ["string", "null"], description: "route | site | done | idle" }
+        todayJob: { type: ["string", "null"] }
+        todayProperty: { type: ["string", "null"] }
+    CrewInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        trade: { type: string }
+        phone: { type: string }
+        isLeader: { type: boolean }
+
+    MoneySummary:
+      type: object
+      required: [landing, atRisk, mtd, marginPct, aging]
+      properties:
+        landing: { type: number }
+        atRisk: { type: number }
+        mtd: { type: number }
+        marginPct: { type: number }
+        collectedMtd: { type: number }
+        aging:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgingBucket"
+    AgingBucket:
+      type: object
+      required: [label, value]
+      properties:
+        label: { type: string }
+        value: { type: number }
+        color: { type: ["string", "null"] }
+
+    Invoice:
+      type: object
+      required: [id, invoiceNo, amount, status]
+      properties:
+        id: { type: string }
+        invoiceNo: { type: string }
+        jobId: { type: ["string", "null"] }
+        propertyId: { type: string }
+        propertyName: { type: ["string", "null"] }
+        amount: { type: number }
+        status: { type: string, description: "draft | sent | past_due | paid" }
+        sentAt: { type: ["string", "null"] }
+        dueAt: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"] }
+        daysLate: { type: ["integer", "null"] }
+    InvoiceInput:
+      type: object
+      required: [propertyId, amount]
+      properties:
+        propertyId: { type: string }
+        jobId: { type: string }
+        amount: { type: number }
+        dueInDays: { type: integer }
+
+    Payment:
+      type: object
+      required: [id, amount]
+      properties:
+        id: { type: string }
+        invoiceId: { type: ["string", "null"] }
+        amount: { type: number }
+        method: { type: ["string", "null"] }
+        receivedAt: { type: ["string", "null"] }
+    PaymentInput:
+      type: object
+      required: [invoiceId, amount]
+      properties:
+        invoiceId: { type: string }
+        amount: { type: number }
+        method: { type: string }
+
+    Expense:
+      type: object
+      required: [id, amount]
+      properties:
+        id: { type: string }
+        jobId: { type: ["string", "null"] }
+        propertyId: { type: ["string", "null"] }
+        vendor: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        amount: { type: number }
+        source: { type: ["string", "null"] }
+        spentOn: { type: ["string", "null"] }
+    ExpenseInput:
+      type: object
+      required: [amount]
+      properties:
+        jobId: { type: string }
+        propertyId: { type: string }
+        vendor: { type: string }
+        category: { type: string }
+        amount: { type: number }
+
+    InventoryItem:
+      type: object
+      required: [id, name, qty, reorderAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        qty: { type: number }
+        reorderAt: { type: number }
+        unitCost: { type: ["number", "null"] }
+        preferredVendor: { type: ["string", "null"] }
+        low: { type: ["boolean", "null"] }
+    InventoryInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        qty: { type: number }
+        reorderAt: { type: number }
+        unitCost: { type: number }
+        preferredVendor: { type: string }
+    InventoryAdjust:
+      type: object
+      required: [delta]
+      properties:
+        delta: { type: number }
+        reason: { type: string }
+
+    Vendor:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        trade: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        coiExpiresOn: { type: ["string", "null"] }
+        compliant: { type: ["boolean", "null"] }
+    VendorInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        trade: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        coiExpiresOn: { type: string }
+
+    PurchaseOrder:
+      type: object
+      required: [id, poNo, status]
+      properties:
+        id: { type: string }
+        poNo: { type: string }
+        vendorId: { type: ["string", "null"] }
+        vendorName: { type: ["string", "null"] }
+        jobId: { type: ["string", "null"] }
+        jobNo: { type: ["string", "null"] }
+        expectedOn: { type: ["string", "null"] }
+        receivedAt: { type: ["string", "null"] }
+        status: { type: string }
+        late: { type: ["boolean", "null"] }
+    PurchaseOrderInput:
+      type: object
+      required: [vendorId]
+      properties:
+        vendorId: { type: string }
+        jobId: { type: string }
+        expectedOn: { type: string }
+
+    Notification:
+      type: object
+      required: [id, kind, priority, title]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        priority: { type: string }
+        entityType: { type: ["string", "null"] }
+        entityId: { type: ["string", "null"] }
+        title: { type: string }
+        body: { type: ["string", "null"] }
+        sentAt: { type: ["string", "null"] }
+        readAt: { type: ["string", "null"] }
+        resolvedAt: { type: ["string", "null"] }
+    Activity:
+      type: object
+      required: [id, entityType, entityId, kind]
+      properties:
+        id: { type: string }
+        entityType: { type: string }
+        entityId: { type: string }
+        kind: { type: string }
+        body: { type: ["string", "null"] }
+        storagePath: { type: ["string", "null"] }
+        createdAt: { type: ["string", "null"] }
+    ActivityInput:
+      type: object
+      required: [entityType, entityId, kind]
+      properties:
+        entityType: { type: string }
+        entityId: { type: string }
+        kind: { type: string }
+        body: { type: string }
+
+    VoiceParseInput:
+      type: object
+      required: [transcript]
+      properties:
+        transcript: { type: string, minLength: 1 }
+    VoiceAction:
+      type: object
+      required: [tool, title, summary, confidence, fields]
+      properties:
+        tool: { type: string }
+        title: { type: string }
+        summary: { type: string }
+        confidence: { type: number }
+        needsReview: { type: ["boolean", "null"] }
+        fields:
+          type: object
+          additionalProperties: true
+    VoiceParseResult:
+      type: object
+      required: [transcript, actions]
+      properties:
+        transcript: { type: string }
+        voiceLogId: { type: ["string", "null"] }
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/VoiceAction"
+    VoiceConfirmInput:
+      type: object
+      required: [actions]
+      properties:
+        voiceLogId: { type: string }
+        transcript: { type: string }
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/VoiceAction"
+    VoiceConfirmResult:
+      type: object
+      required: [applied]
+      properties:
+        applied: { type: integer }
+        messages:
+          type: array
+          items: { type: string }
+
+    IngestParseInput:
+      type: object
+      required: [filename, content]
+      properties:
+        filename: { type: string }
+        mimeType: { type: ["string", "null"] }
+        content: { type: string, description: "Text content or base64 for binary" }
+        target: { type: ["string", "null"], description: "properties | jobs | invoices | expenses | inventory | auto" }
+    IngestRecord:
+      type: object
+      required: [target, fields]
+      properties:
+        target: { type: string }
+        label: { type: string }
+        confidence: { type: ["number", "null"] }
+        fields:
+          type: object
+          additionalProperties: true
+    IngestParseResult:
+      type: object
+      required: [detectedTarget, records]
+      properties:
+        detectedTarget: { type: string }
+        summary: { type: ["string", "null"] }
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/IngestRecord"
+    IngestCommitInput:
+      type: object
+      required: [records]
+      properties:
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/IngestRecord"
+    IngestCommitResult:
+      type: object
+      required: [committed]
+      properties:
+        committed: { type: integer }
+        messages:
+          type: array
+          items: { type: string }
