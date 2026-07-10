@@ -1,5 +1,20 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Mic, Check, ChevronLeft, Loader2, Sparkles } from "lucide-react";
+import {
+  Mic,
+  Check,
+  ChevronLeft,
+  Loader2,
+  Sparkles,
+  Building2,
+  UserPlus,
+  Wrench,
+  CalendarClock,
+  Receipt,
+  TrendingUp,
+  StickyNote,
+  CheckCheck,
+  type LucideIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -21,6 +36,106 @@ const TOOL_LABELS: Record<string, string> = {
   add_note: "Note",
   complete_job: "Complete job",
 };
+
+type Script = {
+  tool: string;
+  label: string;
+  Icon: LucideIcon;
+  template: string;
+  example: string;
+};
+
+// Blanks are wrapped in {curly braces} so they render as gold "say your detail here" chips.
+const SCRIPTS: Script[] = [
+  {
+    tool: "create_property",
+    label: "New property",
+    Icon: Building2,
+    template:
+      "Add a new property called {the name}, managed by {management company}, {number} units in {city}. Access notes: {gate code or entry details}.",
+    example:
+      "Add a new property called Cedar Point Apartments, managed by Sterling PMC, 48 units in Austin. Access notes: gate code 4417.",
+  },
+  {
+    tool: "create_crew",
+    label: "New crew",
+    Icon: UserPlus,
+    template:
+      "Add a new crew member {full name}, {their trade}, phone {number}. Make them a crew leader.",
+    example:
+      "Add a new crew member Marcus Reed, plumbing, phone 512-555-0134. Make them a crew leader.",
+  },
+  {
+    tool: "create_job",
+    label: "New job",
+    Icon: Wrench,
+    template:
+      "Create a job at {property name}, unit {unit number}. It's a {category} job. {what needs doing}.",
+    example:
+      "Create a job at Riverside Commons, unit 112. It's a plumbing job. Kitchen sink is leaking under the cabinet.",
+  },
+  {
+    tool: "schedule_job",
+    label: "Schedule",
+    Icon: CalendarClock,
+    template:
+      "Schedule job {job number} for {date, like tomorrow} at {time} with {crew name}.",
+    example: "Schedule job J-2001 for tomorrow at 8am with Ray Coleman.",
+  },
+  {
+    tool: "log_expense",
+    label: "Expense",
+    Icon: Receipt,
+    template:
+      "Log an expense. I paid {vendor} {amount} dollars for {what it was} at {property name}.",
+    example:
+      "Log an expense. I paid Home Depot 240 dollars for paint and supplies at Maple Grove Apartments.",
+  },
+  {
+    tool: "create_lead",
+    label: "New lead",
+    Icon: TrendingUp,
+    template:
+      "New lead from {who it came from}. They need {what they want} at {property name}.",
+    example:
+      "New lead from Sterling PMC. They need a full unit turn on unit 210 at Maple Grove Apartments.",
+  },
+  {
+    tool: "add_note",
+    label: "Note",
+    Icon: StickyNote,
+    template: "Add a note to {property name or job number}. {the note}.",
+    example:
+      "Add a note to Maple Grove Apartments. Property manager wants a call before any entry before 8am.",
+  },
+  {
+    tool: "complete_job",
+    label: "Complete",
+    Icon: CheckCheck,
+    template: "Mark job {job number} complete.",
+    example: "Mark job J-2002 complete.",
+  },
+];
+
+function ScriptTemplate({ template }: { template: string }) {
+  const parts = template.split(/(\{[^}]+\})/g).filter(Boolean);
+  return (
+    <p className="text-[17px] leading-[1.7] font-display text-foreground">
+      {parts.map((part, i) =>
+        part.startsWith("{") && part.endsWith("}") ? (
+          <span
+            key={i}
+            className="inline-block bg-[rgba(143,106,31,0.12)] text-[var(--gold-dark)] font-semibold rounded-[7px] px-[7px] py-[1px] mx-[1px]"
+          >
+            {part.slice(1, -1)}
+          </span>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </p>
+  );
+}
 
 type Phase = "capture" | "review" | "done";
 
@@ -61,6 +176,7 @@ export function VoiceCaptureSheet({
   const [resultMessages, setResultMessages] = useState<string[]>([]);
   const [appliedCount, setAppliedCount] = useState(0);
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [activeScript, setActiveScript] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const baseTranscriptRef = useRef("");
 
@@ -80,6 +196,7 @@ export function VoiceCaptureSheet({
     setVoiceLogId(null);
     setResultMessages([]);
     setAppliedCount(0);
+    setActiveScript(null);
     recognitionRef.current?.stop();
     recognitionRef.current = null;
   };
@@ -204,6 +321,57 @@ export function VoiceCaptureSheet({
                   {listening ? "LISTENING — TAP TO STOP" : "TAP TO SPEAK"}
                 </span>
               </div>
+
+              <div className="mb-[12px]">
+                <div className="text-[11px] tracking-[0.14em] uppercase text-muted-foreground font-bold mb-[9px]">
+                  Need a script? Pick a task
+                </div>
+                <div className="flex gap-[8px] overflow-x-auto pb-[4px] -mx-[20px] px-[20px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {SCRIPTS.map((s) => {
+                    const on = activeScript === s.tool;
+                    return (
+                      <button
+                        key={s.tool}
+                        aria-pressed={on}
+                        aria-label={`Script for ${s.label}`}
+                        onClick={() =>
+                          setActiveScript(on ? null : s.tool)
+                        }
+                        className={`shrink-0 flex items-center gap-[6px] rounded-full py-[8px] px-[13px] text-[13px] font-semibold border transition-colors ${
+                          on
+                            ? "bg-[var(--ink)] text-[var(--paper)] border-[var(--ink)]"
+                            : "bg-card text-foreground border-border shadow-[var(--shadow)]"
+                        }`}
+                      >
+                        <s.Icon
+                          aria-hidden="true"
+                          className={`w-[15px] h-[15px] ${on ? "text-[var(--gold-light)]" : "text-[var(--gold-dark)]"}`}
+                        />
+                        {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {activeScript && (
+                <div className="bg-[var(--paper)] rounded-[16px] border-2 border-[var(--gold)] shadow-[0_6px_20px_rgba(143,106,31,0.18)] p-[16px_16px_14px] mb-[14px]">
+                  <div className="flex items-center gap-[6px] text-[11px] tracking-[0.14em] uppercase text-[var(--gold-dark)] font-bold mb-[10px]">
+                    <Mic className="w-[13px] h-[13px]" /> Read this aloud
+                  </div>
+                  {(() => {
+                    const s = SCRIPTS.find((x) => x.tool === activeScript)!;
+                    return (
+                      <>
+                        <ScriptTemplate template={s.template} />
+                        <div className="mt-[12px] pt-[11px] border-t border-[rgba(23,24,28,0.10)] text-[13px] text-muted-foreground italic leading-[1.55]">
+                          e.g. “{s.example}”
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
 
               <textarea
                 className="w-full bg-card rounded-[14px] border border-border shadow-[var(--shadow)] p-[14px_15px] text-[15px] text-[var(--ink2)] min-h-[92px] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
