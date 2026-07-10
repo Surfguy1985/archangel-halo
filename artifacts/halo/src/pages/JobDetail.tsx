@@ -6,14 +6,16 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, Pencil, Sparkles, Send, Check } from "lucide-react";
+import { ChevronLeft, Pencil, Sparkles, Send, Check, CalendarDays } from "lucide-react";
 import { useState } from "react";
 import { EditJobSheet } from "@/components/EditJobSheet";
+import { ScheduleJobSheet } from "@/components/ScheduleJobSheet";
 
 export default function JobDetail() {
   const params = useParams();
   const id = params.id as string;
   const [editOpen, setEditOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const queryClient = useQueryClient();
   const { data, isLoading } = useGetJob(id, { query: { enabled: !!id, queryKey: getGetJobQueryKey(id) } });
   const [recapOpen, setRecapOpen] = useState(false);
@@ -97,6 +99,14 @@ export default function JobDetail() {
           {job.description}
         </div>
       </div>
+
+      <button
+        onClick={() => setScheduleOpen(true)}
+        className="w-full mb-[18px] flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+      >
+        <CalendarDays className="w-[17px] h-[17px]" />
+        {schedules.length > 0 ? "Reschedule / add date" : "Schedule job"}
+      </button>
 
       {schedules.length > 0 && (
         <div className="mb-[18px]">
@@ -208,6 +218,12 @@ export default function JobDetail() {
       )}
 
       <EditJobSheet open={editOpen} onOpenChange={setEditOpen} job={job} />
+      <ScheduleJobSheet
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        jobId={job.id}
+        jobLabel={job.jobNo || job.category || "Job"}
+      />
     </div>
   );
 }
