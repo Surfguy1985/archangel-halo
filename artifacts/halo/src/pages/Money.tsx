@@ -5,17 +5,21 @@ import {
   useListExpenses,
   useSendInvoice,
   useRemindInvoice,
+  useListCrewPayments,
+  useUpdateCrewPayment,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
+  getListCrewPaymentsQueryKey,
   type Invoice,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, Check } from "lucide-react";
 import { AddInvoiceSheet } from "@/components/AddInvoiceSheet";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
 import { RecordPaymentSheet } from "@/components/RecordPaymentSheet";
+import { AddCrewPaymentSheet } from "@/components/AddCrewPaymentSheet";
 
-type Tab = "overview" | "invoices" | "expenses";
+type Tab = "overview" | "invoices" | "expenses" | "crew";
 
 const statusColor: Record<string, string> = {
   paid: "#3c7a4e",
@@ -196,12 +200,115 @@ function Expenses() {
   );
 }
 
+function CrewPay() {
+  const queryClient = useQueryClient();
+  const { data: payments, isLoading } = useListCrewPayments();
+  const [addOpen, setAddOpen] = useState(false);
+  const markPaid = useUpdateCrewPayment();
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: getListCrewPaymentsQueryKey() });
+
+  const pending = (payments ?? []).filter((p) => p.status !== "completed");
+  const completed = (payments ?? []).filter((p) => p.status === "completed");
+  const pendingTotal = pending.reduce((s, p) => s + p.amount, 0);
+
+  const row = (p: NonNullable<typeof payments>[number], idx: number, len: number) => (
+    <div
+      key={p.id}
+      className={`flex items-center gap-[10px] py-[12px] ${idx !== len - 1 ? "border-t border-border" : ""}`}
+    >
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-[14px] truncate">{p.crewName}</div>
+        <div className="text-[12px] text-muted-foreground truncate">
+          {[
+            p.method,
+            p.paidAt ? new Date(p.paidAt).toLocaleDateString() : null,
+            p.note,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </div>
+      </div>
+      <div className="text-right shrink-0">
+        <div className="font-display font-bold text-[16px] tabular-nums">
+          ${p.amount.toLocaleString()}
+        </div>
+        {p.status !== "completed" && (
+          <button
+            onClick={() =>
+              markPaid.mutate(
+                {
+                  id: p.id,
+                  data: {
+                    status: "completed",
+                    paidAt: new Date().toISOString().slice(0, 10),
+                  },
+                },
+                { onSuccess: invalidate },
+              )
+            }
+            disabled={markPaid.isPending}
+            className="mt-[3px] inline-flex items-center gap-[4px] text-[11.5px] font-bold text-[var(--blue)] disabled:opacity-50"
+          >
+            <Check className="w-[12px] h-[12px]" /> Mark paid
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="animate-in fade-in duration-200">
+      <button
+        onClick={() => setAddOpen(true)}
+        className="w-full mb-[12px] flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+      >
+        <Plus className="w-[17px] h-[17px]" /> Record crew payment
+      </button>
+      {isLoading ? (
+        <div className="animate-pulse h-32 bg-card rounded-[16px]" />
+      ) : !payments || payments.length === 0 ? (
+        <div className="text-center text-[13px] text-muted-foreground py-[40px]">
+          No crew payments yet.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-[12px]">
+          {pending.length > 0 && (
+            <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+              <div className="flex items-center justify-between pt-[10px] pb-[2px]">
+                <span className="font-display font-semibold text-[12px] tracking-[0.12em] uppercase text-muted-foreground">
+                  Pending
+                </span>
+                <span className="font-display font-bold text-[13px] tabular-nums text-destructive">
+                  ${pendingTotal.toLocaleString()}
+                </span>
+              </div>
+              {pending.map((p, i) => row(p, i, pending.length))}
+            </div>
+          )}
+          {completed.length > 0 && (
+            <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+              <div className="font-display font-semibold text-[12px] tracking-[0.12em] uppercase text-muted-foreground pt-[10px] pb-[2px]">
+                Completed
+              </div>
+              {completed.map((p, i) => row(p, i, completed.length))}
+            </div>
+          )}
+        </div>
+      )}
+      <AddCrewPaymentSheet open={addOpen} onOpenChange={setAddOpen} />
+    </div>
+  );
+}
+
 export default function Money() {
   const [tab, setTab] = useState<Tab>("overview");
   const tabs: { key: Tab; label: string }[] = [
     { key: "overview", label: "Overview" },
     { key: "invoices", label: "Invoices" },
     { key: "expenses", label: "Expenses" },
+    { key: "crew", label: "Crew Pay" },
   ];
   return (
     <div className="pt-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -222,6 +329,7 @@ export default function Money() {
       {tab === "overview" && <Overview />}
       {tab === "invoices" && <Invoices />}
       {tab === "expenses" && <Expenses />}
+      {tab === "crew" && <CrewPay />}
     </div>
   );
 }

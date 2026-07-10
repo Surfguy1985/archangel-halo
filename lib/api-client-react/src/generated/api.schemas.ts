@@ -694,6 +694,276 @@ export interface IngestCommitResult {
   messages?: string[];
 }
 
+export interface UploadUrlRequest {
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 1 */
+  size: number;
+  /** @minLength 1 */
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata?: UploadUrlRequest;
+}
+
+export interface W9Data {
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  businessName?: string | null;
+  /**
+     * individual | c_corp | s_corp | partnership | trust_estate | llc | other
+     * @nullable
+     */
+  taxClassification?: string | null;
+  /** @nullable */
+  llcClassification?: string | null;
+  /** @nullable */
+  otherClassification?: string | null;
+  /** @nullable */
+  exemptPayeeCode?: string | null;
+  /** @nullable */
+  fatcaCode?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  zip?: string | null;
+  /** @nullable */
+  accountNumbers?: string | null;
+  /**
+     * ssn | ein
+     * @nullable
+     */
+  tinType?: string | null;
+  /** @nullable */
+  ssn?: string | null;
+  /** @nullable */
+  ein?: string | null;
+  /** @nullable */
+  signature?: string | null;
+  /** @nullable */
+  signedDate?: string | null;
+  /** @nullable */
+  certified?: boolean | null;
+}
+
+export interface W9Response {
+  submitted: boolean;
+  /** @nullable */
+  submittedAt?: string | null;
+  data?: W9Data | null;
+}
+
+export interface CrewDetail {
+  id: string;
+  name: string;
+  /** @nullable */
+  trade?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  isLeader?: boolean | null;
+  /** @nullable */
+  active?: boolean | null;
+  /** @nullable */
+  portalToken?: string | null;
+  /** @nullable */
+  preferredPaymentMethod?: string | null;
+  /** @nullable */
+  paymentDetails?: string | null;
+  w9Submitted?: boolean;
+  /** @nullable */
+  w9SubmittedAt?: string | null;
+  w9?: W9Data | null;
+}
+
+export interface CrewPortalLink {
+  token: string;
+  /** Relative portal path, e.g. /portal/<token> */
+  path: string;
+}
+
+export interface MessageInput {
+  /** @minLength 1 */
+  body: string;
+}
+
+export interface CrewMessage {
+  id: string;
+  crewId: string;
+  /** crew | admin */
+  sender: string;
+  body: string;
+  /** @nullable */
+  readAt?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
+}
+
+export interface CrewCheckinInput {
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** @nullable */
+  accuracy?: number | null;
+  /** @nullable */
+  label?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface CrewCheckin {
+  id: string;
+  crewId: string;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** @nullable */
+  accuracy?: number | null;
+  /** @nullable */
+  label?: string | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
+}
+
+export interface CrewDocumentInput {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  storagePath: string;
+  /** @nullable */
+  contentType?: string | null;
+  /** @nullable */
+  size?: number | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface CrewDocument {
+  id: string;
+  crewId: string;
+  /** to_crew | from_crew */
+  direction: string;
+  name: string;
+  storagePath: string;
+  /** @nullable */
+  contentType?: string | null;
+  /** @nullable */
+  size?: number | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
+}
+
+export interface CrewPaymentInput {
+  crewId: string;
+  amount: number;
+  /** @nullable */
+  method?: string | null;
+  /**
+     * pending | completed
+     * @nullable
+     */
+  status?: string | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  dueOn?: string | null;
+}
+
+export interface CrewPaymentUpdate {
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  method?: string | null;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  dueOn?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+}
+
+export interface CrewPayment {
+  id: string;
+  crewId: string;
+  /** @nullable */
+  crewName?: string | null;
+  amount: number;
+  /** @nullable */
+  method?: string | null;
+  /** pending | completed */
+  status: string;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  dueOn?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
+}
+
+export interface PaymentMethodInput {
+  /** @nullable */
+  preferredPaymentMethod?: string | null;
+  /** @nullable */
+  paymentDetails?: string | null;
+}
+
+export interface PortalCrew {
+  id: string;
+  name: string;
+  /** @nullable */
+  trade?: string | null;
+  /** @nullable */
+  preferredPaymentMethod?: string | null;
+  /** @nullable */
+  paymentDetails?: string | null;
+  w9Submitted?: boolean;
+}
+
+export interface PortalScheduleItem {
+  id: string;
+  /** @nullable */
+  jobNo?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  scheduledOn?: string | null;
+  /** @nullable */
+  windowStart?: string | null;
+  /** @nullable */
+  status?: string | null;
+}
+
+export interface PortalBundle {
+  crew: PortalCrew;
+  schedule: PortalScheduleItem[];
+}
+
 export type ListPropertiesParams = {
 search?: string;
 };

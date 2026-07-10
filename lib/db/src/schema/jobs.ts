@@ -6,6 +6,7 @@ import {
   doublePrecision,
   timestamp,
   date,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const crewsTable = pgTable("crews", {
@@ -15,6 +16,11 @@ export const crewsTable = pgTable("crews", {
   phone: text("phone"),
   isLeader: boolean("is_leader").default(false),
   active: boolean("active").default(true),
+  portalToken: text("portal_token"),
+  preferredPaymentMethod: text("preferred_payment_method"),
+  paymentDetails: text("payment_details"),
+  w9: jsonb("w9"),
+  w9SubmittedAt: timestamp("w9_submitted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -31,7 +31,17 @@ import type {
   Contact,
   ContactInput,
   Crew,
+  CrewCheckin,
+  CrewCheckinInput,
+  CrewDetail,
+  CrewDocument,
+  CrewDocumentInput,
   CrewInput,
+  CrewMessage,
+  CrewPayment,
+  CrewPaymentInput,
+  CrewPaymentUpdate,
+  CrewPortalLink,
   CrewToday,
   CrewUpdate,
   Error,
@@ -60,11 +70,14 @@ import type {
   ListJobsParams,
   ListPropertiesParams,
   ListPurchaseOrdersParams,
+  MessageInput,
   MoneySummary,
   Notification,
   OkResponse,
   Payment,
   PaymentInput,
+  PaymentMethodInput,
+  PortalBundle,
   PriceItem,
   PriceItemInput,
   Property,
@@ -77,12 +90,16 @@ import type {
   Queue,
   ScheduleInput,
   TodayPayload,
+  UploadUrlRequest,
+  UploadUrlResponse,
   Vendor,
   VendorInput,
   VoiceConfirmInput,
   VoiceConfirmResult,
   VoiceParseInput,
-  VoiceParseResult
+  VoiceParseResult,
+  W9Data,
+  W9Response
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -3941,5 +3958,1671 @@ export const useCommitIngest = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCommitIngestMutationOptions(options));
+    }
+
+export const getRequestUploadUrlUrl = () => {
+
+
+
+
+  return `/api/storage/uploads/request-url`
+}
+
+/**
+ * @summary Request a presigned URL for file upload
+ */
+export const requestUploadUrl = async (uploadUrlRequest: UploadUrlRequest, options?: RequestInit): Promise<UploadUrlResponse> => {
+
+  return customFetch<UploadUrlResponse>(getRequestUploadUrlUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(uploadUrlRequest)
+  }
+);}
+
+
+
+
+
+export const getRequestUploadUrlMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestUploadUrl>>, TError,{data: BodyType<UploadUrlRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestUploadUrl>>, TError,{data: BodyType<UploadUrlRequest>}, TContext> => {
+
+const mutationKey = ['requestUploadUrl'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestUploadUrl>>, {data: BodyType<UploadUrlRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestUploadUrl(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestUploadUrlMutationResult = NonNullable<Awaited<ReturnType<typeof requestUploadUrl>>>
+    export type RequestUploadUrlMutationBody = BodyType<UploadUrlRequest>
+    export type RequestUploadUrlMutationError = ErrorType<Error>
+
+    /**
+ * @summary Request a presigned URL for file upload
+ */
+export const useRequestUploadUrl = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestUploadUrl>>, TError,{data: BodyType<UploadUrlRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestUploadUrl>>,
+        TError,
+        {data: BodyType<UploadUrlRequest>},
+        TContext
+      > => {
+      return useMutation(getRequestUploadUrlMutationOptions(options));
+    }
+
+export const getGetPublicObjectUrl = (filePath: string,) => {
+
+
+
+
+  return `/api/storage/public-objects/${filePath}`
+}
+
+/**
+ * @summary Serve a public asset
+ */
+export const getPublicObject = async (filePath: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetPublicObjectUrl(filePath),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicObjectQueryKey = (filePath: string,) => {
+    return [
+    `/api/storage/public-objects/${filePath}`
+    ] as const;
+    }
+
+
+export const getGetPublicObjectQueryOptions = <TData = Awaited<ReturnType<typeof getPublicObject>>, TError = ErrorType<Error>>(filePath: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicObject>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicObjectQueryKey(filePath);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicObject>>> = ({ signal }) => getPublicObject(filePath, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: filePath !== null && filePath !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicObject>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicObjectQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicObject>>>
+export type GetPublicObjectQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Serve a public asset
+ */
+
+export function useGetPublicObject<TData = Awaited<ReturnType<typeof getPublicObject>>, TError = ErrorType<Error>>(
+ filePath: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicObject>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicObjectQueryOptions(filePath,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetStorageObjectUrl = (objectPath: string,) => {
+
+
+
+
+  return `/api/storage/objects/${objectPath}`
+}
+
+/**
+ * @summary Serve an uploaded object entity
+ */
+export const getStorageObject = async (objectPath: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetStorageObjectUrl(objectPath),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStorageObjectQueryKey = (objectPath: string,) => {
+    return [
+    `/api/storage/objects/${objectPath}`
+    ] as const;
+    }
+
+
+export const getGetStorageObjectQueryOptions = <TData = Awaited<ReturnType<typeof getStorageObject>>, TError = ErrorType<Error>>(objectPath: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStorageObject>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStorageObjectQueryKey(objectPath);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStorageObject>>> = ({ signal }) => getStorageObject(objectPath, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: objectPath !== null && objectPath !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStorageObject>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStorageObjectQueryResult = NonNullable<Awaited<ReturnType<typeof getStorageObject>>>
+export type GetStorageObjectQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Serve an uploaded object entity
+ */
+
+export function useGetStorageObject<TData = Awaited<ReturnType<typeof getStorageObject>>, TError = ErrorType<Error>>(
+ objectPath: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStorageObject>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStorageObjectQueryOptions(objectPath,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCrewDetailUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/detail`
+}
+
+/**
+ * @summary Full crew record incl. portal token, payment method, W-9
+ */
+export const getCrewDetail = async (id: string, options?: RequestInit): Promise<CrewDetail> => {
+
+  return customFetch<CrewDetail>(getGetCrewDetailUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrewDetailQueryKey = (id: string,) => {
+    return [
+    `/api/crews/${id}/detail`
+    ] as const;
+    }
+
+
+export const getGetCrewDetailQueryOptions = <TData = Awaited<ReturnType<typeof getCrewDetail>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrewDetailQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrewDetail>>> = ({ signal }) => getCrewDetail(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrewDetail>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCrewDetailQueryResult = NonNullable<Awaited<ReturnType<typeof getCrewDetail>>>
+export type GetCrewDetailQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Full crew record incl. portal token, payment method, W-9
+ */
+
+export function useGetCrewDetail<TData = Awaited<ReturnType<typeof getCrewDetail>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCrewDetailQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGenerateCrewPortalLinkUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/portal-link`
+}
+
+/**
+ * @summary Generate (or return existing) the crew's live portal token
+ */
+export const generateCrewPortalLink = async (id: string, options?: RequestInit): Promise<CrewPortalLink> => {
+
+  return customFetch<CrewPortalLink>(getGenerateCrewPortalLinkUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getGenerateCrewPortalLinkMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateCrewPortalLink>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateCrewPortalLink>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['generateCrewPortalLink'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateCrewPortalLink>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  generateCrewPortalLink(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateCrewPortalLinkMutationResult = NonNullable<Awaited<ReturnType<typeof generateCrewPortalLink>>>
+
+    export type GenerateCrewPortalLinkMutationError = ErrorType<Error>
+
+    /**
+ * @summary Generate (or return existing) the crew's live portal token
+ */
+export const useGenerateCrewPortalLink = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateCrewPortalLink>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof generateCrewPortalLink>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getGenerateCrewPortalLinkMutationOptions(options));
+    }
+
+export const getListCrewMessagesUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/messages`
+}
+
+export const listCrewMessages = async (id: string, options?: RequestInit): Promise<CrewMessage[]> => {
+
+  return customFetch<CrewMessage[]>(getListCrewMessagesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCrewMessagesQueryKey = (id: string,) => {
+    return [
+    `/api/crews/${id}/messages`
+    ] as const;
+    }
+
+
+export const getListCrewMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listCrewMessages>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCrewMessagesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCrewMessages>>> = ({ signal }) => listCrewMessages(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCrewMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCrewMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listCrewMessages>>>
+export type ListCrewMessagesQueryError = ErrorType<unknown>
+
+
+
+export function useListCrewMessages<TData = Awaited<ReturnType<typeof listCrewMessages>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCrewMessagesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendCrewMessageUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/messages`
+}
+
+/**
+ * @summary Admin sends a message to the crew
+ */
+export const sendCrewMessage = async (id: string,
+    messageInput: MessageInput, options?: RequestInit): Promise<CrewMessage> => {
+
+  return customFetch<CrewMessage>(getSendCrewMessageUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(messageInput)
+  }
+);}
+
+
+
+
+
+export const getSendCrewMessageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendCrewMessage>>, TError,{id: string;data: BodyType<MessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendCrewMessage>>, TError,{id: string;data: BodyType<MessageInput>}, TContext> => {
+
+const mutationKey = ['sendCrewMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendCrewMessage>>, {id: string;data: BodyType<MessageInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendCrewMessage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendCrewMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendCrewMessage>>>
+    export type SendCrewMessageMutationBody = BodyType<MessageInput>
+    export type SendCrewMessageMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Admin sends a message to the crew
+ */
+export const useSendCrewMessage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendCrewMessage>>, TError,{id: string;data: BodyType<MessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendCrewMessage>>,
+        TError,
+        {id: string;data: BodyType<MessageInput>},
+        TContext
+      > => {
+      return useMutation(getSendCrewMessageMutationOptions(options));
+    }
+
+export const getListCrewCheckinsUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/checkins`
+}
+
+export const listCrewCheckins = async (id: string, options?: RequestInit): Promise<CrewCheckin[]> => {
+
+  return customFetch<CrewCheckin[]>(getListCrewCheckinsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCrewCheckinsQueryKey = (id: string,) => {
+    return [
+    `/api/crews/${id}/checkins`
+    ] as const;
+    }
+
+
+export const getListCrewCheckinsQueryOptions = <TData = Awaited<ReturnType<typeof listCrewCheckins>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewCheckins>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCrewCheckinsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCrewCheckins>>> = ({ signal }) => listCrewCheckins(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCrewCheckins>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCrewCheckinsQueryResult = NonNullable<Awaited<ReturnType<typeof listCrewCheckins>>>
+export type ListCrewCheckinsQueryError = ErrorType<unknown>
+
+
+
+export function useListCrewCheckins<TData = Awaited<ReturnType<typeof listCrewCheckins>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewCheckins>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCrewCheckinsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCrewDocumentsUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/documents`
+}
+
+export const listCrewDocuments = async (id: string, options?: RequestInit): Promise<CrewDocument[]> => {
+
+  return customFetch<CrewDocument[]>(getListCrewDocumentsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCrewDocumentsQueryKey = (id: string,) => {
+    return [
+    `/api/crews/${id}/documents`
+    ] as const;
+    }
+
+
+export const getListCrewDocumentsQueryOptions = <TData = Awaited<ReturnType<typeof listCrewDocuments>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewDocuments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCrewDocumentsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCrewDocuments>>> = ({ signal }) => listCrewDocuments(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCrewDocuments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCrewDocumentsQueryResult = NonNullable<Awaited<ReturnType<typeof listCrewDocuments>>>
+export type ListCrewDocumentsQueryError = ErrorType<unknown>
+
+
+
+export function useListCrewDocuments<TData = Awaited<ReturnType<typeof listCrewDocuments>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewDocuments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCrewDocumentsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendCrewDocumentUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/documents`
+}
+
+/**
+ * @summary Admin sends a document to the crew
+ */
+export const sendCrewDocument = async (id: string,
+    crewDocumentInput: CrewDocumentInput, options?: RequestInit): Promise<CrewDocument> => {
+
+  return customFetch<CrewDocument>(getSendCrewDocumentUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewDocumentInput)
+  }
+);}
+
+
+
+
+
+export const getSendCrewDocumentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendCrewDocument>>, TError,{id: string;data: BodyType<CrewDocumentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendCrewDocument>>, TError,{id: string;data: BodyType<CrewDocumentInput>}, TContext> => {
+
+const mutationKey = ['sendCrewDocument'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendCrewDocument>>, {id: string;data: BodyType<CrewDocumentInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendCrewDocument(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendCrewDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof sendCrewDocument>>>
+    export type SendCrewDocumentMutationBody = BodyType<CrewDocumentInput>
+    export type SendCrewDocumentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Admin sends a document to the crew
+ */
+export const useSendCrewDocument = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendCrewDocument>>, TError,{id: string;data: BodyType<CrewDocumentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendCrewDocument>>,
+        TError,
+        {id: string;data: BodyType<CrewDocumentInput>},
+        TContext
+      > => {
+      return useMutation(getSendCrewDocumentMutationOptions(options));
+    }
+
+export const getUpdateCrewPaymentMethodUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/payment-method`
+}
+
+/**
+ * @summary Admin updates the crew's preferred payment method
+ */
+export const updateCrewPaymentMethod = async (id: string,
+    paymentMethodInput: PaymentMethodInput, options?: RequestInit): Promise<CrewDetail> => {
+
+  return customFetch<CrewDetail>(getUpdateCrewPaymentMethodUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentMethodInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateCrewPaymentMethodMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCrewPaymentMethod>>, TError,{id: string;data: BodyType<PaymentMethodInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCrewPaymentMethod>>, TError,{id: string;data: BodyType<PaymentMethodInput>}, TContext> => {
+
+const mutationKey = ['updateCrewPaymentMethod'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCrewPaymentMethod>>, {id: string;data: BodyType<PaymentMethodInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCrewPaymentMethod(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCrewPaymentMethodMutationResult = NonNullable<Awaited<ReturnType<typeof updateCrewPaymentMethod>>>
+    export type UpdateCrewPaymentMethodMutationBody = BodyType<PaymentMethodInput>
+    export type UpdateCrewPaymentMethodMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Admin updates the crew's preferred payment method
+ */
+export const useUpdateCrewPaymentMethod = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCrewPaymentMethod>>, TError,{id: string;data: BodyType<PaymentMethodInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCrewPaymentMethod>>,
+        TError,
+        {id: string;data: BodyType<PaymentMethodInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCrewPaymentMethodMutationOptions(options));
+    }
+
+export const getListCrewPaymentsUrl = () => {
+
+
+
+
+  return `/api/crew-payments`
+}
+
+/**
+ * @summary Accounting — payments to crews (pending vs completed)
+ */
+export const listCrewPayments = async ( options?: RequestInit): Promise<CrewPayment[]> => {
+
+  return customFetch<CrewPayment[]>(getListCrewPaymentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCrewPaymentsQueryKey = () => {
+    return [
+    `/api/crew-payments`
+    ] as const;
+    }
+
+
+export const getListCrewPaymentsQueryOptions = <TData = Awaited<ReturnType<typeof listCrewPayments>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewPayments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCrewPaymentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCrewPayments>>> = ({ signal }) => listCrewPayments({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCrewPayments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCrewPaymentsQueryResult = NonNullable<Awaited<ReturnType<typeof listCrewPayments>>>
+export type ListCrewPaymentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Accounting — payments to crews (pending vs completed)
+ */
+
+export function useListCrewPayments<TData = Awaited<ReturnType<typeof listCrewPayments>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewPayments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCrewPaymentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCrewPaymentUrl = () => {
+
+
+
+
+  return `/api/crew-payments`
+}
+
+export const createCrewPayment = async (crewPaymentInput: CrewPaymentInput, options?: RequestInit): Promise<CrewPayment> => {
+
+  return customFetch<CrewPayment>(getCreateCrewPaymentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewPaymentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateCrewPaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCrewPayment>>, TError,{data: BodyType<CrewPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCrewPayment>>, TError,{data: BodyType<CrewPaymentInput>}, TContext> => {
+
+const mutationKey = ['createCrewPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCrewPayment>>, {data: BodyType<CrewPaymentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCrewPayment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCrewPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof createCrewPayment>>>
+    export type CreateCrewPaymentMutationBody = BodyType<CrewPaymentInput>
+    export type CreateCrewPaymentMutationError = ErrorType<unknown>
+
+    export const useCreateCrewPayment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCrewPayment>>, TError,{data: BodyType<CrewPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCrewPayment>>,
+        TError,
+        {data: BodyType<CrewPaymentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCrewPaymentMutationOptions(options));
+    }
+
+export const getUpdateCrewPaymentUrl = (id: string,) => {
+
+
+
+
+  return `/api/crew-payments/${id}`
+}
+
+/**
+ * @summary Edit a crew payment or mark it completed
+ */
+export const updateCrewPayment = async (id: string,
+    crewPaymentUpdate: CrewPaymentUpdate, options?: RequestInit): Promise<CrewPayment> => {
+
+  return customFetch<CrewPayment>(getUpdateCrewPaymentUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewPaymentUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCrewPaymentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCrewPayment>>, TError,{id: string;data: BodyType<CrewPaymentUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCrewPayment>>, TError,{id: string;data: BodyType<CrewPaymentUpdate>}, TContext> => {
+
+const mutationKey = ['updateCrewPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCrewPayment>>, {id: string;data: BodyType<CrewPaymentUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCrewPayment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCrewPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof updateCrewPayment>>>
+    export type UpdateCrewPaymentMutationBody = BodyType<CrewPaymentUpdate>
+    export type UpdateCrewPaymentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Edit a crew payment or mark it completed
+ */
+export const useUpdateCrewPayment = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCrewPayment>>, TError,{id: string;data: BodyType<CrewPaymentUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCrewPayment>>,
+        TError,
+        {id: string;data: BodyType<CrewPaymentUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCrewPaymentMutationOptions(options));
+    }
+
+export const getGetPortalUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}`
+}
+
+/**
+ * @summary Crew portal bundle (profile + this week's schedule)
+ */
+export const getPortal = async (token: string, options?: RequestInit): Promise<PortalBundle> => {
+
+  return customFetch<PortalBundle>(getGetPortalUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalQueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}`
+    ] as const;
+    }
+
+
+export const getGetPortalQueryOptions = <TData = Awaited<ReturnType<typeof getPortal>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortal>>> = ({ signal }) => getPortal(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortal>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalQueryResult = NonNullable<Awaited<ReturnType<typeof getPortal>>>
+export type GetPortalQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Crew portal bundle (profile + this week's schedule)
+ */
+
+export function useGetPortal<TData = Awaited<ReturnType<typeof getPortal>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortal>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListPortalMessagesUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/messages`
+}
+
+export const listPortalMessages = async (token: string, options?: RequestInit): Promise<CrewMessage[]> => {
+
+  return customFetch<CrewMessage[]>(getListPortalMessagesUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPortalMessagesQueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}/messages`
+    ] as const;
+    }
+
+
+export const getListPortalMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listPortalMessages>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPortalMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPortalMessagesQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPortalMessages>>> = ({ signal }) => listPortalMessages(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPortalMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPortalMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listPortalMessages>>>
+export type ListPortalMessagesQueryError = ErrorType<Error>
+
+
+
+export function useListPortalMessages<TData = Awaited<ReturnType<typeof listPortalMessages>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPortalMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPortalMessagesQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendPortalMessageUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/messages`
+}
+
+export const sendPortalMessage = async (token: string,
+    messageInput: MessageInput, options?: RequestInit): Promise<CrewMessage> => {
+
+  return customFetch<CrewMessage>(getSendPortalMessageUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(messageInput)
+  }
+);}
+
+
+
+
+
+export const getSendPortalMessageMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendPortalMessage>>, TError,{token: string;data: BodyType<MessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendPortalMessage>>, TError,{token: string;data: BodyType<MessageInput>}, TContext> => {
+
+const mutationKey = ['sendPortalMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendPortalMessage>>, {token: string;data: BodyType<MessageInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  sendPortalMessage(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendPortalMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendPortalMessage>>>
+    export type SendPortalMessageMutationBody = BodyType<MessageInput>
+    export type SendPortalMessageMutationError = ErrorType<Error>
+
+    export const useSendPortalMessage = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendPortalMessage>>, TError,{token: string;data: BodyType<MessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendPortalMessage>>,
+        TError,
+        {token: string;data: BodyType<MessageInput>},
+        TContext
+      > => {
+      return useMutation(getSendPortalMessageMutationOptions(options));
+    }
+
+export const getCreatePortalCheckinUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/checkins`
+}
+
+/**
+ * @summary Crew posts a GPS check-in
+ */
+export const createPortalCheckin = async (token: string,
+    crewCheckinInput: CrewCheckinInput, options?: RequestInit): Promise<CrewCheckin> => {
+
+  return customFetch<CrewCheckin>(getCreatePortalCheckinUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewCheckinInput)
+  }
+);}
+
+
+
+
+
+export const getCreatePortalCheckinMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPortalCheckin>>, TError,{token: string;data: BodyType<CrewCheckinInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPortalCheckin>>, TError,{token: string;data: BodyType<CrewCheckinInput>}, TContext> => {
+
+const mutationKey = ['createPortalCheckin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPortalCheckin>>, {token: string;data: BodyType<CrewCheckinInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  createPortalCheckin(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePortalCheckinMutationResult = NonNullable<Awaited<ReturnType<typeof createPortalCheckin>>>
+    export type CreatePortalCheckinMutationBody = BodyType<CrewCheckinInput>
+    export type CreatePortalCheckinMutationError = ErrorType<Error>
+
+    /**
+ * @summary Crew posts a GPS check-in
+ */
+export const useCreatePortalCheckin = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPortalCheckin>>, TError,{token: string;data: BodyType<CrewCheckinInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPortalCheckin>>,
+        TError,
+        {token: string;data: BodyType<CrewCheckinInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePortalCheckinMutationOptions(options));
+    }
+
+export const getListPortalDocumentsUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/documents`
+}
+
+export const listPortalDocuments = async (token: string, options?: RequestInit): Promise<CrewDocument[]> => {
+
+  return customFetch<CrewDocument[]>(getListPortalDocumentsUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPortalDocumentsQueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}/documents`
+    ] as const;
+    }
+
+
+export const getListPortalDocumentsQueryOptions = <TData = Awaited<ReturnType<typeof listPortalDocuments>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPortalDocuments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPortalDocumentsQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPortalDocuments>>> = ({ signal }) => listPortalDocuments(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPortalDocuments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPortalDocumentsQueryResult = NonNullable<Awaited<ReturnType<typeof listPortalDocuments>>>
+export type ListPortalDocumentsQueryError = ErrorType<Error>
+
+
+
+export function useListPortalDocuments<TData = Awaited<ReturnType<typeof listPortalDocuments>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPortalDocuments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPortalDocumentsQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUploadPortalDocumentUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/documents`
+}
+
+/**
+ * @summary Crew uploads a document back to admin
+ */
+export const uploadPortalDocument = async (token: string,
+    crewDocumentInput: CrewDocumentInput, options?: RequestInit): Promise<CrewDocument> => {
+
+  return customFetch<CrewDocument>(getUploadPortalDocumentUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewDocumentInput)
+  }
+);}
+
+
+
+
+
+export const getUploadPortalDocumentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadPortalDocument>>, TError,{token: string;data: BodyType<CrewDocumentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadPortalDocument>>, TError,{token: string;data: BodyType<CrewDocumentInput>}, TContext> => {
+
+const mutationKey = ['uploadPortalDocument'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadPortalDocument>>, {token: string;data: BodyType<CrewDocumentInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  uploadPortalDocument(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadPortalDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof uploadPortalDocument>>>
+    export type UploadPortalDocumentMutationBody = BodyType<CrewDocumentInput>
+    export type UploadPortalDocumentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Crew uploads a document back to admin
+ */
+export const useUploadPortalDocument = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadPortalDocument>>, TError,{token: string;data: BodyType<CrewDocumentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadPortalDocument>>,
+        TError,
+        {token: string;data: BodyType<CrewDocumentInput>},
+        TContext
+      > => {
+      return useMutation(getUploadPortalDocumentMutationOptions(options));
+    }
+
+export const getGetPortalW9Url = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/w9`
+}
+
+/**
+ * @summary Crew's own W-9 data (for filling / editing)
+ */
+export const getPortalW9 = async (token: string, options?: RequestInit): Promise<W9Response> => {
+
+  return customFetch<W9Response>(getGetPortalW9Url(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalW9QueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}/w9`
+    ] as const;
+    }
+
+
+export const getGetPortalW9QueryOptions = <TData = Awaited<ReturnType<typeof getPortalW9>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalW9>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalW9QueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalW9>>> = ({ signal }) => getPortalW9(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalW9>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalW9QueryResult = NonNullable<Awaited<ReturnType<typeof getPortalW9>>>
+export type GetPortalW9QueryError = ErrorType<Error>
+
+
+/**
+ * @summary Crew's own W-9 data (for filling / editing)
+ */
+
+export function useGetPortalW9<TData = Awaited<ReturnType<typeof getPortalW9>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalW9>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalW9QueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubmitPortalW9Url = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/w9`
+}
+
+/**
+ * @summary Crew submits/updates their W-9
+ */
+export const submitPortalW9 = async (token: string,
+    w9Data: W9Data, options?: RequestInit): Promise<W9Response> => {
+
+  return customFetch<W9Response>(getSubmitPortalW9Url(token),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(w9Data)
+  }
+);}
+
+
+
+
+
+export const getSubmitPortalW9MutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPortalW9>>, TError,{token: string;data: BodyType<W9Data>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitPortalW9>>, TError,{token: string;data: BodyType<W9Data>}, TContext> => {
+
+const mutationKey = ['submitPortalW9'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitPortalW9>>, {token: string;data: BodyType<W9Data>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  submitPortalW9(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitPortalW9MutationResult = NonNullable<Awaited<ReturnType<typeof submitPortalW9>>>
+    export type SubmitPortalW9MutationBody = BodyType<W9Data>
+    export type SubmitPortalW9MutationError = ErrorType<Error>
+
+    /**
+ * @summary Crew submits/updates their W-9
+ */
+export const useSubmitPortalW9 = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPortalW9>>, TError,{token: string;data: BodyType<W9Data>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitPortalW9>>,
+        TError,
+        {token: string;data: BodyType<W9Data>},
+        TContext
+      > => {
+      return useMutation(getSubmitPortalW9MutationOptions(options));
+    }
+
+export const getSetPortalPaymentMethodUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/payment-method`
+}
+
+/**
+ * @summary Crew sets their preferred payment method
+ */
+export const setPortalPaymentMethod = async (token: string,
+    paymentMethodInput: PaymentMethodInput, options?: RequestInit): Promise<PaymentMethodInput> => {
+
+  return customFetch<PaymentMethodInput>(getSetPortalPaymentMethodUrl(token),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentMethodInput)
+  }
+);}
+
+
+
+
+
+export const getSetPortalPaymentMethodMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPortalPaymentMethod>>, TError,{token: string;data: BodyType<PaymentMethodInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setPortalPaymentMethod>>, TError,{token: string;data: BodyType<PaymentMethodInput>}, TContext> => {
+
+const mutationKey = ['setPortalPaymentMethod'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setPortalPaymentMethod>>, {token: string;data: BodyType<PaymentMethodInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  setPortalPaymentMethod(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetPortalPaymentMethodMutationResult = NonNullable<Awaited<ReturnType<typeof setPortalPaymentMethod>>>
+    export type SetPortalPaymentMethodMutationBody = BodyType<PaymentMethodInput>
+    export type SetPortalPaymentMethodMutationError = ErrorType<Error>
+
+    /**
+ * @summary Crew sets their preferred payment method
+ */
+export const useSetPortalPaymentMethod = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPortalPaymentMethod>>, TError,{token: string;data: BodyType<PaymentMethodInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setPortalPaymentMethod>>,
+        TError,
+        {token: string;data: BodyType<PaymentMethodInput>},
+        TContext
+      > => {
+      return useMutation(getSetPortalPaymentMethodMutationOptions(options));
     }
 

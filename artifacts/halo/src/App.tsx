@@ -9,6 +9,8 @@ import PropertyDetail from "./pages/PropertyDetail";
 import JobDetail from "./pages/JobDetail";
 import Money from "./pages/Money";
 import Crews from "./pages/Crews";
+import CrewDetail from "./pages/CrewDetail";
+import CrewPortal from "./pages/CrewPortal";
 import Pipeline from "./pages/Pipeline";
 import Supply from "./pages/Supply";
 import Vendors from "./pages/Vendors";
@@ -16,7 +18,7 @@ import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
-function Router() {
+function AdminRouter() {
   return (
     <Layout>
       <Switch>
@@ -26,6 +28,7 @@ function Router() {
         <Route path="/jobs/:id" component={JobDetail} />
         <Route path="/money" component={Money} />
         <Route path="/crews" component={Crews} />
+        <Route path="/crews/:id" component={CrewDetail} />
         <Route path="/pipeline" component={Pipeline} />
         <Route path="/supply" component={Supply} />
         <Route path="/vendors" component={Vendors} />
@@ -40,7 +43,10 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
+          <Switch>
+            <Route path="/portal/:token" component={CrewPortal} />
+            <Route component={AdminRouter} />
+          </Switch>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>

@@ -28,6 +28,12 @@ tags:
     description: Voice capture, parsing, and confirmation
   - name: ingest
     description: File upload and parsing
+  - name: Storage
+    description: File upload and object serving
+  - name: crew-portal
+    description: Admin-side crew portal, documents, payments
+  - name: portal
+    description: Public token-gated crew portal
 paths:
   /healthz:
     get:
@@ -1052,6 +1058,545 @@ paths:
               schema:
                 $ref: "#/components/schemas/IngestCommitResult"
 
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+        "400":
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /storage/public-objects/{filePath}:
+    get:
+      tags: [Storage]
+      operationId: getPublicObject
+      summary: Serve a public asset
+      parameters:
+        - name: filePath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content streamed.
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: File not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an uploaded object entity
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content streamed.
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Object not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /crews/{id}/detail:
+    get:
+      operationId: getCrewDetail
+      tags: [crew-portal]
+      summary: Full crew record incl. portal token, payment method, W-9
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Crew detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /crews/{id}/portal-link:
+    post:
+      operationId: generateCrewPortalLink
+      tags: [crew-portal]
+      summary: Generate (or return existing) the crew's live portal token
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Portal link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewPortalLink"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /crews/{id}/messages:
+    get:
+      operationId: listCrewMessages
+      tags: [crew-portal]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewMessage"
+    post:
+      operationId: sendCrewMessage
+      tags: [crew-portal]
+      summary: Admin sends a message to the crew
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewMessage"
+  /crews/{id}/checkins:
+    get:
+      operationId: listCrewCheckins
+      tags: [crew-portal]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Check-ins
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewCheckin"
+  /crews/{id}/documents:
+    get:
+      operationId: listCrewDocuments
+      tags: [crew-portal]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewDocument"
+    post:
+      operationId: sendCrewDocument
+      tags: [crew-portal]
+      summary: Admin sends a document to the crew
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewDocumentInput"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewDocument"
+  /crews/{id}/payment-method:
+    patch:
+      operationId: updateCrewPaymentMethod
+      tags: [crew-portal]
+      summary: Admin updates the crew's preferred payment method
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentMethodInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewDetail"
+
+  /crew-payments:
+    get:
+      operationId: listCrewPayments
+      tags: [crew-portal]
+      summary: Accounting — payments to crews (pending vs completed)
+      responses:
+        "200":
+          description: Crew payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewPayment"
+    post:
+      operationId: createCrewPayment
+      tags: [crew-portal]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewPaymentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewPayment"
+  /crew-payments/{id}:
+    patch:
+      operationId: updateCrewPayment
+      tags: [crew-portal]
+      summary: Edit a crew payment or mark it completed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewPaymentUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewPayment"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /portal/{token}:
+    get:
+      operationId: getPortal
+      tags: [portal]
+      summary: Crew portal bundle (profile + this week's schedule)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Portal bundle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalBundle"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /portal/{token}/messages:
+    get:
+      operationId: listPortalMessages
+      tags: [portal]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewMessage"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: sendPortalMessage
+      tags: [portal]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewMessage"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /portal/{token}/checkins:
+    post:
+      operationId: createPortalCheckin
+      tags: [portal]
+      summary: Crew posts a GPS check-in
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewCheckinInput"
+      responses:
+        "201":
+          description: Checked in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewCheckin"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /portal/{token}/documents:
+    get:
+      operationId: listPortalDocuments
+      tags: [portal]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewDocument"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: uploadPortalDocument
+      tags: [portal]
+      summary: Crew uploads a document back to admin
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewDocumentInput"
+      responses:
+        "201":
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewDocument"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /portal/{token}/w9:
+    get:
+      operationId: getPortalW9
+      tags: [portal]
+      summary: Crew's own W-9 data (for filling / editing)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: W-9 data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/W9Response"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      operationId: submitPortalW9
+      tags: [portal]
+      summary: Crew submits/updates their W-9
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/W9Data"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/W9Response"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /portal/{token}/payment-method:
+    put:
+      operationId: setPortalPaymentMethod
+      tags: [portal]
+      summary: Crew sets their preferred payment method
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentMethodInput"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethodInput"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   schemas:
     HealthStatus:
@@ -1744,3 +2289,212 @@ components:
         messages:
           type: array
           items: { type: string }
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name: { type: string, minLength: 1 }
+        size: { type: integer, minimum: 1 }
+        contentType: { type: string, minLength: 1 }
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL: { type: string }
+        objectPath: { type: string }
+        metadata:
+          $ref: "#/components/schemas/UploadUrlRequest"
+
+    W9Data:
+      type: object
+      properties:
+        name: { type: ["string", "null"] }
+        businessName: { type: ["string", "null"] }
+        taxClassification: { type: ["string", "null"], description: "individual | c_corp | s_corp | partnership | trust_estate | llc | other" }
+        llcClassification: { type: ["string", "null"] }
+        otherClassification: { type: ["string", "null"] }
+        exemptPayeeCode: { type: ["string", "null"] }
+        fatcaCode: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        state: { type: ["string", "null"] }
+        zip: { type: ["string", "null"] }
+        accountNumbers: { type: ["string", "null"] }
+        tinType: { type: ["string", "null"], description: "ssn | ein" }
+        ssn: { type: ["string", "null"] }
+        ein: { type: ["string", "null"] }
+        signature: { type: ["string", "null"] }
+        signedDate: { type: ["string", "null"] }
+        certified: { type: ["boolean", "null"] }
+    W9Response:
+      type: object
+      required: [submitted]
+      properties:
+        submitted: { type: boolean }
+        submittedAt: { type: ["string", "null"] }
+        data:
+          oneOf:
+            - $ref: "#/components/schemas/W9Data"
+            - type: "null"
+
+    CrewDetail:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        trade: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        isLeader: { type: ["boolean", "null"] }
+        active: { type: ["boolean", "null"] }
+        portalToken: { type: ["string", "null"] }
+        preferredPaymentMethod: { type: ["string", "null"] }
+        paymentDetails: { type: ["string", "null"] }
+        w9Submitted: { type: boolean }
+        w9SubmittedAt: { type: ["string", "null"] }
+        w9:
+          oneOf:
+            - $ref: "#/components/schemas/W9Data"
+            - type: "null"
+    CrewPortalLink:
+      type: object
+      required: [token, path]
+      properties:
+        token: { type: string }
+        path: { type: string, description: "Relative portal path, e.g. /portal/<token>" }
+
+    MessageInput:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string, minLength: 1 }
+    CrewMessage:
+      type: object
+      required: [id, crewId, sender, body]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        sender: { type: string, description: "crew | admin" }
+        body: { type: string }
+        readAt: { type: ["string", "null"] }
+        createdAt: { type: ["string", "null"] }
+
+    CrewCheckinInput:
+      type: object
+      properties:
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        accuracy: { type: ["number", "null"] }
+        label: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+    CrewCheckin:
+      type: object
+      required: [id, crewId]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        accuracy: { type: ["number", "null"] }
+        label: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+        createdAt: { type: ["string", "null"] }
+
+    CrewDocumentInput:
+      type: object
+      required: [name, storagePath]
+      properties:
+        name: { type: string, minLength: 1 }
+        storagePath: { type: string, minLength: 1 }
+        contentType: { type: ["string", "null"] }
+        size: { type: ["number", "null"] }
+        note: { type: ["string", "null"] }
+    CrewDocument:
+      type: object
+      required: [id, crewId, direction, name, storagePath]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        direction: { type: string, description: "to_crew | from_crew" }
+        name: { type: string }
+        storagePath: { type: string }
+        contentType: { type: ["string", "null"] }
+        size: { type: ["number", "null"] }
+        note: { type: ["string", "null"] }
+        createdAt: { type: ["string", "null"] }
+
+    CrewPaymentInput:
+      type: object
+      required: [crewId, amount]
+      properties:
+        crewId: { type: string }
+        amount: { type: number }
+        method: { type: ["string", "null"] }
+        status: { type: ["string", "null"], description: "pending | completed" }
+        note: { type: ["string", "null"] }
+        jobId: { type: ["string", "null"] }
+        dueOn: { type: ["string", "null"] }
+    CrewPaymentUpdate:
+      type: object
+      properties:
+        amount: { type: ["number", "null"] }
+        method: { type: ["string", "null"] }
+        status: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+        dueOn: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"] }
+    CrewPayment:
+      type: object
+      required: [id, crewId, amount, status]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        crewName: { type: ["string", "null"] }
+        amount: { type: number }
+        method: { type: ["string", "null"] }
+        status: { type: string, description: "pending | completed" }
+        note: { type: ["string", "null"] }
+        jobId: { type: ["string", "null"] }
+        dueOn: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"] }
+        createdAt: { type: ["string", "null"] }
+
+    PaymentMethodInput:
+      type: object
+      properties:
+        preferredPaymentMethod: { type: ["string", "null"] }
+        paymentDetails: { type: ["string", "null"] }
+
+    PortalCrew:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        trade: { type: ["string", "null"] }
+        preferredPaymentMethod: { type: ["string", "null"] }
+        paymentDetails: { type: ["string", "null"] }
+        w9Submitted: { type: boolean }
+    PortalScheduleItem:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+        jobNo: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        scheduledOn: { type: ["string", "null"] }
+        windowStart: { type: ["string", "null"] }
+        status: { type: ["string", "null"] }
+    PortalBundle:
+      type: object
+      required: [crew, schedule]
+      properties:
+        crew:
+          $ref: "#/components/schemas/PortalCrew"
+        schedule:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortalScheduleItem"

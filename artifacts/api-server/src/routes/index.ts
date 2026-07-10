@@ -10,6 +10,9 @@ import activityRouter from "./activity";
 import voiceRouter from "./voice";
 import ingestRouter from "./ingest";
 import notifyRouter from "./notify";
+import storageRouter from "./storage";
+import crewRouter from "./crew";
+import portalRouter from "./portal";
 
 const router: IRouter = Router();
 
@@ -24,5 +27,8 @@ router.use(activityRouter);
 router.use(voiceRouter);
 router.use(ingestRouter);
 router.use(notifyRouter);
+router.use(storageRouter);
+router.use(crewRouter);
+router.use(portalRouter);
 
 export default router;

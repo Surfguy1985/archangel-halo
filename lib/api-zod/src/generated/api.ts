@@ -1273,3 +1273,583 @@ export const CommitIngestResponse = zod.object({
 })
 
 
+/**
+ * @summary Request a presigned URL for file upload
+ */
+
+
+
+
+
+export const RequestUploadUrlBody = zod.object({
+  "name": zod.string().min(1),
+  "size": zod.number().min(1),
+  "contentType": zod.string().min(1)
+})
+
+
+
+
+
+
+export const RequestUploadUrlResponse = zod.object({
+  "uploadURL": zod.string(),
+  "objectPath": zod.string(),
+  "metadata": zod.object({
+  "name": zod.string().min(1),
+  "size": zod.number().min(1),
+  "contentType": zod.string().min(1)
+}).optional()
+})
+
+
+/**
+ * @summary Serve a public asset
+ */
+export const GetPublicObjectParams = zod.object({
+  "filePath": zod.coerce.string()
+})
+
+export const GetPublicObjectResponse = zod.unknown()
+
+
+/**
+ * @summary Serve an uploaded object entity
+ */
+export const GetStorageObjectParams = zod.object({
+  "objectPath": zod.coerce.string()
+})
+
+export const GetStorageObjectResponse = zod.unknown()
+
+
+/**
+ * @summary Full crew record incl. portal token, payment method, W-9
+ */
+export const GetCrewDetailParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetCrewDetailResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "trade": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "isLeader": zod.boolean().nullish(),
+  "active": zod.boolean().nullish(),
+  "portalToken": zod.string().nullish(),
+  "preferredPaymentMethod": zod.string().nullish(),
+  "paymentDetails": zod.string().nullish(),
+  "w9Submitted": zod.boolean().optional(),
+  "w9SubmittedAt": zod.string().nullish(),
+  "w9": zod.union([zod.object({
+  "name": zod.string().nullish(),
+  "businessName": zod.string().nullish(),
+  "taxClassification": zod.string().nullish().describe('individual | c_corp | s_corp | partnership | trust_estate | llc | other'),
+  "llcClassification": zod.string().nullish(),
+  "otherClassification": zod.string().nullish(),
+  "exemptPayeeCode": zod.string().nullish(),
+  "fatcaCode": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "zip": zod.string().nullish(),
+  "accountNumbers": zod.string().nullish(),
+  "tinType": zod.string().nullish().describe('ssn | ein'),
+  "ssn": zod.string().nullish(),
+  "ein": zod.string().nullish(),
+  "signature": zod.string().nullish(),
+  "signedDate": zod.string().nullish(),
+  "certified": zod.boolean().nullish()
+}),zod.null()]).optional()
+})
+
+
+/**
+ * @summary Generate (or return existing) the crew's live portal token
+ */
+export const GenerateCrewPortalLinkParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GenerateCrewPortalLinkResponse = zod.object({
+  "token": zod.string(),
+  "path": zod.string().describe('Relative portal path, e.g. \/portal\/<token>')
+})
+
+
+export const ListCrewMessagesParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListCrewMessagesResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "sender": zod.string().describe('crew | admin'),
+  "body": zod.string(),
+  "readAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+export const ListCrewMessagesResponse = zod.array(ListCrewMessagesResponseItem)
+
+
+/**
+ * @summary Admin sends a message to the crew
+ */
+export const SendCrewMessageParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const SendCrewMessageBody = zod.object({
+  "body": zod.string().min(1)
+})
+
+export const SendCrewMessageResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "sender": zod.string().describe('crew | admin'),
+  "body": zod.string(),
+  "readAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+export const ListCrewCheckinsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListCrewCheckinsResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "accuracy": zod.number().nullish(),
+  "label": zod.string().nullish(),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+export const ListCrewCheckinsResponse = zod.array(ListCrewCheckinsResponseItem)
+
+
+export const ListCrewDocumentsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListCrewDocumentsResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "direction": zod.string().describe('to_crew | from_crew'),
+  "name": zod.string(),
+  "storagePath": zod.string(),
+  "contentType": zod.string().nullish(),
+  "size": zod.number().nullish(),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+export const ListCrewDocumentsResponse = zod.array(ListCrewDocumentsResponseItem)
+
+
+/**
+ * @summary Admin sends a document to the crew
+ */
+export const SendCrewDocumentParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+
+export const SendCrewDocumentBody = zod.object({
+  "name": zod.string().min(1),
+  "storagePath": zod.string().min(1),
+  "contentType": zod.string().nullish(),
+  "size": zod.number().nullish(),
+  "note": zod.string().nullish()
+})
+
+export const SendCrewDocumentResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "direction": zod.string().describe('to_crew | from_crew'),
+  "name": zod.string(),
+  "storagePath": zod.string(),
+  "contentType": zod.string().nullish(),
+  "size": zod.number().nullish(),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Admin updates the crew's preferred payment method
+ */
+export const UpdateCrewPaymentMethodParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateCrewPaymentMethodBody = zod.object({
+  "preferredPaymentMethod": zod.string().nullish(),
+  "paymentDetails": zod.string().nullish()
+})
+
+export const UpdateCrewPaymentMethodResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "trade": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "isLeader": zod.boolean().nullish(),
+  "active": zod.boolean().nullish(),
+  "portalToken": zod.string().nullish(),
+  "preferredPaymentMethod": zod.string().nullish(),
+  "paymentDetails": zod.string().nullish(),
+  "w9Submitted": zod.boolean().optional(),
+  "w9SubmittedAt": zod.string().nullish(),
+  "w9": zod.union([zod.object({
+  "name": zod.string().nullish(),
+  "businessName": zod.string().nullish(),
+  "taxClassification": zod.string().nullish().describe('individual | c_corp | s_corp | partnership | trust_estate | llc | other'),
+  "llcClassification": zod.string().nullish(),
+  "otherClassification": zod.string().nullish(),
+  "exemptPayeeCode": zod.string().nullish(),
+  "fatcaCode": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "zip": zod.string().nullish(),
+  "accountNumbers": zod.string().nullish(),
+  "tinType": zod.string().nullish().describe('ssn | ein'),
+  "ssn": zod.string().nullish(),
+  "ein": zod.string().nullish(),
+  "signature": zod.string().nullish(),
+  "signedDate": zod.string().nullish(),
+  "certified": zod.boolean().nullish()
+}),zod.null()]).optional()
+})
+
+
+/**
+ * @summary Accounting — payments to crews (pending vs completed)
+ */
+export const ListCrewPaymentsResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string().nullish(),
+  "amount": zod.number(),
+  "method": zod.string().nullish(),
+  "status": zod.string().describe('pending | completed'),
+  "note": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "dueOn": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+export const ListCrewPaymentsResponse = zod.array(ListCrewPaymentsResponseItem)
+
+
+export const CreateCrewPaymentBody = zod.object({
+  "crewId": zod.string(),
+  "amount": zod.number(),
+  "method": zod.string().nullish(),
+  "status": zod.string().nullish().describe('pending | completed'),
+  "note": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "dueOn": zod.string().nullish()
+})
+
+export const CreateCrewPaymentResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string().nullish(),
+  "amount": zod.number(),
+  "method": zod.string().nullish(),
+  "status": zod.string().describe('pending | completed'),
+  "note": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "dueOn": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Edit a crew payment or mark it completed
+ */
+export const UpdateCrewPaymentParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateCrewPaymentBody = zod.object({
+  "amount": zod.number().nullish(),
+  "method": zod.string().nullish(),
+  "status": zod.string().nullish(),
+  "note": zod.string().nullish(),
+  "dueOn": zod.string().nullish(),
+  "paidAt": zod.string().nullish()
+})
+
+export const UpdateCrewPaymentResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string().nullish(),
+  "amount": zod.number(),
+  "method": zod.string().nullish(),
+  "status": zod.string().describe('pending | completed'),
+  "note": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "dueOn": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Crew portal bundle (profile + this week's schedule)
+ */
+export const GetPortalParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPortalResponse = zod.object({
+  "crew": zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "trade": zod.string().nullish(),
+  "preferredPaymentMethod": zod.string().nullish(),
+  "paymentDetails": zod.string().nullish(),
+  "w9Submitted": zod.boolean().optional()
+}),
+  "schedule": zod.array(zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "windowStart": zod.string().nullish(),
+  "status": zod.string().nullish()
+}))
+})
+
+
+export const ListPortalMessagesParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ListPortalMessagesResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "sender": zod.string().describe('crew | admin'),
+  "body": zod.string(),
+  "readAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+export const ListPortalMessagesResponse = zod.array(ListPortalMessagesResponseItem)
+
+
+export const SendPortalMessageParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+
+
+
+export const SendPortalMessageBody = zod.object({
+  "body": zod.string().min(1)
+})
+
+export const SendPortalMessageResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "sender": zod.string().describe('crew | admin'),
+  "body": zod.string(),
+  "readAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Crew posts a GPS check-in
+ */
+export const CreatePortalCheckinParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const CreatePortalCheckinBody = zod.object({
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "accuracy": zod.number().nullish(),
+  "label": zod.string().nullish(),
+  "note": zod.string().nullish()
+})
+
+export const CreatePortalCheckinResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "accuracy": zod.number().nullish(),
+  "label": zod.string().nullish(),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+export const ListPortalDocumentsParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ListPortalDocumentsResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "direction": zod.string().describe('to_crew | from_crew'),
+  "name": zod.string(),
+  "storagePath": zod.string(),
+  "contentType": zod.string().nullish(),
+  "size": zod.number().nullish(),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+export const ListPortalDocumentsResponse = zod.array(ListPortalDocumentsResponseItem)
+
+
+/**
+ * @summary Crew uploads a document back to admin
+ */
+export const UploadPortalDocumentParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+
+
+
+
+export const UploadPortalDocumentBody = zod.object({
+  "name": zod.string().min(1),
+  "storagePath": zod.string().min(1),
+  "contentType": zod.string().nullish(),
+  "size": zod.number().nullish(),
+  "note": zod.string().nullish()
+})
+
+export const UploadPortalDocumentResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "direction": zod.string().describe('to_crew | from_crew'),
+  "name": zod.string(),
+  "storagePath": zod.string(),
+  "contentType": zod.string().nullish(),
+  "size": zod.number().nullish(),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Crew's own W-9 data (for filling / editing)
+ */
+export const GetPortalW9Params = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPortalW9Response = zod.object({
+  "submitted": zod.boolean(),
+  "submittedAt": zod.string().nullish(),
+  "data": zod.union([zod.object({
+  "name": zod.string().nullish(),
+  "businessName": zod.string().nullish(),
+  "taxClassification": zod.string().nullish().describe('individual | c_corp | s_corp | partnership | trust_estate | llc | other'),
+  "llcClassification": zod.string().nullish(),
+  "otherClassification": zod.string().nullish(),
+  "exemptPayeeCode": zod.string().nullish(),
+  "fatcaCode": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "zip": zod.string().nullish(),
+  "accountNumbers": zod.string().nullish(),
+  "tinType": zod.string().nullish().describe('ssn | ein'),
+  "ssn": zod.string().nullish(),
+  "ein": zod.string().nullish(),
+  "signature": zod.string().nullish(),
+  "signedDate": zod.string().nullish(),
+  "certified": zod.boolean().nullish()
+}),zod.null()]).optional()
+})
+
+
+/**
+ * @summary Crew submits/updates their W-9
+ */
+export const SubmitPortalW9Params = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const SubmitPortalW9Body = zod.object({
+  "name": zod.string().nullish(),
+  "businessName": zod.string().nullish(),
+  "taxClassification": zod.string().nullish().describe('individual | c_corp | s_corp | partnership | trust_estate | llc | other'),
+  "llcClassification": zod.string().nullish(),
+  "otherClassification": zod.string().nullish(),
+  "exemptPayeeCode": zod.string().nullish(),
+  "fatcaCode": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "zip": zod.string().nullish(),
+  "accountNumbers": zod.string().nullish(),
+  "tinType": zod.string().nullish().describe('ssn | ein'),
+  "ssn": zod.string().nullish(),
+  "ein": zod.string().nullish(),
+  "signature": zod.string().nullish(),
+  "signedDate": zod.string().nullish(),
+  "certified": zod.boolean().nullish()
+})
+
+export const SubmitPortalW9Response = zod.object({
+  "submitted": zod.boolean(),
+  "submittedAt": zod.string().nullish(),
+  "data": zod.union([zod.object({
+  "name": zod.string().nullish(),
+  "businessName": zod.string().nullish(),
+  "taxClassification": zod.string().nullish().describe('individual | c_corp | s_corp | partnership | trust_estate | llc | other'),
+  "llcClassification": zod.string().nullish(),
+  "otherClassification": zod.string().nullish(),
+  "exemptPayeeCode": zod.string().nullish(),
+  "fatcaCode": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "zip": zod.string().nullish(),
+  "accountNumbers": zod.string().nullish(),
+  "tinType": zod.string().nullish().describe('ssn | ein'),
+  "ssn": zod.string().nullish(),
+  "ein": zod.string().nullish(),
+  "signature": zod.string().nullish(),
+  "signedDate": zod.string().nullish(),
+  "certified": zod.boolean().nullish()
+}),zod.null()]).optional()
+})
+
+
+/**
+ * @summary Crew sets their preferred payment method
+ */
+export const SetPortalPaymentMethodParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const SetPortalPaymentMethodBody = zod.object({
+  "preferredPaymentMethod": zod.string().nullish(),
+  "paymentDetails": zod.string().nullish()
+})
+
+export const SetPortalPaymentMethodResponse = zod.object({
+  "preferredPaymentMethod": zod.string().nullish(),
+  "paymentDetails": zod.string().nullish()
+})
+
+

@@ -1,6 +1,7 @@
 import { useListCrews } from "@workspace/api-client-react";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Radio, ChevronRight } from "lucide-react";
 import { useState } from "react";
+import { Link } from "wouter";
 import { AddCrewSheet } from "@/components/AddCrewSheet";
 import { EditCrewSheet } from "@/components/EditCrewSheet";
 
@@ -42,26 +43,35 @@ export default function Crews() {
       <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px]">
         {crews?.map((crew, idx) => (
           <div key={crew.id} className={`flex items-center gap-[9px] py-[8px] ${idx !== 0 ? 'border-t border-border' : 'pt-[2px]'}`}>
-            <div className="w-[30px] h-[30px] rounded-full bg-[var(--ink)] text-[var(--gold-light)] font-display font-bold text-[11.5px] grid place-items-center shrink-0">
-              {crew.name.substring(0, 1)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[13.5px] font-semibold truncate">{crew.name}</div>
-              <div className="text-[12px] text-muted-foreground truncate">
-                {crew.todayStatus === "site" && crew.todayProperty
-                  ? `${crew.todayJob ? crew.todayJob + " · " : ""}${crew.todayProperty}`
-                  : crew.trade || "General"}
+            <Link
+              href={`/crews/${crew.id}`}
+              className="flex items-center gap-[9px] flex-1 min-w-0 transition-transform active:scale-[0.99]"
+            >
+              <div className="w-[30px] h-[30px] rounded-full bg-[var(--ink)] text-[var(--gold-light)] font-display font-bold text-[11.5px] grid place-items-center shrink-0">
+                {crew.name.substring(0, 1)}
               </div>
-            </div>
-            {crew.todayStatus === "site" ? (
-              <span className="text-[11px] font-bold rounded-[20px] px-[10px] py-[4px] shrink-0 bg-[rgba(59,111,181,0.12)] text-[var(--blue)]">
-                On site
-              </span>
-            ) : (
-              <span className="text-[11px] font-bold rounded-[20px] px-[10px] py-[4px] shrink-0 bg-[rgba(23,24,28,0.055)] text-muted-foreground">
-                Idle
-              </span>
-            )}
+              <div className="flex-1 min-w-0">
+                <div className="text-[13.5px] font-semibold truncate flex items-center gap-[5px]">
+                  {crew.name}
+                  <Radio className="w-[12px] h-[12px] text-[var(--gold)] shrink-0" />
+                </div>
+                <div className="text-[12px] text-muted-foreground truncate">
+                  {crew.todayStatus === "site" && crew.todayProperty
+                    ? `${crew.todayJob ? crew.todayJob + " · " : ""}${crew.todayProperty}`
+                    : crew.trade || "General"}
+                </div>
+              </div>
+              {crew.todayStatus === "site" ? (
+                <span className="text-[11px] font-bold rounded-[20px] px-[10px] py-[4px] shrink-0 bg-[rgba(59,111,181,0.12)] text-[var(--blue)]">
+                  On site
+                </span>
+              ) : (
+                <span className="text-[11px] font-bold rounded-[20px] px-[10px] py-[4px] shrink-0 bg-[rgba(23,24,28,0.055)] text-muted-foreground">
+                  Idle
+                </span>
+              )}
+              <ChevronRight className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
+            </Link>
             <button
               onClick={() =>
                 setEditCrew({

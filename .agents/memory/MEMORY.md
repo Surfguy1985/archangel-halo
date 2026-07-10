@@ -3,3 +3,5 @@
 - [HALO CRUD deletes](halo-crud-deletes.md) — no DB FKs: delete handlers need transactions + manual guards/cascades; client errors live on ApiError.data, not err.error.
 - [HALO email notifications](halo-email-notifications.md) — daily/urgent task-list emails from computeQueues feed via Resend; in-process setInterval scheduler; advance dedup state only after sent===true.
 - [HALO query invalidation](halo-query-invalidation.md) — create/action sheets must invalidate derived views (money summary, Today blockers, property detail), not just the primary list.
+- [HALO composite lib refs](halo-composite-lib-refs.md) — shared libs used as TS project references must emit .d.ts (composite+declaration) & be built before consuming apps typecheck.
+- [HALO no-auth posture](halo-no-auth-posture.md) — whole app is intentionally unauthenticated (single org, token portals); storage object routes are open by design, not a bug to "fix" with auth.
