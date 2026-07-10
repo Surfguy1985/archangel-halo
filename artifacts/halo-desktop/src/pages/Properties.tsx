@@ -3,9 +3,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Building, Plus, Search } from "lucide-react";
 import { useState } from "react";
+import { AddPropertyDialog } from "@/components/PropertyDialogs";
 
 export default function Properties() {
   const [search, setSearch] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
   const { data: properties, isLoading } = useListProperties();
 
   const filtered = properties?.filter(p => 
@@ -20,10 +22,15 @@ export default function Properties() {
           <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">Properties</h1>
           <p className="text-muted-foreground">{properties?.length || 0} active locations</p>
         </div>
-        <button className="flex items-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm">
+        <button
+          onClick={() => setAddOpen(true)}
+          className="flex items-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm"
+        >
           <Plus className="w-4 h-4" /> New Property
         </button>
       </header>
+
+      <AddPropertyDialog open={addOpen} onOpenChange={setAddOpen} />
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />

@@ -1,11 +1,20 @@
 import { useGetProperty, getGetPropertyQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Pencil, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useState } from "react";
+import {
+  EditPropertyDialog,
+  AddPriceItemDialog,
+  AddContactDialog,
+} from "@/components/PropertyDialogs";
 
 export default function PropertyDetail() {
   const params = useParams();
   const id = params.id as string;
+  const [editOpen, setEditOpen] = useState(false);
+  const [priceOpen, setPriceOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -27,7 +36,17 @@ export default function PropertyDetail() {
           <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">{property.name}</h1>
           <p className="text-muted-foreground">{property.pmcName || property.city || "No location data"} {property.units ? `· ${property.units} units` : ''}</p>
         </div>
+        <button
+          onClick={() => setEditOpen(true)}
+          className="flex items-center gap-2 bg-card text-[var(--ink)] px-4 py-2 rounded-md font-medium border border-border shadow-sm hover:bg-black/[0.03] transition-colors"
+        >
+          <Pencil className="w-4 h-4" /> Edit
+        </button>
       </header>
+
+      <EditPropertyDialog open={editOpen} onOpenChange={setEditOpen} property={property} />
+      <AddPriceItemDialog open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
+      <AddContactDialog open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-card rounded-xl shadow-sm border border-border p-6">
@@ -63,7 +82,15 @@ export default function PropertyDetail() {
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-bold mb-4 text-[var(--ink)]">Contacts</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-display font-bold text-[var(--ink)]">Contacts</h2>
+              <button
+                onClick={() => setContactOpen(true)}
+                className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Add
+              </button>
+            </div>
             <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
               {contacts.map(contact => (
                 <div key={contact.id} className="flex items-center justify-between p-4">
@@ -91,7 +118,15 @@ export default function PropertyDetail() {
           )}
 
           <section>
-            <h2 className="text-xl font-display font-bold mb-4 text-[var(--ink)]">Price List</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-display font-bold text-[var(--ink)]">Price List</h2>
+              <button
+                onClick={() => setPriceOpen(true)}
+                className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Add
+              </button>
+            </div>
             <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
               {priceItems.map(item => (
                 <div key={item.id} className="flex items-center justify-between p-4">
