@@ -19,6 +19,8 @@ import {
   UpdateJobBody,
   UpdateJobParams,
   UpdateJobResponse,
+  DeleteJobParams,
+  DeleteJobResponse,
   ScheduleJobBody,
   ScheduleJobParams,
   ScheduleJobResponse,
@@ -27,6 +29,11 @@ import {
   ListCrewsResponse,
   CreateCrewBody,
   CreateCrewResponse,
+  UpdateCrewBody,
+  UpdateCrewParams,
+  UpdateCrewResponse,
+  DeleteCrewParams,
+  DeleteCrewResponse,
 } from "@workspace/api-zod";
 import { ser, serList } from "../lib/serialize";
 
@@ -135,6 +142,27 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
   res.json(UpdateJobResponse.parse(decorateJob(row, propName, crewName)));
 });
 
+router.delete("/jobs/:id", async (req, res): Promise<void> => {
+  const { id } = DeleteJobParams.parse(req.params);
+  const result = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ id: jobsTable.id })
+      .from(jobsTable)
+      .where(eq(jobsTable.id, id));
+    if (!existing) {
+      return { status: 404 as const, error: "Job not found" };
+    }
+    await tx.delete(schedulesTable).where(eq(schedulesTable.jobId, id));
+    await tx.delete(jobsTable).where(eq(jobsTable.id, id));
+    return { status: 200 as const };
+  });
+  if (result.status !== 200) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  res.json(DeleteJobResponse.parse({ ok: true }));
+});
+
 router.post("/jobs/:id/schedule", async (req, res): Promise<void> => {
   const { id } = ScheduleJobParams.parse(req.params);
   const body = ScheduleJobBody.parse(req.body);
@@ -214,6 +242,51 @@ router.post("/crews", async (req, res): Promise<void> => {
   const body = CreateCrewBody.parse(req.body);
   const [row] = await db.insert(crewsTable).values(body).returning();
   res.status(201).json(CreateCrewResponse.parse(ser(row)));
+});
+
+router.patch("/crews/:id", async (req, res): Promise<void> => {
+  const { id } = UpdateCrewParams.parse(req.params);
+  const body = UpdateCrewBody.parse(req.body);
+  const [row] = await db
+    .update(crewsTable)
+    .set(body)
+    .where(eq(crewsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Crew member not found" });
+    return;
+  }
+  res.json(UpdateCrewResponse.parse(ser(row)));
+});
+
+router.delete("/crews/:id", async (req, res): Promise<void> => {
+  const { id } = DeleteCrewParams.parse(req.params);
+  const result = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ id: crewsTable.id })
+      .from(crewsTable)
+      .where(eq(crewsTable.id, id));
+    if (!existing) {
+      return { status: 404 as const, error: "Crew member not found" };
+    }
+    const assignedJobs = await tx
+      .select({ id: jobsTable.id })
+      .from(jobsTable)
+      .where(eq(jobsTable.crewLeaderId, id));
+    if (assignedJobs.length > 0) {
+      return {
+        status: 409 as const,
+        error: `This crew member is leading ${assignedJobs.length} job${assignedJobs.length === 1 ? "" : "s"}. Reassign those first.`,
+      };
+    }
+    await tx.delete(crewsTable).where(eq(crewsTable.id, id));
+    return { status: 200 as const };
+  });
+  if (result.status !== 200) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  res.json(DeleteCrewResponse.parse({ ok: true }));
 });
 
 export default router;

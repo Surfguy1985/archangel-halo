@@ -435,6 +435,19 @@ export interface CrewInput {
   isLeader?: boolean;
 }
 
+export interface CrewUpdate {
+  /** @minLength 1 */
+  name?: string;
+  trade?: string;
+  phone?: string;
+  isLeader?: boolean;
+  active?: boolean;
+}
+
+export interface OkResponse {
+  ok: boolean;
+}
+
 export interface AgingBucket {
   label: string;
   value: number;

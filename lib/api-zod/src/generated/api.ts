@@ -269,6 +269,18 @@ export const UpdatePropertyResponse = zod.object({
 
 
 /**
+ * @summary Delete a property (blocked if it still has jobs)
+ */
+export const DeletePropertyParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeletePropertyResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
  * @summary AI-write the property brief from live data
  */
 export const WritePropertyBriefParams = zod.object({
@@ -641,6 +653,18 @@ export const UpdateJobResponse = zod.object({
 
 
 /**
+ * @summary Delete a job and its schedules
+ */
+export const DeleteJobParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteJobResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
  * @summary Mark a job complete (sets warranty, opens ready-to-invoice)
  */
 export const CompleteJobParams = zod.object({
@@ -745,6 +769,43 @@ export const CreateCrewResponse = zod.object({
   "phone": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
   "active": zod.boolean().nullish()
+})
+
+
+export const UpdateCrewParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const UpdateCrewBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "trade": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "isLeader": zod.boolean().optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateCrewResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "trade": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "isLeader": zod.boolean().nullish(),
+  "active": zod.boolean().nullish()
+})
+
+
+/**
+ * @summary Delete a crew member (blocked if assigned to jobs)
+ */
+export const DeleteCrewParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteCrewResponse = zod.object({
+  "ok": zod.boolean()
 })
 
 

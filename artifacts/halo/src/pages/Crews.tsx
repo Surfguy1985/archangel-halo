@@ -1,10 +1,20 @@
 import { useListCrews } from "@workspace/api-client-react";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { useState } from "react";
 import { AddCrewSheet } from "@/components/AddCrewSheet";
+import { EditCrewSheet } from "@/components/EditCrewSheet";
+
+type CrewRow = {
+  id: string;
+  name: string;
+  trade?: string | null;
+  phone?: string | null;
+  isLeader?: boolean | null;
+};
 
 export default function Crews() {
   const [addOpen, setAddOpen] = useState(false);
+  const [editCrew, setEditCrew] = useState<CrewRow | null>(null);
   const { data: crews, isLoading } = useListCrews();
 
   if (isLoading) {
@@ -52,6 +62,21 @@ export default function Crews() {
                 Idle
               </span>
             )}
+            <button
+              onClick={() =>
+                setEditCrew({
+                  id: crew.id,
+                  name: crew.name,
+                  trade: crew.trade,
+                  phone: crew.phone,
+                  isLeader: crew.isLeader,
+                })
+              }
+              aria-label={`Edit ${crew.name}`}
+              className="w-[30px] h-[30px] shrink-0 rounded-full grid place-items-center text-muted-foreground transition-transform active:scale-[0.9]"
+            >
+              <Pencil className="w-[14px] h-[14px]" />
+            </button>
           </div>
         ))}
         {crews?.length === 0 && (
@@ -60,6 +85,13 @@ export default function Crews() {
       </div>
 
       <AddCrewSheet open={addOpen} onOpenChange={setAddOpen} />
+      {editCrew && (
+        <EditCrewSheet
+          open={!!editCrew}
+          onOpenChange={(o) => !o && setEditCrew(null)}
+          crew={editCrew}
+        />
+      )}
     </div>
   );
 }

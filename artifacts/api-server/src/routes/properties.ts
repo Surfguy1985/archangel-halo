@@ -21,6 +21,8 @@ import {
   UpdatePropertyBody,
   UpdatePropertyParams,
   UpdatePropertyResponse,
+  DeletePropertyParams,
+  DeletePropertyResponse,
   CreateContactBody,
   CreateContactResponse,
   CreatePriceItemBody,
@@ -178,6 +180,59 @@ router.patch("/properties/:id", async (req, res): Promise<void> => {
     return;
   }
   res.json(UpdatePropertyResponse.parse(ser(row)));
+});
+
+router.delete("/properties/:id", async (req, res): Promise<void> => {
+  const { id } = DeletePropertyParams.parse(req.params);
+  const result = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ id: propertiesTable.id })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, id));
+    if (!existing) {
+      return { status: 404 as const, error: "Property not found" };
+    }
+    const relatedJobs = await tx
+      .select({ id: jobsTable.id })
+      .from(jobsTable)
+      .where(eq(jobsTable.propertyId, id));
+    if (relatedJobs.length > 0) {
+      return {
+        status: 409 as const,
+        error: `This property still has ${relatedJobs.length} job${relatedJobs.length === 1 ? "" : "s"}. Delete or move those first.`,
+      };
+    }
+    const relatedInvoices = await tx
+      .select({ id: invoicesTable.id })
+      .from(invoicesTable)
+      .where(eq(invoicesTable.propertyId, id));
+    if (relatedInvoices.length > 0) {
+      return {
+        status: 409 as const,
+        error: `This property still has ${relatedInvoices.length} invoice${relatedInvoices.length === 1 ? "" : "s"}. Remove those first to keep your money records intact.`,
+      };
+    }
+    const relatedExpenses = await tx
+      .select({ id: expensesTable.id })
+      .from(expensesTable)
+      .where(eq(expensesTable.propertyId, id));
+    if (relatedExpenses.length > 0) {
+      return {
+        status: 409 as const,
+        error: `This property still has ${relatedExpenses.length} expense${relatedExpenses.length === 1 ? "" : "s"}. Remove those first to keep your money records intact.`,
+      };
+    }
+    await tx.delete(agreementsTable).where(eq(agreementsTable.propertyId, id));
+    await tx.delete(contactsTable).where(eq(contactsTable.propertyId, id));
+    await tx.delete(priceItemsTable).where(eq(priceItemsTable.propertyId, id));
+    await tx.delete(propertiesTable).where(eq(propertiesTable.id, id));
+    return { status: 200 as const };
+  });
+  if (result.status !== 200) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  res.json(DeletePropertyResponse.parse({ ok: true }));
 });
 
 router.post("/contacts", async (req, res): Promise<void> => {

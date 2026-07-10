@@ -1,10 +1,13 @@
 import { useGetJob, getGetJobQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Pencil } from "lucide-react";
+import { useState } from "react";
+import { EditJobSheet } from "@/components/EditJobSheet";
 
 export default function JobDetail() {
   const params = useParams();
   const id = params.id as string;
+  const [editOpen, setEditOpen] = useState(false);
   const { data, isLoading } = useGetJob(id, { query: { enabled: !!id, queryKey: getGetJobQueryKey(id) } });
 
   if (isLoading) {
@@ -26,9 +29,20 @@ export default function JobDetail() {
         <ChevronLeft className="w-[16px] h-[16px]" /> Back
       </Link>
       
-      <div className="font-display font-bold text-[26px] tracking-[-0.015em] leading-[1.1]">{job.category || 'General'}</div>
-      <div className="text-[13px] text-muted-foreground mt-[3px] mb-[14px]">
-        {job.propertyName} {job.unitNo ? `· Unit ${job.unitNo}` : ''}
+      <div className="flex items-start gap-[10px]">
+        <div className="flex-1 min-w-0">
+          <div className="font-display font-bold text-[26px] tracking-[-0.015em] leading-[1.1]">{job.category || 'General'}</div>
+          <div className="text-[13px] text-muted-foreground mt-[3px] mb-[14px]">
+            {job.propertyName} {job.unitNo ? `· Unit ${job.unitNo}` : ''}
+          </div>
+        </div>
+        <button
+          onClick={() => setEditOpen(true)}
+          aria-label="Edit job"
+          className="w-[36px] h-[36px] shrink-0 rounded-full grid place-items-center bg-card border border-border shadow-[var(--shadow)] text-muted-foreground transition-transform active:scale-[0.9]"
+        >
+          <Pencil className="w-[16px] h-[16px]" />
+        </button>
       </div>
 
       <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px_15px] mb-[18px]">
@@ -84,6 +98,8 @@ export default function JobDetail() {
           </div>
         </div>
       )}
+
+      <EditJobSheet open={editOpen} onOpenChange={setEditOpen} job={job} />
     </div>
   );
 }

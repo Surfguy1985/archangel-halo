@@ -186,6 +186,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Property"
+    delete:
+      operationId: deleteProperty
+      tags: [properties]
+      summary: Delete a property (blocked if it still has jobs)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Has dependent records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /properties/{id}/brief:
     post:
       operationId: writePropertyBrief
@@ -439,6 +468,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Job"
+    delete:
+      operationId: deleteJob
+      tags: [jobs]
+      summary: Delete a job and its schedules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /jobs/{id}/complete:
     post:
       operationId: completeJob
@@ -512,6 +564,64 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Crew"
+  /crews/{id}:
+    patch:
+      operationId: updateCrew
+      tags: [jobs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Crew"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteCrew
+      tags: [jobs]
+      summary: Delete a crew member (blocked if assigned to jobs)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Has dependent records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /money/summary:
     get:
@@ -1342,6 +1452,19 @@ components:
         trade: { type: string }
         phone: { type: string }
         isLeader: { type: boolean }
+    CrewUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        trade: { type: string }
+        phone: { type: string }
+        isLeader: { type: boolean }
+        active: { type: boolean }
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
 
     MoneySummary:
       type: object

@@ -33,6 +33,7 @@ import type {
   Crew,
   CrewInput,
   CrewToday,
+  CrewUpdate,
   Error,
   Expense,
   ExpenseInput,
@@ -61,6 +62,7 @@ import type {
   ListPurchaseOrdersParams,
   MoneySummary,
   Notification,
+  OkResponse,
   Payment,
   PaymentInput,
   PriceItem,
@@ -780,6 +782,77 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getUpdatePropertyMutationOptions(options));
+    }
+
+export const getDeletePropertyUrl = (id: string,) => {
+
+
+
+
+  return `/api/properties/${id}`
+}
+
+/**
+ * @summary Delete a property (blocked if it still has jobs)
+ */
+export const deleteProperty = async (id: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getDeletePropertyUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeletePropertyMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProperty>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteProperty>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteProperty'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteProperty>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteProperty(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePropertyMutationResult = NonNullable<Awaited<ReturnType<typeof deleteProperty>>>
+
+    export type DeletePropertyMutationError = ErrorType<Error>
+
+    /**
+ * @summary Delete a property (blocked if it still has jobs)
+ */
+export const useDeleteProperty = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProperty>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteProperty>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeletePropertyMutationOptions(options));
     }
 
 export const getWritePropertyBriefUrl = (id: string,) => {
@@ -1680,6 +1753,77 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getUpdateJobMutationOptions(options));
     }
 
+export const getDeleteJobUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}`
+}
+
+/**
+ * @summary Delete a job and its schedules
+ */
+export const deleteJob = async (id: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getDeleteJobUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteJobMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteJob>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteJob>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteJob(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteJobMutationResult = NonNullable<Awaited<ReturnType<typeof deleteJob>>>
+
+    export type DeleteJobMutationError = ErrorType<Error>
+
+    /**
+ * @summary Delete a job and its schedules
+ */
+export const useDeleteJob = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteJob>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteJobMutationOptions(options));
+    }
+
 export const getCompleteJobUrl = (id: string,) => {
 
 
@@ -1963,6 +2107,143 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getCreateCrewMutationOptions(options));
+    }
+
+export const getUpdateCrewUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}`
+}
+
+export const updateCrew = async (id: string,
+    crewUpdate: CrewUpdate, options?: RequestInit): Promise<Crew> => {
+
+  return customFetch<Crew>(getUpdateCrewUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCrewMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCrew>>, TError,{id: string;data: BodyType<CrewUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCrew>>, TError,{id: string;data: BodyType<CrewUpdate>}, TContext> => {
+
+const mutationKey = ['updateCrew'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCrew>>, {id: string;data: BodyType<CrewUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCrew(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCrewMutationResult = NonNullable<Awaited<ReturnType<typeof updateCrew>>>
+    export type UpdateCrewMutationBody = BodyType<CrewUpdate>
+    export type UpdateCrewMutationError = ErrorType<Error>
+
+    export const useUpdateCrew = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCrew>>, TError,{id: string;data: BodyType<CrewUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCrew>>,
+        TError,
+        {id: string;data: BodyType<CrewUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCrewMutationOptions(options));
+    }
+
+export const getDeleteCrewUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}`
+}
+
+/**
+ * @summary Delete a crew member (blocked if assigned to jobs)
+ */
+export const deleteCrew = async (id: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getDeleteCrewUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteCrewMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCrew>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCrew>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteCrew'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCrew>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteCrew(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCrewMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCrew>>>
+
+    export type DeleteCrewMutationError = ErrorType<Error>
+
+    /**
+ * @summary Delete a crew member (blocked if assigned to jobs)
+ */
+export const useDeleteCrew = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCrew>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCrew>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteCrewMutationOptions(options));
     }
 
 export const getGetMoneySummaryUrl = () => {

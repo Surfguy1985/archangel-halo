@@ -1,10 +1,13 @@
 import { useGetProperty, getGetPropertyQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Pencil } from "lucide-react";
+import { useState } from "react";
+import { EditPropertySheet } from "@/components/EditPropertySheet";
 
 export default function PropertyDetail() {
   const params = useParams();
   const id = params.id as string;
+  const [editOpen, setEditOpen] = useState(false);
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -26,9 +29,20 @@ export default function PropertyDetail() {
         <ChevronLeft className="w-[16px] h-[16px]" /> Back
       </Link>
       
-      <div className="font-display font-bold text-[26px] tracking-[-0.015em] leading-[1.1]">{property.name}</div>
-      <div className="text-[13px] text-muted-foreground mt-[3px] mb-[14px]">
-        {property.pmcName || property.city || "No location data"} {property.units ? `· ${property.units} units` : ''}
+      <div className="flex items-start gap-[10px]">
+        <div className="flex-1 min-w-0">
+          <div className="font-display font-bold text-[26px] tracking-[-0.015em] leading-[1.1]">{property.name}</div>
+          <div className="text-[13px] text-muted-foreground mt-[3px] mb-[14px]">
+            {property.pmcName || property.city || "No location data"} {property.units ? `· ${property.units} units` : ''}
+          </div>
+        </div>
+        <button
+          onClick={() => setEditOpen(true)}
+          aria-label="Edit property"
+          className="w-[36px] h-[36px] shrink-0 rounded-full grid place-items-center bg-card border border-border shadow-[var(--shadow)] text-muted-foreground transition-transform active:scale-[0.9]"
+        >
+          <Pencil className="w-[16px] h-[16px]" />
+        </button>
       </div>
 
       <div className="flex gap-[9px] mb-[16px]">
@@ -111,6 +125,8 @@ export default function PropertyDetail() {
           </div>
         </div>
       )}
+
+      <EditPropertySheet open={editOpen} onOpenChange={setEditOpen} property={property} />
     </div>
   );
 }
