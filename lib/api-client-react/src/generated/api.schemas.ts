@@ -567,6 +567,18 @@ export interface Invoice {
   /** draft | sent | past_due | paid */
   status: string;
   /** @nullable */
+  poNumber?: string | null;
+  /** @nullable */
+  terms?: string | null;
+  /** @nullable */
+  billToName?: string | null;
+  /** @nullable */
+  propertyAddress?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  issuedOn?: string | null;
+  /** @nullable */
   sentAt?: string | null;
   /** @nullable */
   dueAt?: string | null;
@@ -576,11 +588,80 @@ export interface Invoice {
   daysLate?: number | null;
 }
 
+export interface InvoiceLineItem {
+  id: string;
+  /** @nullable */
+  invoiceId?: string | null;
+  /** @nullable */
+  dateOfWork?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  typeOfWork: string;
+  /** @nullable */
+  description?: string | null;
+  qty: number;
+  unitPrice: number;
+  amount: number;
+  /** @nullable */
+  sortOrder?: number | null;
+}
+
+export interface InvoiceLineItemInput {
+  dateOfWork?: string;
+  unitNo?: string;
+  typeOfWork: string;
+  description?: string;
+  qty?: number;
+  unitPrice?: number;
+}
+
+export interface InvoiceDetail {
+  id: string;
+  invoiceNo: string;
+  /** @nullable */
+  jobId?: string | null;
+  propertyId?: string;
+  /** @nullable */
+  propertyName?: string | null;
+  amount: number;
+  /** draft | sent | past_due | paid */
+  status: string;
+  /** @nullable */
+  poNumber?: string | null;
+  /** @nullable */
+  terms?: string | null;
+  /** @nullable */
+  billToName?: string | null;
+  /** @nullable */
+  propertyAddress?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  issuedOn?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  dueAt?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  daysLate?: number | null;
+  lineItems: InvoiceLineItem[];
+}
+
 export interface InvoiceInput {
   propertyId: string;
   jobId?: string;
-  amount: number;
+  amount?: number;
   dueInDays?: number;
+  dueOn?: string;
+  issuedOn?: string;
+  poNumber?: string;
+  terms?: string;
+  billToName?: string;
+  propertyAddress?: string;
+  notes?: string;
+  lineItems?: InvoiceLineItemInput[];
 }
 
 export interface Payment {

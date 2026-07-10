@@ -8,6 +8,7 @@ import Properties from "./pages/Properties";
 import PropertyDetail from "./pages/PropertyDetail";
 import JobDetail from "./pages/JobDetail";
 import Money from "./pages/Money";
+import InvoiceDetail from "./pages/InvoiceDetail";
 import Calendar from "./pages/Calendar";
 import Crews from "./pages/Crews";
 import CrewDetail from "./pages/CrewDetail";
@@ -29,6 +30,7 @@ function AdminRouter() {
         <Route path="/properties/:id" component={PropertyDetail} />
         <Route path="/jobs/:id" component={JobDetail} />
         <Route path="/money" component={Money} />
+        <Route path="/invoices/:id" component={InvoiceDetail} />
         <Route path="/calendar" component={Calendar} />
         <Route path="/crews" component={Crews} />
         <Route path="/crews/:id" component={CrewDetail} />

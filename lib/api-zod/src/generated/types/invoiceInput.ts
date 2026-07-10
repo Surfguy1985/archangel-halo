@@ -5,10 +5,19 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { InvoiceLineItemInput } from './invoiceLineItemInput';
 
 export interface InvoiceInput {
   propertyId: string;
   jobId?: string;
-  amount: number;
+  amount?: number;
   dueInDays?: number;
+  dueOn?: string;
+  issuedOn?: string;
+  poNumber?: string;
+  terms?: string;
+  billToName?: string;
+  propertyAddress?: string;
+  notes?: string;
+  lineItems?: InvoiceLineItemInput[];
 }

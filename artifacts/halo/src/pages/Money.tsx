@@ -13,8 +13,9 @@ import {
   type Invoice,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Check, History, Download } from "lucide-react";
-import { AddInvoiceSheet } from "@/components/AddInvoiceSheet";
+import { useLocation } from "wouter";
+import { Plus, Check, History, Download, ChevronRight } from "lucide-react";
+import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
 import { RecordPaymentSheet } from "@/components/RecordPaymentSheet";
 import { AddCrewPaymentSheet } from "@/components/AddCrewPaymentSheet";
@@ -188,6 +189,7 @@ function Overview() {
 
 function Invoices() {
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const { data: invoices, isLoading } = useListInvoices();
   const [addOpen, setAddOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -268,7 +270,11 @@ function Invoices() {
       ) : (
         <div className="flex flex-col gap-[10px]">
           {invoices.map((inv) => (
-            <div key={inv.id} className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px]">
+            <div
+              key={inv.id}
+              onClick={() => navigate(`/invoices/${inv.id}`)}
+              className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px] cursor-pointer transition-transform active:scale-[0.99]"
+            >
               <div className="flex items-start gap-[10px]">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-[8px]">
@@ -283,13 +289,17 @@ function Invoices() {
                   </div>
                   <div className="font-semibold text-[14.5px] truncate mt-[3px]">{inv.propertyName || "—"}</div>
                 </div>
-                <div className="font-display font-bold text-[19px] tabular-nums shrink-0">${inv.amount.toLocaleString()}</div>
+                <div className="flex items-center gap-[6px] shrink-0">
+                  <span className="font-display font-bold text-[19px] tabular-nums">${inv.amount.toLocaleString()}</span>
+                  <ChevronRight className="w-[16px] h-[16px] text-muted-foreground" />
+                </div>
               </div>
               <div className="flex gap-[8px] mt-[12px]">
                 {inv.status === "draft" && (
                   <button
                     className="flex-1 rounded-[11px] py-[9px] text-[13px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] disabled:opacity-50 transition-transform active:scale-[0.98]"
-                    onClick={() =>
+                    onClick={(e) => {
+                      e.stopPropagation();
                       send.mutate(
                         { id: inv.id },
                         {
@@ -307,8 +317,8 @@ function Invoices() {
                               variant: "destructive",
                             }),
                         },
-                      )
-                    }
+                      );
+                    }}
                     disabled={send.isPending}
                   >
                     Send
@@ -317,7 +327,8 @@ function Invoices() {
                 {inv.status === "past_due" && (
                   <button
                     className="flex-1 rounded-[11px] py-[9px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] disabled:opacity-50 transition-transform active:scale-[0.98]"
-                    onClick={() =>
+                    onClick={(e) => {
+                      e.stopPropagation();
                       remind.mutate(
                         { id: inv.id },
                         {
@@ -335,8 +346,8 @@ function Invoices() {
                               variant: "destructive",
                             }),
                         },
-                      )
-                    }
+                      );
+                    }}
                     disabled={remind.isPending}
                   >
                     Send reminder
@@ -345,7 +356,10 @@ function Invoices() {
                 {inv.status !== "paid" && inv.status !== "draft" && (
                   <button
                     className="flex-1 rounded-[11px] py-[9px] text-[13px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] transition-transform active:scale-[0.98]"
-                    onClick={() => setPayInvoice(inv)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPayInvoice(inv);
+                    }}
                   >
                     Record payment
                   </button>
@@ -355,7 +369,7 @@ function Invoices() {
           ))}
         </div>
       )}
-      <AddInvoiceSheet open={addOpen} onOpenChange={setAddOpen} />
+      <InvoiceEditor open={addOpen} onOpenChange={setAddOpen} />
       <RecordPaymentSheet open={!!payInvoice} onOpenChange={(o) => !o && setPayInvoice(null)} invoice={payInvoice} />
       <HistorySheet
         open={historyOpen}

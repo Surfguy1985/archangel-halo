@@ -806,6 +806,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+  /invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [money]
+      summary: Get a single invoice with its line items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invoice detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+    patch:
+      operationId: updateInvoice
+      tags: [money]
+      summary: Update an invoice and replace its line items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+    delete:
+      operationId: deleteInvoice
+      tags: [money]
+      summary: Delete an invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
   /invoices/{id}/send:
     post:
       operationId: sendInvoice
@@ -2425,18 +2479,82 @@ components:
         propertyName: { type: ["string", "null"] }
         amount: { type: number }
         status: { type: string, description: "draft | sent | past_due | paid" }
+        poNumber: { type: ["string", "null"] }
+        terms: { type: ["string", "null"] }
+        billToName: { type: ["string", "null"] }
+        propertyAddress: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        issuedOn: { type: ["string", "null"] }
         sentAt: { type: ["string", "null"] }
         dueAt: { type: ["string", "null"] }
         paidAt: { type: ["string", "null"] }
         daysLate: { type: ["integer", "null"] }
+    InvoiceLineItem:
+      type: object
+      required: [id, typeOfWork, qty, unitPrice, amount]
+      properties:
+        id: { type: string }
+        invoiceId: { type: ["string", "null"] }
+        dateOfWork: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        typeOfWork: { type: string }
+        description: { type: ["string", "null"] }
+        qty: { type: number }
+        unitPrice: { type: number }
+        amount: { type: number }
+        sortOrder: { type: ["integer", "null"] }
+    InvoiceLineItemInput:
+      type: object
+      required: [typeOfWork]
+      properties:
+        dateOfWork: { type: string }
+        unitNo: { type: string }
+        typeOfWork: { type: string }
+        description: { type: string }
+        qty: { type: number }
+        unitPrice: { type: number }
+    InvoiceDetail:
+      type: object
+      required: [id, invoiceNo, amount, status, lineItems]
+      properties:
+        id: { type: string }
+        invoiceNo: { type: string }
+        jobId: { type: ["string", "null"] }
+        propertyId: { type: string }
+        propertyName: { type: ["string", "null"] }
+        amount: { type: number }
+        status: { type: string, description: "draft | sent | past_due | paid" }
+        poNumber: { type: ["string", "null"] }
+        terms: { type: ["string", "null"] }
+        billToName: { type: ["string", "null"] }
+        propertyAddress: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        issuedOn: { type: ["string", "null"] }
+        sentAt: { type: ["string", "null"] }
+        dueAt: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"] }
+        daysLate: { type: ["integer", "null"] }
+        lineItems:
+          type: array
+          items: { $ref: "#/components/schemas/InvoiceLineItem" }
     InvoiceInput:
       type: object
-      required: [propertyId, amount]
+      required: [propertyId]
       properties:
         propertyId: { type: string }
         jobId: { type: string }
         amount: { type: number }
         dueInDays: { type: integer }
+        dueOn: { type: string }
+        issuedOn: { type: string }
+        poNumber: { type: string }
+        terms: { type: string }
+        billToName: { type: string }
+        propertyAddress: { type: string }
+        notes: { type: string }
+        lineItems:
+          type: array
+          items: { $ref: "#/components/schemas/InvoiceLineItemInput" }
 
     Payment:
       type: object

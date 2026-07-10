@@ -3,10 +3,17 @@ import { logger } from "./logger";
 
 const FROM = "HALO <onboarding@resend.dev>";
 
+export interface EmailAttachment {
+  filename: string;
+  /** Base64-encoded file contents. */
+  content: string;
+}
+
 export async function sendEmail(opts: {
   to: string;
   subject: string;
   html: string;
+  attachments?: EmailAttachment[];
 }): Promise<boolean> {
   try {
     const connectors = new ReplitConnectors();
@@ -18,6 +25,9 @@ export async function sendEmail(opts: {
         to: [opts.to],
         subject: opts.subject,
         html: opts.html,
+        ...(opts.attachments && opts.attachments.length
+          ? { attachments: opts.attachments }
+          : {}),
       }),
     });
     return true;

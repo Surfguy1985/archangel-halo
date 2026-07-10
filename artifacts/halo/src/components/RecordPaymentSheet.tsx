@@ -5,6 +5,7 @@ import {
   useRecordPayment,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
+  getGetInvoiceQueryKey,
   type Invoice,
 } from "@workspace/api-client-react";
 
@@ -38,6 +39,7 @@ export function RecordPaymentSheet({
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoice.id) });
           onOpenChange(false);
         },
       },

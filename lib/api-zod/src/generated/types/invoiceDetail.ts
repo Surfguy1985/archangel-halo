@@ -5,8 +5,9 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { InvoiceLineItem } from './invoiceLineItem';
 
-export interface Invoice {
+export interface InvoiceDetail {
   id: string;
   invoiceNo: string;
   /** @nullable */
@@ -37,4 +38,5 @@ export interface Invoice {
   paidAt?: string | null;
   /** @nullable */
   daysLate?: number | null;
+  lineItems: InvoiceLineItem[];
 }
