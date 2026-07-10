@@ -1090,6 +1090,7 @@ export const GetInvoiceResponse = zod.object({
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "daysLate": zod.number().nullish(),
+  "recipientEmail": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "invoiceId": zod.string().nullish(),
@@ -1152,6 +1153,7 @@ export const UpdateInvoiceResponse = zod.object({
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "daysLate": zod.number().nullish(),
+  "recipientEmail": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "invoiceId": zod.string().nullish(),
@@ -1182,6 +1184,10 @@ export const DeleteInvoiceResponse = zod.void()
  */
 export const SendInvoiceParams = zod.object({
   "id": zod.coerce.string()
+})
+
+export const SendInvoiceBody = zod.object({
+  "recipientEmail": zod.string().optional()
 })
 
 export const SendInvoiceResponse = zod.object({

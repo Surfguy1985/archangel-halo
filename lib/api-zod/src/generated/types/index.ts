@@ -108,6 +108,7 @@ export * from './savePacketInputFormsData';
 export * from './savePacketInputSignatures';
 export * from './schedule';
 export * from './scheduleInput';
+export * from './sendInvoiceInput';
 export * from './sendPacketInput';
 export * from './todayPayload';
 export * from './uploadUrlRequest';

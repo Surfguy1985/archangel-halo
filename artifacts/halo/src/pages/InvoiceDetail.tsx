@@ -32,6 +32,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -76,6 +86,8 @@ export default function InvoiceDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [recipient, setRecipient] = useState("");
   const send = useSendInvoice();
   const remind = useRemindInvoice();
   const del = useDeleteInvoice();
@@ -109,15 +121,22 @@ export default function InvoiceDetail() {
     { label: "Paid", date: inv.paidAt, done: !!inv.paidAt },
   ];
 
-  const onSend = () =>
+  const openSend = () => {
+    setRecipient(inv.recipientEmail ?? "");
+    setSendOpen(true);
+  };
+
+  const onSend = () => {
+    const to = recipient.trim();
     send.mutate(
-      { id },
+      { id, data: { recipientEmail: to || undefined } },
       {
         onSuccess: () => {
+          setSendOpen(false);
           invalidate();
           toast({
             title: "Invoice sent",
-            description: `${inv.invoiceNo} emailed with PDF attached.`,
+            description: `${inv.invoiceNo} emailed to ${to} with PDF attached.`,
           });
         },
         onError: (e) =>
@@ -128,6 +147,7 @@ export default function InvoiceDetail() {
           }),
       },
     );
+  };
 
   const onRemind = () =>
     remind.mutate(
@@ -354,7 +374,7 @@ export default function InvoiceDetail() {
       <div className="mt-[14px] flex flex-col gap-[8px]">
         {status === "draft" && (
           <button
-            onClick={onSend}
+            onClick={openSend}
             disabled={send.isPending}
             className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14.5px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)] disabled:opacity-50 active:scale-[0.98]"
           >
@@ -403,6 +423,57 @@ export default function InvoiceDetail() {
           </button>
         </div>
       </div>
+
+      <Dialog open={sendOpen} onOpenChange={setSendOpen}>
+        <DialogContent className="rounded-[18px]">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              Send {inv.invoiceNo}
+            </DialogTitle>
+            <DialogDescription>
+              The invoice PDF will be emailed to this address. Edit it if you
+              need to send it somewhere else.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-[6px]">
+            <Label
+              htmlFor="recipient"
+              className="text-[11.5px] uppercase tracking-wide text-muted-foreground"
+            >
+              Send to
+            </Label>
+            <Input
+              id="recipient"
+              type="email"
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              placeholder="client@email.com"
+              autoComplete="email"
+            />
+            {!inv.recipientEmail && (
+              <p className="text-[12px] text-muted-foreground">
+                No contact email is saved for this property — enter one to send.
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-[8px]">
+            <button
+              onClick={() => setSendOpen(false)}
+              className="flex-1 rounded-[12px] py-[10px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] active:scale-[0.98]"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onSend}
+              disabled={send.isPending || !recipient.trim()}
+              className="flex-1 flex items-center justify-center gap-[6px] rounded-[12px] py-[10px] text-[13px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)] disabled:opacity-50 active:scale-[0.98]"
+            >
+              <Send className="w-[15px] h-[15px]" />
+              {send.isPending ? "Sending…" : "Send invoice"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <InvoiceEditor open={editOpen} onOpenChange={setEditOpen} invoice={inv} />
       <RecordPaymentSheet

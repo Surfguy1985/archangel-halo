@@ -38,5 +38,7 @@ export interface InvoiceDetail {
   paidAt?: string | null;
   /** @nullable */
   daysLate?: number | null;
+  /** @nullable */
+  recipientEmail?: string | null;
   lineItems: InvoiceLineItem[];
 }

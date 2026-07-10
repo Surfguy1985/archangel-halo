@@ -23,6 +23,7 @@ import {
   UpdateInvoiceResponse,
   DeleteInvoiceParams,
   SendInvoiceParams,
+  SendInvoiceBody,
   SendInvoiceResponse,
   RemindInvoiceParams,
   RemindInvoiceResponse,
@@ -88,9 +89,12 @@ async function invoiceDetail(
   const items = await lineItemsFor(inv.id);
   return {
     ...decorateInvoice(inv, names),
+    recipientEmail: await recipientEmail(inv.propertyId),
     lineItems: items.map((it) => ser(it)),
   };
 }
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Normalize a line-item input into stored row values (amount = qty*price). */
 function normalizeItems(items: LineItemInput[] | undefined) {
@@ -406,6 +410,7 @@ async function invoiceEmailHtml(
 
 router.post("/invoices/:id/send", async (req, res): Promise<void> => {
   const { id } = SendInvoiceParams.parse(req.params);
+  const body = SendInvoiceBody.parse(req.body ?? {});
   const [inv] = await db
     .select()
     .from(invoicesTable)
@@ -414,7 +419,12 @@ router.post("/invoices/:id/send", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Invoice not found" });
     return;
   }
-  const to = await recipientEmail(inv.propertyId);
+  const override = body.recipientEmail?.trim();
+  if (override && !EMAIL_RE.test(override)) {
+    res.status(422).json({ error: "That doesn't look like a valid email address" });
+    return;
+  }
+  const to = override || (await recipientEmail(inv.propertyId));
   if (!to) {
     res.status(422).json({ error: "No billing contact email on file for this property" });
     return;

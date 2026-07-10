@@ -8,14 +8,14 @@ description: How daily/urgent task-list emails are built, sent via Resend, and s
 ## Source of the task list
 Emails render the same `computeQueues()` feed the app uses. Each `FeedItem.tier`
 (`now` / `today` / `week`) IS the urgency; `now` is most urgent. Order and color-code by
-tier: now=red (#be3c3c), today=gold (#8f6a1f), week=gray. All mail goes to
-`ADMIN_EMAIL` (admin@archangelcontractors.com) via the existing `sendEmail` Resend proxy.
+tier: now=red (#be3c3c), today=gold (#8f6a1f), week=gray. All mail goes to the
+`ADMIN_EMAIL` admin inbox via the existing `sendEmail` Resend proxy.
 
 ## Resend sender is a verified domain, not the sandbox
-Production sends go from `ArchAngel Contractors <bryce@megprimepay.com>` with reply-to
-`admin@archangelcontractors.com`. megprimepay.com is the verified domain on the connected
-Resend account (authorized by brycebeck85@gmail.com — a gmail login can never be a FROM
-address; Resend requires a verifiable domain). The sender/reply-to are constants in email.ts.
+Production sends go from the "ArchAngel Contractors" display name on the verified sender
+domain, with reply-to set to the admin inbox. The FROM domain is the verified domain on the
+connected Resend account (a gmail login can never be a FROM address; Resend requires a
+verifiable domain). The sender/reply-to are constants in email.ts.
 **Why this shape:** the app is single-org and the connector proxy only whitelists `/emails`
 (cannot list/verify domains via proxy — the api_key setting is a proxy token, not a raw
 Resend key, so direct api.resend.com and sandbox `connectors.proxy` calls both 400).

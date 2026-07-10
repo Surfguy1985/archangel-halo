@@ -871,6 +871,12 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendInvoiceInput"
       responses:
         "200":
           description: Sent
@@ -2534,9 +2540,14 @@ components:
         dueAt: { type: ["string", "null"] }
         paidAt: { type: ["string", "null"] }
         daysLate: { type: ["integer", "null"] }
+        recipientEmail: { type: ["string", "null"] }
         lineItems:
           type: array
           items: { $ref: "#/components/schemas/InvoiceLineItem" }
+    SendInvoiceInput:
+      type: object
+      properties:
+        recipientEmail: { type: string }
     InvoiceInput:
       type: object
       required: [propertyId]

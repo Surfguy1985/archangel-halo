@@ -101,6 +101,7 @@ import type {
   RecapSendInput,
   SavePacketInput,
   ScheduleInput,
+  SendInvoiceInput,
   SendPacketInput,
   TodayPayload,
   UploadUrlRequest,
@@ -3168,14 +3169,15 @@ export const getSendInvoiceUrl = (id: string,) => {
 /**
  * @summary Send an invoice (and its recap) to the property contact via email
  */
-export const sendInvoice = async (id: string, options?: RequestInit): Promise<Invoice> => {
+export const sendInvoice = async (id: string,
+    sendInvoiceInput?: SendInvoiceInput, options?: RequestInit): Promise<Invoice> => {
 
   return customFetch<Invoice>(getSendInvoiceUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sendInvoiceInput)
   }
 );}
 
@@ -3184,8 +3186,8 @@ export const sendInvoice = async (id: string, options?: RequestInit): Promise<In
 
 
 export const getSendInvoiceMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendInvoice>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof sendInvoice>>, TError,{id: string}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendInvoice>>, TError,{id: string;data?: BodyType<SendInvoiceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendInvoice>>, TError,{id: string;data?: BodyType<SendInvoiceInput>}, TContext> => {
 
 const mutationKey = ['sendInvoice'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -3197,10 +3199,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendInvoice>>, {id: string}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendInvoice>>, {id: string;data?: BodyType<SendInvoiceInput>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  sendInvoice(id,requestOptions)
+          return  sendInvoice(id,data,requestOptions)
         }
 
 
@@ -3211,18 +3213,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type SendInvoiceMutationResult = NonNullable<Awaited<ReturnType<typeof sendInvoice>>>
-
+    export type SendInvoiceMutationBody = BodyType<SendInvoiceInput> | undefined
     export type SendInvoiceMutationError = ErrorType<unknown>
 
     /**
  * @summary Send an invoice (and its recap) to the property contact via email
  */
 export const useSendInvoice = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendInvoice>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendInvoice>>, TError,{id: string;data?: BodyType<SendInvoiceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof sendInvoice>>,
         TError,
-        {id: string},
+        {id: string;data?: BodyType<SendInvoiceInput>},
         TContext
       > => {
       return useMutation(getSendInvoiceMutationOptions(options));
