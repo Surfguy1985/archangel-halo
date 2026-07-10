@@ -90,6 +90,8 @@ export * from './propertyUpdate';
 export * from './purchaseOrder';
 export * from './purchaseOrderInput';
 export * from './queue';
+export * from './recapDraft';
+export * from './recapSendInput';
 export * from './savePacketInput';
 export * from './savePacketInputAttachments';
 export * from './savePacketInputFormsData';

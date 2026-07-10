@@ -1,5 +1,11 @@
 import { Router, type IRouter } from "express";
-import { sendDailyDigest, sendUrgentAlert, ADMIN_EMAIL } from "../lib/notifications";
+import {
+  sendDailyDigest,
+  sendUrgentAlert,
+  sendEveningClose,
+  sendWeeklyScorecard,
+  ADMIN_EMAIL,
+} from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -32,6 +38,26 @@ router.post("/notify/urgent", async (_req, res): Promise<void> => {
     return;
   }
   const result = await sendUrgentAlert();
+  res.json({ ok: true, to: ADMIN_EMAIL, ...result });
+});
+
+router.post("/notify/close", async (_req, res): Promise<void> => {
+  const wait = throttled("close");
+  if (wait !== null) {
+    res.status(429).json({ error: `Just sent one. Try again in ${wait}s.` });
+    return;
+  }
+  const result = await sendEveningClose();
+  res.json({ ok: true, to: ADMIN_EMAIL, ...result });
+});
+
+router.post("/notify/weekly", async (_req, res): Promise<void> => {
+  const wait = throttled("weekly");
+  if (wait !== null) {
+    res.status(429).json({ error: `Just sent one. Try again in ${wait}s.` });
+    return;
+  }
+  const result = await sendWeeklyScorecard();
   res.json({ ok: true, to: ADMIN_EMAIL, ...result });
 });
 

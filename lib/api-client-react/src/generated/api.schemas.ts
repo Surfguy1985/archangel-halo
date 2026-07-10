@@ -394,6 +394,18 @@ export interface ScheduleInput {
   crewLeaderId?: string;
 }
 
+export interface RecapDraft {
+  subject: string;
+  body: string;
+}
+
+export interface RecapSendInput {
+  subject: string;
+  body: string;
+  /** @nullable */
+  to?: string | null;
+}
+
 export interface Crew {
   id: string;
   name: string;

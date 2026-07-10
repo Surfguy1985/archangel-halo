@@ -6,6 +6,7 @@ import {
   crewsTable,
   schedulesTable,
   propertiesTable,
+  contactsTable,
   activitiesTable,
   expensesTable,
 } from "@workspace/db";
@@ -26,6 +27,11 @@ import {
   ScheduleJobResponse,
   CompleteJobParams,
   CompleteJobResponse,
+  DraftJobRecapParams,
+  DraftJobRecapResponse,
+  SendJobRecapParams,
+  SendJobRecapBody,
+  SendJobRecapResponse,
   ListCrewsResponse,
   CreateCrewBody,
   CreateCrewResponse,
@@ -35,6 +41,8 @@ import {
   DeleteCrewParams,
   DeleteCrewResponse,
 } from "@workspace/api-zod";
+import { completeText } from "../lib/ai";
+import { sendEmail } from "../lib/email";
 import { ser, serList } from "../lib/serialize";
 
 const router: IRouter = Router();
@@ -208,6 +216,132 @@ router.post("/jobs/:id/complete", async (req, res): Promise<void> => {
   });
   const { propName, crewName } = await lookups();
   res.json(CompleteJobResponse.parse(decorateJob(row, propName, crewName)));
+});
+
+async function gatherRecapContext(jobId: string) {
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
+  if (!job) return null;
+  const [prop] = await db
+    .select()
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, job.propertyId));
+  const activities = await db
+    .select()
+    .from(activitiesTable)
+    .where(eq(activitiesTable.entityId, jobId))
+    .orderBy(desc(activitiesTable.createdAt));
+  const notes = activities
+    .filter((a) => a.kind === "note" && a.body)
+    .map((a) => `- ${a.body}`);
+  const photos = activities.filter(
+    (a) => a.kind === "photo_before" || a.kind === "photo_after",
+  );
+  const beforeCount = photos.filter((a) => a.kind === "photo_before").length;
+  const afterCount = photos.filter((a) => a.kind === "photo_after").length;
+  return { job, prop, notes, beforeCount, afterCount };
+}
+
+router.post("/jobs/:id/recap", async (req, res): Promise<void> => {
+  const { id } = DraftJobRecapParams.parse(req.params);
+  const ctx = await gatherRecapContext(id);
+  if (!ctx) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  const { job, prop, notes, beforeCount, afterCount } = ctx;
+  const system =
+    "You are HALO's recap writer for ArchAngel Contractors, a property maintenance company. " +
+    "Write a warm, professional, client-ready work recap email that a property manager would receive after a job is finished. " +
+    "Be concise (3-5 short sentences), specific about the work done, and reassuring about quality. " +
+    "Do not invent details that are not provided. Do not include a subject line or email headers in the body. " +
+    "Sign off as 'The ArchAngel Contractors team'. " +
+    'Respond with ONLY valid JSON of the form {"subject": string, "body": string}. The body may use \\n for line breaks. No markdown.';
+  const user = [
+    `Property: ${prop?.name ?? "the property"}${job.unitNo ? `, Unit ${job.unitNo}` : ""}`,
+    `Service category: ${job.category ?? "general maintenance"}`,
+    `Work description: ${job.description ?? "n/a"}`,
+    notes.length ? `Field notes:\n${notes.join("\n")}` : "Field notes: none",
+    `Before photos on file: ${beforeCount}. After photos on file: ${afterCount}.`,
+  ].join("\n");
+
+  let draft: { subject: string; body: string };
+  try {
+    const raw = await completeText(system, user, 1024);
+    const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    const parsed = JSON.parse(fence ? fence[1].trim() : raw.trim()) as {
+      subject?: string;
+      body?: string;
+    };
+    draft = {
+      subject:
+        parsed.subject ??
+        `Work completed at ${prop?.name ?? "your property"}`,
+      body: parsed.body ?? "",
+    };
+  } catch {
+    draft = {
+      subject: `Work completed at ${prop?.name ?? "your property"}`,
+      body:
+        `Hi,\n\nWe've completed the ${job.category ?? "requested"} work${
+          job.unitNo ? ` in Unit ${job.unitNo}` : ""
+        } at ${prop?.name ?? "your property"}. ${job.description ?? ""}\n\n` +
+        `Please let us know if you have any questions.\n\nThe ArchAngel Contractors team`,
+    };
+  }
+  res.json(DraftJobRecapResponse.parse(draft));
+});
+
+router.post("/jobs/:id/recap/send", async (req, res): Promise<void> => {
+  const { id } = SendJobRecapParams.parse(req.params);
+  const body = SendJobRecapBody.parse(req.body);
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  let to = body.to ?? null;
+  if (!to) {
+    const contacts = await db
+      .select()
+      .from(contactsTable)
+      .where(eq(contactsTable.propertyId, job.propertyId));
+    to = contacts.find((c) => c.email)?.email ?? null;
+  }
+  if (!to) {
+    res.status(422).json({
+      error:
+        "No recipient found. This property has no contact email on file — add one or pass an explicit 'to' address.",
+    });
+    return;
+  }
+  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:14px;color:#17181c;line-height:1.6;white-space:pre-wrap;">${body.body
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")}</div>`;
+  const sent = await sendEmail({
+    to,
+    subject: body.subject,
+    html,
+  });
+  if (!sent) {
+    res.status(502).json({
+      error: "Email provider rejected the recap. Nothing was recorded — try again.",
+    });
+    return;
+  }
+  const [row] = await db
+    .update(jobsTable)
+    .set({ recapSentAt: new Date() })
+    .where(eq(jobsTable.id, id))
+    .returning();
+  await db.insert(activitiesTable).values({
+    entityType: "job",
+    entityId: id,
+    kind: "email",
+    body: `Recap sent to ${to}: ${body.subject}`,
+  });
+  const { propName, crewName } = await lookups();
+  res.json(SendJobRecapResponse.parse(decorateJob(row, propName, crewName)));
 });
 
 router.get("/crews", async (_req, res): Promise<void> => {

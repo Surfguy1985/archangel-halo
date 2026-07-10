@@ -35,3 +35,14 @@ would need a DB/kv store — not built.
 ## Unauthenticated trigger endpoints
 The whole API has no auth by design, so `POST /notify/daily` and `/notify/urgent` carry a
 per-endpoint 60s cooldown (429 on repeat) to blunt spam/cost abuse rather than an auth gate.
+The evening close (18:30 ET) and weekly scorecard (Mon 07:00 ET) follow the same pattern with
+`POST /notify/close` and `/notify/weekly`.
+
+## Any send-then-record flow must gate DB writes on send success
+Beyond the scheduler dedup rule, ANY handler that sends mail and then records the outcome
+(e.g. the recap send route stamping `jobs.recapSentAt` + inserting an `email` activity) must:
+(1) resolve a real recipient and return 422 when none exists — never fall back to a dummy
+address; (2) `await sendEmail(...)` and only perform the DB writes when it returns `true`,
+returning 502 otherwise.
+**Why:** ignoring the boolean records phantom "sent" recaps the operator will trust and never
+resend; a dummy fallback address silently leaks client comms to the wrong place.

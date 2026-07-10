@@ -1,6 +1,12 @@
-import { useGetJob, getGetJobQueryKey } from "@workspace/api-client-react";
+import {
+  useGetJob,
+  getGetJobQueryKey,
+  useDraftJobRecap,
+  useSendJobRecap,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { ChevronLeft, Pencil, Sparkles, Send, Check } from "lucide-react";
 import { useState } from "react";
 import { EditJobSheet } from "@/components/EditJobSheet";
 
@@ -8,7 +14,38 @@ export default function JobDetail() {
   const params = useParams();
   const id = params.id as string;
   const [editOpen, setEditOpen] = useState(false);
+  const queryClient = useQueryClient();
   const { data, isLoading } = useGetJob(id, { query: { enabled: !!id, queryKey: getGetJobQueryKey(id) } });
+  const [recapOpen, setRecapOpen] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [recapBody, setRecapBody] = useState("");
+  const draft = useDraftJobRecap();
+  const sendRecap = useSendJobRecap();
+
+  const generateRecap = () => {
+    setRecapOpen(true);
+    draft.mutate(
+      { id },
+      {
+        onSuccess: (d) => {
+          setSubject(d.subject);
+          setRecapBody(d.body);
+        },
+      },
+    );
+  };
+
+  const send = () => {
+    sendRecap.mutate(
+      { id, data: { subject, body: recapBody } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
+          setRecapOpen(false);
+        },
+      },
+    );
+  };
 
   if (isLoading) {
     return (
@@ -95,6 +132,77 @@ export default function JobDetail() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {(job.status === "complete" || job.recapSentAt) && (
+        <div className="mb-[18px]">
+          <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-muted-foreground mb-[8px] mx-[2px]">Client recap</div>
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px_15px]">
+            {job.recapSentAt && !recapOpen ? (
+              <div className="flex items-center gap-[8px] text-[14px] text-muted-foreground">
+                <Check className="w-[16px] h-[16px] text-emerald-600" />
+                Recap sent {new Date(job.recapSentAt).toLocaleDateString()}
+                <button
+                  onClick={generateRecap}
+                  className="ml-auto text-[13px] font-semibold text-[var(--gold,#8f6a1f)]"
+                >
+                  Draft again
+                </button>
+              </div>
+            ) : !recapOpen ? (
+              <button
+                onClick={generateRecap}
+                className="w-full flex items-center justify-center gap-[8px] py-[10px] rounded-[12px] bg-[var(--ink,#17181c)] text-white text-[14px] font-semibold transition-transform active:scale-[0.98]"
+              >
+                <Sparkles className="w-[16px] h-[16px]" /> Draft recap with AI
+              </button>
+            ) : (
+              <div className="space-y-[10px]">
+                {draft.isPending ? (
+                  <div className="py-[20px] text-center text-[14px] text-muted-foreground animate-pulse">
+                    Writing the recap…
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground mb-[4px]">Subject</div>
+                      <input
+                        value={subject}
+                        onChange={(e) => setSubject(e.target.value)}
+                        className="w-full text-[14px] bg-background border border-border rounded-[10px] px-[12px] py-[9px] outline-none focus:border-[var(--gold,#8f6a1f)]"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground mb-[4px]">Message</div>
+                      <textarea
+                        value={recapBody}
+                        onChange={(e) => setRecapBody(e.target.value)}
+                        rows={8}
+                        className="w-full text-[14px] leading-relaxed bg-background border border-border rounded-[10px] px-[12px] py-[9px] outline-none focus:border-[var(--gold,#8f6a1f)] resize-y"
+                      />
+                    </div>
+                    <div className="flex items-center gap-[8px]">
+                      <button
+                        onClick={() => setRecapOpen(false)}
+                        className="text-[13px] font-semibold text-muted-foreground px-[12px] py-[9px]"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={send}
+                        disabled={sendRecap.isPending || !subject || !recapBody}
+                        className="ml-auto flex items-center gap-[7px] px-[16px] py-[9px] rounded-[12px] bg-[var(--gold,#8f6a1f)] text-white text-[14px] font-semibold disabled:opacity-50 transition-transform active:scale-[0.98]"
+                      >
+                        <Send className="w-[15px] h-[15px]" />
+                        {sendRecap.isPending ? "Sending…" : "Send recap"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

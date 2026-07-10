@@ -737,6 +737,58 @@ export const ScheduleJobResponse = zod.object({
 
 
 /**
+ * @summary AI-draft a client-ready work recap from the job's notes and photos
+ */
+export const DraftJobRecapParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DraftJobRecapResponse = zod.object({
+  "subject": zod.string(),
+  "body": zod.string()
+})
+
+
+/**
+ * @summary Send the recap email to the property contact and stamp recapSentAt
+ */
+export const SendJobRecapParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SendJobRecapBody = zod.object({
+  "subject": zod.string(),
+  "body": zod.string(),
+  "to": zod.string().nullish()
+})
+
+export const SendJobRecapResponse = zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "woNo": zod.string().nullish(),
+  "propertyId": zod.string().optional(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "crewLeaderId": zod.string().nullish(),
+  "crewLeaderName": zod.string().nullish(),
+  "bidId": zod.string().nullish(),
+  "contactId": zod.string().nullish(),
+  "inspectionRequired": zod.boolean().nullish(),
+  "inspectionPassedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "recapSentAt": zod.string().nullish(),
+  "warrantyUntil": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "grossProfit": zod.number().nullish(),
+  "marginPct": zod.number().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
  * @summary Crew members with today's dispatch status
  */
 export const ListCrewsResponseItem = zod.object({

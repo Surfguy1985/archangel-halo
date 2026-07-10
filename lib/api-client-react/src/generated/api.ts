@@ -90,6 +90,8 @@ import type {
   PurchaseOrder,
   PurchaseOrderInput,
   Queue,
+  RecapDraft,
+  RecapSendInput,
   SavePacketInput,
   ScheduleInput,
   SendPacketInput,
@@ -1986,6 +1988,149 @@ export const useScheduleJob = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getScheduleJobMutationOptions(options));
+    }
+
+export const getDraftJobRecapUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/recap`
+}
+
+/**
+ * @summary AI-draft a client-ready work recap from the job's notes and photos
+ */
+export const draftJobRecap = async (id: string, options?: RequestInit): Promise<RecapDraft> => {
+
+  return customFetch<RecapDraft>(getDraftJobRecapUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDraftJobRecapMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof draftJobRecap>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof draftJobRecap>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['draftJobRecap'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof draftJobRecap>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  draftJobRecap(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DraftJobRecapMutationResult = NonNullable<Awaited<ReturnType<typeof draftJobRecap>>>
+
+    export type DraftJobRecapMutationError = ErrorType<unknown>
+
+    /**
+ * @summary AI-draft a client-ready work recap from the job's notes and photos
+ */
+export const useDraftJobRecap = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof draftJobRecap>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof draftJobRecap>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDraftJobRecapMutationOptions(options));
+    }
+
+export const getSendJobRecapUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/recap/send`
+}
+
+/**
+ * @summary Send the recap email to the property contact and stamp recapSentAt
+ */
+export const sendJobRecap = async (id: string,
+    recapSendInput: RecapSendInput, options?: RequestInit): Promise<Job> => {
+
+  return customFetch<Job>(getSendJobRecapUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(recapSendInput)
+  }
+);}
+
+
+
+
+
+export const getSendJobRecapMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendJobRecap>>, TError,{id: string;data: BodyType<RecapSendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendJobRecap>>, TError,{id: string;data: BodyType<RecapSendInput>}, TContext> => {
+
+const mutationKey = ['sendJobRecap'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendJobRecap>>, {id: string;data: BodyType<RecapSendInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendJobRecap(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendJobRecapMutationResult = NonNullable<Awaited<ReturnType<typeof sendJobRecap>>>
+    export type SendJobRecapMutationBody = BodyType<RecapSendInput>
+    export type SendJobRecapMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Send the recap email to the property contact and stamp recapSentAt
+ */
+export const useSendJobRecap = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendJobRecap>>, TError,{id: string;data: BodyType<RecapSendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendJobRecap>>,
+        TError,
+        {id: string;data: BodyType<RecapSendInput>},
+        TContext
+      > => {
+      return useMutation(getSendJobRecapMutationOptions(options));
     }
 
 export const getListCrewsUrl = () => {

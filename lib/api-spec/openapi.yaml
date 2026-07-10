@@ -540,6 +540,49 @@ paths:
               schema:
                 $ref: "#/components/schemas/Job"
 
+  /jobs/{id}/recap:
+    post:
+      operationId: draftJobRecap
+      tags: [jobs]
+      summary: AI-draft a client-ready work recap from the job's notes and photos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecapDraft"
+  /jobs/{id}/recap/send:
+    post:
+      operationId: sendJobRecap
+      tags: [jobs]
+      summary: Send the recap email to the property contact and stamp recapSentAt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecapSendInput"
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
   /crews:
     get:
       operationId: listCrews
@@ -2149,6 +2192,20 @@ components:
         scheduledOn: { type: string }
         windowStart: { type: string }
         crewLeaderId: { type: string }
+
+    RecapDraft:
+      type: object
+      required: [subject, body]
+      properties:
+        subject: { type: string }
+        body: { type: string }
+    RecapSendInput:
+      type: object
+      required: [subject, body]
+      properties:
+        subject: { type: string }
+        body: { type: string }
+        to: { type: ["string", "null"] }
 
     Crew:
       type: object

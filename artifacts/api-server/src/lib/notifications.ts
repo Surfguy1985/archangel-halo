@@ -1,8 +1,18 @@
+import {
+  db,
+  invoicesTable,
+  paymentsTable,
+  jobsTable,
+  bidsTable,
+  expensesTable,
+} from "@workspace/db";
 import { computeQueues, type FeedItem } from "./queues";
 import { sendEmail } from "./email";
 import { logger } from "./logger";
 
 export const ADMIN_EMAIL = "admin@archangelcontractors.com";
+
+const DAY = 1000 * 60 * 60 * 24;
 
 type TierKey = "now" | "today" | "week";
 
@@ -227,4 +237,190 @@ export function urgentSignature(feed: FeedItem[]): string {
     .map((f) => f.id)
     .sort()
     .join("|");
+}
+
+// ============ Evening close ============
+
+const CLOSE_SIGNOFF =
+  "Desk is clear — the rest can wait until 6:45 tomorrow.";
+
+export function buildEveningClose(feed: FeedItem[]): EmailContent {
+  const groups = groupByTier(feed);
+  const open = feed.length;
+  const urgent = groups.now.length;
+  const summary =
+    open === 0
+      ? `<strong>Everything's handled.</strong> Nothing carries into tomorrow. ${esc(
+          CLOSE_SIGNOFF,
+        )}`
+      : `<strong>${open} open item${open === 1 ? "" : "s"} carry into tomorrow</strong>${
+          urgent > 0
+            ? ` — ${urgent} still urgent`
+            : ""
+        }. They'll lead your 6:45a brief. ${esc(CLOSE_SIGNOFF)}`;
+  const body = TIER_ORDER.map((t) => renderSection(t, groups[t])).join("");
+  const subject =
+    open === 0
+      ? "HALO evening close — desk is clear"
+      : `HALO evening close — ${open} item${open === 1 ? "" : "s"} for tomorrow`;
+  return { subject, html: shell("Evening close", dateLabel(), summary, body) };
+}
+
+export async function sendEveningClose(
+  feed?: FeedItem[],
+): Promise<{ sent: boolean; count: number }> {
+  const items = feed ?? (await computeQueues()).feed;
+  const { subject, html } = buildEveningClose(items);
+  const sent = await sendEmail({ to: ADMIN_EMAIL, subject, html });
+  logger.info({ count: items.length, sent }, "Evening close dispatch");
+  return { sent, count: items.length };
+}
+
+// ============ Weekly scorecard ============
+
+export type WeeklyStats = {
+  revenueLanded: number;
+  paymentsCount: number;
+  jobsCompleted: number;
+  avgMarginPct: number | null;
+  invoicesSent: number;
+  invoicesSentValue: number;
+  bidsWon: number;
+  bidsWonValue: number;
+  expensesLogged: number;
+  openReceivable: number;
+};
+
+export async function weeklyStats(): Promise<WeeklyStats> {
+  const since = Date.now() - 7 * DAY;
+  const [payments, jobs, invoices, bids, expenses] = await Promise.all([
+    db.select().from(paymentsTable),
+    db.select().from(jobsTable),
+    db.select().from(invoicesTable),
+    db.select().from(bidsTable),
+    db.select().from(expensesTable),
+  ]);
+
+  const recentPayments = payments.filter(
+    (p) => p.receivedAt && p.receivedAt.getTime() >= since,
+  );
+  const revenueLanded = recentPayments.reduce((s, p) => s + (p.amount ?? 0), 0);
+
+  const completed = jobs.filter(
+    (j) => j.completedAt && j.completedAt.getTime() >= since,
+  );
+  const withMargin = completed.filter((j) => j.marginPct != null);
+  const avgMarginPct =
+    withMargin.length > 0
+      ? (withMargin.reduce((s, j) => s + (j.marginPct ?? 0), 0) /
+          withMargin.length) *
+        100
+      : null;
+
+  const sentInvoices = invoices.filter(
+    (i) => i.sentAt && i.sentAt.getTime() >= since,
+  );
+  const invoicesSentValue = sentInvoices.reduce(
+    (s, i) => s + (i.amount ?? 0),
+    0,
+  );
+
+  const wonBids = bids.filter(
+    (b) =>
+      b.status === "approved" &&
+      b.decidedAt &&
+      b.decidedAt.getTime() >= since,
+  );
+  const bidsWonValue = wonBids.reduce((s, b) => s + (b.amount ?? 0), 0);
+
+  const recentExpenses = expenses.filter(
+    (e) => e.spentOn && new Date(e.spentOn).getTime() >= since,
+  );
+
+  const openReceivable = invoices
+    .filter((i) => i.sentAt && !i.paidAt)
+    .reduce((s, i) => s + (i.amount ?? 0), 0);
+
+  return {
+    revenueLanded,
+    paymentsCount: recentPayments.length,
+    jobsCompleted: completed.length,
+    avgMarginPct,
+    invoicesSent: sentInvoices.length,
+    invoicesSentValue,
+    bidsWon: wonBids.length,
+    bidsWonValue,
+    expensesLogged: recentExpenses.reduce((s, e) => s + (e.amount ?? 0), 0),
+    openReceivable,
+  };
+}
+
+function statCard(label: string, value: string, sub?: string): string {
+  return `
+  <td width="50%" style="padding:6px;">
+    <div style="background:#ffffff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(23,24,28,0.08);">
+      <div style="font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#8f6a1f;">${esc(
+        label,
+      )}</div>
+      <div style="font-size:24px;font-weight:800;color:#17181c;margin-top:6px;font-family:'Courier New',monospace;">${esc(
+        value,
+      )}</div>
+      ${
+        sub
+          ? `<div style="font-size:12px;color:#6b6e76;margin-top:2px;">${esc(sub)}</div>`
+          : ""
+      }
+    </div>
+  </td>`;
+}
+
+export function buildWeeklyScorecard(stats: WeeklyStats): EmailContent {
+  const margin =
+    stats.avgMarginPct != null ? `${Math.round(stats.avgMarginPct)}%` : "—";
+  const marginSub =
+    stats.avgMarginPct != null && stats.avgMarginPct < 25
+      ? "below 25% floor"
+      : "on target";
+  const rows = [
+    [
+      statCard("Cash landed", money(stats.revenueLanded), `${stats.paymentsCount} payment${stats.paymentsCount === 1 ? "" : "s"}`),
+      statCard("Jobs completed", String(stats.jobsCompleted), "this week"),
+    ],
+    [
+      statCard("Avg margin", margin, marginSub),
+      statCard("Invoices sent", money(stats.invoicesSentValue), `${stats.invoicesSent} invoice${stats.invoicesSent === 1 ? "" : "s"}`),
+    ],
+    [
+      statCard("Bids won", money(stats.bidsWonValue), `${stats.bidsWon} approved`),
+      statCard("Open receivable", money(stats.openReceivable), "awaiting payment"),
+    ],
+  ]
+    .map(
+      (pair) =>
+        `<tr>${pair.join("")}</tr>`,
+    )
+    .join("");
+  const body = `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr>`;
+  const summary = `<strong>Week in review.</strong> ${money(
+    stats.revenueLanded,
+  )} landed across ${stats.paymentsCount} payment${
+    stats.paymentsCount === 1 ? "" : "s"
+  }, ${stats.jobsCompleted} job${
+    stats.jobsCompleted === 1 ? "" : "s"
+  } completed at ${margin} average margin.`;
+  return {
+    subject: `HALO weekly scorecard — ${money(stats.revenueLanded)} landed`,
+    html: shell("Weekly scorecard", dateLabel(), summary, body),
+  };
+}
+
+export async function sendWeeklyScorecard(): Promise<{
+  sent: boolean;
+  stats: WeeklyStats;
+}> {
+  const stats = await weeklyStats();
+  const { subject, html } = buildWeeklyScorecard(stats);
+  const sent = await sendEmail({ to: ADMIN_EMAIL, subject, html });
+  logger.info({ stats, sent }, "Weekly scorecard dispatch");
+  return { sent, stats };
 }

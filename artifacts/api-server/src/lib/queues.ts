@@ -127,6 +127,32 @@ export async function computeQueues(): Promise<{
     });
   }
 
+  // Margin Guardian — active jobs below the 25% margin floor
+  const MARGIN_FLOOR = 0.25;
+  const thinMargin = jobs.filter(
+    (j) =>
+      j.marginPct != null &&
+      j.marginPct < MARGIN_FLOOR &&
+      j.status !== "complete" &&
+      j.status !== "paid" &&
+      j.status !== "cancelled",
+  );
+  for (const j of thinMargin) {
+    const pct = Math.round((j.marginPct ?? 0) * 100);
+    feed.push({
+      id: `margin-${j.id}`,
+      queue: "margin",
+      tier: pct < 15 ? "now" : "today",
+      title: `Thin margin: ${j.description ?? j.jobNo}`,
+      sub: `${propName.get(j.propertyId) ?? ""} — ${pct}% margin, below 25% floor`,
+      entityType: "job",
+      entityId: j.id,
+      amount: j.grossProfit,
+      meta: [{ label: `${pct}% margin`, warn: true }],
+      actions: [{ label: "Review job", action: "openJob", kind: "line" }],
+    });
+  }
+
   // Inventory low
   const low = inventory.filter((it) => it.qty <= it.reorderAt);
   for (const it of low) {
@@ -195,6 +221,7 @@ export async function computeQueues(): Promise<{
 
   const queueMeta: Record<string, { label: string; color: string }> = {
     money: { label: "Money at risk", color: "danger" },
+    margin: { label: "Margin guardian", color: "danger" },
     invoice: { label: "Ready to invoice", color: "gold" },
     bids: { label: "Bids to chase", color: "gold" },
     schedule: { label: "To schedule", color: "ink" },
