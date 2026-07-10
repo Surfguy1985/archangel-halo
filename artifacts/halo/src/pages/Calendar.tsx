@@ -1,11 +1,18 @@
 import { useMemo, useRef, useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Briefcase, StickyNote } from "lucide-react";
 import {
   useGetCalendar,
   type CalendarEvent,
 } from "@workspace/api-client-react";
 import { CalendarEventSheet } from "@/components/CalendarEventSheet";
 import { EditCalendarEventSheet } from "@/components/EditCalendarEventSheet";
+import { ScheduleJobSheet } from "@/components/ScheduleJobSheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 const COLOR_VAR: Record<string, string> = {
   gold: "--gold",
@@ -64,6 +71,8 @@ export default function Calendar() {
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
   const [addDate, setAddDate] = useState<string>(ymd(today));
   const [addStart, setAddStart] = useState<string | null>(null);
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const dayScrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch a padded window covering the current view.
@@ -230,14 +239,66 @@ export default function Calendar() {
 
       {/* FAB */}
       <button
-        onClick={() =>
-          openAdd(view === "month" ? ymd(new Date()) : ymd(cursor), null)
-        }
+        onClick={() => setChooserOpen(true)}
         className="fixed sm:absolute right-[18px] bottom-[102px] w-[54px] h-[54px] rounded-full grid place-items-center text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_8px_24px_rgba(143,106,31,0.42)] z-20 transition-transform active:scale-[0.94]"
-        aria-label="Add event"
+        aria-label="Add to calendar"
       >
         <Plus className="w-[26px] h-[26px]" strokeWidth={2.2} />
       </button>
+
+      {/* Add chooser */}
+      <Sheet open={chooserOpen} onOpenChange={setChooserOpen}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-[22px] px-[18px] pb-[26px]"
+        >
+          <SheetHeader className="text-left">
+            <SheetTitle className="font-display text-[20px] tracking-[-0.01em]">
+              Add to calendar
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-[16px] space-y-[10px]">
+            <button
+              onClick={() => {
+                setChooserOpen(false);
+                setScheduleOpen(true);
+              }}
+              className="w-full flex items-center gap-[13px] rounded-[15px] p-[14px] bg-card border border-border shadow-[var(--shadow)] text-left transition-transform active:scale-[0.98]"
+            >
+              <div className="w-[40px] h-[40px] shrink-0 rounded-[11px] grid place-items-center text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))]">
+                <Briefcase className="w-[19px] h-[19px]" />
+              </div>
+              <div>
+                <div className="font-display font-bold text-[15px]">
+                  Schedule a job
+                </div>
+                <div className="text-[12.5px] text-muted-foreground">
+                  Assign a date, time, and crew to a job
+                </div>
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setChooserOpen(false);
+                openAdd(ymd(cursor), null);
+              }}
+              className="w-full flex items-center gap-[13px] rounded-[15px] p-[14px] bg-card border border-border shadow-[var(--shadow)] text-left transition-transform active:scale-[0.98]"
+            >
+              <div className="w-[40px] h-[40px] shrink-0 rounded-[11px] grid place-items-center bg-[var(--ink)] text-[var(--paper)]">
+                <StickyNote className="w-[19px] h-[19px]" />
+              </div>
+              <div>
+                <div className="font-display font-bold text-[15px]">
+                  Add a note
+                </div>
+                <div className="text-[12.5px] text-muted-foreground">
+                  A reminder or ad-hoc entry
+                </div>
+              </div>
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <CalendarEventSheet
         open={detailOpen}
@@ -251,6 +312,11 @@ export default function Calendar() {
         date={addDate}
         defaultStart={addStart}
         event={editEvent}
+      />
+      <ScheduleJobSheet
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+        defaultDate={ymd(cursor)}
       />
     </div>
   );
