@@ -132,8 +132,16 @@ export default function CrewDetail() {
     setTimeout(() => setCopied(false), 1800);
   };
 
+  const isAppleDevice =
+    typeof navigator !== "undefined" &&
+    (/iP(hone|od|ad)/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ||
+      /Mac/.test(navigator.platform));
+  // iOS/macOS Messages prefill the body only with an "&" separator after an
+  // empty recipient; Android uses "?". The old "?&" hack fails to prefill on iOS.
+  const smsSeparator = isAppleDevice ? "&" : "?";
   const smsHref = portalUrl
-    ? `sms:?&body=${encodeURIComponent(
+    ? `sms:${smsSeparator}body=${encodeURIComponent(
         `Hi ${crew.name}, here's your ArchAngel Contractors onboarding portal link — tap to open and complete your paperwork:\n${portalUrl}`,
       )}`
     : undefined;
