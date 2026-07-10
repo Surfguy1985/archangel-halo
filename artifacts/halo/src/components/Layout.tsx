@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { HaloRing } from "./HaloRing";
 import { Mic, Bell, LayoutGrid, CalendarDays } from "lucide-react";
+import haloLogo from "../assets/halo-logo.png";
 import { useGetToday } from "@workspace/api-client-react";
 import { useState } from "react";
 import { VoiceCaptureSheet } from "./VoiceCaptureSheet";
@@ -23,11 +23,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="w-full sm:w-[430px] h-[100dvh] sm:h-[850px] bg-background sm:rounded-[42px] sm:shadow-[0_2px_3px_rgba(0,0,0,0.06),0_30px_80px_rgba(23,24,28,0.22)] overflow-hidden relative flex flex-col">
         {/* App Bar */}
         <header className="flex items-center gap-[10px] px-[18px] pt-[16px] pb-[12px] shrink-0">
-          <HaloRing className="w-[30px] h-[30px] shrink-0" />
-          <div className="flex flex-col leading-[1.05]">
-            <span className="font-display font-bold text-[19px] tracking-[0.14em]">HALO</span>
-            <span className="text-[10.5px] tracking-[0.14em] uppercase text-muted-foreground">Archangel Operations</span>
-          </div>
+          <img src={haloLogo} alt="HALO — Archangel Operations" className="h-[30px] w-auto shrink-0" />
           <Link href="/calendar">
             <button
               className={`ml-auto w-[40px] h-[40px] rounded-full grid place-items-center bg-card shadow-[var(--shadow)] ${location.startsWith("/calendar") ? "text-[var(--gold-dark)]" : ""}`}

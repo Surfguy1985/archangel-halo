@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon } from "lucide-react";
 import { useGetToday } from "@workspace/api-client-react";
+import haloLogo from "../assets/halo-logo.png";
 
 export function DesktopLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -10,12 +11,9 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background flex">
       {/* Sidebar Navigation */}
       <aside className="w-[240px] border-r border-border bg-card flex flex-col fixed inset-y-0 left-0">
-        <div className="p-6 pb-2 border-b border-border flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[var(--gold)]" />
-          <div className="flex flex-col">
-            <span className="font-display font-bold text-lg tracking-widest leading-none">HALO</span>
-            <span className="text-[10px] tracking-widest uppercase text-muted-foreground">Operations</span>
-          </div>
+        <div className="p-6 pb-5 border-b border-border flex flex-col gap-2">
+          <img src={haloLogo} alt="HALO" className="h-9 w-auto self-start" />
+          <span className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground pl-0.5">Archangel Operations</span>
         </div>
 
         <nav className="flex-1 py-6 px-4 flex flex-col gap-2 overflow-y-auto">
