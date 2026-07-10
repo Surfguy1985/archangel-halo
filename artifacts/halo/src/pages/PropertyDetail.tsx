@@ -1,13 +1,35 @@
 import { useGetProperty, getGetPropertyQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { ChevronLeft, Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 import { EditPropertySheet } from "@/components/EditPropertySheet";
+import { AddContactSheet } from "@/components/AddContactSheet";
+import { AddPriceItemSheet } from "@/components/AddPriceItemSheet";
+import { AddExpenseSheet } from "@/components/AddExpenseSheet";
+
+function SectionHeader({ title, onAdd }: { title: string; onAdd?: () => void }) {
+  return (
+    <div className="flex items-center justify-between mb-[8px] mx-[2px]">
+      <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-muted-foreground">{title}</div>
+      {onAdd && (
+        <button
+          onClick={onAdd}
+          className="flex items-center gap-[4px] text-[12px] font-display font-bold text-[var(--gold-dark)] transition-transform active:scale-[0.95]"
+        >
+          <Plus className="w-[14px] h-[14px]" /> Add
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function PropertyDetail() {
   const params = useParams();
   const id = params.id as string;
   const [editOpen, setEditOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [priceOpen, setPriceOpen] = useState(false);
+  const [expenseOpen, setExpenseOpen] = useState(false);
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -21,7 +43,7 @@ export default function PropertyDetail() {
 
   if (!data) return <div className="p-4 text-center text-muted-foreground">Property not found</div>;
 
-  const { property, stats, jobs, priceItems, contacts } = data;
+  const { property, stats, jobs, priceItems, contacts, expenses, agreements } = data;
 
   return (
     <div className="pt-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -86,9 +108,9 @@ export default function PropertyDetail() {
         </div>
       )}
 
-      {priceItems.length > 0 && (
-        <div className="mb-[18px]">
-          <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-muted-foreground mb-[8px] mx-[2px]">Price List</div>
+      <div className="mb-[18px]">
+        <SectionHeader title="Price List" onAdd={() => setPriceOpen(true)} />
+        {priceItems.length > 0 ? (
           <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
             {priceItems.map((item, idx) => (
               <div key={item.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
@@ -103,12 +125,14 @@ export default function PropertyDetail() {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No agreed rates yet.</div>
+        )}
+      </div>
 
-      {contacts.length > 0 && (
-        <div className="mb-[18px]">
-          <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-muted-foreground mb-[8px] mx-[2px]">Contacts</div>
+      <div className="mb-[18px]">
+        <SectionHeader title="Contacts" onAdd={() => setContactOpen(true)} />
+        {contacts.length > 0 ? (
           <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
             {contacts.map((contact, idx) => (
               <div key={contact.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
@@ -123,10 +147,57 @@ export default function PropertyDetail() {
               </div>
             ))}
           </div>
+        ) : (
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No contacts yet.</div>
+        )}
+      </div>
+
+      <div className="mb-[18px]">
+        <SectionHeader title="Expenses" onAdd={() => setExpenseOpen(true)} />
+        {expenses.length > 0 ? (
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+            {expenses.map((e, idx) => (
+              <div key={e.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold truncate">{e.vendor || e.category || "Expense"}</div>
+                  <div className="text-[12px] text-muted-foreground truncate">
+                    {[e.category, e.spentOn ? new Date(e.spentOn).toLocaleDateString() : null].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+                <div className="font-display font-semibold tabular-nums shrink-0">${e.amount.toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No expenses logged.</div>
+        )}
+      </div>
+
+      {agreements.length > 0 && (
+        <div className="mb-[18px]">
+          <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-muted-foreground mb-[8px] mx-[2px]">Agreements</div>
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+            {agreements.map((a, idx) => (
+              <div key={a.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold truncate">{a.title}</div>
+                  <div className="text-[12px] text-muted-foreground truncate">
+                    {[
+                      a.effectiveFrom ? `from ${new Date(a.effectiveFrom).toLocaleDateString()}` : null,
+                      a.renewsOn ? `renews ${new Date(a.renewsOn).toLocaleDateString()}` : null,
+                    ].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       <EditPropertySheet open={editOpen} onOpenChange={setEditOpen} property={property} />
+      <AddContactSheet open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
+      <AddPriceItemSheet open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
+      <AddExpenseSheet open={expenseOpen} onOpenChange={setExpenseOpen} propertyId={id} />
     </div>
   );
 }

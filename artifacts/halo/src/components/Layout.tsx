@@ -1,16 +1,18 @@
 import { Link, useLocation } from "wouter";
 import { HaloRing } from "./HaloRing";
-import { Mic, Bell } from "lucide-react";
+import { Mic, Bell, LayoutGrid } from "lucide-react";
 import { useGetToday } from "@workspace/api-client-react";
 import { useState } from "react";
 import { VoiceCaptureSheet } from "./VoiceCaptureSheet";
 import { NotificationsDrawer } from "./NotificationsDrawer";
+import { MoreMenuSheet } from "./MoreMenuSheet";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { data: today } = useGetToday();
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   return (
     <div className="min-h-[100dvh] flex flex-col items-center justify-center py-0 sm:py-7">
@@ -26,8 +28,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="font-display font-bold text-[19px] tracking-[0.14em]">HALO</span>
             <span className="text-[10.5px] tracking-[0.14em] uppercase text-muted-foreground">Archangel Operations</span>
           </div>
+          <button
+            className="ml-auto w-[40px] h-[40px] rounded-full grid place-items-center bg-card shadow-[var(--shadow)]"
+            onClick={() => setMoreOpen(true)}
+            aria-label="More"
+          >
+            <LayoutGrid className="w-[19px] h-[19px]" strokeWidth={1.9} />
+          </button>
           <button 
-            className="ml-auto relative w-[40px] h-[40px] rounded-full grid place-items-center bg-card shadow-[var(--shadow)]"
+            className="relative w-[40px] h-[40px] rounded-full grid place-items-center bg-card shadow-[var(--shadow)]"
             onClick={() => setNotificationsOpen(true)}
           >
             <Bell className="w-[19px] h-[19px]" strokeWidth={1.9} />
@@ -92,6 +101,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         <VoiceCaptureSheet open={voiceOpen} onOpenChange={setVoiceOpen} />
         <NotificationsDrawer open={notificationsOpen} onOpenChange={setNotificationsOpen} />
+        <MoreMenuSheet open={moreOpen} onOpenChange={setMoreOpen} />
       </div>
     </div>
   );

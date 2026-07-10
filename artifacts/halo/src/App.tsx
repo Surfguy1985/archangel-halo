@@ -9,6 +9,9 @@ import PropertyDetail from "./pages/PropertyDetail";
 import JobDetail from "./pages/JobDetail";
 import Money from "./pages/Money";
 import Crews from "./pages/Crews";
+import Pipeline from "./pages/Pipeline";
+import Supply from "./pages/Supply";
+import Vendors from "./pages/Vendors";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -23,6 +26,9 @@ function Router() {
         <Route path="/jobs/:id" component={JobDetail} />
         <Route path="/money" component={Money} />
         <Route path="/crews" component={Crews} />
+        <Route path="/pipeline" component={Pipeline} />
+        <Route path="/supply" component={Supply} />
+        <Route path="/vendors" component={Vendors} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
