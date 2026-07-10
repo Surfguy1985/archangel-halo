@@ -1,6 +1,10 @@
 import { useListCrews } from "@workspace/api-client-react";
+import { Plus } from "lucide-react";
+import { useState } from "react";
+import { AddCrewSheet } from "@/components/AddCrewSheet";
 
 export default function Crews() {
+  const [addOpen, setAddOpen] = useState(false);
   const { data: crews, isLoading } = useListCrews();
 
   if (isLoading) {
@@ -14,8 +18,17 @@ export default function Crews() {
 
   return (
     <div className="pt-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <div className="text-[13px] text-muted-foreground mb-[14px]">Today's dispatch</div>
-      
+      <div className="flex items-center gap-[10px] mb-[14px]">
+        <div className="text-[13px] text-muted-foreground flex-1">Today's dispatch</div>
+        <button
+          onClick={() => setAddOpen(true)}
+          aria-label="Add crew member"
+          className="w-[32px] h-[32px] shrink-0 rounded-full grid place-items-center bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] text-[var(--ink)] shadow-[0_4px_14px_rgba(143,106,31,0.34)] transition-transform active:scale-[0.9]"
+        >
+          <Plus className="w-[18px] h-[18px]" strokeWidth={2.4} />
+        </button>
+      </div>
+
       <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px]">
         {crews?.map((crew, idx) => (
           <div key={crew.id} className={`flex items-center gap-[9px] py-[8px] ${idx !== 0 ? 'border-t border-border' : 'pt-[2px]'}`}>
@@ -45,6 +58,8 @@ export default function Crews() {
           <div className="text-[13px] text-muted-foreground py-4 text-center">No crews found</div>
         )}
       </div>
+
+      <AddCrewSheet open={addOpen} onOpenChange={setAddOpen} />
     </div>
   );
 }
