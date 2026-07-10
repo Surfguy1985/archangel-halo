@@ -583,6 +583,92 @@ paths:
               schema:
                 $ref: "#/components/schemas/Job"
 
+  /calendar:
+    get:
+      operationId: getCalendar
+      tags: [calendar]
+      summary: Unified calendar events (job schedules + ad-hoc notes) in a date range
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Calendar bundle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarBundle"
+  /calendar/events:
+    post:
+      operationId: createCalendarEvent
+      tags: [calendar]
+      summary: Create an ad-hoc calendar event or note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewCalendarEvent"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEvent"
+  /calendar/events/{id}:
+    patch:
+      operationId: updateCalendarEvent
+      tags: [calendar]
+      summary: Update an ad-hoc calendar event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarEventPatch"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEvent"
+    delete:
+      operationId: deleteCalendarEvent
+      tags: [calendar]
+      summary: Delete an ad-hoc calendar event
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string }
+
   /crews:
     get:
       operationId: listCrews
@@ -2206,6 +2292,62 @@ components:
         subject: { type: string }
         body: { type: string }
         to: { type: ["string", "null"] }
+
+    CalendarEvent:
+      type: object
+      required: [id, kind, title, date, allDay, color]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [job, note] }
+        title: { type: string }
+        subtitle: { type: ["string", "null"] }
+        date: { type: string }
+        start: { type: ["string", "null"] }
+        end: { type: ["string", "null"] }
+        allDay: { type: boolean }
+        color: { type: string }
+        notes: { type: ["string", "null"] }
+        jobId: { type: ["string", "null"] }
+        crewId: { type: ["string", "null"] }
+        crewName: { type: ["string", "null"] }
+        crewPortalToken: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        status: { type: ["string", "null"] }
+    CalendarBundle:
+      type: object
+      required: [from, to, events]
+      properties:
+        from: { type: string }
+        to: { type: string }
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarEvent"
+    NewCalendarEvent:
+      type: object
+      required: [title, date]
+      properties:
+        title: { type: string }
+        notes: { type: ["string", "null"] }
+        date: { type: string }
+        start: { type: ["string", "null"] }
+        end: { type: ["string", "null"] }
+        allDay: { type: boolean }
+        color: { type: ["string", "null"] }
+        jobId: { type: ["string", "null"] }
+        crewId: { type: ["string", "null"] }
+    CalendarEventPatch:
+      type: object
+      properties:
+        title: { type: string }
+        notes: { type: ["string", "null"] }
+        date: { type: string }
+        start: { type: ["string", "null"] }
+        end: { type: ["string", "null"] }
+        allDay: { type: boolean }
+        color: { type: ["string", "null"] }
+        jobId: { type: ["string", "null"] }
+        crewId: { type: ["string", "null"] }
 
     Crew:
       type: object

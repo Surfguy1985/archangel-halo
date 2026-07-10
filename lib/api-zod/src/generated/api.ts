@@ -789,6 +789,124 @@ export const SendJobRecapResponse = zod.object({
 
 
 /**
+ * @summary Unified calendar events (job schedules + ad-hoc notes) in a date range
+ */
+export const GetCalendarQueryParams = zod.object({
+  "from": zod.coerce.string(),
+  "to": zod.coerce.string()
+})
+
+export const GetCalendarResponse = zod.object({
+  "from": zod.string(),
+  "to": zod.string(),
+  "events": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['job', 'note']),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "date": zod.string(),
+  "start": zod.string().nullish(),
+  "end": zod.string().nullish(),
+  "allDay": zod.boolean(),
+  "color": zod.string(),
+  "notes": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "crewPortalToken": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "status": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Create an ad-hoc calendar event or note
+ */
+export const CreateCalendarEventBody = zod.object({
+  "title": zod.string(),
+  "notes": zod.string().nullish(),
+  "date": zod.string(),
+  "start": zod.string().nullish(),
+  "end": zod.string().nullish(),
+  "allDay": zod.boolean().optional(),
+  "color": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "crewId": zod.string().nullish()
+})
+
+export const CreateCalendarEventResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['job', 'note']),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "date": zod.string(),
+  "start": zod.string().nullish(),
+  "end": zod.string().nullish(),
+  "allDay": zod.boolean(),
+  "color": zod.string(),
+  "notes": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "crewPortalToken": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "status": zod.string().nullish()
+})
+
+
+/**
+ * @summary Update an ad-hoc calendar event
+ */
+export const UpdateCalendarEventParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateCalendarEventBody = zod.object({
+  "title": zod.string().optional(),
+  "notes": zod.string().nullish(),
+  "date": zod.string().optional(),
+  "start": zod.string().nullish(),
+  "end": zod.string().nullish(),
+  "allDay": zod.boolean().optional(),
+  "color": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "crewId": zod.string().nullish()
+})
+
+export const UpdateCalendarEventResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['job', 'note']),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "date": zod.string(),
+  "start": zod.string().nullish(),
+  "end": zod.string().nullish(),
+  "allDay": zod.boolean(),
+  "color": zod.string(),
+  "notes": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "crewPortalToken": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "status": zod.string().nullish()
+})
+
+
+/**
+ * @summary Delete an ad-hoc calendar event
+ */
+export const DeleteCalendarEventParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteCalendarEventResponse = zod.object({
+  "id": zod.string()
+})
+
+
+/**
  * @summary Crew members with today's dispatch status
  */
 export const ListCrewsResponseItem = zod.object({

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { HaloRing } from "./HaloRing";
-import { Mic, Bell, LayoutGrid } from "lucide-react";
+import { Mic, Bell, LayoutGrid, CalendarDays } from "lucide-react";
 import { useGetToday } from "@workspace/api-client-react";
 import { useState } from "react";
 import { VoiceCaptureSheet } from "./VoiceCaptureSheet";
@@ -28,8 +28,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="font-display font-bold text-[19px] tracking-[0.14em]">HALO</span>
             <span className="text-[10.5px] tracking-[0.14em] uppercase text-muted-foreground">Archangel Operations</span>
           </div>
+          <Link href="/calendar">
+            <button
+              className={`ml-auto w-[40px] h-[40px] rounded-full grid place-items-center bg-card shadow-[var(--shadow)] ${location.startsWith("/calendar") ? "text-[var(--gold-dark)]" : ""}`}
+              aria-label="Calendar"
+            >
+              <CalendarDays className="w-[19px] h-[19px]" strokeWidth={1.9} />
+            </button>
+          </Link>
           <button
-            className="ml-auto w-[40px] h-[40px] rounded-full grid place-items-center bg-card shadow-[var(--shadow)]"
+            className="w-[40px] h-[40px] rounded-full grid place-items-center bg-card shadow-[var(--shadow)]"
             onClick={() => setMoreOpen(true)}
             aria-label="More"
           >

@@ -406,6 +406,85 @@ export interface RecapSendInput {
   to?: string | null;
 }
 
+export type CalendarEventKind = typeof CalendarEventKind[keyof typeof CalendarEventKind];
+
+
+export const CalendarEventKind = {
+  job: 'job',
+  note: 'note',
+} as const;
+
+export interface CalendarEvent {
+  id: string;
+  kind: CalendarEventKind;
+  title: string;
+  /** @nullable */
+  subtitle?: string | null;
+  date: string;
+  /** @nullable */
+  start?: string | null;
+  /** @nullable */
+  end?: string | null;
+  allDay: boolean;
+  color: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  crewId?: string | null;
+  /** @nullable */
+  crewName?: string | null;
+  /** @nullable */
+  crewPortalToken?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  status?: string | null;
+}
+
+export interface CalendarBundle {
+  from: string;
+  to: string;
+  events: CalendarEvent[];
+}
+
+export interface NewCalendarEvent {
+  title: string;
+  /** @nullable */
+  notes?: string | null;
+  date: string;
+  /** @nullable */
+  start?: string | null;
+  /** @nullable */
+  end?: string | null;
+  allDay?: boolean;
+  /** @nullable */
+  color?: string | null;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  crewId?: string | null;
+}
+
+export interface CalendarEventPatch {
+  title?: string;
+  /** @nullable */
+  notes?: string | null;
+  date?: string;
+  /** @nullable */
+  start?: string | null;
+  /** @nullable */
+  end?: string | null;
+  allDay?: boolean;
+  /** @nullable */
+  color?: string | null;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  crewId?: string | null;
+}
+
 export interface Crew {
   id: string;
   name: string;
@@ -1071,6 +1150,15 @@ status?: string;
 export type ListJobsParams = {
 status?: string;
 propertyId?: string;
+};
+
+export type GetCalendarParams = {
+from: string;
+to: string;
+};
+
+export type DeleteCalendarEvent200 = {
+  id: string;
 };
 
 export type ListInvoicesParams = {

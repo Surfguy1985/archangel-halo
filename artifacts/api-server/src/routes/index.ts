@@ -14,6 +14,7 @@ import storageRouter from "./storage";
 import crewRouter from "./crew";
 import portalRouter from "./portal";
 import packetsRouter from "./packets";
+import calendarRouter from "./calendar";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(storageRouter);
 router.use(crewRouter);
 router.use(portalRouter);
 router.use(packetsRouter);
+router.use(calendarRouter);
 
 export default router;

@@ -25,6 +25,15 @@ must return a full `Property`, not `{brief, briefUpdatedAt}`).
 Dates must be serialized to ISO strings via `ser()`/`serList()` in `src/lib/serialize.ts` before
 `.parse()` — Zod schemas expect strings, not Date objects. date-mode-string columns are already strings.
 
+## Orval body-schema naming collision
+Do NOT name a component schema in openapi.yaml the same as orval's auto-generated operation Zod
+(`{OperationId}Body`, `{OperationId}Params`, `{OperationId}Response`). e.g. a requestBody component
+named `CreateCalendarEventBody` collides with the auto-generated body validator for a `createCalendarEvent`
+op → codegen writes duplicate exports and `tsc --build` fails ("already exported"). Fix: name request
+bodies by domain (`NewCalendarEvent`, `CalendarEventPatch`), not by operation.
+**How to apply:** orval succeeds writing src even when the follow-up `tsc --build` fails; if libs won't
+build after codegen, check for duplicate export names first.
+
 ## Percent convention
 Computed `marginPct` in money/property endpoints is returned as a PERCENT number (e.g. 47.5), not a
 fraction — the frontend appends `%` directly. Job-level `marginPct` in the DB is stored as a fraction.

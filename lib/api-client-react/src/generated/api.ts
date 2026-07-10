@@ -28,6 +28,9 @@ import type {
   BidInput,
   BidUpdate,
   Brief,
+  CalendarBundle,
+  CalendarEvent,
+  CalendarEventPatch,
   Contact,
   ContactInput,
   Crew,
@@ -45,9 +48,11 @@ import type {
   CrewPortalLink,
   CrewToday,
   CrewUpdate,
+  DeleteCalendarEvent200,
   Error,
   Expense,
   ExpenseInput,
+  GetCalendarParams,
   HealthStatus,
   IngestCommitInput,
   IngestCommitResult,
@@ -73,6 +78,7 @@ import type {
   ListPurchaseOrdersParams,
   MessageInput,
   MoneySummary,
+  NewCalendarEvent,
   Notification,
   OkResponse,
   PacketTemplateSummary,
@@ -2131,6 +2137,304 @@ export const useSendJobRecap = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getSendJobRecapMutationOptions(options));
+    }
+
+export const getGetCalendarUrl = (params: GetCalendarParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/calendar?${stringifiedParams}` : `/api/calendar`
+}
+
+/**
+ * @summary Unified calendar events (job schedules + ad-hoc notes) in a date range
+ */
+export const getCalendar = async (params: GetCalendarParams, options?: RequestInit): Promise<CalendarBundle> => {
+
+  return customFetch<CalendarBundle>(getGetCalendarUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCalendarQueryKey = (params?: GetCalendarParams,) => {
+    return [
+    `/api/calendar`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCalendarQueryOptions = <TData = Awaited<ReturnType<typeof getCalendar>>, TError = ErrorType<unknown>>(params: GetCalendarParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCalendar>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCalendarQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCalendar>>> = ({ signal }) => getCalendar(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCalendar>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCalendarQueryResult = NonNullable<Awaited<ReturnType<typeof getCalendar>>>
+export type GetCalendarQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Unified calendar events (job schedules + ad-hoc notes) in a date range
+ */
+
+export function useGetCalendar<TData = Awaited<ReturnType<typeof getCalendar>>, TError = ErrorType<unknown>>(
+ params: GetCalendarParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCalendar>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCalendarQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCalendarEventUrl = () => {
+
+
+
+
+  return `/api/calendar/events`
+}
+
+/**
+ * @summary Create an ad-hoc calendar event or note
+ */
+export const createCalendarEvent = async (newCalendarEvent: NewCalendarEvent, options?: RequestInit): Promise<CalendarEvent> => {
+
+  return customFetch<CalendarEvent>(getCreateCalendarEventUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(newCalendarEvent)
+  }
+);}
+
+
+
+
+
+export const getCreateCalendarEventMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCalendarEvent>>, TError,{data: BodyType<NewCalendarEvent>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCalendarEvent>>, TError,{data: BodyType<NewCalendarEvent>}, TContext> => {
+
+const mutationKey = ['createCalendarEvent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCalendarEvent>>, {data: BodyType<NewCalendarEvent>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCalendarEvent(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCalendarEventMutationResult = NonNullable<Awaited<ReturnType<typeof createCalendarEvent>>>
+    export type CreateCalendarEventMutationBody = BodyType<NewCalendarEvent>
+    export type CreateCalendarEventMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create an ad-hoc calendar event or note
+ */
+export const useCreateCalendarEvent = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCalendarEvent>>, TError,{data: BodyType<NewCalendarEvent>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCalendarEvent>>,
+        TError,
+        {data: BodyType<NewCalendarEvent>},
+        TContext
+      > => {
+      return useMutation(getCreateCalendarEventMutationOptions(options));
+    }
+
+export const getUpdateCalendarEventUrl = (id: string,) => {
+
+
+
+
+  return `/api/calendar/events/${id}`
+}
+
+/**
+ * @summary Update an ad-hoc calendar event
+ */
+export const updateCalendarEvent = async (id: string,
+    calendarEventPatch: CalendarEventPatch, options?: RequestInit): Promise<CalendarEvent> => {
+
+  return customFetch<CalendarEvent>(getUpdateCalendarEventUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(calendarEventPatch)
+  }
+);}
+
+
+
+
+
+export const getUpdateCalendarEventMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCalendarEvent>>, TError,{id: string;data: BodyType<CalendarEventPatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCalendarEvent>>, TError,{id: string;data: BodyType<CalendarEventPatch>}, TContext> => {
+
+const mutationKey = ['updateCalendarEvent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCalendarEvent>>, {id: string;data: BodyType<CalendarEventPatch>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCalendarEvent(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCalendarEventMutationResult = NonNullable<Awaited<ReturnType<typeof updateCalendarEvent>>>
+    export type UpdateCalendarEventMutationBody = BodyType<CalendarEventPatch>
+    export type UpdateCalendarEventMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update an ad-hoc calendar event
+ */
+export const useUpdateCalendarEvent = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCalendarEvent>>, TError,{id: string;data: BodyType<CalendarEventPatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCalendarEvent>>,
+        TError,
+        {id: string;data: BodyType<CalendarEventPatch>},
+        TContext
+      > => {
+      return useMutation(getUpdateCalendarEventMutationOptions(options));
+    }
+
+export const getDeleteCalendarEventUrl = (id: string,) => {
+
+
+
+
+  return `/api/calendar/events/${id}`
+}
+
+/**
+ * @summary Delete an ad-hoc calendar event
+ */
+export const deleteCalendarEvent = async (id: string, options?: RequestInit): Promise<DeleteCalendarEvent200> => {
+
+  return customFetch<DeleteCalendarEvent200>(getDeleteCalendarEventUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteCalendarEventMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCalendarEvent>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCalendarEvent>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteCalendarEvent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCalendarEvent>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteCalendarEvent(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCalendarEventMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCalendarEvent>>>
+
+    export type DeleteCalendarEventMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete an ad-hoc calendar event
+ */
+export const useDeleteCalendarEvent = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCalendarEvent>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCalendarEvent>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteCalendarEventMutationOptions(options));
     }
 
 export const getListCrewsUrl = () => {
