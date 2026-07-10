@@ -209,32 +209,55 @@ function CrewPay() {
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListCrewPaymentsQueryKey() });
 
-  const pending = (payments ?? []).filter((p) => p.status !== "completed");
-  const completed = (payments ?? []).filter((p) => p.status === "completed");
-  const pendingTotal = pending.reduce((s, p) => s + p.amount, 0);
+  type Payment = NonNullable<typeof payments>[number];
 
-  const row = (p: NonNullable<typeof payments>[number], idx: number, len: number) => (
-    <div
-      key={p.id}
-      className={`flex items-center gap-[10px] py-[12px] ${idx !== len - 1 ? "border-t border-border" : ""}`}
-    >
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold text-[14px] truncate">{p.crewName}</div>
-        <div className="text-[12px] text-muted-foreground truncate">
-          {[
-            p.method,
-            p.paidAt ? new Date(p.paidAt).toLocaleDateString() : null,
-            p.note,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+  const groups = (() => {
+    const map = new Map<string, { name: string; items: Payment[] }>();
+    for (const p of payments ?? []) {
+      const key = p.crewId ?? p.crewName ?? "unknown";
+      const name = p.crewName || "Unassigned crew";
+      if (!map.has(key)) map.set(key, { name, items: [] });
+      map.get(key)!.items.push(p);
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  })();
+
+  const row = (p: Payment, idx: number, len: number) => {
+    const dateStr = p.paidAt
+      ? new Date(p.paidAt).toLocaleDateString()
+      : p.dueOn
+        ? `Due ${new Date(p.dueOn).toLocaleDateString()}`
+        : null;
+    const isDone = p.status === "completed";
+    return (
+      <div
+        key={p.id}
+        className={`flex items-center gap-[10px] py-[12px] ${idx !== len - 1 ? "border-t border-border" : ""}`}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-[7px]">
+            <span className="font-display font-bold text-[15px] tabular-nums">
+              ${p.amount.toLocaleString()}
+            </span>
+            <span
+              className={`text-[10px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full ${
+                isDone
+                  ? "bg-[rgba(60,122,78,0.14)] text-[var(--green,#3c7a4e)]"
+                  : "bg-[rgba(190,60,60,0.12)] text-destructive"
+              }`}
+            >
+              {isDone ? "Completed" : "Pending"}
+            </span>
+          </div>
+          <div className="text-[12px] text-muted-foreground truncate mt-[2px]">
+            {[p.method || "No method", dateStr, p.note]
+              .filter(Boolean)
+              .join(" · ")}
+          </div>
         </div>
-      </div>
-      <div className="text-right shrink-0">
-        <div className="font-display font-bold text-[16px] tabular-nums">
-          ${p.amount.toLocaleString()}
-        </div>
-        {p.status !== "completed" && (
+        {!isDone && (
           <button
             onClick={() =>
               markPaid.mutate(
@@ -249,14 +272,14 @@ function CrewPay() {
               )
             }
             disabled={markPaid.isPending}
-            className="mt-[3px] inline-flex items-center gap-[4px] text-[11.5px] font-bold text-[var(--blue)] disabled:opacity-50"
+            className="shrink-0 inline-flex items-center gap-[4px] text-[11.5px] font-bold text-[var(--blue)] disabled:opacity-50"
           >
             <Check className="w-[12px] h-[12px]" /> Mark paid
           </button>
         )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="animate-in fade-in duration-200">
@@ -274,27 +297,29 @@ function CrewPay() {
         </div>
       ) : (
         <div className="flex flex-col gap-[12px]">
-          {pending.length > 0 && (
-            <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
-              <div className="flex items-center justify-between pt-[10px] pb-[2px]">
-                <span className="font-display font-semibold text-[12px] tracking-[0.12em] uppercase text-muted-foreground">
-                  Pending
-                </span>
-                <span className="font-display font-bold text-[13px] tabular-nums text-destructive">
-                  ${pendingTotal.toLocaleString()}
-                </span>
+          {groups.map((g) => {
+            const pendingTotal = g.items
+              .filter((p) => p.status !== "completed")
+              .reduce((s, p) => s + p.amount, 0);
+            return (
+              <div
+                key={g.name}
+                className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]"
+              >
+                <div className="flex items-center justify-between pt-[10px] pb-[2px]">
+                  <span className="font-display font-bold text-[14px] truncate">
+                    {g.name}
+                  </span>
+                  {pendingTotal > 0 && (
+                    <span className="font-display font-bold text-[12px] tabular-nums text-destructive shrink-0">
+                      ${pendingTotal.toLocaleString()} due
+                    </span>
+                  )}
+                </div>
+                {g.items.map((p, i) => row(p, i, g.items.length))}
               </div>
-              {pending.map((p, i) => row(p, i, pending.length))}
-            </div>
-          )}
-          {completed.length > 0 && (
-            <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
-              <div className="font-display font-semibold text-[12px] tracking-[0.12em] uppercase text-muted-foreground pt-[10px] pb-[2px]">
-                Completed
-              </div>
-              {completed.map((p, i) => row(p, i, completed.length))}
-            </div>
-          )}
+            );
+          })}
         </div>
       )}
       <AddCrewPaymentSheet open={addOpen} onOpenChange={setAddOpen} />

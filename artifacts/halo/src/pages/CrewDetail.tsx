@@ -11,6 +11,7 @@ import {
   useSendCrewDocument,
   getGetCrewDetailQueryKey,
   getListCrewMessagesQueryKey,
+  getListCrewCheckinsQueryKey,
   getListCrewDocumentsQueryKey,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
@@ -44,9 +45,15 @@ export default function CrewDetail() {
   const { toast } = useToast();
 
   const { data: crew, isLoading } = useGetCrewDetail(id);
-  const { data: messages } = useListCrewMessages(id);
-  const { data: checkins } = useListCrewCheckins(id);
-  const { data: documents } = useListCrewDocuments(id);
+  const { data: messages } = useListCrewMessages(id, {
+    query: { queryKey: getListCrewMessagesQueryKey(id), refetchInterval: 8000 },
+  });
+  const { data: checkins } = useListCrewCheckins(id, {
+    query: { queryKey: getListCrewCheckinsQueryKey(id), refetchInterval: 8000 },
+  });
+  const { data: documents } = useListCrewDocuments(id, {
+    query: { queryKey: getListCrewDocumentsQueryKey(id), refetchInterval: 8000 },
+  });
 
   const genLink = useGenerateCrewPortalLink();
   const sendMessage = useSendCrewMessage();

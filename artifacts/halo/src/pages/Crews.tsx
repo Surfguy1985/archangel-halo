@@ -1,9 +1,10 @@
-import { useListCrews } from "@workspace/api-client-react";
-import { Plus, Pencil, Radio, ChevronRight } from "lucide-react";
+import { useListCrews, useGenerateCrewPortalLink } from "@workspace/api-client-react";
+import { Plus, Pencil, Radio, ChevronRight, Link2, Check } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import { AddCrewSheet } from "@/components/AddCrewSheet";
 import { EditCrewSheet } from "@/components/EditCrewSheet";
+import { useToast } from "@/hooks/use-toast";
 
 type CrewRow = {
   id: string;
@@ -16,7 +17,32 @@ type CrewRow = {
 export default function Crews() {
   const [addOpen, setAddOpen] = useState(false);
   const [editCrew, setEditCrew] = useState<CrewRow | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const { data: crews, isLoading } = useListCrews();
+  const genLink = useGenerateCrewPortalLink();
+  const { toast } = useToast();
+
+  const handleLiveLink = (crewId: string) => {
+    genLink.mutate(
+      { id: crewId },
+      {
+        onSuccess: async (res) => {
+          const url = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}${res.path}`;
+          try {
+            await navigator.clipboard.writeText(url);
+            setCopiedId(crewId);
+            toast({
+              title: "Live link copied",
+              description: "Send it to the crew manually.",
+            });
+            setTimeout(() => setCopiedId((c) => (c === crewId ? null : c)), 1800);
+          } catch {
+            toast({ title: "Live link", description: url });
+          }
+        },
+      },
+    );
+  };
 
   if (isLoading) {
     return (
@@ -72,6 +98,26 @@ export default function Crews() {
               )}
               <ChevronRight className="w-[15px] h-[15px] text-muted-foreground shrink-0" />
             </Link>
+            <button
+              onClick={() => handleLiveLink(crew.id)}
+              disabled={genLink.isPending}
+              aria-label={`Copy live portal link for ${crew.name}`}
+              className={`shrink-0 h-[30px] flex items-center gap-[4px] rounded-full px-[10px] text-[11px] font-bold transition-transform active:scale-[0.9] disabled:opacity-50 ${
+                copiedId === crew.id
+                  ? "bg-[rgba(60,122,78,0.14)] text-[var(--green,#3c7a4e)]"
+                  : "bg-[rgba(143,106,31,0.12)] text-[var(--gold-dark,#8f6a1f)]"
+              }`}
+            >
+              {copiedId === crew.id ? (
+                <>
+                  <Check className="w-[13px] h-[13px]" /> Copied
+                </>
+              ) : (
+                <>
+                  <Link2 className="w-[13px] h-[13px]" /> Live link
+                </>
+              )}
+            </button>
             <button
               onClick={() =>
                 setEditCrew({

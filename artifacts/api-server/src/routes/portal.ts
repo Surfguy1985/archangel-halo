@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 import {
   db,
   crewsTable,
@@ -59,10 +59,27 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
     return;
   }
 
+  const now = new Date();
+  const dow = now.getDay();
+  const diffToMon = (dow + 6) % 7;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - diffToMon);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+  const weekStart = fmtDate(monday);
+  const weekEnd = fmtDate(sunday);
+
   const schedRows = await db
     .select()
     .from(schedulesTable)
-    .where(eq(schedulesTable.crewLeaderId, crew.id))
+    .where(
+      and(
+        eq(schedulesTable.crewLeaderId, crew.id),
+        gte(schedulesTable.scheduledOn, weekStart),
+        lte(schedulesTable.scheduledOn, weekEnd),
+      ),
+    )
     .orderBy(schedulesTable.scheduledOn);
   const jobs = await db.select().from(jobsTable);
   const jobsById = new Map(jobs.map((j) => [j.id, j]));
