@@ -1,0 +1,409 @@
+import { useState } from "react";
+import { Link, useParams } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetCrewDetail,
+  useGenerateCrewPortalLink,
+  useListCrewMessages,
+  useSendCrewMessage,
+  useListCrewCheckins,
+  useListCrewDocuments,
+  useSendCrewDocument,
+  useListPacketTemplates,
+  useListCrewPackets,
+  useSendCrewPacket,
+  getGetCrewDetailQueryKey,
+  getListCrewMessagesQueryKey,
+  getListCrewCheckinsQueryKey,
+  getListCrewDocumentsQueryKey,
+  getListCrewPacketsQueryKey,
+} from "@workspace/api-client-react";
+import { useUpload } from "@workspace/object-storage-web";
+import {
+  ChevronLeft,
+  Link2,
+  Copy,
+  Check,
+  Send,
+  MapPin,
+  FileUp,
+  FileText,
+  Wallet,
+  ClipboardCheck,
+  Download,
+  PackageCheck,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { downloadW9Pdf } from "@/lib/w9pdf";
+
+function formatWhen(iso?: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+const sectionTitle =
+  "font-display font-semibold text-xs tracking-wider uppercase text-muted-foreground mb-4 flex items-center gap-2";
+
+export default function CrewDetail() {
+  const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: crew, isLoading } = useGetCrewDetail(id);
+  const { data: messages } = useListCrewMessages(id, {
+    query: { queryKey: getListCrewMessagesQueryKey(id), refetchInterval: 8000 },
+  });
+  const { data: checkins } = useListCrewCheckins(id, {
+    query: { queryKey: getListCrewCheckinsQueryKey(id), refetchInterval: 8000 },
+  });
+  const { data: documents } = useListCrewDocuments(id, {
+    query: { queryKey: getListCrewDocumentsQueryKey(id), refetchInterval: 8000 },
+  });
+  const { data: packetTemplates } = useListPacketTemplates();
+  const { data: packets } = useListCrewPackets(id, {
+    query: { queryKey: getListCrewPacketsQueryKey(id), refetchInterval: 8000 },
+  });
+
+  const genLink = useGenerateCrewPortalLink();
+  const sendMessage = useSendCrewMessage();
+  const sendDocument = useSendCrewDocument();
+  const sendPacket = useSendCrewPacket();
+
+  const [draft, setDraft] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [templateKey, setTemplateKey] = useState("");
+
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: async (res) => {
+      try {
+        await sendDocument.mutateAsync({
+          id,
+          data: {
+            name: res.metadata.name,
+            storagePath: res.objectPath,
+            contentType: res.metadata.contentType,
+            size: res.metadata.size,
+          },
+        });
+        queryClient.invalidateQueries({ queryKey: getListCrewDocumentsQueryKey(id) });
+        toast({ title: "Document sent to crew" });
+      } catch (e) {
+        toast({
+          title: "Couldn't send document",
+          description: e instanceof Error ? e.message : "The file uploaded but saving failed. Try again.",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (e) => toast({ title: "Upload failed", description: e.message, variant: "destructive" }),
+  });
+
+  if (isLoading || !crew) {
+    return (
+      <div className="p-8 max-w-6xl mx-auto space-y-4">
+        <Skeleton className="h-8 w-1/3" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  const portalToken = crew.portalToken;
+  const portalUrl = portalToken
+    ? `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/portal/${portalToken}`
+    : null;
+
+  const handleGenerate = () =>
+    genLink.mutate(
+      { id },
+      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCrewDetailQueryKey(id) }) },
+    );
+
+  const handleCopy = async () => {
+    if (!portalUrl) return;
+    await navigator.clipboard.writeText(portalUrl);
+    setCopied(true);
+    toast({ title: "Live link copied", description: "Send it to the crew manually." });
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  const handleSend = () => {
+    const body = draft.trim();
+    if (!body) return;
+    sendMessage.mutate(
+      { id, data: { body } },
+      {
+        onSuccess: () => {
+          setDraft("");
+          queryClient.invalidateQueries({ queryKey: getListCrewMessagesQueryKey(id) });
+        },
+      },
+    );
+  };
+
+  const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file);
+    e.target.value = "";
+  };
+
+  const handleSendPacket = () => {
+    if (!templateKey) return;
+    sendPacket.mutate(
+      { id, data: { templateKey } },
+      {
+        onSuccess: () => {
+          setTemplateKey("");
+          queryClient.invalidateQueries({ queryKey: getListCrewPacketsQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getListCrewMessagesQueryKey(id) });
+          toast({ title: "Packet sent", description: "The crew can now complete it in their portal." });
+        },
+        onError: (e) => toast({ title: "Couldn't send packet", description: e.message, variant: "destructive" }),
+      },
+    );
+  };
+
+  const packetLabel = (key: string) => packetTemplates?.find((t) => t.key === key)?.label ?? key;
+  const card = "bg-card rounded-xl shadow-sm border border-border p-6";
+  const goldBtn =
+    "flex items-center justify-center gap-2 rounded-md py-2.5 px-4 text-sm font-display font-bold text-white bg-[var(--gold)] hover:bg-[var(--gold-dark)] transition-colors disabled:opacity-50";
+
+  return (
+    <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
+      <Link href="/crews" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-fit">
+        <ChevronLeft className="w-4 h-4" /> Crews
+      </Link>
+
+      <header className="flex items-center gap-4">
+        <div className="w-14 h-14 rounded-full bg-[var(--ink)] text-[var(--gold-light)] font-display font-bold text-2xl grid place-items-center shrink-0">
+          {crew.name.substring(0, 1)}
+        </div>
+        <div className="min-w-0">
+          <h1 className="font-display font-bold text-3xl tracking-tight text-[var(--ink)] truncate">{crew.name}</h1>
+          <div className="text-sm text-muted-foreground truncate">
+            {[crew.trade || "General", crew.phone].filter(Boolean).join(" · ")}
+          </div>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Live portal link */}
+        <div className={card}>
+          <div className={sectionTitle}><Link2 className="w-3.5 h-3.5" /> Live portal link</div>
+          {portalUrl ? (
+            <>
+              <div className="text-xs font-mono bg-black/5 rounded-md px-3 py-2.5 break-all mb-3">{portalUrl}</div>
+              <button onClick={handleCopy} className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-display font-semibold text-muted-foreground bg-black/5 hover:bg-black/10 transition-colors">
+                {copied ? <><Check className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy live link</>}
+              </button>
+              <p className="text-xs text-muted-foreground mt-3 leading-relaxed">Anyone with this link can open the crew's onboarding portal.</p>
+            </>
+          ) : (
+            <button onClick={handleGenerate} disabled={genLink.isPending} className={`w-full ${goldBtn}`}>
+              <Link2 className="w-4 h-4" /> Generate live link
+            </button>
+          )}
+        </div>
+
+        {/* Onboarding welcome kit */}
+        <div className={card}>
+          <div className={sectionTitle}><PackageCheck className="w-3.5 h-3.5" /> Onboarding Welcome Kit</div>
+          <div className="flex flex-col gap-2">
+            <select
+              value={templateKey}
+              onChange={(e) => setTemplateKey(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              <option value="">Choose a packet to send…</option>
+              {(packetTemplates ?? []).map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select>
+            <button onClick={handleSendPacket} disabled={!templateKey || sendPacket.isPending} className={`w-full ${goldBtn}`}>
+              <Send className="w-4 h-4" /> {sendPacket.isPending ? "Sending…" : "Send packet to crew"}
+            </button>
+          </div>
+          {packets && packets.length > 0 && (
+            <div className="flex flex-col mt-4 divide-y divide-border">
+              {packets.map((p) => {
+                const submitted = p.status === "submitted";
+                const label = submitted ? "Completed" : p.status === "in_progress" ? "In progress" : "Sent";
+                return (
+                  <div key={p.id} className="flex items-center gap-3 py-3">
+                    <PackageCheck className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold truncate">{packetLabel(p.templateKey)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {submitted ? `Submitted ${formatWhen(p.submittedAt)}` : `Sent ${formatWhen(p.sentAt)}`}
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 ${submitted ? "bg-emerald-100 text-emerald-800" : p.status === "in_progress" ? "bg-[var(--gold-tint)] text-[var(--gold-dark)]" : "bg-black/5 text-muted-foreground"}`}>{label}</span>
+                    {submitted && (
+                      <a href={`/api/packets/${p.id}/pdf`} download className="shrink-0 w-8 h-8 grid place-items-center rounded-full bg-[var(--paper)] border border-border text-muted-foreground hover:text-foreground" aria-label="Download packet PDF">
+                        <Download className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Messages */}
+        <div className={card}>
+          <div className={sectionTitle}><Send className="w-3.5 h-3.5" /> Messages</div>
+          <div className="flex flex-col gap-2 max-h-72 overflow-y-auto mb-3">
+            {!messages || messages.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-3 text-center">No messages yet.</div>
+            ) : (
+              messages.map((m) => (
+                <div key={m.id} className={`max-w-[82%] rounded-xl px-3 py-2 text-sm leading-relaxed ${m.sender === "admin" ? "self-end bg-[var(--ink)] text-white rounded-br-sm" : "self-start bg-black/5 text-foreground rounded-bl-sm"}`}>
+                  <div>{m.body}</div>
+                  <div className={`text-[10px] mt-1 ${m.sender === "admin" ? "text-white/60" : "text-muted-foreground"}`}>{formatWhen(m.createdAt)}</div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="flex items-end gap-2">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Message the crew…"
+              rows={1}
+              className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <button onClick={handleSend} disabled={sendMessage.isPending || !draft.trim()} aria-label="Send message" className="w-10 h-10 shrink-0 rounded-full grid place-items-center bg-[var(--ink)] text-white disabled:opacity-40 hover:opacity-90 transition-opacity">
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Documents */}
+        <div className={card}>
+          <div className={sectionTitle}><FileText className="w-3.5 h-3.5" /> Documents</div>
+          <label className="w-full mb-3 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-display font-bold bg-card border border-border shadow-sm cursor-pointer hover:bg-black/[0.03] transition-colors">
+            <FileUp className="w-4 h-4" />
+            {isUploading ? "Uploading…" : "Send document to crew"}
+            <input type="file" className="hidden" onChange={onFilePicked} disabled={isUploading} />
+          </label>
+          {!documents || documents.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-2 text-center">No documents yet.</div>
+          ) : (
+            <div className="flex flex-col divide-y divide-border">
+              {documents.map((d) => {
+                const url = `/api/storage${d.storagePath}`;
+                return (
+                  <div key={d.id} className="flex items-center gap-3 py-3">
+                    <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <a href={url} target="_blank" rel="noreferrer" className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold truncate">{d.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {d.direction === "from_crew" ? "From crew" : "Sent to crew"} · {formatWhen(d.createdAt)}
+                      </div>
+                    </a>
+                    {d.direction === "from_crew" && (
+                      <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 shrink-0">New</span>
+                    )}
+                    <a href={url} download={d.name} className="shrink-0 w-8 h-8 grid place-items-center rounded-full bg-[var(--paper)] border border-border text-muted-foreground hover:text-foreground" aria-label={`Download ${d.name}`}>
+                      <Download className="w-4 h-4" />
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Check-ins */}
+        <div className={card}>
+          <div className={sectionTitle}><MapPin className="w-3.5 h-3.5" /> GPS check-ins</div>
+          {!checkins || checkins.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-2 text-center">No check-ins yet.</div>
+          ) : (
+            <div className="flex flex-col divide-y divide-border">
+              {checkins.map((c) => (
+                <div key={c.id} className="flex items-center gap-3 py-3">
+                  <MapPin className="w-4 h-4 text-[var(--gold)] shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold truncate">{c.label || "Check-in"}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {c.lat != null && c.lng != null ? `${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}` : "No coordinates"} · {formatWhen(c.createdAt)}
+                    </div>
+                  </div>
+                  {c.lat != null && c.lng != null && (
+                    <a href={`https://maps.google.com/?q=${c.lat},${c.lng}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-600 shrink-0">Map</a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Payment method */}
+        <div className={card}>
+          <div className={sectionTitle}><Wallet className="w-3.5 h-3.5" /> Preferred payment</div>
+          {crew.preferredPaymentMethod ? (
+            <div>
+              <div className="text-sm font-semibold">{crew.preferredPaymentMethod}</div>
+              {crew.paymentDetails && <div className="text-sm text-muted-foreground mt-1 break-words">{crew.paymentDetails}</div>}
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">Crew hasn't set a payment method yet.</div>
+          )}
+        </div>
+
+        {/* W-9 */}
+        <div className={`${card} lg:col-span-2`}>
+          <div className={sectionTitle}><ClipboardCheck className="w-3.5 h-3.5" /> IRS Form W-9</div>
+          {crew.w9Submitted && crew.w9 ? (
+            <div className="text-sm">
+              <div className="flex items-center gap-2 text-emerald-700 mb-3">
+                <Check className="w-4 h-4" />
+                <span className="font-semibold">Submitted {formatWhen(crew.w9SubmittedAt)}</span>
+              </div>
+              <W9Readout data={crew.w9 as Record<string, unknown>} />
+              <button onClick={() => downloadW9Pdf(crew.w9 as Record<string, unknown>, crew.name)} className="mt-4 flex items-center justify-center gap-2 rounded-md py-2.5 px-4 text-sm font-display font-bold bg-card border border-border shadow-sm hover:bg-black/[0.03] transition-colors">
+                <Download className="w-4 h-4" /> Download W-9 (PDF)
+              </button>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">Crew hasn't submitted a W-9 yet.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function W9Readout({ data }: { data: Record<string, unknown> }) {
+  const rows: [string, string][] = [];
+  const push = (label: string, key: string) => {
+    const v = data[key];
+    if (v != null && v !== "") rows.push([label, String(v)]);
+  };
+  push("Name", "name");
+  push("Business name", "businessName");
+  push("Tax classification", "taxClassification");
+  push("Address", "address");
+  push("City", "city");
+  push("State", "state");
+  push("ZIP", "zip");
+  if (data.tinType === "ein") push("EIN", "ein");
+  else push("SSN", "ssn");
+  push("Signature", "signature");
+  push("Signed", "signedDate");
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex gap-3 text-sm">
+          <span className="text-muted-foreground w-28 shrink-0">{label}</span>
+          <span className="font-medium break-words">{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
