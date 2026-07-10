@@ -14,3 +14,6 @@ Every create/action sheet's `onSuccess` must invalidate ALL query keys whose vie
 - Purchase order create / receive: also `getGetTodayQueryKey()` (POs surface as Today blocker cards).
 - Bid create / update / nudge: also `getGetTodayQueryKey()`.
 - Property-scoped contact & price item create: `getGetPropertyQueryKey(propertyId)` (the detail endpoint, NOT a separate list).
+
+# Action buttons with no visible state change need a toast
+Any mutation button whose success does NOT visibly change the UI (e.g. invoice "Send reminder" leaves status `past_due`, so the button stays put) MUST fire a `useToast()` on success (and on error). Without it the action looks broken even though it returns 200 — this is a recurring "button not working" report. Buttons that flip status and disappear (Send draft→sent, Mark paid) are self-evidencing and don't strictly need one, but a toast is still nicer. Toast API: `useToast` from `@/hooks/use-toast`, `toast({ title, description, variant: "destructive" })`.

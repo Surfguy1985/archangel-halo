@@ -18,6 +18,7 @@ import { AddInvoiceSheet } from "@/components/AddInvoiceSheet";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
 import { RecordPaymentSheet } from "@/components/RecordPaymentSheet";
 import { AddCrewPaymentSheet } from "@/components/AddCrewPaymentSheet";
+import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { exportCsv } from "@/lib/exportCsv";
 
@@ -193,6 +194,7 @@ function Invoices() {
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
   const send = useSendInvoice();
   const remind = useRemindInvoice();
+  const { toast } = useToast();
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
@@ -287,7 +289,26 @@ function Invoices() {
                 {inv.status === "draft" && (
                   <button
                     className="flex-1 rounded-[11px] py-[9px] text-[13px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] disabled:opacity-50 transition-transform active:scale-[0.98]"
-                    onClick={() => send.mutate({ id: inv.id }, { onSuccess: invalidate })}
+                    onClick={() =>
+                      send.mutate(
+                        { id: inv.id },
+                        {
+                          onSuccess: () => {
+                            invalidate();
+                            toast({
+                              title: "Invoice sent",
+                              description: `${inv.invoiceNo} emailed to the client.`,
+                            });
+                          },
+                          onError: (e) =>
+                            toast({
+                              title: "Couldn't send invoice",
+                              description: e.message,
+                              variant: "destructive",
+                            }),
+                        },
+                      )
+                    }
                     disabled={send.isPending}
                   >
                     Send
@@ -296,7 +317,26 @@ function Invoices() {
                 {inv.status === "past_due" && (
                   <button
                     className="flex-1 rounded-[11px] py-[9px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] disabled:opacity-50 transition-transform active:scale-[0.98]"
-                    onClick={() => remind.mutate({ id: inv.id }, { onSuccess: invalidate })}
+                    onClick={() =>
+                      remind.mutate(
+                        { id: inv.id },
+                        {
+                          onSuccess: () => {
+                            invalidate();
+                            toast({
+                              title: "Reminder sent",
+                              description: `Past-due notice emailed for ${inv.invoiceNo}.`,
+                            });
+                          },
+                          onError: (e) =>
+                            toast({
+                              title: "Couldn't send reminder",
+                              description: e.message,
+                              variant: "destructive",
+                            }),
+                        },
+                      )
+                    }
                     disabled={remind.isPending}
                   >
                     Send reminder
