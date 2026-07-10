@@ -9,6 +9,7 @@ import inventoryRouter from "./inventory";
 import activityRouter from "./activity";
 import voiceRouter from "./voice";
 import ingestRouter from "./ingest";
+import notifyRouter from "./notify";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(inventoryRouter);
 router.use(activityRouter);
 router.use(voiceRouter);
 router.use(ingestRouter);
+router.use(notifyRouter);
 
 export default router;
