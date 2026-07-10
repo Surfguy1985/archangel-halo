@@ -22,6 +22,9 @@
     },
     {
       "path": "../../lib/object-storage-web"
+    },
+    {
+      "path": "../../lib/onboarding-packet"
     }
   ]
 }

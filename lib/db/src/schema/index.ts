@@ -5,3 +5,4 @@ export * from "./crew_portal";
 export * from "./money";
 export * from "./inventory";
 export * from "./activity";
+export * from "./onboarding";

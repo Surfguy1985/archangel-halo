@@ -38,6 +38,7 @@ import type {
   CrewDocumentInput,
   CrewInput,
   CrewMessage,
+  CrewPacket,
   CrewPayment,
   CrewPaymentInput,
   CrewPaymentUpdate,
@@ -74,6 +75,7 @@ import type {
   MoneySummary,
   Notification,
   OkResponse,
+  PacketTemplateSummary,
   Payment,
   PaymentInput,
   PaymentMethodInput,
@@ -88,7 +90,9 @@ import type {
   PurchaseOrder,
   PurchaseOrderInput,
   Queue,
+  SavePacketInput,
   ScheduleInput,
+  SendPacketInput,
   TodayPayload,
   UploadUrlRequest,
   UploadUrlResponse,
@@ -5624,5 +5628,538 @@ export const useSetPortalPaymentMethod = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getSetPortalPaymentMethodMutationOptions(options));
+    }
+
+export const getListPacketTemplatesUrl = () => {
+
+
+
+
+  return `/api/packet-templates`
+}
+
+/**
+ * @summary Available onboarding packet templates for the send dropdown
+ */
+export const listPacketTemplates = async ( options?: RequestInit): Promise<PacketTemplateSummary[]> => {
+
+  return customFetch<PacketTemplateSummary[]>(getListPacketTemplatesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPacketTemplatesQueryKey = () => {
+    return [
+    `/api/packet-templates`
+    ] as const;
+    }
+
+
+export const getListPacketTemplatesQueryOptions = <TData = Awaited<ReturnType<typeof listPacketTemplates>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPacketTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPacketTemplatesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPacketTemplates>>> = ({ signal }) => listPacketTemplates({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPacketTemplates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPacketTemplatesQueryResult = NonNullable<Awaited<ReturnType<typeof listPacketTemplates>>>
+export type ListPacketTemplatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Available onboarding packet templates for the send dropdown
+ */
+
+export function useListPacketTemplates<TData = Awaited<ReturnType<typeof listPacketTemplates>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPacketTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPacketTemplatesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCrewPacketsUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/packets`
+}
+
+/**
+ * @summary Onboarding packets sent to a crew
+ */
+export const listCrewPackets = async (id: string, options?: RequestInit): Promise<CrewPacket[]> => {
+
+  return customFetch<CrewPacket[]>(getListCrewPacketsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCrewPacketsQueryKey = (id: string,) => {
+    return [
+    `/api/crews/${id}/packets`
+    ] as const;
+    }
+
+
+export const getListCrewPacketsQueryOptions = <TData = Awaited<ReturnType<typeof listCrewPackets>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewPackets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCrewPacketsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCrewPackets>>> = ({ signal }) => listCrewPackets(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCrewPackets>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCrewPacketsQueryResult = NonNullable<Awaited<ReturnType<typeof listCrewPackets>>>
+export type ListCrewPacketsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Onboarding packets sent to a crew
+ */
+
+export function useListCrewPackets<TData = Awaited<ReturnType<typeof listCrewPackets>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewPackets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCrewPacketsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendCrewPacketUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/packets`
+}
+
+/**
+ * @summary Send an onboarding packet to the crew portal
+ */
+export const sendCrewPacket = async (id: string,
+    sendPacketInput: SendPacketInput, options?: RequestInit): Promise<CrewPacket> => {
+
+  return customFetch<CrewPacket>(getSendCrewPacketUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sendPacketInput)
+  }
+);}
+
+
+
+
+
+export const getSendCrewPacketMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendCrewPacket>>, TError,{id: string;data: BodyType<SendPacketInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendCrewPacket>>, TError,{id: string;data: BodyType<SendPacketInput>}, TContext> => {
+
+const mutationKey = ['sendCrewPacket'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendCrewPacket>>, {id: string;data: BodyType<SendPacketInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendCrewPacket(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendCrewPacketMutationResult = NonNullable<Awaited<ReturnType<typeof sendCrewPacket>>>
+    export type SendCrewPacketMutationBody = BodyType<SendPacketInput>
+    export type SendCrewPacketMutationError = ErrorType<Error>
+
+    /**
+ * @summary Send an onboarding packet to the crew portal
+ */
+export const useSendCrewPacket = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendCrewPacket>>, TError,{id: string;data: BodyType<SendPacketInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendCrewPacket>>,
+        TError,
+        {id: string;data: BodyType<SendPacketInput>},
+        TContext
+      > => {
+      return useMutation(getSendCrewPacketMutationOptions(options));
+    }
+
+export const getListPortalPacketsUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/packets`
+}
+
+/**
+ * @summary Packets assigned to this crew
+ */
+export const listPortalPackets = async (token: string, options?: RequestInit): Promise<CrewPacket[]> => {
+
+  return customFetch<CrewPacket[]>(getListPortalPacketsUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPortalPacketsQueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}/packets`
+    ] as const;
+    }
+
+
+export const getListPortalPacketsQueryOptions = <TData = Awaited<ReturnType<typeof listPortalPackets>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPortalPackets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPortalPacketsQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPortalPackets>>> = ({ signal }) => listPortalPackets(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPortalPackets>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPortalPacketsQueryResult = NonNullable<Awaited<ReturnType<typeof listPortalPackets>>>
+export type ListPortalPacketsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Packets assigned to this crew
+ */
+
+export function useListPortalPackets<TData = Awaited<ReturnType<typeof listPortalPackets>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPortalPackets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPortalPacketsQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPortalPacketUrl = (token: string,
+    packetId: string,) => {
+
+
+
+
+  return `/api/portal/${token}/packets/${packetId}`
+}
+
+/**
+ * @summary A single packet with saved progress
+ */
+export const getPortalPacket = async (token: string,
+    packetId: string, options?: RequestInit): Promise<CrewPacket> => {
+
+  return customFetch<CrewPacket>(getGetPortalPacketUrl(token,packetId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalPacketQueryKey = (token: string,
+    packetId: string,) => {
+    return [
+    `/api/portal/${token}/packets/${packetId}`
+    ] as const;
+    }
+
+
+export const getGetPortalPacketQueryOptions = <TData = Awaited<ReturnType<typeof getPortalPacket>>, TError = ErrorType<Error>>(token: string,
+    packetId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalPacket>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalPacketQueryKey(token,packetId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalPacket>>> = ({ signal }) => getPortalPacket(token,packetId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined && packetId !== null && packetId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalPacket>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalPacketQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalPacket>>>
+export type GetPortalPacketQueryError = ErrorType<Error>
+
+
+/**
+ * @summary A single packet with saved progress
+ */
+
+export function useGetPortalPacket<TData = Awaited<ReturnType<typeof getPortalPacket>>, TError = ErrorType<Error>>(
+ token: string,
+    packetId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalPacket>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalPacketQueryOptions(token,packetId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSavePortalPacketUrl = (token: string,
+    packetId: string,) => {
+
+
+
+
+  return `/api/portal/${token}/packets/${packetId}`
+}
+
+/**
+ * @summary Save packet progress (applicability, form data, signatures, attachments)
+ */
+export const savePortalPacket = async (token: string,
+    packetId: string,
+    savePacketInput: SavePacketInput, options?: RequestInit): Promise<CrewPacket> => {
+
+  return customFetch<CrewPacket>(getSavePortalPacketUrl(token,packetId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(savePacketInput)
+  }
+);}
+
+
+
+
+
+export const getSavePortalPacketMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof savePortalPacket>>, TError,{token: string;packetId: string;data: BodyType<SavePacketInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof savePortalPacket>>, TError,{token: string;packetId: string;data: BodyType<SavePacketInput>}, TContext> => {
+
+const mutationKey = ['savePortalPacket'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof savePortalPacket>>, {token: string;packetId: string;data: BodyType<SavePacketInput>}> = (props) => {
+          const {token,packetId,data} = props ?? {};
+
+          return  savePortalPacket(token,packetId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SavePortalPacketMutationResult = NonNullable<Awaited<ReturnType<typeof savePortalPacket>>>
+    export type SavePortalPacketMutationBody = BodyType<SavePacketInput>
+    export type SavePortalPacketMutationError = ErrorType<Error>
+
+    /**
+ * @summary Save packet progress (applicability, form data, signatures, attachments)
+ */
+export const useSavePortalPacket = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof savePortalPacket>>, TError,{token: string;packetId: string;data: BodyType<SavePacketInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof savePortalPacket>>,
+        TError,
+        {token: string;packetId: string;data: BodyType<SavePacketInput>},
+        TContext
+      > => {
+      return useMutation(getSavePortalPacketMutationOptions(options));
+    }
+
+export const getSubmitPortalPacketUrl = (token: string,
+    packetId: string,) => {
+
+
+
+
+  return `/api/portal/${token}/packets/${packetId}/submit`
+}
+
+/**
+ * @summary Finalize and submit the completed packet
+ */
+export const submitPortalPacket = async (token: string,
+    packetId: string,
+    savePacketInput: SavePacketInput, options?: RequestInit): Promise<CrewPacket> => {
+
+  return customFetch<CrewPacket>(getSubmitPortalPacketUrl(token,packetId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(savePacketInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitPortalPacketMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPortalPacket>>, TError,{token: string;packetId: string;data: BodyType<SavePacketInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitPortalPacket>>, TError,{token: string;packetId: string;data: BodyType<SavePacketInput>}, TContext> => {
+
+const mutationKey = ['submitPortalPacket'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitPortalPacket>>, {token: string;packetId: string;data: BodyType<SavePacketInput>}> = (props) => {
+          const {token,packetId,data} = props ?? {};
+
+          return  submitPortalPacket(token,packetId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitPortalPacketMutationResult = NonNullable<Awaited<ReturnType<typeof submitPortalPacket>>>
+    export type SubmitPortalPacketMutationBody = BodyType<SavePacketInput>
+    export type SubmitPortalPacketMutationError = ErrorType<Error>
+
+    /**
+ * @summary Finalize and submit the completed packet
+ */
+export const useSubmitPortalPacket = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPortalPacket>>, TError,{token: string;packetId: string;data: BodyType<SavePacketInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitPortalPacket>>,
+        TError,
+        {token: string;packetId: string;data: BodyType<SavePacketInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitPortalPacketMutationOptions(options));
     }
 

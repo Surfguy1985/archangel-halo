@@ -9,10 +9,14 @@ import {
   useListCrewCheckins,
   useListCrewDocuments,
   useSendCrewDocument,
+  useListPacketTemplates,
+  useListCrewPackets,
+  useSendCrewPacket,
   getGetCrewDetailQueryKey,
   getListCrewMessagesQueryKey,
   getListCrewCheckinsQueryKey,
   getListCrewDocumentsQueryKey,
+  getListCrewPacketsQueryKey,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import {
@@ -28,6 +32,8 @@ import {
   ClipboardCheck,
   Download,
   MessageSquare,
+  PackageCheck,
+  Send as SendIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { downloadW9Pdf } from "@/lib/w9pdf";
@@ -58,12 +64,19 @@ export default function CrewDetail() {
     query: { queryKey: getListCrewDocumentsQueryKey(id), refetchInterval: 8000 },
   });
 
+  const { data: packetTemplates } = useListPacketTemplates();
+  const { data: packets } = useListCrewPackets(id, {
+    query: { queryKey: getListCrewPacketsQueryKey(id), refetchInterval: 8000 },
+  });
+
   const genLink = useGenerateCrewPortalLink();
   const sendMessage = useSendCrewMessage();
   const sendDocument = useSendCrewDocument();
+  const sendPacket = useSendCrewPacket();
 
   const [draft, setDraft] = useState("");
   const [copied, setCopied] = useState(false);
+  const [templateKey, setTemplateKey] = useState("");
 
   const { uploadFile, isUploading } = useUpload({
     onSuccess: async (res) => {
@@ -147,6 +160,35 @@ export default function CrewDetail() {
     e.target.value = "";
   };
 
+  const apiBase = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const handleSendPacket = () => {
+    if (!templateKey) return;
+    sendPacket.mutate(
+      { id, data: { templateKey } },
+      {
+        onSuccess: () => {
+          setTemplateKey("");
+          queryClient.invalidateQueries({
+            queryKey: getListCrewPacketsQueryKey(id),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getListCrewMessagesQueryKey(id),
+          });
+          toast({
+            title: "Packet sent",
+            description: "The crew can now complete it in their portal.",
+          });
+        },
+        onError: (e) =>
+          toast({ title: "Couldn't send packet", description: e.message }),
+      },
+    );
+  };
+
+  const packetLabel = (key: string) =>
+    packetTemplates?.find((t) => t.key === key)?.label ?? key;
+
   const sectionTitle =
     "font-display font-semibold text-[12px] tracking-[0.14em] uppercase text-muted-foreground mb-[10px] flex items-center gap-[7px]";
 
@@ -216,6 +258,87 @@ export default function CrewDetail() {
           >
             <Link2 className="w-[16px] h-[16px]" /> Generate live link
           </button>
+        )}
+      </div>
+
+      {/* Onboarding Welcome Kit */}
+      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+        <div className={sectionTitle}>
+          <PackageCheck className="w-[13px] h-[13px]" /> Onboarding Welcome Kit
+        </div>
+        <div className="flex flex-col gap-[8px]">
+          <select
+            value={templateKey}
+            onChange={(e) => setTemplateKey(e.target.value)}
+            className="w-full rounded-[11px] border border-border bg-background px-[12px] py-[10px] text-[13.5px] focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40"
+          >
+            <option value="">Choose a packet to send…</option>
+            {(packetTemplates ?? []).map((t) => (
+              <option key={t.key} value={t.key}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleSendPacket}
+            disabled={!templateKey || sendPacket.isPending}
+            className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+          >
+            <SendIcon className="w-[16px] h-[16px]" />
+            {sendPacket.isPending ? "Sending…" : "Send packet to crew"}
+          </button>
+        </div>
+
+        {packets && packets.length > 0 && (
+          <div className="flex flex-col mt-[12px]">
+            {packets.map((p, idx) => {
+              const submitted = p.status === "submitted";
+              const statusLabel =
+                p.status === "submitted"
+                  ? "Completed"
+                  : p.status === "in_progress"
+                    ? "In progress"
+                    : "Sent";
+              const statusClass = submitted
+                ? "bg-[rgba(60,122,78,0.14)] text-[var(--green,#3c7a4e)]"
+                : p.status === "in_progress"
+                  ? "bg-[rgba(143,106,31,0.14)] text-[var(--gold-dark)]"
+                  : "bg-[rgba(23,24,28,0.06)] text-muted-foreground";
+              return (
+                <div
+                  key={p.id}
+                  className={`flex items-center gap-[10px] py-[10px] ${idx !== 0 ? "border-t border-border" : ""}`}
+                >
+                  <PackageCheck className="w-[17px] h-[17px] text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-semibold truncate">
+                      {packetLabel(p.templateKey)}
+                    </div>
+                    <div className="text-[11.5px] text-muted-foreground">
+                      {submitted
+                        ? `Submitted ${formatWhen(p.submittedAt)}`
+                        : `Sent ${formatWhen(p.sentAt)}`}
+                    </div>
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full shrink-0 ${statusClass}`}
+                  >
+                    {statusLabel}
+                  </span>
+                  {submitted && (
+                    <a
+                      href={`${apiBase}/api/packets/${p.id}/pdf`}
+                      download
+                      className="shrink-0 w-[32px] h-[32px] grid place-items-center rounded-full bg-[var(--paper)] border border-border text-muted-foreground transition-transform active:scale-[0.94]"
+                      aria-label="Download compiled packet PDF"
+                    >
+                      <Download className="w-[15px] h-[15px]" />
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 

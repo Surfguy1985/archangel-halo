@@ -1853,3 +1853,195 @@ export const SetPortalPaymentMethodResponse = zod.object({
 })
 
 
+/**
+ * @summary Available onboarding packet templates for the send dropdown
+ */
+export const ListPacketTemplatesResponseItem = zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "locale": zod.string().describe('en | es')
+})
+export const ListPacketTemplatesResponse = zod.array(ListPacketTemplatesResponseItem)
+
+
+/**
+ * @summary Onboarding packets sent to a crew
+ */
+export const ListCrewPacketsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListCrewPacketsResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "templateKey": zod.string(),
+  "status": zod.string().describe('sent | in_progress | submitted'),
+  "applicability": zod.union([zod.object({
+  "insured": zod.boolean().nullish(),
+  "ach": zod.boolean().nullish()
+}),zod.null()]).optional(),
+  "formsData": zod.record(zod.string(), zod.unknown()).nullish(),
+  "signatures": zod.record(zod.string(), zod.unknown()).nullish(),
+  "attachments": zod.record(zod.string(), zod.unknown()).nullish(),
+  "sentAt": zod.string().nullish(),
+  "submittedAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+export const ListCrewPacketsResponse = zod.array(ListCrewPacketsResponseItem)
+
+
+/**
+ * @summary Send an onboarding packet to the crew portal
+ */
+export const SendCrewPacketParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SendCrewPacketBody = zod.object({
+  "templateKey": zod.string()
+})
+
+export const SendCrewPacketResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "templateKey": zod.string(),
+  "status": zod.string().describe('sent | in_progress | submitted'),
+  "applicability": zod.union([zod.object({
+  "insured": zod.boolean().nullish(),
+  "ach": zod.boolean().nullish()
+}),zod.null()]).optional(),
+  "formsData": zod.record(zod.string(), zod.unknown()).nullish(),
+  "signatures": zod.record(zod.string(), zod.unknown()).nullish(),
+  "attachments": zod.record(zod.string(), zod.unknown()).nullish(),
+  "sentAt": zod.string().nullish(),
+  "submittedAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Packets assigned to this crew
+ */
+export const ListPortalPacketsParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ListPortalPacketsResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "templateKey": zod.string(),
+  "status": zod.string().describe('sent | in_progress | submitted'),
+  "applicability": zod.union([zod.object({
+  "insured": zod.boolean().nullish(),
+  "ach": zod.boolean().nullish()
+}),zod.null()]).optional(),
+  "formsData": zod.record(zod.string(), zod.unknown()).nullish(),
+  "signatures": zod.record(zod.string(), zod.unknown()).nullish(),
+  "attachments": zod.record(zod.string(), zod.unknown()).nullish(),
+  "sentAt": zod.string().nullish(),
+  "submittedAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+export const ListPortalPacketsResponse = zod.array(ListPortalPacketsResponseItem)
+
+
+/**
+ * @summary A single packet with saved progress
+ */
+export const GetPortalPacketParams = zod.object({
+  "token": zod.coerce.string(),
+  "packetId": zod.coerce.string()
+})
+
+export const GetPortalPacketResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "templateKey": zod.string(),
+  "status": zod.string().describe('sent | in_progress | submitted'),
+  "applicability": zod.union([zod.object({
+  "insured": zod.boolean().nullish(),
+  "ach": zod.boolean().nullish()
+}),zod.null()]).optional(),
+  "formsData": zod.record(zod.string(), zod.unknown()).nullish(),
+  "signatures": zod.record(zod.string(), zod.unknown()).nullish(),
+  "attachments": zod.record(zod.string(), zod.unknown()).nullish(),
+  "sentAt": zod.string().nullish(),
+  "submittedAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Save packet progress (applicability, form data, signatures, attachments)
+ */
+export const SavePortalPacketParams = zod.object({
+  "token": zod.coerce.string(),
+  "packetId": zod.coerce.string()
+})
+
+export const SavePortalPacketBody = zod.object({
+  "status": zod.string().nullish().describe('sent | in_progress | submitted'),
+  "applicability": zod.union([zod.object({
+  "insured": zod.boolean().nullish(),
+  "ach": zod.boolean().nullish()
+}),zod.null()]).optional(),
+  "formsData": zod.record(zod.string(), zod.unknown()).nullish(),
+  "signatures": zod.record(zod.string(), zod.unknown()).nullish(),
+  "attachments": zod.record(zod.string(), zod.unknown()).nullish()
+})
+
+export const SavePortalPacketResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "templateKey": zod.string(),
+  "status": zod.string().describe('sent | in_progress | submitted'),
+  "applicability": zod.union([zod.object({
+  "insured": zod.boolean().nullish(),
+  "ach": zod.boolean().nullish()
+}),zod.null()]).optional(),
+  "formsData": zod.record(zod.string(), zod.unknown()).nullish(),
+  "signatures": zod.record(zod.string(), zod.unknown()).nullish(),
+  "attachments": zod.record(zod.string(), zod.unknown()).nullish(),
+  "sentAt": zod.string().nullish(),
+  "submittedAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Finalize and submit the completed packet
+ */
+export const SubmitPortalPacketParams = zod.object({
+  "token": zod.coerce.string(),
+  "packetId": zod.coerce.string()
+})
+
+export const SubmitPortalPacketBody = zod.object({
+  "status": zod.string().nullish().describe('sent | in_progress | submitted'),
+  "applicability": zod.union([zod.object({
+  "insured": zod.boolean().nullish(),
+  "ach": zod.boolean().nullish()
+}),zod.null()]).optional(),
+  "formsData": zod.record(zod.string(), zod.unknown()).nullish(),
+  "signatures": zod.record(zod.string(), zod.unknown()).nullish(),
+  "attachments": zod.record(zod.string(), zod.unknown()).nullish()
+})
+
+export const SubmitPortalPacketResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "templateKey": zod.string(),
+  "status": zod.string().describe('sent | in_progress | submitted'),
+  "applicability": zod.union([zod.object({
+  "insured": zod.boolean().nullish(),
+  "ach": zod.boolean().nullish()
+}),zod.null()]).optional(),
+  "formsData": zod.record(zod.string(), zod.unknown()).nullish(),
+  "signatures": zod.record(zod.string(), zod.unknown()).nullish(),
+  "attachments": zod.record(zod.string(), zod.unknown()).nullish(),
+  "sentAt": zod.string().nullish(),
+  "submittedAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+

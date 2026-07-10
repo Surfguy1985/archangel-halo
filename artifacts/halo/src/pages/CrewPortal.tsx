@@ -32,10 +32,19 @@ import {
   Loader2,
   ShieldCheck,
   Download,
+  PackageCheck,
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
+import WelcomeKitTab from "./WelcomeKitTab";
 
-type Tab = "schedule" | "messages" | "documents" | "checkin" | "pay" | "w9";
+type Tab =
+  | "schedule"
+  | "messages"
+  | "documents"
+  | "checkin"
+  | "pay"
+  | "w9"
+  | "packets";
 
 function formatWhen(iso?: string | null): string {
   if (!iso) return "";
@@ -87,6 +96,7 @@ export default function CrewPortal() {
 
   const tabs: { key: Tab; label: string; icon: typeof Calendar }[] = [
     { key: "schedule", label: "Schedule", icon: Calendar },
+    { key: "packets", label: "Welcome Kit", icon: PackageCheck },
     { key: "messages", label: "Messages", icon: MessageSquare },
     { key: "checkin", label: "Check-in", icon: MapPin },
     { key: "documents", label: "Docs", icon: FileText },
@@ -131,6 +141,7 @@ export default function CrewPortal() {
 
       <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto">
         {tab === "schedule" && <ScheduleTab portal={portal} />}
+        {tab === "packets" && <WelcomeKitTab token={token} />}
         {tab === "messages" && <MessagesTab token={token} />}
         {tab === "checkin" && <CheckinTab token={token} />}
         {tab === "documents" && <DocumentsTab token={token} />}

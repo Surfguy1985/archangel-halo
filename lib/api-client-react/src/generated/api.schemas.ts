@@ -790,6 +790,90 @@ export interface CrewPortalLink {
   path: string;
 }
 
+export interface PacketTemplateSummary {
+  key: string;
+  label: string;
+  /** en | es */
+  locale: string;
+}
+
+export interface SendPacketInput {
+  templateKey: string;
+}
+
+export interface PacketApplicability {
+  /** @nullable */
+  insured?: boolean | null;
+  /** @nullable */
+  ach?: boolean | null;
+}
+
+/**
+ * @nullable
+ */
+export type SavePacketInputFormsData = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type SavePacketInputSignatures = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type SavePacketInputAttachments = { [key: string]: unknown } | null;
+
+export interface SavePacketInput {
+  /**
+     * sent | in_progress | submitted
+     * @nullable
+     */
+  status?: string | null;
+  applicability?: PacketApplicability | null;
+  /** @nullable */
+  formsData?: SavePacketInputFormsData;
+  /** @nullable */
+  signatures?: SavePacketInputSignatures;
+  /** @nullable */
+  attachments?: SavePacketInputAttachments;
+}
+
+/**
+ * @nullable
+ */
+export type CrewPacketFormsData = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type CrewPacketSignatures = { [key: string]: unknown } | null;
+
+/**
+ * @nullable
+ */
+export type CrewPacketAttachments = { [key: string]: unknown } | null;
+
+export interface CrewPacket {
+  id: string;
+  crewId: string;
+  templateKey: string;
+  /** sent | in_progress | submitted */
+  status: string;
+  applicability?: PacketApplicability | null;
+  /** @nullable */
+  formsData?: CrewPacketFormsData;
+  /** @nullable */
+  signatures?: CrewPacketSignatures;
+  /** @nullable */
+  attachments?: CrewPacketAttachments;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  submittedAt?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
+}
+
 export interface MessageInput {
   /** @minLength 1 */
   body: string;

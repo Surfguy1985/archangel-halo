@@ -13,6 +13,7 @@ import notifyRouter from "./notify";
 import storageRouter from "./storage";
 import crewRouter from "./crew";
 import portalRouter from "./portal";
+import packetsRouter from "./packets";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(notifyRouter);
 router.use(storageRouter);
 router.use(crewRouter);
 router.use(portalRouter);
+router.use(packetsRouter);
 
 export default router;

@@ -1597,6 +1597,189 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /packet-templates:
+    get:
+      operationId: listPacketTemplates
+      tags: [crew-portal]
+      summary: Available onboarding packet templates for the send dropdown
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PacketTemplateSummary"
+
+  /crews/{id}/packets:
+    get:
+      operationId: listCrewPackets
+      tags: [crew-portal]
+      summary: Onboarding packets sent to a crew
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Packets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewPacket"
+    post:
+      operationId: sendCrewPacket
+      tags: [crew-portal]
+      summary: Send an onboarding packet to the crew portal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendPacketInput"
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewPacket"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /portal/{token}/packets:
+    get:
+      operationId: listPortalPackets
+      tags: [portal]
+      summary: Packets assigned to this crew
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Packets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewPacket"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /portal/{token}/packets/{packetId}:
+    get:
+      operationId: getPortalPacket
+      tags: [portal]
+      summary: A single packet with saved progress
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: packetId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Packet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewPacket"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      operationId: savePortalPacket
+      tags: [portal]
+      summary: Save packet progress (applicability, form data, signatures, attachments)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: packetId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavePacketInput"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewPacket"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /portal/{token}/packets/{packetId}/submit:
+    post:
+      operationId: submitPortalPacket
+      tags: [portal]
+      summary: Finalize and submit the completed packet
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: packetId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavePacketInput"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewPacket"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   schemas:
     HealthStatus:
@@ -2363,6 +2546,53 @@ components:
       properties:
         token: { type: string }
         path: { type: string, description: "Relative portal path, e.g. /portal/<token>" }
+
+    PacketTemplateSummary:
+      type: object
+      required: [key, label, locale]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        locale: { type: string, description: "en | es" }
+    SendPacketInput:
+      type: object
+      required: [templateKey]
+      properties:
+        templateKey: { type: string }
+    PacketApplicability:
+      type: object
+      properties:
+        insured: { type: ["boolean", "null"] }
+        ach: { type: ["boolean", "null"] }
+    SavePacketInput:
+      type: object
+      properties:
+        status: { type: ["string", "null"], description: "sent | in_progress | submitted" }
+        applicability:
+          oneOf:
+            - $ref: "#/components/schemas/PacketApplicability"
+            - type: "null"
+        formsData: { type: ["object", "null"], additionalProperties: true }
+        signatures: { type: ["object", "null"], additionalProperties: true }
+        attachments: { type: ["object", "null"], additionalProperties: true }
+    CrewPacket:
+      type: object
+      required: [id, crewId, templateKey, status]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        templateKey: { type: string }
+        status: { type: string, description: "sent | in_progress | submitted" }
+        applicability:
+          oneOf:
+            - $ref: "#/components/schemas/PacketApplicability"
+            - type: "null"
+        formsData: { type: ["object", "null"], additionalProperties: true }
+        signatures: { type: ["object", "null"], additionalProperties: true }
+        attachments: { type: ["object", "null"], additionalProperties: true }
+        sentAt: { type: ["string", "null"] }
+        submittedAt: { type: ["string", "null"] }
+        createdAt: { type: ["string", "null"] }
 
     MessageInput:
       type: object
