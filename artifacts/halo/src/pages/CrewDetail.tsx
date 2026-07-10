@@ -27,6 +27,7 @@ import {
   Wallet,
   ClipboardCheck,
   Download,
+  MessageSquare,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { downloadW9Pdf } from "@/lib/w9pdf";
@@ -118,6 +119,12 @@ export default function CrewDetail() {
     setTimeout(() => setCopied(false), 1800);
   };
 
+  const smsHref = portalUrl
+    ? `sms:?&body=${encodeURIComponent(
+        `Hi ${crew.name}, here's your ArchAngel Contractors onboarding portal link — tap to open and complete your paperwork:\n${portalUrl}`,
+      )}`
+    : undefined;
+
   const handleSend = () => {
     const body = draft.trim();
     if (!body) return;
@@ -176,22 +183,28 @@ export default function CrewDetail() {
             <div className="text-[12px] font-mono bg-[rgba(23,24,28,0.05)] rounded-[9px] px-[10px] py-[9px] break-all mb-[10px]">
               {portalUrl}
             </div>
+            <a
+              href={smsHref}
+              className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] transition-transform active:scale-[0.98]"
+            >
+              <MessageSquare className="w-[16px] h-[16px]" /> Text the link
+            </a>
             <button
               onClick={handleCopy}
-              className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] transition-transform active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[9px] mt-[8px] text-[13px] font-display font-semibold text-muted-foreground bg-[rgba(23,24,28,0.05)] transition-transform active:scale-[0.98]"
             >
               {copied ? (
                 <>
-                  <Check className="w-[16px] h-[16px]" /> Copied
+                  <Check className="w-[15px] h-[15px]" /> Copied
                 </>
               ) : (
                 <>
-                  <Copy className="w-[16px] h-[16px]" /> Copy live link
+                  <Copy className="w-[15px] h-[15px]" /> Copy live link
                 </>
               )}
             </button>
             <p className="text-[11.5px] text-muted-foreground mt-[8px] leading-[1.4]">
-              Share this link with the crew yourself (text, email, etc.). Anyone
+              "Text the link" opens Messages with the link ready to send. Anyone
               with the link can open their portal.
             </p>
           </>
