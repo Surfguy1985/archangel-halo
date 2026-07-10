@@ -1131,6 +1131,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Notification"
+  /notifications/{id}:
+    delete:
+      operationId: deleteNotification
+      tags: [activity]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
 
   /activities:
     get:

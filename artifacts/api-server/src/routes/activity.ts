@@ -5,6 +5,7 @@ import {
   ListNotificationsResponse,
   ReadNotificationParams,
   ReadNotificationResponse,
+  DeleteNotificationParams,
   ListActivitiesResponse,
   ListActivitiesQueryParams,
   CreateActivityBody,
@@ -34,6 +35,19 @@ router.post("/notifications/:id/read", async (req, res): Promise<void> => {
     return;
   }
   res.json(ReadNotificationResponse.parse(ser(row)));
+});
+
+router.delete("/notifications/:id", async (req, res): Promise<void> => {
+  const { id } = DeleteNotificationParams.parse(req.params);
+  const [row] = await db
+    .delete(notificationsTable)
+    .where(eq(notificationsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Notification not found" });
+    return;
+  }
+  res.status(204).end();
 });
 
 router.get("/activities", async (req, res): Promise<void> => {

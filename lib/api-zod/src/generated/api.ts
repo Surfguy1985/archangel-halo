@@ -1479,6 +1479,13 @@ export const ReadNotificationResponse = zod.object({
 })
 
 
+export const DeleteNotificationParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteNotificationResponse = zod.void()
+
+
 export const ListActivitiesQueryParams = zod.object({
   "entityType": zod.coerce.string().optional(),
   "entityId": zod.coerce.string().optional()
