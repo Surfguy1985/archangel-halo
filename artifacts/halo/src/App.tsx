@@ -14,6 +14,7 @@ import CrewPortal from "./pages/CrewPortal";
 import Pipeline from "./pages/Pipeline";
 import Supply from "./pages/Supply";
 import Vendors from "./pages/Vendors";
+import Import from "./pages/Import";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ function AdminRouter() {
         <Route path="/pipeline" component={Pipeline} />
         <Route path="/supply" component={Supply} />
         <Route path="/vendors" component={Vendors} />
+        <Route path="/import" component={Import} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

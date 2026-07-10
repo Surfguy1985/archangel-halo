@@ -1,11 +1,12 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Link } from "wouter";
-import { GitBranch, Package, ShieldCheck, ChevronRight } from "lucide-react";
+import { GitBranch, Package, ShieldCheck, FileUp, ChevronRight } from "lucide-react";
 
 const items = [
   { href: "/pipeline", label: "Pipeline", sub: "Leads & bids", Icon: GitBranch },
   { href: "/supply", label: "Supply", sub: "Inventory & purchase orders", Icon: Package },
   { href: "/vendors", label: "Vendors", sub: "COI compliance", Icon: ShieldCheck },
+  { href: "/import", label: "Import", sub: "Upload a file, we file it", Icon: FileUp },
 ];
 
 export function MoreMenuSheet({

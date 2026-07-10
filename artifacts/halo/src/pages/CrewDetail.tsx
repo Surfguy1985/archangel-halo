@@ -26,8 +26,10 @@ import {
   FileText,
   Wallet,
   ClipboardCheck,
+  Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { downloadW9Pdf } from "@/lib/w9pdf";
 
 function formatWhen(iso?: string | null): string {
   if (!iso) return "";
@@ -274,29 +276,42 @@ export default function CrewDetail() {
           </div>
         ) : (
           <div className="flex flex-col">
-            {documents.map((d, idx) => (
-              <a
-                key={d.id}
-                href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/storage${d.storagePath}`}
-                target="_blank"
-                rel="noreferrer"
-                className={`flex items-center gap-[10px] py-[10px] ${idx !== 0 ? "border-t border-border" : ""}`}
-              >
-                <FileText className="w-[17px] h-[17px] text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-semibold truncate">{d.name}</div>
-                  <div className="text-[11.5px] text-muted-foreground">
-                    {d.direction === "from_crew" ? "From crew" : "Sent to crew"} ·{" "}
-                    {formatWhen(d.createdAt)}
-                  </div>
+            {documents.map((d, idx) => {
+              const url = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/storage${d.storagePath}`;
+              return (
+                <div
+                  key={d.id}
+                  className={`flex items-center gap-[10px] py-[10px] ${idx !== 0 ? "border-t border-border" : ""}`}
+                >
+                  <FileText className="w-[17px] h-[17px] text-muted-foreground shrink-0" />
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 min-w-0"
+                  >
+                    <div className="text-[13px] font-semibold truncate">{d.name}</div>
+                    <div className="text-[11.5px] text-muted-foreground">
+                      {d.direction === "from_crew" ? "From crew" : "Sent to crew"} ·{" "}
+                      {formatWhen(d.createdAt)}
+                    </div>
+                  </a>
+                  {d.direction === "from_crew" && (
+                    <span className="text-[10px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full bg-[rgba(59,111,181,0.12)] text-[var(--blue)] shrink-0">
+                      New
+                    </span>
+                  )}
+                  <a
+                    href={url}
+                    download={d.name}
+                    className="shrink-0 w-[32px] h-[32px] grid place-items-center rounded-full bg-[var(--paper)] border border-border text-muted-foreground transition-transform active:scale-[0.94]"
+                    aria-label={`Download ${d.name}`}
+                  >
+                    <Download className="w-[15px] h-[15px]" />
+                  </a>
                 </div>
-                {d.direction === "from_crew" && (
-                  <span className="text-[10px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full bg-[rgba(59,111,181,0.12)] text-[var(--blue)] shrink-0">
-                    New
-                  </span>
-                )}
-              </a>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -382,6 +397,14 @@ export default function CrewDetail() {
               </span>
             </div>
             <W9Readout data={crew.w9 as Record<string, unknown>} />
+            <button
+              onClick={() =>
+                downloadW9Pdf(crew.w9 as Record<string, unknown>, crew.name)
+              }
+              className="w-full mt-[12px] flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+            >
+              <Download className="w-[15px] h-[15px]" /> Download W-9 (PDF)
+            </button>
           </div>
         ) : (
           <div className="text-[12.5px] text-muted-foreground">

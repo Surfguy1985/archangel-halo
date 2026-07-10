@@ -5,3 +5,4 @@
 - [HALO query invalidation](halo-query-invalidation.md) — create/action sheets must invalidate derived views (money summary, Today blockers, property detail), not just the primary list.
 - [HALO composite lib refs](halo-composite-lib-refs.md) — shared libs used as TS project references must emit .d.ts (composite+declaration) & be built before consuming apps typecheck.
 - [HALO no-auth posture](halo-no-auth-posture.md) — whole app is intentionally unauthenticated (single org, token portals); storage object routes are open by design, not a bug to "fix" with auth.
+- [HALO ingest pipeline](halo-ingest-pipeline.md) — AI file-import backend (/ingest/parse + /ingest/commit) already exists; reuse it, send extracted text not raw binary.

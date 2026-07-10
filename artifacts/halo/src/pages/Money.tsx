@@ -13,13 +13,116 @@ import {
   type Invoice,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Check } from "lucide-react";
+import { Plus, Check, History, Download } from "lucide-react";
 import { AddInvoiceSheet } from "@/components/AddInvoiceSheet";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
 import { RecordPaymentSheet } from "@/components/RecordPaymentSheet";
 import { AddCrewPaymentSheet } from "@/components/AddCrewPaymentSheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { exportCsv } from "@/lib/exportCsv";
 
 type Tab = "overview" | "invoices" | "expenses" | "crew";
+
+type HistoryRow = {
+  id: string;
+  primary: string;
+  secondary: string;
+  amount: number;
+  badge?: { label: string; color: string };
+};
+
+function SecondaryActions({
+  onHistory,
+  onExport,
+  disabled,
+}: {
+  onHistory: () => void;
+  onExport: () => void;
+  disabled?: boolean;
+}) {
+  const cls =
+    "flex-1 flex items-center justify-center gap-[6px] rounded-[11px] py-[9px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] disabled:opacity-40 transition-transform active:scale-[0.98]";
+  return (
+    <div className="flex gap-[8px] mb-[12px]">
+      <button onClick={onHistory} disabled={disabled} className={cls}>
+        <History className="w-[15px] h-[15px]" /> History
+      </button>
+      <button onClick={onExport} disabled={disabled} className={cls}>
+        <Download className="w-[15px] h-[15px]" /> Export
+      </button>
+    </div>
+  );
+}
+
+function HistorySheet({
+  open,
+  onOpenChange,
+  title,
+  rows,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  rows: HistoryRow[];
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="rounded-t-[26px] bg-[var(--paper)] p-0 flex flex-col max-h-[86vh] border-none shadow-[0_-12px_44px_rgba(23,24,28,0.24)]"
+      >
+        <div className="w-[40px] h-[4.5px] rounded-[3px] bg-[rgba(23,24,28,0.16)] mx-auto mt-[10px] mb-[4px] shrink-0" />
+        <div className="p-[8px_20px_26px] overflow-y-auto">
+          <SheetHeader className="text-left mb-[14px]">
+            <SheetTitle className="font-display font-bold text-[19px] m-[6px_0_2px]">
+              {title}
+            </SheetTitle>
+            <div className="text-[13px] text-muted-foreground">
+              {rows.length} record{rows.length === 1 ? "" : "s"}, newest first.
+            </div>
+          </SheetHeader>
+          {rows.length === 0 ? (
+            <div className="text-center text-[13px] text-muted-foreground py-[30px]">
+              Nothing here yet.
+            </div>
+          ) : (
+            <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+              {rows.map((r, idx) => (
+                <div
+                  key={r.id}
+                  className={`flex items-center gap-[10px] py-[11px] text-[14px] ${idx !== 0 ? "border-t border-border" : ""}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-[7px]">
+                      <span className="font-semibold truncate">{r.primary}</span>
+                      {r.badge && (
+                        <span
+                          className="text-[10px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full text-white shrink-0"
+                          style={{ backgroundColor: r.badge.color }}
+                        >
+                          {r.badge.label}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[12px] text-muted-foreground truncate mt-[2px]">
+                      {r.secondary}
+                    </div>
+                  </div>
+                  <div className="font-display font-semibold tabular-nums shrink-0">
+                    ${r.amount.toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+const fmtDate = (d?: string | null) =>
+  d ? new Date(d).toLocaleDateString() : "";
 
 const statusColor: Record<string, string> = {
   paid: "#3c7a4e",
@@ -86,6 +189,7 @@ function Invoices() {
   const queryClient = useQueryClient();
   const { data: invoices, isLoading } = useListInvoices();
   const [addOpen, setAddOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
   const send = useSendInvoice();
   const remind = useRemindInvoice();
@@ -93,6 +197,53 @@ function Invoices() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+  };
+
+  const sorted = [...(invoices ?? [])].sort(
+    (a, b) =>
+      new Date(b.sentAt || b.dueAt || 0).getTime() -
+      new Date(a.sentAt || a.dueAt || 0).getTime(),
+  );
+
+  const historyRows: HistoryRow[] = sorted.map((inv) => ({
+    id: inv.id,
+    primary: inv.propertyName || inv.invoiceNo,
+    secondary: [
+      inv.invoiceNo,
+      inv.sentAt ? `Sent ${fmtDate(inv.sentAt)}` : null,
+      inv.paidAt ? `Paid ${fmtDate(inv.paidAt)}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    amount: inv.amount,
+    badge: {
+      label: statusLabel[inv.status] || inv.status,
+      color: statusColor[inv.status] || "#8B8577",
+    },
+  }));
+
+  const onExport = () => {
+    exportCsv(
+      `invoices-${new Date().toISOString().slice(0, 10)}.csv`,
+      [
+        { key: "invoiceNo", label: "Invoice #" },
+        { key: "propertyName", label: "Property" },
+        { key: "amount", label: "Amount" },
+        { key: "status", label: "Status" },
+        { key: "sentAt", label: "Sent" },
+        { key: "dueAt", label: "Due" },
+        { key: "paidAt", label: "Paid" },
+      ],
+      sorted.map((inv) => ({
+        invoiceNo: inv.invoiceNo,
+        propertyName: inv.propertyName || "",
+        amount: inv.amount,
+        status: statusLabel[inv.status] || inv.status,
+        sentAt: fmtDate(inv.sentAt),
+        dueAt: fmtDate(inv.dueAt),
+        paidAt: fmtDate(inv.paidAt),
+      })),
+    );
   };
 
   return (
@@ -103,6 +254,11 @@ function Invoices() {
       >
         <Plus className="w-[17px] h-[17px]" /> New invoice
       </button>
+      <SecondaryActions
+        onHistory={() => setHistoryOpen(true)}
+        onExport={onExport}
+        disabled={!invoices || invoices.length === 0}
+      />
       {isLoading ? (
         <div className="animate-pulse h-32 bg-card rounded-[16px]" />
       ) : !invoices || invoices.length === 0 ? (
@@ -161,6 +317,12 @@ function Invoices() {
       )}
       <AddInvoiceSheet open={addOpen} onOpenChange={setAddOpen} />
       <RecordPaymentSheet open={!!payInvoice} onOpenChange={(o) => !o && setPayInvoice(null)} invoice={payInvoice} />
+      <HistorySheet
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        title="Invoice history"
+        rows={historyRows}
+      />
     </div>
   );
 }
@@ -168,6 +330,40 @@ function Invoices() {
 function Expenses() {
   const { data: expenses, isLoading } = useListExpenses();
   const [addOpen, setAddOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const sorted = [...(expenses ?? [])].sort(
+    (a, b) =>
+      new Date(b.spentOn || 0).getTime() - new Date(a.spentOn || 0).getTime(),
+  );
+
+  const historyRows: HistoryRow[] = sorted.map((e) => ({
+    id: e.id,
+    primary: e.vendor || e.category || "Expense",
+    secondary: [e.category, fmtDate(e.spentOn)].filter(Boolean).join(" · "),
+    amount: e.amount,
+  }));
+
+  const onExport = () => {
+    exportCsv(
+      `expenses-${new Date().toISOString().slice(0, 10)}.csv`,
+      [
+        { key: "vendor", label: "Vendor" },
+        { key: "category", label: "Category" },
+        { key: "amount", label: "Amount" },
+        { key: "spentOn", label: "Date" },
+        { key: "source", label: "Source" },
+      ],
+      sorted.map((e) => ({
+        vendor: e.vendor || "",
+        category: e.category || "",
+        amount: e.amount,
+        spentOn: fmtDate(e.spentOn),
+        source: e.source || "",
+      })),
+    );
+  };
+
   return (
     <div className="animate-in fade-in duration-200">
       <button
@@ -176,6 +372,11 @@ function Expenses() {
       >
         <Plus className="w-[17px] h-[17px]" /> Log expense
       </button>
+      <SecondaryActions
+        onHistory={() => setHistoryOpen(true)}
+        onExport={onExport}
+        disabled={!expenses || expenses.length === 0}
+      />
       {isLoading ? (
         <div className="animate-pulse h-32 bg-card rounded-[16px]" />
       ) : !expenses || expenses.length === 0 ? (
@@ -196,6 +397,12 @@ function Expenses() {
         </div>
       )}
       <AddExpenseSheet open={addOpen} onOpenChange={setAddOpen} />
+      <HistorySheet
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        title="Expense history"
+        rows={historyRows}
+      />
     </div>
   );
 }

@@ -31,7 +31,9 @@ import {
   Check,
   Loader2,
   ShieldCheck,
+  Download,
 } from "lucide-react";
+import { downloadW9Pdf } from "@/lib/w9pdf";
 
 type Tab = "schedule" | "messages" | "documents" | "checkin" | "pay" | "w9";
 
@@ -411,24 +413,37 @@ function DocumentsTab({ token }: { token: string }) {
         </div>
       ) : (
         <div className={card}>
-          {documents.map((d, idx) => (
-            <a
-              key={d.id}
-              href={`${base}/api/storage${d.storagePath}`}
-              target="_blank"
-              rel="noreferrer"
-              className={`flex items-center gap-[10px] py-[11px] ${idx !== 0 ? "border-t border-border" : ""}`}
-            >
-              <FileText className="w-[18px] h-[18px] text-muted-foreground shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-[13.5px] font-semibold truncate">{d.name}</div>
-                <div className="text-[11.5px] text-muted-foreground">
-                  {d.direction === "to_crew" ? "From ArchAngel" : "You uploaded"} ·{" "}
-                  {formatWhen(d.createdAt)}
-                </div>
+          {documents.map((d, idx) => {
+            const url = `${base}/api/storage${d.storagePath}`;
+            return (
+              <div
+                key={d.id}
+                className={`flex items-center gap-[10px] py-[11px] ${idx !== 0 ? "border-t border-border" : ""}`}
+              >
+                <FileText className="w-[18px] h-[18px] text-muted-foreground shrink-0" />
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 min-w-0"
+                >
+                  <div className="text-[13.5px] font-semibold truncate">{d.name}</div>
+                  <div className="text-[11.5px] text-muted-foreground">
+                    {d.direction === "to_crew" ? "From ArchAngel" : "You uploaded"} ·{" "}
+                    {formatWhen(d.createdAt)}
+                  </div>
+                </a>
+                <a
+                  href={url}
+                  download={d.name}
+                  className="shrink-0 w-[34px] h-[34px] grid place-items-center rounded-full bg-[var(--paper)] border border-border text-muted-foreground transition-transform active:scale-[0.94]"
+                  aria-label={`Download ${d.name}`}
+                >
+                  <Download className="w-[16px] h-[16px]" />
+                </a>
               </div>
-            </a>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -616,10 +631,18 @@ function W9Tab({ token }: { token: string }) {
           is stored securely and only visible to ArchAngel.
         </p>
         {w9?.submitted && (
+          <>
           <div className="flex items-center gap-[6px] text-[12.5px] text-[var(--green,#3c7a4e)] mt-[10px]">
             <Check className="w-[15px] h-[15px]" /> Last submitted{" "}
             {formatWhen(w9.submittedAt)}
           </div>
+          <button
+            onClick={() => downloadW9Pdf({ ...w9.data, ...form })}
+            className="w-full mt-[10px] flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+          >
+            <Download className="w-[15px] h-[15px]" /> Download W-9 (PDF)
+          </button>
+          </>
         )}
       </div>
 
