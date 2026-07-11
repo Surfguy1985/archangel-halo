@@ -915,6 +915,8 @@ export const ListCrewsResponseItem = zod.object({
   "trade": zod.string().nullish(),
   "phone": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
+  "preferredPaymentMethod": zod.string().nullish(),
+  "paymentDetails": zod.string().nullish(),
   "todayStatus": zod.string().nullish().describe('route | site | done | idle'),
   "todayJob": zod.string().nullish(),
   "todayProperty": zod.string().nullish()
@@ -1018,6 +1020,87 @@ export const UpdateBusinessSettingsResponse = zod.object({
   "email": zod.string(),
   "paymentInstructions": zod.string()
 })
+
+
+/**
+ * @summary Create a Plaid Link token to start bank connection
+ */
+export const CreatePlaidLinkTokenResponse = zod.object({
+  "linkToken": zod.string()
+})
+
+
+/**
+ * @summary Exchange a Plaid Link public token and store the bank connection
+ */
+export const ExchangePlaidPublicTokenBody = zod.object({
+  "publicToken": zod.string(),
+  "institutionName": zod.string().nullish()
+})
+
+export const ExchangePlaidPublicTokenResponse = zod.object({
+  "connected": zod.boolean(),
+  "institutionName": zod.string().nullish(),
+  "connectedAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Whether a bank is connected via Plaid
+ */
+export const GetBankStatusResponse = zod.object({
+  "connected": zod.boolean(),
+  "institutionName": zod.string().nullish(),
+  "connectedAt": zod.coerce.date().nullish()
+})
+
+
+/**
+ * @summary Live account balances from the connected bank
+ */
+export const ListBankAccountsResponseItem = zod.object({
+  "accountId": zod.string(),
+  "name": zod.string(),
+  "officialName": zod.string().nullish(),
+  "mask": zod.string().nullish(),
+  "type": zod.string(),
+  "subtype": zod.string().nullish(),
+  "availableBalance": zod.number().nullish(),
+  "currentBalance": zod.number().nullish(),
+  "currency": zod.string().nullish()
+})
+export const ListBankAccountsResponse = zod.array(ListBankAccountsResponseItem)
+
+
+/**
+ * @summary Recent transactions from the connected bank
+ */
+export const listBankTransactionsQueryDaysDefault = 30;
+export const listBankTransactionsQueryDaysMax = 90;
+
+
+
+export const ListBankTransactionsQueryParams = zod.object({
+  "days": zod.coerce.number().min(1).max(listBankTransactionsQueryDaysMax).default(listBankTransactionsQueryDaysDefault)
+})
+
+export const ListBankTransactionsResponseItem = zod.object({
+  "transactionId": zod.string(),
+  "accountId": zod.string(),
+  "amount": zod.number(),
+  "date": zod.string(),
+  "name": zod.string(),
+  "merchantName": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "pending": zod.boolean()
+})
+export const ListBankTransactionsResponse = zod.array(ListBankTransactionsResponseItem)
+
+
+/**
+ * @summary Disconnect the bank connection
+ */
+export const DisconnectBankResponse = zod.void()
 
 
 /**

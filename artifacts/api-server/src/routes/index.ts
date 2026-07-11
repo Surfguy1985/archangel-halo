@@ -16,6 +16,7 @@ import portalRouter from "./portal";
 import packetsRouter from "./packets";
 import calendarRouter from "./calendar";
 import settingsRouter from "./settings";
+import plaidRouter from "./plaid";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(portalRouter);
 router.use(packetsRouter);
 router.use(calendarRouter);
 router.use(settingsRouter);
+router.use(plaidRouter);
 
 export default router;

@@ -15,6 +15,10 @@ export interface CrewToday {
   phone?: string | null;
   /** @nullable */
   isLeader?: boolean | null;
+  /** @nullable */
+  preferredPaymentMethod?: string | null;
+  /** @nullable */
+  paymentDetails?: string | null;
   /**
      * route | site | done | idle
      * @nullable

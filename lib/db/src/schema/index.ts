@@ -8,3 +8,4 @@ export * from "./activity";
 export * from "./onboarding";
 export * from "./calendar";
 export * from "./settings";
+export * from "./bank";

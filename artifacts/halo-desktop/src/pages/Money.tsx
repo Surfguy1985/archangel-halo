@@ -30,6 +30,7 @@ import {
   CreditCard,
   Check,
   Building2,
+  Smartphone,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { exportCsv } from "@/lib/exportCsv";
@@ -39,6 +40,8 @@ import {
   AddCrewPaymentDialog,
 } from "@/components/MoneyDialogs";
 import { SendInvoiceDialog } from "@/components/SendInvoiceDialog";
+import { BankTab } from "@/components/BankTab";
+import { ZellePayDialog } from "@/components/ZellePayDialog";
 import { BusinessInfoDialog } from "@/components/BusinessInfoDialog";
 
 const money = (n: number) =>
@@ -487,6 +490,7 @@ function CrewPay() {
     queryClient.invalidateQueries({ queryKey: getListCrewPaymentsQueryKey() });
 
   type Payment = NonNullable<typeof payments>[number];
+  const [zellePayment, setZellePayment] = useState<Payment | null>(null);
 
   const groups = useMemo(() => {
     const map = new Map<string, { name: string; items: Payment[] }>();
@@ -558,6 +562,14 @@ function CrewPay() {
                         {!isDone && (
                           <Button
                             size="sm"
+                            onClick={() => setZellePayment(p)}
+                          >
+                            <Smartphone className="w-4 h-4 mr-1.5" /> Pay via Zelle
+                          </Button>
+                        )}
+                        {!isDone && (
+                          <Button
+                            size="sm"
                             variant="outline"
                             onClick={() =>
                               markPaid.mutate(
@@ -592,6 +604,13 @@ function CrewPay() {
       )}
 
       <AddCrewPaymentDialog open={addOpen} onOpenChange={setAddOpen} />
+      <ZellePayDialog
+        open={!!zellePayment}
+        onOpenChange={(o) => {
+          if (!o) setZellePayment(null);
+        }}
+        payment={zellePayment}
+      />
     </div>
   );
 }
@@ -611,6 +630,7 @@ export default function Money() {
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
           <TabsTrigger value="crew">Crew Pay</TabsTrigger>
+          <TabsTrigger value="bank">Bank</TabsTrigger>
           <TabsTrigger value="aging">Aging</TabsTrigger>
         </TabsList>
 
@@ -622,6 +642,9 @@ export default function Money() {
         </TabsContent>
         <TabsContent value="crew">
           <CrewPay />
+        </TabsContent>
+        <TabsContent value="bank">
+          <BankTab />
         </TabsContent>
         <TabsContent value="aging">
           <AgingReceivables />

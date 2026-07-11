@@ -507,6 +507,10 @@ export interface CrewToday {
   phone?: string | null;
   /** @nullable */
   isLeader?: boolean | null;
+  /** @nullable */
+  preferredPaymentMethod?: string | null;
+  /** @nullable */
+  paymentDetails?: string | null;
   /**
      * route | site | done | idle
      * @nullable
@@ -659,6 +663,51 @@ export interface SendInvoiceInput {
   recipientEmail?: string;
   subject?: string;
   message?: string;
+}
+
+export interface PlaidExchangeInput {
+  publicToken: string;
+  /** @nullable */
+  institutionName?: string | null;
+}
+
+export interface BankStatus {
+  connected: boolean;
+  /** @nullable */
+  institutionName?: string | null;
+  /** @nullable */
+  connectedAt?: string | null;
+}
+
+export interface BankAccount {
+  accountId: string;
+  name: string;
+  /** @nullable */
+  officialName?: string | null;
+  /** @nullable */
+  mask?: string | null;
+  type: string;
+  /** @nullable */
+  subtype?: string | null;
+  /** @nullable */
+  availableBalance?: number | null;
+  /** @nullable */
+  currentBalance?: number | null;
+  /** @nullable */
+  currency?: string | null;
+}
+
+export interface BankTransaction {
+  transactionId: string;
+  accountId: string;
+  amount: number;
+  date: string;
+  name: string;
+  /** @nullable */
+  merchantName?: string | null;
+  /** @nullable */
+  category?: string | null;
+  pending: boolean;
 }
 
 export interface BusinessSettings {
@@ -1288,6 +1337,18 @@ to: string;
 
 export type DeleteCalendarEvent200 = {
   id: string;
+};
+
+export type CreatePlaidLinkToken200 = {
+  linkToken: string;
+};
+
+export type ListBankTransactionsParams = {
+/**
+ * @minimum 1
+ * @maximum 90
+ */
+days?: number;
 };
 
 export type ListInvoicesParams = {

@@ -24,6 +24,9 @@ import type {
   ActivityInput,
   AskAnswer,
   AskInput,
+  BankAccount,
+  BankStatus,
+  BankTransaction,
   Bid,
   BidInput,
   BidUpdate,
@@ -35,6 +38,7 @@ import type {
   CalendarEventPatch,
   Contact,
   ContactInput,
+  CreatePlaidLinkToken200,
   Crew,
   CrewCheckin,
   CrewCheckinInput,
@@ -74,6 +78,7 @@ import type {
   Lead,
   LeadInput,
   ListActivitiesParams,
+  ListBankTransactionsParams,
   ListBidsParams,
   ListExpensesParams,
   ListInvoicesParams,
@@ -89,6 +94,7 @@ import type {
   Payment,
   PaymentInput,
   PaymentMethodInput,
+  PlaidExchangeInput,
   PortalBundle,
   PriceItem,
   PriceItemInput,
@@ -2868,6 +2874,457 @@ export const useUpdateBusinessSettings = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateBusinessSettingsMutationOptions(options));
+    }
+
+export const getCreatePlaidLinkTokenUrl = () => {
+
+
+
+
+  return `/api/plaid/link-token`
+}
+
+/**
+ * @summary Create a Plaid Link token to start bank connection
+ */
+export const createPlaidLinkToken = async ( options?: RequestInit): Promise<CreatePlaidLinkToken200> => {
+
+  return customFetch<CreatePlaidLinkToken200>(getCreatePlaidLinkTokenUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreatePlaidLinkTokenMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlaidLinkToken>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPlaidLinkToken>>, TError,void, TContext> => {
+
+const mutationKey = ['createPlaidLinkToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPlaidLinkToken>>, void> = () => {
+
+
+          return  createPlaidLinkToken(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePlaidLinkTokenMutationResult = NonNullable<Awaited<ReturnType<typeof createPlaidLinkToken>>>
+
+    export type CreatePlaidLinkTokenMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create a Plaid Link token to start bank connection
+ */
+export const useCreatePlaidLinkToken = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlaidLinkToken>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPlaidLinkToken>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getCreatePlaidLinkTokenMutationOptions(options));
+    }
+
+export const getExchangePlaidPublicTokenUrl = () => {
+
+
+
+
+  return `/api/plaid/exchange`
+}
+
+/**
+ * @summary Exchange a Plaid Link public token and store the bank connection
+ */
+export const exchangePlaidPublicToken = async (plaidExchangeInput: PlaidExchangeInput, options?: RequestInit): Promise<BankStatus> => {
+
+  return customFetch<BankStatus>(getExchangePlaidPublicTokenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(plaidExchangeInput)
+  }
+);}
+
+
+
+
+
+export const getExchangePlaidPublicTokenMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exchangePlaidPublicToken>>, TError,{data: BodyType<PlaidExchangeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof exchangePlaidPublicToken>>, TError,{data: BodyType<PlaidExchangeInput>}, TContext> => {
+
+const mutationKey = ['exchangePlaidPublicToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof exchangePlaidPublicToken>>, {data: BodyType<PlaidExchangeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  exchangePlaidPublicToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExchangePlaidPublicTokenMutationResult = NonNullable<Awaited<ReturnType<typeof exchangePlaidPublicToken>>>
+    export type ExchangePlaidPublicTokenMutationBody = BodyType<PlaidExchangeInput>
+    export type ExchangePlaidPublicTokenMutationError = ErrorType<Error>
+
+    /**
+ * @summary Exchange a Plaid Link public token and store the bank connection
+ */
+export const useExchangePlaidPublicToken = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exchangePlaidPublicToken>>, TError,{data: BodyType<PlaidExchangeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof exchangePlaidPublicToken>>,
+        TError,
+        {data: BodyType<PlaidExchangeInput>},
+        TContext
+      > => {
+      return useMutation(getExchangePlaidPublicTokenMutationOptions(options));
+    }
+
+export const getGetBankStatusUrl = () => {
+
+
+
+
+  return `/api/plaid/status`
+}
+
+/**
+ * @summary Whether a bank is connected via Plaid
+ */
+export const getBankStatus = async ( options?: RequestInit): Promise<BankStatus> => {
+
+  return customFetch<BankStatus>(getGetBankStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBankStatusQueryKey = () => {
+    return [
+    `/api/plaid/status`
+    ] as const;
+    }
+
+
+export const getGetBankStatusQueryOptions = <TData = Awaited<ReturnType<typeof getBankStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBankStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBankStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBankStatus>>> = ({ signal }) => getBankStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBankStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBankStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getBankStatus>>>
+export type GetBankStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Whether a bank is connected via Plaid
+ */
+
+export function useGetBankStatus<TData = Awaited<ReturnType<typeof getBankStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBankStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBankStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListBankAccountsUrl = () => {
+
+
+
+
+  return `/api/plaid/accounts`
+}
+
+/**
+ * @summary Live account balances from the connected bank
+ */
+export const listBankAccounts = async ( options?: RequestInit): Promise<BankAccount[]> => {
+
+  return customFetch<BankAccount[]>(getListBankAccountsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBankAccountsQueryKey = () => {
+    return [
+    `/api/plaid/accounts`
+    ] as const;
+    }
+
+
+export const getListBankAccountsQueryOptions = <TData = Awaited<ReturnType<typeof listBankAccounts>>, TError = ErrorType<Error>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBankAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBankAccountsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBankAccounts>>> = ({ signal }) => listBankAccounts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBankAccounts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBankAccountsQueryResult = NonNullable<Awaited<ReturnType<typeof listBankAccounts>>>
+export type ListBankAccountsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Live account balances from the connected bank
+ */
+
+export function useListBankAccounts<TData = Awaited<ReturnType<typeof listBankAccounts>>, TError = ErrorType<Error>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBankAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBankAccountsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListBankTransactionsUrl = (params?: ListBankTransactionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/plaid/transactions?${stringifiedParams}` : `/api/plaid/transactions`
+}
+
+/**
+ * @summary Recent transactions from the connected bank
+ */
+export const listBankTransactions = async (params?: ListBankTransactionsParams, options?: RequestInit): Promise<BankTransaction[]> => {
+
+  return customFetch<BankTransaction[]>(getListBankTransactionsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBankTransactionsQueryKey = (params?: ListBankTransactionsParams,) => {
+    return [
+    `/api/plaid/transactions`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListBankTransactionsQueryOptions = <TData = Awaited<ReturnType<typeof listBankTransactions>>, TError = ErrorType<Error>>(params?: ListBankTransactionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBankTransactions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBankTransactionsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBankTransactions>>> = ({ signal }) => listBankTransactions(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBankTransactions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBankTransactionsQueryResult = NonNullable<Awaited<ReturnType<typeof listBankTransactions>>>
+export type ListBankTransactionsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Recent transactions from the connected bank
+ */
+
+export function useListBankTransactions<TData = Awaited<ReturnType<typeof listBankTransactions>>, TError = ErrorType<Error>>(
+ params?: ListBankTransactionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBankTransactions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBankTransactionsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDisconnectBankUrl = () => {
+
+
+
+
+  return `/api/plaid/item`
+}
+
+/**
+ * @summary Disconnect the bank connection
+ */
+export const disconnectBank = async ( options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDisconnectBankUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDisconnectBankMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectBank>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof disconnectBank>>, TError,void, TContext> => {
+
+const mutationKey = ['disconnectBank'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof disconnectBank>>, void> = () => {
+
+
+          return  disconnectBank(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DisconnectBankMutationResult = NonNullable<Awaited<ReturnType<typeof disconnectBank>>>
+
+    export type DisconnectBankMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Disconnect the bank connection
+ */
+export const useDisconnectBank = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectBank>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof disconnectBank>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDisconnectBankMutationOptions(options));
     }
 
 export const getGetMoneySummaryUrl = () => {
