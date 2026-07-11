@@ -48,6 +48,22 @@ function formatWhen(iso?: string | null): string {
   });
 }
 
+function formatCheckinWhen(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const time = d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${date} · ${time}`;
+}
+
 export default function CrewDetail() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -481,11 +497,13 @@ export default function CrewDetail() {
                   <div className="text-[13px] font-semibold truncate">
                     {c.label || "Check-in"}
                   </div>
+                  <div className="text-[11.5px] font-medium text-foreground/80">
+                    {formatCheckinWhen(c.createdAt)}
+                  </div>
                   <div className="text-[11.5px] text-muted-foreground truncate">
                     {c.lat != null && c.lng != null
                       ? `${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`
-                      : "No coordinates"}{" "}
-                    · {formatWhen(c.createdAt)}
+                      : "No coordinates"}
                   </div>
                 </div>
                 {c.lat != null && c.lng != null && (

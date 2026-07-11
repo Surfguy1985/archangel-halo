@@ -395,6 +395,22 @@ export default function CrewDetail() {
   );
 }
 
+function formatCheckinWhen(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const time = d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${date} · ${time}`;
+}
+
 const THUMB_W = 88;
 const THUMB_H = 64;
 const TILE = 256;
@@ -465,8 +481,11 @@ function CheckinRow({ checkin: c }: { checkin: CheckinItem }) {
       )}
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold truncate">{c.label || "Check-in"}</div>
+        <div className="text-xs font-medium text-foreground/80">
+          {formatCheckinWhen(c.createdAt)}
+        </div>
         <div className="text-xs text-muted-foreground truncate">
-          {hasCoords ? `${c.lat!.toFixed(5)}, ${c.lng!.toFixed(5)}` : "No coordinates"} · {formatWhen(c.createdAt)}
+          {hasCoords ? `${c.lat!.toFixed(5)}, ${c.lng!.toFixed(5)}` : "No coordinates"}
         </div>
         {hasCoords && geo?.address && (
           <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
