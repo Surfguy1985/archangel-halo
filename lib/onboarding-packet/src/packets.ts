@@ -755,6 +755,7 @@ export const PACKET_TEMPLATES: PacketTemplate[] = [
   buildTemplate("en"),
   buildTemplate("es"),
   buildTemplate("en", "net30"),
+  buildTemplate("es", "net30"),
 ];
 
 export function getTemplate(key: string): PacketTemplate | null {
