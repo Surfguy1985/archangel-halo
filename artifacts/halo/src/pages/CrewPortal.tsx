@@ -26,6 +26,8 @@ import {
   Calendar,
   MessageSquare,
   MapPin,
+  Phone,
+  CheckSquare,
   FileText,
   Wallet,
   ClipboardCheck,
@@ -188,33 +190,100 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
         </div>
       ) : (
         <div className="flex flex-col gap-[10px]">
-          {items.map((s) => (
-            <div key={s.id} className={card}>
-              <div className="flex items-center gap-[8px] mb-[4px]">
-                <Calendar className="w-[14px] h-[14px] text-[var(--gold)]" />
-                <span className="text-[12.5px] font-semibold">
-                  {formatDay(s.scheduledOn)}
-                </span>
-                {s.windowStart && (
-                  <span className="text-[12px] text-muted-foreground">
-                    · {s.windowStart}
+          {items.map((s) => {
+            const isToday = s.scheduledOn === localToday();
+            const mapsQuery = s.propertyAddress
+              ? s.propertyAddress
+              : s.propertyName
+                ? `${s.propertyName}${s.propertyCity ? `, ${s.propertyCity}` : ""}`
+                : null;
+            return (
+              <div
+                key={s.id}
+                className={`${card} ${isToday ? "ring-1 ring-[var(--gold)]" : ""}`}
+              >
+                <div className="flex items-center gap-[8px] mb-[4px]">
+                  <Calendar className="w-[14px] h-[14px] text-[var(--gold)]" />
+                  <span className="text-[12.5px] font-semibold">
+                    {formatDay(s.scheduledOn)}
                   </span>
+                  {s.windowStart && (
+                    <span className="text-[12px] text-muted-foreground">
+                      · {s.windowStart}
+                    </span>
+                  )}
+                  {isToday && (
+                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wide px-[8px] py-[2px] rounded-full bg-[var(--gold)]/15 text-[var(--gold-dark,#8f6a1f)]">
+                      Today
+                    </span>
+                  )}
+                </div>
+                <div className="font-semibold text-[14.5px]">
+                  {s.propertyName || s.description || "Assignment"}
+                  {s.unitNo ? ` · Unit ${s.unitNo}` : ""}
+                </div>
+                {s.propertyName && s.description && (
+                  <div className="text-[12.5px] text-muted-foreground mt-[2px]">
+                    {s.description}
+                  </div>
+                )}
+                {mapsQuery && (
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(mapsQuery)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-start gap-[6px] mt-[8px] text-[12.5px] text-[var(--blue,#2b6cb0)] font-semibold"
+                  >
+                    <MapPin className="w-[13px] h-[13px] mt-[2px] shrink-0" />
+                    <span>
+                      {s.propertyAddress ||
+                        `${s.propertyName}${s.propertyCity ? `, ${s.propertyCity}` : ""}`}
+                    </span>
+                  </a>
+                )}
+                {s.contactPhone && (
+                  <a
+                    href={`tel:${s.contactPhone.replace(/[^+0-9]/g, "")}`}
+                    className="flex items-center gap-[6px] mt-[6px] text-[12.5px] text-[var(--blue,#2b6cb0)] font-semibold"
+                  >
+                    <Phone className="w-[13px] h-[13px] shrink-0" />
+                    <span>
+                      {s.contactPhone}
+                      {s.contactName ? (
+                        <span className="text-muted-foreground font-normal">
+                          {" "}
+                          · {s.contactName}
+                        </span>
+                      ) : null}
+                    </span>
+                  </a>
+                )}
+                {s.tasks && s.tasks.length > 0 && (
+                  <div className="mt-[10px] bg-[var(--paper)] rounded-[11px] px-[12px] py-[10px]">
+                    <div className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-[6px]">
+                      {isToday ? "Today's tasks" : "Task list"}
+                    </div>
+                    <ul className="flex flex-col gap-[4px]">
+                      {s.tasks.map((t, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-[7px] text-[12.5px]"
+                        >
+                          <CheckSquare className="w-[13px] h-[13px] mt-[2px] shrink-0 text-[var(--gold)]" />
+                          <span>{t}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {s.jobNo && (
+                  <div className="text-[11.5px] text-muted-foreground mt-[6px] font-mono">
+                    {s.jobNo}
+                  </div>
                 )}
               </div>
-              <div className="font-semibold text-[14.5px]">
-                {s.propertyName || "Job site"}
-                {s.unitNo ? ` · Unit ${s.unitNo}` : ""}
-              </div>
-              {s.description && (
-                <div className="text-[12.5px] text-muted-foreground mt-[2px]">
-                  {s.description}
-                </div>
-              )}
-              <div className="text-[11.5px] text-muted-foreground mt-[6px] font-mono">
-                {s.jobNo}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

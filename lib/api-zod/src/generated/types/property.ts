@@ -12,6 +12,8 @@ export interface Property {
   /** @nullable */
   pmcName?: string | null;
   /** @nullable */
+  address?: string | null;
+  /** @nullable */
   city?: string | null;
   /** @nullable */
   units?: number | null;

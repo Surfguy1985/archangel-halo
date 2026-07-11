@@ -8,12 +8,25 @@
 
 export interface PortalScheduleItem {
   id: string;
+  /**
+     * job | event
+     * @nullable
+     */
+  kind?: string | null;
   /** @nullable */
   jobNo?: string | null;
   /** @nullable */
   description?: string | null;
   /** @nullable */
   propertyName?: string | null;
+  /** @nullable */
+  propertyAddress?: string | null;
+  /** @nullable */
+  propertyCity?: string | null;
+  /** @nullable */
+  contactName?: string | null;
+  /** @nullable */
+  contactPhone?: string | null;
   /** @nullable */
   unitNo?: string | null;
   /** @nullable */
@@ -22,4 +35,5 @@ export interface PortalScheduleItem {
   windowStart?: string | null;
   /** @nullable */
   status?: string | null;
+  tasks?: string[];
 }

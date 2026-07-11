@@ -19,6 +19,7 @@ export function AddPropertySheet({
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [pmcName, setPmcName] = useState("");
+  const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [units, setUnits] = useState("");
   const [accessNotes, setAccessNotes] = useState("");
@@ -40,6 +41,7 @@ export function AddPropertySheet({
         data: {
           name: name.trim(),
           pmcName: pmcName.trim() || undefined,
+          address: address.trim() || undefined,
           city: city.trim() || undefined,
           units: units ? Number(units) : undefined,
           accessNotes: accessNotes.trim() || undefined,
@@ -87,6 +89,12 @@ export function AddPropertySheet({
               placeholder="Management company (PMC)"
               value={pmcName}
               onChange={(e) => setPmcName(e.target.value)}
+            />
+            <input
+              className={fieldCls}
+              placeholder="Street address (shown to crews)"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
             />
             <div className="flex gap-[10px]">
               <input

@@ -71,6 +71,7 @@ export function AddPropertyDialog({
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [pmcName, setPmcName] = useState("");
+  const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [units, setUnits] = useState("");
   const [accessNotes, setAccessNotes] = useState("");
@@ -93,6 +94,7 @@ export function AddPropertyDialog({
         data: {
           name: name.trim(),
           pmcName: pmcName.trim() || undefined,
+          address: address.trim() || undefined,
           city: city.trim() || undefined,
           units: units ? Number(units) : undefined,
           accessNotes: accessNotes.trim() || undefined,
@@ -132,6 +134,14 @@ export function AddPropertyDialog({
               placeholder="Optional"
               value={pmcName}
               onChange={(e) => setPmcName(e.target.value)}
+            />
+          </Field>
+          <Field label="Street address (shown to crews)">
+            <input
+              className={fieldCls}
+              placeholder="Optional"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
@@ -185,6 +195,7 @@ type PropertyLike = {
   id: string;
   name: string;
   pmcName?: string | null;
+  address?: string | null;
   city?: string | null;
   units?: number | null;
   accessNotes?: string | null;
@@ -203,6 +214,7 @@ export function EditPropertyDialog({
   const [, navigate] = useLocation();
   const [name, setName] = useState(property.name);
   const [pmcName, setPmcName] = useState(property.pmcName ?? "");
+  const [address, setAddress] = useState(property.address ?? "");
   const [city, setCity] = useState(property.city ?? "");
   const [units, setUnits] = useState(
     property.units != null ? String(property.units) : "",
@@ -215,6 +227,7 @@ export function EditPropertyDialog({
     if (open) {
       setName(property.name);
       setPmcName(property.pmcName ?? "");
+      setAddress(property.address ?? "");
       setCity(property.city ?? "");
       setUnits(property.units != null ? String(property.units) : "");
       setAccessNotes(property.accessNotes ?? "");
@@ -238,6 +251,7 @@ export function EditPropertyDialog({
         data: {
           name: name.trim(),
           pmcName: pmcName.trim() || undefined,
+          address: address.trim() || undefined,
           city: city.trim() || undefined,
           units: units ? Number(units) : undefined,
           accessNotes: accessNotes.trim() || undefined,
@@ -299,6 +313,14 @@ export function EditPropertyDialog({
                 placeholder="Optional"
                 value={pmcName}
                 onChange={(e) => setPmcName(e.target.value)}
+              />
+            </Field>
+            <Field label="Street address (shown to crews)">
+              <input
+                className={fieldCls}
+                placeholder="Optional"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
               />
             </Field>
             <div className="grid grid-cols-2 gap-3">

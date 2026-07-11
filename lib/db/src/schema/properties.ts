@@ -12,6 +12,7 @@ export const propertiesTable = pgTable("properties", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   pmcName: text("pmc_name"),
+  address: text("address"),
   city: text("city"),
   units: integer("units"),
   accessNotes: text("access_notes"),

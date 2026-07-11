@@ -27,6 +27,7 @@ type PropertyLike = {
   id: string;
   name: string;
   pmcName?: string | null;
+  address?: string | null;
   city?: string | null;
   units?: number | null;
   accessNotes?: string | null;
@@ -45,6 +46,7 @@ export function EditPropertySheet({
   const [, navigate] = useLocation();
   const [name, setName] = useState(property.name);
   const [pmcName, setPmcName] = useState(property.pmcName ?? "");
+  const [address, setAddress] = useState(property.address ?? "");
   const [city, setCity] = useState(property.city ?? "");
   const [units, setUnits] = useState(property.units != null ? String(property.units) : "");
   const [accessNotes, setAccessNotes] = useState(property.accessNotes ?? "");
@@ -55,6 +57,7 @@ export function EditPropertySheet({
     if (open) {
       setName(property.name);
       setPmcName(property.pmcName ?? "");
+      setAddress(property.address ?? "");
       setCity(property.city ?? "");
       setUnits(property.units != null ? String(property.units) : "");
       setAccessNotes(property.accessNotes ?? "");
@@ -78,6 +81,7 @@ export function EditPropertySheet({
         data: {
           name: name.trim(),
           pmcName: pmcName.trim() || undefined,
+          address: address.trim() || undefined,
           city: city.trim() || undefined,
           units: units ? Number(units) : undefined,
           accessNotes: accessNotes.trim() || undefined,
@@ -144,6 +148,12 @@ export function EditPropertySheet({
                 placeholder="Management company (PMC)"
                 value={pmcName}
                 onChange={(e) => setPmcName(e.target.value)}
+              />
+              <input
+                className={fieldCls}
+                placeholder="Street address (shown to crews)"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
               />
               <div className="flex gap-[10px]">
                 <input

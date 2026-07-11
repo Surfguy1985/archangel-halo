@@ -126,6 +126,7 @@ export const ListPropertiesResponse = zod.array(ListPropertiesResponseItem)
 export const CreatePropertyBody = zod.object({
   "name": zod.string().min(1),
   "pmcName": zod.string().optional(),
+  "address": zod.string().optional(),
   "city": zod.string().optional(),
   "units": zod.number().optional(),
   "accessNotes": zod.string().optional()
@@ -135,6 +136,7 @@ export const CreatePropertyResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "pmcName": zod.string().nullish(),
+  "address": zod.string().nullish(),
   "city": zod.string().nullish(),
   "units": zod.number().nullish(),
   "accessNotes": zod.string().nullish(),
@@ -158,6 +160,7 @@ export const GetPropertyResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "pmcName": zod.string().nullish(),
+  "address": zod.string().nullish(),
   "city": zod.string().nullish(),
   "units": zod.number().nullish(),
   "accessNotes": zod.string().nullish(),
@@ -246,6 +249,7 @@ export const UpdatePropertyParams = zod.object({
 export const UpdatePropertyBody = zod.object({
   "name": zod.string().min(1).optional(),
   "pmcName": zod.string().optional(),
+  "address": zod.string().optional(),
   "city": zod.string().optional(),
   "units": zod.number().optional(),
   "accessNotes": zod.string().optional(),
@@ -257,6 +261,7 @@ export const UpdatePropertyResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "pmcName": zod.string().nullish(),
+  "address": zod.string().nullish(),
   "city": zod.string().nullish(),
   "units": zod.number().nullish(),
   "accessNotes": zod.string().nullish(),
@@ -291,6 +296,7 @@ export const WritePropertyBriefResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "pmcName": zod.string().nullish(),
+  "address": zod.string().nullish(),
   "city": zod.string().nullish(),
   "units": zod.number().nullish(),
   "accessNotes": zod.string().nullish(),
@@ -2212,13 +2218,19 @@ export const GetPortalResponse = zod.object({
 }),
   "schedule": zod.array(zod.object({
   "id": zod.string(),
+  "kind": zod.string().nullish().describe('job | event'),
   "jobNo": zod.string().nullish(),
   "description": zod.string().nullish(),
   "propertyName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "propertyCity": zod.string().nullish(),
+  "contactName": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
   "windowStart": zod.string().nullish(),
-  "status": zod.string().nullish()
+  "status": zod.string().nullish(),
+  "tasks": zod.array(zod.string()).optional()
 }))
 })
 

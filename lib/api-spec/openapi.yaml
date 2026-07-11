@@ -2431,6 +2431,7 @@ components:
         id: { type: string }
         name: { type: string }
         pmcName: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
         city: { type: ["string", "null"] }
         units: { type: ["integer", "null"] }
         accessNotes: { type: ["string", "null"] }
@@ -2493,6 +2494,7 @@ components:
       properties:
         name: { type: string, minLength: 1 }
         pmcName: { type: string }
+        address: { type: string }
         city: { type: string }
         units: { type: integer }
         accessNotes: { type: string }
@@ -2501,6 +2503,7 @@ components:
       properties:
         name: { type: string, minLength: 1 }
         pmcName: { type: string }
+        address: { type: string }
         city: { type: string }
         units: { type: integer }
         accessNotes: { type: string }
@@ -3538,13 +3541,21 @@ components:
       required: [id]
       properties:
         id: { type: string }
+        kind: { type: ["string", "null"], description: "job | event" }
         jobNo: { type: ["string", "null"] }
         description: { type: ["string", "null"] }
         propertyName: { type: ["string", "null"] }
+        propertyAddress: { type: ["string", "null"] }
+        propertyCity: { type: ["string", "null"] }
+        contactName: { type: ["string", "null"] }
+        contactPhone: { type: ["string", "null"] }
         unitNo: { type: ["string", "null"] }
         scheduledOn: { type: ["string", "null"] }
         windowStart: { type: ["string", "null"] }
         status: { type: ["string", "null"] }
+        tasks:
+          type: array
+          items: { type: string }
     PortalBundle:
       type: object
       required: [crew, schedule]

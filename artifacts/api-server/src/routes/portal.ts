@@ -10,6 +10,8 @@ import {
   schedulesTable,
   jobsTable,
   propertiesTable,
+  contactsTable,
+  calendarEventsTable,
   notificationsTable,
 } from "@workspace/db";
 import {
@@ -48,6 +50,31 @@ const router: IRouter = Router();
 
 type CrewRow = typeof crewsTable.$inferSelect;
 
+// Split a free-form description into a short task list for the crew.
+function taskify(...texts: (string | null | undefined)[]): string[] {
+  const out: string[] = [];
+  for (const text of texts) {
+    if (!text) continue;
+    const parts = text
+      .split(/\r?\n|•|;/)
+      .map((p) => p.replace(/^[-*\u2013\u2022]\s*/, "").trim())
+      .filter((p) => p.length > 0);
+    out.push(...parts);
+  }
+  return out.slice(0, 8);
+}
+
+// "HH:MM" (24h) -> "8:00 AM" for display alongside free-form windowStart values.
+function to12h(hhmm: string | null | undefined): string | null {
+  if (!hhmm) return null;
+  const m = hhmm.match(/^(\d{2}):(\d{2})$/);
+  if (!m) return hhmm;
+  let hour = parseInt(m[1]!, 10);
+  const mer = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12 || 12;
+  return `${hour}:${m[2]} ${mer}`;
+}
+
 async function crewByToken(token: string): Promise<CrewRow | null> {
   if (!token) return null;
   const [row] = await db
@@ -72,39 +99,106 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
   monday.setDate(now.getDate() - diffToMon);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+  const fmtDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const weekStart = fmtDate(monday);
   const weekEnd = fmtDate(sunday);
 
-  const schedRows = await db
-    .select()
-    .from(schedulesTable)
-    .where(
-      and(
-        eq(schedulesTable.crewLeaderId, crew.id),
-        gte(schedulesTable.scheduledOn, weekStart),
-        lte(schedulesTable.scheduledOn, weekEnd),
-      ),
-    )
-    .orderBy(schedulesTable.scheduledOn);
-  const jobs = await db.select().from(jobsTable);
+  const [schedRows, eventRows, jobs, props, contacts] = await Promise.all([
+    db
+      .select()
+      .from(schedulesTable)
+      .where(
+        and(
+          eq(schedulesTable.crewLeaderId, crew.id),
+          gte(schedulesTable.scheduledOn, weekStart),
+          lte(schedulesTable.scheduledOn, weekEnd),
+        ),
+      )
+      .orderBy(schedulesTable.scheduledOn),
+    db
+      .select()
+      .from(calendarEventsTable)
+      .where(
+        and(
+          eq(calendarEventsTable.crewId, crew.id),
+          gte(calendarEventsTable.eventDate, weekStart),
+          lte(calendarEventsTable.eventDate, weekEnd),
+        ),
+      )
+      .orderBy(calendarEventsTable.eventDate),
+    db.select().from(jobsTable),
+    db.select().from(propertiesTable),
+    db.select().from(contactsTable),
+  ]);
+
   const jobsById = new Map(jobs.map((j) => [j.id, j]));
-  const props = await db.select().from(propertiesTable);
-  const propsById = new Map(props.map((p) => [p.id, p.name]));
+  const propsById = new Map(props.map((p) => [p.id, p]));
+
+  // Best phone contact per property: prefer on-site roles, then any with a phone.
+  const contactForProp = (propertyId: string | null | undefined) => {
+    if (!propertyId) return null;
+    const forProp = contacts.filter(
+      (c) => c.propertyId === propertyId && c.phone,
+    );
+    if (forProp.length === 0) return null;
+    const onSite = forProp.find((c) => /on.?site|maint/i.test(c.role ?? ""));
+    return onSite ?? forProp[0]!;
+  };
+
+  const propFields = (propertyId: string | null | undefined) => {
+    const prop = propertyId ? propsById.get(propertyId) : undefined;
+    const contact = contactForProp(propertyId);
+    return {
+      propertyName: prop?.name ?? null,
+      propertyAddress: prop?.address ?? null,
+      propertyCity: prop?.city ?? null,
+      contactName: contact?.name ?? null,
+      contactPhone: contact?.phone ?? null,
+    };
+  };
 
   const schedule = schedRows.map((s) => {
     const job = jobsById.get(s.jobId);
     return {
       id: s.id,
+      kind: "job",
       jobNo: job?.jobNo ?? null,
       description: job?.description ?? null,
-      propertyName: job ? (propsById.get(job.propertyId) ?? null) : null,
+      ...propFields(job?.propertyId),
       unitNo: job?.unitNo ?? null,
       scheduledOn: s.scheduledOn ?? null,
       windowStart: s.windowStart ?? null,
-      status: s.status ?? null,
+      status: (s.status ?? null) as string | null,
+      tasks: taskify(job?.description),
     };
   });
+
+  // Calendar events assigned to this crew also show up in their portal.
+  const scheduledJobDays = new Set(
+    schedRows.map((s) => `${s.jobId}|${s.scheduledOn}`),
+  );
+  for (const ev of eventRows) {
+    if (ev.jobId && scheduledJobDays.has(`${ev.jobId}|${ev.eventDate}`)) {
+      continue; // already represented by the job schedule row
+    }
+    const job = ev.jobId ? jobsById.get(ev.jobId) : undefined;
+    schedule.push({
+      id: `event-${ev.id}`,
+      kind: "event",
+      jobNo: job?.jobNo ?? null,
+      description: ev.title,
+      ...propFields(job?.propertyId),
+      unitNo: job?.unitNo ?? null,
+      scheduledOn: ev.eventDate,
+      windowStart: to12h(ev.startTime),
+      status: null,
+      tasks: ev.notes ? taskify(ev.notes) : taskify(job?.description),
+    });
+  }
+  schedule.sort((a, b) =>
+    (a.scheduledOn ?? "").localeCompare(b.scheduledOn ?? ""),
+  );
 
   res.json(
     GetPortalResponse.parse({

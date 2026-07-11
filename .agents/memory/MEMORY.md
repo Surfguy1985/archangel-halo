@@ -9,5 +9,6 @@
 - [HALO Margin Guardian](halo-margin-guardian.md) — marginPct is a FRACTION (0.25=25%); flag <0.25 excluding complete/paid/cancelled; surfaces in Today feed + emails.
 - [HALO local date handling](halo-local-date-handling.md) — date-only YYYY-MM-DD values must be built/formatted from LOCAL date parts, never UTC toISOString/new Date("Y-M-D"), or days shift by one.
 - [HALO desktop API/asset URLs](halo-desktop-api-urls.md) — desktop BASE_URL is /desktop/; manual /api asset links (storage/PDF) must be absolute /api, never BASE_URL-prefixed; BASE_URL only for in-app route links.
+- [HALO portal schedule feed](halo-portal-schedule.md) — portal schedule merges crew_schedules + crew-assigned calendar_events (deduped by jobId|date); new assignment sources must merge into this feed.
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.
 - [HALO Plaid credentials](halo-plaid-credentials.md) — Plaid uses PLAID_CLIENT_ID/PLAID_SECRET secrets (connector was dismissed); keys are PRODUCTION — sandbox endpoints won't work.

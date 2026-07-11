@@ -10,6 +10,7 @@ export interface PropertyInput {
   /** @minLength 1 */
   name: string;
   pmcName?: string;
+  address?: string;
   city?: string;
   units?: number;
   accessNotes?: string;
