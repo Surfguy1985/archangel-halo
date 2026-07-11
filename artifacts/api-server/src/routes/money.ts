@@ -36,7 +36,44 @@ import {
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 import { sendEmail } from "../lib/email";
-import { generateInvoicePdf } from "../lib/invoicePdf";
+import { generateInvoicePdf, type InvoicePdfCompany } from "../lib/invoicePdf";
+import { getBusinessSettings } from "../lib/businessSettings";
+
+type Settings = Awaited<ReturnType<typeof getBusinessSettings>>;
+
+function pdfCompany(settings: Settings): InvoicePdfCompany {
+  return {
+    name: settings.companyName,
+    tagline: settings.tagline,
+    street: settings.street,
+    city: settings.city,
+    attn: settings.attn,
+    phone: settings.phone || null,
+    email: settings.email,
+  };
+}
+
+function invoicePdfData(
+  inv: typeof invoicesTable.$inferSelect,
+  items: (typeof invoiceLineItemsTable.$inferSelect)[],
+  settings: Settings,
+) {
+  return {
+    invoiceNo: inv.invoiceNo,
+    company: pdfCompany(settings),
+    paymentInstructions:
+      inv.paymentInstructions?.trim() || settings.paymentInstructions || null,
+    poNumber: inv.poNumber,
+    terms: inv.terms,
+    issuedOn: inv.issuedOn,
+    dueAt: inv.dueAt ? inv.dueAt.toISOString() : null,
+    billToName: inv.billToName,
+    propertyAddress: inv.propertyAddress,
+    notes: inv.notes,
+    amount: inv.amount,
+    lineItems: items,
+  };
+}
 
 const router: IRouter = Router();
 const DAY = 1000 * 60 * 60 * 24;
@@ -253,6 +290,7 @@ router.post("/invoices", async (req, res): Promise<void> => {
         billToName: body.billToName ?? defaults.billToName,
         propertyAddress: body.propertyAddress ?? defaults.propertyAddress,
         notes: body.notes ?? null,
+        paymentInstructions: body.paymentInstructions ?? null,
         status: "draft",
       })
       .returning();
@@ -315,6 +353,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
         billToName: body.billToName ?? existing.billToName,
         propertyAddress: body.propertyAddress ?? existing.propertyAddress,
         notes: body.notes ?? null,
+        paymentInstructions: body.paymentInstructions ?? null,
       })
       .where(eq(invoicesTable.id, id))
       .returning();
@@ -356,18 +395,8 @@ router.get("/invoices/:id/pdf", async (req, res): Promise<void> => {
     return;
   }
   const items = await lineItemsFor(inv.id);
-  const bytes = await generateInvoicePdf({
-    invoiceNo: inv.invoiceNo,
-    poNumber: inv.poNumber,
-    terms: inv.terms,
-    issuedOn: inv.issuedOn,
-    dueAt: inv.dueAt ? inv.dueAt.toISOString() : null,
-    billToName: inv.billToName,
-    propertyAddress: inv.propertyAddress,
-    notes: inv.notes,
-    amount: inv.amount,
-    lineItems: items,
-  });
+  const settings = await getBusinessSettings();
+  const bytes = await generateInvoicePdf(invoicePdfData(inv, items, settings));
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader(
     "Content-Disposition",
@@ -376,34 +405,45 @@ router.get("/invoices/:id/pdf", async (req, res): Promise<void> => {
   res.end(Buffer.from(bytes));
 });
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 async function invoiceEmailHtml(
   inv: typeof invoicesTable.$inferSelect,
   items: (typeof invoiceLineItemsTable.$inferSelect)[],
+  settings: Settings,
+  message?: string,
 ): Promise<string> {
   const money = (n: number) =>
     `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const rows = items
     .map(
       (it) =>
-        `<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">${it.unitNo ? `${it.unitNo} · ` : ""}${it.typeOfWork}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">${money(it.amount)}</td></tr>`,
+        `<tr><td style="padding:6px 8px;border-bottom:1px solid #eee">${it.unitNo ? `${escapeHtml(it.unitNo)} · ` : ""}${escapeHtml(it.typeOfWork)}</td><td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">${money(it.amount)}</td></tr>`,
     )
     .join("");
   return `
   <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;color:#17181c">
     <div style="height:6px;background:#B98A2F"></div>
     <div style="padding:24px 8px">
-      <div style="font-size:20px;font-weight:700">ArchAngel Contractors</div>
+      <div style="font-size:20px;font-weight:700">${escapeHtml(settings.companyName)}</div>
       <div style="font-size:12px;color:#8f6a1f;letter-spacing:2px;text-transform:uppercase">Invoice ${inv.invoiceNo}</div>
-      <p style="font-size:14px;line-height:1.5;color:#42424a">
-        ${inv.billToName ? `Hello ${inv.billToName},<br/>` : ""}
-        Please find attached invoice <strong>${inv.invoiceNo}</strong>${inv.propertyAddress ? ` for work at <strong>${inv.propertyAddress}</strong>` : ""}.
-      </p>
+      <p style="font-size:14px;line-height:1.5;color:#42424a;white-space:pre-line">${
+        message?.trim()
+          ? escapeHtml(message.trim())
+          : `${inv.billToName ? `Hello ${escapeHtml(inv.billToName)},\n` : ""}Please find attached invoice ${inv.invoiceNo}${inv.propertyAddress ? ` for work at ${escapeHtml(inv.propertyAddress)}` : ""}.`
+      }</p>
       <table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0">
         ${rows}
         <tr><td style="padding:10px 8px;font-weight:700">Total Due</td><td style="padding:10px 8px;text-align:right;font-weight:700;color:#8f6a1f">${money(inv.amount)}</td></tr>
       </table>
-      <p style="font-size:13px;color:#42424a">Terms: <strong>${inv.terms ?? "Net 30"}</strong>${inv.dueAt ? ` · Due ${inv.dueAt.toLocaleDateString("en-US")}` : ""}. Payment by check or ACH/bank transfer to the remittance information on file.</p>
-      <p style="font-size:11px;color:#9a9a9c;border-top:1px solid #eee;padding-top:10px">ArchAngel Contractors · ATTN: May Mahboob · Admin@archangelcontractors.com</p>
+      <p style="font-size:13px;color:#42424a">Terms: <strong>${inv.terms ?? "Net 30"}</strong>${inv.dueAt ? ` · Due ${inv.dueAt.toLocaleDateString("en-US")}` : ""}.</p>
+      <p style="font-size:13px;color:#42424a;white-space:pre-line">${escapeHtml(inv.paymentInstructions?.trim() || settings.paymentInstructions || "Payment by check or ACH/bank transfer to the remittance information on file.")}</p>
+      <p style="font-size:11px;color:#9a9a9c;border-top:1px solid #eee;padding-top:10px">${escapeHtml(settings.companyName)} · ${escapeHtml(settings.attn)} · ${escapeHtml(settings.email)}</p>
     </div>
   </div>`;
 }
@@ -430,22 +470,14 @@ router.post("/invoices/:id/send", async (req, res): Promise<void> => {
     return;
   }
   const items = await lineItemsFor(inv.id);
-  const pdf = await generateInvoicePdf({
-    invoiceNo: inv.invoiceNo,
-    poNumber: inv.poNumber,
-    terms: inv.terms,
-    issuedOn: inv.issuedOn,
-    dueAt: inv.dueAt ? inv.dueAt.toISOString() : null,
-    billToName: inv.billToName,
-    propertyAddress: inv.propertyAddress,
-    notes: inv.notes,
-    amount: inv.amount,
-    lineItems: items,
-  });
+  const settings = await getBusinessSettings();
+  const pdf = await generateInvoicePdf(invoicePdfData(inv, items, settings));
   const sent = await sendEmail({
     to,
-    subject: `Invoice ${inv.invoiceNo} — ${inv.amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}`,
-    html: await invoiceEmailHtml(inv, items),
+    subject:
+      body.subject?.trim() ||
+      `Invoice ${inv.invoiceNo} — ${inv.amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}`,
+    html: await invoiceEmailHtml(inv, items, settings, body.message),
     attachments: [
       {
         filename: `${inv.invoiceNo}.pdf`,
@@ -453,8 +485,8 @@ router.post("/invoices/:id/send", async (req, res): Promise<void> => {
       },
     ],
   });
-  if (!sent) {
-    res.status(502).json({ error: "Failed to send invoice email" });
+  if (!sent.ok) {
+    res.status(502).json({ error: sent.error ?? "Failed to send invoice email" });
     return;
   }
   const names = await propertyNames();
@@ -482,23 +514,13 @@ router.post("/invoices/:id/remind", async (req, res): Promise<void> => {
     return;
   }
   const items = await lineItemsFor(inv.id);
-  const pdf = await generateInvoicePdf({
-    invoiceNo: inv.invoiceNo,
-    poNumber: inv.poNumber,
-    terms: inv.terms,
-    issuedOn: inv.issuedOn,
-    dueAt: inv.dueAt ? inv.dueAt.toISOString() : null,
-    billToName: inv.billToName,
-    propertyAddress: inv.propertyAddress,
-    notes: inv.notes,
-    amount: inv.amount,
-    lineItems: items,
-  });
+  const settings = await getBusinessSettings();
+  const pdf = await generateInvoicePdf(invoicePdfData(inv, items, settings));
   const names = await propertyNames();
   const sent = await sendEmail({
     to,
     subject: `Reminder: Invoice ${inv.invoiceNo} is ${daysLate(inv)} days past due`,
-    html: `<div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;color:#17181c"><div style="height:6px;background:#B98A2F"></div><div style="padding:24px 8px"><p style="font-size:14px;line-height:1.5">A friendly reminder that invoice <strong>${inv.invoiceNo}</strong> for ${inv.amount.toLocaleString("en-US", { style: "currency", currency: "USD" })} is now <strong>${daysLate(inv)} days past due</strong>. The invoice is attached again for your convenience — we'd appreciate prompt payment.</p><p style="font-size:11px;color:#9a9a9c;border-top:1px solid #eee;padding-top:10px">ArchAngel Contractors · ATTN: May Mahboob · Admin@archangelcontractors.com</p></div></div>`,
+    html: `<div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;color:#17181c"><div style="height:6px;background:#B98A2F"></div><div style="padding:24px 8px"><p style="font-size:14px;line-height:1.5">A friendly reminder that invoice <strong>${inv.invoiceNo}</strong> for ${inv.amount.toLocaleString("en-US", { style: "currency", currency: "USD" })} is now <strong>${daysLate(inv)} days past due</strong>. The invoice is attached again for your convenience — we'd appreciate prompt payment.</p><p style="font-size:11px;color:#9a9a9c;border-top:1px solid #eee;padding-top:10px">${escapeHtml(settings.companyName)} · ${escapeHtml(settings.attn)} · ${escapeHtml(settings.email)}</p></div></div>`,
     attachments: [
       {
         filename: `${inv.invoiceNo}.pdf`,
@@ -506,8 +528,8 @@ router.post("/invoices/:id/remind", async (req, res): Promise<void> => {
       },
     ],
   });
-  if (!sent) {
-    res.status(502).json({ error: "Failed to send reminder email" });
+  if (!sent.ok) {
+    res.status(502).json({ error: sent.error ?? "Failed to send reminder email" });
     return;
   }
   res.json(RemindInvoiceResponse.parse(decorateInvoice(inv, names)));

@@ -15,6 +15,7 @@ import crewRouter from "./crew";
 import portalRouter from "./portal";
 import packetsRouter from "./packets";
 import calendarRouter from "./calendar";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(crewRouter);
 router.use(portalRouter);
 router.use(packetsRouter);
 router.use(calendarRouter);
+router.use(settingsRouter);
 
 export default router;

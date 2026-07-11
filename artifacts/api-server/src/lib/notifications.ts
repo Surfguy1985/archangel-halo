@@ -212,7 +212,7 @@ export async function sendDailyDigest(
 ): Promise<{ sent: boolean; count: number }> {
   const items = feed ?? (await computeQueues()).feed;
   const { subject, html } = buildDailyDigest(items);
-  const sent = await sendEmail({ to: ADMIN_EMAIL, subject, html });
+  const sent = (await sendEmail({ to: ADMIN_EMAIL, subject, html })).ok;
   logger.info({ count: items.length, sent }, "Daily digest dispatch");
   return { sent, count: items.length };
 }
@@ -226,7 +226,7 @@ export async function sendUrgentAlert(
     return { sent: false, count: 0 };
   }
   const { subject, html } = buildUrgentAlert(items);
-  const sent = await sendEmail({ to: ADMIN_EMAIL, subject, html });
+  const sent = (await sendEmail({ to: ADMIN_EMAIL, subject, html })).ok;
   logger.info({ count: urgent.length, sent }, "Urgent alert dispatch");
   return { sent, count: urgent.length };
 }
@@ -271,7 +271,7 @@ export async function sendEveningClose(
 ): Promise<{ sent: boolean; count: number }> {
   const items = feed ?? (await computeQueues()).feed;
   const { subject, html } = buildEveningClose(items);
-  const sent = await sendEmail({ to: ADMIN_EMAIL, subject, html });
+  const sent = (await sendEmail({ to: ADMIN_EMAIL, subject, html })).ok;
   logger.info({ count: items.length, sent }, "Evening close dispatch");
   return { sent, count: items.length };
 }
@@ -420,7 +420,7 @@ export async function sendWeeklyScorecard(): Promise<{
 }> {
   const stats = await weeklyStats();
   const { subject, html } = buildWeeklyScorecard(stats);
-  const sent = await sendEmail({ to: ADMIN_EMAIL, subject, html });
+  const sent = (await sendEmail({ to: ADMIN_EMAIL, subject, html })).ok;
   logger.info({ stats, sent }, "Weekly scorecard dispatch");
   return { sent, stats };
 }

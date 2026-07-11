@@ -16,8 +16,20 @@ export interface InvoicePdfLineItem {
   amount: number;
 }
 
+export interface InvoicePdfCompany {
+  name: string;
+  tagline?: string | null;
+  street: string;
+  city: string;
+  attn: string;
+  phone?: string | null;
+  email: string;
+}
+
 export interface InvoicePdfData {
   invoiceNo: string;
+  company?: InvoicePdfCompany;
+  paymentInstructions?: string | null;
   poNumber?: string | null;
   terms?: string | null;
   issuedOn?: string | null;
@@ -42,12 +54,13 @@ const LINE = rgb(0.86, 0.86, 0.88);
 const ROW_ALT = rgb(0.972, 0.965, 0.945);
 const PAPER = rgb(0.99, 0.985, 0.972);
 
-const COMPANY = {
+const DEFAULT_COMPANY: InvoicePdfCompany = {
   name: "ArchAngel Contractors",
+  tagline: "Restoration & make-ready",
   street: "130 N Preston Rd, Suite 334",
   city: "Prosper, TX 75078",
   attn: "ATTN: May Mahboob",
-  email: "Admin@archangelcontractors.com",
+  email: "admin@archangelcontractors.com",
 };
 
 interface Ctx {
@@ -128,6 +141,7 @@ export async function generateInvoicePdf(
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const page = doc.addPage([PAGE_W, PAGE_H]);
   const ctx: Ctx = { doc, font, bold, page, y: PAGE_H };
+  const COMPANY = data.company ?? DEFAULT_COMPANY;
 
   const left = MARGIN;
   const right = PAGE_W - MARGIN;
@@ -152,7 +166,7 @@ export async function generateInvoicePdf(
     font: bold,
     color: INK,
   });
-  page.drawText(spaced("Restoration & make-ready"), {
+  page.drawText(spaced(COMPANY.tagline || "Restoration & make-ready"), {
     x: left,
     y: ctx.y - 15,
     size: 7,
@@ -225,6 +239,10 @@ export async function generateInvoicePdf(
   y1 -= 12;
   lineAt(COMPANY.city, col1, y1, { color: SLATE });
   y1 -= 12;
+  if (COMPANY.phone) {
+    lineAt(COMPANY.phone, col1, y1, { color: SLATE, size: 8.5 });
+    y1 -= 12;
+  }
   lineAt(COMPANY.email, col1, y1, { color: SLATE, size: 8.5 });
 
   // BILL TO
@@ -423,11 +441,14 @@ export async function generateInvoicePdf(
   });
   heading("Payment Terms & Details", left, ctx.y - 6);
   ctx.y -= 22;
-  const termsText =
+  const termsLine =
     `This invoice is issued on ${data.terms || "Net 30"} terms` +
     (data.dueAt ? ` — payment is due by ${fmtDate(data.dueAt)}` : "") +
-    `. Payment may be issued by check or ACH/bank transfer to the remittance information on file.`;
-  for (const ln of wrap(termsText, font, 9, contentW)) {
+    ".";
+  const instructions =
+    data.paymentInstructions?.trim() ||
+    "Payment may be issued by check or ACH/bank transfer to the remittance information on file.";
+  for (const ln of wrap(`${termsLine} ${instructions}`, font, 9, contentW)) {
     lineAt(ln, left, ctx.y, { color: SLATE, size: 9 });
     ctx.y -= 12;
   }

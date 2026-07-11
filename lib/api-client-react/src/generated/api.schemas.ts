@@ -577,6 +577,8 @@ export interface Invoice {
   /** @nullable */
   notes?: string | null;
   /** @nullable */
+  paymentInstructions?: string | null;
+  /** @nullable */
   issuedOn?: string | null;
   /** @nullable */
   sentAt?: string | null;
@@ -637,6 +639,8 @@ export interface InvoiceDetail {
   /** @nullable */
   notes?: string | null;
   /** @nullable */
+  paymentInstructions?: string | null;
+  /** @nullable */
   issuedOn?: string | null;
   /** @nullable */
   sentAt?: string | null;
@@ -653,6 +657,30 @@ export interface InvoiceDetail {
 
 export interface SendInvoiceInput {
   recipientEmail?: string;
+  subject?: string;
+  message?: string;
+}
+
+export interface BusinessSettings {
+  companyName: string;
+  tagline: string;
+  street: string;
+  city: string;
+  attn: string;
+  phone: string;
+  email: string;
+  paymentInstructions: string;
+}
+
+export interface BusinessSettingsInput {
+  companyName?: string;
+  tagline?: string;
+  street?: string;
+  city?: string;
+  attn?: string;
+  phone?: string;
+  email?: string;
+  paymentInstructions?: string;
 }
 
 export interface InvoiceInput {
@@ -667,6 +695,7 @@ export interface InvoiceInput {
   billToName?: string;
   propertyAddress?: string;
   notes?: string;
+  paymentInstructions?: string;
   lineItems?: InvoiceLineItemInput[];
 }
 

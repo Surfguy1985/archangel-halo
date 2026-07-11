@@ -16,6 +16,7 @@ import Supply from "@/pages/Supply";
 import Vendors from "@/pages/Vendors";
 import JobDetail from "@/pages/JobDetail";
 import InvoiceDetail from "@/pages/InvoiceDetail";
+import CreateInvoice from "@/pages/CreateInvoice";
 import CrewDetail from "@/pages/CrewDetail";
 import CrewPortal from "@/pages/CrewPortal";
 
@@ -35,6 +36,7 @@ function App() {
                   <Route path="/properties" component={Properties} />
                   <Route path="/properties/:id" component={PropertyDetail} />
                   <Route path="/jobs/:id" component={JobDetail} />
+                  <Route path="/invoices/new" component={CreateInvoice} />
                   <Route path="/invoices/:id" component={InvoiceDetail} />
                   <Route path="/money" component={Money} />
                   <Route path="/calendar" component={Calendar} />

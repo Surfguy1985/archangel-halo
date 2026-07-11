@@ -20,6 +20,7 @@ export const invoicesTable = pgTable("invoices", {
   billToName: text("bill_to_name"),
   propertyAddress: text("property_address"),
   notes: text("notes"),
+  paymentInstructions: text("payment_instructions"),
   issuedOn: date("issued_on", { mode: "string" }),
   sentAt: timestamp("sent_at", { withTimezone: true }),
   dueAt: timestamp("due_at", { withTimezone: true }),

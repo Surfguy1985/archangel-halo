@@ -29,6 +29,8 @@ export interface InvoiceDetail {
   /** @nullable */
   notes?: string | null;
   /** @nullable */
+  paymentInstructions?: string | null;
+  /** @nullable */
   issuedOn?: string | null;
   /** @nullable */
   sentAt?: string | null;

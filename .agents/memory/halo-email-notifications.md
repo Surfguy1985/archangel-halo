@@ -15,11 +15,14 @@ tier: now=red (#be3c3c), today=gold (#8f6a1f), week=gray. All mail goes to the
 Production sends go from the "ArchAngel Contractors" display name on the verified sender
 domain, with reply-to set to the admin inbox. The FROM domain is the verified domain on the
 connected Resend account (a gmail login can never be a FROM address; Resend requires a
-verifiable domain). The sender/reply-to are constants in email.ts.
+verifiable domain). The sender/reply-to now come from the business_settings row (settings
+API), not constants.
 **Why this shape:** the app is single-org and the connector proxy only whitelists `/emails`
 (cannot list/verify domains via proxy — the api_key setting is a proxy token, not a raw
 Resend key, so direct api.resend.com and sandbox `connectors.proxy` calls both 400).
-`sendEmail` returning `true` means the proxy accepted the request, not guaranteed delivery.
+`sendEmail` returns `{ok, error}` and checks `res.ok`; `ok: true` means the proxy/Resend
+accepted the request, not guaranteed delivery. Never treat a send as successful without
+checking `.ok` — the original silent-swallow bug hid an invalid API key for weeks.
 
 ## Scheduler is in-process (setInterval), state is in-memory
 The scheduler runs via `setInterval` started from `index.ts` after listen — it only runs
@@ -46,7 +49,7 @@ The evening close (18:30 ET) and weekly scorecard (Mon 07:00 ET) follow the same
 Beyond the scheduler dedup rule, ANY handler that sends mail and then records the outcome
 (e.g. the recap send route stamping `jobs.recapSentAt` + inserting an `email` activity) must:
 (1) resolve a real recipient and return 422 when none exists — never fall back to a dummy
-address; (2) `await sendEmail(...)` and only perform the DB writes when it returns `true`,
-returning 502 otherwise.
+address; (2) `await sendEmail(...)` and only perform the DB writes when `result.ok` is true,
+returning 502 (with `result.error`) otherwise.
 **Why:** ignoring the boolean records phantom "sent" recaps the operator will trust and never
 resend; a dummy fallback address silently leaks client comms to the wrong place.

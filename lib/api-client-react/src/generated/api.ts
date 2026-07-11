@@ -28,6 +28,8 @@ import type {
   BidInput,
   BidUpdate,
   Brief,
+  BusinessSettings,
+  BusinessSettingsInput,
   CalendarBundle,
   CalendarEvent,
   CalendarEventPatch,
@@ -2718,6 +2720,154 @@ export const useDeleteCrew = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getDeleteCrewMutationOptions(options));
+    }
+
+export const getGetBusinessSettingsUrl = () => {
+
+
+
+
+  return `/api/settings/business`
+}
+
+/**
+ * @summary Company info + payment instructions used on invoices and emails
+ */
+export const getBusinessSettings = async ( options?: RequestInit): Promise<BusinessSettings> => {
+
+  return customFetch<BusinessSettings>(getGetBusinessSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBusinessSettingsQueryKey = () => {
+    return [
+    `/api/settings/business`
+    ] as const;
+    }
+
+
+export const getGetBusinessSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getBusinessSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBusinessSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBusinessSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBusinessSettings>>> = ({ signal }) => getBusinessSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBusinessSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBusinessSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getBusinessSettings>>>
+export type GetBusinessSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Company info + payment instructions used on invoices and emails
+ */
+
+export function useGetBusinessSettings<TData = Awaited<ReturnType<typeof getBusinessSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBusinessSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBusinessSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateBusinessSettingsUrl = () => {
+
+
+
+
+  return `/api/settings/business`
+}
+
+/**
+ * @summary Update company info + payment instructions
+ */
+export const updateBusinessSettings = async (businessSettingsInput: BusinessSettingsInput, options?: RequestInit): Promise<BusinessSettings> => {
+
+  return customFetch<BusinessSettings>(getUpdateBusinessSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(businessSettingsInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateBusinessSettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBusinessSettings>>, TError,{data: BodyType<BusinessSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateBusinessSettings>>, TError,{data: BodyType<BusinessSettingsInput>}, TContext> => {
+
+const mutationKey = ['updateBusinessSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateBusinessSettings>>, {data: BodyType<BusinessSettingsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateBusinessSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateBusinessSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateBusinessSettings>>>
+    export type UpdateBusinessSettingsMutationBody = BodyType<BusinessSettingsInput>
+    export type UpdateBusinessSettingsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update company info + payment instructions
+ */
+export const useUpdateBusinessSettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBusinessSettings>>, TError,{data: BodyType<BusinessSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateBusinessSettings>>,
+        TError,
+        {data: BodyType<BusinessSettingsInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateBusinessSettingsMutationOptions(options));
     }
 
 export const getGetMoneySummaryUrl = () => {

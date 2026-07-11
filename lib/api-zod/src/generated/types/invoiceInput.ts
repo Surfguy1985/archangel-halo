@@ -19,5 +19,6 @@ export interface InvoiceInput {
   billToName?: string;
   propertyAddress?: string;
   notes?: string;
+  paymentInstructions?: string;
   lineItems?: InvoiceLineItemInput[];
 }

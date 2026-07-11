@@ -6,7 +6,6 @@ import {
   useListInvoices,
   useListExpenses,
   useListCrewPayments,
-  useSendInvoice,
   useRemindInvoice,
   useUpdateCrewPayment,
   getListInvoicesQueryKey,
@@ -30,6 +29,7 @@ import {
   BellRing,
   CreditCard,
   Check,
+  Building2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { exportCsv } from "@/lib/exportCsv";
@@ -38,6 +38,8 @@ import {
   AddExpenseDialog,
   AddCrewPaymentDialog,
 } from "@/components/MoneyDialogs";
+import { SendInvoiceDialog } from "@/components/SendInvoiceDialog";
+import { BusinessInfoDialog } from "@/components/BusinessInfoDialog";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -191,7 +193,8 @@ function Invoices() {
   const { data: invoices, isLoading } = useListInvoices();
   const [filter, setFilter] = useState<InvoiceFilter>("all");
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
-  const send = useSendInvoice();
+  const [sendInvoice, setSendInvoice] = useState<Invoice | null>(null);
+  const [businessOpen, setBusinessOpen] = useState(false);
   const remind = useRemindInvoice();
 
   const invalidate = () => {
@@ -262,14 +265,26 @@ function Invoices() {
             </button>
           ))}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onExport}
-          disabled={!sorted.length}
-        >
-          <Download className="w-4 h-4 mr-1.5" /> Export
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setBusinessOpen(true)}
+          >
+            <Building2 className="w-4 h-4 mr-1.5" /> Business info
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onExport}
+            disabled={!sorted.length}
+          >
+            <Download className="w-4 h-4 mr-1.5" /> Export
+          </Button>
+          <Button size="sm" onClick={() => navigate("/invoices/new")}>
+            <Plus className="w-4 h-4 mr-1.5" /> New invoice
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -315,19 +330,8 @@ function Invoices() {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          send.mutate(
-                            { id: inv.id, data: {} },
-                            {
-                              onSuccess: () => {
-                                invalidate();
-                                toast({ title: "Invoice sent", description: `${inv.invoiceNo} emailed to the client.` });
-                              },
-                              onError: (err) =>
-                                toast({ title: "Couldn't send invoice", description: err.message, variant: "destructive" }),
-                            },
-                          );
+                          setSendInvoice(inv);
                         }}
-                        disabled={send.isPending}
                       >
                         <Send className="w-4 h-4 mr-1.5" /> Send
                       </Button>
@@ -380,6 +384,12 @@ function Invoices() {
         onOpenChange={(o) => !o && setPayInvoice(null)}
         invoice={payInvoice}
       />
+      <SendInvoiceDialog
+        open={!!sendInvoice}
+        onOpenChange={(o) => !o && setSendInvoice(null)}
+        invoice={sendInvoice}
+      />
+      <BusinessInfoDialog open={businessOpen} onOpenChange={setBusinessOpen} />
     </div>
   );
 }

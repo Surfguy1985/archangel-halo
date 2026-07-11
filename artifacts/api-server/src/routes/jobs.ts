@@ -323,9 +323,11 @@ router.post("/jobs/:id/recap/send", async (req, res): Promise<void> => {
     subject: body.subject,
     html,
   });
-  if (!sent) {
+  if (!sent.ok) {
     res.status(502).json({
-      error: "Email provider rejected the recap. Nothing was recorded — try again.",
+      error:
+        sent.error ??
+        "Email provider rejected the recap. Nothing was recorded — try again.",
     });
     return;
   }

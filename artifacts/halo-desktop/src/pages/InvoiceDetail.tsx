@@ -1,6 +1,6 @@
 import {
   useGetInvoice,
-  useSendInvoice,
+  useGetBusinessSettings,
   useRemindInvoice,
   useDeleteInvoice,
   useRecordPayment,
@@ -32,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { SendInvoiceDialog } from "@/components/SendInvoiceDialog";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
@@ -71,11 +72,10 @@ export default function InvoiceDetail() {
   const [payOpen, setPayOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
-  const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("check");
+  const { data: settings } = useGetBusinessSettings();
 
-  const send = useSendInvoice();
   const remind = useRemindInvoice();
   const del = useDeleteInvoice();
   const record = useRecordPayment();
@@ -104,25 +104,7 @@ export default function InvoiceDetail() {
     { label: "Paid", date: inv.paidAt, done: !!inv.paidAt },
   ];
 
-  const openSend = () => {
-    setRecipient(inv.recipientEmail ?? "");
-    setSendOpen(true);
-  };
-
-  const onSend = () => {
-    const to = recipient.trim();
-    send.mutate(
-      { id, data: { recipientEmail: to || undefined } },
-      {
-        onSuccess: () => {
-          setSendOpen(false);
-          invalidate();
-          toast({ title: "Invoice sent", description: `${inv.invoiceNo} emailed to ${to}.` });
-        },
-        onError: (e) => toast({ title: "Couldn't send", description: e.message, variant: "destructive" }),
-      },
-    );
-  };
+  const openSend = () => setSendOpen(true);
 
   const onRemind = () =>
     remind.mutate(
@@ -184,10 +166,18 @@ export default function InvoiceDetail() {
           <div className="p-8">
             <div className="flex items-start justify-between">
               <div>
-                <div className="font-display font-bold text-xl leading-tight">ArchAngel Contractors</div>
+                <div className="font-display font-bold text-xl leading-tight">{settings?.companyName ?? "ArchAngel Contractors"}</div>
                 <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--gold-dark)] mt-0.5">
-                  Restoration &amp; Make-Ready
+                  {settings?.tagline ?? "Restoration & Make-Ready"}
                 </div>
+                {settings && (
+                  <div className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                    <div>{settings.street}</div>
+                    <div>{settings.city}</div>
+                    {settings.phone ? <div>{settings.phone}</div> : null}
+                    <div>{settings.email}</div>
+                  </div>
+                )}
               </div>
               <div className="text-right">
                 <div className="font-display font-bold text-2xl text-[var(--gold-dark)] leading-none">INVOICE</div>
@@ -253,6 +243,17 @@ export default function InvoiceDetail() {
               <span className="font-display font-bold text-2xl font-mono text-[var(--gold-dark)]">{money(inv.amount || subtotal)}</span>
             </div>
 
+            {(inv.paymentInstructions || settings?.paymentInstructions) && (
+              <div className="mt-4 pt-3 border-t border-border">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-[var(--gold-dark)] mb-1">
+                  Payment Terms &amp; Details
+                </div>
+                <div className="text-sm text-muted-foreground whitespace-pre-line">
+                  {inv.paymentInstructions || settings?.paymentInstructions}
+                </div>
+              </div>
+            )}
+
             {inv.notes && (
               <div className="mt-4 text-sm text-muted-foreground">
                 <span className="font-semibold text-foreground">Notes: </span>
@@ -294,10 +295,9 @@ export default function InvoiceDetail() {
             {status === "draft" && (
               <button
                 onClick={openSend}
-                disabled={send.isPending}
-                className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 font-display font-bold text-sm text-white bg-[var(--gold)] hover:bg-[var(--gold-dark)] transition-colors disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 font-display font-bold text-sm text-white bg-[var(--gold)] hover:bg-[var(--gold-dark)] transition-colors"
               >
-                <Send className="w-4 h-4" /> {send.isPending ? "Sending…" : "Send invoice"}
+                <Send className="w-4 h-4" /> Send invoice
               </button>
             )}
             {status === "past_due" && (
@@ -335,31 +335,12 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
-      <Dialog open={sendOpen} onOpenChange={setSendOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="font-display">Send {inv.invoiceNo}</DialogTitle>
-            <DialogDescription>The invoice PDF will be emailed to this address.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Send to</div>
-            <input type="email" value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="client@email.com" className={fieldCls} />
-            {!inv.recipientEmail && (
-              <p className="text-xs text-muted-foreground">No contact email is saved for this property — enter one to send.</p>
-            )}
-          </div>
-          <DialogFooter>
-            <button onClick={() => setSendOpen(false)} className="rounded-md py-2 px-4 text-sm font-medium bg-card border border-border hover:bg-black/[0.03] transition-colors">Cancel</button>
-            <button
-              onClick={onSend}
-              disabled={send.isPending || !recipient.trim()}
-              className="flex items-center gap-2 rounded-md py-2 px-4 text-sm font-semibold text-white bg-[var(--gold)] hover:bg-[var(--gold-dark)] transition-colors disabled:opacity-50"
-            >
-              <Send className="w-4 h-4" /> {send.isPending ? "Sending…" : "Send invoice"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SendInvoiceDialog
+        open={sendOpen}
+        onOpenChange={setSendOpen}
+        invoice={inv}
+        onSent={invalidate}
+      />
 
       <Dialog open={payOpen} onOpenChange={setPayOpen}>
         <DialogContent>

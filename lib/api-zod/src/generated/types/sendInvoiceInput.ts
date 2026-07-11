@@ -8,4 +8,6 @@
 
 export interface SendInvoiceInput {
   recipientEmail?: string;
+  subject?: string;
+  message?: string;
 }

@@ -980,6 +980,47 @@ export const DeleteCrewResponse = zod.object({
 
 
 /**
+ * @summary Company info + payment instructions used on invoices and emails
+ */
+export const GetBusinessSettingsResponse = zod.object({
+  "companyName": zod.string(),
+  "tagline": zod.string(),
+  "street": zod.string(),
+  "city": zod.string(),
+  "attn": zod.string(),
+  "phone": zod.string(),
+  "email": zod.string(),
+  "paymentInstructions": zod.string()
+})
+
+
+/**
+ * @summary Update company info + payment instructions
+ */
+export const UpdateBusinessSettingsBody = zod.object({
+  "companyName": zod.string().optional(),
+  "tagline": zod.string().optional(),
+  "street": zod.string().optional(),
+  "city": zod.string().optional(),
+  "attn": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "paymentInstructions": zod.string().optional()
+})
+
+export const UpdateBusinessSettingsResponse = zod.object({
+  "companyName": zod.string(),
+  "tagline": zod.string(),
+  "street": zod.string(),
+  "city": zod.string(),
+  "attn": zod.string(),
+  "phone": zod.string(),
+  "email": zod.string(),
+  "paymentInstructions": zod.string()
+})
+
+
+/**
  * @summary Cash radar — landing, at-risk, MTD, margin, aging buckets
  */
 export const GetMoneySummaryResponse = zod.object({
@@ -1013,6 +1054,7 @@ export const ListInvoicesResponseItem = zod.object({
   "billToName": zod.string().nullish(),
   "propertyAddress": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "paymentInstructions": zod.string().nullish(),
   "issuedOn": zod.string().nullish(),
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
@@ -1034,6 +1076,7 @@ export const CreateInvoiceBody = zod.object({
   "billToName": zod.string().optional(),
   "propertyAddress": zod.string().optional(),
   "notes": zod.string().optional(),
+  "paymentInstructions": zod.string().optional(),
   "lineItems": zod.array(zod.object({
   "dateOfWork": zod.string().optional(),
   "unitNo": zod.string().optional(),
@@ -1057,6 +1100,7 @@ export const CreateInvoiceResponse = zod.object({
   "billToName": zod.string().nullish(),
   "propertyAddress": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "paymentInstructions": zod.string().nullish(),
   "issuedOn": zod.string().nullish(),
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
@@ -1085,6 +1129,7 @@ export const GetInvoiceResponse = zod.object({
   "billToName": zod.string().nullish(),
   "propertyAddress": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "paymentInstructions": zod.string().nullish(),
   "issuedOn": zod.string().nullish(),
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
@@ -1125,6 +1170,7 @@ export const UpdateInvoiceBody = zod.object({
   "billToName": zod.string().optional(),
   "propertyAddress": zod.string().optional(),
   "notes": zod.string().optional(),
+  "paymentInstructions": zod.string().optional(),
   "lineItems": zod.array(zod.object({
   "dateOfWork": zod.string().optional(),
   "unitNo": zod.string().optional(),
@@ -1148,6 +1194,7 @@ export const UpdateInvoiceResponse = zod.object({
   "billToName": zod.string().nullish(),
   "propertyAddress": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "paymentInstructions": zod.string().nullish(),
   "issuedOn": zod.string().nullish(),
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
@@ -1187,7 +1234,9 @@ export const SendInvoiceParams = zod.object({
 })
 
 export const SendInvoiceBody = zod.object({
-  "recipientEmail": zod.string().optional()
+  "recipientEmail": zod.string().optional(),
+  "subject": zod.string().optional(),
+  "message": zod.string().optional()
 })
 
 export const SendInvoiceResponse = zod.object({
@@ -1203,6 +1252,7 @@ export const SendInvoiceResponse = zod.object({
   "billToName": zod.string().nullish(),
   "propertyAddress": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "paymentInstructions": zod.string().nullish(),
   "issuedOn": zod.string().nullish(),
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
@@ -1231,6 +1281,7 @@ export const RemindInvoiceResponse = zod.object({
   "billToName": zod.string().nullish(),
   "propertyAddress": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "paymentInstructions": zod.string().nullish(),
   "issuedOn": zod.string().nullish(),
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),

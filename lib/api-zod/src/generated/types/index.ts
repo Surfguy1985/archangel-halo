@@ -16,6 +16,8 @@ export * from './bid';
 export * from './bidInput';
 export * from './bidUpdate';
 export * from './brief';
+export * from './businessSettings';
+export * from './businessSettingsInput';
 export * from './calendarBundle';
 export * from './calendarEvent';
 export * from './calendarEventKind';
