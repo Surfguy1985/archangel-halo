@@ -10,6 +10,7 @@ import {
   activitiesTable,
   crewsTable,
   schedulesTable,
+  bidsTable,
 } from "@workspace/db";
 import {
   ParseVoiceBody,
@@ -37,6 +38,7 @@ const TOOLS = `Available tools and their fields:
 - schedule_job { jobNo, scheduledOn (date as YYYY-MM-DD), crewName?, windowStart? }
 - log_expense { vendor, category, amount (number), propertyName?, jobNo? }
 - create_lead { summary, source?, propertyName? }
+- create_bid { amount (number), propertyName?, scope?, unitNo? }
 - add_note { entityType (property|job), entityRef (name or job number), body }
 - complete_job { jobNo }`;
 
@@ -55,7 +57,7 @@ Today's date is ${today}. Convert relative dates like "tomorrow" or "next Monday
 Known properties: ${props.map((p) => p.name).join(", ") || "none"}.
 Known jobs: ${jobs.map((j) => j.jobNo).join(", ") || "none"}.
 Known crews: ${crews.map((c) => c.name).join(", ") || "none"}.
-Use create_property when the user describes a new property/building not in the known list. Use create_crew when they mention adding a new crew member or subcontractor. Use schedule_job when they want to set a date for existing work.
+Use create_property when the user describes a new property/building not in the known list. Use create_crew when they mention adding a new crew member or subcontractor. Use schedule_job when they want to set a date for existing work. Use create_bid when they quoted or want to quote a price/proposal for work — the bid is saved as a draft for review, never sent automatically.
 For each action include: tool, title (short), summary (one sentence of what will happen), confidence (0-1), needsReview (true if amounts/names are uncertain), and fields. Return {"actions": [...]}. If nothing actionable, return {"actions": []}.`,
       transcript,
       2048,
@@ -220,6 +222,35 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
           .where(eqId(jobsTable.id, job.id));
         applied++;
         messages.push(`Completed ${job.jobNo}`);
+      } else if (a.tool === "create_bid") {
+        const amount = Number(f.amount);
+        if (!Number.isFinite(amount) || amount <= 0) {
+          messages.push("Skipped bid — no valid amount given");
+          continue;
+        }
+        const prop = f.propertyName
+          ? propByName.get(String(f.propertyName).toLowerCase())
+          : undefined;
+        // Max-based bid numbering (matches pipeline route) so deletions
+        // never cause duplicate bid numbers on shared proposals.
+        const bidRows = await db.select({ bidNo: bidsTable.bidNo }).from(bidsTable);
+        let maxNo = 1000;
+        for (const r of bidRows) {
+          const m = /^B-(\d+)$/.exec(r.bidNo);
+          if (m) maxNo = Math.max(maxNo, Number(m[1]));
+        }
+        const bidNo = `B-${String(maxNo + 1)}`;
+        await db.insert(bidsTable).values({
+          bidNo,
+          propertyId: prop?.id ?? null,
+          unitNo: f.unitNo ? String(f.unitNo) : null,
+          scope: f.scope ? String(f.scope) : null,
+          amount,
+          status: "draft",
+          sentAt: null,
+        });
+        applied++;
+        messages.push(`Drafted bid ${bidNo} for $${amount.toLocaleString()}`);
       } else if (a.tool === "add_note") {
         const ref = String(f.entityRef ?? "");
         const prop = propByName.get(ref.toLowerCase());

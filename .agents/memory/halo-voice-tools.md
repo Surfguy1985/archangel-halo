@@ -27,5 +27,11 @@ The LLM may return booleans as strings (e.g. `"true"`). Coerce in the confirm ha
 ## The prompt only refreshes after the workflow restarts
 Editing the `TOOLS` string requires restarting `artifacts/api-server: API Server` — a stale server keeps emitting the old tool set (observed: it returned add_note "not supported by available tools" until restart).
 
+## Voice UIs exist on BOTH surfaces + label maps must be updated too
+Mobile has `VoiceCaptureSheet` (bottom sheet) and desktop has `VoiceCaptureDialog` (sidebar mic button). Each keeps its own `TOOL_LABELS` map (and mobile a `SCRIPTS` list) — add new tools there or the review card shows the raw tool name. Both invalidate the whole query cache after confirm, which is what keeps mobile/desktop views in sync after voice writes.
+
+## Voice-created bids are drafts by design
+`create_bid` inserts with `status: "draft"`, `sentAt: null` — voice must never auto-send a proposal email. Bid numbering must stay max-based (same rule as the pipeline route), not count-based.
+
 ## Confirm action shape (generic, no OpenAPI regen needed)
 Voice actions are `{ tool, title, summary, confidence, needsReview?, fields }` where `fields` is an open record. Because it's generic, adding a tool needs NO openapi.yaml/client regen — only the two edits above.

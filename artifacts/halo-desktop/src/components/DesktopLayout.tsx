@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon } from "lucide-react";
 import { useGetToday, getGetTodayQueryKey } from "@workspace/api-client-react";
 import haloLogo from "../assets/halo-logo.png";
 import { NotificationsPopover } from "./NotificationsPopover";
+import { VoiceCaptureDialog } from "./VoiceCaptureDialog";
 
 export function DesktopLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const { data: today } = useGetToday({
     query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000 },
   });
@@ -32,7 +35,11 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-border flex gap-2">
-           <button className="flex-1 h-10 rounded-full flex items-center justify-center bg-[var(--gold-tint)] text-[var(--gold-dark)] hover:bg-[var(--gold)] hover:text-white transition-colors">
+           <button
+            onClick={() => setVoiceOpen(true)}
+            title="Talk to HALO"
+            className="flex-1 h-10 rounded-full flex items-center justify-center bg-[var(--gold-tint)] text-[var(--gold-dark)] hover:bg-[var(--gold)] hover:text-white transition-colors"
+          >
             <Mic className="w-5 h-5" />
           </button>
           <NotificationsPopover>
@@ -58,6 +65,8 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
       <main className="ml-[240px] flex-1 bg-[var(--paper)]">
         {children}
       </main>
+
+      <VoiceCaptureDialog open={voiceOpen} onOpenChange={setVoiceOpen} />
     </div>
   );
 }

@@ -33,6 +33,7 @@ const TOOL_LABELS: Record<string, string> = {
   schedule_job: "Schedule job",
   log_expense: "Log expense",
   create_lead: "New lead",
+  create_bid: "New bid",
   add_note: "Note",
   complete_job: "Complete job",
 };
@@ -99,6 +100,15 @@ const SCRIPTS: Script[] = [
       "New lead from {who it came from}. They need {what they want} at {property name}.",
     example:
       "New lead from Sterling PMC. They need a full unit turn on unit 210 at Maple Grove Apartments.",
+  },
+  {
+    tool: "create_bid",
+    label: "New bid",
+    Icon: Sparkles,
+    template:
+      "Draft a bid for {amount} dollars at {property name}, unit {unit number}, for {scope of work}.",
+    example:
+      "Draft a bid for 3200 dollars at Maple Grove Apartments, unit 210, for a full unit turn with paint and carpet.",
   },
   {
     tool: "add_note",
