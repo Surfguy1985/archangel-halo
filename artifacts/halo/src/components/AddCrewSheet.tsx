@@ -20,6 +20,7 @@ export function AddCrewSheet({
   const [name, setName] = useState("");
   const [trade, setTrade] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [isLeader, setIsLeader] = useState(true);
 
   const create = useCreateCrew();
@@ -28,6 +29,7 @@ export function AddCrewSheet({
     setName("");
     setTrade("");
     setPhone("");
+    setEmail("");
     setIsLeader(true);
   };
 
@@ -39,6 +41,7 @@ export function AddCrewSheet({
           name: name.trim(),
           trade: trade.trim() || undefined,
           phone: phone.trim() || undefined,
+          email: email.trim() || undefined,
           isLeader,
         },
       },
@@ -91,6 +94,14 @@ export function AddCrewSheet({
               inputMode="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
+            />
+            <input
+              className={fieldCls}
+              placeholder="Email"
+              inputMode="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
             <button
               type="button"

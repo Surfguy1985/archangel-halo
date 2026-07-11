@@ -26,6 +26,7 @@ type CrewLike = {
   name: string;
   trade?: string | null;
   phone?: string | null;
+  email?: string | null;
   isLeader?: boolean | null;
 };
 
@@ -42,6 +43,7 @@ export function EditCrewSheet({
   const [name, setName] = useState(crew.name);
   const [trade, setTrade] = useState(crew.trade ?? "");
   const [phone, setPhone] = useState(crew.phone ?? "");
+  const [email, setEmail] = useState(crew.email ?? "");
   const [isLeader, setIsLeader] = useState(!!crew.isLeader);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -51,6 +53,7 @@ export function EditCrewSheet({
       setName(crew.name);
       setTrade(crew.trade ?? "");
       setPhone(crew.phone ?? "");
+      setEmail(crew.email ?? "");
       setIsLeader(!!crew.isLeader);
       setDeleteError(null);
     }
@@ -68,6 +71,7 @@ export function EditCrewSheet({
           name: name.trim(),
           trade: trade.trim() || undefined,
           phone: phone.trim() || undefined,
+          email: email.trim() || null,
           isLeader,
         },
       },
@@ -138,6 +142,14 @@ export function EditCrewSheet({
                 inputMode="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+              />
+              <input
+                className={fieldCls}
+                placeholder="Email"
+                inputMode="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
               <button
                 type="button"

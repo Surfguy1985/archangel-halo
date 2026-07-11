@@ -11,6 +11,8 @@ export interface CrewUpdate {
   name?: string;
   trade?: string;
   phone?: string;
+  /** @nullable */
+  email?: string | null;
   isLeader?: boolean;
   active?: boolean;
 }

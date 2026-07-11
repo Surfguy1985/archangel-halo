@@ -5,6 +5,11 @@ import {
   jobsTable,
   crewsTable,
   schedulesTable,
+  crewMessagesTable,
+  crewCheckinsTable,
+  crewDocumentsTable,
+  crewPacketsTable,
+  crewPaymentsTable,
   propertiesTable,
   contactsTable,
   activitiesTable,
@@ -383,6 +388,10 @@ router.post("/crews", async (req, res): Promise<void> => {
 router.patch("/crews/:id", async (req, res): Promise<void> => {
   const { id } = UpdateCrewParams.parse(req.params);
   const body = UpdateCrewBody.parse(req.body);
+  if (Object.keys(body).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
   const [row] = await db
     .update(crewsTable)
     .set(body)
@@ -415,6 +424,17 @@ router.delete("/crews/:id", async (req, res): Promise<void> => {
         error: `This crew member is leading ${assignedJobs.length} job${assignedJobs.length === 1 ? "" : "s"}. Reassign those first.`,
       };
     }
+    await tx
+      .update(schedulesTable)
+      .set({ crewLeaderId: null })
+      .where(eq(schedulesTable.crewLeaderId, id));
+    await tx.delete(crewMessagesTable).where(eq(crewMessagesTable.crewId, id));
+    await tx.delete(crewCheckinsTable).where(eq(crewCheckinsTable.crewId, id));
+    await tx
+      .delete(crewDocumentsTable)
+      .where(eq(crewDocumentsTable.crewId, id));
+    await tx.delete(crewPacketsTable).where(eq(crewPacketsTable.crewId, id));
+    await tx.delete(crewPaymentsTable).where(eq(crewPaymentsTable.crewId, id));
     await tx.delete(crewsTable).where(eq(crewsTable.id, id));
     return { status: 200 as const };
   });

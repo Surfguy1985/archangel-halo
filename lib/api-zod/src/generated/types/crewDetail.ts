@@ -15,6 +15,8 @@ export interface CrewDetail {
   /** @nullable */
   phone?: string | null;
   /** @nullable */
+  email?: string | null;
+  /** @nullable */
   isLeader?: boolean | null;
   /** @nullable */
   active?: boolean | null;

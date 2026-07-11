@@ -914,6 +914,7 @@ export const ListCrewsResponseItem = zod.object({
   "name": zod.string(),
   "trade": zod.string().nullish(),
   "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
   "preferredPaymentMethod": zod.string().nullish(),
   "paymentDetails": zod.string().nullish(),
@@ -931,6 +932,7 @@ export const CreateCrewBody = zod.object({
   "name": zod.string().min(1),
   "trade": zod.string().optional(),
   "phone": zod.string().optional(),
+  "email": zod.string().optional(),
   "isLeader": zod.boolean().optional()
 })
 
@@ -939,6 +941,7 @@ export const CreateCrewResponse = zod.object({
   "name": zod.string(),
   "trade": zod.string().nullish(),
   "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
   "active": zod.boolean().nullish()
 })
@@ -955,6 +958,7 @@ export const UpdateCrewBody = zod.object({
   "name": zod.string().min(1).optional(),
   "trade": zod.string().optional(),
   "phone": zod.string().optional(),
+  "email": zod.string().nullish(),
   "isLeader": zod.boolean().optional(),
   "active": zod.boolean().optional()
 })
@@ -964,6 +968,7 @@ export const UpdateCrewResponse = zod.object({
   "name": zod.string(),
   "trade": zod.string().nullish(),
   "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
   "active": zod.boolean().nullish()
 })
@@ -1859,6 +1864,7 @@ export const GetCrewDetailResponse = zod.object({
   "name": zod.string(),
   "trade": zod.string().nullish(),
   "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
   "active": zod.boolean().nullish(),
   "portalToken": zod.string().nullish(),
@@ -2025,6 +2031,7 @@ export const UpdateCrewPaymentMethodResponse = zod.object({
   "name": zod.string(),
   "trade": zod.string().nullish(),
   "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
   "active": zod.boolean().nullish(),
   "portalToken": zod.string().nullish(),

@@ -2654,6 +2654,7 @@ components:
         name: { type: string }
         trade: { type: ["string", "null"] }
         phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
         isLeader: { type: ["boolean", "null"] }
         active: { type: ["boolean", "null"] }
     CrewToday:
@@ -2664,6 +2665,7 @@ components:
         name: { type: string }
         trade: { type: ["string", "null"] }
         phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
         isLeader: { type: ["boolean", "null"] }
         preferredPaymentMethod: { type: ["string", "null"] }
         paymentDetails: { type: ["string", "null"] }
@@ -2677,6 +2679,7 @@ components:
         name: { type: string, minLength: 1 }
         trade: { type: string }
         phone: { type: string }
+        email: { type: string }
         isLeader: { type: boolean }
     CrewUpdate:
       type: object
@@ -2684,6 +2687,7 @@ components:
         name: { type: string, minLength: 1 }
         trade: { type: string }
         phone: { type: string }
+        email: { type: ["string", "null"] }
         isLeader: { type: boolean }
         active: { type: boolean }
     OkResponse:
@@ -3184,6 +3188,7 @@ components:
         name: { type: string }
         trade: { type: ["string", "null"] }
         phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
         isLeader: { type: ["boolean", "null"] }
         active: { type: ["boolean", "null"] }
         portalToken: { type: ["string", "null"] }

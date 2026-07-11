@@ -11,5 +11,6 @@ export interface CrewInput {
   name: string;
   trade?: string;
   phone?: string;
+  email?: string;
   isLeader?: boolean;
 }

@@ -48,6 +48,7 @@ function crewDetail(row: CrewRow) {
     name: row.name,
     trade: row.trade,
     phone: row.phone,
+    email: row.email,
     isLeader: row.isLeader,
     active: row.active,
     portalToken: row.portalToken,

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetCrewDetail,
@@ -34,10 +34,14 @@ import {
   ClipboardCheck,
   Download,
   PackageCheck,
+  Pencil,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { downloadW9Pdf } from "@/lib/w9pdf";
+import { EditCrewDialog } from "@/components/CrewDialogs";
 
 function formatWhen(iso?: string | null): string {
   if (!iso) return "";
@@ -79,6 +83,8 @@ export default function CrewDetail() {
 
   const [draft, setDraft] = useState("");
   const [copied, setCopied] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [, navigate] = useLocation();
   const [templateKey, setTemplateKey] = useState("");
 
   const { uploadFile, isUploading } = useUpload({
@@ -185,13 +191,32 @@ export default function CrewDetail() {
         <div className="w-14 h-14 rounded-full bg-[var(--ink)] text-[var(--gold-light)] font-display font-bold text-2xl grid place-items-center shrink-0">
           {crew.name.substring(0, 1)}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="font-display font-bold text-3xl tracking-tight text-[var(--ink)] truncate">{crew.name}</h1>
-          <div className="text-sm text-muted-foreground truncate">
-            {[crew.trade || "General", crew.phone].filter(Boolean).join(" · ")}
+          <div className="text-sm text-muted-foreground flex items-center gap-3 flex-wrap">
+            <span>{crew.trade || "General"}</span>
+            {crew.phone && (
+              <span className="inline-flex items-center gap-1"><Phone className="w-3.5 h-3.5" /> {crew.phone}</span>
+            )}
+            {crew.email && (
+              <span className="inline-flex items-center gap-1 truncate"><Mail className="w-3.5 h-3.5" /> {crew.email}</span>
+            )}
           </div>
         </div>
+        <button
+          onClick={() => setEditOpen(true)}
+          className="flex items-center gap-2 rounded-md py-2 px-4 text-sm font-display font-semibold text-muted-foreground bg-black/5 hover:bg-black/10 transition-colors shrink-0"
+        >
+          <Pencil className="w-4 h-4" /> Edit
+        </button>
       </header>
+
+      <EditCrewDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        crew={crew}
+        onDeleted={() => navigate("/crews")}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Live portal link */}

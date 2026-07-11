@@ -14,6 +14,7 @@ export const crewsTable = pgTable("crews", {
   name: text("name").notNull(),
   trade: text("trade"),
   phone: text("phone"),
+  email: text("email"),
   isLeader: boolean("is_leader").default(false),
   active: boolean("active").default(true),
   portalToken: text("portal_token"),

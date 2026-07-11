@@ -1,11 +1,14 @@
 import { useListCrews } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Users, Plus, Search, MapPin, CheckCircle, Clock } from "lucide-react";
+import { Users, Plus, Search, MapPin, CheckCircle, Clock, Pencil } from "lucide-react";
 import { useState } from "react";
+import { AddCrewDialog, EditCrewDialog, type EditableCrew } from "@/components/CrewDialogs";
 
 export default function Crews() {
   const [search, setSearch] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<EditableCrew | null>(null);
   const { data: crews, isLoading } = useListCrews();
 
   const filtered = crews?.filter(c => 
@@ -20,7 +23,10 @@ export default function Crews() {
           <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">Crews</h1>
           <p className="text-muted-foreground">{crews?.length || 0} active crews</p>
         </div>
-        <button className="flex items-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm">
+        <button
+          onClick={() => setAddOpen(true)}
+          className="flex items-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm"
+        >
           <Plus className="w-4 h-4" /> Add Crew
         </button>
       </header>
@@ -57,11 +63,24 @@ export default function Crews() {
                       <p className="text-muted-foreground text-sm">{crew.trade || 'General'}</p>
                     </div>
                   </div>
-                  {crew.isLeader && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)]">
-                      Leader
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {crew.isLeader && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)]">
+                        Leader
+                      </span>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setEditing(crew);
+                      }}
+                      aria-label={`Edit ${crew.name}`}
+                      className="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-black/5 hover:text-foreground transition-all"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-auto pt-4 border-t border-border flex items-center gap-2 text-sm">
@@ -96,6 +115,15 @@ export default function Crews() {
             </div>
           )}
         </div>
+      )}
+
+      <AddCrewDialog open={addOpen} onOpenChange={setAddOpen} />
+      {editing && (
+        <EditCrewDialog
+          open={!!editing}
+          onOpenChange={(o) => { if (!o) setEditing(null); }}
+          crew={editing}
+        />
       )}
     </div>
   );

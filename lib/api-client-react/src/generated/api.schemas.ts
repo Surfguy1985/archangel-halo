@@ -493,6 +493,8 @@ export interface Crew {
   /** @nullable */
   phone?: string | null;
   /** @nullable */
+  email?: string | null;
+  /** @nullable */
   isLeader?: boolean | null;
   /** @nullable */
   active?: boolean | null;
@@ -505,6 +507,8 @@ export interface CrewToday {
   trade?: string | null;
   /** @nullable */
   phone?: string | null;
+  /** @nullable */
+  email?: string | null;
   /** @nullable */
   isLeader?: boolean | null;
   /** @nullable */
@@ -527,6 +531,7 @@ export interface CrewInput {
   name: string;
   trade?: string;
   phone?: string;
+  email?: string;
   isLeader?: boolean;
 }
 
@@ -535,6 +540,8 @@ export interface CrewUpdate {
   name?: string;
   trade?: string;
   phone?: string;
+  /** @nullable */
+  email?: string | null;
   isLeader?: boolean;
   active?: boolean;
 }
@@ -1045,6 +1052,8 @@ export interface CrewDetail {
   trade?: string | null;
   /** @nullable */
   phone?: string | null;
+  /** @nullable */
+  email?: string | null;
   /** @nullable */
   isLeader?: boolean | null;
   /** @nullable */
