@@ -835,6 +835,28 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /geo/reverse:
+    get:
+      operationId: reverseGeocode
+      tags: [misc]
+      summary: Reverse geocode coordinates to a street address
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema: { type: number }
+        - name: lng
+          in: query
+          required: true
+          schema: { type: number }
+      responses:
+        "200":
+          description: Address for the coordinates (null when not found)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReverseGeocodeResult"
+
   /plaid/status:
     get:
       operationId: getBankStatus
@@ -2685,6 +2707,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AgingBucket"
+    ReverseGeocodeResult:
+      type: object
+      required: [address]
+      properties:
+        address: { type: ["string", "null"] }
+
     AgingBucket:
       type: object
       required: [label, value]

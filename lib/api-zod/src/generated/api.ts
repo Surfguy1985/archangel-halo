@@ -1046,6 +1046,19 @@ export const ExchangePlaidPublicTokenResponse = zod.object({
 
 
 /**
+ * @summary Reverse geocode coordinates to a street address
+ */
+export const ReverseGeocodeQueryParams = zod.object({
+  "lat": zod.coerce.number(),
+  "lng": zod.coerce.number()
+})
+
+export const ReverseGeocodeResponse = zod.object({
+  "address": zod.string().nullable()
+})
+
+
+/**
  * @summary Whether a bank is connected via Plaid
  */
 export const GetBankStatusResponse = zod.object({

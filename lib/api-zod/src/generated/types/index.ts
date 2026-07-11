@@ -111,6 +111,8 @@ export * from './purchaseOrderInput';
 export * from './queue';
 export * from './recapDraft';
 export * from './recapSendInput';
+export * from './reverseGeocodeParams';
+export * from './reverseGeocodeResult';
 export * from './savePacketInput';
 export * from './savePacketInputAttachments';
 export * from './savePacketInputFormsData';

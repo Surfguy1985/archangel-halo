@@ -108,6 +108,8 @@ import type {
   Queue,
   RecapDraft,
   RecapSendInput,
+  ReverseGeocodeParams,
+  ReverseGeocodeResult,
   SavePacketInput,
   ScheduleInput,
   SendInvoiceInput,
@@ -3017,6 +3019,90 @@ export const useExchangePlaidPublicToken = <TError = ErrorType<Error>,
       > => {
       return useMutation(getExchangePlaidPublicTokenMutationOptions(options));
     }
+
+export const getReverseGeocodeUrl = (params: ReverseGeocodeParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/geo/reverse?${stringifiedParams}` : `/api/geo/reverse`
+}
+
+/**
+ * @summary Reverse geocode coordinates to a street address
+ */
+export const reverseGeocode = async (params: ReverseGeocodeParams, options?: RequestInit): Promise<ReverseGeocodeResult> => {
+
+  return customFetch<ReverseGeocodeResult>(getReverseGeocodeUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getReverseGeocodeQueryKey = (params?: ReverseGeocodeParams,) => {
+    return [
+    `/api/geo/reverse`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getReverseGeocodeQueryOptions = <TData = Awaited<ReturnType<typeof reverseGeocode>>, TError = ErrorType<unknown>>(params: ReverseGeocodeParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof reverseGeocode>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getReverseGeocodeQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof reverseGeocode>>> = ({ signal }) => reverseGeocode(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof reverseGeocode>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ReverseGeocodeQueryResult = NonNullable<Awaited<ReturnType<typeof reverseGeocode>>>
+export type ReverseGeocodeQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Reverse geocode coordinates to a street address
+ */
+
+export function useReverseGeocode<TData = Awaited<ReturnType<typeof reverseGeocode>>, TError = ErrorType<unknown>>(
+ params: ReverseGeocodeParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof reverseGeocode>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getReverseGeocodeQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetBankStatusUrl = () => {
 

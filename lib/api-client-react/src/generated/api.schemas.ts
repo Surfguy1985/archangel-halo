@@ -562,6 +562,11 @@ export interface MoneySummary {
   aging: AgingBucket[];
 }
 
+export interface ReverseGeocodeResult {
+  /** @nullable */
+  address: string | null;
+}
+
 export interface Invoice {
   id: string;
   invoiceNo: string;
@@ -1344,6 +1349,11 @@ export type DeleteCalendarEvent200 = {
 
 export type CreatePlaidLinkToken200 = {
   linkToken: string;
+};
+
+export type ReverseGeocodeParams = {
+lat: number;
+lng: number;
 };
 
 export type ListBankTransactionsParams = {

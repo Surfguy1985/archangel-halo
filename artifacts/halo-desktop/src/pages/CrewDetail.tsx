@@ -17,6 +17,8 @@ import {
   getListCrewCheckinsQueryKey,
   getListCrewDocumentsQueryKey,
   getListCrewPacketsQueryKey,
+  useReverseGeocode,
+  getReverseGeocodeQueryKey,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import {
@@ -326,18 +328,7 @@ export default function CrewDetail() {
           ) : (
             <div className="flex flex-col divide-y divide-border">
               {checkins.map((c) => (
-                <div key={c.id} className="flex items-center gap-3 py-3">
-                  <MapPin className="w-4 h-4 text-[var(--gold)] shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate">{c.label || "Check-in"}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {c.lat != null && c.lng != null ? `${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}` : "No coordinates"} · {formatWhen(c.createdAt)}
-                    </div>
-                  </div>
-                  {c.lat != null && c.lng != null && (
-                    <a href={`https://maps.google.com/?q=${c.lat},${c.lng}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-600 shrink-0">Map</a>
-                  )}
-                </div>
+                <CheckinRow key={c.id} checkin={c} />
               ))}
             </div>
           )}
@@ -374,6 +365,89 @@ export default function CrewDetail() {
             <div className="text-sm text-muted-foreground">Crew hasn't submitted a W-9 yet.</div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+const THUMB_W = 88;
+const THUMB_H = 64;
+const TILE = 256;
+const MAP_ZOOM = 15;
+
+function MapThumb({ lat, lng }: { lat: number; lng: number }) {
+  const n = 2 ** MAP_ZOOM;
+  const xF = ((lng + 180) / 360) * n;
+  const latR = (lat * Math.PI) / 180;
+  const yF =
+    ((1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2) * n;
+  const xTile = Math.floor(xF);
+  const yTile = Math.floor(yF);
+  const clamp = (v: number, min: number, max: number) =>
+    Math.min(max, Math.max(min, v));
+  const left = clamp((xF - xTile) * TILE - THUMB_W / 2, 0, TILE - THUMB_W);
+  const top = clamp((yF - yTile) * TILE - THUMB_H / 2, 0, TILE - THUMB_H);
+  return (
+    <div
+      className="relative overflow-hidden rounded-md border border-border shrink-0 bg-muted"
+      style={{ width: THUMB_W, height: THUMB_H }}
+    >
+      <img
+        src={`https://tile.openstreetmap.org/${MAP_ZOOM}/${xTile}/${yTile}.png`}
+        alt="Check-in location map"
+        width={TILE}
+        height={TILE}
+        loading="lazy"
+        className="absolute max-w-none"
+        style={{ left: -left, top: -top }}
+      />
+      <MapPin
+        className="absolute w-4 h-4 text-red-600 drop-shadow"
+        style={{
+          left: (xF - xTile) * TILE - left - 8,
+          top: (yF - yTile) * TILE - top - 16,
+        }}
+      />
+    </div>
+  );
+}
+
+type CheckinItem = {
+  id: string;
+  label?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  createdAt?: string | null;
+};
+
+function CheckinRow({ checkin: c }: { checkin: CheckinItem }) {
+  const hasCoords = c.lat != null && c.lng != null;
+  const params = { lat: c.lat ?? 0, lng: c.lng ?? 0 };
+  const { data: geo } = useReverseGeocode(params, {
+    query: {
+      queryKey: getReverseGeocodeQueryKey(params),
+      enabled: hasCoords,
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
+    },
+  });
+  return (
+    <div className="flex items-center gap-3 py-3">
+      {hasCoords ? (
+        <MapThumb lat={c.lat!} lng={c.lng!} />
+      ) : (
+        <MapPin className="w-4 h-4 text-[var(--gold)] shrink-0" />
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold truncate">{c.label || "Check-in"}</div>
+        <div className="text-xs text-muted-foreground truncate">
+          {hasCoords ? `${c.lat!.toFixed(5)}, ${c.lng!.toFixed(5)}` : "No coordinates"} · {formatWhen(c.createdAt)}
+        </div>
+        {hasCoords && geo?.address && (
+          <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+            {geo.address}
+          </div>
+        )}
       </div>
     </div>
   );
