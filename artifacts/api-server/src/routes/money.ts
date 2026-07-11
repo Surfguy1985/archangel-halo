@@ -38,6 +38,7 @@ import { ser } from "../lib/serialize";
 import { sendEmail } from "../lib/email";
 import { generateInvoicePdf, type InvoicePdfCompany } from "../lib/invoicePdf";
 import { getBusinessSettings } from "../lib/businessSettings";
+import { getBankMtdCashflow } from "../lib/plaidClient";
 
 type Settings = Awaited<ReturnType<typeof getBusinessSettings>>;
 
@@ -208,23 +209,42 @@ router.get("/money/summary", async (_req, res): Promise<void> => {
     )
     .reduce((s, i) => s + i.amount, 0);
 
-  const jobs = await db.select().from(jobsTable);
-  const mtdJobs = jobs.filter(
-    (j) =>
-      j.completedAt &&
-      j.completedAt.getMonth() === now.getMonth() &&
-      j.completedAt.getFullYear() === now.getFullYear(),
-  );
-  const mtd = mtdJobs.reduce((s, j) => s + (j.grossProfit ?? 0), 0);
-  const withMargin = jobs.filter((j) => j.marginPct != null);
-  const marginPct =
-    withMargin.length > 0
-      ? Math.round(
-          (withMargin.reduce((s, j) => s + (j.marginPct ?? 0), 0) /
-            withMargin.length) *
-            1000,
-        ) / 10
-      : 0;
+  // Prefer real bank data (Plaid) for cash figures when a bank is connected.
+  const bank = await getBankMtdCashflow();
+
+  let mtd: number;
+  let marginPct: number;
+  let spentMtd: number | null = null;
+  let bankCollectedMtd: number | null = null;
+
+  if (bank) {
+    mtd = bank.inflows;
+    bankCollectedMtd = bank.inflows;
+    spentMtd = bank.outflows;
+    marginPct =
+      bank.inflows > 0
+        ? Math.round(((bank.inflows - bank.outflows) / bank.inflows) * 1000) /
+          10
+        : 0;
+  } else {
+    const jobs = await db.select().from(jobsTable);
+    const mtdJobs = jobs.filter(
+      (j) =>
+        j.completedAt &&
+        j.completedAt.getMonth() === now.getMonth() &&
+        j.completedAt.getFullYear() === now.getFullYear(),
+    );
+    mtd = mtdJobs.reduce((s, j) => s + (j.grossProfit ?? 0), 0);
+    const withMargin = jobs.filter((j) => j.marginPct != null);
+    marginPct =
+      withMargin.length > 0
+        ? Math.round(
+            (withMargin.reduce((s, j) => s + (j.marginPct ?? 0), 0) /
+              withMargin.length) *
+              1000,
+          ) / 10
+        : 0;
+  }
 
   const buckets = { current: 0, d30: 0, d60: 0, d90: 0 };
   for (const i of outstanding) {
@@ -241,7 +261,9 @@ router.get("/money/summary", async (_req, res): Promise<void> => {
       atRisk,
       mtd,
       marginPct,
-      collectedMtd,
+      collectedMtd: bankCollectedMtd ?? collectedMtd,
+      spentMtd,
+      bankConnected: !!bank,
       aging: [
         { label: "Current", value: buckets.current, color: "ink" },
         { label: "1–30", value: buckets.d30, color: "gold" },

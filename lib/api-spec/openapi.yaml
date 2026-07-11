@@ -2679,6 +2679,8 @@ components:
         mtd: { type: number }
         marginPct: { type: number }
         collectedMtd: { type: number }
+        spentMtd: { type: ["number", "null"] }
+        bankConnected: { type: boolean }
         aging:
           type: array
           items:

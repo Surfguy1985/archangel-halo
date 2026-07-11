@@ -556,6 +556,9 @@ export interface MoneySummary {
   mtd: number;
   marginPct: number;
   collectedMtd?: number;
+  /** @nullable */
+  spentMtd?: number | null;
+  bankConnected?: boolean;
   aging: AgingBucket[];
 }
 

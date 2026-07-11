@@ -1112,6 +1112,8 @@ export const GetMoneySummaryResponse = zod.object({
   "mtd": zod.number(),
   "marginPct": zod.number(),
   "collectedMtd": zod.number().optional(),
+  "spentMtd": zod.number().nullish(),
+  "bankConnected": zod.boolean().optional(),
   "aging": zod.array(zod.object({
   "label": zod.string(),
   "value": zod.number(),

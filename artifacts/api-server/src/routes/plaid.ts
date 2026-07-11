@@ -2,6 +2,12 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, plaidItemsTable } from "@workspace/db";
 import {
+  plaidPost,
+  plaidErrorMessage,
+  getPlaidItem as getItem,
+  invalidateBankCashflowCache,
+} from "../lib/plaidClient";
+import {
   ExchangePlaidPublicTokenBody,
   ExchangePlaidPublicTokenResponse,
   GetBankStatusResponse,
@@ -12,53 +18,6 @@ import {
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
-
-const PLAID_BASE = "https://production.plaid.com";
-
-async function plaidPost(
-  path: string,
-  body: Record<string, unknown>,
-): Promise<{ ok: boolean; status: number; data: any }> {
-  const clientId = process.env.PLAID_CLIENT_ID;
-  const secret = process.env.PLAID_SECRET;
-  if (!clientId || !secret) {
-    return {
-      ok: false,
-      status: 500,
-      data: { error_message: "Plaid credentials are not configured" },
-    };
-  }
-  try {
-    const res = await fetch(`${PLAID_BASE}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ client_id: clientId, secret, ...body }),
-    });
-    const data = await res.json().catch(() => ({}));
-    return { ok: res.ok, status: res.status, data };
-  } catch (err) {
-    logger.warn({ err, path }, "Plaid request transport failure");
-    return {
-      ok: false,
-      status: 502,
-      data: { error_message: "Could not reach Plaid" },
-    };
-  }
-}
-
-function plaidErrorMessage(data: any): string {
-  return (
-    data?.error_message ||
-    data?.display_message ||
-    data?.error_code ||
-    "Plaid request failed"
-  );
-}
-
-async function getItem() {
-  const [item] = await db.select().from(plaidItemsTable).limit(1);
-  return item ?? null;
-}
 
 router.post("/plaid/link-token", async (_req, res): Promise<void> => {
   const result = await plaidPost("/link/token/create", {
@@ -97,6 +56,7 @@ router.post("/plaid/exchange", async (req, res): Promise<void> => {
       institutionName: body.institutionName ?? null,
     });
   });
+  invalidateBankCashflowCache();
   const item = await getItem();
   res.json(
     ExchangePlaidPublicTokenResponse.parse({
@@ -212,6 +172,7 @@ router.delete("/plaid/item", async (_req, res): Promise<void> => {
       logger.warn({ data: result.data }, "Plaid item remove failed (deleting locally anyway)");
     }
     await db.delete(plaidItemsTable).where(eq(plaidItemsTable.id, item.id));
+    invalidateBankCashflowCache();
   }
   res.status(204).end();
 });

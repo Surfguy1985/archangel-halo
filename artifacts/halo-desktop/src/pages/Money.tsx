@@ -131,7 +131,7 @@ function SummaryCards() {
             {money(summary?.mtd ?? 0)}
           </div>
           <div className="mt-2 text-sm font-medium text-[var(--gold-dark)]">
-            {summary?.marginPct}% Margin
+            {summary?.marginPct}% {summary?.bankConnected ? "Cash Margin" : "Margin"}
           </div>
         </CardContent>
       </Card>
@@ -140,11 +140,22 @@ function SummaryCards() {
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4 text-muted-foreground">
             <CreditCard className="w-5 h-5" />
-            <span className="font-semibold uppercase tracking-wider text-xs">Collected MTD</span>
+            <span className="font-semibold uppercase tracking-wider text-xs">
+              {summary?.bankConnected ? "Spent MTD" : "Collected MTD"}
+            </span>
           </div>
           <div className="text-3xl font-mono font-bold tracking-tight text-[var(--ink)]">
-            {money(summary?.collectedMtd ?? 0)}
+            {money(
+              summary?.bankConnected
+                ? summary?.spentMtd ?? 0
+                : summary?.collectedMtd ?? 0,
+            )}
           </div>
+          {summary?.bankConnected && (
+            <div className="mt-2 text-xs text-muted-foreground">
+              From bank transactions
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
