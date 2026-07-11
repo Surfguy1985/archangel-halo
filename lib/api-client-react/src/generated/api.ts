@@ -51,6 +51,8 @@ import type {
   CrewPayment,
   CrewPaymentInput,
   CrewPaymentUpdate,
+  CrewPhoto,
+  CrewPhotoInput,
   CrewPortalLink,
   CrewToday,
   CrewUpdate,
@@ -94,6 +96,9 @@ import type {
   Payment,
   PaymentInput,
   PaymentMethodInput,
+  PhotoShare,
+  PhotoShareInput,
+  PhotoShareView,
   PlaidExchangeInput,
   PortalBundle,
   PriceItem,
@@ -6269,6 +6274,226 @@ export const useSendCrewDocument = <TError = ErrorType<unknown>,
       return useMutation(getSendCrewDocumentMutationOptions(options));
     }
 
+export const getListCrewPhotosUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/photos`
+}
+
+export const listCrewPhotos = async (id: string, options?: RequestInit): Promise<CrewPhoto[]> => {
+
+  return customFetch<CrewPhoto[]>(getListCrewPhotosUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCrewPhotosQueryKey = (id: string,) => {
+    return [
+    `/api/crews/${id}/photos`
+    ] as const;
+    }
+
+
+export const getListCrewPhotosQueryOptions = <TData = Awaited<ReturnType<typeof listCrewPhotos>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewPhotos>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCrewPhotosQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCrewPhotos>>> = ({ signal }) => listCrewPhotos(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCrewPhotos>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCrewPhotosQueryResult = NonNullable<Awaited<ReturnType<typeof listCrewPhotos>>>
+export type ListCrewPhotosQueryError = ErrorType<unknown>
+
+
+
+export function useListCrewPhotos<TData = Awaited<ReturnType<typeof listCrewPhotos>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewPhotos>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCrewPhotosQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePhotoShareUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/photo-shares`
+}
+
+/**
+ * @summary Create (or reuse) a public share link for a crew's photos on a given day
+ */
+export const createPhotoShare = async (id: string,
+    photoShareInput: PhotoShareInput, options?: RequestInit): Promise<PhotoShare> => {
+
+  return customFetch<PhotoShare>(getCreatePhotoShareUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(photoShareInput)
+  }
+);}
+
+
+
+
+
+export const getCreatePhotoShareMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPhotoShare>>, TError,{id: string;data: BodyType<PhotoShareInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPhotoShare>>, TError,{id: string;data: BodyType<PhotoShareInput>}, TContext> => {
+
+const mutationKey = ['createPhotoShare'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPhotoShare>>, {id: string;data: BodyType<PhotoShareInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createPhotoShare(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePhotoShareMutationResult = NonNullable<Awaited<ReturnType<typeof createPhotoShare>>>
+    export type CreatePhotoShareMutationBody = BodyType<PhotoShareInput>
+    export type CreatePhotoShareMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create (or reuse) a public share link for a crew's photos on a given day
+ */
+export const useCreatePhotoShare = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPhotoShare>>, TError,{id: string;data: BodyType<PhotoShareInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPhotoShare>>,
+        TError,
+        {id: string;data: BodyType<PhotoShareInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePhotoShareMutationOptions(options));
+    }
+
+export const getGetPhotoShareUrl = (token: string,) => {
+
+
+
+
+  return `/api/photo-shares/${token}`
+}
+
+/**
+ * @summary Public view of shared crew photos
+ */
+export const getPhotoShare = async (token: string, options?: RequestInit): Promise<PhotoShareView> => {
+
+  return customFetch<PhotoShareView>(getGetPhotoShareUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPhotoShareQueryKey = (token: string,) => {
+    return [
+    `/api/photo-shares/${token}`
+    ] as const;
+    }
+
+
+export const getGetPhotoShareQueryOptions = <TData = Awaited<ReturnType<typeof getPhotoShare>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPhotoShare>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPhotoShareQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPhotoShare>>> = ({ signal }) => getPhotoShare(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPhotoShare>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPhotoShareQueryResult = NonNullable<Awaited<ReturnType<typeof getPhotoShare>>>
+export type GetPhotoShareQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Public view of shared crew photos
+ */
+
+export function useGetPhotoShare<TData = Awaited<ReturnType<typeof getPhotoShare>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPhotoShare>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPhotoShareQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getUpdateCrewPaymentMethodUrl = (id: string,) => {
 
 
@@ -6982,6 +7207,149 @@ export const useUploadPortalDocument = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getUploadPortalDocumentMutationOptions(options));
+    }
+
+export const getListPortalPhotosUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/photos`
+}
+
+export const listPortalPhotos = async (token: string, options?: RequestInit): Promise<CrewPhoto[]> => {
+
+  return customFetch<CrewPhoto[]>(getListPortalPhotosUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPortalPhotosQueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}/photos`
+    ] as const;
+    }
+
+
+export const getListPortalPhotosQueryOptions = <TData = Awaited<ReturnType<typeof listPortalPhotos>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPortalPhotos>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPortalPhotosQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPortalPhotos>>> = ({ signal }) => listPortalPhotos(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPortalPhotos>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPortalPhotosQueryResult = NonNullable<Awaited<ReturnType<typeof listPortalPhotos>>>
+export type ListPortalPhotosQueryError = ErrorType<Error>
+
+
+
+export function useListPortalPhotos<TData = Awaited<ReturnType<typeof listPortalPhotos>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPortalPhotos>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPortalPhotosQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUploadPortalPhotoUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/photos`
+}
+
+/**
+ * @summary Crew sends a photo from the field
+ */
+export const uploadPortalPhoto = async (token: string,
+    crewPhotoInput: CrewPhotoInput, options?: RequestInit): Promise<CrewPhoto> => {
+
+  return customFetch<CrewPhoto>(getUploadPortalPhotoUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewPhotoInput)
+  }
+);}
+
+
+
+
+
+export const getUploadPortalPhotoMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadPortalPhoto>>, TError,{token: string;data: BodyType<CrewPhotoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadPortalPhoto>>, TError,{token: string;data: BodyType<CrewPhotoInput>}, TContext> => {
+
+const mutationKey = ['uploadPortalPhoto'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadPortalPhoto>>, {token: string;data: BodyType<CrewPhotoInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  uploadPortalPhoto(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadPortalPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof uploadPortalPhoto>>>
+    export type UploadPortalPhotoMutationBody = BodyType<CrewPhotoInput>
+    export type UploadPortalPhotoMutationError = ErrorType<Error>
+
+    /**
+ * @summary Crew sends a photo from the field
+ */
+export const useUploadPortalPhoto = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadPortalPhoto>>, TError,{token: string;data: BodyType<CrewPhotoInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadPortalPhoto>>,
+        TError,
+        {token: string;data: BodyType<CrewPhotoInput>},
+        TContext
+      > => {
+      return useMutation(getUploadPortalPhotoMutationOptions(options));
     }
 
 export const getGetPortalW9Url = (token: string,) => {

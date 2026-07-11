@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,6 +17,10 @@ import {
   getListCrewCheckinsQueryKey,
   getListCrewDocumentsQueryKey,
   getListCrewPacketsQueryKey,
+  useListCrewPhotos,
+  getListCrewPhotosQueryKey,
+  useCreatePhotoShare,
+  type CrewPhoto,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import {
@@ -34,6 +38,8 @@ import {
   MessageSquare,
   PackageCheck,
   Send as SendIcon,
+  Camera,
+  Share2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { downloadW9Pdf } from "@/lib/w9pdf";
@@ -45,6 +51,16 @@ function formatWhen(iso?: string | null): string {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+  });
+}
+
+function formatDayLabel(day: string): string {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
@@ -522,6 +538,9 @@ export default function CrewDetail() {
         )}
       </div>
 
+      {/* Daily activity */}
+      <DailyActivitySection crewId={id} crewName={crew.name} />
+
       {/* Payment method */}
       <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
         <div className={sectionTitle}>
@@ -603,6 +622,116 @@ function W9Readout({ data }: { data: Record<string, unknown> }) {
           <span className="font-medium break-words">{value}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function DailyActivitySection({
+  crewId,
+  crewName,
+}: {
+  crewId: string;
+  crewName: string;
+}) {
+  const { toast } = useToast();
+  const { data: photos } = useListCrewPhotos(crewId, {
+    query: {
+      queryKey: getListCrewPhotosQueryKey(crewId),
+      refetchInterval: 8000,
+    },
+  });
+  const createShare = useCreatePhotoShare();
+  const [sharingDay, setSharingDay] = useState<string | null>(null);
+
+  const sectionTitle =
+    "font-display font-bold text-[11px] tracking-[0.14em] uppercase text-muted-foreground mb-[12px] flex items-center gap-[6px]";
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const groups = useMemo(() => {
+    const map = new Map<string, CrewPhoto[]>();
+    for (const p of photos ?? []) {
+      const arr = map.get(p.takenOn) ?? [];
+      arr.push(p);
+      map.set(p.takenOn, arr);
+    }
+    return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  }, [photos]);
+
+  const onShare = async (day: string) => {
+    setSharingDay(day);
+    try {
+      const res = await createShare.mutateAsync({ id: crewId, data: { day } });
+      const url = `${window.location.origin}${base}/photos/${res.token}`;
+      const message = `Photos from ${crewName} — ${formatDayLabel(day)}: ${url}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({
+          title: "Share link copied",
+          description: "Opening Messages with a prefilled text…",
+        });
+      } catch {
+        toast({ title: "Share link ready", description: url });
+      }
+      window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
+    } catch {
+      toast({ title: "Couldn't create share link", description: "Please try again." });
+    } finally {
+      setSharingDay(null);
+    }
+  };
+
+  return (
+    <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+      <div className={sectionTitle}>
+        <Camera className="w-[13px] h-[13px]" /> Daily activity
+      </div>
+      {groups.length === 0 ? (
+        <div className="text-[12.5px] text-muted-foreground py-[6px] text-center">
+          No photos yet. Photos the crew sends from their portal show up here.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-[16px]">
+          {groups.map(([day, dayPhotos]) => (
+            <div key={day}>
+              <div className="flex items-center justify-between mb-[8px] gap-[8px]">
+                <div className="text-[13px] font-semibold min-w-0">
+                  {formatDayLabel(day)}
+                  <span className="text-muted-foreground font-normal">
+                    {" "}
+                    · {dayPhotos.length} photo{dayPhotos.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => onShare(day)}
+                  disabled={sharingDay === day}
+                  className="flex items-center gap-[5px] text-[11px] font-bold rounded-full border border-border px-[10px] py-[6px] shrink-0 transition-transform active:scale-[0.96] disabled:opacity-60"
+                >
+                  <Share2 className="w-[12px] h-[12px]" />
+                  {sharingDay === day ? "Preparing…" : "Share link"}
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-[6px]">
+                {dayPhotos.map((p) => (
+                  <a
+                    key={p.id}
+                    href={`${base}/api/storage${p.storagePath}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block aspect-square rounded-[10px] overflow-hidden bg-[var(--paper)] border border-border"
+                  >
+                    <img
+                      src={`${base}/api/storage${p.storagePath}`}
+                      alt={p.note || "Crew photo"}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

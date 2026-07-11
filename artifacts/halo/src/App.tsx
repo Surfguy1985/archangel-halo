@@ -13,6 +13,7 @@ import Calendar from "./pages/Calendar";
 import Crews from "./pages/Crews";
 import CrewDetail from "./pages/CrewDetail";
 import CrewPortal from "./pages/CrewPortal";
+import PhotoShare from "./pages/PhotoShare";
 import Pipeline from "./pages/Pipeline";
 import Supply from "./pages/Supply";
 import Vendors from "./pages/Vendors";
@@ -51,6 +52,7 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Switch>
             <Route path="/portal/:token" component={CrewPortal} />
+            <Route path="/photos/:token" component={PhotoShare} />
             <Route component={AdminRouter} />
           </Switch>
         </WouterRouter>

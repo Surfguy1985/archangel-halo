@@ -45,6 +45,27 @@ export const crewDocumentsTable = pgTable("crew_documents", {
     .defaultNow(),
 });
 
+export const crewPhotosTable = pgTable("crew_photos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  crewId: uuid("crew_id").notNull(),
+  storagePath: text("storage_path").notNull(),
+  note: text("note"),
+  takenOn: text("taken_on").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const photoSharesTable = pgTable("photo_shares", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  crewId: uuid("crew_id").notNull(),
+  day: text("day").notNull(),
+  token: text("token").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const crewPaymentsTable = pgTable("crew_payments", {
   id: uuid("id").primaryKey().defaultRandom(),
   crewId: uuid("crew_id").notNull(),
@@ -60,6 +81,8 @@ export const crewPaymentsTable = pgTable("crew_payments", {
     .defaultNow(),
 });
 
+export type CrewPhoto = typeof crewPhotosTable.$inferSelect;
+export type PhotoShare = typeof photoSharesTable.$inferSelect;
 export type CrewMessage = typeof crewMessagesTable.$inferSelect;
 export type CrewCheckin = typeof crewCheckinsTable.$inferSelect;
 export type CrewDocument = typeof crewDocumentsTable.$inferSelect;

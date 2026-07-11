@@ -1703,6 +1703,76 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CrewDocument"
+  /crews/{id}/photos:
+    get:
+      operationId: listCrewPhotos
+      tags: [crew-portal]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Photos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewPhoto"
+  /crews/{id}/photo-shares:
+    post:
+      operationId: createPhotoShare
+      tags: [crew-portal]
+      summary: Create (or reuse) a public share link for a crew's photos on a given day
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhotoShareInput"
+      responses:
+        "201":
+          description: Share link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoShare"
+        "404":
+          description: Crew not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /photo-shares/{token}:
+    get:
+      operationId: getPhotoShare
+      tags: [crew-portal]
+      summary: Public view of shared crew photos
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Shared photos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoShareView"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /crews/{id}/payment-method:
     patch:
       operationId: updateCrewPaymentMethod
@@ -1936,6 +2006,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CrewDocument"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /portal/{token}/photos:
+    get:
+      operationId: listPortalPhotos
+      tags: [portal]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Photos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewPhoto"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: uploadPortalPhoto
+      tags: [portal]
+      summary: Crew sends a photo from the field
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewPhotoInput"
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewPhoto"
         "404":
           description: Invalid link
           content:
@@ -3313,6 +3435,51 @@ components:
         size: { type: ["number", "null"] }
         note: { type: ["string", "null"] }
         createdAt: { type: ["string", "null"] }
+
+    CrewPhotoInput:
+      type: object
+      required: [storagePath, takenOn]
+      properties:
+        storagePath: { type: string, minLength: 1 }
+        takenOn:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          description: Local date (YYYY-MM-DD) on the crew's device
+        note: { type: ["string", "null"] }
+    CrewPhoto:
+      type: object
+      required: [id, crewId, storagePath, takenOn]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        storagePath: { type: string }
+        note: { type: ["string", "null"] }
+        takenOn: { type: string }
+        createdAt: { type: ["string", "null"] }
+    PhotoShareInput:
+      type: object
+      required: [day]
+      properties:
+        day:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+    PhotoShare:
+      type: object
+      required: [token, day]
+      properties:
+        token: { type: string }
+        day: { type: string }
+    PhotoShareView:
+      type: object
+      required: [crewName, day, photos]
+      properties:
+        crewName: { type: string }
+        trade: { type: ["string", "null"] }
+        day: { type: string }
+        photos:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrewPhoto"
 
     CrewPaymentInput:
       type: object

@@ -6,6 +6,7 @@ import {
   crewMessagesTable,
   crewCheckinsTable,
   crewDocumentsTable,
+  crewPhotosTable,
   schedulesTable,
   jobsTable,
   propertiesTable,
@@ -27,6 +28,11 @@ import {
   UploadPortalDocumentParams,
   UploadPortalDocumentBody,
   UploadPortalDocumentResponse,
+  ListPortalPhotosParams,
+  ListPortalPhotosResponse,
+  UploadPortalPhotoParams,
+  UploadPortalPhotoBody,
+  UploadPortalPhotoResponse,
   GetPortalW9Params,
   GetPortalW9Response,
   SubmitPortalW9Params,
@@ -227,6 +233,49 @@ router.post("/portal/:token/documents", async (req, res): Promise<void> => {
     body: body.name,
   });
   res.status(201).json(UploadPortalDocumentResponse.parse(ser(row)));
+});
+
+router.get("/portal/:token/photos", async (req, res): Promise<void> => {
+  const { token } = ListPortalPhotosParams.parse(req.params);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const rows = await db
+    .select()
+    .from(crewPhotosTable)
+    .where(eq(crewPhotosTable.crewId, crew.id))
+    .orderBy(desc(crewPhotosTable.createdAt));
+  res.json(ListPortalPhotosResponse.parse(rows.map((r) => ser(r))));
+});
+
+router.post("/portal/:token/photos", async (req, res): Promise<void> => {
+  const { token } = UploadPortalPhotoParams.parse(req.params);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const body = UploadPortalPhotoBody.parse(req.body);
+  const [row] = await db
+    .insert(crewPhotosTable)
+    .values({
+      crewId: crew.id,
+      storagePath: body.storagePath,
+      takenOn: body.takenOn,
+      note: body.note ?? null,
+    })
+    .returning();
+  await db.insert(notificationsTable).values({
+    kind: "crew_photo",
+    priority: "normal",
+    entityType: "crew",
+    entityId: crew.id,
+    title: `${crew.name} sent a photo`,
+    body: body.note ?? `Daily activity photo for ${body.takenOn}`,
+  });
+  res.status(201).json(UploadPortalPhotoResponse.parse(ser(row)));
 });
 
 router.get("/portal/:token/w9", async (req, res): Promise<void> => {

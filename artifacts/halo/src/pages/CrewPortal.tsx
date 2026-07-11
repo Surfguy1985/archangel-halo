@@ -8,6 +8,9 @@ import {
   useCreatePortalCheckin,
   useListPortalDocuments,
   useUploadPortalDocument,
+  useListPortalPhotos,
+  useUploadPortalPhoto,
+  getListPortalPhotosQueryKey,
   useGetPortalW9,
   useSubmitPortalW9,
   useSetPortalPaymentMethod,
@@ -33,6 +36,7 @@ import {
   ShieldCheck,
   Download,
   PackageCheck,
+  Camera,
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 import WelcomeKitTab from "./WelcomeKitTab";
@@ -40,11 +44,20 @@ import WelcomeKitTab from "./WelcomeKitTab";
 type Tab =
   | "schedule"
   | "messages"
+  | "photos"
   | "documents"
   | "checkin"
   | "pay"
   | "w9"
   | "packets";
+
+function localToday(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 function formatWhen(iso?: string | null): string {
   if (!iso) return "";
@@ -99,6 +112,7 @@ export default function CrewPortal() {
     { key: "packets", label: "Welcome Kit", icon: PackageCheck },
     { key: "messages", label: "Messages", icon: MessageSquare },
     { key: "checkin", label: "Check-in", icon: MapPin },
+    { key: "photos", label: "Photos", icon: Camera },
     { key: "documents", label: "Docs", icon: FileText },
     { key: "pay", label: "Pay", icon: Wallet },
     { key: "w9", label: "W-9", icon: ClipboardCheck },
@@ -144,6 +158,7 @@ export default function CrewPortal() {
         {tab === "packets" && <WelcomeKitTab token={token} />}
         {tab === "messages" && <MessagesTab token={token} />}
         {tab === "checkin" && <CheckinTab token={token} />}
+        {tab === "photos" && <PhotosTab token={token} />}
         {tab === "documents" && <DocumentsTab token={token} />}
         {tab === "pay" && (
           <PaymentTab
@@ -373,6 +388,98 @@ function CheckinTab({ token }: { token: string }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function PhotosTab({ token }: { token: string }) {
+  const queryClient = useQueryClient();
+  const { data: photos } = useListPortalPhotos(token, {
+    query: { queryKey: getListPortalPhotosQueryKey(token) },
+  });
+  const sendPhoto = useUploadPortalPhoto();
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const { uploadFile } = useUpload({
+    onError: () =>
+      setUploadError("Upload failed. Check your connection and try again."),
+  });
+
+  const onFilesPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    setSending(true);
+    setUploadError(null);
+    try {
+      for (const file of files) {
+        const res = await uploadFile(file);
+        if (!res) return;
+        await sendPhoto.mutateAsync({
+          token,
+          data: { storagePath: res.objectPath, takenOn: localToday() },
+        });
+      }
+      queryClient.invalidateQueries({
+        queryKey: getListPortalPhotosQueryKey(token),
+      });
+    } catch {
+      setUploadError("Your photo uploaded but we couldn't save it. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  return (
+    <div className="animate-in fade-in duration-200">
+      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] cursor-pointer transition-transform active:scale-[0.98]">
+        {sending ? (
+          <Loader2 className="w-[18px] h-[18px] animate-spin" />
+        ) : (
+          <Camera className="w-[18px] h-[18px]" />
+        )}
+        {sending ? "Sending…" : "Take / send photos"}
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          multiple
+          className="hidden"
+          onChange={onFilesPicked}
+          disabled={sending}
+        />
+      </label>
+      {uploadError && (
+        <div className="text-[12.5px] text-[var(--red,#be3c3c)] bg-[rgba(190,60,60,0.08)] rounded-[11px] px-[12px] py-[9px] mb-[14px]">
+          {uploadError}
+        </div>
+      )}
+      {!photos || photos.length === 0 ? (
+        <div className={`${card} text-center text-[13px] text-muted-foreground py-[26px]`}>
+          No photos yet. Snap your work as you go — the office sees them instantly.
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-[6px]">
+          {photos.map((p) => (
+            <a
+              key={p.id}
+              href={`${base}/api/storage${p.storagePath}`}
+              target="_blank"
+              rel="noreferrer"
+              className="block aspect-square rounded-[10px] overflow-hidden bg-[var(--paper)] border border-border"
+            >
+              <img
+                src={`${base}/api/storage${p.storagePath}`}
+                alt={p.note || "Crew photo"}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

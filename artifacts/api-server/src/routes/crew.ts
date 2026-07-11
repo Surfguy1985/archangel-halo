@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import {
   db,
   crewsTable,
@@ -8,6 +8,8 @@ import {
   crewCheckinsTable,
   crewDocumentsTable,
   crewPaymentsTable,
+  crewPhotosTable,
+  photoSharesTable,
 } from "@workspace/db";
 import {
   GetCrewDetailParams,
@@ -35,6 +37,13 @@ import {
   UpdateCrewPaymentParams,
   UpdateCrewPaymentBody,
   UpdateCrewPaymentResponse,
+  ListCrewPhotosParams,
+  ListCrewPhotosResponse,
+  CreatePhotoShareParams,
+  CreatePhotoShareBody,
+  CreatePhotoShareResponse,
+  GetPhotoShareParams,
+  GetPhotoShareResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 
@@ -111,6 +120,83 @@ router.post("/crews/:id/messages", async (req, res): Promise<void> => {
     .values({ crewId: id, sender: "admin", body: body.body })
     .returning();
   res.status(201).json(SendCrewMessageResponse.parse(ser(row)));
+});
+
+router.get("/crews/:id/photos", async (req, res): Promise<void> => {
+  const { id } = ListCrewPhotosParams.parse(req.params);
+  const rows = await db
+    .select()
+    .from(crewPhotosTable)
+    .where(eq(crewPhotosTable.crewId, id))
+    .orderBy(desc(crewPhotosTable.createdAt));
+  res.json(ListCrewPhotosResponse.parse(rows.map((r) => ser(r))));
+});
+
+router.post("/crews/:id/photo-shares", async (req, res): Promise<void> => {
+  const { id } = CreatePhotoShareParams.parse(req.params);
+  const body = CreatePhotoShareBody.parse(req.body);
+  const [crew] = await db
+    .select()
+    .from(crewsTable)
+    .where(eq(crewsTable.id, id));
+  if (!crew) {
+    res.status(404).json({ error: "Crew not found" });
+    return;
+  }
+  const [existing] = await db
+    .select()
+    .from(photoSharesTable)
+    .where(
+      and(eq(photoSharesTable.crewId, id), eq(photoSharesTable.day, body.day)),
+    );
+  if (existing) {
+    res.status(201).json(
+      CreatePhotoShareResponse.parse({ token: existing.token, day: existing.day }),
+    );
+    return;
+  }
+  const token = randomBytes(18).toString("base64url");
+  const [row] = await db
+    .insert(photoSharesTable)
+    .values({ crewId: id, day: body.day, token })
+    .returning();
+  res
+    .status(201)
+    .json(CreatePhotoShareResponse.parse({ token: row.token, day: row.day }));
+});
+
+router.get("/photo-shares/:token", async (req, res): Promise<void> => {
+  const { token } = GetPhotoShareParams.parse(req.params);
+  const [share] = await db
+    .select()
+    .from(photoSharesTable)
+    .where(eq(photoSharesTable.token, token));
+  if (!share) {
+    res.status(404).json({ error: "Invalid share link" });
+    return;
+  }
+  const [crew] = await db
+    .select()
+    .from(crewsTable)
+    .where(eq(crewsTable.id, share.crewId));
+  const photos = await db
+    .select()
+    .from(crewPhotosTable)
+    .where(
+      and(
+        eq(crewPhotosTable.crewId, share.crewId),
+        eq(crewPhotosTable.takenOn, share.day),
+      ),
+    )
+    .orderBy(crewPhotosTable.createdAt);
+  res.json(
+    GetPhotoShareResponse.parse({
+      crewName: crew?.name ?? "Crew",
+      trade: crew?.trade ?? null,
+      day: share.day,
+      photos: photos.map((p) => ser(p)),
+    }),
+  );
 });
 
 router.get("/crews/:id/checkins", async (req, res): Promise<void> => {

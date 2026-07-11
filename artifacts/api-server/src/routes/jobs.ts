@@ -10,6 +10,8 @@ import {
   crewDocumentsTable,
   crewPacketsTable,
   crewPaymentsTable,
+  crewPhotosTable,
+  photoSharesTable,
   propertiesTable,
   contactsTable,
   activitiesTable,
@@ -435,6 +437,8 @@ router.delete("/crews/:id", async (req, res): Promise<void> => {
       .where(eq(crewDocumentsTable.crewId, id));
     await tx.delete(crewPacketsTable).where(eq(crewPacketsTable.crewId, id));
     await tx.delete(crewPaymentsTable).where(eq(crewPaymentsTable.crewId, id));
+    await tx.delete(crewPhotosTable).where(eq(crewPhotosTable.crewId, id));
+    await tx.delete(photoSharesTable).where(eq(photoSharesTable.crewId, id));
     await tx.delete(crewsTable).where(eq(crewsTable.id, id));
     return { status: 200 as const };
   });

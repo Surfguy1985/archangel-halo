@@ -2014,6 +2014,63 @@ export const SendCrewDocumentResponse = zod.object({
 })
 
 
+export const ListCrewPhotosParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListCrewPhotosResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "storagePath": zod.string(),
+  "note": zod.string().nullish(),
+  "takenOn": zod.string(),
+  "createdAt": zod.string().nullish()
+})
+export const ListCrewPhotosResponse = zod.array(ListCrewPhotosResponseItem)
+
+
+/**
+ * @summary Create (or reuse) a public share link for a crew's photos on a given day
+ */
+export const CreatePhotoShareParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const createPhotoShareBodyDayRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const CreatePhotoShareBody = zod.object({
+  "day": zod.string().regex(createPhotoShareBodyDayRegExp)
+})
+
+export const CreatePhotoShareResponse = zod.object({
+  "token": zod.string(),
+  "day": zod.string()
+})
+
+
+/**
+ * @summary Public view of shared crew photos
+ */
+export const GetPhotoShareParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPhotoShareResponse = zod.object({
+  "crewName": zod.string(),
+  "trade": zod.string().nullish(),
+  "day": zod.string(),
+  "photos": zod.array(zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "storagePath": zod.string(),
+  "note": zod.string().nullish(),
+  "takenOn": zod.string(),
+  "createdAt": zod.string().nullish()
+}))
+})
+
+
 /**
  * @summary Admin updates the crew's preferred payment method
  */
@@ -2275,6 +2332,48 @@ export const UploadPortalDocumentResponse = zod.object({
   "contentType": zod.string().nullish(),
   "size": zod.number().nullish(),
   "note": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+export const ListPortalPhotosParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ListPortalPhotosResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "storagePath": zod.string(),
+  "note": zod.string().nullish(),
+  "takenOn": zod.string(),
+  "createdAt": zod.string().nullish()
+})
+export const ListPortalPhotosResponse = zod.array(ListPortalPhotosResponseItem)
+
+
+/**
+ * @summary Crew sends a photo from the field
+ */
+export const UploadPortalPhotoParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+
+export const uploadPortalPhotoBodyTakenOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const UploadPortalPhotoBody = zod.object({
+  "storagePath": zod.string().min(1),
+  "takenOn": zod.string().regex(uploadPortalPhotoBodyTakenOnRegExp).describe('Local date (YYYY-MM-DD) on the crew\'s device'),
+  "note": zod.string().nullish()
+})
+
+export const UploadPortalPhotoResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "storagePath": zod.string(),
+  "note": zod.string().nullish(),
+  "takenOn": zod.string(),
   "createdAt": zod.string().nullish()
 })
 

@@ -1237,6 +1237,47 @@ export interface CrewDocument {
   createdAt?: string | null;
 }
 
+export interface CrewPhotoInput {
+  /** @minLength 1 */
+  storagePath: string;
+  /**
+     * Local date (YYYY-MM-DD) on the crew's device
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  takenOn: string;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface CrewPhoto {
+  id: string;
+  crewId: string;
+  storagePath: string;
+  /** @nullable */
+  note?: string | null;
+  takenOn: string;
+  /** @nullable */
+  createdAt?: string | null;
+}
+
+export interface PhotoShareInput {
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  day: string;
+}
+
+export interface PhotoShare {
+  token: string;
+  day: string;
+}
+
+export interface PhotoShareView {
+  crewName: string;
+  /** @nullable */
+  trade?: string | null;
+  day: string;
+  photos: CrewPhoto[];
+}
+
 export interface CrewPaymentInput {
   crewId: string;
   amount: number;
