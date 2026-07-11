@@ -7,8 +7,11 @@ import {
   useUpdateInvoice,
   useListProperties,
   useListJobs,
+  useGetJob,
+  getGetJobQueryKey,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
+  getGetTodayQueryKey,
   getGetInvoiceQueryKey,
   type InvoiceDetail,
 } from "@workspace/api-client-react";
@@ -48,16 +51,25 @@ export function InvoiceEditor({
   open,
   onOpenChange,
   invoice,
+  initialJobId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** When provided, the editor is in edit mode. */
   invoice?: InvoiceDetail | null;
+  /** Preselect this job (and its property) when creating a new invoice. */
+  initialJobId?: string | null;
 }) {
   const queryClient = useQueryClient();
   const { data: properties } = useListProperties();
   const [propertyId, setPropertyId] = useState("");
   const { data: jobs } = useListJobs(propertyId ? { propertyId } : undefined);
+  const { data: initialJobDetail } = useGetJob(initialJobId ?? "", {
+    query: {
+      enabled: open && !invoice && !!initialJobId,
+      queryKey: getGetJobQueryKey(initialJobId ?? ""),
+    },
+  });
   const [jobId, setJobId] = useState("");
   const [poNumber, setPoNumber] = useState("");
   const [terms, setTerms] = useState("Net 30");
@@ -123,6 +135,15 @@ export function InvoiceEditor({
     }
   }, [open, invoice]);
 
+  // Preselect the job (and its property) when opened from a "Create invoice" action.
+  useEffect(() => {
+    if (!open || invoice || !initialJobId) return;
+    const job = initialJobDetail?.job;
+    if (!job) return;
+    setPropertyId(job.propertyId ?? "");
+    setJobId(job.id);
+  }, [open, invoice, initialJobId, initialJobDetail]);
+
   const setRow = (key: string, patch: Partial<LineRow>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   const removeRow = (key: string) =>
@@ -159,6 +180,7 @@ export function InvoiceEditor({
     const onSuccess = () => {
       queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
       if (invoice)
         queryClient.invalidateQueries({
           queryKey: getGetInvoiceQueryKey(invoice.id),

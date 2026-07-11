@@ -1,10 +1,30 @@
 import { useGetToday, useRefreshBrief, useGetQueues, useAskHalo, getGetTodayQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, ArrowRight, RefreshCw, Send, Loader2 } from "lucide-react";
+import { Sparkles, ArrowRight, RefreshCw, Send, Loader2, X } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
+
+function entityRoute(entityType?: string | null, entityId?: string | null): string | null {
+  if (!entityType) return null;
+  switch (entityType) {
+    case "job":
+      return entityId ? `/jobs/${entityId}` : null;
+    case "invoice":
+      return entityId ? `/invoices/${entityId}` : null;
+    case "bid":
+    case "lead":
+      return "/pipeline";
+    case "inventory":
+      return "/supply";
+    case "vendor":
+      return "/vendors";
+    default:
+      return null;
+  }
+}
 
 export default function Today() {
   const { data: today, isLoading } = useGetToday();
@@ -13,9 +33,11 @@ export default function Today() {
   const askHalo = useAskHalo();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
+  const [queueFilter, setQueueFilter] = useState<string | null>(null);
 
   const handleRefresh = async () => {
     try {
@@ -91,11 +113,28 @@ export default function Today() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Feed */}
         <div className="lg:col-span-2 space-y-6">
-          <h2 className="text-xl font-display font-bold text-[var(--ink)]">Needs Attention</h2>
-          
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-display font-bold text-[var(--ink)]">Needs Attention</h2>
+            {queueFilter && (
+              <button
+                onClick={() => setQueueFilter(null)}
+                className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-[var(--gold-dark)] px-2.5 py-1 rounded-full bg-[var(--gold-tint)] hover:bg-[var(--gold)]/20 transition-colors"
+              >
+                {queues?.find(q => q.key === queueFilter)?.label ?? queueFilter}
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
           <div className="space-y-4">
-            {today?.feed.map(item => (
-              <Card key={item.id} className="hover:border-[var(--gold)]/50 transition-colors cursor-pointer group">
+            {(today?.feed.filter(item => !queueFilter || item.queue === queueFilter) ?? []).map(item => {
+              const route = entityRoute(item.entityType, item.entityId);
+              return (
+              <Card
+                key={item.id}
+                onClick={route ? () => navigate(route) : undefined}
+                className={`hover:border-[var(--gold)]/50 transition-colors group ${route ? "cursor-pointer" : ""}`}
+              >
                 <CardContent className="p-5 flex items-start gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -111,15 +150,23 @@ export default function Today() {
                     <h3 className="font-semibold text-[var(--ink)] text-lg mb-1">{item.title}</h3>
                     <p className="text-muted-foreground text-sm">{item.sub}</p>
                   </div>
-                  <div className="w-8 h-8 rounded-full border border-border flex items-center justify-center group-hover:bg-[var(--gold-tint)] group-hover:border-[var(--gold)]/30 transition-colors">
-                    <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-[var(--gold-dark)]" />
-                  </div>
+                  {route && (
+                    <div className="w-8 h-8 rounded-full border border-border flex items-center justify-center group-hover:bg-[var(--gold-tint)] group-hover:border-[var(--gold)]/30 transition-colors">
+                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-[var(--gold-dark)]" />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
             {today?.feed.length === 0 && (
               <div className="p-8 text-center border border-dashed border-border rounded-xl text-muted-foreground">
                 All caught up for now.
+              </div>
+            )}
+            {(today?.feed.length ?? 0) > 0 && queueFilter && today?.feed.every(item => item.queue !== queueFilter) && (
+              <div className="p-8 text-center border border-dashed border-border rounded-xl text-muted-foreground">
+                Nothing needs attention in this queue.
               </div>
             )}
           </div>
@@ -162,10 +209,14 @@ export default function Today() {
             <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Operations</h2>
             <div className="grid grid-cols-2 gap-3">
               {queues?.map(q => (
-                <div key={q.key} className="p-4 rounded-xl bg-card border border-border shadow-sm flex flex-col justify-between aspect-square hover:border-[var(--gold)]/30 transition-colors cursor-pointer group">
-                  <span className="text-3xl font-display font-bold text-[var(--ink)] group-hover:text-[var(--gold-dark)] transition-colors">{q.count}</span>
+                <button
+                  key={q.key}
+                  onClick={() => setQueueFilter(prev => (prev === q.key ? null : q.key))}
+                  className={`p-4 rounded-xl bg-card border shadow-sm flex flex-col justify-between aspect-square text-left transition-colors cursor-pointer group ${queueFilter === q.key ? "border-[var(--gold)] bg-[var(--gold-tint)]" : "border-border hover:border-[var(--gold)]/30"}`}
+                >
+                  <span className={`text-3xl font-display font-bold transition-colors ${queueFilter === q.key ? "text-[var(--gold-dark)]" : "text-[var(--ink)] group-hover:text-[var(--gold-dark)]"}`}>{q.count}</span>
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{q.label}</span>
-                </div>
+                </button>
               ))}
             </div>
           </div>

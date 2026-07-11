@@ -1,8 +1,11 @@
 import { useGetToday } from "@workspace/api-client-react";
+import { useState } from "react";
 import { BriefCard, FeedCard } from "@/components/FeedCard";
+import { InvoiceEditor } from "@/components/InvoiceEditor";
 
 export default function Today() {
   const { data: today, isLoading } = useGetToday();
+  const [invoiceJobId, setInvoiceJobId] = useState<string | null>(null);
 
   if (isLoading || !today) {
     return (
@@ -29,7 +32,7 @@ export default function Today() {
             Now
             <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-foreground text-background text-[11px] grid place-items-center tracking-normal">{nowCards.length}</span>
           </div>
-          {nowCards.map(c => <FeedCard key={c.id} card={c} />)}
+          {nowCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
         </>
       )}
 
@@ -39,7 +42,7 @@ export default function Today() {
             Today
             <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[rgba(23,24,28,0.08)] text-[var(--ink2)] text-[11px] grid place-items-center tracking-normal">{todayCards.length}</span>
           </div>
-          {todayCards.map(c => <FeedCard key={c.id} card={c} />)}
+          {todayCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
         </>
       )}
 
@@ -49,9 +52,15 @@ export default function Today() {
             This Week
             <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[rgba(23,24,28,0.08)] text-[var(--ink2)] text-[11px] grid place-items-center tracking-normal">{weekCards.length}</span>
           </div>
-          {weekCards.map(c => <FeedCard key={c.id} card={c} />)}
+          {weekCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
         </>
       )}
+
+      <InvoiceEditor
+        open={!!invoiceJobId}
+        onOpenChange={(o) => { if (!o) setInvoiceJobId(null); }}
+        initialJobId={invoiceJobId}
+      />
     </div>
   );
 }
