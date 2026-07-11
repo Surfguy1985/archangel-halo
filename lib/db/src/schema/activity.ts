@@ -14,7 +14,7 @@ export const notificationsTable = pgTable("notifications", {
   entityId: text("entity_id"),
   title: text("title").notNull(),
   body: text("body"),
-  sentAt: timestamp("sent_at", { withTimezone: true }),
+  sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow(),
   readAt: timestamp("read_at", { withTimezone: true }),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })

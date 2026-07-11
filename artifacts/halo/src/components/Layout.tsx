@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { Mic, Bell, LayoutGrid, CalendarDays } from "lucide-react";
 import haloLogo from "../assets/halo-logo.png";
-import { useGetToday } from "@workspace/api-client-react";
+import { useGetToday, getGetTodayQueryKey } from "@workspace/api-client-react";
 import { useState } from "react";
 import { VoiceCaptureSheet } from "./VoiceCaptureSheet";
 import { NotificationsDrawer } from "./NotificationsDrawer";
@@ -9,7 +9,9 @@ import { MoreMenuSheet } from "./MoreMenuSheet";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { data: today } = useGetToday();
+  const { data: today } = useGetToday({
+    query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000 },
+  });
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);

@@ -110,7 +110,9 @@ function NotificationRow({
 }
 
 export function NotificationsDrawer({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
-  const { data: notifications, isLoading } = useListNotifications();
+  const { data: notifications, isLoading } = useListNotifications({
+    query: { queryKey: getListNotificationsQueryKey(), refetchInterval: 10_000 },
+  });
   const readMutation = useReadNotification();
   const deleteMutation = useDeleteNotification();
   const queryClient = useQueryClient();

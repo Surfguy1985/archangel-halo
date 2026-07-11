@@ -92,7 +92,7 @@ export function NotificationsPopover({ children }: { children: React.ReactNode }
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: notifications, isLoading } = useListNotifications({
-    query: { queryKey: getListNotificationsQueryKey(), refetchInterval: 30_000 },
+    query: { queryKey: getListNotificationsQueryKey(), refetchInterval: 10_000 },
   });
   const readMutation = useReadNotification();
   const deleteMutation = useDeleteNotification();

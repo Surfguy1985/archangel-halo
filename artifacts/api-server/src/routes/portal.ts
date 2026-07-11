@@ -290,6 +290,16 @@ router.put("/portal/:token/payment-method", async (req, res): Promise<void> => {
       paymentDetails: body.paymentDetails ?? null,
     })
     .where(eq(crewsTable.id, crew.id));
+  await db.insert(notificationsTable).values({
+    kind: "crew_payment_method",
+    priority: "normal",
+    entityType: "crew",
+    entityId: crew.id,
+    title: `${crew.name} updated their payment details`,
+    body: body.preferredPaymentMethod
+      ? `Preferred method: ${body.preferredPaymentMethod}`
+      : null,
+  });
   res.json(
     SetPortalPaymentMethodResponse.parse({
       preferredPaymentMethod: body.preferredPaymentMethod ?? null,

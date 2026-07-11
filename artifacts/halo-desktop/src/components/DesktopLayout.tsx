@@ -7,7 +7,7 @@ import { NotificationsPopover } from "./NotificationsPopover";
 export function DesktopLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { data: today } = useGetToday({
-    query: { queryKey: getGetTodayQueryKey(), refetchInterval: 30_000 },
+    query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000 },
   });
 
   return (

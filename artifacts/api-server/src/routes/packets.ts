@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import {
   db,
   crewsTable,
@@ -180,12 +180,42 @@ router.put("/portal/:token/packets/:packetId", async (req, res): Promise<void> =
   if (body.formsData !== undefined) patch.formsData = body.formsData;
   if (body.signatures !== undefined) patch.signatures = body.signatures;
   if (body.attachments !== undefined) patch.attachments = body.attachments;
-  patch.status = body.status ?? "in_progress";
+  patch.status = "in_progress";
+  const [transitioned] = await db
+    .update(crewPacketsTable)
+    .set({ status: "in_progress" })
+    .where(
+      and(
+        eq(crewPacketsTable.id, packetId),
+        eq(crewPacketsTable.status, "sent"),
+      ),
+    )
+    .returning({ id: crewPacketsTable.id });
   const [row] = await db
     .update(crewPacketsTable)
     .set(patch)
-    .where(eq(crewPacketsTable.id, packetId))
+    .where(
+      and(
+        eq(crewPacketsTable.id, packetId),
+        ne(crewPacketsTable.status, "submitted"),
+      ),
+    )
     .returning();
+  if (!row) {
+    res.status(409).json({ error: "Packet already submitted" });
+    return;
+  }
+  if (transitioned) {
+    const tpl = getTemplate(found.row.templateKey);
+    await db.insert(notificationsTable).values({
+      kind: "packet_started",
+      priority: "normal",
+      entityType: "crew",
+      entityId: found.crew.id,
+      title: `${found.crew.name} started their onboarding packet`,
+      body: tpl?.label ?? found.row.templateKey,
+    });
+  }
   res.json(SavePortalPacketResponse.parse(packetPayload(row)));
 });
 
