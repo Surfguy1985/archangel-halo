@@ -1,11 +1,14 @@
 import { Link, useLocation } from "wouter";
 import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon } from "lucide-react";
-import { useGetToday } from "@workspace/api-client-react";
+import { useGetToday, getGetTodayQueryKey } from "@workspace/api-client-react";
 import haloLogo from "../assets/halo-logo.png";
+import { NotificationsPopover } from "./NotificationsPopover";
 
 export function DesktopLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
-  const { data: today } = useGetToday();
+  const { data: today } = useGetToday({
+    query: { queryKey: getGetTodayQueryKey(), refetchInterval: 30_000 },
+  });
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -32,14 +35,19 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
            <button className="flex-1 h-10 rounded-full flex items-center justify-center bg-[var(--gold-tint)] text-[var(--gold-dark)] hover:bg-[var(--gold)] hover:text-white transition-colors">
             <Mic className="w-5 h-5" />
           </button>
-          <button className="relative w-10 h-10 rounded-full flex items-center justify-center bg-card shadow-sm border border-border">
-            <Bell className="w-5 h-5" />
-            {today?.unreadNotifications ? (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
-                {today.unreadNotifications}
-              </span>
-            ) : null}
-          </button>
+          <NotificationsPopover>
+            <button
+              className="relative w-10 h-10 rounded-full flex items-center justify-center bg-card shadow-sm border border-border hover:bg-black/5 transition-colors"
+              title="Notifications"
+            >
+              <Bell className="w-5 h-5" />
+              {today?.unreadNotifications ? (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
+                  {today.unreadNotifications}
+                </span>
+              ) : null}
+            </button>
+          </NotificationsPopover>
           <button className="w-10 h-10 rounded-full flex items-center justify-center bg-card shadow-sm border border-border">
             <LayoutGrid className="w-5 h-5" />
           </button>
