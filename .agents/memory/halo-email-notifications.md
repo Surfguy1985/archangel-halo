@@ -17,9 +17,19 @@ domain, with reply-to set to the admin inbox. The FROM domain is the verified do
 connected Resend account (a gmail login can never be a FROM address; Resend requires a
 verifiable domain). The sender/reply-to now come from the business_settings row (settings
 API), not constants.
+
+**Transport (2026-07-11):** `sendEmail` prefers the `RESEND_API_KEY` secret with a direct
+`api.resend.com` call, falling back to the connector proxy only when the secret is unset.
+The Resend *connector* still holds an invalid key (re-running its setup flow twice did not
+replace it), so the secret is the working path — don't revert to the proxy. Sends from
+admin@archangelcontractors.com stay blocked until the user adds the DKIM/SPF DNS records and
+verifies archangelcontractors.com at resend.com/domains (status was "not_started";
+standingstill.org is the account's verified domain but is NOT ours to send from).
+Note: api.resend.com 403s Python urllib's default user-agent (Cloudflare 1010) — test with
+curl or fetch, not urllib.
 **Why this shape:** the app is single-org and the connector proxy only whitelists `/emails`
 (cannot list/verify domains via proxy — the api_key setting is a proxy token, not a raw
-Resend key, so direct api.resend.com and sandbox `connectors.proxy` calls both 400).
+Resend key).
 `sendEmail` returns `{ok, error}` and checks `res.ok`; `ok: true` means the proxy/Resend
 accepted the request, not guaranteed delivery. Never treat a send as successful without
 checking `.ok` — the original silent-swallow bug hid an invalid API key for weeks.

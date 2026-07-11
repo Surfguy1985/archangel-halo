@@ -15,9 +15,11 @@ export interface SendEmailResult {
 }
 
 /**
- * Send an email via the Resend connector. The FROM address is built from
- * business settings (company name + email); the sender domain must be
- * verified in the connected Resend account or Resend rejects the send.
+ * Send an email via Resend. Prefers the RESEND_API_KEY secret (direct
+ * api.resend.com call); falls back to the Resend connector proxy when the
+ * secret is not set. The FROM address is built from business settings
+ * (company name + email); the sender domain must be verified in the Resend
+ * account or Resend rejects the send.
  */
 export async function sendEmail(opts: {
   to: string;
@@ -28,21 +30,35 @@ export async function sendEmail(opts: {
   try {
     const settings = await getBusinessSettings();
     const from = `${settings.companyName} <${settings.email}>`;
-    const connectors = new ReplitConnectors();
-    const res = await connectors.proxy("resend", "/emails", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from,
-        to: [opts.to],
-        reply_to: settings.email,
-        subject: opts.subject,
-        html: opts.html,
-        ...(opts.attachments && opts.attachments.length
-          ? { attachments: opts.attachments }
-          : {}),
-      }),
+    const payload = JSON.stringify({
+      from,
+      to: [opts.to],
+      reply_to: settings.email,
+      subject: opts.subject,
+      html: opts.html,
+      ...(opts.attachments && opts.attachments.length
+        ? { attachments: opts.attachments }
+        : {}),
     });
+    const apiKey = process.env.RESEND_API_KEY;
+    let res: Response;
+    if (apiKey) {
+      res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: payload,
+      });
+    } else {
+      const connectors = new ReplitConnectors();
+      res = await connectors.proxy("resend", "/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      });
+    }
     if (!res.ok) {
       let detail = "";
       try {
