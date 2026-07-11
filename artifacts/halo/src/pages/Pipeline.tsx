@@ -1,44 +1,37 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   useListLeads,
   useListBids,
-  useUpdateBid,
-  useNudgeBid,
-  getListBidsQueryKey,
-  getGetTodayQueryKey,
 } from "@workspace/api-client-react";
-import { Plus } from "lucide-react";
+import { Plus, Zap, Mail } from "lucide-react";
 import { AddLeadSheet } from "@/components/AddLeadSheet";
 import { AddBidSheet } from "@/components/AddBidSheet";
+import { BidDetailSheet } from "@/components/BidDetailSheet";
+import { LeadDetailSheet, type MobileLeadRow } from "@/components/LeadDetailSheet";
 
 type Tab = "bids" | "leads";
 
 const bidStatusColor: Record<string, string> = {
   approved: "#3c7a4e",
+  won: "#3c7a4e",
   declined: "#be3c3c",
+  lost: "#be3c3c",
   expired: "#be3c3c",
   sent: "#8f6a1f",
   draft: "#8B8577",
 };
 
 function Bids() {
-  const queryClient = useQueryClient();
   const { data: bids, isLoading } = useListBids();
   const [addOpen, setAddOpen] = useState(false);
-  const update = useUpdateBid();
-  const nudge = useNudgeBid();
-
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getListBidsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-  };
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   return (
     <div className="animate-in fade-in duration-200">
       <button
         onClick={() => setAddOpen(true)}
         className="w-full mb-[12px] flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+        data-testid="button-new-bid"
       >
         <Plus className="w-[17px] h-[17px]" /> New bid
       </button>
@@ -49,7 +42,12 @@ function Bids() {
       ) : (
         <div className="flex flex-col gap-[10px]">
           {bids.map((b) => (
-            <div key={b.id} className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px]">
+            <button
+              key={b.id}
+              onClick={() => setDetailId(b.id)}
+              className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px] text-left w-full transition-transform active:scale-[0.99]"
+              data-testid={`card-bid-${b.id}`}
+            >
               <div className="flex items-start gap-[10px]">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-[8px]">
@@ -66,40 +64,12 @@ function Bids() {
                 </div>
                 <div className="font-display font-bold text-[19px] tabular-nums shrink-0">${b.amount.toLocaleString()}</div>
               </div>
-              <div className="flex gap-[8px] mt-[12px]">
-                {(b.status === "draft" || b.status === "sent") && (
-                  <button
-                    className="flex-1 rounded-[11px] py-[9px] text-[13px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] disabled:opacity-50 transition-transform active:scale-[0.98]"
-                    onClick={() => update.mutate({ id: b.id, data: { status: "approved" } }, { onSuccess: invalidate })}
-                    disabled={update.isPending}
-                  >
-                    Mark approved
-                  </button>
-                )}
-                {b.status === "sent" && (
-                  <button
-                    className="flex-1 rounded-[11px] py-[9px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] disabled:opacity-50 transition-transform active:scale-[0.98]"
-                    onClick={() => nudge.mutate({ id: b.id }, { onSuccess: invalidate })}
-                    disabled={nudge.isPending}
-                  >
-                    Nudge
-                  </button>
-                )}
-                {b.status === "draft" && (
-                  <button
-                    className="flex-1 rounded-[11px] py-[9px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] disabled:opacity-50 transition-transform active:scale-[0.98]"
-                    onClick={() => update.mutate({ id: b.id, data: { status: "sent" } }, { onSuccess: invalidate })}
-                    disabled={update.isPending}
-                  >
-                    Mark sent
-                  </button>
-                )}
-              </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
-      <AddBidSheet open={addOpen} onOpenChange={setAddOpen} />
+      <AddBidSheet open={addOpen} onOpenChange={setAddOpen} onCreated={(id) => setDetailId(id)} />
+      <BidDetailSheet open={!!detailId} onOpenChange={(o) => !o && setDetailId(null)} bidId={detailId} />
     </div>
   );
 }
@@ -107,11 +77,18 @@ function Bids() {
 function Leads() {
   const { data: leads, isLoading } = useListLeads();
   const [addOpen, setAddOpen] = useState(false);
+  const [detailLead, setDetailLead] = useState<MobileLeadRow | null>(null);
+
+  const selected =
+    (detailLead && (leads?.find((l) => l.id === detailLead.id) as MobileLeadRow | undefined)) ||
+    detailLead;
+
   return (
     <div className="animate-in fade-in duration-200">
       <button
         onClick={() => setAddOpen(true)}
         className="w-full mb-[12px] flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+        data-testid="button-new-lead"
       >
         <Plus className="w-[17px] h-[17px]" /> New lead
       </button>
@@ -122,18 +99,41 @@ function Leads() {
       ) : (
         <div className="flex flex-col gap-[10px]">
           {leads.map((l) => (
-            <div key={l.id} className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px]">
+            <button
+              key={l.id}
+              onClick={() => setDetailLead(l as MobileLeadRow)}
+              className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px] text-left w-full transition-transform active:scale-[0.99]"
+              data-testid={`card-lead-${l.id}`}
+            >
               <div className="flex items-center gap-[8px] mb-[4px]">
                 <span className="text-[10.5px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full bg-[var(--muted)] text-muted-foreground">{l.status}</span>
+                {l.campaignStatus === "active" && (
+                  <span className="text-[10.5px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full bg-[rgba(143,106,31,0.12)] text-[var(--gold-dark)] flex items-center gap-[3px]">
+                    <Zap className="w-[10px] h-[10px]" /> drip
+                  </span>
+                )}
+                {l.lastContactAt && (
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-[3px]">
+                    <Mail className="w-[10px] h-[10px]" />
+                    {new Date(l.lastContactAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </span>
+                )}
                 {l.source && <span className="text-[12px] text-muted-foreground">{l.source}</span>}
               </div>
-              {l.propertyName && <div className="font-semibold text-[14.5px]">{l.propertyName}</div>}
+              {(l.propertyName || l.contactName) && (
+                <div className="font-semibold text-[14.5px]">{l.propertyName || l.contactName}</div>
+              )}
               {l.summary && <div className="text-[13px] text-[var(--ink2)] mt-[1px]">{l.summary}</div>}
-            </div>
+            </button>
           ))}
         </div>
       )}
       <AddLeadSheet open={addOpen} onOpenChange={setAddOpen} />
+      <LeadDetailSheet
+        open={!!detailLead}
+        onOpenChange={(o) => !o && setDetailLead(null)}
+        lead={selected as MobileLeadRow | null}
+      />
     </div>
   );
 }

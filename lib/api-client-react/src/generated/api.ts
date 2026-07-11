@@ -28,7 +28,10 @@ import type {
   BankStatus,
   BankTransaction,
   Bid,
+  BidDetail,
   BidInput,
+  BidSendInput,
+  BidSendResult,
   BidUpdate,
   Brief,
   BusinessSettings,
@@ -78,7 +81,13 @@ import type {
   JobInput,
   JobUpdate,
   Lead,
+  LeadCampaignDef,
+  LeadCampaignStartInput,
+  LeadEmailSendInput,
+  LeadEmailSendResult,
+  LeadEmailTemplate,
   LeadInput,
+  LeadUpdate,
   ListActivitiesParams,
   ListBankTransactionsParams,
   ListBidsParams,
@@ -1241,6 +1250,441 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getCreateLeadMutationOptions(options));
     }
 
+export const getUpdateLeadUrl = (id: string,) => {
+
+
+
+
+  return `/api/leads/${id}`
+}
+
+export const updateLead = async (id: string,
+    leadUpdate: LeadUpdate, options?: RequestInit): Promise<Lead> => {
+
+  return customFetch<Lead>(getUpdateLeadUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(leadUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateLeadMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLead>>, TError,{id: string;data: BodyType<LeadUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateLead>>, TError,{id: string;data: BodyType<LeadUpdate>}, TContext> => {
+
+const mutationKey = ['updateLead'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateLead>>, {id: string;data: BodyType<LeadUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateLead(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateLeadMutationResult = NonNullable<Awaited<ReturnType<typeof updateLead>>>
+    export type UpdateLeadMutationBody = BodyType<LeadUpdate>
+    export type UpdateLeadMutationError = ErrorType<unknown>
+
+    export const useUpdateLead = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLead>>, TError,{id: string;data: BodyType<LeadUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateLead>>,
+        TError,
+        {id: string;data: BodyType<LeadUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateLeadMutationOptions(options));
+    }
+
+export const getListLeadEmailTemplatesUrl = (id: string,) => {
+
+
+
+
+  return `/api/leads/${id}/templates`
+}
+
+/**
+ * @summary Rendered follow-up email templates for a lead
+ */
+export const listLeadEmailTemplates = async (id: string, options?: RequestInit): Promise<LeadEmailTemplate[]> => {
+
+  return customFetch<LeadEmailTemplate[]>(getListLeadEmailTemplatesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListLeadEmailTemplatesQueryKey = (id: string,) => {
+    return [
+    `/api/leads/${id}/templates`
+    ] as const;
+    }
+
+
+export const getListLeadEmailTemplatesQueryOptions = <TData = Awaited<ReturnType<typeof listLeadEmailTemplates>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLeadEmailTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListLeadEmailTemplatesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLeadEmailTemplates>>> = ({ signal }) => listLeadEmailTemplates(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLeadEmailTemplates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListLeadEmailTemplatesQueryResult = NonNullable<Awaited<ReturnType<typeof listLeadEmailTemplates>>>
+export type ListLeadEmailTemplatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Rendered follow-up email templates for a lead
+ */
+
+export function useListLeadEmailTemplates<TData = Awaited<ReturnType<typeof listLeadEmailTemplates>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLeadEmailTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListLeadEmailTemplatesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendLeadEmailUrl = (id: string,) => {
+
+
+
+
+  return `/api/leads/${id}/email`
+}
+
+/**
+ * @summary Send a template follow-up email for a lead
+ */
+export const sendLeadEmail = async (id: string,
+    leadEmailSendInput: LeadEmailSendInput, options?: RequestInit): Promise<LeadEmailSendResult> => {
+
+  return customFetch<LeadEmailSendResult>(getSendLeadEmailUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(leadEmailSendInput)
+  }
+);}
+
+
+
+
+
+export const getSendLeadEmailMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendLeadEmail>>, TError,{id: string;data: BodyType<LeadEmailSendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendLeadEmail>>, TError,{id: string;data: BodyType<LeadEmailSendInput>}, TContext> => {
+
+const mutationKey = ['sendLeadEmail'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendLeadEmail>>, {id: string;data: BodyType<LeadEmailSendInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendLeadEmail(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendLeadEmailMutationResult = NonNullable<Awaited<ReturnType<typeof sendLeadEmail>>>
+    export type SendLeadEmailMutationBody = BodyType<LeadEmailSendInput>
+    export type SendLeadEmailMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Send a template follow-up email for a lead
+ */
+export const useSendLeadEmail = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendLeadEmail>>, TError,{id: string;data: BodyType<LeadEmailSendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendLeadEmail>>,
+        TError,
+        {id: string;data: BodyType<LeadEmailSendInput>},
+        TContext
+      > => {
+      return useMutation(getSendLeadEmailMutationOptions(options));
+    }
+
+export const getListLeadCampaignDefsUrl = () => {
+
+
+
+
+  return `/api/lead-campaigns`
+}
+
+/**
+ * @summary Available follow-up campaign definitions
+ */
+export const listLeadCampaignDefs = async ( options?: RequestInit): Promise<LeadCampaignDef[]> => {
+
+  return customFetch<LeadCampaignDef[]>(getListLeadCampaignDefsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListLeadCampaignDefsQueryKey = () => {
+    return [
+    `/api/lead-campaigns`
+    ] as const;
+    }
+
+
+export const getListLeadCampaignDefsQueryOptions = <TData = Awaited<ReturnType<typeof listLeadCampaignDefs>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLeadCampaignDefs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListLeadCampaignDefsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLeadCampaignDefs>>> = ({ signal }) => listLeadCampaignDefs({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLeadCampaignDefs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListLeadCampaignDefsQueryResult = NonNullable<Awaited<ReturnType<typeof listLeadCampaignDefs>>>
+export type ListLeadCampaignDefsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Available follow-up campaign definitions
+ */
+
+export function useListLeadCampaignDefs<TData = Awaited<ReturnType<typeof listLeadCampaignDefs>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLeadCampaignDefs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListLeadCampaignDefsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartLeadCampaignUrl = (id: string,) => {
+
+
+
+
+  return `/api/leads/${id}/campaign`
+}
+
+/**
+ * @summary Start a follow-up campaign for a lead
+ */
+export const startLeadCampaign = async (id: string,
+    leadCampaignStartInput: LeadCampaignStartInput, options?: RequestInit): Promise<Lead> => {
+
+  return customFetch<Lead>(getStartLeadCampaignUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(leadCampaignStartInput)
+  }
+);}
+
+
+
+
+
+export const getStartLeadCampaignMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startLeadCampaign>>, TError,{id: string;data: BodyType<LeadCampaignStartInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startLeadCampaign>>, TError,{id: string;data: BodyType<LeadCampaignStartInput>}, TContext> => {
+
+const mutationKey = ['startLeadCampaign'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startLeadCampaign>>, {id: string;data: BodyType<LeadCampaignStartInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  startLeadCampaign(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartLeadCampaignMutationResult = NonNullable<Awaited<ReturnType<typeof startLeadCampaign>>>
+    export type StartLeadCampaignMutationBody = BodyType<LeadCampaignStartInput>
+    export type StartLeadCampaignMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Start a follow-up campaign for a lead
+ */
+export const useStartLeadCampaign = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startLeadCampaign>>, TError,{id: string;data: BodyType<LeadCampaignStartInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startLeadCampaign>>,
+        TError,
+        {id: string;data: BodyType<LeadCampaignStartInput>},
+        TContext
+      > => {
+      return useMutation(getStartLeadCampaignMutationOptions(options));
+    }
+
+export const getStopLeadCampaignUrl = (id: string,) => {
+
+
+
+
+  return `/api/leads/${id}/campaign/stop`
+}
+
+/**
+ * @summary Stop the active campaign for a lead
+ */
+export const stopLeadCampaign = async (id: string, options?: RequestInit): Promise<Lead> => {
+
+  return customFetch<Lead>(getStopLeadCampaignUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStopLeadCampaignMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stopLeadCampaign>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof stopLeadCampaign>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['stopLeadCampaign'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof stopLeadCampaign>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  stopLeadCampaign(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StopLeadCampaignMutationResult = NonNullable<Awaited<ReturnType<typeof stopLeadCampaign>>>
+
+    export type StopLeadCampaignMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Stop the active campaign for a lead
+ */
+export const useStopLeadCampaign = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stopLeadCampaign>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof stopLeadCampaign>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getStopLeadCampaignMutationOptions(options));
+    }
+
 export const getListBidsUrl = (params?: ListBidsParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -1384,6 +1828,77 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getCreateBidMutationOptions(options));
     }
 
+export const getGetBidUrl = (id: string,) => {
+
+
+
+
+  return `/api/bids/${id}`
+}
+
+export const getBid = async (id: string, options?: RequestInit): Promise<BidDetail> => {
+
+  return customFetch<BidDetail>(getGetBidUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBidQueryKey = (id: string,) => {
+    return [
+    `/api/bids/${id}`
+    ] as const;
+    }
+
+
+export const getGetBidQueryOptions = <TData = Awaited<ReturnType<typeof getBid>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBid>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBidQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBid>>> = ({ signal }) => getBid(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBid>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBidQueryResult = NonNullable<Awaited<ReturnType<typeof getBid>>>
+export type GetBidQueryError = ErrorType<unknown>
+
+
+
+export function useGetBid<TData = Awaited<ReturnType<typeof getBid>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBid>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBidQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getUpdateBidUrl = (id: string,) => {
 
 
@@ -1393,9 +1908,9 @@ export const getUpdateBidUrl = (id: string,) => {
 }
 
 export const updateBid = async (id: string,
-    bidUpdate: BidUpdate, options?: RequestInit): Promise<Bid> => {
+    bidUpdate: BidUpdate, options?: RequestInit): Promise<BidDetail> => {
 
-  return customFetch<Bid>(getUpdateBidUrl(id),
+  return customFetch<BidDetail>(getUpdateBidUrl(id),
   {
     ...options,
     method: 'PATCH',
@@ -1448,6 +1963,220 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getUpdateBidMutationOptions(options));
+    }
+
+export const getDeleteBidUrl = (id: string,) => {
+
+
+
+
+  return `/api/bids/${id}`
+}
+
+export const deleteBid = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteBidUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteBidMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBid>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteBid>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteBid'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteBid>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteBid(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteBidMutationResult = NonNullable<Awaited<ReturnType<typeof deleteBid>>>
+
+    export type DeleteBidMutationError = ErrorType<unknown>
+
+    export const useDeleteBid = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBid>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteBid>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteBidMutationOptions(options));
+    }
+
+export const getGetBidPdfUrl = (id: string,) => {
+
+
+
+
+  return `/api/bids/${id}/pdf`
+}
+
+/**
+ * @summary Download the branded bid proposal PDF
+ */
+export const getBidPdf = async (id: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetBidPdfUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBidPdfQueryKey = (id: string,) => {
+    return [
+    `/api/bids/${id}/pdf`
+    ] as const;
+    }
+
+
+export const getGetBidPdfQueryOptions = <TData = Awaited<ReturnType<typeof getBidPdf>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBidPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBidPdfQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBidPdf>>> = ({ signal }) => getBidPdf(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBidPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBidPdfQueryResult = NonNullable<Awaited<ReturnType<typeof getBidPdf>>>
+export type GetBidPdfQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Download the branded bid proposal PDF
+ */
+
+export function useGetBidPdf<TData = Awaited<ReturnType<typeof getBidPdf>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBidPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBidPdfQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendBidUrl = (id: string,) => {
+
+
+
+
+  return `/api/bids/${id}/send`
+}
+
+/**
+ * @summary Email the branded bid proposal PDF to the property contact
+ */
+export const sendBid = async (id: string,
+    bidSendInput?: BidSendInput, options?: RequestInit): Promise<BidSendResult> => {
+
+  return customFetch<BidSendResult>(getSendBidUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(bidSendInput)
+  }
+);}
+
+
+
+
+
+export const getSendBidMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendBid>>, TError,{id: string;data?: BodyType<BidSendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendBid>>, TError,{id: string;data?: BodyType<BidSendInput>}, TContext> => {
+
+const mutationKey = ['sendBid'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendBid>>, {id: string;data?: BodyType<BidSendInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendBid(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendBidMutationResult = NonNullable<Awaited<ReturnType<typeof sendBid>>>
+    export type SendBidMutationBody = BodyType<BidSendInput> | undefined
+    export type SendBidMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Email the branded bid proposal PDF to the property contact
+ */
+export const useSendBid = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendBid>>, TError,{id: string;data?: BodyType<BidSendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendBid>>,
+        TError,
+        {id: string;data?: BodyType<BidSendInput>},
+        TContext
+      > => {
+      return useMutation(getSendBidMutationOptions(options));
     }
 
 export const getNudgeBidUrl = (id: string,) => {

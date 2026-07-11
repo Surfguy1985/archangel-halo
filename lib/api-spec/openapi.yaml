@@ -311,6 +311,129 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Lead"
+  /leads/{id}:
+    patch:
+      operationId: updateLead
+      tags: [pipeline]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+  /leads/{id}/templates:
+    get:
+      operationId: listLeadEmailTemplates
+      tags: [pipeline]
+      summary: Rendered follow-up email templates for a lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Templates rendered with lead/property/company details
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeadEmailTemplate"
+  /leads/{id}/email:
+    post:
+      operationId: sendLeadEmail
+      tags: [pipeline]
+      summary: Send a template follow-up email for a lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadEmailSendInput"
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadEmailSendResult"
+  /lead-campaigns:
+    get:
+      operationId: listLeadCampaignDefs
+      tags: [pipeline]
+      summary: Available follow-up campaign definitions
+      responses:
+        "200":
+          description: Campaign definitions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeadCampaignDef"
+  /leads/{id}/campaign:
+    post:
+      operationId: startLeadCampaign
+      tags: [pipeline]
+      summary: Start a follow-up campaign for a lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadCampaignStartInput"
+      responses:
+        "200":
+          description: Updated lead with campaign state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+  /leads/{id}/campaign/stop:
+    post:
+      operationId: stopLeadCampaign
+      tags: [pipeline]
+      summary: Stop the active campaign for a lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated lead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
 
   /bids:
     get:
@@ -348,6 +471,22 @@ paths:
               schema:
                 $ref: "#/components/schemas/Bid"
   /bids/{id}:
+    get:
+      operationId: getBid
+      tags: [pipeline]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bid with line items and property/contact details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BidDetail"
     patch:
       operationId: updateBid
       tags: [pipeline]
@@ -369,7 +508,62 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Bid"
+                $ref: "#/components/schemas/BidDetail"
+    delete:
+      operationId: deleteBid
+      tags: [pipeline]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+  /bids/{id}/pdf:
+    get:
+      operationId: getBidPdf
+      tags: [pipeline]
+      summary: Download the branded bid proposal PDF
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: PDF proposal document
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+  /bids/{id}/send:
+    post:
+      operationId: sendBid
+      tags: [pipeline]
+      summary: Email the branded bid proposal PDF to the property contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BidSendInput"
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BidSendResult"
   /bids/{id}/nudge:
     post:
       operationId: nudgeBid
@@ -2574,6 +2768,13 @@ components:
         source: { type: ["string", "null"] }
         summary: { type: ["string", "null"] }
         status: { type: string }
+        contactName: { type: ["string", "null"] }
+        contactEmail: { type: ["string", "null"] }
+        lastContactAt: { type: ["string", "null"] }
+        campaignKind: { type: ["string", "null"] }
+        campaignStatus: { type: ["string", "null"] }
+        campaignStepIndex: { type: ["number", "null"] }
+        campaignNextSendAt: { type: ["string", "null"] }
         createdAt: { type: ["string", "null"] }
     LeadInput:
       type: object
@@ -2582,6 +2783,59 @@ components:
         propertyId: { type: string }
         source: { type: string }
         summary: { type: string, minLength: 1 }
+        contactName: { type: string }
+        contactEmail: { type: string }
+    LeadUpdate:
+      type: object
+      properties:
+        status: { type: string }
+        summary: { type: string }
+        source: { type: string }
+        contactName: { type: string }
+        contactEmail: { type: string }
+    LeadEmailTemplate:
+      type: object
+      required: [key, name, subject, body]
+      properties:
+        key: { type: string }
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        subject: { type: string }
+        body: { type: string }
+    LeadEmailSendInput:
+      type: object
+      required: [templateKey]
+      properties:
+        templateKey: { type: string }
+        to: { type: string }
+    LeadEmailSendResult:
+      type: object
+      required: [sent]
+      properties:
+        sent: { type: boolean }
+        to: { type: ["string", "null"] }
+        error: { type: ["string", "null"] }
+    LeadCampaignDef:
+      type: object
+      required: [kind, name, steps]
+      properties:
+        kind: { type: string }
+        name: { type: string }
+        description: { type: ["string", "null"] }
+        steps:
+          type: array
+          items:
+            type: object
+            required: [dayOffset, templateKey, templateName]
+            properties:
+              dayOffset: { type: number }
+              templateKey: { type: string }
+              templateName: { type: string }
+    LeadCampaignStartInput:
+      type: object
+      required: [kind]
+      properties:
+        kind: { type: string }
 
     Bid:
       type: object
@@ -2593,12 +2847,47 @@ components:
         propertyName: { type: ["string", "null"] }
         unitNo: { type: ["string", "null"] }
         scope: { type: ["string", "null"] }
+        welcomeMessage: { type: ["string", "null"] }
         amount: { type: number }
         estCost: { type: ["number", "null"] }
         status: { type: string }
         sentAt: { type: ["string", "null"] }
         decidedAt: { type: ["string", "null"] }
         lastNudgeAt: { type: ["string", "null"] }
+        createdAt: { type: ["string", "null"] }
+    BidLineItem:
+      type: object
+      required: [id, service, qty, unitPrice, amount]
+      properties:
+        id: { type: string }
+        service: { type: string }
+        description: { type: ["string", "null"] }
+        qty: { type: number }
+        unitPrice: { type: number }
+        amount: { type: number }
+        sortOrder: { type: ["number", "null"] }
+    BidLineItemInput:
+      type: object
+      required: [service, qty, unitPrice]
+      properties:
+        service: { type: string, minLength: 1 }
+        description: { type: string }
+        qty: { type: number }
+        unitPrice: { type: number }
+    BidDetail:
+      allOf:
+        - $ref: "#/components/schemas/Bid"
+        - type: object
+          required: [lineItems]
+          properties:
+            propertyAddress: { type: ["string", "null"] }
+            propertyCity: { type: ["string", "null"] }
+            contactName: { type: ["string", "null"] }
+            contactEmail: { type: ["string", "null"] }
+            lineItems:
+              type: array
+              items:
+                $ref: "#/components/schemas/BidLineItem"
     BidInput:
       type: object
       required: [scope, amount]
@@ -2606,15 +2895,39 @@ components:
         propertyId: { type: string }
         unitNo: { type: string }
         scope: { type: string, minLength: 1 }
+        welcomeMessage: { type: string }
         amount: { type: number }
         estCost: { type: number }
+        status: { type: string }
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/BidLineItemInput"
     BidUpdate:
       type: object
       properties:
         scope: { type: string }
+        welcomeMessage: { type: string }
+        unitNo: { type: string }
         amount: { type: number }
         estCost: { type: number }
         status: { type: string }
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/BidLineItemInput"
+    BidSendInput:
+      type: object
+      properties:
+        to: { type: string }
+        message: { type: string }
+    BidSendResult:
+      type: object
+      required: [sent]
+      properties:
+        sent: { type: boolean }
+        to: { type: ["string", "null"] }
+        error: { type: ["string", "null"] }
 
     Job:
       type: object

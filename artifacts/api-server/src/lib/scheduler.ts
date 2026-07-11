@@ -1,3 +1,5 @@
+import { and, eq, lte, isNotNull } from "drizzle-orm";
+import { db, leadCampaignsTable, leadsTable } from "@workspace/db";
 import { computeQueues } from "./queues";
 import {
   sendDailyDigest,
@@ -6,6 +8,8 @@ import {
   sendWeeklyScorecard,
   urgentSignature,
 } from "./notifications";
+import { campaignByKind } from "./leadTemplates";
+import { sendCampaignStepEmail } from "../routes/pipeline";
 import { logger } from "./logger";
 
 const DAILY_HOUR = 6;
@@ -60,8 +64,139 @@ function nowInEastern(): {
   };
 }
 
+let campaignProcessingRunning = false;
+
+async function processDueCampaignSteps(): Promise<void> {
+  // Re-entry guard: never let overlapping ticks process campaigns at once.
+  if (campaignProcessingRunning) return;
+  campaignProcessingRunning = true;
+  try {
+    await processDueCampaignStepsInner();
+  } finally {
+    campaignProcessingRunning = false;
+  }
+}
+
+async function processDueCampaignStepsInner(): Promise<void> {
+  const due = await db
+    .select()
+    .from(leadCampaignsTable)
+    .where(
+      and(
+        eq(leadCampaignsTable.status, "active"),
+        isNotNull(leadCampaignsTable.nextSendAt),
+        lte(leadCampaignsTable.nextSendAt, new Date()),
+      ),
+    );
+  for (const campaign of due) {
+    // Atomically claim the row by pushing nextSendAt out 30 minutes. If
+    // another worker (or the start endpoint) already advanced/claimed it,
+    // the guarded update matches nothing and we skip — no double sends.
+    const claimed = await db
+      .update(leadCampaignsTable)
+      .set({ nextSendAt: new Date(Date.now() + 30 * 60 * 1000) })
+      .where(
+        and(
+          eq(leadCampaignsTable.id, campaign.id),
+          eq(leadCampaignsTable.status, "active"),
+          eq(leadCampaignsTable.stepIndex, campaign.stepIndex),
+          eq(leadCampaignsTable.nextSendAt, campaign.nextSendAt!),
+        ),
+      )
+      .returning();
+    if (!claimed.length) continue;
+    const def = campaignByKind(campaign.kind);
+    if (!def) {
+      await db
+        .update(leadCampaignsTable)
+        .set({ status: "stopped", nextSendAt: null })
+        .where(eq(leadCampaignsTable.id, campaign.id));
+      continue;
+    }
+    const step = def.steps[campaign.stepIndex];
+    if (!step) {
+      await db
+        .update(leadCampaignsTable)
+        .set({ status: "completed", nextSendAt: null, completedAt: new Date() })
+        .where(eq(leadCampaignsTable.id, campaign.id));
+      continue;
+    }
+    const [lead] = await db
+      .select()
+      .from(leadsTable)
+      .where(eq(leadsTable.id, campaign.leadId));
+    if (!lead || lead.status === "converted" || lead.status === "dead") {
+      await db
+        .update(leadCampaignsTable)
+        .set({ status: "stopped", nextSendAt: null })
+        .where(eq(leadCampaignsTable.id, campaign.id));
+      continue;
+    }
+    const result = await sendCampaignStepEmail(lead, step.templateKey);
+    if (!result.sent) {
+      // Missing recipient/unknown template will never succeed — stop the
+      // campaign. Transient email failures retry on the next tick via a
+      // pushed-out nextSendAt.
+      if (result.to === null || result.error === "Unknown template") {
+        logger.warn(
+          { campaignId: campaign.id, leadId: lead.id, error: result.error },
+          "Stopping lead campaign: unrecoverable send failure",
+        );
+        await db
+          .update(leadCampaignsTable)
+          .set({ status: "stopped", nextSendAt: null })
+          .where(eq(leadCampaignsTable.id, campaign.id));
+      } else {
+        logger.warn(
+          { campaignId: campaign.id, leadId: lead.id, error: result.error },
+          "Lead campaign send failed; retrying in 30 minutes",
+        );
+        await db
+          .update(leadCampaignsTable)
+          .set({ nextSendAt: new Date(Date.now() + 30 * 60 * 1000) })
+          .where(eq(leadCampaignsTable.id, campaign.id));
+      }
+      continue;
+    }
+    const nextIndex = campaign.stepIndex + 1;
+    const nextStep = def.steps[nextIndex];
+    if (nextStep) {
+      const base = campaign.startedAt ?? new Date();
+      await db
+        .update(leadCampaignsTable)
+        .set({
+          stepIndex: nextIndex,
+          nextSendAt: new Date(
+            base.getTime() + nextStep.dayOffset * 24 * 60 * 60 * 1000,
+          ),
+        })
+        .where(eq(leadCampaignsTable.id, campaign.id));
+    } else {
+      await db
+        .update(leadCampaignsTable)
+        .set({
+          stepIndex: nextIndex,
+          status: "completed",
+          nextSendAt: null,
+          completedAt: new Date(),
+        })
+        .where(eq(leadCampaignsTable.id, campaign.id));
+    }
+    logger.info(
+      { campaignId: campaign.id, leadId: lead.id, template: step.templateKey },
+      "Lead campaign step sent",
+    );
+  }
+}
+
 async function tick(): Promise<void> {
   const { date, hour, minute, dow } = nowInEastern();
+
+  try {
+    await processDueCampaignSteps();
+  } catch (err) {
+    logger.warn({ err }, "Lead campaign processing failed");
+  }
 
   if (
     hour === DAILY_HOUR &&

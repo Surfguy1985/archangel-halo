@@ -63,3 +63,19 @@ address; (2) `await sendEmail(...)` and only perform the DB writes when `result.
 returning 502 (with `result.error`) otherwise.
 **Why:** ignoring the boolean records phantom "sent" recaps the operator will trust and never
 resend; a dummy fallback address silently leaks client comms to the wrong place.
+
+## Drip campaigns: persist-first + atomic claim
+Lead drip campaigns (`lead_campaigns`) follow two rules the architect enforced:
+1. **Start endpoint persists BEFORE sending.** Insert the campaign row (stepIndex 0,
+   nextSendAt a few minutes out) in a tx, then send step 0 synchronously, then advance to
+   step 1 with a guarded update (`WHERE stepIndex=0 AND status='active'`). On send failure,
+   mark stopped and 502. **Why:** send-before-persist can email the lead with no campaign
+   state if the insert fails; the short future nextSendAt keeps the scheduler from racing
+   the synchronous send while still retrying step 0 if the process dies mid-send.
+2. **Scheduler steps are claim-based.** `processDueCampaignSteps` has an in-process
+   re-entry flag AND atomically claims each due row (guarded UPDATE pushing nextSendAt +30min
+   with `WHERE id/status/stepIndex/nextSendAt` all matching, `.returning()`, skip when no
+   row). **Why:** unguarded select-then-send double-sends under overlapping ticks; the +30min
+   claim doubles as the transient-failure retry delay.
+Also: bid numbers (`B-####`) come from max existing number + 1, never row count — count-based
+numbering duplicates externally shared proposal IDs after any delete.

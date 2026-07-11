@@ -18,5 +18,19 @@ export interface Lead {
   summary?: string | null;
   status: string;
   /** @nullable */
+  contactName?: string | null;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  lastContactAt?: string | null;
+  /** @nullable */
+  campaignKind?: string | null;
+  /** @nullable */
+  campaignStatus?: string | null;
+  /** @nullable */
+  campaignStepIndex?: number | null;
+  /** @nullable */
+  campaignNextSendAt?: string | null;
+  /** @nullable */
   createdAt?: string | null;
 }

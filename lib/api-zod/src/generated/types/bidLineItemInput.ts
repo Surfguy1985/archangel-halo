@@ -6,11 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface LeadInput {
-  propertyId?: string;
-  source?: string;
+export interface BidLineItemInput {
   /** @minLength 1 */
-  summary: string;
-  contactName?: string;
-  contactEmail?: string;
+  service: string;
+  description?: string;
+  qty: number;
+  unitPrice: number;
 }

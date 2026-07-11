@@ -19,12 +19,16 @@ export function AddLeadSheet({
   const { data: properties } = useListProperties();
   const [summary, setSummary] = useState("");
   const [source, setSource] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
   const [propertyId, setPropertyId] = useState(fixedPropertyId ?? "");
   const create = useCreateLead();
 
   const reset = () => {
     setSummary("");
     setSource("");
+    setContactName("");
+    setContactEmail("");
     setPropertyId(fixedPropertyId ?? "");
   };
 
@@ -36,6 +40,8 @@ export function AddLeadSheet({
           summary: summary.trim(),
           source: source.trim() || undefined,
           propertyId: propertyId || undefined,
+          contactName: contactName.trim() || undefined,
+          contactEmail: contactEmail.trim() || undefined,
         },
       },
       {
@@ -58,10 +64,14 @@ export function AddLeadSheet({
         <div className="p-[8px_20px_26px] overflow-y-auto">
           <SheetHeader className="text-left mb-[16px]">
             <SheetTitle className="font-display font-bold text-[19px] m-[6px_0_2px]">New lead</SheetTitle>
-            <div className="text-[13px] text-muted-foreground">A card until it becomes a bid.</div>
+            <div className="text-[13px] text-muted-foreground">Add a contact email to unlock one-tap follow-ups.</div>
           </SheetHeader>
           <div className="flex flex-col gap-[10px]">
             <textarea className={`${fieldCls} min-h-[72px] resize-none`} placeholder="What's the opportunity?" value={summary} onChange={(e) => setSummary(e.target.value)} autoFocus />
+            <div className="flex gap-[10px]">
+              <input className={`${fieldCls} flex-1`} placeholder="Contact name" value={contactName} onChange={(e) => setContactName(e.target.value)} />
+              <input className={`${fieldCls} flex-1`} type="email" placeholder="Contact email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+            </div>
             <input className={fieldCls} placeholder="Source (e.g. referral, PMC email)" value={source} onChange={(e) => setSource(e.target.value)} />
             {!fixedPropertyId && (
               <select className={fieldCls} value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>

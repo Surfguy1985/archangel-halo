@@ -290,6 +290,20 @@ export interface Lead {
   summary?: string | null;
   status: string;
   /** @nullable */
+  contactName?: string | null;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  lastContactAt?: string | null;
+  /** @nullable */
+  campaignKind?: string | null;
+  /** @nullable */
+  campaignStatus?: string | null;
+  /** @nullable */
+  campaignStepIndex?: number | null;
+  /** @nullable */
+  campaignNextSendAt?: string | null;
+  /** @nullable */
   createdAt?: string | null;
 }
 
@@ -298,6 +312,56 @@ export interface LeadInput {
   source?: string;
   /** @minLength 1 */
   summary: string;
+  contactName?: string;
+  contactEmail?: string;
+}
+
+export interface LeadUpdate {
+  status?: string;
+  summary?: string;
+  source?: string;
+  contactName?: string;
+  contactEmail?: string;
+}
+
+export interface LeadEmailTemplate {
+  key: string;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  subject: string;
+  body: string;
+}
+
+export interface LeadEmailSendInput {
+  templateKey: string;
+  to?: string;
+}
+
+export interface LeadEmailSendResult {
+  sent: boolean;
+  /** @nullable */
+  to?: string | null;
+  /** @nullable */
+  error?: string | null;
+}
+
+export type LeadCampaignDefStepsItem = {
+  dayOffset: number;
+  templateKey: string;
+  templateName: string;
+};
+
+export interface LeadCampaignDef {
+  kind: string;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  steps: LeadCampaignDefStepsItem[];
+}
+
+export interface LeadCampaignStartInput {
+  kind: string;
 }
 
 export interface Bid {
@@ -311,6 +375,8 @@ export interface Bid {
   unitNo?: string | null;
   /** @nullable */
   scope?: string | null;
+  /** @nullable */
+  welcomeMessage?: string | null;
   amount: number;
   /** @nullable */
   estCost?: number | null;
@@ -321,22 +387,75 @@ export interface Bid {
   decidedAt?: string | null;
   /** @nullable */
   lastNudgeAt?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
 }
+
+export interface BidLineItem {
+  id: string;
+  service: string;
+  /** @nullable */
+  description?: string | null;
+  qty: number;
+  unitPrice: number;
+  amount: number;
+  /** @nullable */
+  sortOrder?: number | null;
+}
+
+export interface BidLineItemInput {
+  /** @minLength 1 */
+  service: string;
+  description?: string;
+  qty: number;
+  unitPrice: number;
+}
+
+export type BidDetail = Bid & ({
+  /** @nullable */
+  propertyAddress?: string | null;
+  /** @nullable */
+  propertyCity?: string | null;
+  /** @nullable */
+  contactName?: string | null;
+  /** @nullable */
+  contactEmail?: string | null;
+  lineItems: BidLineItem[];
+});
 
 export interface BidInput {
   propertyId?: string;
   unitNo?: string;
   /** @minLength 1 */
   scope: string;
+  welcomeMessage?: string;
   amount: number;
   estCost?: number;
+  status?: string;
+  lineItems?: BidLineItemInput[];
 }
 
 export interface BidUpdate {
   scope?: string;
+  welcomeMessage?: string;
+  unitNo?: string;
   amount?: number;
   estCost?: number;
   status?: string;
+  lineItems?: BidLineItemInput[];
+}
+
+export interface BidSendInput {
+  to?: string;
+  message?: string;
+}
+
+export interface BidSendResult {
+  sent: boolean;
+  /** @nullable */
+  to?: string | null;
+  /** @nullable */
+  error?: string | null;
 }
 
 export interface Activity {

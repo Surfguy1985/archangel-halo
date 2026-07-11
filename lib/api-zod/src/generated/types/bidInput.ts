@@ -5,12 +5,16 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { BidLineItemInput } from './bidLineItemInput';
 
 export interface BidInput {
   propertyId?: string;
   unitNo?: string;
   /** @minLength 1 */
   scope: string;
+  welcomeMessage?: string;
   amount: number;
   estCost?: number;
+  status?: string;
+  lineItems?: BidLineItemInput[];
 }

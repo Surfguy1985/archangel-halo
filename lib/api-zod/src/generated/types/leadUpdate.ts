@@ -6,11 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface LeadInput {
-  propertyId?: string;
+export interface LeadUpdate {
+  status?: string;
+  summary?: string;
   source?: string;
-  /** @minLength 1 */
-  summary: string;
   contactName?: string;
   contactEmail?: string;
 }

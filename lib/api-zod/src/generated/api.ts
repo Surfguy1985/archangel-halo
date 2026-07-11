@@ -364,6 +364,13 @@ export const ListLeadsResponseItem = zod.object({
   "source": zod.string().nullish(),
   "summary": zod.string().nullish(),
   "status": zod.string(),
+  "contactName": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "lastContactAt": zod.string().nullish(),
+  "campaignKind": zod.string().nullish(),
+  "campaignStatus": zod.string().nullish(),
+  "campaignStepIndex": zod.number().nullish(),
+  "campaignNextSendAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
 })
 export const ListLeadsResponse = zod.array(ListLeadsResponseItem)
@@ -375,7 +382,9 @@ export const ListLeadsResponse = zod.array(ListLeadsResponseItem)
 export const CreateLeadBody = zod.object({
   "propertyId": zod.string().optional(),
   "source": zod.string().optional(),
-  "summary": zod.string().min(1)
+  "summary": zod.string().min(1),
+  "contactName": zod.string().optional(),
+  "contactEmail": zod.string().optional()
 })
 
 export const CreateLeadResponse = zod.object({
@@ -385,6 +394,149 @@ export const CreateLeadResponse = zod.object({
   "source": zod.string().nullish(),
   "summary": zod.string().nullish(),
   "status": zod.string(),
+  "contactName": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "lastContactAt": zod.string().nullish(),
+  "campaignKind": zod.string().nullish(),
+  "campaignStatus": zod.string().nullish(),
+  "campaignStepIndex": zod.number().nullish(),
+  "campaignNextSendAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+export const UpdateLeadParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateLeadBody = zod.object({
+  "status": zod.string().optional(),
+  "summary": zod.string().optional(),
+  "source": zod.string().optional(),
+  "contactName": zod.string().optional(),
+  "contactEmail": zod.string().optional()
+})
+
+export const UpdateLeadResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "source": zod.string().nullish(),
+  "summary": zod.string().nullish(),
+  "status": zod.string(),
+  "contactName": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "lastContactAt": zod.string().nullish(),
+  "campaignKind": zod.string().nullish(),
+  "campaignStatus": zod.string().nullish(),
+  "campaignStepIndex": zod.number().nullish(),
+  "campaignNextSendAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Rendered follow-up email templates for a lead
+ */
+export const ListLeadEmailTemplatesParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListLeadEmailTemplatesResponseItem = zod.object({
+  "key": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "subject": zod.string(),
+  "body": zod.string()
+})
+export const ListLeadEmailTemplatesResponse = zod.array(ListLeadEmailTemplatesResponseItem)
+
+
+/**
+ * @summary Send a template follow-up email for a lead
+ */
+export const SendLeadEmailParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SendLeadEmailBody = zod.object({
+  "templateKey": zod.string(),
+  "to": zod.string().optional()
+})
+
+export const SendLeadEmailResponse = zod.object({
+  "sent": zod.boolean(),
+  "to": zod.string().nullish(),
+  "error": zod.string().nullish()
+})
+
+
+/**
+ * @summary Available follow-up campaign definitions
+ */
+export const ListLeadCampaignDefsResponseItem = zod.object({
+  "kind": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullish(),
+  "steps": zod.array(zod.object({
+  "dayOffset": zod.number(),
+  "templateKey": zod.string(),
+  "templateName": zod.string()
+}))
+})
+export const ListLeadCampaignDefsResponse = zod.array(ListLeadCampaignDefsResponseItem)
+
+
+/**
+ * @summary Start a follow-up campaign for a lead
+ */
+export const StartLeadCampaignParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const StartLeadCampaignBody = zod.object({
+  "kind": zod.string()
+})
+
+export const StartLeadCampaignResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "source": zod.string().nullish(),
+  "summary": zod.string().nullish(),
+  "status": zod.string(),
+  "contactName": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "lastContactAt": zod.string().nullish(),
+  "campaignKind": zod.string().nullish(),
+  "campaignStatus": zod.string().nullish(),
+  "campaignStepIndex": zod.number().nullish(),
+  "campaignNextSendAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Stop the active campaign for a lead
+ */
+export const StopLeadCampaignParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const StopLeadCampaignResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "source": zod.string().nullish(),
+  "summary": zod.string().nullish(),
+  "status": zod.string(),
+  "contactName": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "lastContactAt": zod.string().nullish(),
+  "campaignKind": zod.string().nullish(),
+  "campaignStatus": zod.string().nullish(),
+  "campaignStepIndex": zod.number().nullish(),
+  "campaignNextSendAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
 })
 
@@ -400,14 +552,17 @@ export const ListBidsResponseItem = zod.object({
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "scope": zod.string().nullish(),
+  "welcomeMessage": zod.string().nullish(),
   "amount": zod.number(),
   "estCost": zod.number().nullish(),
   "status": zod.string(),
   "sentAt": zod.string().nullish(),
   "decidedAt": zod.string().nullish(),
-  "lastNudgeAt": zod.string().nullish()
+  "lastNudgeAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
 })
 export const ListBidsResponse = zod.array(ListBidsResponseItem)
+
 
 
 
@@ -417,8 +572,16 @@ export const CreateBidBody = zod.object({
   "propertyId": zod.string().optional(),
   "unitNo": zod.string().optional(),
   "scope": zod.string().min(1),
+  "welcomeMessage": zod.string().optional(),
   "amount": zod.number(),
-  "estCost": zod.number().optional()
+  "estCost": zod.number().optional(),
+  "status": zod.string().optional(),
+  "lineItems": zod.array(zod.object({
+  "service": zod.string().min(1),
+  "description": zod.string().optional(),
+  "qty": zod.number(),
+  "unitPrice": zod.number()
+})).optional()
 })
 
 export const CreateBidResponse = zod.object({
@@ -428,24 +591,73 @@ export const CreateBidResponse = zod.object({
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "scope": zod.string().nullish(),
+  "welcomeMessage": zod.string().nullish(),
   "amount": zod.number(),
   "estCost": zod.number().nullish(),
   "status": zod.string(),
   "sentAt": zod.string().nullish(),
   "decidedAt": zod.string().nullish(),
-  "lastNudgeAt": zod.string().nullish()
+  "lastNudgeAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
 })
+
+
+export const GetBidParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetBidResponse = zod.object({
+  "id": zod.string(),
+  "bidNo": zod.string(),
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "scope": zod.string().nullish(),
+  "welcomeMessage": zod.string().nullish(),
+  "amount": zod.number(),
+  "estCost": zod.number().nullish(),
+  "status": zod.string(),
+  "sentAt": zod.string().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "lastNudgeAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+}).and(zod.object({
+  "propertyAddress": zod.string().nullish(),
+  "propertyCity": zod.string().nullish(),
+  "contactName": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "service": zod.string(),
+  "description": zod.string().nullish(),
+  "qty": zod.number(),
+  "unitPrice": zod.number(),
+  "amount": zod.number(),
+  "sortOrder": zod.number().nullish()
+}))
+}))
 
 
 export const UpdateBidParams = zod.object({
   "id": zod.coerce.string()
 })
 
+
+
+
 export const UpdateBidBody = zod.object({
   "scope": zod.string().optional(),
+  "welcomeMessage": zod.string().optional(),
+  "unitNo": zod.string().optional(),
   "amount": zod.number().optional(),
   "estCost": zod.number().optional(),
-  "status": zod.string().optional()
+  "status": zod.string().optional(),
+  "lineItems": zod.array(zod.object({
+  "service": zod.string().min(1),
+  "description": zod.string().optional(),
+  "qty": zod.number(),
+  "unitPrice": zod.number()
+})).optional()
 })
 
 export const UpdateBidResponse = zod.object({
@@ -455,12 +667,64 @@ export const UpdateBidResponse = zod.object({
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "scope": zod.string().nullish(),
+  "welcomeMessage": zod.string().nullish(),
   "amount": zod.number(),
   "estCost": zod.number().nullish(),
   "status": zod.string(),
   "sentAt": zod.string().nullish(),
   "decidedAt": zod.string().nullish(),
-  "lastNudgeAt": zod.string().nullish()
+  "lastNudgeAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+}).and(zod.object({
+  "propertyAddress": zod.string().nullish(),
+  "propertyCity": zod.string().nullish(),
+  "contactName": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "service": zod.string(),
+  "description": zod.string().nullish(),
+  "qty": zod.number(),
+  "unitPrice": zod.number(),
+  "amount": zod.number(),
+  "sortOrder": zod.number().nullish()
+}))
+}))
+
+
+export const DeleteBidParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteBidResponse = zod.void()
+
+
+/**
+ * @summary Download the branded bid proposal PDF
+ */
+export const GetBidPdfParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetBidPdfResponse = zod.unknown()
+
+
+/**
+ * @summary Email the branded bid proposal PDF to the property contact
+ */
+export const SendBidParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SendBidBody = zod.object({
+  "to": zod.string().optional(),
+  "message": zod.string().optional()
+})
+
+export const SendBidResponse = zod.object({
+  "sent": zod.boolean(),
+  "to": zod.string().nullish(),
+  "error": zod.string().nullish()
 })
 
 
@@ -478,12 +742,14 @@ export const NudgeBidResponse = zod.object({
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "scope": zod.string().nullish(),
+  "welcomeMessage": zod.string().nullish(),
   "amount": zod.number(),
   "estCost": zod.number().nullish(),
   "status": zod.string(),
   "sentAt": zod.string().nullish(),
   "decidedAt": zod.string().nullish(),
-  "lastNudgeAt": zod.string().nullish()
+  "lastNudgeAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
 })
 
 

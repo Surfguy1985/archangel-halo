@@ -17,6 +17,8 @@ export interface Bid {
   unitNo?: string | null;
   /** @nullable */
   scope?: string | null;
+  /** @nullable */
+  welcomeMessage?: string | null;
   amount: number;
   /** @nullable */
   estCost?: number | null;
@@ -27,4 +29,6 @@ export interface Bid {
   decidedAt?: string | null;
   /** @nullable */
   lastNudgeAt?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
 }
