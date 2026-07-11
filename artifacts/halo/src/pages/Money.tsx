@@ -19,11 +19,12 @@ import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
 import { RecordPaymentSheet } from "@/components/RecordPaymentSheet";
 import { AddCrewPaymentSheet } from "@/components/AddCrewPaymentSheet";
+import { BankTab } from "@/components/BankTab";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { exportCsv } from "@/lib/exportCsv";
 
-type Tab = "overview" | "invoices" | "expenses" | "crew";
+type Tab = "overview" | "invoices" | "expenses" | "crew" | "bank";
 
 type HistoryRow = {
   id: string;
@@ -594,7 +595,8 @@ export default function Money() {
     { key: "overview", label: "Overview" },
     { key: "invoices", label: "Invoices" },
     { key: "expenses", label: "Expenses" },
-    { key: "crew", label: "Crew Pay" },
+    { key: "crew", label: "Crew" },
+    { key: "bank", label: "Bank" },
   ];
   return (
     <div className="pt-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -604,7 +606,7 @@ export default function Money() {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-1 rounded-[10px] py-[8px] text-[13px] font-display font-bold transition-colors ${
+            className={`flex-1 rounded-[10px] py-[8px] text-[12px] font-display font-bold transition-colors ${
               tab === t.key ? "bg-[var(--ink)] text-white" : "text-muted-foreground"
             }`}
           >
@@ -616,6 +618,7 @@ export default function Money() {
       {tab === "invoices" && <Invoices />}
       {tab === "expenses" && <Expenses />}
       {tab === "crew" && <CrewPay />}
+      {tab === "bank" && <BankTab />}
     </div>
   );
 }

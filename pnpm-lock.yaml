@@ -258,6 +258,9 @@ importers:
       pdfjs-dist:
         specifier: ^6.1.200
         version: 6.1.200
+      react-plaid-link:
+        specifier: ^4.1.1
+        version: 4.1.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
     devDependencies:
       '@hookform/resolvers':
         specifier: ^3.10.0
