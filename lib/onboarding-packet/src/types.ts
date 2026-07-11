@@ -69,15 +69,19 @@ export interface IntakeQuestion {
   noLabel: string;
 }
 
+export type NetTerms = "non-net30" | "net30";
+
 export interface PacketTemplate {
   /** e.g. "welcome-en-non-net30". */
   key: string;
   locale: Locale;
+  /** Subdirectory in packet-assets holding this template's source PDFs (defaults to locale). */
+  assetsDir?: string;
   /** Dropdown label. */
   label: string;
   /** Short label for chips/badges. */
   shortLabel: string;
-  netTerms: "non-net30";
+  netTerms: NetTerms;
   intake: IntakeQuestion[];
   forms: PacketForm[];
 }

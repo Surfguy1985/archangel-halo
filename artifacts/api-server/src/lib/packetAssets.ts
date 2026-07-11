@@ -23,7 +23,7 @@ export function sourcePdfPath(templateKey: string, code: string): string | null 
   const tpl = getTemplate(templateKey);
   if (!tpl) return null;
   if (!CODE_HAS_PDF.has(code)) return null;
-  const file = path.resolve(assetsRoot(), tpl.locale, `${code}.pdf`);
+  const file = path.resolve(assetsRoot(), tpl.assetsDir ?? tpl.locale, `${code}.pdf`);
   if (!existsSync(file)) return null;
   return file;
 }

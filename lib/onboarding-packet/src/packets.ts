@@ -1,5 +1,6 @@
 import type {
   Locale,
+  NetTerms,
   PacketForm,
   PacketTemplate,
   IntakeQuestion,
@@ -19,7 +20,11 @@ export const SOURCE_PDF_CODES = [
   "01",
   "A",
   "B",
+  "B-1",
   "L-ALT",
+  "L",
+  "N",
+  "N-1",
   "C",
   "D",
   "E",
@@ -37,7 +42,8 @@ function tr(locale: Locale, en: string, es: string): string {
   return locale === "es" ? es : en;
 }
 
-function buildForms(locale: Locale): PacketForm[] {
+function buildForms(locale: Locale, netTerms: NetTerms = "non-net30"): PacketForm[] {
+  const net30 = netTerms === "net30";
   const t = (en: string, es: string) => tr(locale, en, es);
 
   const agree = t(
@@ -274,34 +280,92 @@ function buildForms(locale: Locale): PacketForm[] {
       attachments: [],
       signature: sub(),
     },
-    {
-      code: "L-ALT",
-      kind: "form",
-      title: t(
-        "Field Standards & Payment Terms (Non-Net-30)",
-        "Normas de Campo y Términos de Pago (No Net 30)",
-      ),
-      intro: t(
-        "Jobsite standards and the payment schedule for this engagement.",
-        "Normas del sitio de trabajo y el calendario de pagos para este trabajo.",
-      ),
-      hasSourcePdf: true,
-      applicability: "always",
-      fields: [
-        {
-          key: "termsAck",
-          label: t(
-            "I acknowledge the field standards and the Non-Net-30 payment terms.",
-            "Reconozco las normas de campo y los términos de pago No Net 30.",
-          ),
-          type: "checkbox",
-          required: true,
-          colSpan: 2,
-        },
-      ],
-      attachments: [],
-      signature: sub(),
-    },
+    ...(net30
+      ? [
+          {
+            code: "B-1",
+            kind: "form",
+            title: t("Net 30 Payment Terms", "Términos de Pago Net 30"),
+            intro: t(
+              "The Net 30 payment terms addendum for this engagement.",
+              "El anexo de términos de pago Net 30 para este trabajo.",
+            ),
+            hasSourcePdf: true,
+            applicability: "always",
+            fields: [
+              {
+                key: "net30Ack",
+                label: t(
+                  "I acknowledge and agree to the Net 30 payment terms.",
+                  "Reconozco y acepto los términos de pago Net 30.",
+                ),
+                type: "checkbox",
+                required: true,
+                colSpan: 2,
+              },
+            ],
+            attachments: [],
+            signature: sub(),
+          } satisfies PacketForm,
+          {
+            code: "L",
+            kind: "form",
+            title: t(
+              "Vendor Field Standards & Payment Terms",
+              "Normas de Campo del Proveedor y Términos de Pago",
+            ),
+            intro: t(
+              "Jobsite standards and the Net 30 payment schedule for this engagement.",
+              "Normas del sitio de trabajo y el calendario de pagos Net 30 para este trabajo.",
+            ),
+            hasSourcePdf: true,
+            applicability: "always",
+            fields: [
+              {
+                key: "termsAck",
+                label: t(
+                  "I acknowledge the field standards and the Net 30 payment terms.",
+                  "Reconozco las normas de campo y los términos de pago Net 30.",
+                ),
+                type: "checkbox",
+                required: true,
+                colSpan: 2,
+              },
+            ],
+            attachments: [],
+            signature: sub(),
+          } satisfies PacketForm,
+        ]
+      : [
+          {
+            code: "L-ALT",
+            kind: "form",
+            title: t(
+              "Field Standards & Payment Terms (Non-Net-30)",
+              "Normas de Campo y Términos de Pago (No Net 30)",
+            ),
+            intro: t(
+              "Jobsite standards and the payment schedule for this engagement.",
+              "Normas del sitio de trabajo y el calendario de pagos para este trabajo.",
+            ),
+            hasSourcePdf: true,
+            applicability: "always",
+            fields: [
+              {
+                key: "termsAck",
+                label: t(
+                  "I acknowledge the field standards and the Non-Net-30 payment terms.",
+                  "Reconozco las normas de campo y los términos de pago No Net 30.",
+                ),
+                type: "checkbox",
+                required: true,
+                colSpan: 2,
+              },
+            ],
+            attachments: [],
+            signature: sub(),
+          } satisfies PacketForm,
+        ]),
     {
       code: "C",
       kind: "form",
@@ -535,6 +599,40 @@ function buildForms(locale: Locale): PacketForm[] {
         ),
       ),
     },
+    ...(net30
+      ? [
+          {
+            code: "N",
+            kind: "form",
+            title: t(
+              "Equipment & Supplies Agreement",
+              "Acuerdo de Equipos y Suministros",
+            ),
+            intro: t(
+              "Terms for any company equipment or supplies issued to you.",
+              "Términos para cualquier equipo o suministro de la empresa que se te entregue.",
+            ),
+            hasSourcePdf: true,
+            applicability: "always",
+            fields: [],
+            attachments: [],
+            signature: sub(),
+          } satisfies PacketForm,
+          {
+            code: "N-1",
+            kind: "info",
+            title: t("Equipment Issuance Log", "Registro de Entrega de Equipos"),
+            intro: t(
+              "Reference: the log used to track equipment issued and returned.",
+              "Referencia: el registro usado para rastrear equipos entregados y devueltos.",
+            ),
+            hasSourcePdf: true,
+            applicability: "always",
+            fields: [],
+            attachments: [],
+          } satisfies PacketForm,
+        ]
+      : []),
     {
       code: "J",
       kind: "form",
@@ -623,25 +721,40 @@ function buildIntake(locale: Locale): IntakeQuestion[] {
   ];
 }
 
-export function buildTemplate(locale: Locale): PacketTemplate {
+export function buildTemplate(
+  locale: Locale,
+  netTerms: NetTerms = "non-net30",
+): PacketTemplate {
+  const net30 = netTerms === "net30";
+  const suffix = net30 ? "net30" : "non-net30";
   return {
-    key: locale === "es" ? "welcome-es-non-net30" : "welcome-en-non-net30",
+    key: `welcome-${locale}-${suffix}`,
     locale,
-    label:
-      locale === "es"
+    assetsDir: net30 ? `${locale}-net30` : locale,
+    label: net30
+      ? locale === "es"
+        ? "Paquete de Bienvenida — Español (Net 30)"
+        : "Welcome Packet — English (Net 30)"
+      : locale === "es"
         ? "Paquete de Bienvenida — Español (No Net 30)"
         : "Welcome Packet — English (Non-Net-30)",
-    shortLabel:
-      locale === "es" ? "Bienvenida (Español)" : "Welcome (English)",
-    netTerms: "non-net30",
+    shortLabel: net30
+      ? locale === "es"
+        ? "Bienvenida Net 30 (Español)"
+        : "Welcome Net 30 (English)"
+      : locale === "es"
+        ? "Bienvenida (Español)"
+        : "Welcome (English)",
+    netTerms,
     intake: buildIntake(locale),
-    forms: buildForms(locale),
+    forms: buildForms(locale, netTerms),
   };
 }
 
 export const PACKET_TEMPLATES: PacketTemplate[] = [
   buildTemplate("en"),
   buildTemplate("es"),
+  buildTemplate("en", "net30"),
 ];
 
 export function getTemplate(key: string): PacketTemplate | null {
