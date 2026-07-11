@@ -49,6 +49,7 @@ import type {
   CrewToday,
   CrewUpdate,
   DeleteCalendarEvent200,
+  DeleteVendor200,
   Error,
   Expense,
   ExpenseInput,
@@ -108,6 +109,7 @@ import type {
   UploadUrlResponse,
   Vendor,
   VendorInput,
+  VendorPatch,
   VoiceConfirmInput,
   VoiceConfirmResult,
   VoiceParseInput,
@@ -3857,6 +3859,149 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getCreateVendorMutationOptions(options));
+    }
+
+export const getUpdateVendorUrl = (id: string,) => {
+
+
+
+
+  return `/api/vendors/${id}`
+}
+
+/**
+ * @summary Update a vendor
+ */
+export const updateVendor = async (id: string,
+    vendorPatch: VendorPatch, options?: RequestInit): Promise<Vendor> => {
+
+  return customFetch<Vendor>(getUpdateVendorUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(vendorPatch)
+  }
+);}
+
+
+
+
+
+export const getUpdateVendorMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateVendor>>, TError,{id: string;data: BodyType<VendorPatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateVendor>>, TError,{id: string;data: BodyType<VendorPatch>}, TContext> => {
+
+const mutationKey = ['updateVendor'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateVendor>>, {id: string;data: BodyType<VendorPatch>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateVendor(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateVendorMutationResult = NonNullable<Awaited<ReturnType<typeof updateVendor>>>
+    export type UpdateVendorMutationBody = BodyType<VendorPatch>
+    export type UpdateVendorMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a vendor
+ */
+export const useUpdateVendor = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateVendor>>, TError,{id: string;data: BodyType<VendorPatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateVendor>>,
+        TError,
+        {id: string;data: BodyType<VendorPatch>},
+        TContext
+      > => {
+      return useMutation(getUpdateVendorMutationOptions(options));
+    }
+
+export const getDeleteVendorUrl = (id: string,) => {
+
+
+
+
+  return `/api/vendors/${id}`
+}
+
+/**
+ * @summary Delete a vendor
+ */
+export const deleteVendor = async (id: string, options?: RequestInit): Promise<DeleteVendor200> => {
+
+  return customFetch<DeleteVendor200>(getDeleteVendorUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteVendorMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVendor>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteVendor>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteVendor'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteVendor>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteVendor(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteVendorMutationResult = NonNullable<Awaited<ReturnType<typeof deleteVendor>>>
+
+    export type DeleteVendorMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a vendor
+ */
+export const useDeleteVendor = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVendor>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteVendor>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteVendorMutationOptions(options));
     }
 
 export const getListPurchaseOrdersUrl = (params?: ListPurchaseOrdersParams,) => {

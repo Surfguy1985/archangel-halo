@@ -1386,6 +1386,47 @@ export const CreateVendorResponse = zod.object({
 })
 
 
+/**
+ * @summary Update a vendor
+ */
+export const UpdateVendorParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const UpdateVendorBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "trade": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "coiExpiresOn": zod.string().nullish()
+})
+
+export const UpdateVendorResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "trade": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "coiExpiresOn": zod.string().nullish(),
+  "compliant": zod.boolean().nullish()
+})
+
+
+/**
+ * @summary Delete a vendor
+ */
+export const DeleteVendorParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteVendorResponse = zod.object({
+  "id": zod.string()
+})
+
+
 export const ListPurchaseOrdersQueryParams = zod.object({
   "status": zod.coerce.string().optional()
 })

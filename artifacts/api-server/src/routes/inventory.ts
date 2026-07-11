@@ -17,6 +17,11 @@ import {
   ListVendorsResponse,
   CreateVendorBody,
   CreateVendorResponse,
+  UpdateVendorParams,
+  UpdateVendorBody,
+  UpdateVendorResponse,
+  DeleteVendorParams,
+  DeleteVendorResponse,
   ListPurchaseOrdersResponse,
   ListPurchaseOrdersQueryParams,
   CreatePurchaseOrderBody,
@@ -24,6 +29,7 @@ import {
   ReceivePurchaseOrderParams,
   ReceivePurchaseOrderResponse,
 } from "@workspace/api-zod";
+import { localToday } from "../lib/localDate";
 import { ser } from "../lib/serialize";
 
 const router: IRouter = Router();
@@ -64,7 +70,7 @@ router.post("/inventory/:id/adjust", async (req, res): Promise<void> => {
 
 router.get("/vendors", async (_req, res): Promise<void> => {
   const rows = await db.select().from(vendorsTable);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   res.json(
     ListVendorsResponse.parse(
       rows.map((v) => ({
@@ -79,6 +85,72 @@ router.post("/vendors", async (req, res): Promise<void> => {
   const body = CreateVendorBody.parse(req.body);
   const [row] = await db.insert(vendorsTable).values(body).returning();
   res.status(201).json(CreateVendorResponse.parse(ser(row)));
+});
+
+router.patch("/vendors/:id", async (req, res): Promise<void> => {
+  const { id } = UpdateVendorParams.parse(req.params);
+  const body = UpdateVendorBody.parse(req.body);
+  const patch = Object.fromEntries(
+    Object.entries(body).filter(([, v]) => v !== undefined),
+  );
+  if (Object.keys(patch).length === 0) {
+    res.status(400).json({ error: "Nothing to update" });
+    return;
+  }
+  const [row] = await db
+    .update(vendorsTable)
+    .set(patch)
+    .where(eq(vendorsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Vendor not found" });
+    return;
+  }
+  const today = localToday();
+  res.json(
+    UpdateVendorResponse.parse({
+      ...ser(row),
+      compliant: row.coiExpiresOn ? row.coiExpiresOn >= today : false,
+    }),
+  );
+});
+
+router.delete("/vendors/:id", async (req, res): Promise<void> => {
+  const { id } = DeleteVendorParams.parse(req.params);
+  const result = await db.transaction(async (tx) => {
+    const [vendor] = await tx
+      .select()
+      .from(vendorsTable)
+      .where(eq(vendorsTable.id, id));
+    if (!vendor) return { status: 404 as const, error: "Vendor not found" };
+
+    const pos = await tx
+      .select()
+      .from(purchaseOrdersTable)
+      .where(eq(purchaseOrdersTable.vendorId, id));
+    const openPos = pos.filter((p) => p.status !== "received");
+    if (openPos.length > 0) {
+      return {
+        status: 409 as const,
+        error: `This vendor has ${openPos.length} open purchase order${openPos.length === 1 ? "" : "s"}. Receive or reassign them first.`,
+      };
+    }
+    // Detach historical (received) POs so records keep their history.
+    if (pos.length > 0) {
+      await tx
+        .update(purchaseOrdersTable)
+        .set({ vendorId: null })
+        .where(eq(purchaseOrdersTable.vendorId, id));
+    }
+    await tx.delete(vendorsTable).where(eq(vendorsTable.id, id));
+    return { status: 200 as const };
+  });
+
+  if (result.status !== 200) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  res.json(DeleteVendorResponse.parse({ id }));
 });
 
 async function nextPoNo(): Promise<string> {
@@ -97,7 +169,7 @@ router.get("/purchase-orders", async (req, res): Promise<void> => {
   const jobs = await db.select().from(jobsTable);
   const vendorName = new Map(vendors.map((v) => [v.id, v.name]));
   const jobNo = new Map(jobs.map((j) => [j.id, j.jobNo]));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   res.json(
     ListPurchaseOrdersResponse.parse(
       rows.map((po) => ({

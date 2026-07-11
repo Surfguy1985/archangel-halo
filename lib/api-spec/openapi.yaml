@@ -1047,6 +1047,51 @@ paths:
               schema:
                 $ref: "#/components/schemas/Vendor"
 
+  /vendors/{id}:
+    patch:
+      operationId: updateVendor
+      tags: [inventory]
+      summary: Update a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorPatch"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+    delete:
+      operationId: deleteVendor
+      tags: [inventory]
+      summary: Delete a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string }
+
   /purchase-orders:
     get:
       operationId: listPurchaseOrders
@@ -2666,6 +2711,14 @@ components:
         email: { type: string }
         phone: { type: string }
         coiExpiresOn: { type: string }
+    VendorPatch:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        trade: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        coiExpiresOn: { type: ["string", "null"] }
 
     PurchaseOrder:
       type: object

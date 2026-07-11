@@ -746,6 +746,19 @@ export interface VendorInput {
   coiExpiresOn?: string;
 }
 
+export interface VendorPatch {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  trade?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  coiExpiresOn?: string | null;
+}
+
 export interface PurchaseOrder {
   id: string;
   poNo: string;
@@ -1255,6 +1268,10 @@ status?: string;
 export type ListExpensesParams = {
 propertyId?: string;
 jobId?: string;
+};
+
+export type DeleteVendor200 = {
+  id: string;
 };
 
 export type ListPurchaseOrdersParams = {

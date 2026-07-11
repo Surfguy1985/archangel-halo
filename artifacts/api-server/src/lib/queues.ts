@@ -8,6 +8,7 @@ import {
   vendorsTable,
   leadsTable,
 } from "@workspace/db";
+import { localToday } from "./localDate";
 
 const DAY = 1000 * 60 * 60 * 24;
 
@@ -46,7 +47,7 @@ export async function computeQueues(): Promise<{
       db.select().from(leadsTable),
     ]);
   const propName = new Map(props.map((p) => [p.id, p.name]));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const feed: FeedItem[] = [];
 
   const daysLate = (due: Date | null) =>
