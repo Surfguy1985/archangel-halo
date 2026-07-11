@@ -26,8 +26,12 @@ import {
   useDeleteProperty,
   useCreatePriceItem,
   useCreateContact,
+  useCreateJob,
+  useListCrews,
   getListPropertiesQueryKey,
   getGetPropertyQueryKey,
+  getListJobsQueryKey,
+  getGetTodayQueryKey,
 } from "@workspace/api-client-react";
 
 const fieldCls =
@@ -613,6 +617,156 @@ export function AddContactDialog({
         {create.isError && (
           <div className={errorCls}>Couldn't save. Check the name and try again.</div>
         )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* -------------------------------------------------------------------- Add Job */
+
+export function AddJobDialog({
+  open,
+  onOpenChange,
+  propertyId,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  propertyId: string;
+}) {
+  const queryClient = useQueryClient();
+  const { data: crews } = useListCrews();
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
+  const [unitNo, setUnitNo] = useState("");
+  const [woNo, setWoNo] = useState("");
+  const [crewLeaderId, setCrewLeaderId] = useState("");
+  const [inspectionRequired, setInspectionRequired] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const create = useCreateJob();
+
+  useEffect(() => {
+    if (open) {
+      setDescription("");
+      setCategory("");
+      setUnitNo("");
+      setWoNo("");
+      setCrewLeaderId("");
+      setInspectionRequired(false);
+      setError(null);
+    }
+  }, [open]);
+
+  const submit = () => {
+    if (!description.trim()) {
+      setError("A short description is required.");
+      return;
+    }
+    create.mutate(
+      {
+        data: {
+          propertyId,
+          description: description.trim(),
+          category: category.trim() || undefined,
+          unitNo: unitNo.trim() || undefined,
+          woNo: woNo.trim() || undefined,
+          crewLeaderId: crewLeaderId || undefined,
+          inspectionRequired: inspectionRequired || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+          queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+          onOpenChange(false);
+        },
+        onError: (err: unknown) => {
+          setError(
+            (err as { data?: { error?: string } })?.data?.error ||
+              "Couldn't create the job.",
+          );
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="font-display">New job</DialogTitle>
+          <DialogDescription>
+            Add a work order for this property. You can add as many as you need.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-3 py-2">
+          <Field label="Description">
+            <input
+              className={fieldCls}
+              placeholder="e.g. Full turn — paint, clean, punch list"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              autoFocus
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Category">
+              <input
+                className={fieldCls}
+                placeholder="e.g. Turn, Paint"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              />
+            </Field>
+            <Field label="Unit #">
+              <input
+                className={fieldCls}
+                placeholder="e.g. 204"
+                value={unitNo}
+                onChange={(e) => setUnitNo(e.target.value)}
+              />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Work order # (optional)">
+              <input
+                className={fieldCls}
+                placeholder="WO-1234"
+                value={woNo}
+                onChange={(e) => setWoNo(e.target.value)}
+              />
+            </Field>
+            <Field label="Crew leader (optional)">
+              <select
+                className={fieldCls}
+                value={crewLeaderId}
+                onChange={(e) => setCrewLeaderId(e.target.value)}
+              >
+                <option value="">Unassigned</option>
+                {(crews ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={inspectionRequired}
+              onChange={(e) => setInspectionRequired(e.target.checked)}
+              className="accent-[var(--gold)] w-4 h-4"
+            />
+            Inspection required before invoicing
+          </label>
+          {error && <p className={errorCls}>{error}</p>}
+        </div>
+        <DialogFooter>
+          <button className={primaryBtn} onClick={submit} disabled={create.isPending}>
+            {create.isPending ? "Creating…" : "Create job"}
+          </button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

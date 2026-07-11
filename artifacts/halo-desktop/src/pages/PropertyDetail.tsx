@@ -7,6 +7,7 @@ import {
   EditPropertyDialog,
   AddPriceItemDialog,
   AddContactDialog,
+  AddJobDialog,
 } from "@/components/PropertyDialogs";
 
 export default function PropertyDetail() {
@@ -15,6 +16,7 @@ export default function PropertyDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const [jobOpen, setJobOpen] = useState(false);
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -47,6 +49,7 @@ export default function PropertyDetail() {
       <EditPropertyDialog open={editOpen} onOpenChange={setEditOpen} property={property} />
       <AddPriceItemDialog open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
       <AddContactDialog open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
+      <AddJobDialog open={jobOpen} onOpenChange={setJobOpen} propertyId={id} />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-card rounded-xl shadow-sm border border-border p-6">
@@ -66,7 +69,15 @@ export default function PropertyDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-6">
           <section>
-            <h2 className="text-xl font-display font-bold mb-4 text-[var(--ink)]">Active Jobs</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-display font-bold text-[var(--ink)]">Active Jobs</h2>
+              <button
+                onClick={() => setJobOpen(true)}
+                className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Add
+              </button>
+            </div>
             <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
               {jobs.map(job => (
                 <Link key={job.id} href={`/jobs/${job.id}`} className="flex items-center justify-between p-4 hover:bg-black/[0.02] transition-colors">
