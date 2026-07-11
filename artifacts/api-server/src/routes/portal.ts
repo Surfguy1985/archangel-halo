@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, ne } from "drizzle-orm";
 import {
   db,
   crewsTable,
@@ -9,6 +9,9 @@ import {
   crewPhotosTable,
   schedulesTable,
   jobsTable,
+  jobBroadcastsTable,
+  priceItemsTable,
+  activitiesTable,
   propertiesTable,
   contactsTable,
   calendarEventsTable,
@@ -43,6 +46,9 @@ import {
   SetPortalPaymentMethodParams,
   SetPortalPaymentMethodBody,
   SetPortalPaymentMethodResponse,
+  RespondPortalOfferParams,
+  RespondPortalOfferBody,
+  RespondPortalOfferResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 
@@ -200,6 +206,83 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
     (a.scheduledOn ?? "").localeCompare(b.scheduledOn ?? ""),
   );
 
+  // Job offers broadcast to this crew (pending first, then recent responses).
+  const offerRows = await db
+    .select()
+    .from(jobBroadcastsTable)
+    .where(
+      and(
+        eq(jobBroadcastsTable.crewId, crew.id),
+        inArray(jobBroadcastsTable.status, [
+          "pending",
+          "approved",
+          "declined",
+        ]),
+      ),
+    )
+    .orderBy(desc(jobBroadcastsTable.sentAt));
+
+  const offerJobIds = [...new Set(offerRows.map((o) => o.jobId))];
+  const offerPropIds = [
+    ...new Set(
+      offerRows
+        .map((o) => jobsById.get(o.jobId)?.propertyId)
+        .filter((p): p is string => Boolean(p)),
+    ),
+  ];
+  const [offerPrices, offerPhotos] = await Promise.all([
+    offerPropIds.length > 0
+      ? db
+          .select()
+          .from(priceItemsTable)
+          .where(inArray(priceItemsTable.propertyId, offerPropIds))
+      : Promise.resolve([] as (typeof priceItemsTable.$inferSelect)[]),
+    offerJobIds.length > 0
+      ? db
+          .select()
+          .from(activitiesTable)
+          .where(
+            and(
+              eq(activitiesTable.entityType, "job"),
+              inArray(activitiesTable.entityId, offerJobIds),
+            ),
+          )
+      : Promise.resolve([] as (typeof activitiesTable.$inferSelect)[]),
+  ]);
+
+  const offers = offerRows
+    .filter((o) => jobsById.has(o.jobId))
+    .slice(0, 20)
+    .map((o) => {
+      const job = jobsById.get(o.jobId)!;
+      return {
+        id: o.id,
+        jobId: o.jobId,
+        status: o.status,
+        sentAt: o.sentAt ? o.sentAt.toISOString() : null,
+        respondedAt: o.respondedAt ? o.respondedAt.toISOString() : null,
+        jobNo: job.jobNo,
+        category: job.category,
+        description: job.description,
+        unitNo: job.unitNo,
+        scheduledOn: job.scheduledOn,
+        ...propFields(job.propertyId),
+        filledByOther: job.boardStatus === "filled" && o.status !== "approved",
+        tasks: taskify(job.description),
+        priceItems: offerPrices
+          .filter((pi) => pi.propertyId === job.propertyId)
+          .map((pi) => ser(pi)),
+        photos: offerPhotos
+          .filter(
+            (a) =>
+              a.entityId === o.jobId &&
+              a.storagePath &&
+              (a.kind === "photo_before" || a.kind === "photo_after"),
+          )
+          .map((a) => ({ kind: a.kind, storagePath: a.storagePath! })),
+      };
+    });
+
   res.json(
     GetPortalResponse.parse({
       crew: {
@@ -211,6 +294,7 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
         w9Submitted: crew.w9SubmittedAt != null,
       },
       schedule,
+      offers,
     }),
   );
 });
@@ -450,5 +534,153 @@ router.put("/portal/:token/payment-method", async (req, res): Promise<void> => {
     }),
   );
 });
+
+router.post(
+  "/portal/:token/offers/:offerId/respond",
+  async (req, res): Promise<void> => {
+    const { token, offerId } = RespondPortalOfferParams.parse(req.params);
+    const crew = await crewByToken(token);
+    if (!crew) {
+      res.status(404).json({ error: "Invalid portal link" });
+      return;
+    }
+    const body = RespondPortalOfferBody.parse(req.body);
+    if (body.decision !== "approved" && body.decision !== "declined") {
+      res.status(400).json({ error: "Decision must be approved or declined" });
+      return;
+    }
+
+    const result = await db.transaction(async (tx) => {
+      const [offer] = await tx
+        .select()
+        .from(jobBroadcastsTable)
+        .where(
+          and(
+            eq(jobBroadcastsTable.id, offerId),
+            eq(jobBroadcastsTable.crewId, crew.id),
+          ),
+        );
+      if (!offer) {
+        return { code: 404 as const, error: "Offer not found" };
+      }
+      if (offer.status !== "pending") {
+        return {
+          code: 409 as const,
+          error: `You already responded to this job (${offer.status}).`,
+        };
+      }
+      const [job] = await tx
+        .select()
+        .from(jobsTable)
+        .where(eq(jobsTable.id, offer.jobId));
+      if (!job) {
+        return { code: 404 as const, error: "Job no longer exists" };
+      }
+
+      const now = new Date();
+
+      if (body.decision === "declined") {
+        await tx
+          .update(jobBroadcastsTable)
+          .set({ status: "declined", respondedAt: now })
+          .where(eq(jobBroadcastsTable.id, offer.id));
+        return {
+          code: 200 as const,
+          job,
+          status: "declined" as const,
+          scheduledOn: null as string | null,
+        };
+      }
+
+      // Approve: first crew in wins the job.
+      if (job.boardStatus === "filled" || job.status === "complete") {
+        return {
+          code: 409 as const,
+          error: "This job has already been filled.",
+        };
+      }
+
+      const fmtLocal = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const scheduledOn = job.scheduledOn ?? fmtLocal(now);
+
+      // Guarded update: only fills the job if nobody else filled it first.
+      // The affected-row check makes first-approver-wins atomic under concurrency.
+      const claimed = await tx
+        .update(jobsTable)
+        .set({
+          boardStatus: "filled",
+          crewLeaderId: crew.id,
+          status: "scheduled",
+          scheduledOn,
+        })
+        .where(
+          and(
+            eq(jobsTable.id, job.id),
+            ne(jobsTable.boardStatus, "filled"),
+            ne(jobsTable.status, "complete"),
+          ),
+        )
+        .returning({ id: jobsTable.id });
+      if (claimed.length === 0) {
+        return {
+          code: 409 as const,
+          error: "This job has already been filled.",
+        };
+      }
+
+      await tx
+        .update(jobBroadcastsTable)
+        .set({ status: "approved", respondedAt: now })
+        .where(eq(jobBroadcastsTable.id, offer.id));
+      await tx.insert(schedulesTable).values({
+        jobId: job.id,
+        scheduledOn,
+        crewLeaderId: crew.id,
+      });
+
+      return {
+        code: 200 as const,
+        job,
+        status: "approved" as const,
+        scheduledOn,
+      };
+    });
+
+    if (result.code !== 200) {
+      res.status(result.code).json({ error: result.error });
+      return;
+    }
+
+    const jobLabel = [result.job.jobNo, result.job.category]
+      .filter(Boolean)
+      .join(" · ");
+    await db.insert(notificationsTable).values({
+      kind: result.status === "approved" ? "job_filled" : "job_declined",
+      priority: result.status === "approved" ? "urgent" : "normal",
+      entityType: "job",
+      entityId: result.job.id,
+      title:
+        result.status === "approved"
+          ? `${crew.name} accepted ${jobLabel}`
+          : `${crew.name} declined ${jobLabel}`,
+      body:
+        result.status === "approved"
+          ? `Scheduled for ${result.scheduledOn}. Job is now filled.`
+          : "You can re-broadcast this job from the job board.",
+    });
+
+    res.json(
+      RespondPortalOfferResponse.parse({
+        status: result.status,
+        scheduledOn: result.scheduledOn,
+        message:
+          result.status === "approved"
+            ? `You're confirmed for this job on ${result.scheduledOn}. It's on your schedule.`
+            : "You declined this job.",
+      }),
+    );
+  },
+);
 
 export default router;

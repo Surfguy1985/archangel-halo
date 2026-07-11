@@ -18,8 +18,10 @@ import {
   getListPortalMessagesQueryKey,
   getListPortalDocumentsQueryKey,
   getGetPortalW9QueryKey,
+  useRespondPortalOffer,
   type W9Data,
   type PortalBundle,
+  type PortalOffer,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import {
@@ -39,11 +41,15 @@ import {
   Camera,
   Phone,
   CheckSquare,
+  Briefcase,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 import WelcomeKitTab from "./WelcomeKitTab";
 
 type Tab =
+  | "offers"
   | "schedule"
   | "messages"
   | "photos"
@@ -86,6 +92,14 @@ export default function CrewPortal() {
 
   const { data: portal, isLoading, isError } = useGetPortal(token);
 
+  const pendingOffersCount = portal?.offers?.filter(o => o.status === "pending" && !o.filledByOther).length || 0;
+
+  useEffect(() => {
+    if (pendingOffersCount > 0 && tab !== "offers") {
+      setTab("offers");
+    }
+  }, [pendingOffersCount]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[var(--bg,#f4f2ee)] grid place-items-center">
@@ -108,7 +122,8 @@ export default function CrewPortal() {
     );
   }
 
-  const tabs: { key: Tab; label: string; icon: typeof Calendar }[] = [
+  const tabs: { key: Tab; label: string; icon: any; badge?: number }[] = [
+    { key: "offers", label: "Offers", icon: Briefcase, badge: pendingOffersCount },
     { key: "schedule", label: "Schedule", icon: Calendar },
     { key: "packets", label: "Welcome Kit", icon: PackageCheck },
     { key: "messages", label: "Messages", icon: MessageSquare },
@@ -148,6 +163,11 @@ export default function CrewPortal() {
                 }`}
               >
                 <Icon className="w-[14px] h-[14px]" /> {t.label}
+                {t.badge ? (
+                  <span className="ml-[2px] bg-[var(--gold)] text-[var(--ink)] px-[5px] py-[1px] rounded-full text-[10px] font-bold">
+                    {t.badge}
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -155,6 +175,7 @@ export default function CrewPortal() {
       </div>
 
       <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto">
+        {tab === "offers" && <OffersTab portal={portal} token={token} />}
         {tab === "schedule" && <ScheduleTab portal={portal} />}
         {tab === "packets" && <WelcomeKitTab token={token} />}
         {tab === "messages" && <MessagesTab token={token} />}
@@ -175,6 +196,264 @@ export default function CrewPortal() {
 }
 
 const card = "bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px]";
+
+function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
+  const queryClient = useQueryClient();
+  const respond = useRespondPortalOffer();
+  const [declineConfirmId, setDeclineConfirmId] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<{ [id: string]: string }>({});
+  const [errorMsg, setErrorMsg] = useState<{ [id: string]: string }>({});
+
+  const offers = portal.offers || [];
+
+  const handleRespond = (offerId: string, decision: "approved" | "declined") => {
+    setErrorMsg((prev) => ({ ...prev, [offerId]: "" }));
+    respond.mutate(
+      { token, offerId, data: { decision } },
+      {
+        onSuccess: (res) => {
+          if (decision === "approved") {
+            setSuccessMsg((prev) => ({ ...prev, [offerId]: res.message ?? "You're on the schedule." }));
+          }
+          queryClient.invalidateQueries();
+        },
+        onError: (err: any) => {
+          setErrorMsg((prev) => ({
+            ...prev,
+            [offerId]: err?.data?.error ?? "Something went wrong",
+          }));
+        },
+      }
+    );
+  };
+
+  if (offers.length === 0) {
+    return (
+      <div className="animate-in fade-in duration-200">
+        <div className={`${card} text-center py-[40px]`}>
+          <Briefcase className="w-[32px] h-[32px] text-muted-foreground mx-auto mb-[12px]" />
+          <div className="font-display font-bold text-[17px]">No offers yet</div>
+          <p className="text-[13px] text-muted-foreground mt-[4px]">
+            When the office sends job offers, they'll appear here.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
+      <div className="text-[13px] text-muted-foreground mb-[4px]">
+        Job offers from the office
+      </div>
+      {offers.map((o) => {
+        const isPending = o.status === "pending" && !o.filledByOther;
+        const isFilled = o.status === "pending" && o.filledByOther;
+        const isResolved = o.status !== "pending";
+
+        return (
+          <div
+            key={o.id}
+            className={`bg-card rounded-[16px] shadow-[var(--shadow)] overflow-hidden border ${
+              isPending
+                ? "border-[var(--gold)]"
+                : "border-border opacity-80"
+            }`}
+          >
+            <div className={`px-[16px] py-[12px] flex items-start justify-between border-b ${
+              isPending ? "bg-[var(--gold-tint)] border-[var(--gold)]/20" : "bg-[var(--paper)] border-border"
+            }`}>
+              <div>
+                <div className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground flex items-center gap-[6px]">
+                  {isPending && <span className="w-[8px] h-[8px] rounded-full bg-[var(--gold)] animate-pulse" />}
+                  {o.jobNo} {o.category ? `· ${o.category}` : ""}
+                </div>
+                <div className="font-display font-bold text-[18px] mt-[2px] leading-tight">
+                  {o.propertyName || "Assignment"}
+                  {o.unitNo ? ` · Unit ${o.unitNo}` : ""}
+                </div>
+              </div>
+              <div className="text-right">
+                {isPending && (
+                  <div className="text-[11px] font-bold uppercase text-[var(--gold-dark)] bg-white px-[8px] py-[2px] rounded-full shadow-sm">
+                    Action Needed
+                  </div>
+                )}
+                {isFilled && (
+                  <div className="text-[11px] font-bold uppercase text-muted-foreground bg-black/5 px-[8px] py-[2px] rounded-full">
+                    Filled by another crew
+                  </div>
+                )}
+                {o.status === "approved" && (
+                  <div className="text-[11px] font-bold uppercase text-green-700 bg-green-50 px-[8px] py-[2px] rounded-full flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Accepted
+                  </div>
+                )}
+                {o.status === "declined" && (
+                  <div className="text-[11px] font-bold uppercase text-red-700 bg-red-50 px-[8px] py-[2px] rounded-full">
+                    Declined
+                  </div>
+                )}
+                {o.status === "withdrawn" && (
+                  <div className="text-[11px] font-bold uppercase text-muted-foreground bg-black/5 px-[8px] py-[2px] rounded-full">
+                    Withdrawn
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-[16px]">
+              <div className="flex flex-col gap-[12px]">
+                {/* Date & Location */}
+                <div className="grid grid-cols-2 gap-[12px]">
+                  <div className="flex items-start gap-[8px]">
+                    <Calendar className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">When needed</div>
+                      <div className="text-[13px] font-semibold">{o.scheduledOn ? formatDay(o.scheduledOn) : "TBD"}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-[8px]">
+                    <MapPin className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Location</div>
+                      <div className="text-[13px] font-semibold leading-tight">
+                        {o.propertyAddress || o.propertyCity || "No address provided"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Scope */}
+                {(o.description || (o.tasks && o.tasks.length > 0)) && (
+                  <div className="mt-[4px] pt-[12px] border-t border-border">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[6px]">Scope of work</div>
+                    {o.description && <div className="text-[13.5px] leading-relaxed mb-[8px]">{o.description}</div>}
+                    {o.tasks && o.tasks.length > 0 && (
+                      <ul className="flex flex-col gap-[4px]">
+                        {o.tasks.map((t, i) => (
+                          <li key={i} className="flex items-start gap-[6px] text-[13px]">
+                            <span className="text-[var(--gold)] mt-[2px]">•</span>
+                            <span>{t}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {/* Pricing */}
+                {o.priceItems && o.priceItems.length > 0 && (
+                  <div className="mt-[4px] pt-[12px] border-t border-border">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[6px]">Property Price List</div>
+                    <div className="bg-[var(--paper)] rounded-[8px] overflow-hidden">
+                      {o.priceItems.map((pi, i) => (
+                        <div key={pi.id} className={`flex items-center justify-between p-[8px] text-[12.5px] ${i > 0 ? "border-t border-black/5" : ""}`}>
+                          <div>
+                            <span className="font-semibold">{pi.service}</span>
+                            {pi.detail && <span className="text-muted-foreground"> · {pi.detail}</span>}
+                          </div>
+                          <div className="font-mono font-semibold">
+                            ${pi.rate.toFixed(2)}
+                            {pi.unit && <span className="text-muted-foreground font-sans font-normal"> / {pi.unit}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Photos */}
+                {o.photos && o.photos.length > 0 && (
+                  <div className="mt-[4px] pt-[12px] border-t border-border">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[6px]">Reference Photos</div>
+                    <div className="flex gap-[8px] overflow-x-auto pb-[4px]">
+                      {o.photos.map((p) => (
+                        <a
+                          key={p.storagePath}
+                          href={`/api/storage${p.storagePath}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0 w-[80px] h-[80px] rounded-[8px] overflow-hidden bg-black/5 border border-border"
+                        >
+                          <img src={`/api/storage${p.storagePath}`} alt="" className="w-full h-full object-cover" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Contact */}
+                {o.contactPhone && (
+                  <div className="mt-[4px] pt-[12px] border-t border-border">
+                     <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[2px]">Site Contact</div>
+                     <div className="text-[13px] font-semibold">{o.contactName || "Contact"} · <a href={`tel:${o.contactPhone.replace(/[^\d+]/g, '')}`} className="text-[var(--blue)]">{o.contactPhone}</a></div>
+                  </div>
+                )}
+
+              </div>
+            </div>
+
+            {/* Actions / Status footer */}
+            <div className={`p-[16px] pt-0 ${!isPending && !successMsg[o.id] && !errorMsg[o.id] ? "hidden" : ""}`}>
+              {errorMsg[o.id] && (
+                <div className="mb-[12px] bg-red-50 text-red-700 px-[12px] py-[8px] rounded-[8px] text-[13px] flex items-start gap-[8px]">
+                  <AlertCircle className="w-[16px] h-[16px] shrink-0 mt-[2px]" />
+                  <span>{errorMsg[o.id]}</span>
+                </div>
+              )}
+              
+              {successMsg[o.id] ? (
+                 <div className="bg-green-50 border border-green-200 text-green-800 px-[14px] py-[12px] rounded-[12px] text-[13.5px] font-semibold flex items-start gap-[10px]">
+                   <CheckSquare className="w-[20px] h-[20px] shrink-0 mt-[1px] text-green-600" />
+                   <span>{successMsg[o.id]}</span>
+                 </div>
+              ) : isPending ? (
+                declineConfirmId === o.id ? (
+                  <div className="bg-[var(--paper)] rounded-[12px] p-[12px] flex flex-col gap-[10px]">
+                    <div className="text-[13px] font-semibold text-center">Are you sure you want to decline?</div>
+                    <div className="flex gap-[8px]">
+                      <button
+                        onClick={() => setDeclineConfirmId(null)}
+                        className="flex-1 py-[10px] rounded-[8px] text-[13px] font-bold border border-border bg-white text-muted-foreground"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleRespond(o.id, "declined")}
+                        disabled={respond.isPending}
+                        className="flex-1 py-[10px] rounded-[8px] text-[13px] font-bold bg-red-600 text-white disabled:opacity-50"
+                      >
+                        Yes, Decline
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-[12px]">
+                    <button
+                      onClick={() => setDeclineConfirmId(o.id)}
+                      className="w-1/3 py-[12px] rounded-[12px] font-display font-bold text-[14px] border-2 border-border text-muted-foreground active:scale-[0.98] transition-transform"
+                    >
+                      Decline
+                    </button>
+                    <button
+                      onClick={() => handleRespond(o.id, "approved")}
+                      disabled={respond.isPending}
+                      className="flex-1 py-[12px] rounded-[12px] font-display font-bold text-[15px] btn-gold active:scale-[0.98] transition-transform disabled:opacity-70 flex items-center justify-center gap-[8px]"
+                    >
+                      {respond.isPending ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : <Check className="w-[18px] h-[18px]" />}
+                      Accept Job
+                    </button>
+                  </div>
+                )
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function ScheduleTab({ portal }: { portal: PortalBundle }) {
   const items = portal.schedule;

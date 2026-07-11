@@ -34,6 +34,8 @@ import type {
   BidSendResult,
   BidUpdate,
   Brief,
+  BroadcastInput,
+  BroadcastResult,
   BusinessSettings,
   BusinessSettingsInput,
   CalendarBundle,
@@ -77,6 +79,7 @@ import type {
   InvoiceDetail,
   InvoiceInput,
   Job,
+  JobBoardCard,
   JobDetail,
   JobInput,
   JobUpdate,
@@ -110,6 +113,8 @@ import type {
   PhotoShareView,
   PlaidExchangeInput,
   PortalBundle,
+  PortalOfferRespondInput,
+  PortalOfferRespondResult,
   PriceItem,
   PriceItemInput,
   Property,
@@ -2885,6 +2890,226 @@ export const useSendJobRecap = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getSendJobRecapMutationOptions(options));
+    }
+
+export const getListJobBoardUrl = () => {
+
+
+
+
+  return `/api/job-board`
+}
+
+/**
+ * @summary Job board cards (job + property price list + photos + broadcast statuses)
+ */
+export const listJobBoard = async ( options?: RequestInit): Promise<JobBoardCard[]> => {
+
+  return customFetch<JobBoardCard[]>(getListJobBoardUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListJobBoardQueryKey = () => {
+    return [
+    `/api/job-board`
+    ] as const;
+    }
+
+
+export const getListJobBoardQueryOptions = <TData = Awaited<ReturnType<typeof listJobBoard>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listJobBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListJobBoardQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listJobBoard>>> = ({ signal }) => listJobBoard({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listJobBoard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListJobBoardQueryResult = NonNullable<Awaited<ReturnType<typeof listJobBoard>>>
+export type ListJobBoardQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Job board cards (job + property price list + photos + broadcast statuses)
+ */
+
+export function useListJobBoard<TData = Awaited<ReturnType<typeof listJobBoard>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listJobBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListJobBoardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getBroadcastJobUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/broadcast`
+}
+
+/**
+ * @summary Broadcast a job to crews (all, by trade, or selected) via their portal live links
+ */
+export const broadcastJob = async (id: string,
+    broadcastInput: BroadcastInput, options?: RequestInit): Promise<BroadcastResult> => {
+
+  return customFetch<BroadcastResult>(getBroadcastJobUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(broadcastInput)
+  }
+);}
+
+
+
+
+
+export const getBroadcastJobMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof broadcastJob>>, TError,{id: string;data: BodyType<BroadcastInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof broadcastJob>>, TError,{id: string;data: BodyType<BroadcastInput>}, TContext> => {
+
+const mutationKey = ['broadcastJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof broadcastJob>>, {id: string;data: BodyType<BroadcastInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  broadcastJob(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BroadcastJobMutationResult = NonNullable<Awaited<ReturnType<typeof broadcastJob>>>
+    export type BroadcastJobMutationBody = BodyType<BroadcastInput>
+    export type BroadcastJobMutationError = ErrorType<Error>
+
+    /**
+ * @summary Broadcast a job to crews (all, by trade, or selected) via their portal live links
+ */
+export const useBroadcastJob = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof broadcastJob>>, TError,{id: string;data: BodyType<BroadcastInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof broadcastJob>>,
+        TError,
+        {id: string;data: BodyType<BroadcastInput>},
+        TContext
+      > => {
+      return useMutation(getBroadcastJobMutationOptions(options));
+    }
+
+export const getReopenJobUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/reopen`
+}
+
+/**
+ * @summary Reopen a job on the board (clears fill, allows re-broadcast)
+ */
+export const reopenJob = async (id: string, options?: RequestInit): Promise<Job> => {
+
+  return customFetch<Job>(getReopenJobUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReopenJobMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reopenJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reopenJob>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['reopenJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reopenJob>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  reopenJob(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReopenJobMutationResult = NonNullable<Awaited<ReturnType<typeof reopenJob>>>
+
+    export type ReopenJobMutationError = ErrorType<Error>
+
+    /**
+ * @summary Reopen a job on the board (clears fill, allows re-broadcast)
+ */
+export const useReopenJob = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reopenJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reopenJob>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getReopenJobMutationOptions(options));
     }
 
 export const getGetCalendarUrl = (params: GetCalendarParams,) => {
@@ -8526,6 +8751,80 @@ export const useSendCrewPacket = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getSendCrewPacketMutationOptions(options));
+    }
+
+export const getRespondPortalOfferUrl = (token: string,
+    offerId: string,) => {
+
+
+
+
+  return `/api/portal/${token}/offers/${offerId}/respond`
+}
+
+/**
+ * @summary Crew approves or declines a broadcast job offer
+ */
+export const respondPortalOffer = async (token: string,
+    offerId: string,
+    portalOfferRespondInput: PortalOfferRespondInput, options?: RequestInit): Promise<PortalOfferRespondResult> => {
+
+  return customFetch<PortalOfferRespondResult>(getRespondPortalOfferUrl(token,offerId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(portalOfferRespondInput)
+  }
+);}
+
+
+
+
+
+export const getRespondPortalOfferMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondPortalOffer>>, TError,{token: string;offerId: string;data: BodyType<PortalOfferRespondInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondPortalOffer>>, TError,{token: string;offerId: string;data: BodyType<PortalOfferRespondInput>}, TContext> => {
+
+const mutationKey = ['respondPortalOffer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondPortalOffer>>, {token: string;offerId: string;data: BodyType<PortalOfferRespondInput>}> = (props) => {
+          const {token,offerId,data} = props ?? {};
+
+          return  respondPortalOffer(token,offerId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondPortalOfferMutationResult = NonNullable<Awaited<ReturnType<typeof respondPortalOffer>>>
+    export type RespondPortalOfferMutationBody = BodyType<PortalOfferRespondInput>
+    export type RespondPortalOfferMutationError = ErrorType<Error>
+
+    /**
+ * @summary Crew approves or declines a broadcast job offer
+ */
+export const useRespondPortalOffer = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondPortalOffer>>, TError,{token: string;offerId: string;data: BodyType<PortalOfferRespondInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof respondPortalOffer>>,
+        TError,
+        {token: string;offerId: string;data: BodyType<PortalOfferRespondInput>},
+        TContext
+      > => {
+      return useMutation(getRespondPortalOfferMutationOptions(options));
     }
 
 export const getListPortalPacketsUrl = (token: string,) => {

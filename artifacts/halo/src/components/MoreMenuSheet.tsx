@@ -1,8 +1,9 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Link } from "wouter";
-import { CalendarDays, GitBranch, Package, ShieldCheck, FileUp, ChevronRight } from "lucide-react";
+import { CalendarDays, GitBranch, Package, ShieldCheck, FileUp, ChevronRight, ClipboardList } from "lucide-react";
 
 const items = [
+  { href: "/jobboard", label: "Job Board", sub: "Dispatch and fill open jobs", Icon: ClipboardList },
   { href: "/calendar", label: "Calendar", sub: "Day, week & month schedule", Icon: CalendarDays },
   { href: "/pipeline", label: "Pipeline", sub: "Leads & bids", Icon: GitBranch },
   { href: "/supply", label: "Supply", sub: "Inventory & purchase orders", Icon: Package },

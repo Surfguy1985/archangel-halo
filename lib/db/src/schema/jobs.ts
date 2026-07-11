@@ -47,6 +47,19 @@ export const jobsTable = pgTable("jobs", {
   scheduledOn: date("scheduled_on", { mode: "string" }),
   grossProfit: doublePrecision("gross_profit"),
   marginPct: doublePrecision("margin_pct"),
+  boardStatus: text("board_status").notNull().default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const jobBroadcastsTable = pgTable("job_broadcasts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  jobId: uuid("job_id").notNull(),
+  crewId: uuid("crew_id").notNull(),
+  status: text("status").notNull().default("pending"),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  respondedAt: timestamp("responded_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -67,3 +80,4 @@ export const schedulesTable = pgTable("schedules", {
 export type Crew = typeof crewsTable.$inferSelect;
 export type Job = typeof jobsTable.$inferSelect;
 export type Schedule = typeof schedulesTable.$inferSelect;
+export type JobBroadcast = typeof jobBroadcastsTable.$inferSelect;

@@ -210,6 +210,7 @@ export const GetPropertyResponse = zod.object({
   "scheduledOn": zod.string().nullish(),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "createdAt": zod.string().nullish()
 })),
   "expenses": zod.array(zod.object({
@@ -780,6 +781,7 @@ export const ListJobsResponseItem = zod.object({
   "scheduledOn": zod.string().nullish(),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "createdAt": zod.string().nullish()
 })
 export const ListJobsResponse = zod.array(ListJobsResponseItem)
@@ -821,6 +823,7 @@ export const CreateJobResponse = zod.object({
   "scheduledOn": zod.string().nullish(),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "createdAt": zod.string().nullish()
 })
 
@@ -852,6 +855,7 @@ export const GetJobResponse = zod.object({
   "scheduledOn": zod.string().nullish(),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "createdAt": zod.string().nullish()
 }),
   "activities": zod.array(zod.object({
@@ -920,6 +924,7 @@ export const UpdateJobResponse = zod.object({
   "scheduledOn": zod.string().nullish(),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "createdAt": zod.string().nullish()
 })
 
@@ -965,6 +970,7 @@ export const CompleteJobResponse = zod.object({
   "scheduledOn": zod.string().nullish(),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "createdAt": zod.string().nullish()
 })
 
@@ -1004,6 +1010,7 @@ export const ScheduleJobResponse = zod.object({
   "scheduledOn": zod.string().nullish(),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "createdAt": zod.string().nullish()
 })
 
@@ -1056,6 +1063,116 @@ export const SendJobRecapResponse = zod.object({
   "scheduledOn": zod.string().nullish(),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Job board cards (job + property price list + photos + broadcast statuses)
+ */
+export const ListJobBoardResponseItem = zod.object({
+  "job": zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "woNo": zod.string().nullish(),
+  "propertyId": zod.string().optional(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "crewLeaderId": zod.string().nullish(),
+  "crewLeaderName": zod.string().nullish(),
+  "bidId": zod.string().nullish(),
+  "contactId": zod.string().nullish(),
+  "inspectionRequired": zod.boolean().nullish(),
+  "inspectionPassedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "recapSentAt": zod.string().nullish(),
+  "warrantyUntil": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "grossProfit": zod.number().nullish(),
+  "marginPct": zod.number().nullish(),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "createdAt": zod.string().nullish()
+}),
+  "priceItems": zod.array(zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "service": zod.string(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "marginFloor": zod.number().nullish()
+})),
+  "photos": zod.array(zod.object({
+  "kind": zod.string().nullish(),
+  "storagePath": zod.string()
+})),
+  "broadcasts": zod.array(zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "trade": zod.string().nullish(),
+  "status": zod.string().describe('pending | approved | declined'),
+  "sentAt": zod.string().nullish(),
+  "respondedAt": zod.string().nullish()
+}))
+})
+export const ListJobBoardResponse = zod.array(ListJobBoardResponseItem)
+
+
+/**
+ * @summary Broadcast a job to crews (all, by trade, or selected) via their portal live links
+ */
+export const BroadcastJobParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const BroadcastJobBody = zod.object({
+  "mode": zod.string().describe('all | trade | crews'),
+  "trade": zod.string().optional(),
+  "crewIds": zod.array(zod.string()).optional()
+})
+
+export const BroadcastJobResponse = zod.object({
+  "sent": zod.number(),
+  "alreadySent": zod.number(),
+  "crewNames": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary Reopen a job on the board (clears fill, allows re-broadcast)
+ */
+export const ReopenJobParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ReopenJobResponse = zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "woNo": zod.string().nullish(),
+  "propertyId": zod.string().optional(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "crewLeaderId": zod.string().nullish(),
+  "crewLeaderName": zod.string().nullish(),
+  "bidId": zod.string().nullish(),
+  "contactId": zod.string().nullish(),
+  "inspectionRequired": zod.boolean().nullish(),
+  "inspectionPassedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "recapSentAt": zod.string().nullish(),
+  "warrantyUntil": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "grossProfit": zod.number().nullish(),
+  "marginPct": zod.number().nullish(),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "createdAt": zod.string().nullish()
 })
 
@@ -2497,6 +2614,38 @@ export const GetPortalResponse = zod.object({
   "windowStart": zod.string().nullish(),
   "status": zod.string().nullish(),
   "tasks": zod.array(zod.string()).optional()
+})),
+  "offers": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "status": zod.string().describe('pending | approved | declined'),
+  "sentAt": zod.string().nullish(),
+  "respondedAt": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish().describe('Date needed'),
+  "propertyName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "propertyCity": zod.string().nullish(),
+  "contactName": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "filledByOther": zod.boolean().optional(),
+  "tasks": zod.array(zod.string()).optional(),
+  "priceItems": zod.array(zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "service": zod.string(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "marginFloor": zod.number().nullish()
+})),
+  "photos": zod.array(zod.object({
+  "kind": zod.string().nullish(),
+  "storagePath": zod.string()
+}))
 }))
 })
 
@@ -2824,6 +2973,25 @@ export const SendCrewPacketResponse = zod.object({
   "sentAt": zod.string().nullish(),
   "submittedAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Crew approves or declines a broadcast job offer
+ */
+export const RespondPortalOfferParams = zod.object({
+  "token": zod.coerce.string(),
+  "offerId": zod.coerce.string()
+})
+
+export const RespondPortalOfferBody = zod.object({
+  "decision": zod.string().describe('approved | declined')
+})
+
+export const RespondPortalOfferResponse = zod.object({
+  "status": zod.string(),
+  "message": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish()
 })
 
 

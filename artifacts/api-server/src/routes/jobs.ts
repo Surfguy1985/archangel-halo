@@ -4,6 +4,7 @@ import {
   db,
   jobsTable,
   crewsTable,
+  jobBroadcastsTable,
   schedulesTable,
   crewMessagesTable,
   crewCheckinsTable,
@@ -168,6 +169,9 @@ router.delete("/jobs/:id", async (req, res): Promise<void> => {
       return { status: 404 as const, error: "Job not found" };
     }
     await tx.delete(schedulesTable).where(eq(schedulesTable.jobId, id));
+    await tx
+      .delete(jobBroadcastsTable)
+      .where(eq(jobBroadcastsTable.jobId, id));
     await tx.delete(jobsTable).where(eq(jobsTable.id, id));
     return { status: 200 as const };
   });
@@ -208,7 +212,7 @@ router.post("/jobs/:id/complete", async (req, res): Promise<void> => {
   const { id } = CompleteJobParams.parse(req.params);
   const [row] = await db
     .update(jobsTable)
-    .set({ status: "complete", completedAt: new Date() })
+    .set({ status: "complete", completedAt: new Date(), boardStatus: "completed" })
     .where(eq(jobsTable.id, id))
     .returning();
   if (!row) {

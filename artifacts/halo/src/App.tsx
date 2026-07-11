@@ -18,6 +18,7 @@ import Pipeline from "./pages/Pipeline";
 import Supply from "./pages/Supply";
 import Vendors from "./pages/Vendors";
 import Import from "./pages/Import";
+import JobBoard from "./pages/JobBoard";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ function AdminRouter() {
         <Route path="/crews" component={Crews} />
         <Route path="/crews/:id" component={CrewDetail} />
         <Route path="/pipeline" component={Pipeline} />
+        <Route path="/jobboard" component={JobBoard} />
         <Route path="/supply" component={Supply} />
         <Route path="/vendors" component={Vendors} />
         <Route path="/import" component={Import} />

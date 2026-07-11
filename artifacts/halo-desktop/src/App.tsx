@@ -19,6 +19,7 @@ import InvoiceDetail from "@/pages/InvoiceDetail";
 import CreateInvoice from "@/pages/CreateInvoice";
 import CrewDetail from "@/pages/CrewDetail";
 import CrewPortal from "@/pages/CrewPortal";
+import JobBoard from "@/pages/JobBoard";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ function App() {
                   <Route path="/supply" component={Supply} />
                   <Route path="/vendors" component={Vendors} />
                   <Route path="/import" component={Import} />
+                  <Route path="/jobboard" component={JobBoard} />
                   <Route component={NotFound} />
                 </Switch>
               </DesktopLayout>

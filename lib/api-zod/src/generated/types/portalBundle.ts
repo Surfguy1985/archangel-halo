@@ -6,9 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PortalCrew } from './portalCrew';
+import type { PortalOffer } from './portalOffer';
 import type { PortalScheduleItem } from './portalScheduleItem';
 
 export interface PortalBundle {
   crew: PortalCrew;
   schedule: PortalScheduleItem[];
+  offers: PortalOffer[];
 }

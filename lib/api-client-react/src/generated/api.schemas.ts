@@ -185,6 +185,11 @@ export interface Job {
   grossProfit?: number | null;
   /** @nullable */
   marginPct?: number | null;
+  /**
+     * active | filled | reopened | completed
+     * @nullable
+     */
+  boardStatus?: string | null;
   /** @nullable */
   createdAt?: string | null;
 }
@@ -509,6 +514,46 @@ export interface JobUpdate {
   status?: string;
   crewLeaderId?: string;
   inspectionRequired?: boolean;
+}
+
+export interface JobPhoto {
+  /** @nullable */
+  kind?: string | null;
+  storagePath: string;
+}
+
+export interface JobBroadcastInfo {
+  id: string;
+  crewId: string;
+  crewName: string;
+  /** @nullable */
+  trade?: string | null;
+  /** pending | approved | declined */
+  status: string;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  respondedAt?: string | null;
+}
+
+export interface JobBoardCard {
+  job: Job;
+  priceItems: PriceItem[];
+  photos: JobPhoto[];
+  broadcasts: JobBroadcastInfo[];
+}
+
+export interface BroadcastInput {
+  /** all | trade | crews */
+  mode: string;
+  trade?: string;
+  crewIds?: string[];
+}
+
+export interface BroadcastResult {
+  sent: number;
+  alreadySent: number;
+  crewNames?: string[];
 }
 
 export interface ScheduleInput {
@@ -1507,9 +1552,61 @@ export interface PortalScheduleItem {
   tasks?: string[];
 }
 
+export interface PortalOffer {
+  id: string;
+  jobId: string;
+  /** pending | approved | declined */
+  status: string;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  respondedAt?: string | null;
+  /** @nullable */
+  jobNo?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /**
+     * Date needed
+     * @nullable
+     */
+  scheduledOn?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  propertyAddress?: string | null;
+  /** @nullable */
+  propertyCity?: string | null;
+  /** @nullable */
+  contactName?: string | null;
+  /** @nullable */
+  contactPhone?: string | null;
+  filledByOther?: boolean;
+  tasks?: string[];
+  priceItems: PriceItem[];
+  photos: JobPhoto[];
+}
+
+export interface PortalOfferRespondInput {
+  /** approved | declined */
+  decision: string;
+}
+
+export interface PortalOfferRespondResult {
+  status: string;
+  /** @nullable */
+  message?: string | null;
+  /** @nullable */
+  scheduledOn?: string | null;
+}
+
 export interface PortalBundle {
   crew: PortalCrew;
   schedule: PortalScheduleItem[];
+  offers: PortalOffer[];
 }
 
 export type ListPropertiesParams = {

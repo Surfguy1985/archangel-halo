@@ -45,6 +45,11 @@ export interface Job {
   grossProfit?: number | null;
   /** @nullable */
   marginPct?: number | null;
+  /**
+     * active | filled | reopened | completed
+     * @nullable
+     */
+  boardStatus?: string | null;
   /** @nullable */
   createdAt?: string | null;
 }

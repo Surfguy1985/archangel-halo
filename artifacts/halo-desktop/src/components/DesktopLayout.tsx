@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon } from "lucide-react";
+import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon, ClipboardList } from "lucide-react";
 import { useGetToday, getGetTodayQueryKey } from "@workspace/api-client-react";
 import haloLogo from "../assets/halo-logo.png";
 import { NotificationsPopover } from "./NotificationsPopover";
@@ -24,6 +24,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
 
         <nav className="flex-1 py-6 px-4 flex flex-col gap-2 overflow-y-auto">
           <NavItem href="/" icon={Home} label="Today" active={location === "/"} />
+          <NavItem href="/jobboard" icon={ClipboardList} label="Job Board" active={location.startsWith("/jobboard")} />
           <NavItem href="/properties" icon={Building} label="Properties" active={location.startsWith("/properties")} />
           <NavItem href="/money" icon={DollarSign} label="Money" active={location.startsWith("/money") || location.startsWith("/invoices")} />
           <NavItem href="/crews" icon={Users} label="Crews" active={location.startsWith("/crews")} />
