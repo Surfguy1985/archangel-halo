@@ -17,10 +17,16 @@ export interface SendEmailResult {
 /**
  * Send an email via Resend. Prefers the RESEND_API_KEY secret (direct
  * api.resend.com call); falls back to the Resend connector proxy when the
- * secret is not set. The FROM address is built from business settings
- * (company name + email); the sender domain must be verified in the Resend
- * account or Resend rejects the send.
+ * secret is not set.
+ *
+ * Sender: emails go out from the verified standingstill.org domain (the
+ * archangelcontractors.com domain is not verified in Resend yet), displaying
+ * the company name from business settings. Replies are directed to
+ * admin@archangelcontractors.com via Reply-To. Once archangelcontractors.com
+ * is verified in Resend, switch FROM_ADDRESS back to the business email.
  */
+const FROM_ADDRESS = "no-reply@standingstill.org";
+const REPLY_TO = "admin@archangelcontractors.com";
 export async function sendEmail(opts: {
   to: string;
   subject: string;
@@ -29,11 +35,11 @@ export async function sendEmail(opts: {
 }): Promise<SendEmailResult> {
   try {
     const settings = await getBusinessSettings();
-    const from = `${settings.companyName} <${settings.email}>`;
+    const from = `${settings.companyName} <${FROM_ADDRESS}>`;
     const payload = JSON.stringify({
       from,
       to: [opts.to],
-      reply_to: settings.email,
+      reply_to: REPLY_TO,
       subject: opts.subject,
       html: opts.html,
       ...(opts.attachments && opts.attachments.length
