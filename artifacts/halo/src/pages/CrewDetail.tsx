@@ -20,6 +20,8 @@ import {
   useListCrewPhotos,
   getListCrewPhotosQueryKey,
   useCreatePhotoShare,
+  useListCrewInvoices,
+  getListCrewInvoicesQueryKey,
   type CrewPhoto,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
@@ -40,6 +42,7 @@ import {
   Send as SendIcon,
   Camera,
   Share2,
+  Receipt,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { downloadW9Pdf } from "@/lib/w9pdf";
@@ -94,6 +97,10 @@ export default function CrewDetail() {
   });
   const { data: documents } = useListCrewDocuments(id, {
     query: { queryKey: getListCrewDocumentsQueryKey(id), refetchInterval: 8000 },
+  });
+
+  const { data: crewInvoices } = useListCrewInvoices(id, {
+    query: { queryKey: getListCrewInvoicesQueryKey(id), refetchInterval: 8000 },
   });
 
   const { data: packetTemplates } = useListPacketTemplates();
@@ -429,6 +436,69 @@ export default function CrewDetail() {
             <Send className="w-[16px] h-[16px]" />
           </button>
         </div>
+      </div>
+
+      {/* Invoices from crew */}
+      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+        <div className={sectionTitle}>
+          <Receipt className="w-[13px] h-[13px]" /> Invoices from crew
+        </div>
+        {!crewInvoices || crewInvoices.length === 0 ? (
+          <div className="text-[12.5px] text-muted-foreground py-[6px] text-center">
+            No invoices submitted yet.
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {crewInvoices.map((inv, idx) => (
+              <div
+                key={inv.id}
+                className={`py-[11px] ${idx !== 0 ? "border-t border-border" : ""}`}
+              >
+                <div className="flex items-center justify-between gap-[10px]">
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold truncate">
+                      {inv.invoiceNo ? `#${inv.invoiceNo} · ` : ""}
+                      {inv.propertyAddress}
+                    </div>
+                    <div className="text-[11.5px] text-muted-foreground">
+                      {inv.fromCompany} · {formatWhen(inv.createdAt)}
+                      {inv.terms ? ` · ${inv.terms}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-[7px] shrink-0">
+                    <span className="text-[14px] font-bold tabular-nums">
+                      ${inv.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full bg-[rgba(59,111,181,0.12)] text-[var(--blue)]">
+                      {inv.status}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-[7px] flex flex-col gap-[3px]">
+                  {inv.items.map((it) => (
+                    <div
+                      key={it.id}
+                      className="flex items-center justify-between text-[12px] text-muted-foreground"
+                    >
+                      <span className="truncate">
+                        {it.dateOfWork}
+                        {it.unitNo ? ` · Unit ${it.unitNo}` : ""} · {it.typeOfWork}
+                      </span>
+                      <span className="tabular-nums shrink-0 ml-[8px]">
+                        {it.qty} × ${it.unitPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })} = $
+                        {it.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-[6px] text-[11.5px] text-muted-foreground italic">
+                  Signed by {inv.signatureName}
+                  {inv.signedAt ? ` on ${formatWhen(inv.signedAt)}` : ""}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Documents */}

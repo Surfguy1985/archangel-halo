@@ -22,6 +22,7 @@ export const crewsTable = pgTable("crews", {
   paymentDetails: text("payment_details"),
   w9: jsonb("w9"),
   w9SubmittedAt: timestamp("w9_submitted_at", { withTimezone: true }),
+  portalSeen: jsonb("portal_seen"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

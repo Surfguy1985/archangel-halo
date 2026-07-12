@@ -8,9 +8,11 @@
 import type { PortalCrew } from './portalCrew';
 import type { PortalOffer } from './portalOffer';
 import type { PortalScheduleItem } from './portalScheduleItem';
+import type { PortalUnseen } from './portalUnseen';
 
 export interface PortalBundle {
   crew: PortalCrew;
   schedule: PortalScheduleItem[];
   offers: PortalOffer[];
+  unseen: PortalUnseen;
 }

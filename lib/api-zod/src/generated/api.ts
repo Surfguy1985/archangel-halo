@@ -2646,7 +2646,14 @@ export const GetPortalResponse = zod.object({
   "kind": zod.string().nullish(),
   "storagePath": zod.string()
 }))
-}))
+})),
+  "unseen": zod.object({
+  "offers": zod.number(),
+  "schedule": zod.number(),
+  "messages": zod.number(),
+  "packets": zod.number(),
+  "documents": zod.number()
+})
 })
 
 
@@ -3119,5 +3126,179 @@ export const SubmitPortalPacketResponse = zod.object({
   "submittedAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
 })
+
+
+/**
+ * @summary Invoices this crew has submitted
+ */
+export const ListPortalInvoicesParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ListPortalInvoicesResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "invoiceNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "invoiceDate": zod.string(),
+  "terms": zod.string().nullish(),
+  "dueDate": zod.string().nullish(),
+  "fromCompany": zod.string(),
+  "fromTrade": zod.string().nullish(),
+  "fromAddress": zod.string().nullish(),
+  "fromCityStateZip": zod.string().nullish(),
+  "fromContact": zod.string().nullish(),
+  "fromPhone": zod.string().nullish(),
+  "fromEmail": zod.string().nullish(),
+  "propertyAddress": zod.string(),
+  "subtotal": zod.number(),
+  "total": zod.number(),
+  "signatureName": zod.string(),
+  "signedAt": zod.string(),
+  "status": zod.string().describe('submitted | reviewed | paid'),
+  "createdAt": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "dateOfWork": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "typeOfWork": zod.string(),
+  "qty": zod.number(),
+  "unitPrice": zod.number(),
+  "amount": zod.number()
+}))
+})
+export const ListPortalInvoicesResponse = zod.array(ListPortalInvoicesResponseItem)
+
+
+/**
+ * @summary Fill out, sign, and send an invoice to the office
+ */
+export const SubmitPortalInvoiceParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const submitPortalInvoiceBodyInvoiceDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const submitPortalInvoiceBodyDueDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const submitPortalInvoiceBodyItemsItemDateOfWorkRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const SubmitPortalInvoiceBody = zod.object({
+  "fromCompany": zod.string(),
+  "fromTrade": zod.string().nullish(),
+  "fromAddress": zod.string().nullish(),
+  "fromCityStateZip": zod.string().nullish(),
+  "fromContact": zod.string().nullish(),
+  "fromPhone": zod.string().nullish(),
+  "fromEmail": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "invoiceDate": zod.string().regex(submitPortalInvoiceBodyInvoiceDateRegExp).describe('YYYY-MM-DD'),
+  "terms": zod.string().nullish(),
+  "dueDate": zod.string().regex(submitPortalInvoiceBodyDueDateRegExp).nullish(),
+  "propertyAddress": zod.string(),
+  "items": zod.array(zod.object({
+  "dateOfWork": zod.string().regex(submitPortalInvoiceBodyItemsItemDateOfWorkRegExp).describe('YYYY-MM-DD'),
+  "unitNo": zod.string().nullish(),
+  "typeOfWork": zod.string(),
+  "qty": zod.number(),
+  "unitPrice": zod.number()
+})),
+  "signatureName": zod.string()
+})
+
+export const SubmitPortalInvoiceResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "invoiceNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "invoiceDate": zod.string(),
+  "terms": zod.string().nullish(),
+  "dueDate": zod.string().nullish(),
+  "fromCompany": zod.string(),
+  "fromTrade": zod.string().nullish(),
+  "fromAddress": zod.string().nullish(),
+  "fromCityStateZip": zod.string().nullish(),
+  "fromContact": zod.string().nullish(),
+  "fromPhone": zod.string().nullish(),
+  "fromEmail": zod.string().nullish(),
+  "propertyAddress": zod.string(),
+  "subtotal": zod.number(),
+  "total": zod.number(),
+  "signatureName": zod.string(),
+  "signedAt": zod.string(),
+  "status": zod.string().describe('submitted | reviewed | paid'),
+  "createdAt": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "dateOfWork": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "typeOfWork": zod.string(),
+  "qty": zod.number(),
+  "unitPrice": zod.number(),
+  "amount": zod.number()
+}))
+})
+
+
+/**
+ * @summary Mark a portal section as seen (clears its red badge)
+ */
+export const MarkPortalSeenParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const MarkPortalSeenBody = zod.object({
+  "section": zod.enum(['offers', 'schedule', 'messages', 'packets', 'documents'])
+})
+
+export const MarkPortalSeenResponse = zod.object({
+  "offers": zod.number(),
+  "schedule": zod.number(),
+  "messages": zod.number(),
+  "packets": zod.number(),
+  "documents": zod.number()
+})
+
+
+/**
+ * @summary Invoices submitted by this crew through their portal
+ */
+export const ListCrewInvoicesParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListCrewInvoicesResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "invoiceNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "invoiceDate": zod.string(),
+  "terms": zod.string().nullish(),
+  "dueDate": zod.string().nullish(),
+  "fromCompany": zod.string(),
+  "fromTrade": zod.string().nullish(),
+  "fromAddress": zod.string().nullish(),
+  "fromCityStateZip": zod.string().nullish(),
+  "fromContact": zod.string().nullish(),
+  "fromPhone": zod.string().nullish(),
+  "fromEmail": zod.string().nullish(),
+  "propertyAddress": zod.string(),
+  "subtotal": zod.number(),
+  "total": zod.number(),
+  "signatureName": zod.string(),
+  "signedAt": zod.string(),
+  "status": zod.string().describe('submitted | reviewed | paid'),
+  "createdAt": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "dateOfWork": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "typeOfWork": zod.string(),
+  "qty": zod.number(),
+  "unitPrice": zod.number(),
+  "amount": zod.number()
+}))
+})
+export const ListCrewInvoicesResponse = zod.array(ListCrewInvoicesResponseItem)
 
 

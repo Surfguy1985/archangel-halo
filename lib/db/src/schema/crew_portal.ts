@@ -81,9 +81,49 @@ export const crewPaymentsTable = pgTable("crew_payments", {
     .defaultNow(),
 });
 
+export const crewInvoicesTable = pgTable("crew_invoices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  crewId: uuid("crew_id").notNull(),
+  invoiceNo: text("invoice_no"),
+  poNumber: text("po_number"),
+  invoiceDate: text("invoice_date").notNull(),
+  terms: text("terms"),
+  dueDate: text("due_date"),
+  fromCompany: text("from_company").notNull(),
+  fromTrade: text("from_trade"),
+  fromAddress: text("from_address"),
+  fromCityStateZip: text("from_city_state_zip"),
+  fromContact: text("from_contact"),
+  fromPhone: text("from_phone"),
+  fromEmail: text("from_email"),
+  propertyAddress: text("property_address").notNull(),
+  subtotal: doublePrecision("subtotal").notNull(),
+  total: doublePrecision("total").notNull(),
+  signatureName: text("signature_name").notNull(),
+  signedAt: timestamp("signed_at", { withTimezone: true }).notNull(),
+  status: text("status").notNull().default("submitted"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const crewInvoiceItemsTable = pgTable("crew_invoice_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invoiceId: uuid("invoice_id").notNull(),
+  dateOfWork: text("date_of_work").notNull(),
+  unitNo: text("unit_no"),
+  typeOfWork: text("type_of_work").notNull(),
+  qty: doublePrecision("qty").notNull(),
+  unitPrice: doublePrecision("unit_price").notNull(),
+  amount: doublePrecision("amount").notNull(),
+  sortOrder: doublePrecision("sort_order").notNull().default(0),
+});
+
 export type CrewPhoto = typeof crewPhotosTable.$inferSelect;
 export type PhotoShare = typeof photoSharesTable.$inferSelect;
 export type CrewMessage = typeof crewMessagesTable.$inferSelect;
 export type CrewCheckin = typeof crewCheckinsTable.$inferSelect;
 export type CrewDocument = typeof crewDocumentsTable.$inferSelect;
 export type CrewPayment = typeof crewPaymentsTable.$inferSelect;
+export type CrewInvoice = typeof crewInvoicesTable.$inferSelect;
+export type CrewInvoiceItem = typeof crewInvoiceItemsTable.$inferSelect;

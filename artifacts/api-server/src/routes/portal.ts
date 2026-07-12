@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, lte, ne } from "drizzle-orm";
 import {
   db,
   crewsTable,
@@ -7,6 +7,9 @@ import {
   crewCheckinsTable,
   crewDocumentsTable,
   crewPhotosTable,
+  crewPacketsTable,
+  crewInvoicesTable,
+  crewInvoiceItemsTable,
   schedulesTable,
   jobsTable,
   jobBroadcastsTable,
@@ -49,6 +52,14 @@ import {
   RespondPortalOfferParams,
   RespondPortalOfferBody,
   RespondPortalOfferResponse,
+  ListPortalInvoicesParams,
+  ListPortalInvoicesResponse,
+  SubmitPortalInvoiceParams,
+  SubmitPortalInvoiceBody,
+  SubmitPortalInvoiceResponse,
+  MarkPortalSeenParams,
+  MarkPortalSeenBody,
+  MarkPortalSeenResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 
@@ -79,6 +90,83 @@ function to12h(hhmm: string | null | undefined): string | null {
   const mer = hour >= 12 ? "PM" : "AM";
   hour = hour % 12 || 12;
   return `${hour}:${m[2]} ${mer}`;
+}
+
+// Anything the office sent that the crew hasn't looked at yet, per portal section.
+// crews.portal_seen stores { section: lastSeenISO }; missing key = never seen.
+async function computeUnseen(crew: CrewRow) {
+  const seen = (crew.portalSeen as Record<string, string> | null) ?? {};
+  const since = (section: string) =>
+    seen[section] ? new Date(seen[section]!) : new Date(0);
+
+  const [offers, sched, events, messages, packets, documents] =
+    await Promise.all([
+      db
+        .select({ n: count() })
+        .from(jobBroadcastsTable)
+        .where(
+          and(
+            eq(jobBroadcastsTable.crewId, crew.id),
+            eq(jobBroadcastsTable.status, "pending"),
+            gt(jobBroadcastsTable.sentAt, since("offers")),
+          ),
+        ),
+      db
+        .select({ n: count() })
+        .from(schedulesTable)
+        .where(
+          and(
+            eq(schedulesTable.crewLeaderId, crew.id),
+            gt(schedulesTable.createdAt, since("schedule")),
+          ),
+        ),
+      db
+        .select({ n: count() })
+        .from(calendarEventsTable)
+        .where(
+          and(
+            eq(calendarEventsTable.crewId, crew.id),
+            gt(calendarEventsTable.createdAt, since("schedule")),
+          ),
+        ),
+      db
+        .select({ n: count() })
+        .from(crewMessagesTable)
+        .where(
+          and(
+            eq(crewMessagesTable.crewId, crew.id),
+            eq(crewMessagesTable.sender, "admin"),
+            gt(crewMessagesTable.createdAt, since("messages")),
+          ),
+        ),
+      db
+        .select({ n: count() })
+        .from(crewPacketsTable)
+        .where(
+          and(
+            eq(crewPacketsTable.crewId, crew.id),
+            gt(crewPacketsTable.sentAt, since("packets")),
+          ),
+        ),
+      db
+        .select({ n: count() })
+        .from(crewDocumentsTable)
+        .where(
+          and(
+            eq(crewDocumentsTable.crewId, crew.id),
+            eq(crewDocumentsTable.direction, "to_crew"),
+            gt(crewDocumentsTable.createdAt, since("documents")),
+          ),
+        ),
+    ]);
+
+  return {
+    offers: offers[0]?.n ?? 0,
+    schedule: (sched[0]?.n ?? 0) + (events[0]?.n ?? 0),
+    messages: messages[0]?.n ?? 0,
+    packets: packets[0]?.n ?? 0,
+    documents: documents[0]?.n ?? 0,
+  };
 }
 
 async function crewByToken(token: string): Promise<CrewRow | null> {
@@ -283,6 +371,8 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       };
     });
 
+  const unseen = await computeUnseen(crew);
+
   res.json(
     GetPortalResponse.parse({
       crew: {
@@ -295,6 +385,171 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       },
       schedule,
       offers,
+      unseen,
+    }),
+  );
+});
+
+router.post("/portal/:token/seen", async (req, res): Promise<void> => {
+  const { token } = MarkPortalSeenParams.parse(req.params);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const body = MarkPortalSeenBody.parse(req.body);
+  const seen = (crew.portalSeen as Record<string, string> | null) ?? {};
+  seen[body.section] = new Date().toISOString();
+  await db
+    .update(crewsTable)
+    .set({ portalSeen: seen })
+    .where(eq(crewsTable.id, crew.id));
+  const unseen = await computeUnseen({ ...crew, portalSeen: seen });
+  res.json(MarkPortalSeenResponse.parse(unseen));
+});
+
+async function invoicesWithItems(crewId: string) {
+  const invoices = await db
+    .select()
+    .from(crewInvoicesTable)
+    .where(eq(crewInvoicesTable.crewId, crewId))
+    .orderBy(desc(crewInvoicesTable.createdAt));
+  const ids = invoices.map((i) => i.id);
+  const items =
+    ids.length > 0
+      ? await db
+          .select()
+          .from(crewInvoiceItemsTable)
+          .where(inArray(crewInvoiceItemsTable.invoiceId, ids))
+      : [];
+  return invoices.map((inv) => ({
+    ...ser(inv),
+    items: items
+      .filter((it) => it.invoiceId === inv.id)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((it) => ser(it)),
+  }));
+}
+
+router.get("/portal/:token/invoices", async (req, res): Promise<void> => {
+  const { token } = ListPortalInvoicesParams.parse(req.params);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  res.json(ListPortalInvoicesResponse.parse(await invoicesWithItems(crew.id)));
+});
+
+router.post("/portal/:token/invoices", async (req, res): Promise<void> => {
+  const { token } = SubmitPortalInvoiceParams.parse(req.params);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const body = SubmitPortalInvoiceBody.parse(req.body);
+
+  if (!body.fromCompany.trim()) {
+    res.status(400).json({ error: "Your company name is required" });
+    return;
+  }
+  if (!body.propertyAddress.trim()) {
+    res.status(400).json({ error: "Property address is required" });
+    return;
+  }
+  if (!body.signatureName.trim()) {
+    res.status(400).json({ error: "Type your full name to sign" });
+    return;
+  }
+  const items = body.items.filter(
+    (it) => it.typeOfWork.trim() || it.qty || it.unitPrice,
+  );
+  if (items.length === 0) {
+    res.status(400).json({ error: "Add at least one line item" });
+    return;
+  }
+  for (const it of items) {
+    if (!it.dateOfWork.trim() || !it.typeOfWork.trim()) {
+      res
+        .status(400)
+        .json({ error: "Every line needs a date of work and type of work" });
+      return;
+    }
+    if (
+      !Number.isFinite(it.qty) ||
+      it.qty <= 0 ||
+      !Number.isFinite(it.unitPrice) ||
+      it.unitPrice < 0
+    ) {
+      res.status(400).json({
+        error: "Every line needs a quantity above zero and a valid unit price",
+      });
+      return;
+    }
+  }
+
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const lineAmounts = items.map((it) => round2(it.qty * it.unitPrice));
+  const subtotal = round2(lineAmounts.reduce((s, a) => s + a, 0));
+  const now = new Date();
+
+  const created = await db.transaction(async (tx) => {
+    const [inv] = await tx
+      .insert(crewInvoicesTable)
+      .values({
+        crewId: crew.id,
+        invoiceNo: body.invoiceNo?.trim() || null,
+        poNumber: body.poNumber?.trim() || null,
+        invoiceDate: body.invoiceDate,
+        terms: body.terms ?? null,
+        dueDate: body.dueDate ?? null,
+        fromCompany: body.fromCompany.trim(),
+        fromTrade: body.fromTrade?.trim() || null,
+        fromAddress: body.fromAddress?.trim() || null,
+        fromCityStateZip: body.fromCityStateZip?.trim() || null,
+        fromContact: body.fromContact?.trim() || null,
+        fromPhone: body.fromPhone?.trim() || null,
+        fromEmail: body.fromEmail?.trim() || null,
+        propertyAddress: body.propertyAddress.trim(),
+        subtotal,
+        total: subtotal,
+        signatureName: body.signatureName.trim(),
+        signedAt: now,
+        status: "submitted",
+      })
+      .returning();
+    const itemRows = await tx
+      .insert(crewInvoiceItemsTable)
+      .values(
+        items.map((it, idx) => ({
+          invoiceId: inv!.id,
+          dateOfWork: it.dateOfWork,
+          unitNo: it.unitNo?.trim() || null,
+          typeOfWork: it.typeOfWork.trim(),
+          qty: it.qty,
+          unitPrice: it.unitPrice,
+          amount: lineAmounts[idx]!,
+          sortOrder: idx,
+        })),
+      )
+      .returning();
+    return { inv: inv!, itemRows };
+  });
+
+  await db.insert(notificationsTable).values({
+    kind: "crew_invoice",
+    priority: "urgent",
+    entityType: "crew",
+    entityId: crew.id,
+    title: `${crew.name} sent an invoice — $${subtotal.toFixed(2)}`,
+    body: `${created.inv.invoiceNo ? `Invoice ${created.inv.invoiceNo} · ` : ""}${body.propertyAddress.trim()} · signed by ${body.signatureName.trim()}`,
+  });
+
+  res.status(201).json(
+    SubmitPortalInvoiceResponse.parse({
+      ...ser(created.inv),
+      items: created.itemRows.map((it) => ser(it)),
     }),
   );
 });

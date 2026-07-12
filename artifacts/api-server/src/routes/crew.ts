@@ -9,8 +9,11 @@ import {
   crewDocumentsTable,
   crewPaymentsTable,
   crewPhotosTable,
+  crewInvoicesTable,
+  crewInvoiceItemsTable,
   photoSharesTable,
 } from "@workspace/db";
+import { inArray } from "drizzle-orm";
 import {
   GetCrewDetailParams,
   GetCrewDetailResponse,
@@ -44,6 +47,8 @@ import {
   CreatePhotoShareResponse,
   GetPhotoShareParams,
   GetPhotoShareResponse,
+  ListCrewInvoicesParams,
+  ListCrewInvoicesResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 
@@ -217,6 +222,43 @@ router.get("/crews/:id/documents", async (req, res): Promise<void> => {
     .where(eq(crewDocumentsTable.crewId, id))
     .orderBy(desc(crewDocumentsTable.createdAt));
   res.json(ListCrewDocumentsResponse.parse(rows.map((r) => ser(r))));
+});
+
+router.get("/crews/:id/invoices", async (req, res): Promise<void> => {
+  const { id } = ListCrewInvoicesParams.parse(req.params);
+  const [crew] = await db
+    .select({ id: crewsTable.id })
+    .from(crewsTable)
+    .where(eq(crewsTable.id, id))
+    .limit(1);
+  if (!crew) {
+    res.status(404).json({ error: "Crew not found" });
+    return;
+  }
+  const invoices = await db
+    .select()
+    .from(crewInvoicesTable)
+    .where(eq(crewInvoicesTable.crewId, id))
+    .orderBy(desc(crewInvoicesTable.createdAt));
+  const ids = invoices.map((i) => i.id);
+  const items =
+    ids.length > 0
+      ? await db
+          .select()
+          .from(crewInvoiceItemsTable)
+          .where(inArray(crewInvoiceItemsTable.invoiceId, ids))
+      : [];
+  res.json(
+    ListCrewInvoicesResponse.parse(
+      invoices.map((inv) => ({
+        ...ser(inv),
+        items: items
+          .filter((it) => it.invoiceId === inv.id)
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((it) => ser(it)),
+      })),
+    ),
+  );
 });
 
 router.post("/crews/:id/documents", async (req, res): Promise<void> => {

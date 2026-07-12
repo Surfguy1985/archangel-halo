@@ -19,9 +19,15 @@ import {
   getListPortalDocumentsQueryKey,
   getGetPortalW9QueryKey,
   useRespondPortalOffer,
+  useListPortalInvoices,
+  useSubmitPortalInvoice,
+  useMarkPortalSeen,
+  getListPortalInvoicesQueryKey,
   type W9Data,
   type PortalBundle,
   type PortalOffer,
+  type CrewInvoice,
+  type PortalSeenInputSection,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import {
@@ -44,6 +50,9 @@ import {
   Briefcase,
   AlertCircle,
   X,
+  Receipt,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 import WelcomeKitTab from "./WelcomeKitTab";
@@ -51,6 +60,7 @@ import WelcomeKitTab from "./WelcomeKitTab";
 type Tab =
   | "offers"
   | "schedule"
+  | "invoice"
   | "messages"
   | "photos"
   | "documents"
@@ -58,6 +68,14 @@ type Tab =
   | "pay"
   | "w9"
   | "packets";
+
+const SEEN_SECTIONS: Partial<Record<Tab, PortalSeenInputSection>> = {
+  offers: "offers",
+  schedule: "schedule",
+  messages: "messages",
+  packets: "packets",
+  documents: "documents",
+};
 
 function localToday(): string {
   const d = new Date();
@@ -90,8 +108,10 @@ function formatDay(iso?: string | null): string {
 export default function CrewPortal() {
   const { token } = useParams<{ token: string }>();
   const [tab, setTab] = useState<Tab>("schedule");
+  const queryClient = useQueryClient();
 
   const { data: portal, isLoading, isError } = useGetPortal(token);
+  const markSeen = useMarkPortalSeen();
 
   const pendingOffersCount = portal?.offers?.filter(o => o.status === "pending" && !o.filledByOther).length || 0;
 
@@ -100,6 +120,26 @@ export default function CrewPortal() {
       setTab("offers");
     }
   }, [pendingOffersCount]);
+
+  const unseen = portal?.unseen;
+
+  useEffect(() => {
+    const section = SEEN_SECTIONS[tab];
+    if (!section || !unseen) return;
+    const n = (unseen as unknown as Record<string, number>)[section] ?? 0;
+    if (n > 0) {
+      markSeen.mutate(
+        { token, data: { section } },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: getGetPortalQueryKey(token),
+            });
+          },
+        },
+      );
+    }
+  }, [tab, unseen, token]);
 
   if (isLoading) {
     return (
@@ -123,14 +163,16 @@ export default function CrewPortal() {
     );
   }
 
-  const tabs: { key: Tab; label: string; icon: any; badge?: number }[] = [
-    { key: "offers", label: "Offers", icon: Briefcase, badge: pendingOffersCount },
-    { key: "schedule", label: "Schedule", icon: Calendar },
-    { key: "packets", label: "Welcome Kit", icon: PackageCheck },
-    { key: "messages", label: "Messages", icon: MessageSquare },
+  const u = portal.unseen;
+  const tabs: { key: Tab; label: string; icon: any; badge?: number; alert?: number }[] = [
+    { key: "offers", label: "Offers", icon: Briefcase, badge: pendingOffersCount, alert: u?.offers },
+    { key: "schedule", label: "Schedule", icon: Calendar, alert: u?.schedule },
+    { key: "invoice", label: "Invoice", icon: Receipt },
+    { key: "packets", label: "Welcome Kit", icon: PackageCheck, alert: u?.packets },
+    { key: "messages", label: "Messages", icon: MessageSquare, alert: u?.messages },
     { key: "checkin", label: "Check-in", icon: MapPin },
     { key: "photos", label: "Photos", icon: Camera },
-    { key: "documents", label: "Docs", icon: FileText },
+    { key: "documents", label: "Docs", icon: FileText, alert: u?.documents },
     { key: "pay", label: "Pay", icon: Wallet },
     { key: "w9", label: "W-9", icon: ClipboardCheck },
   ];
@@ -164,7 +206,11 @@ export default function CrewPortal() {
                 }`}
               >
                 <Icon className="w-[14px] h-[14px]" /> {t.label}
-                {t.badge ? (
+                {t.alert ? (
+                  <span className="ml-[2px] bg-red-600 text-white px-[5px] py-[1px] rounded-full text-[10px] font-bold min-w-[16px] text-center">
+                    {t.alert}
+                  </span>
+                ) : t.badge ? (
                   <span className="ml-[2px] bg-[var(--gold)] text-[var(--ink)] px-[5px] py-[1px] rounded-full text-[10px] font-bold">
                     {t.badge}
                   </span>
@@ -178,6 +224,7 @@ export default function CrewPortal() {
       <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto">
         {tab === "offers" && <OffersTab portal={portal} token={token} />}
         {tab === "schedule" && <ScheduleTab portal={portal} />}
+        {tab === "invoice" && <InvoiceTab portal={portal} token={token} />}
         {tab === "packets" && <WelcomeKitTab token={token} />}
         {tab === "messages" && <MessagesTab token={token} />}
         {tab === "checkin" && <CheckinTab token={token} />}
@@ -1337,6 +1384,402 @@ function W9Tab({ token }: { token: string }) {
           "Submit W-9"
         )}
       </button>
+    </div>
+  );
+}
+
+const invField =
+  "w-full rounded-[11px] border border-border bg-background px-[12px] py-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40";
+const invLbl = "block text-[12px] font-semibold text-muted-foreground mb-[5px]";
+
+const TERMS_OPTIONS = ["Due Upon Receipt", "Net 7", "Net 15", "Net 30"];
+
+function addDaysLocal(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y!, (m ?? 1) - 1, d ?? 1);
+  dt.setDate(dt.getDate() + days);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+function termsToDueDate(invoiceDate: string, terms: string): string {
+  if (!invoiceDate) return "";
+  const m = terms.match(/Net (\d+)/);
+  if (m) return addDaysLocal(invoiceDate, Number(m[1]));
+  return invoiceDate;
+}
+
+function money(n: number): string {
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+type InvLine = {
+  dateOfWork: string;
+  unitNo: string;
+  typeOfWork: string;
+  qty: string;
+  unitPrice: string;
+};
+
+function emptyLine(): InvLine {
+  return { dateOfWork: localToday(), unitNo: "", typeOfWork: "", qty: "1", unitPrice: "" };
+}
+
+function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) {
+  const queryClient = useQueryClient();
+  const { data: invoices } = useListPortalInvoices(token);
+  const submit = useSubmitPortalInvoice();
+
+  const [fromCompany, setFromCompany] = useState(portal.crew.name);
+  const [fromTrade, setFromTrade] = useState(portal.crew.trade ?? "");
+  const [fromAddress, setFromAddress] = useState("");
+  const [fromCityStateZip, setFromCityStateZip] = useState("");
+  const [fromContact, setFromContact] = useState("");
+  const [fromPhone, setFromPhone] = useState("");
+  const [fromEmail, setFromEmail] = useState("");
+  const [invoiceNo, setInvoiceNo] = useState("");
+  const [poNumber, setPoNumber] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(localToday());
+  const [terms, setTerms] = useState("Net 30");
+  const [propertyAddress, setPropertyAddress] = useState("");
+  const [lines, setLines] = useState<InvLine[]>([emptyLine()]);
+  const [signatureName, setSignatureName] = useState("");
+  const [err, setErr] = useState("");
+  const [sent, setSent] = useState(false);
+  const [prefilled, setPrefilled] = useState(false);
+
+  useEffect(() => {
+    if (prefilled || !invoices || invoices.length === 0) return;
+    const last = invoices[0]!;
+    setFromCompany(last.fromCompany || portal.crew.name);
+    if (last.fromTrade) setFromTrade(last.fromTrade);
+    if (last.fromAddress) setFromAddress(last.fromAddress);
+    if (last.fromCityStateZip) setFromCityStateZip(last.fromCityStateZip);
+    if (last.fromContact) setFromContact(last.fromContact);
+    if (last.fromPhone) setFromPhone(last.fromPhone);
+    if (last.fromEmail) setFromEmail(last.fromEmail);
+    setPrefilled(true);
+  }, [invoices, prefilled, portal.crew.name]);
+
+  const dueDate = termsToDueDate(invoiceDate, terms);
+
+  const lineAmount = (l: InvLine) => {
+    const q = parseFloat(l.qty);
+    const p = parseFloat(l.unitPrice);
+    if (!Number.isFinite(q) || !Number.isFinite(p)) return 0;
+    return Math.round(q * p * 100) / 100;
+  };
+  const total = Math.round(lines.reduce((s, l) => s + lineAmount(l), 0) * 100) / 100;
+
+  const setLine = (idx: number, patch: Partial<InvLine>) => {
+    setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  };
+
+  const handleSend = () => {
+    setErr("");
+    if (!fromCompany.trim()) return setErr("Enter your company or crew name.");
+    if (!propertyAddress.trim()) return setErr("Enter the property address you worked at.");
+    const filled = lines.filter((l) => l.typeOfWork.trim());
+    if (filled.length === 0) return setErr("Add at least one line of work.");
+    for (const l of filled) {
+      if (!l.dateOfWork) return setErr("Every line needs a date of work.");
+      const q = parseFloat(l.qty);
+      const p = parseFloat(l.unitPrice);
+      if (!Number.isFinite(q) || q <= 0) return setErr("Every line needs a quantity above zero.");
+      if (!Number.isFinite(p) || p < 0) return setErr("Every line needs a unit price.");
+    }
+    if (!signatureName.trim()) return setErr("Type your full name to sign the invoice.");
+
+    submit.mutate(
+      {
+        token,
+        data: {
+          invoiceNo: invoiceNo.trim() || undefined,
+          poNumber: poNumber.trim() || undefined,
+          invoiceDate,
+          terms,
+          dueDate: dueDate || undefined,
+          fromCompany: fromCompany.trim(),
+          fromTrade: fromTrade.trim() || undefined,
+          fromAddress: fromAddress.trim() || undefined,
+          fromCityStateZip: fromCityStateZip.trim() || undefined,
+          fromContact: fromContact.trim() || undefined,
+          fromPhone: fromPhone.trim() || undefined,
+          fromEmail: fromEmail.trim() || undefined,
+          propertyAddress: propertyAddress.trim(),
+          items: filled.map((l) => ({
+            dateOfWork: l.dateOfWork,
+            unitNo: l.unitNo.trim() || undefined,
+            typeOfWork: l.typeOfWork.trim(),
+            qty: parseFloat(l.qty),
+            unitPrice: parseFloat(l.unitPrice),
+          })),
+          signatureName: signatureName.trim(),
+        },
+      },
+      {
+        onSuccess: () => {
+          setSent(true);
+          setInvoiceNo("");
+          setPoNumber("");
+          setInvoiceDate(localToday());
+          setPropertyAddress("");
+          setLines([emptyLine()]);
+          setSignatureName("");
+          queryClient.invalidateQueries({
+            queryKey: getListPortalInvoicesQueryKey(token),
+          });
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          setTimeout(() => setSent(false), 6000);
+        },
+        onError: (e: any) => {
+          setErr(e?.data?.error ?? "Something went wrong. Try again.");
+        },
+      },
+    );
+  };
+
+  const statusChip = (s: string) => {
+    const map: Record<string, string> = {
+      submitted: "bg-[var(--gold)]/15 text-[var(--gold-dark,#8f6a1f)]",
+      approved: "bg-emerald-100 text-emerald-700",
+      paid: "bg-emerald-100 text-emerald-700",
+      rejected: "bg-red-100 text-red-700",
+    };
+    return map[s] ?? "bg-muted text-muted-foreground";
+  };
+
+  return (
+    <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
+      {sent && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-[14px] p-[13px] flex items-center gap-[9px] text-[13.5px] font-semibold">
+          <Check className="w-[18px] h-[18px]" /> Invoice sent to ArchAngel. They've been notified.
+        </div>
+      )}
+
+      <div className={card}>
+        <div className="font-display font-bold text-[17px]">Subcontractor Invoice</div>
+        <p className="text-[12.5px] text-muted-foreground mt-[3px]">
+          Fill this out and sign to send your invoice straight to the ArchAngel office.
+        </p>
+      </div>
+
+      <div className={card}>
+        <div className="text-[11px] font-display font-bold tracking-[0.14em] uppercase text-muted-foreground mb-[10px]">
+          From (your company)
+        </div>
+        <div className="flex flex-col gap-[10px]">
+          <div>
+            <label className={invLbl}>Company / Crew name *</label>
+            <input className={invField} value={fromCompany} onChange={(e) => setFromCompany(e.target.value)} />
+          </div>
+          <div>
+            <label className={invLbl}>Trade</label>
+            <input className={invField} value={fromTrade} onChange={(e) => setFromTrade(e.target.value)} placeholder="e.g. Painting" />
+          </div>
+          <div>
+            <label className={invLbl}>Street address</label>
+            <input className={invField} value={fromAddress} onChange={(e) => setFromAddress(e.target.value)} />
+          </div>
+          <div>
+            <label className={invLbl}>City, State ZIP</label>
+            <input className={invField} value={fromCityStateZip} onChange={(e) => setFromCityStateZip(e.target.value)} />
+          </div>
+          <div>
+            <label className={invLbl}>Contact name</label>
+            <input className={invField} value={fromContact} onChange={(e) => setFromContact(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-[10px]">
+            <div>
+              <label className={invLbl}>Phone</label>
+              <input className={invField} inputMode="tel" value={fromPhone} onChange={(e) => setFromPhone(e.target.value)} />
+            </div>
+            <div>
+              <label className={invLbl}>Email</label>
+              <input className={invField} inputMode="email" value={fromEmail} onChange={(e) => setFromEmail(e.target.value)} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={card}>
+        <div className="text-[11px] font-display font-bold tracking-[0.14em] uppercase text-muted-foreground mb-[8px]">
+          Bill to
+        </div>
+        <div className="text-[13.5px] leading-[1.55]">
+          <div className="font-bold">ArchAngel Contractors</div>
+          <div>ATTN: May Mahboob</div>
+          <div>130 N Preston Rd, Suite 334</div>
+          <div>Prosper, TX 75078</div>
+          <div className="text-muted-foreground">Admin@archangelcontractors.com</div>
+        </div>
+      </div>
+
+      <div className={card}>
+        <div className="text-[11px] font-display font-bold tracking-[0.14em] uppercase text-muted-foreground mb-[10px]">
+          Invoice details
+        </div>
+        <div className="flex flex-col gap-[10px]">
+          <div className="grid grid-cols-2 gap-[10px]">
+            <div>
+              <label className={invLbl}>Invoice #</label>
+              <input className={invField} value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} placeholder="Optional" />
+            </div>
+            <div>
+              <label className={invLbl}>PO # </label>
+              <input className={invField} value={poNumber} onChange={(e) => setPoNumber(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-[10px]">
+            <div>
+              <label className={invLbl}>Invoice date</label>
+              <input type="date" className={invField} value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
+            </div>
+            <div>
+              <label className={invLbl}>Terms</label>
+              <select className={invField} value={terms} onChange={(e) => setTerms(e.target.value)}>
+                {TERMS_OPTIONS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className={invLbl}>Due date (from terms)</label>
+            <input type="date" className={invField} value={dueDate} readOnly />
+          </div>
+          <div>
+            <label className={invLbl}>Property address (where the work was done) *</label>
+            <input className={invField} value={propertyAddress} onChange={(e) => setPropertyAddress(e.target.value)} placeholder="e.g. Maple Grove Apartments" />
+          </div>
+        </div>
+      </div>
+
+      <div className={card}>
+        <div className="text-[11px] font-display font-bold tracking-[0.14em] uppercase text-muted-foreground mb-[10px]">
+          Work performed
+        </div>
+        <div className="flex flex-col gap-[12px]">
+          {lines.map((l, idx) => (
+            <div key={idx} className="rounded-[13px] border border-border p-[11px] flex flex-col gap-[9px]">
+              <div className="flex items-center justify-between">
+                <div className="text-[12px] font-bold text-muted-foreground">Line {idx + 1}</div>
+                {lines.length > 1 && (
+                  <button
+                    onClick={() => setLines((prev) => prev.filter((_, i) => i !== idx))}
+                    className="text-muted-foreground hover:text-destructive p-[3px]"
+                    aria-label="Remove line"
+                  >
+                    <Trash2 className="w-[15px] h-[15px]" />
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-[9px]">
+                <div>
+                  <label className={invLbl}>Date of work</label>
+                  <input type="date" className={invField} value={l.dateOfWork} onChange={(e) => setLine(idx, { dateOfWork: e.target.value })} />
+                </div>
+                <div>
+                  <label className={invLbl}>Unit #</label>
+                  <input className={invField} value={l.unitNo} onChange={(e) => setLine(idx, { unitNo: e.target.value })} placeholder="Optional" />
+                </div>
+              </div>
+              <div>
+                <label className={invLbl}>Type of work *</label>
+                <input className={invField} value={l.typeOfWork} onChange={(e) => setLine(idx, { typeOfWork: e.target.value })} placeholder="e.g. Full paint — 2 bed unit" />
+              </div>
+              <div className="grid grid-cols-3 gap-[9px]">
+                <div>
+                  <label className={invLbl}>Qty</label>
+                  <input className={invField} inputMode="decimal" value={l.qty} onChange={(e) => setLine(idx, { qty: e.target.value })} />
+                </div>
+                <div>
+                  <label className={invLbl}>Unit price</label>
+                  <input className={invField} inputMode="decimal" value={l.unitPrice} onChange={(e) => setLine(idx, { unitPrice: e.target.value })} placeholder="0.00" />
+                </div>
+                <div>
+                  <label className={invLbl}>Amount</label>
+                  <div className="rounded-[11px] bg-muted px-[12px] py-[10px] text-[14px] font-semibold tabular-nums">
+                    {money(lineAmount(l))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+          <button
+            onClick={() => setLines((prev) => [...prev, emptyLine()])}
+            className="flex items-center justify-center gap-[6px] rounded-[12px] border border-dashed border-border py-[10px] text-[13px] font-semibold text-muted-foreground hover:text-foreground"
+          >
+            <Plus className="w-[15px] h-[15px]" /> Add another line
+          </button>
+          <div className="flex items-center justify-between border-t border-border pt-[11px]">
+            <div className="font-display font-bold text-[15px]">Total due</div>
+            <div className="font-display font-bold text-[19px] tabular-nums">{money(total)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className={card}>
+        <div className="text-[11px] font-display font-bold tracking-[0.14em] uppercase text-muted-foreground mb-[8px]">
+          Sign &amp; send
+        </div>
+        <p className="text-[12.5px] text-muted-foreground mb-[10px]">
+          By typing your name you confirm the work above was completed and the amounts are correct.
+        </p>
+        <label className={invLbl}>Type your full name to sign *</label>
+        <input
+          className={`${invField} font-display italic`}
+          value={signatureName}
+          onChange={(e) => setSignatureName(e.target.value)}
+          placeholder="Your full name"
+        />
+        {err && <div className="text-[12.5px] text-destructive mt-[9px]">{err}</div>}
+        <button
+          onClick={handleSend}
+          disabled={submit.isPending}
+          className="mt-[12px] w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+        >
+          {submit.isPending ? (
+            <>
+              <Loader2 className="w-[17px] h-[17px] animate-spin" /> Sending…
+            </>
+          ) : (
+            <>
+              <Send className="w-[17px] h-[17px]" /> Sign &amp; Send Invoice
+            </>
+          )}
+        </button>
+      </div>
+
+      {invoices && invoices.length > 0 && (
+        <div className={card}>
+          <div className="text-[11px] font-display font-bold tracking-[0.14em] uppercase text-muted-foreground mb-[10px]">
+            Invoices you've sent
+          </div>
+          <div className="flex flex-col gap-[9px]">
+            {invoices.map((inv: CrewInvoice) => (
+              <div key={inv.id} className="flex items-center justify-between rounded-[12px] border border-border px-[12px] py-[10px]">
+                <div className="min-w-0">
+                  <div className="text-[13.5px] font-semibold truncate">
+                    {inv.invoiceNo ? `#${inv.invoiceNo} · ` : ""}{inv.propertyAddress}
+                  </div>
+                  <div className="text-[12px] text-muted-foreground">
+                    {formatDay(inv.invoiceDate)} · {inv.items.length} line{inv.items.length === 1 ? "" : "s"}
+                  </div>
+                </div>
+                <div className="flex items-center gap-[8px] shrink-0 ml-[10px]">
+                  <span className="font-bold text-[14px] tabular-nums">{money(inv.total)}</span>
+                  <span className={`px-[8px] py-[3px] rounded-full text-[11px] font-bold capitalize ${statusChip(inv.status)}`}>
+                    {inv.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

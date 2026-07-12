@@ -22,6 +22,8 @@ import {
   useListCrewPhotos,
   getListCrewPhotosQueryKey,
   useCreatePhotoShare,
+  useListCrewInvoices,
+  getListCrewInvoicesQueryKey,
   type CrewPhoto,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
@@ -43,6 +45,7 @@ import {
   Phone,
   Camera,
   Share2,
+  Receipt,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -86,6 +89,9 @@ export default function CrewDetail() {
   });
   const { data: documents } = useListCrewDocuments(id, {
     query: { queryKey: getListCrewDocumentsQueryKey(id), refetchInterval: 8000 },
+  });
+  const { data: crewInvoices } = useListCrewInvoices(id, {
+    query: { queryKey: getListCrewInvoicesQueryKey(id), refetchInterval: 8000 },
   });
   const { data: packetTemplates } = useListPacketTemplates();
   const { data: packets } = useListCrewPackets(id, {
@@ -324,6 +330,60 @@ export default function CrewDetail() {
               <Send className="w-4 h-4" />
             </button>
           </div>
+        </div>
+
+        {/* Invoices from crew */}
+        <div className={card}>
+          <div className={sectionTitle}><Receipt className="w-3.5 h-3.5" /> Invoices from crew</div>
+          {!crewInvoices || crewInvoices.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-2 text-center">No invoices submitted yet.</div>
+          ) : (
+            <div className="flex flex-col divide-y divide-border">
+              {crewInvoices.map((inv) => (
+                <div key={inv.id} className="py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold truncate">
+                        {inv.invoiceNo ? `#${inv.invoiceNo} · ` : ""}
+                        {inv.propertyAddress}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {inv.fromCompany} · {formatWhen(inv.createdAt)}
+                        {inv.terms ? ` · ${inv.terms}` : ""}
+                        {inv.dueDate ? ` · Due ${inv.dueDate}` : ""}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-bold tabular-nums">
+                        ${inv.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                        {inv.status}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-col gap-1">
+                    {inv.items.map((it) => (
+                      <div key={it.id} className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="truncate">
+                          {it.dateOfWork}
+                          {it.unitNo ? ` · Unit ${it.unitNo}` : ""} · {it.typeOfWork}
+                        </span>
+                        <span className="tabular-nums shrink-0 ml-2">
+                          {it.qty} × ${it.unitPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })} = $
+                          {it.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-1.5 text-xs text-muted-foreground italic">
+                    Signed by {inv.signatureName}
+                    {inv.signedAt ? ` on ${formatWhen(inv.signedAt)}` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Documents */}

@@ -2630,6 +2630,122 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /portal/{token}/invoices:
+    get:
+      operationId: listPortalInvoices
+      tags: [portal]
+      summary: Invoices this crew has submitted
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewInvoice"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: submitPortalInvoice
+      tags: [portal]
+      summary: Fill out, sign, and send an invoice to the office
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewInvoiceInput"
+      responses:
+        "201":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewInvoice"
+        "400":
+          description: Invalid invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /portal/{token}/seen:
+    post:
+      operationId: markPortalSeen
+      tags: [portal]
+      summary: Mark a portal section as seen (clears its red badge)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortalSeenInput"
+      responses:
+        "200":
+          description: Marked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalUnseen"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /crews/{id}/invoices:
+    get:
+      operationId: listCrewInvoices
+      tags: [crew-portal]
+      summary: Invoices submitted by this crew through their portal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewInvoice"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   schemas:
     HealthStatus:
@@ -4077,7 +4193,7 @@ components:
         scheduledOn: { type: ["string", "null"] }
     PortalBundle:
       type: object
-      required: [crew, schedule, offers]
+      required: [crew, schedule, offers, unseen]
       properties:
         crew:
           $ref: "#/components/schemas/PortalCrew"
@@ -4089,3 +4205,111 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PortalOffer"
+        unseen:
+          $ref: "#/components/schemas/PortalUnseen"
+    PortalUnseen:
+      type: object
+      required: [offers, schedule, messages, packets, documents]
+      properties:
+        offers: { type: number }
+        schedule: { type: number }
+        messages: { type: number }
+        packets: { type: number }
+        documents: { type: number }
+    PortalSeenInput:
+      type: object
+      required: [section]
+      properties:
+        section:
+          {
+            type: string,
+            enum: [offers, schedule, messages, packets, documents],
+          }
+    CrewInvoiceItemInput:
+      type: object
+      required: [dateOfWork, typeOfWork, qty, unitPrice]
+      properties:
+        dateOfWork:
+          { type: string, pattern: '^\d{4}-\d{2}-\d{2}$', description: "YYYY-MM-DD" }
+        unitNo: { type: ["string", "null"] }
+        typeOfWork: { type: string }
+        qty: { type: number }
+        unitPrice: { type: number }
+    CrewInvoiceInput:
+      type: object
+      required:
+        [fromCompany, propertyAddress, invoiceDate, items, signatureName]
+      properties:
+        fromCompany: { type: string }
+        fromTrade: { type: ["string", "null"] }
+        fromAddress: { type: ["string", "null"] }
+        fromCityStateZip: { type: ["string", "null"] }
+        fromContact: { type: ["string", "null"] }
+        fromPhone: { type: ["string", "null"] }
+        fromEmail: { type: ["string", "null"] }
+        invoiceNo: { type: ["string", "null"] }
+        poNumber: { type: ["string", "null"] }
+        invoiceDate:
+          { type: string, pattern: '^\d{4}-\d{2}-\d{2}$', description: "YYYY-MM-DD" }
+        terms: { type: ["string", "null"] }
+        dueDate:
+          { type: ["string", "null"], pattern: '^\d{4}-\d{2}-\d{2}$' }
+        propertyAddress: { type: string }
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrewInvoiceItemInput"
+        signatureName: { type: string }
+    CrewInvoiceItem:
+      type: object
+      required: [id, dateOfWork, typeOfWork, qty, unitPrice, amount]
+      properties:
+        id: { type: string }
+        dateOfWork: { type: string }
+        unitNo: { type: ["string", "null"] }
+        typeOfWork: { type: string }
+        qty: { type: number }
+        unitPrice: { type: number }
+        amount: { type: number }
+    CrewInvoice:
+      type: object
+      required:
+        [
+          id,
+          crewId,
+          invoiceDate,
+          fromCompany,
+          propertyAddress,
+          subtotal,
+          total,
+          signatureName,
+          signedAt,
+          status,
+          items,
+        ]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        invoiceNo: { type: ["string", "null"] }
+        poNumber: { type: ["string", "null"] }
+        invoiceDate: { type: string }
+        terms: { type: ["string", "null"] }
+        dueDate: { type: ["string", "null"] }
+        fromCompany: { type: string }
+        fromTrade: { type: ["string", "null"] }
+        fromAddress: { type: ["string", "null"] }
+        fromCityStateZip: { type: ["string", "null"] }
+        fromContact: { type: ["string", "null"] }
+        fromPhone: { type: ["string", "null"] }
+        fromEmail: { type: ["string", "null"] }
+        propertyAddress: { type: string }
+        subtotal: { type: number }
+        total: { type: number }
+        signatureName: { type: string }
+        signedAt: { type: string }
+        status: { type: string, description: "submitted | reviewed | paid" }
+        createdAt: { type: ["string", "null"] }
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrewInvoiceItem"

@@ -1603,10 +1603,130 @@ export interface PortalOfferRespondResult {
   scheduledOn?: string | null;
 }
 
+export interface PortalUnseen {
+  offers: number;
+  schedule: number;
+  messages: number;
+  packets: number;
+  documents: number;
+}
+
 export interface PortalBundle {
   crew: PortalCrew;
   schedule: PortalScheduleItem[];
   offers: PortalOffer[];
+  unseen: PortalUnseen;
+}
+
+export type PortalSeenInputSection = typeof PortalSeenInputSection[keyof typeof PortalSeenInputSection];
+
+
+export const PortalSeenInputSection = {
+  offers: 'offers',
+  schedule: 'schedule',
+  messages: 'messages',
+  packets: 'packets',
+  documents: 'documents',
+} as const;
+
+export interface PortalSeenInput {
+  section: PortalSeenInputSection;
+}
+
+export interface CrewInvoiceItemInput {
+  /**
+     * YYYY-MM-DD
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  dateOfWork: string;
+  /** @nullable */
+  unitNo?: string | null;
+  typeOfWork: string;
+  qty: number;
+  unitPrice: number;
+}
+
+export interface CrewInvoiceInput {
+  fromCompany: string;
+  /** @nullable */
+  fromTrade?: string | null;
+  /** @nullable */
+  fromAddress?: string | null;
+  /** @nullable */
+  fromCityStateZip?: string | null;
+  /** @nullable */
+  fromContact?: string | null;
+  /** @nullable */
+  fromPhone?: string | null;
+  /** @nullable */
+  fromEmail?: string | null;
+  /** @nullable */
+  invoiceNo?: string | null;
+  /** @nullable */
+  poNumber?: string | null;
+  /**
+     * YYYY-MM-DD
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  invoiceDate: string;
+  /** @nullable */
+  terms?: string | null;
+  /**
+     * @nullable
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  dueDate?: string | null;
+  propertyAddress: string;
+  items: CrewInvoiceItemInput[];
+  signatureName: string;
+}
+
+export interface CrewInvoiceItem {
+  id: string;
+  dateOfWork: string;
+  /** @nullable */
+  unitNo?: string | null;
+  typeOfWork: string;
+  qty: number;
+  unitPrice: number;
+  amount: number;
+}
+
+export interface CrewInvoice {
+  id: string;
+  crewId: string;
+  /** @nullable */
+  invoiceNo?: string | null;
+  /** @nullable */
+  poNumber?: string | null;
+  invoiceDate: string;
+  /** @nullable */
+  terms?: string | null;
+  /** @nullable */
+  dueDate?: string | null;
+  fromCompany: string;
+  /** @nullable */
+  fromTrade?: string | null;
+  /** @nullable */
+  fromAddress?: string | null;
+  /** @nullable */
+  fromCityStateZip?: string | null;
+  /** @nullable */
+  fromContact?: string | null;
+  /** @nullable */
+  fromPhone?: string | null;
+  /** @nullable */
+  fromEmail?: string | null;
+  propertyAddress: string;
+  subtotal: number;
+  total: number;
+  signatureName: string;
+  signedAt: string;
+  /** submitted | reviewed | paid */
+  status: string;
+  /** @nullable */
+  createdAt?: string | null;
+  items: CrewInvoiceItem[];
 }
 
 export type ListPropertiesParams = {
