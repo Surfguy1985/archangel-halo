@@ -33,7 +33,12 @@ import {
   ListExpensesQueryParams,
   CreateExpenseBody,
   CreateExpenseResponse,
+  GetBusinessReportResponse,
+  GenerateReportInsightsResponse,
 } from "@workspace/api-zod";
+import { computeBusinessReport } from "../lib/businessReport";
+import { generateBusinessReportPdf } from "../lib/reportPdf";
+import { completeJson } from "../lib/ai";
 import { ser } from "../lib/serialize";
 import { sendEmail } from "../lib/email";
 import { generateInvoicePdf, type InvoicePdfCompany } from "../lib/invoicePdf";
@@ -272,6 +277,74 @@ router.get("/money/summary", async (_req, res): Promise<void> => {
       ],
     }),
   );
+});
+
+router.get("/money/report", async (_req, res): Promise<void> => {
+  const report = await computeBusinessReport();
+  res.json(GetBusinessReportResponse.parse(report));
+});
+
+type Insights = {
+  summary: string;
+  suggestions: { propertyName?: string | null; title: string; detail: string }[];
+};
+
+async function reportInsights(): Promise<Insights> {
+  const report = await computeBusinessReport();
+  const raw = await completeJson<Insights>(
+    [
+      "You are a sharp business advisor for ArchAngel Contractors, a make-ready / restoration contractor serving apartment properties.",
+      "You get their business report as JSON. All marginPct values are fractions (0.25 = 25%). Healthy margin target is 25%+.",
+      "Return JSON: { \"summary\": string, \"suggestions\": [{ \"propertyName\": string|null, \"title\": string, \"detail\": string }] }.",
+      "summary: 2-3 plain-language sentences on overall business health for a non-technical owner.",
+      "suggestions: 3-6 concrete, specific actions to improve margins or scale — reference actual properties and numbers from the data (weak jobs, high supply spend categories, unpaid invoices, properties with thin margins, concentration risk if one property dominates revenue). propertyName is the property a suggestion is about, or null for business-wide advice.",
+      "Be direct and practical. No fluff, no generic advice that ignores the numbers.",
+    ].join("\n"),
+    JSON.stringify(report),
+    2048,
+  );
+  return {
+    summary: typeof raw?.summary === "string" ? raw.summary : "",
+    suggestions: Array.isArray(raw?.suggestions)
+      ? raw.suggestions
+          .filter((s) => s && typeof s.title === "string" && typeof s.detail === "string")
+          .map((s) => ({
+            propertyName:
+              typeof s.propertyName === "string" ? s.propertyName : null,
+            title: s.title,
+            detail: s.detail,
+          }))
+      : [],
+  };
+}
+
+router.post("/money/report/insights", async (_req, res): Promise<void> => {
+  try {
+    const insights = await reportInsights();
+    res.json(GenerateReportInsightsResponse.parse(insights));
+  } catch (err) {
+    console.error("report insights failed:", err);
+    res.status(502).json({
+      error: "Couldn't generate suggestions right now. Try again in a moment.",
+    });
+  }
+});
+
+router.get("/money/report/pdf", async (_req, res): Promise<void> => {
+  const report = await computeBusinessReport();
+  let insights: Insights | null = null;
+  try {
+    insights = await reportInsights();
+  } catch {
+    // PDF still ships without the AI section if the model call fails.
+  }
+  const pdf = await generateBusinessReportPdf(report, insights);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="archangel-business-report-${new Date().toISOString().slice(0, 10)}.pdf"`,
+  );
+  res.send(Buffer.from(pdf));
 });
 
 router.get("/invoices", async (req, res): Promise<void> => {

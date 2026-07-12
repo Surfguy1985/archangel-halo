@@ -36,6 +36,7 @@ import type {
   Brief,
   BroadcastInput,
   BroadcastResult,
+  BusinessReport,
   BusinessSettings,
   BusinessSettingsInput,
   CalendarBundle,
@@ -131,6 +132,7 @@ import type {
   Queue,
   RecapDraft,
   RecapSendInput,
+  ReportInsights,
   ReverseGeocodeParams,
   ReverseGeocodeResult,
   SavePacketInput,
@@ -4441,6 +4443,231 @@ export function useGetMoneySummary<TData = Awaited<ReturnType<typeof getMoneySum
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMoneySummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetBusinessReportUrl = () => {
+
+
+
+
+  return `/api/money/report`
+}
+
+/**
+ * @summary Full business report — per-property P&L, expense breakdown, job rankings
+ */
+export const getBusinessReport = async ( options?: RequestInit): Promise<BusinessReport> => {
+
+  return customFetch<BusinessReport>(getGetBusinessReportUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBusinessReportQueryKey = () => {
+    return [
+    `/api/money/report`
+    ] as const;
+    }
+
+
+export const getGetBusinessReportQueryOptions = <TData = Awaited<ReturnType<typeof getBusinessReport>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBusinessReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBusinessReportQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBusinessReport>>> = ({ signal }) => getBusinessReport({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBusinessReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBusinessReportQueryResult = NonNullable<Awaited<ReturnType<typeof getBusinessReport>>>
+export type GetBusinessReportQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Full business report — per-property P&L, expense breakdown, job rankings
+ */
+
+export function useGetBusinessReport<TData = Awaited<ReturnType<typeof getBusinessReport>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBusinessReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBusinessReportQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGenerateReportInsightsUrl = () => {
+
+
+
+
+  return `/api/money/report/insights`
+}
+
+/**
+ * @summary AI suggestions to improve margins and scale, per property
+ */
+export const generateReportInsights = async ( options?: RequestInit): Promise<ReportInsights> => {
+
+  return customFetch<ReportInsights>(getGenerateReportInsightsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getGenerateReportInsightsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateReportInsights>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateReportInsights>>, TError,void, TContext> => {
+
+const mutationKey = ['generateReportInsights'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateReportInsights>>, void> = () => {
+
+
+          return  generateReportInsights(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateReportInsightsMutationResult = NonNullable<Awaited<ReturnType<typeof generateReportInsights>>>
+
+    export type GenerateReportInsightsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary AI suggestions to improve margins and scale, per property
+ */
+export const useGenerateReportInsights = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateReportInsights>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof generateReportInsights>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getGenerateReportInsightsMutationOptions(options));
+    }
+
+export const getGetBusinessReportPdfUrl = () => {
+
+
+
+
+  return `/api/money/report/pdf`
+}
+
+/**
+ * @summary Download the full business report as a branded PDF
+ */
+export const getBusinessReportPdf = async ( options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetBusinessReportPdfUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBusinessReportPdfQueryKey = () => {
+    return [
+    `/api/money/report/pdf`
+    ] as const;
+    }
+
+
+export const getGetBusinessReportPdfQueryOptions = <TData = Awaited<ReturnType<typeof getBusinessReportPdf>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBusinessReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBusinessReportPdfQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBusinessReportPdf>>> = ({ signal }) => getBusinessReportPdf({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBusinessReportPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBusinessReportPdfQueryResult = NonNullable<Awaited<ReturnType<typeof getBusinessReportPdf>>>
+export type GetBusinessReportPdfQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Download the full business report as a branded PDF
+ */
+
+export function useGetBusinessReportPdf<TData = Awaited<ReturnType<typeof getBusinessReportPdf>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBusinessReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBusinessReportPdfQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

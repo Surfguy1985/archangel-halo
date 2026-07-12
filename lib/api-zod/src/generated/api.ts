@@ -1529,6 +1529,81 @@ export const GetMoneySummaryResponse = zod.object({
 })
 
 
+/**
+ * @summary Full business report — per-property P&L, expense breakdown, job rankings
+ */
+export const GetBusinessReportResponse = zod.object({
+  "generatedAt": zod.string(),
+  "totals": zod.object({
+  "revenue": zod.number(),
+  "collected": zod.number(),
+  "outstanding": zod.number(),
+  "suppliesExpenses": zod.number(),
+  "laborExpenses": zod.number(),
+  "totalExpenses": zod.number(),
+  "netProfit": zod.number(),
+  "marginPct": zod.number().nullish(),
+  "jobsCompleted": zod.number(),
+  "jobsActive": zod.number()
+}),
+  "properties": zod.array(zod.object({
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string(),
+  "revenue": zod.number(),
+  "collected": zod.number(),
+  "outstanding": zod.number(),
+  "suppliesExpenses": zod.number(),
+  "laborExpenses": zod.number(),
+  "totalExpenses": zod.number(),
+  "netProfit": zod.number(),
+  "marginPct": zod.number().nullish(),
+  "jobsCompleted": zod.number(),
+  "jobsActive": zod.number(),
+  "supplyCategories": zod.array(zod.object({
+  "category": zod.string(),
+  "amount": zod.number()
+}))
+})),
+  "topJobs": zod.array(zod.object({
+  "jobId": zod.string(),
+  "jobNo": zod.string(),
+  "propertyName": zod.string(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "grossProfit": zod.number().nullish(),
+  "marginPct": zod.number().nullish()
+})),
+  "weakJobs": zod.array(zod.object({
+  "jobId": zod.string(),
+  "jobNo": zod.string(),
+  "propertyName": zod.string(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "grossProfit": zod.number().nullish(),
+  "marginPct": zod.number().nullish()
+}))
+})
+
+
+/**
+ * @summary AI suggestions to improve margins and scale, per property
+ */
+export const GenerateReportInsightsResponse = zod.object({
+  "summary": zod.string(),
+  "suggestions": zod.array(zod.object({
+  "propertyName": zod.string().nullish(),
+  "title": zod.string(),
+  "detail": zod.string()
+}))
+})
+
+
+/**
+ * @summary Download the full business report as a branded PDF
+ */
+export const GetBusinessReportPdfResponse = zod.unknown()
+
+
 export const ListInvoicesQueryParams = zod.object({
   "status": zod.coerce.string().optional()
 })

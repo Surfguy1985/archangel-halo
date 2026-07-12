@@ -1213,6 +1213,46 @@ paths:
               schema:
                 $ref: "#/components/schemas/MoneySummary"
 
+  /money/report:
+    get:
+      operationId: getBusinessReport
+      tags: [money]
+      summary: Full business report — per-property P&L, expense breakdown, job rankings
+      responses:
+        "200":
+          description: Business report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessReport"
+
+  /money/report/insights:
+    post:
+      operationId: generateReportInsights
+      tags: [money]
+      summary: AI suggestions to improve margins and scale, per property
+      responses:
+        "200":
+          description: Report insights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportInsights"
+
+  /money/report/pdf:
+    get:
+      operationId: getBusinessReportPdf
+      tags: [money]
+      summary: Download the full business report as a branded PDF
+      responses:
+        "200":
+          description: Business report PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
   /invoices:
     get:
       operationId: listInvoices
@@ -3428,6 +3468,116 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AgingBucket"
+    BusinessReport:
+      type: object
+      required: [generatedAt, totals, properties, topJobs, weakJobs]
+      properties:
+        generatedAt: { type: string }
+        totals:
+          $ref: "#/components/schemas/ReportTotals"
+        properties:
+          type: array
+          items:
+            $ref: "#/components/schemas/PropertyReportRow"
+        topJobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportJob"
+        weakJobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportJob"
+    ReportTotals:
+      type: object
+      required:
+        [
+          revenue,
+          collected,
+          outstanding,
+          suppliesExpenses,
+          laborExpenses,
+          totalExpenses,
+          netProfit,
+          jobsCompleted,
+          jobsActive,
+        ]
+      properties:
+        revenue: { type: number }
+        collected: { type: number }
+        outstanding: { type: number }
+        suppliesExpenses: { type: number }
+        laborExpenses: { type: number }
+        totalExpenses: { type: number }
+        netProfit: { type: number }
+        marginPct: { type: ["number", "null"] }
+        jobsCompleted: { type: integer }
+        jobsActive: { type: integer }
+    PropertyReportRow:
+      type: object
+      required:
+        [
+          propertyName,
+          revenue,
+          collected,
+          outstanding,
+          suppliesExpenses,
+          laborExpenses,
+          totalExpenses,
+          netProfit,
+          jobsCompleted,
+          jobsActive,
+          supplyCategories,
+        ]
+      properties:
+        propertyId: { type: ["string", "null"] }
+        propertyName: { type: string }
+        revenue: { type: number }
+        collected: { type: number }
+        outstanding: { type: number }
+        suppliesExpenses: { type: number }
+        laborExpenses: { type: number }
+        totalExpenses: { type: number }
+        netProfit: { type: number }
+        marginPct: { type: ["number", "null"] }
+        jobsCompleted: { type: integer }
+        jobsActive: { type: integer }
+        supplyCategories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryAmount"
+    CategoryAmount:
+      type: object
+      required: [category, amount]
+      properties:
+        category: { type: string }
+        amount: { type: number }
+    ReportJob:
+      type: object
+      required: [jobId, jobNo, propertyName, status]
+      properties:
+        jobId: { type: string }
+        jobNo: { type: string }
+        propertyName: { type: string }
+        description: { type: ["string", "null"] }
+        status: { type: string }
+        grossProfit: { type: ["number", "null"] }
+        marginPct: { type: ["number", "null"] }
+    ReportInsights:
+      type: object
+      required: [summary, suggestions]
+      properties:
+        summary: { type: string }
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportSuggestion"
+    ReportSuggestion:
+      type: object
+      required: [title, detail]
+      properties:
+        propertyName: { type: ["string", "null"] }
+        title: { type: string }
+        detail: { type: string }
     ReverseGeocodeResult:
       type: object
       required: [address]

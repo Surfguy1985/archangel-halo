@@ -43,6 +43,7 @@ import { SendInvoiceDialog } from "@/components/SendInvoiceDialog";
 import { BankTab } from "@/components/BankTab";
 import { ZellePayDialog } from "@/components/ZellePayDialog";
 import { BusinessInfoDialog } from "@/components/BusinessInfoDialog";
+import { BusinessReportTab } from "@/components/BusinessReportTab";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -643,6 +644,7 @@ export default function Money() {
           <TabsTrigger value="crew">Crew Pay</TabsTrigger>
           <TabsTrigger value="bank">Bank</TabsTrigger>
           <TabsTrigger value="aging">Aging</TabsTrigger>
+          <TabsTrigger value="report" data-testid="tab-report">Report</TabsTrigger>
         </TabsList>
 
         <TabsContent value="invoices">
@@ -659,6 +661,9 @@ export default function Money() {
         </TabsContent>
         <TabsContent value="aging">
           <AgingReceivables />
+        </TabsContent>
+        <TabsContent value="report">
+          <BusinessReportTab />
         </TabsContent>
       </Tabs>
     </div>

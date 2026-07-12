@@ -10,6 +10,7 @@
 - [HALO local date handling](halo-local-date-handling.md) — date-only YYYY-MM-DD values must be built/formatted from LOCAL date parts, never UTC toISOString/new Date("Y-M-D"), or days shift by one.
 - [HALO desktop API/asset URLs](halo-desktop-api-urls.md) — desktop BASE_URL is /desktop/; manual /api asset links (storage/PDF) must be absolute /api, never BASE_URL-prefixed; BASE_URL only for in-app route links.
 - [HALO portal badges](halo-portal-badges.md) — red unseen badges from crews.portal_seen jsonb; new office→crew content types must update computeUnseen + schema enum + SEEN_SECTIONS.
+- [HALO business report](halo-business-report.md) — one shared server compute for report/insights/PDF; crew invoices link to properties via scored token match, ambiguous → Unassigned.
 - [HALO job board](halo-job-board.md) — one broadcast row per (job,crew), rebroadcast resets it; job fill must be guarded UPDATE + row-count (first-wins); photo URLs are /api/storage${storagePath}.
 - [HALO portal schedule feed](halo-portal-schedule.md) — portal schedule merges crew_schedules + crew-assigned calendar_events (deduped by jobId|date); new assignment sources must merge into this feed.
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.

@@ -737,6 +737,76 @@ export interface MoneySummary {
   aging: AgingBucket[];
 }
 
+export interface ReportTotals {
+  revenue: number;
+  collected: number;
+  outstanding: number;
+  suppliesExpenses: number;
+  laborExpenses: number;
+  totalExpenses: number;
+  netProfit: number;
+  /** @nullable */
+  marginPct?: number | null;
+  jobsCompleted: number;
+  jobsActive: number;
+}
+
+export interface CategoryAmount {
+  category: string;
+  amount: number;
+}
+
+export interface PropertyReportRow {
+  /** @nullable */
+  propertyId?: string | null;
+  propertyName: string;
+  revenue: number;
+  collected: number;
+  outstanding: number;
+  suppliesExpenses: number;
+  laborExpenses: number;
+  totalExpenses: number;
+  netProfit: number;
+  /** @nullable */
+  marginPct?: number | null;
+  jobsCompleted: number;
+  jobsActive: number;
+  supplyCategories: CategoryAmount[];
+}
+
+export interface ReportJob {
+  jobId: string;
+  jobNo: string;
+  propertyName: string;
+  /** @nullable */
+  description?: string | null;
+  status: string;
+  /** @nullable */
+  grossProfit?: number | null;
+  /** @nullable */
+  marginPct?: number | null;
+}
+
+export interface BusinessReport {
+  generatedAt: string;
+  totals: ReportTotals;
+  properties: PropertyReportRow[];
+  topJobs: ReportJob[];
+  weakJobs: ReportJob[];
+}
+
+export interface ReportSuggestion {
+  /** @nullable */
+  propertyName?: string | null;
+  title: string;
+  detail: string;
+}
+
+export interface ReportInsights {
+  summary: string;
+  suggestions: ReportSuggestion[];
+}
+
 export interface ReverseGeocodeResult {
   /** @nullable */
   address: string | null;
