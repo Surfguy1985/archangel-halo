@@ -1,0 +1,26 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "kIsi5YzEVSM12ERaRKy9Y"
+uri = "file://attached_assets/voice-samples/sample-jessica.mp3"
+type = "audio"
+title = "1. Jessica — Playful, Bright, Warm"
+
+[[outputs]]
+id = "tnWKiLeupqWz6FQKngva-"
+uri = "file://attached_assets/voice-samples/sample-elise.mp3"
+type = "audio"
+title = "2. Elise — Warm, Natural, Engaging"
+
+[[outputs]]
+id = "8nze4BpUDNX0BX87RekNF"
+uri = "file://attached_assets/voice-samples/sample-hope.mp3"
+type = "audio"
+title = "3. Hope — Natural Conversations"
+
+[[outputs]]
+id = "x78zwmzLnDUGgbe94Zq6h"
+uri = "file://attached_assets/voice-samples/sample-sarah.mp3"
+type = "audio"
+title = "4. Sarah — Mature, Reassuring"
