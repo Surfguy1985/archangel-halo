@@ -13,6 +13,10 @@ import {
   TrendingUp,
   StickyNote,
   CheckCheck,
+  FileText,
+  Truck,
+  PackagePlus,
+  Boxes,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -36,6 +40,10 @@ const TOOL_LABELS: Record<string, string> = {
   create_bid: "New bid",
   add_note: "Note",
   complete_job: "Complete job",
+  create_invoice: "Draft invoice",
+  create_vendor: "New vendor",
+  add_inventory_item: "Track material",
+  adjust_inventory: "Stock update",
 };
 
 type Script = {
@@ -109,6 +117,42 @@ const SCRIPTS: Script[] = [
       "Draft a bid for {amount} dollars at {property name}, unit {unit number}, for {scope of work}.",
     example:
       "Draft a bid for 3200 dollars at Maple Grove Apartments, unit 210, for a full unit turn with paint and carpet.",
+  },
+  {
+    tool: "create_invoice",
+    label: "Invoice",
+    Icon: FileText,
+    template:
+      "Invoice {property name} for {amount} dollars for {what the work was}. PO number {number}.",
+    example:
+      "Invoice Maple Grove Apartments for 950 dollars for painting unit 5. PO number 4471.",
+  },
+  {
+    tool: "create_vendor",
+    label: "New vendor",
+    Icon: Truck,
+    template:
+      "Add a new vendor called {company name}. They do {trade}, phone {number}.",
+    example:
+      "Add a new vendor called Rocky Top Supply. They do lumber, phone 615-555-0199.",
+  },
+  {
+    tool: "add_inventory_item",
+    label: "Track material",
+    Icon: PackagePlus,
+    template:
+      "Start tracking {material name}. We have {quantity}, reorder at {quantity}, about {cost} dollars each.",
+    example:
+      "Start tracking door hinges. We have 40, reorder at 10, about 3 dollars each.",
+  },
+  {
+    tool: "adjust_inventory",
+    label: "Stock update",
+    Icon: Boxes,
+    template:
+      "We used {quantity} {material name} today. Also picked up {quantity} {material name}.",
+    example:
+      "We used 6 tubes of caulk today. Also picked up 20 boxes of tile.",
   },
   {
     tool: "add_note",
