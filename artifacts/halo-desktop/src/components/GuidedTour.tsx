@@ -28,7 +28,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { tourChapters } from "@/lib/desktopTour";
-import { useSpeech } from "@/hooks/useSpeech";
+import { useTourNarration } from "@/hooks/useTourNarration";
 
 const ICONS: Record<string, LucideIcon> = {
   Sparkles,
@@ -139,7 +139,7 @@ export function GuidedTour({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { supported, speaking, speak, cancel, prime } = useSpeech();
+  const { supported, speaking, play, stop, prime } = useTourNarration();
   const [, navigate] = useLocation();
   const [view, setView] = useState<"menu" | "player">("menu");
   const [ci, setCi] = useState(0);
@@ -273,7 +273,7 @@ export function GuidedTour({
   // Narration + auto-advance engine.
   useEffect(() => {
     clearTimer();
-    cancel();
+    stop();
     if (!open || view !== "player" || !playing || !step) return;
 
     const advance = () => {
@@ -286,10 +286,12 @@ export function GuidedTour({
       }
     };
 
+    const stepKey = `${tourChapters[ci]?.id ?? ""}-${si}`;
+
     // Small delay so narration starts after the screen navigates in.
     const startDelay = setTimeout(() => {
-      if (!muted && supported) {
-        speak(`${step.title}. ${step.body}`, {
+      if (!muted) {
+        play(stepKey, `${step.title}. ${step.body}`, {
           onEnd: advance,
           onError: () => {
             timerRef.current = setTimeout(advance, estimateMs(step.body));
@@ -303,7 +305,7 @@ export function GuidedTour({
     return () => {
       clearTimeout(startDelay);
       clearTimer();
-      cancel();
+      stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, view, ci, si, playing, muted, supported]);
@@ -312,12 +314,12 @@ export function GuidedTour({
   useEffect(() => {
     if (!open) {
       clearTimer();
-      cancel();
+      stop();
       setPlaying(false);
       setView("menu");
       setRect(null);
     }
-  }, [open, cancel, clearTimer]);
+  }, [open, stop, clearTimer]);
 
   // Escape closes.
   useEffect(() => {
@@ -551,7 +553,7 @@ export function GuidedTour({
           <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-border bg-[var(--paper)]">
             <button
               onClick={() => {
-                cancel();
+                stop();
                 clearTimer();
                 setPlaying(false);
                 setView("menu");

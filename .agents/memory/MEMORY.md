@@ -9,6 +9,7 @@
 - [HALO Margin Guardian](halo-margin-guardian.md) — marginPct is a FRACTION (0.25=25%); flag <0.25 excluding complete/paid/cancelled; surfaces in Today feed + emails.
 - [HALO local date handling](halo-local-date-handling.md) — date-only YYYY-MM-DD values must be built/formatted from LOCAL date parts, never UTC toISOString/new Date("Y-M-D"), or days shift by one.
 - [HALO desktop API/asset URLs](halo-desktop-api-urls.md) — desktop BASE_URL is /desktop/; manual /api asset links (storage/PDF) must be absolute /api, never BASE_URL-prefixed; BASE_URL only for in-app route links.
+- [HALO desktop tour narration](halo-tour-narration.md) — tour steps voiced by pre-rendered ElevenLabs (Jessica) MP3s keyed chapterId-stepIndex; keep clip/speech/timer fallback chain + genRef nonce guard.
 - [HALO portal badges](halo-portal-badges.md) — red unseen badges from crews.portal_seen jsonb; new office→crew content types must update computeUnseen + schema enum + SEEN_SECTIONS.
 - [HALO business report](halo-business-report.md) — one shared server compute for report/insights/PDF; crew invoices link to properties via scored token match, ambiguous → Unassigned.
 - [HALO data reset](halo-data-reset.md) — POST /settings/reset wipes all operational tables but preserves business_settings + plaid_items; new schema tables must be added to its delete list.
