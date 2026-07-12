@@ -11,6 +11,10 @@ import {
   crewsTable,
   schedulesTable,
   bidsTable,
+  invoicesTable,
+  invoiceLineItemsTable,
+  inventoryItemsTable,
+  vendorsTable,
 } from "@workspace/db";
 import {
   ParseVoiceBody,
@@ -19,6 +23,7 @@ import {
   ConfirmVoiceResponse,
 } from "@workspace/api-zod";
 import { completeJson } from "../lib/ai";
+import { localToday } from "../lib/localDate";
 
 const router: IRouter = Router();
 
@@ -40,14 +45,20 @@ const TOOLS = `Available tools and their fields:
 - create_lead { summary, source?, propertyName? }
 - create_bid { amount (number), propertyName?, scope?, unitNo? }
 - add_note { entityType (property|job), entityRef (name or job number), body }
-- complete_job { jobNo }`;
+- complete_job { jobNo }
+- create_invoice { amount (number), propertyName, jobNo?, description? (what the work was), poNumber? }
+- create_vendor { name, trade?, phone?, email? }
+- add_inventory_item { name, qty? (number), reorderAt? (number, restock threshold), unitCost? (number), preferredVendor? }
+- adjust_inventory { itemName, delta (number — positive when stock was bought/received, negative when materials were used) }`;
 
 router.post("/voice/parse", async (req, res): Promise<void> => {
   const { transcript } = ParseVoiceBody.parse(req.body);
   const props = await db.select().from(propertiesTable);
   const jobs = await db.select().from(jobsTable);
   const crews = await db.select().from(crewsTable);
-  const today = new Date().toISOString().slice(0, 10);
+  const inventory = await db.select().from(inventoryItemsTable);
+  const vendors = await db.select().from(vendorsTable);
+  const today = localToday();
 
   let actions: Action[] = [];
   try {
@@ -57,7 +68,10 @@ Today's date is ${today}. Convert relative dates like "tomorrow" or "next Monday
 Known properties: ${props.map((p) => p.name).join(", ") || "none"}.
 Known jobs: ${jobs.map((j) => j.jobNo).join(", ") || "none"}.
 Known crews: ${crews.map((c) => c.name).join(", ") || "none"}.
+Known inventory items: ${inventory.map((i) => i.name).join(", ") || "none"}.
+Known vendors: ${vendors.map((v) => v.name).join(", ") || "none"}.
 Use create_property when the user describes a new property/building not in the known list. Use create_crew when they mention adding a new crew member or subcontractor. Use schedule_job when they want to set a date for existing work. Use create_bid when they quoted or want to quote a price/proposal for work — the bid is saved as a draft for review, never sent automatically.
+Use create_invoice when work is done and they want to bill for it — the invoice is saved as a draft for review, never sent automatically. Use create_vendor for a new supplier or subcontracting company. Use adjust_inventory when they mention using or buying materials that match a known inventory item (negative delta for materials used, positive for stock received); use add_inventory_item for a material they want tracked that is not in the known list. A purchase of materials can be both a log_expense and an inventory adjustment when it matches a tracked item.
 For each action include: tool, title (short), summary (one sentence of what will happen), confidence (0-1), needsReview (true if amounts/names are uncertain), and fields. Return {"actions": [...]}. If nothing actionable, return {"actions": []}.`,
       transcript,
       2048,
@@ -98,6 +112,8 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
   const jobByNo = new Map(jobs.map((j) => [j.jobNo.toLowerCase(), j]));
   const crews = await db.select().from(crewsTable);
   const crewByName = new Map(crews.map((c) => [c.name.toLowerCase(), c]));
+  const inventory = await db.select().from(inventoryItemsTable);
+  const itemByName = new Map(inventory.map((i) => [i.name.toLowerCase(), i]));
   const messages: string[] = [];
   let applied = 0;
 
@@ -283,6 +299,140 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
         });
         applied++;
         messages.push("Added note");
+      } else if (a.tool === "create_invoice") {
+        const amount = Number(f.amount);
+        if (!Number.isFinite(amount) || amount <= 0) {
+          messages.push("Skipped invoice — no valid amount given");
+          continue;
+        }
+        const prop = f.propertyName
+          ? propByName.get(String(f.propertyName).toLowerCase())
+          : undefined;
+        if (!prop) {
+          messages.push(`Skipped invoice — unknown property "${f.propertyName ?? ""}"`);
+          continue;
+        }
+        const job = f.jobNo
+          ? jobByNo.get(String(f.jobNo).toLowerCase())
+          : undefined;
+        // Max-based numbering so deletions never cause duplicate invoice numbers.
+        const invRows = await db
+          .select({ invoiceNo: invoicesTable.invoiceNo })
+          .from(invoicesTable);
+        let maxNo = 5000;
+        for (const r of invRows) {
+          const m = /^INV-(\d+)$/.exec(r.invoiceNo);
+          if (m) maxNo = Math.max(maxNo, Number(m[1]));
+        }
+        const invoiceNo = `INV-${String(maxNo + 1)}`;
+        const description = f.description ? String(f.description) : null;
+        const issuedOn = localToday();
+        const dueAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        await db.transaction(async (tx) => {
+          const [created] = await tx
+            .insert(invoicesTable)
+            .values({
+              invoiceNo,
+              propertyId: prop.id,
+              jobId: job?.id ?? null,
+              amount,
+              status: "draft",
+              terms: "Net 30",
+              issuedOn,
+              dueAt,
+              poNumber: f.poNumber ? String(f.poNumber) : null,
+              // Same bill-to defaults as the main invoice route.
+              billToName: prop.pmcName ?? prop.name,
+              propertyAddress:
+                [prop.name, prop.city].filter(Boolean).join(", ") || null,
+              notes: description,
+            })
+            .returning();
+          await tx.insert(invoiceLineItemsTable).values({
+            invoiceId: created.id,
+            typeOfWork: description ?? "Work performed",
+            qty: 1,
+            unitPrice: amount,
+            amount,
+            sortOrder: 0,
+          });
+        });
+        applied++;
+        messages.push(`Drafted invoice ${invoiceNo} for $${amount.toLocaleString()}`);
+      } else if (a.tool === "create_vendor") {
+        const name = String(f.name ?? "").trim();
+        if (!name) {
+          messages.push("Skipped vendor — no name given");
+          continue;
+        }
+        await db.insert(vendorsTable).values({
+          name,
+          trade: f.trade ? String(f.trade) : null,
+          phone: f.phone ? String(f.phone) : null,
+          email: f.email ? String(f.email) : null,
+        });
+        applied++;
+        messages.push(`Added vendor ${name}`);
+      } else if (a.tool === "add_inventory_item") {
+        const name = String(f.name ?? "").trim();
+        if (!name) {
+          messages.push("Skipped inventory item — no name given");
+          continue;
+        }
+        if (itemByName.has(name.toLowerCase())) {
+          messages.push(`Skipped — inventory item "${name}" already exists`);
+          continue;
+        }
+        const qty = Number(f.qty);
+        const reorderAt = Number(f.reorderAt);
+        const unitCost = Number(f.unitCost);
+        if (
+          (f.qty != null && (!Number.isFinite(qty) || qty < 0)) ||
+          (f.reorderAt != null && (!Number.isFinite(reorderAt) || reorderAt < 0)) ||
+          (f.unitCost != null && (!Number.isFinite(unitCost) || unitCost < 0))
+        ) {
+          messages.push(`Skipped inventory item ${name} — invalid quantity or cost`);
+          continue;
+        }
+        const [newItem] = await db
+          .insert(inventoryItemsTable)
+          .values({
+            name,
+            qty: Number.isFinite(qty) ? qty : 0,
+            reorderAt: Number.isFinite(reorderAt) ? reorderAt : 0,
+            unitCost: Number.isFinite(unitCost) ? unitCost : null,
+            preferredVendor: f.preferredVendor ? String(f.preferredVendor) : null,
+          })
+          .returning();
+        // Make the new item adjustable by later actions in the same batch.
+        itemByName.set(name.toLowerCase(), newItem);
+        applied++;
+        messages.push(`Added inventory item ${name}`);
+      } else if (a.tool === "adjust_inventory") {
+        const ref = String(f.itemName ?? "").trim();
+        const item = itemByName.get(ref.toLowerCase());
+        if (!item) {
+          messages.push(`Skipped inventory adjustment — unknown item "${ref}"`);
+          continue;
+        }
+        const delta = Number(f.delta);
+        if (!Number.isFinite(delta) || delta === 0) {
+          messages.push(`Skipped inventory adjustment — no valid quantity for ${item.name}`);
+          continue;
+        }
+        // Match /inventory/:id/adjust semantics — allow going below zero so
+        // shortages surface instead of being silently clamped away.
+        const newQty = item.qty + delta;
+        const [updated] = await db
+          .update(inventoryItemsTable)
+          .set({ qty: newQty })
+          .where(eqId(inventoryItemsTable.id, item.id))
+          .returning();
+        itemByName.set(item.name.toLowerCase(), updated);
+        applied++;
+        messages.push(
+          `${delta > 0 ? "Added" : "Used"} ${Math.abs(delta)} ${item.name} (now ${newQty})`,
+        );
       } else {
         messages.push(`Unknown action "${a.tool}"`);
       }
