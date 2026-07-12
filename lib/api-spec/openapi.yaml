@@ -1051,6 +1051,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/BusinessSettings"
 
+  /settings/reset:
+    post:
+      operationId: resetAllData
+      tags: [money]
+      summary: Wipe all operational/sample data for a clean start (keeps company info + bank connection)
+      responses:
+        "200":
+          description: Data wiped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
   /plaid/link-token:
     post:
       operationId: createPlaidLinkToken

@@ -1,6 +1,6 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Link } from "wouter";
-import { CalendarDays, GitBranch, Package, ShieldCheck, FileUp, ChevronRight, ClipboardList } from "lucide-react";
+import { CalendarDays, GitBranch, Package, ShieldCheck, FileUp, ChevronRight, ClipboardList, Settings } from "lucide-react";
 
 const items = [
   { href: "/jobboard", label: "Job Board", sub: "Dispatch and fill open jobs", Icon: ClipboardList },
@@ -9,6 +9,7 @@ const items = [
   { href: "/supply", label: "Supply", sub: "Inventory & purchase orders", Icon: Package },
   { href: "/vendors", label: "Vendors", sub: "COI compliance", Icon: ShieldCheck },
   { href: "/import", label: "Import", sub: "Upload a file, we file it", Icon: FileUp },
+  { href: "/settings", label: "Settings", sub: "Start fresh & workspace options", Icon: Settings },
 ];
 
 export function MoreMenuSheet({

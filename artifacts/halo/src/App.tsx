@@ -19,6 +19,7 @@ import Supply from "./pages/Supply";
 import Vendors from "./pages/Vendors";
 import Import from "./pages/Import";
 import JobBoard from "./pages/JobBoard";
+import Settings from "./pages/Settings";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -41,6 +42,7 @@ function AdminRouter() {
         <Route path="/supply" component={Supply} />
         <Route path="/vendors" component={Vendors} />
         <Route path="/import" component={Import} />
+        <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

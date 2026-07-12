@@ -1,10 +1,46 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, businessSettingsTable } from "@workspace/db";
+import {
+  db,
+  businessSettingsTable,
+  crewInvoiceItemsTable,
+  crewInvoicesTable,
+  crewPaymentsTable,
+  photoSharesTable,
+  crewPhotosTable,
+  crewDocumentsTable,
+  crewCheckinsTable,
+  crewMessagesTable,
+  jobBroadcastsTable,
+  schedulesTable,
+  calendarEventsTable,
+  invoiceLineItemsTable,
+  paymentsTable,
+  expensesTable,
+  invoicesTable,
+  bidLineItemsTable,
+  bidsTable,
+  leadsTable,
+  leadCampaignsTable,
+  crewPacketsTable,
+  notificationsTable,
+  activitiesTable,
+  voiceLogsTable,
+  inventoryItemsTable,
+  purchaseOrdersTable,
+  vendorsTable,
+  agreementsTable,
+  priceItemsTable,
+  contactsTable,
+  jobsTable,
+  crewsTable,
+  propertiesTable,
+} from "@workspace/db";
 import {
   GetBusinessSettingsResponse,
   UpdateBusinessSettingsBody,
   UpdateBusinessSettingsResponse,
+  ResetAllDataResponse,
 } from "@workspace/api-zod";
 import { getBusinessSettings } from "../lib/businessSettings";
 
@@ -58,6 +94,47 @@ router.put("/settings/business", async (req, res): Promise<void> => {
     .where(eq(businessSettingsTable.id, existing.id))
     .returning();
   res.json(UpdateBusinessSettingsResponse.parse(serialize(updated)));
+});
+
+router.post("/settings/reset", async (_req, res): Promise<void> => {
+  await db.transaction(async (tx) => {
+    // Delete children before parents (no DB-level FKs, but keep it safe/ordered).
+    await tx.delete(crewInvoiceItemsTable);
+    await tx.delete(crewInvoicesTable);
+    await tx.delete(crewPaymentsTable);
+    await tx.delete(photoSharesTable);
+    await tx.delete(crewPhotosTable);
+    await tx.delete(crewDocumentsTable);
+    await tx.delete(crewCheckinsTable);
+    await tx.delete(crewMessagesTable);
+    await tx.delete(crewPacketsTable);
+    await tx.delete(jobBroadcastsTable);
+    await tx.delete(schedulesTable);
+    await tx.delete(calendarEventsTable);
+    await tx.delete(invoiceLineItemsTable);
+    await tx.delete(paymentsTable);
+    await tx.delete(expensesTable);
+    await tx.delete(invoicesTable);
+    await tx.delete(bidLineItemsTable);
+    await tx.delete(bidsTable);
+    await tx.delete(leadsTable);
+    await tx.delete(leadCampaignsTable);
+    await tx.delete(notificationsTable);
+    await tx.delete(activitiesTable);
+    await tx.delete(voiceLogsTable);
+    await tx.delete(inventoryItemsTable);
+    await tx.delete(purchaseOrdersTable);
+    await tx.delete(vendorsTable);
+    await tx.delete(agreementsTable);
+    await tx.delete(priceItemsTable);
+    await tx.delete(contactsTable);
+    await tx.delete(jobsTable);
+    await tx.delete(crewsTable);
+    await tx.delete(propertiesTable);
+    // Intentionally preserved: businessSettingsTable (company info),
+    // plaidItemsTable (real bank connection).
+  });
+  res.json(ResetAllDataResponse.parse({ ok: true }));
 });
 
 export default router;

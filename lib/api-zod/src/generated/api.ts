@@ -1417,6 +1417,14 @@ export const UpdateBusinessSettingsResponse = zod.object({
 
 
 /**
+ * @summary Wipe all operational/sample data for a clean start (keeps company info + bank connection)
+ */
+export const ResetAllDataResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
  * @summary Create a Plaid Link token to start bank connection
  */
 export const CreatePlaidLinkTokenResponse = zod.object({

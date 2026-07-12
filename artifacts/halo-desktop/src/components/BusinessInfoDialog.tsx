@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetBusinessSettings,
   useUpdateBusinessSettings,
+  useResetAllData,
   getGetBusinessSettingsQueryKey,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -14,10 +15,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Trash2 } from "lucide-react";
 
 export function BusinessInfoDialog({
   open,
@@ -30,6 +43,22 @@ export function BusinessInfoDialog({
   const { toast } = useToast();
   const { data: settings } = useGetBusinessSettings();
   const update = useUpdateBusinessSettings();
+  const reset = useResetAllData();
+
+  const wipeData = () => {
+    reset.mutate(undefined, {
+      onSuccess: () => {
+        queryClient.invalidateQueries();
+        onOpenChange(false);
+        toast({
+          title: "Fresh start ready",
+          description: "All sample data was cleared. Your company info stays.",
+        });
+      },
+      onError: (e) =>
+        toast({ title: "Couldn't clear data", description: e.message, variant: "destructive" }),
+    });
+  };
 
   const [companyName, setCompanyName] = useState("");
   const [tagline, setTagline] = useState("");
@@ -139,6 +168,43 @@ export function BusinessInfoDialog({
             </p>
           </div>
         </div>
+
+        <div className="mt-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+          <div className="font-display font-bold text-sm text-destructive">Start fresh</div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Wipes all sample/demo data — properties, jobs, invoices, expenses, crews,
+            leads and more — so you can begin with a clean slate. Your company info and
+            bank connection are kept. This can't be undone.
+          </p>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="mt-3 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive">
+                <Trash2 className="w-4 h-4 mr-1.5" /> Wipe all data & start clean
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Wipe all data?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently deletes every property, job, invoice, expense, crew,
+                  lead, and message. Your company info and bank connection stay. This
+                  cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={wipeData}
+                  disabled={reset.isPending}
+                  className="bg-destructive hover:bg-destructive/90 text-white"
+                >
+                  {reset.isPending ? "Clearing…" : "Yes, wipe everything"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
