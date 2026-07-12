@@ -86,7 +86,7 @@ export default function Today() {
 
       {/* Brief */}
       {today?.brief && (
-        <Card className="bg-[linear-gradient(135deg,var(--gold-tint),rgba(255,255,255,0.8))] border-[var(--gold)]/20 shadow-sm relative overflow-hidden">
+        <Card data-tour="morning-brief" className="bg-[linear-gradient(135deg,var(--gold-tint),rgba(255,255,255,0.8))] border-[var(--gold)]/20 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <Sparkles className="w-24 h-24 text-[var(--gold-dark)]" />
           </div>
@@ -112,7 +112,7 @@ export default function Today() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Feed */}
-        <div className="lg:col-span-2 space-y-6">
+        <div data-tour="needs-attention" className="lg:col-span-2 space-y-6">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-display font-bold text-[var(--ink)]">Needs Attention</h2>
             {queueFilter && (
@@ -175,7 +175,7 @@ export default function Today() {
         {/* Sidebar Widgets */}
         <div className="space-y-8">
           {/* Ask HALO */}
-          <Card className="border-[var(--hairline2)] bg-card shadow-sm">
+          <Card data-tour="ask-halo" className="border-[var(--hairline2)] bg-card shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-display">Ask HALO</CardTitle>
             </CardHeader>
@@ -205,7 +205,7 @@ export default function Today() {
           </Card>
 
           {/* Queues */}
-          <div>
+          <div data-tour="operations">
             <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Operations</h2>
             <div className="grid grid-cols-2 gap-3">
               {queues?.map(q => (

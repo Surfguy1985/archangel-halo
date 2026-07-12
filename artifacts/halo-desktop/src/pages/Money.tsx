@@ -635,10 +635,12 @@ export default function Money() {
         <p className="text-muted-foreground">Cash flow, receivables &amp; payouts</p>
       </header>
 
-      <SummaryCards />
+      <div data-tour="money-summary">
+        <SummaryCards />
+      </div>
 
       <Tabs defaultValue="invoices" className="space-y-6">
-        <TabsList>
+        <TabsList data-tour="money-tabs">
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
           <TabsTrigger value="crew">Crew Pay</TabsTrigger>

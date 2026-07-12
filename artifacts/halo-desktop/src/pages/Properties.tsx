@@ -23,6 +23,7 @@ export default function Properties() {
           <p className="text-muted-foreground">{properties?.length || 0} active locations</p>
         </div>
         <button
+          data-tour="new-property"
           onClick={() => setAddOpen(true)}
           className="flex items-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm"
         >
@@ -50,7 +51,7 @@ export default function Properties() {
           <Skeleton className="h-20 w-full" />
         </div>
       ) : (
-        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+        <div data-tour="properties-list" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           <table className="w-full text-left text-sm">
             <thead className="bg-[var(--paper)] border-b border-border">
               <tr>
