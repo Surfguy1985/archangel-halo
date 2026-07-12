@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { VitePWA } from "vite-plugin-pwa";
 
 const rawPort = process.env.PORT;
 
@@ -32,6 +33,43 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    VitePWA({
+      registerType: "autoUpdate",
+      injectRegister: "auto",
+      includeAssets: ["favicon.svg", "apple-touch-icon.png"],
+      manifest: {
+        name: "HALO — Archangel Operations",
+        short_name: "HALO",
+        description:
+          "HALO — the back office for Archangel Contractors. Properties, jobs, money and crews in one place.",
+        theme_color: "#F4F3EF",
+        background_color: "#F4F3EF",
+        display: "standalone",
+        orientation: "portrait",
+        icons: [
+          {
+            src: "pwa-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+          {
+            src: "maskable-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ],
+      },
+      workbox: {
+        navigateFallbackDenylist: [/^\/api/, /^\/desktop/],
+        globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+      },
+    }),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [

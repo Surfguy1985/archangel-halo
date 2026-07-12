@@ -12,6 +12,7 @@
 - [HALO portal badges](halo-portal-badges.md) — red unseen badges from crews.portal_seen jsonb; new office→crew content types must update computeUnseen + schema enum + SEEN_SECTIONS.
 - [HALO business report](halo-business-report.md) — one shared server compute for report/insights/PDF; crew invoices link to properties via scored token match, ambiguous → Unassigned.
 - [HALO data reset](halo-data-reset.md) — POST /settings/reset wipes all operational tables but preserves business_settings + plaid_items; new schema tables must be added to its delete list.
+- [HALO mobile PWA](halo-pwa.md) — mobile app is an installable PWA via vite-plugin-pwa; icons from wings emblem on paper bg; PWA inert in dev, only works on published URL.
 - [HALO job board](halo-job-board.md) — one broadcast row per (job,crew), rebroadcast resets it; job fill must be guarded UPDATE + row-count (first-wins); photo URLs are /api/storage${storagePath}.
 - [HALO portal schedule feed](halo-portal-schedule.md) — portal schedule merges crew_schedules + crew-assigned calendar_events (deduped by jobId|date); new assignment sources must merge into this feed.
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.
