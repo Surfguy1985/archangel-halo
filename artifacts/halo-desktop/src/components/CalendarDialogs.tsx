@@ -145,8 +145,9 @@ export function EventDetailDialog({
 
   if (!event) return null;
 
+  // Always share the mobile-friendly portal (served at the site root) — crews open this on their phones.
   const portalUrl = event.crewPortalToken
-    ? `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/portal/${event.crewPortalToken}`
+    ? `${window.location.origin}/portal/${event.crewPortalToken}`
     : null;
 
   const timeLabel = event.allDay

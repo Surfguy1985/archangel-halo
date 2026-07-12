@@ -138,8 +138,9 @@ export default function CrewDetail() {
   }
 
   const portalToken = crew.portalToken;
+  // Always share the mobile-friendly portal (served at the site root) — crews open this on their phones.
   const portalUrl = portalToken
-    ? `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/portal/${portalToken}`
+    ? `${window.location.origin}/portal/${portalToken}`
     : null;
 
   const handleGenerate = () =>
