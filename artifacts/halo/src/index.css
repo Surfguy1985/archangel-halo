@@ -16,6 +16,9 @@
   --color-card-foreground: var(--ink);
   --color-card-border: var(--hairline);
 
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--ink);
+
   --color-primary: var(--gold);
   --color-primary-foreground: #171410;
   
