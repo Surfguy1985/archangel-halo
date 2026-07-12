@@ -139,13 +139,19 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
           continue;
         }
         const units = Number(f.units);
-        await db.insert(propertiesTable).values({
-          name,
-          pmcName: f.pmcName ? String(f.pmcName) : null,
-          city: f.city ? String(f.city) : null,
-          units: Number.isFinite(units) ? Math.round(units) : null,
-          accessNotes: f.accessNotes ? String(f.accessNotes) : null,
-        });
+        const [newProp] = await db
+          .insert(propertiesTable)
+          .values({
+            name,
+            pmcName: f.pmcName ? String(f.pmcName) : null,
+            city: f.city ? String(f.city) : null,
+            units: Number.isFinite(units) ? Math.round(units) : null,
+            accessNotes: f.accessNotes ? String(f.accessNotes) : null,
+          })
+          .returning();
+        // Make the new property visible to later actions in the same batch
+        // (e.g. "new building on Oak St, and unit 3 there needs paint").
+        propByName.set(name.toLowerCase(), newProp);
         applied++;
         messages.push(`Added property ${name}`);
       } else if (a.tool === "create_crew") {
@@ -154,12 +160,17 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
           messages.push("Skipped crew — no name given");
           continue;
         }
-        await db.insert(crewsTable).values({
-          name,
-          trade: f.trade ? String(f.trade) : null,
-          phone: f.phone ? String(f.phone) : null,
-          isLeader: f.isLeader === true || String(f.isLeader).toLowerCase() === "true",
-        });
+        const [newCrew] = await db
+          .insert(crewsTable)
+          .values({
+            name,
+            trade: f.trade ? String(f.trade) : null,
+            phone: f.phone ? String(f.phone) : null,
+            isLeader: f.isLeader === true || String(f.isLeader).toLowerCase() === "true",
+          })
+          .returning();
+        // Make the new crew assignable by later actions in the same batch.
+        crewByName.set(name.toLowerCase(), newCrew);
         applied++;
         messages.push(`Added crew ${name}`);
       } else if (a.tool === "schedule_job") {
