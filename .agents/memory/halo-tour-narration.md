@@ -30,6 +30,20 @@ pause, step-change, unmount) can't advance the tour or double-fire. `stop()` mus
 be called at every transition (effect start/cleanup, close-reset, back button);
 the hook also self-stops on unmount.
 
+**Pitfall — cleanup effects that depend on `stop`/`speech`:** `useSpeech()`
+returns a fresh object every render, so `stop` (a useCallback with `[speech]`)
+also gets a new identity every render. An effect like `useEffect(() => stop,
+[stop])` therefore tears down and calls `stop()` on **every re-render**, which
+`audio.pause()`s the clip the instant it starts — symptom: "no audio" and
+Next/auto-advance appear stuck. For unmount-only cleanup, stash `stop` in a ref
+and use `useEffect(() => () => stopRef.current(), [])`.
+
+**Testing note:** the player uses a detached `new Audio()` element, so
+`document.querySelector('audio')` finds nothing in e2e tests even though sound
+plays. Verify via the `.mp3` network request + step-title change, not the DOM
+audio node. Also: the callout's "Lesson N of 14" label tracks the CHAPTER, not
+the step — advancing within a chapter changes the title/dots, not that label.
+
 **Regenerating clips:** use `externalApi__elevenlabs`, model `eleven_multilingual_v2`,
 voice id `cgSgspJ2msm6clMCkdW9` (Jessica), settings `{stability:0.4,
 similarity_boost:0.75, style:0.35, use_speaker_boost:true}`, narration text

@@ -67,7 +67,12 @@ export function useTourNarration() {
   }, [speech]);
 
   // Guarantee narration halts if the component using this hook unmounts.
-  useEffect(() => stop, [stop]);
+  // Use a ref so this only fires on real unmount — `stop` gets a new identity
+  // every render (useSpeech returns a fresh object), and depending on it here
+  // would tear down + call stop() on every re-render, interrupting playback.
+  const stopRef = useRef(stop);
+  stopRef.current = stop;
+  useEffect(() => () => stopRef.current(), []);
 
   // Unlock audio/speech playback from within a user gesture.
   const prime = useCallback(() => {
