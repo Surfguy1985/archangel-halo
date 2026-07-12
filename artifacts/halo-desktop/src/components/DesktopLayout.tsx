@@ -1,14 +1,24 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon, ClipboardList } from "lucide-react";
+import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon, ClipboardList, Settings } from "lucide-react";
 import { useGetToday, getGetTodayQueryKey } from "@workspace/api-client-react";
 import haloLogo from "../assets/halo-logo.png";
 import { NotificationsPopover } from "./NotificationsPopover";
 import { VoiceCaptureDialog } from "./VoiceCaptureDialog";
+import { BusinessInfoDialog } from "./BusinessInfoDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function DesktopLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { data: today } = useGetToday({
     query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000 },
   });
@@ -56,9 +66,28 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
               ) : null}
             </button>
           </NotificationsPopover>
-          <button className="w-10 h-10 rounded-full flex items-center justify-center bg-card shadow-sm border border-border">
-            <LayoutGrid className="w-5 h-5" />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-card shadow-sm border border-border hover:bg-black/5 transition-colors"
+                title="More"
+              >
+                <LayoutGrid className="w-5 h-5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="end" className="w-60">
+              <DropdownMenuLabel>Workspace</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+                <Settings className="w-4 h-4 mr-2" />
+                Settings &amp; business info
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setVoiceOpen(true)}>
+                <Mic className="w-4 h-4 mr-2" />
+                Talk to HALO
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
 
@@ -68,6 +97,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       <VoiceCaptureDialog open={voiceOpen} onOpenChange={setVoiceOpen} />
+      <BusinessInfoDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }
