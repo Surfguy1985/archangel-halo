@@ -49,6 +49,8 @@ export const jobsTable = pgTable("jobs", {
   grossProfit: doublePrecision("gross_profit"),
   marginPct: doublePrecision("margin_pct"),
   boardStatus: text("board_status").notNull().default("active"),
+  isRecurring: boolean("is_recurring").default(false),
+  recurrence: text("recurrence"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

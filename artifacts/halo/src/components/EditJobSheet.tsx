@@ -12,7 +12,7 @@ import {
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Trash2, Repeat } from "lucide-react";
 import {
   useUpdateJob,
   useDeleteJob,
@@ -32,7 +32,17 @@ type JobLike = {
   category?: string | null;
   description?: string | null;
   status: string;
+  isRecurring?: boolean | null;
+  recurrence?: string | null;
 };
+
+const FREQUENCIES = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Bi-weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+];
 
 const STATUSES = [
   "open",
@@ -61,6 +71,8 @@ export function EditJobSheet({
   const [unitNo, setUnitNo] = useState(job.unitNo ?? "");
   const [woNo, setWoNo] = useState(job.woNo ?? "");
   const [status, setStatus] = useState(job.status);
+  const [isRecurring, setIsRecurring] = useState(!!job.isRecurring);
+  const [recurrence, setRecurrence] = useState(job.recurrence ?? "weekly");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -71,6 +83,8 @@ export function EditJobSheet({
       setUnitNo(job.unitNo ?? "");
       setWoNo(job.woNo ?? "");
       setStatus(job.status);
+      setIsRecurring(!!job.isRecurring);
+      setRecurrence(job.recurrence ?? "weekly");
       setDeleteError(null);
     }
   }, [open, job]);
@@ -94,6 +108,10 @@ export function EditJobSheet({
           unitNo: unitNo.trim() || undefined,
           woNo: woNo.trim() || undefined,
           status,
+          isRecurring,
+          recurrence: isRecurring
+            ? (recurrence as "daily" | "weekly" | "biweekly" | "monthly" | "quarterly")
+            : null,
         },
       },
       {
@@ -184,6 +202,37 @@ export function EditJobSheet({
                   </option>
                 ))}
               </select>
+
+              <button
+                type="button"
+                onClick={() => setIsRecurring((v) => !v)}
+                className={`w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] text-[14px] font-display font-bold border transition-transform active:scale-[0.98] ${
+                  isRecurring
+                    ? "text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] border-transparent shadow-[0_4px_14px_rgba(143,106,31,0.3)]"
+                    : "bg-card border-border text-muted-foreground shadow-[var(--shadow)]"
+                }`}
+              >
+                <Repeat className="w-[16px] h-[16px]" />
+                {isRecurring ? "Recurring job — ON" : "Mark as recurring"}
+              </button>
+              {isRecurring && (
+                <div className="flex flex-wrap gap-[7px]">
+                  {FREQUENCIES.map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      onClick={() => setRecurrence(f.value)}
+                      className={`px-[13px] py-[8px] rounded-full text-[13px] font-display font-bold border transition-transform active:scale-[0.95] ${
+                        recurrence === f.value
+                          ? "text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] border-transparent"
+                          : "bg-card border-border text-muted-foreground"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button

@@ -51,5 +51,12 @@ export interface Job {
      */
   boardStatus?: string | null;
   /** @nullable */
+  isRecurring?: boolean | null;
+  /**
+     * daily | weekly | biweekly | monthly | quarterly
+     * @nullable
+     */
+  recurrence?: string | null;
+  /** @nullable */
   createdAt?: string | null;
 }

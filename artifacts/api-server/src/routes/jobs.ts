@@ -101,6 +101,11 @@ router.get("/jobs", async (req, res): Promise<void> => {
 
 router.post("/jobs", async (req, res): Promise<void> => {
   const body = CreateJobBody.parse(req.body);
+  if (body.isRecurring && !body.recurrence) {
+    res.status(400).json({ error: "Pick how often the recurring job repeats." });
+    return;
+  }
+  if (!body.isRecurring) body.recurrence = undefined;
   const [row] = await db
     .insert(jobsTable)
     .values({ ...body, jobNo: await nextJobNo() })
@@ -145,6 +150,11 @@ router.get("/jobs/:id", async (req, res): Promise<void> => {
 router.patch("/jobs/:id", async (req, res): Promise<void> => {
   const { id } = UpdateJobParams.parse(req.params);
   const body = UpdateJobBody.parse(req.body);
+  if (body.isRecurring === true && body.recurrence == null) {
+    res.status(400).json({ error: "Pick how often the recurring job repeats." });
+    return;
+  }
+  if (body.isRecurring === false) body.recurrence = null;
   const [row] = await db
     .update(jobsTable)
     .set(body)

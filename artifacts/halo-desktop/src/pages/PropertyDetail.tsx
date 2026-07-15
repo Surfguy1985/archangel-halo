@@ -1,6 +1,6 @@
 import { useGetProperty, getGetPropertyQueryKey } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, Pencil, Plus } from "lucide-react";
+import { ChevronLeft, Pencil, Plus, Repeat } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import {
@@ -84,8 +84,22 @@ export default function PropertyDetail() {
                   <div>
                     <div className="font-semibold">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
                     <div className="text-sm text-muted-foreground">{job.description}</div>
+                    {job.isRecurring && (
+                      <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--gold-dark)]">
+                        <Repeat className="w-3 h-3" />
+                        {{ daily: "Daily", weekly: "Weekly", biweekly: "Bi-weekly", monthly: "Monthly", quarterly: "Quarterly" }[job.recurrence ?? ""] ?? "Recurring"}
+                        <span className="text-muted-foreground font-normal">
+                          · {job.crewLeaderName ? `${job.crewLeaderName} goes` : "No crew assigned"}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-right font-mono text-sm text-muted-foreground">{job.jobNo}</div>
+                  <div className="text-right">
+                    <div className="font-mono text-sm text-muted-foreground">{job.jobNo}</div>
+                    {!job.isRecurring && job.crewLeaderName && (
+                      <div className="text-xs text-muted-foreground">{job.crewLeaderName}</div>
+                    )}
+                  </div>
                 </Link>
               ))}
               {!jobs.length && <div className="p-6 text-center text-sm text-muted-foreground">No active jobs.</div>}

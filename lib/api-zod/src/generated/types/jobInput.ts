@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { JobInputRecurrence } from './jobInputRecurrence';
 
 export interface JobInput {
   propertyId: string;
@@ -16,4 +17,6 @@ export interface JobInput {
   crewLeaderId?: string;
   contactId?: string;
   inspectionRequired?: boolean;
+  isRecurring?: boolean;
+  recurrence?: JobInputRecurrence;
 }

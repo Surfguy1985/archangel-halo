@@ -663,6 +663,8 @@ export function AddJobDialog({
   const [woNo, setWoNo] = useState("");
   const [crewLeaderId, setCrewLeaderId] = useState("");
   const [inspectionRequired, setInspectionRequired] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrence, setRecurrence] = useState("weekly");
   const [error, setError] = useState<string | null>(null);
   const create = useCreateJob();
 
@@ -674,6 +676,8 @@ export function AddJobDialog({
       setWoNo("");
       setCrewLeaderId("");
       setInspectionRequired(false);
+      setIsRecurring(false);
+      setRecurrence("weekly");
       setError(null);
     }
   }, [open]);
@@ -693,6 +697,10 @@ export function AddJobDialog({
           woNo: woNo.trim() || undefined,
           crewLeaderId: crewLeaderId || undefined,
           inspectionRequired: inspectionRequired || undefined,
+          isRecurring: isRecurring || undefined,
+          recurrence: isRecurring
+            ? (recurrence as "daily" | "weekly" | "biweekly" | "monthly" | "quarterly")
+            : undefined,
         },
       },
       {
@@ -782,6 +790,30 @@ export function AddJobDialog({
             />
             Inspection required before invoicing
           </label>
+          <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isRecurring}
+              onChange={(e) => setIsRecurring(e.target.checked)}
+              className="accent-[var(--gold)] w-4 h-4"
+            />
+            Recurring job
+          </label>
+          {isRecurring && (
+            <Field label="How often">
+              <select
+                className={fieldCls}
+                value={recurrence}
+                onChange={(e) => setRecurrence(e.target.value)}
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Bi-weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+              </select>
+            </Field>
+          )}
           {error && <p className={errorCls}>{error}</p>}
         </div>
         <DialogFooter>

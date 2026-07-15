@@ -3262,6 +3262,8 @@ components:
         grossProfit: { type: ["number", "null"] }
         marginPct: { type: ["number", "null"] }
         boardStatus: { type: ["string", "null"], description: "active | filled | reopened | completed" }
+        isRecurring: { type: ["boolean", "null"] }
+        recurrence: { type: ["string", "null"], description: "daily | weekly | biweekly | monthly | quarterly" }
         createdAt: { type: ["string", "null"] }
     JobDetail:
       type: object
@@ -3293,6 +3295,8 @@ components:
         crewLeaderId: { type: string }
         contactId: { type: string }
         inspectionRequired: { type: boolean }
+        isRecurring: { type: boolean }
+        recurrence: { type: string, enum: [daily, weekly, biweekly, monthly, quarterly] }
     JobUpdate:
       type: object
       properties:
@@ -3303,6 +3307,8 @@ components:
         status: { type: string }
         crewLeaderId: { type: string }
         inspectionRequired: { type: boolean }
+        isRecurring: { type: boolean }
+        recurrence: { type: ["string", "null"], enum: [daily, weekly, biweekly, monthly, quarterly, null] }
 
     JobPhoto:
       type: object

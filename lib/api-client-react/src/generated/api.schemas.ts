@@ -191,6 +191,13 @@ export interface Job {
      */
   boardStatus?: string | null;
   /** @nullable */
+  isRecurring?: boolean | null;
+  /**
+     * daily | weekly | biweekly | monthly | quarterly
+     * @nullable
+     */
+  recurrence?: string | null;
+  /** @nullable */
   createdAt?: string | null;
 }
 
@@ -494,6 +501,17 @@ export interface JobDetail {
   schedules: Schedule[];
 }
 
+export type JobInputRecurrence = typeof JobInputRecurrence[keyof typeof JobInputRecurrence];
+
+
+export const JobInputRecurrence = {
+  daily: 'daily',
+  weekly: 'weekly',
+  biweekly: 'biweekly',
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+} as const;
+
 export interface JobInput {
   propertyId: string;
   woNo?: string;
@@ -504,7 +522,23 @@ export interface JobInput {
   crewLeaderId?: string;
   contactId?: string;
   inspectionRequired?: boolean;
+  isRecurring?: boolean;
+  recurrence?: JobInputRecurrence;
 }
+
+/**
+ * @nullable
+ */
+export type JobUpdateRecurrence = typeof JobUpdateRecurrence[keyof typeof JobUpdateRecurrence] | null;
+
+
+export const JobUpdateRecurrence = {
+  daily: 'daily',
+  weekly: 'weekly',
+  biweekly: 'biweekly',
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+} as const;
 
 export interface JobUpdate {
   woNo?: string;
@@ -514,6 +548,9 @@ export interface JobUpdate {
   status?: string;
   crewLeaderId?: string;
   inspectionRequired?: boolean;
+  isRecurring?: boolean;
+  /** @nullable */
+  recurrence?: JobUpdateRecurrence;
 }
 
 export interface JobPhoto {

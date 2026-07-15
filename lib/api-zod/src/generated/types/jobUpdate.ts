@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { JobUpdateRecurrence } from './jobUpdateRecurrence';
 
 export interface JobUpdate {
   woNo?: string;
@@ -14,4 +15,7 @@ export interface JobUpdate {
   status?: string;
   crewLeaderId?: string;
   inspectionRequired?: boolean;
+  isRecurring?: boolean;
+  /** @nullable */
+  recurrence?: JobUpdateRecurrence;
 }

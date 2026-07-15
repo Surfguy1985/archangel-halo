@@ -6,6 +6,16 @@ import { EditPropertySheet } from "@/components/EditPropertySheet";
 import { AddContactSheet } from "@/components/AddContactSheet";
 import { AddPriceItemSheet } from "@/components/AddPriceItemSheet";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
+import { AddJobSheet } from "@/components/AddJobSheet";
+import { Repeat } from "lucide-react";
+
+const recurrenceLabels: Record<string, string> = {
+  daily: "Daily",
+  weekly: "Weekly",
+  biweekly: "Bi-weekly",
+  monthly: "Monthly",
+  quarterly: "Quarterly",
+};
 
 function SectionHeader({ title, onAdd }: { title: string; onAdd?: () => void }) {
   return (
@@ -30,6 +40,7 @@ export default function PropertyDetail() {
   const [contactOpen, setContactOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
+  const [jobOpen, setJobOpen] = useState(false);
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -89,24 +100,38 @@ export default function PropertyDetail() {
         </div>
       )}
 
-      {jobs.length > 0 && (
-        <div className="mb-[18px]">
-          <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-muted-foreground mb-[8px] mx-[2px]">Active Jobs</div>
+      <div className="mb-[18px]">
+        <SectionHeader title="Active Jobs" onAdd={() => setJobOpen(true)} />
+        {jobs.length > 0 ? (
           <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
             {jobs.map((job, idx) => (
               <Link key={job.id} href={`/jobs/${job.id}`} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
                   <div className="text-[12px] text-muted-foreground truncate">{job.description}</div>
+                  {job.isRecurring && (
+                    <div className="flex items-center gap-[5px] mt-[3px] text-[11.5px] font-semibold text-[var(--gold-dark)]">
+                      <Repeat className="w-[12px] h-[12px]" />
+                      {recurrenceLabels[job.recurrence ?? ""] ?? "Recurring"}
+                      <span className="text-muted-foreground font-normal">
+                        · {job.crewLeaderName ? `${job.crewLeaderName} goes` : "No crew assigned"}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-[12px] font-mono text-muted-foreground">{job.jobNo}</div>
+                  {!job.isRecurring && job.crewLeaderName && (
+                    <div className="text-[11.5px] text-muted-foreground">{job.crewLeaderName}</div>
+                  )}
                 </div>
               </Link>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No jobs yet. Tap Add to create one.</div>
+        )}
+      </div>
 
       <div className="mb-[18px]">
         <SectionHeader title="Price List" onAdd={() => setPriceOpen(true)} />
@@ -198,6 +223,7 @@ export default function PropertyDetail() {
       <AddContactSheet open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
       <AddPriceItemSheet open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
       <AddExpenseSheet open={expenseOpen} onOpenChange={setExpenseOpen} propertyId={id} />
+      <AddJobSheet open={jobOpen} onOpenChange={setJobOpen} propertyId={id} />
     </div>
   );
 }

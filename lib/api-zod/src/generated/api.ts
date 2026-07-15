@@ -211,6 +211,8 @@ export const GetPropertyResponse = zod.object({
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish()
 })),
   "expenses": zod.array(zod.object({
@@ -782,6 +784,8 @@ export const ListJobsResponseItem = zod.object({
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish()
 })
 export const ListJobsResponse = zod.array(ListJobsResponseItem)
@@ -798,7 +802,9 @@ export const CreateJobBody = zod.object({
   "description": zod.string().min(1),
   "crewLeaderId": zod.string().optional(),
   "contactId": zod.string().optional(),
-  "inspectionRequired": zod.boolean().optional()
+  "inspectionRequired": zod.boolean().optional(),
+  "isRecurring": zod.boolean().optional(),
+  "recurrence": zod.enum(['daily', 'weekly', 'biweekly', 'monthly', 'quarterly']).optional()
 })
 
 export const CreateJobResponse = zod.object({
@@ -824,6 +830,8 @@ export const CreateJobResponse = zod.object({
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish()
 })
 
@@ -856,6 +864,8 @@ export const GetJobResponse = zod.object({
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish()
 }),
   "activities": zod.array(zod.object({
@@ -899,7 +909,9 @@ export const UpdateJobBody = zod.object({
   "description": zod.string().optional(),
   "status": zod.string().optional(),
   "crewLeaderId": zod.string().optional(),
-  "inspectionRequired": zod.boolean().optional()
+  "inspectionRequired": zod.boolean().optional(),
+  "isRecurring": zod.boolean().optional(),
+  "recurrence": zod.union([zod.literal('daily'),zod.literal('weekly'),zod.literal('biweekly'),zod.literal('monthly'),zod.literal('quarterly'),zod.literal(null)]).nullish()
 })
 
 export const UpdateJobResponse = zod.object({
@@ -925,6 +937,8 @@ export const UpdateJobResponse = zod.object({
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish()
 })
 
@@ -971,6 +985,8 @@ export const CompleteJobResponse = zod.object({
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish()
 })
 
@@ -1011,6 +1027,8 @@ export const ScheduleJobResponse = zod.object({
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish()
 })
 
@@ -1064,6 +1082,8 @@ export const SendJobRecapResponse = zod.object({
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish()
 })
 
@@ -1095,6 +1115,8 @@ export const ListJobBoardResponseItem = zod.object({
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish()
 }),
   "priceItems": zod.array(zod.object({
@@ -1173,6 +1195,8 @@ export const ReopenJobResponse = zod.object({
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish()
 })
 
