@@ -3,7 +3,7 @@ import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, History, Pencil, Plus, Repeat, BookOpen } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, History, Pencil, Plus, Repeat, BookOpen, Receipt } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
@@ -47,6 +47,26 @@ export default function PropertyDetail() {
   const { property, stats, jobs, priceItems, contacts, expenses, invoices, upcomingVisits, crewPhotos } = data;
   const activeJobs = jobs.filter((j) => !j.clearedAt);
   const historyJobs = jobs.filter((j) => !!j.clearedAt);
+  const invoiceStatusRank: Record<string, number> = { paid: 0, past_due: 1, sent: 2, draft: 3 };
+  const invoiceForJob = (jobId: string) => {
+    const matches = invoices.filter((inv) => inv.jobId === jobId);
+    if (matches.length <= 1) return matches[0];
+    return [...matches].sort(
+      (a, b) => (invoiceStatusRank[a.status] ?? 9) - (invoiceStatusRank[b.status] ?? 9),
+    )[0];
+  };
+  const invoiceStatusLabel: Record<string, string> = {
+    draft: "Invoice drafted",
+    sent: "Invoice sent",
+    past_due: "Invoice past due",
+    paid: "Invoice paid",
+  };
+  const invoiceStatusCls: Record<string, string> = {
+    draft: "bg-black/[0.05] text-muted-foreground",
+    sent: "bg-sky-50 text-sky-700 border border-sky-200",
+    past_due: "bg-red-50 text-red-700 border border-red-200",
+    paid: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  };
 
   const invalidateJobLists = () => {
     queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
@@ -244,7 +264,25 @@ export default function PropertyDetail() {
                     />
                   )}
                   {job.status === "complete" && (
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center flex-wrap gap-2 mt-2">
+                      {(() => {
+                        const inv = invoiceForJob(job.id);
+                        return inv ? (
+                          <Link
+                            href={`/invoices/${inv.id}`}
+                            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors hover:opacity-80 ${invoiceStatusCls[inv.status] ?? invoiceStatusCls.draft}`}
+                          >
+                            <Receipt className="w-3 h-3" /> {invoiceStatusLabel[inv.status] ?? "Invoice"} · {inv.invoiceNo}
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`/invoices/new?jobId=${job.id}&propertyId=${id}`}
+                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[var(--ink)] text-background hover:opacity-90 transition-opacity"
+                          >
+                            <Receipt className="w-3 h-3" /> Create invoice
+                          </Link>
+                        );
+                      })()}
                       <button
                         disabled={clearJob.isPending}
                         onClick={() => clearJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
@@ -288,6 +326,17 @@ export default function PropertyDetail() {
                           {job.jobNo}{job.completedAt ? ` · Completed ${new Date(job.completedAt).toLocaleDateString()}` : ''}
                         </div>
                       </Link>
+                      {(() => {
+                        const inv = invoiceForJob(job.id);
+                        return inv ? (
+                          <Link
+                            href={`/invoices/${inv.id}`}
+                            className={`shrink-0 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full hover:opacity-80 transition-opacity ${invoiceStatusCls[inv.status] ?? invoiceStatusCls.draft}`}
+                          >
+                            <Receipt className="w-3 h-3" /> {invoiceStatusLabel[inv.status] ?? "Invoice"}
+                          </Link>
+                        ) : null;
+                      })()}
                       <button
                         disabled={restartJob.isPending}
                         onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}

@@ -3,7 +3,7 @@ import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, ChevronDown, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History } from "lucide-react";
+import { ChevronLeft, ChevronDown, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History, Receipt } from "lucide-react";
 import { useState } from "react";
 import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
 import { EditPropertySheet } from "@/components/EditPropertySheet";
@@ -15,6 +15,7 @@ import { AddJobSheet } from "@/components/AddJobSheet";
 import { EditJobSheet } from "@/components/EditJobSheet";
 import { EditContactSheet } from "@/components/EditContactSheet";
 import { EditPriceItemSheet } from "@/components/EditPriceItemSheet";
+import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { Repeat } from "lucide-react";
 
 const recurrenceLabels: Record<string, string> = {
@@ -55,6 +56,7 @@ export default function PropertyDetail() {
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
   const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [invoiceJobId, setInvoiceJobId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const setStatus = useSetInvoiceStatus();
   const updateProperty = useUpdateProperty();
@@ -76,6 +78,26 @@ export default function PropertyDetail() {
   const { property, stats, jobs, priceItems, contacts, expenses, agreements, invoices, upcomingVisits, crewPhotos } = data;
   const activeJobs = jobs.filter((j) => !j.clearedAt);
   const historyJobs = jobs.filter((j) => !!j.clearedAt);
+  const invoiceStatusRank: Record<string, number> = { paid: 0, past_due: 1, sent: 2, draft: 3 };
+  const invoiceForJob = (jobId: string) => {
+    const matches = invoices.filter((inv) => inv.jobId === jobId);
+    if (matches.length <= 1) return matches[0];
+    return [...matches].sort(
+      (a, b) => (invoiceStatusRank[a.status] ?? 9) - (invoiceStatusRank[b.status] ?? 9),
+    )[0];
+  };
+  const invoiceStatusLabel: Record<string, string> = {
+    draft: "Invoice drafted",
+    sent: "Invoice sent",
+    past_due: "Invoice past due",
+    paid: "Invoice paid",
+  };
+  const invoiceStatusCls: Record<string, string> = {
+    draft: "bg-[rgba(23,24,28,0.05)] text-muted-foreground",
+    sent: "bg-sky-50 text-sky-700 border border-sky-200",
+    past_due: "bg-red-50 text-red-700 border border-red-200",
+    paid: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  };
 
   const invalidateJobLists = () => {
     queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
@@ -235,7 +257,25 @@ export default function PropertyDetail() {
                   />
                 )}
                 {job.status === "complete" && (
-                  <div className="flex items-center gap-[8px] mt-[8px]">
+                  <div className="flex items-center flex-wrap gap-[8px] mt-[8px]">
+                    {(() => {
+                      const inv = invoiceForJob(job.id);
+                      return inv ? (
+                        <Link
+                          href={`/invoices/${inv.id}`}
+                          className={`flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full active:scale-[0.95] ${invoiceStatusCls[inv.status] ?? invoiceStatusCls.draft}`}
+                        >
+                          <Receipt className="w-[12px] h-[12px]" /> {invoiceStatusLabel[inv.status] ?? "Invoice"} · {inv.invoiceNo}
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => setInvoiceJobId(job.id)}
+                          className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[var(--ink)] text-background active:scale-[0.95]"
+                        >
+                          <Receipt className="w-[12px] h-[12px]" /> Create invoice
+                        </button>
+                      );
+                    })()}
                     <button
                       disabled={clearJob.isPending}
                       onClick={() => clearJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
@@ -280,6 +320,17 @@ export default function PropertyDetail() {
                       {job.jobNo}{job.completedAt ? ` · Completed ${new Date(job.completedAt).toLocaleDateString()}` : ''}
                     </div>
                   </Link>
+                  {(() => {
+                    const inv = invoiceForJob(job.id);
+                    return inv ? (
+                      <Link
+                        href={`/invoices/${inv.id}`}
+                        className={`shrink-0 flex items-center gap-[4px] text-[11px] font-display font-bold px-[9px] py-[4px] rounded-full active:scale-[0.95] ${invoiceStatusCls[inv.status] ?? invoiceStatusCls.draft}`}
+                      >
+                        <Receipt className="w-[11px] h-[11px]" /> {invoiceStatusLabel[inv.status] ?? "Invoice"}
+                      </Link>
+                    ) : null;
+                  })()}
                   <button
                     disabled={restartJob.isPending}
                     onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
@@ -483,6 +534,11 @@ export default function PropertyDetail() {
       <ImportFromCatalogSheet open={importCatalogOpen} onOpenChange={setImportCatalogOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />
       <AddExpenseSheet open={expenseOpen} onOpenChange={setExpenseOpen} propertyId={id} />
       <AddJobSheet open={jobOpen} onOpenChange={setJobOpen} propertyId={id} />
+      <InvoiceEditor
+        open={!!invoiceJobId}
+        onOpenChange={(o) => { if (!o) setInvoiceJobId(null); }}
+        initialJobId={invoiceJobId}
+      />
       {(() => {
         const j = jobs.find((x) => x.id === editJobId);
         return j ? (

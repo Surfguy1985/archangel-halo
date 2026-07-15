@@ -13,6 +13,7 @@ import {
   getGetMoneySummaryQueryKey,
   getGetTodayQueryKey,
   getGetInvoiceQueryKey,
+  getGetPropertyQueryKey,
   type InvoiceDetail,
 } from "@workspace/api-client-react";
 
@@ -181,6 +182,10 @@ export function InvoiceEditor({
       queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+      if (propertyId)
+        queryClient.invalidateQueries({
+          queryKey: getGetPropertyQueryKey(propertyId),
+        });
       if (invoice)
         queryClient.invalidateQueries({
           queryKey: getGetInvoiceQueryKey(invoice.id),

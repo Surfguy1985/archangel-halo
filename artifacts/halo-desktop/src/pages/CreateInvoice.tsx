@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useCreateInvoice,
   useListProperties,
   useGetBusinessSettings,
+  useGetJob,
+  getGetJobQueryKey,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
   getGetPropertyQueryKey,
+  getGetTodayQueryKey,
   type InvoiceLineItemInput,
 } from "@workspace/api-client-react";
 import { ChevronLeft, Pencil, Plus, Save, Send, Trash2 } from "lucide-react";
@@ -105,6 +108,38 @@ export default function CreateInvoice() {
     }
   };
 
+  // Prefill from ?jobId=&propertyId= (the "Create invoice" shortcut on a job).
+  const search = useSearch();
+  const params = useMemo(() => new URLSearchParams(search), [search]);
+  const initialJobId = params.get("jobId") ?? "";
+  const initialPropertyId = params.get("propertyId") ?? "";
+  const { data: initialJobDetail } = useGetJob(initialJobId, {
+    query: { enabled: !!initialJobId, queryKey: getGetJobQueryKey(initialJobId) },
+  });
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current || !initialJobId || !properties) return;
+    const job = initialJobDetail?.job;
+    if (!job) return;
+    prefilled.current = true;
+    onPickProperty(job.propertyId ?? initialPropertyId);
+    const lineItems = job.lineItems ?? [];
+    if (lineItems.length) {
+      setItems(
+        lineItems.map((li) => ({
+          dateOfWork: "",
+          unitNo: job.unitNo ?? "",
+          typeOfWork: li.service,
+          description: "",
+          qty: String(li.qty),
+          unitPrice: String(li.rate),
+        })),
+      );
+    } else {
+      setItems([{ ...emptyItem(), unitNo: job.unitNo ?? "", typeOfWork: [job.category, job.description].filter(Boolean).join(" — ") }]);
+    }
+  }, [initialJobId, initialPropertyId, initialJobDetail, properties]);
+
   const total = useMemo(
     () => Math.round(items.reduce((s, it) => s + itemAmount(it), 0) * 100) / 100,
     [items],
@@ -132,6 +167,11 @@ export default function CreateInvoice() {
       {
         data: {
           propertyId,
+          ...(initialJobId &&
+          initialJobDetail?.job &&
+          propertyId === (initialJobDetail.job.propertyId ?? initialPropertyId)
+            ? { jobId: initialJobId }
+            : {}),
           issuedOn,
           ...(dueOn ? { dueOn } : {}),
           ...(poNumber.trim() ? { poNumber: poNumber.trim() } : {}),
@@ -151,6 +191,7 @@ export default function CreateInvoice() {
           queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
           if (thenSend) {
             setSendFor({
               id: inv.id,
