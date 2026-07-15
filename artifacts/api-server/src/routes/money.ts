@@ -29,6 +29,9 @@ import {
   RemindInvoiceResponse,
   RecordPaymentBody,
   RecordPaymentResponse,
+  SetInvoiceStatusParams,
+  SetInvoiceStatusBody,
+  SetInvoiceStatusResponse,
   ListExpensesResponse,
   ListExpensesQueryParams,
   CreateExpenseBody,
@@ -628,6 +631,26 @@ router.post("/invoices/:id/remind", async (req, res): Promise<void> => {
     return;
   }
   res.json(RemindInvoiceResponse.parse(decorateInvoice(inv, names)));
+});
+
+router.post("/invoices/:id/status", async (req, res): Promise<void> => {
+  const { id } = SetInvoiceStatusParams.parse(req.params);
+  const body = SetInvoiceStatusBody.parse(req.body);
+  const [row] = await db
+    .update(invoicesTable)
+    .set(
+      body.status === "paid"
+        ? { status: "paid", paidAt: new Date() }
+        : { status: "sent", paidAt: null },
+    )
+    .where(eq(invoicesTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+  const names = await propertyNames();
+  res.json(SetInvoiceStatusResponse.parse(decorateInvoice(row, names)));
 });
 
 router.post("/payments", async (req, res): Promise<void> => {

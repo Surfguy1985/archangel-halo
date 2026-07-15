@@ -213,7 +213,18 @@ export const GetPropertyResponse = zod.object({
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
-  "createdAt": zod.string().nullish()
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
 })),
   "expenses": zod.array(zod.object({
   "id": zod.string(),
@@ -233,11 +244,43 @@ export const GetPropertyResponse = zod.object({
   "effectiveFrom": zod.string().nullish(),
   "renewsOn": zod.string().nullish()
 })),
+  "invoices": zod.array(zod.object({
+  "id": zod.string(),
+  "invoiceNo": zod.string(),
+  "jobId": zod.string().nullish(),
+  "propertyId": zod.string().optional(),
+  "propertyName": zod.string().nullish(),
+  "amount": zod.number(),
+  "status": zod.string().describe('draft | sent | past_due | paid'),
+  "poNumber": zod.string().nullish(),
+  "terms": zod.string().nullish(),
+  "billToName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "paymentInstructions": zod.string().nullish(),
+  "issuedOn": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "dueAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "daysLate": zod.number().nullish()
+})),
+  "upcomingVisits": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "scheduledOn": zod.string(),
+  "windowStart": zod.string().nullish(),
+  "crewLeaderName": zod.string().nullish(),
+  "jobDescription": zod.string().nullish(),
+  "unitNo": zod.string().nullish()
+})),
   "stats": zod.object({
   "owed": zod.number(),
   "openJobs": zod.number(),
   "marginPct": zod.number().nullable(),
-  "mtdRevenue": zod.number()
+  "mtdRevenue": zod.number(),
+  "invoicedTotal": zod.number(),
+  "collectedTotal": zod.number(),
+  "expensesTotal": zod.number()
 })
 })
 
@@ -856,7 +899,18 @@ export const ListJobsResponseItem = zod.object({
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
-  "createdAt": zod.string().nullish()
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
 })
 export const ListJobsResponse = zod.array(ListJobsResponseItem)
 
@@ -902,7 +956,18 @@ export const CreateJobResponse = zod.object({
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
-  "createdAt": zod.string().nullish()
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
 })
 
 
@@ -936,7 +1001,18 @@ export const GetJobResponse = zod.object({
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
-  "createdAt": zod.string().nullish()
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
 }),
   "activities": zod.array(zod.object({
   "id": zod.string(),
@@ -1009,7 +1085,18 @@ export const UpdateJobResponse = zod.object({
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
-  "createdAt": zod.string().nullish()
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
 })
 
 
@@ -1057,7 +1144,18 @@ export const CompleteJobResponse = zod.object({
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
-  "createdAt": zod.string().nullish()
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
 })
 
 
@@ -1099,7 +1197,85 @@ export const ScheduleJobResponse = zod.object({
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
-  "createdAt": zod.string().nullish()
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
+})
+
+
+/**
+ * @summary Attach a price-list item to a job (retail-style line item)
+ */
+export const AddJobLineItemParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const addJobLineItemBodyQtyMin = 0;
+
+
+
+export const AddJobLineItemBody = zod.object({
+  "priceItemId": zod.string(),
+  "qty": zod.number().min(addJobLineItemBodyQtyMin).optional()
+})
+
+export const AddJobLineItemResponse = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})
+
+
+/**
+ * @summary Update a job line item (quantity)
+ */
+export const UpdateJobLineItemParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateJobLineItemBodyQtyMin = 0;
+
+
+
+export const UpdateJobLineItemBody = zod.object({
+  "qty": zod.number().min(updateJobLineItemBodyQtyMin).optional()
+})
+
+export const UpdateJobLineItemResponse = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})
+
+
+/**
+ * @summary Remove a line item from a job
+ */
+export const DeleteJobLineItemParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteJobLineItemResponse = zod.object({
+  "ok": zod.boolean()
 })
 
 
@@ -1154,7 +1330,18 @@ export const SendJobRecapResponse = zod.object({
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
-  "createdAt": zod.string().nullish()
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
 })
 
 
@@ -1187,7 +1374,18 @@ export const ListJobBoardResponseItem = zod.object({
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
-  "createdAt": zod.string().nullish()
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
 }),
   "priceItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1267,7 +1465,18 @@ export const ReopenJobResponse = zod.object({
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
-  "createdAt": zod.string().nullish()
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
 })
 
 
@@ -1966,6 +2175,39 @@ export const RemindInvoiceParams = zod.object({
 })
 
 export const RemindInvoiceResponse = zod.object({
+  "id": zod.string(),
+  "invoiceNo": zod.string(),
+  "jobId": zod.string().nullish(),
+  "propertyId": zod.string().optional(),
+  "propertyName": zod.string().nullish(),
+  "amount": zod.number(),
+  "status": zod.string().describe('draft | sent | past_due | paid'),
+  "poNumber": zod.string().nullish(),
+  "terms": zod.string().nullish(),
+  "billToName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "paymentInstructions": zod.string().nullish(),
+  "issuedOn": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "dueAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "daysLate": zod.number().nullish()
+})
+
+
+/**
+ * @summary Mark an invoice paid or back to pending (sent)
+ */
+export const SetInvoiceStatusParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SetInvoiceStatusBody = zod.object({
+  "status": zod.enum(['sent', 'paid'])
+})
+
+export const SetInvoiceStatusResponse = zod.object({
   "id": zod.string(),
   "invoiceNo": zod.string(),
   "jobId": zod.string().nullish(),

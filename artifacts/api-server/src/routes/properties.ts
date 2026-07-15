@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   propertiesTable,
@@ -10,6 +10,8 @@ import {
   agreementsTable,
   invoicesTable,
   crewsTable,
+  jobLineItemsTable,
+  schedulesTable,
 } from "@workspace/db";
 import {
   ListPropertiesResponse,
@@ -119,13 +121,36 @@ router.get("/properties/:id", async (req, res): Promise<void> => {
     .where(eq(jobsTable.propertyId, id));
   const crews = await db.select().from(crewsTable);
   const crewName = new Map(crews.map((c) => [c.id, c.name]));
-  const jobs = rawJobs.map((j) => ({
-    ...ser(j),
-    propertyName: property.name,
-    crewLeaderName: j.crewLeaderId
-      ? (crewName.get(j.crewLeaderId) ?? null)
-      : null,
-  }));
+  const jobIds = rawJobs.map((j) => j.id);
+  const rawLineItems =
+    jobIds.length > 0
+      ? await db
+          .select()
+          .from(jobLineItemsTable)
+          .where(inArray(jobLineItemsTable.jobId, jobIds))
+      : [];
+  const lineItemsByJob = new Map<string, typeof rawLineItems>();
+  for (const li of rawLineItems) {
+    const list = lineItemsByJob.get(li.jobId) ?? [];
+    list.push(li);
+    lineItemsByJob.set(li.jobId, list);
+  }
+  const jobs = rawJobs.map((j) => {
+    const items = (lineItemsByJob.get(j.id) ?? []).map((li) => ({
+      ...ser(li),
+      amount: Math.round(li.rate * li.qty * 100) / 100,
+    }));
+    return {
+      ...ser(j),
+      propertyName: property.name,
+      crewLeaderName: j.crewLeaderId
+        ? (crewName.get(j.crewLeaderId) ?? null)
+        : null,
+      lineItems: items,
+      lineTotal:
+        Math.round(items.reduce((s, li) => s + li.amount, 0) * 100) / 100,
+    };
+  });
   const expenses = await db
     .select()
     .from(expensesTable)
@@ -164,6 +189,64 @@ router.get("/properties/:id", async (req, res): Promise<void> => {
         ) / 10
       : null;
 
+  const invoicedTotal =
+    Math.round(
+      invoices
+        .filter((i) => i.status !== "draft")
+        .reduce((s, i) => s + i.amount, 0) * 100,
+    ) / 100;
+  const collectedTotal =
+    Math.round(
+      invoices
+        .filter((i) => i.status === "paid")
+        .reduce((s, i) => s + i.amount, 0) * 100,
+    ) / 100;
+  const expensesTotal =
+    Math.round(expenses.reduce((s, e) => s + e.amount, 0) * 100) / 100;
+
+  const DAY = 24 * 60 * 60 * 1000;
+  const decoratedInvoices = invoices
+    .slice()
+    .sort(
+      (a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
+    )
+    .map((i) => ({
+      ...ser(i),
+      propertyName: property.name,
+      daysLate:
+        i.paidAt || !i.dueAt
+          ? 0
+          : Math.max(0, Math.floor((Date.now() - i.dueAt.getTime()) / DAY)),
+    }));
+
+  const nowLocal = new Date();
+  const todayStr = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, "0")}-${String(nowLocal.getDate()).padStart(2, "0")}`;
+  const schedules =
+    jobIds.length > 0
+      ? await db
+          .select()
+          .from(schedulesTable)
+          .where(inArray(schedulesTable.jobId, jobIds))
+      : [];
+  const jobById = new Map(rawJobs.map((j) => [j.id, j]));
+  const upcomingVisits = schedules
+    .filter((s) => s.scheduledOn >= todayStr && s.status !== "cancelled")
+    .sort((a, b) => a.scheduledOn.localeCompare(b.scheduledOn))
+    .map((s) => {
+      const j = jobById.get(s.jobId);
+      return {
+        id: s.id,
+        jobId: s.jobId,
+        scheduledOn: s.scheduledOn,
+        windowStart: s.windowStart,
+        crewLeaderName: s.crewLeaderId
+          ? (crewName.get(s.crewLeaderId) ?? null)
+          : null,
+        jobDescription: j?.description ?? null,
+        unitNo: j?.unitNo ?? null,
+      };
+    });
+
   res.json(
     GetPropertyResponse.parse({
       property: ser(property),
@@ -172,7 +255,17 @@ router.get("/properties/:id", async (req, res): Promise<void> => {
       jobs,
       expenses: serList(expenses),
       agreements: serList(agreements),
-      stats: { owed, openJobs, marginPct, mtdRevenue },
+      invoices: decoratedInvoices,
+      upcomingVisits,
+      stats: {
+        owed,
+        openJobs,
+        marginPct,
+        mtdRevenue,
+        invoicedTotal,
+        collectedTotal,
+        expensesTotal,
+      },
     }),
   );
 });

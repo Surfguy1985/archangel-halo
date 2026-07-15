@@ -8,10 +8,12 @@
 import type { Agreement } from './agreement';
 import type { Contact } from './contact';
 import type { Expense } from './expense';
+import type { Invoice } from './invoice';
 import type { Job } from './job';
 import type { PriceItem } from './priceItem';
 import type { Property } from './property';
 import type { PropertyStats } from './propertyStats';
+import type { UpcomingVisit } from './upcomingVisit';
 
 export interface PropertyDetail {
   property: Property;
@@ -20,5 +22,7 @@ export interface PropertyDetail {
   jobs: Job[];
   expenses: Expense[];
   agreements: Agreement[];
+  invoices: Invoice[];
+  upcomingVisits: UpcomingVisit[];
   stats: PropertyStats;
 }

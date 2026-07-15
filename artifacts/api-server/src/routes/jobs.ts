@@ -17,6 +17,8 @@ import {
   contactsTable,
   activitiesTable,
   expensesTable,
+  priceItemsTable,
+  jobLineItemsTable,
 } from "@workspace/db";
 import {
   ListJobsResponse,
@@ -48,6 +50,14 @@ import {
   UpdateCrewResponse,
   DeleteCrewParams,
   DeleteCrewResponse,
+  AddJobLineItemParams,
+  AddJobLineItemBody,
+  AddJobLineItemResponse,
+  UpdateJobLineItemParams,
+  UpdateJobLineItemBody,
+  UpdateJobLineItemResponse,
+  DeleteJobLineItemParams,
+  DeleteJobLineItemResponse,
 } from "@workspace/api-zod";
 import { completeText } from "../lib/ai";
 import { sendEmail } from "../lib/email";
@@ -182,6 +192,9 @@ router.delete("/jobs/:id", async (req, res): Promise<void> => {
     await tx
       .delete(jobBroadcastsTable)
       .where(eq(jobBroadcastsTable.jobId, id));
+    await tx
+      .delete(jobLineItemsTable)
+      .where(eq(jobLineItemsTable.jobId, id));
     await tx.delete(jobsTable).where(eq(jobsTable.id, id));
     return { status: 200 as const };
   });
@@ -190,6 +203,88 @@ router.delete("/jobs/:id", async (req, res): Promise<void> => {
     return;
   }
   res.json(DeleteJobResponse.parse({ ok: true }));
+});
+
+function serLineItem(row: typeof jobLineItemsTable.$inferSelect) {
+  return {
+    ...ser(row),
+    amount: Math.round(row.rate * row.qty * 100) / 100,
+  };
+}
+
+router.post("/jobs/:id/line-items", async (req, res): Promise<void> => {
+  const { id } = AddJobLineItemParams.parse(req.params);
+  const body = AddJobLineItemBody.parse(req.body);
+  const [job] = await db
+    .select({ id: jobsTable.id, propertyId: jobsTable.propertyId })
+    .from(jobsTable)
+    .where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  const [priceItem] = await db
+    .select()
+    .from(priceItemsTable)
+    .where(eq(priceItemsTable.id, body.priceItemId));
+  if (!priceItem) {
+    res.status(404).json({ error: "Price item not found" });
+    return;
+  }
+  if (priceItem.propertyId !== job.propertyId) {
+    res
+      .status(400)
+      .json({ error: "Price item belongs to a different property" });
+    return;
+  }
+  const [row] = await db
+    .insert(jobLineItemsTable)
+    .values({
+      jobId: id,
+      priceItemId: priceItem.id,
+      service: priceItem.service,
+      unit: priceItem.unit,
+      rate: priceItem.rate,
+      qty: body.qty && body.qty > 0 ? body.qty : 1,
+    })
+    .returning();
+  res.status(201).json(AddJobLineItemResponse.parse(serLineItem(row)));
+});
+
+router.patch("/job-line-items/:id", async (req, res): Promise<void> => {
+  const { id } = UpdateJobLineItemParams.parse(req.params);
+  const body = UpdateJobLineItemBody.parse(req.body);
+  if (body.qty == null) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  if (body.qty <= 0) {
+    res.status(400).json({ error: "Quantity must be greater than zero." });
+    return;
+  }
+  const [row] = await db
+    .update(jobLineItemsTable)
+    .set({ qty: body.qty })
+    .where(eq(jobLineItemsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Line item not found" });
+    return;
+  }
+  res.json(UpdateJobLineItemResponse.parse(serLineItem(row)));
+});
+
+router.delete("/job-line-items/:id", async (req, res): Promise<void> => {
+  const { id } = DeleteJobLineItemParams.parse(req.params);
+  const [row] = await db
+    .delete(jobLineItemsTable)
+    .where(eq(jobLineItemsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Line item not found" });
+    return;
+  }
+  res.json(DeleteJobLineItemResponse.parse({ ok: true }));
 });
 
 router.post("/jobs/:id/schedule", async (req, res): Promise<void> => {

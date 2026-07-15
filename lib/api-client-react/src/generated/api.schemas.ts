@@ -146,6 +146,19 @@ export interface PriceItem {
   marginFloor?: number | null;
 }
 
+export interface JobLineItem {
+  id: string;
+  jobId: string;
+  /** @nullable */
+  priceItemId?: string | null;
+  service: string;
+  /** @nullable */
+  unit?: string | null;
+  rate: number;
+  qty: number;
+  amount: number;
+}
+
 export interface Job {
   id: string;
   jobNo: string;
@@ -199,6 +212,9 @@ export interface Job {
   recurrence?: string | null;
   /** @nullable */
   createdAt?: string | null;
+  lineItems?: JobLineItem[];
+  /** @nullable */
+  lineTotal?: number | null;
 }
 
 export interface Expense {
@@ -231,12 +247,64 @@ export interface Agreement {
   renewsOn?: string | null;
 }
 
+export interface Invoice {
+  id: string;
+  invoiceNo: string;
+  /** @nullable */
+  jobId?: string | null;
+  propertyId?: string;
+  /** @nullable */
+  propertyName?: string | null;
+  amount: number;
+  /** draft | sent | past_due | paid */
+  status: string;
+  /** @nullable */
+  poNumber?: string | null;
+  /** @nullable */
+  terms?: string | null;
+  /** @nullable */
+  billToName?: string | null;
+  /** @nullable */
+  propertyAddress?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  paymentInstructions?: string | null;
+  /** @nullable */
+  issuedOn?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  dueAt?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  daysLate?: number | null;
+}
+
+export interface UpcomingVisit {
+  id: string;
+  jobId: string;
+  scheduledOn: string;
+  /** @nullable */
+  windowStart?: string | null;
+  /** @nullable */
+  crewLeaderName?: string | null;
+  /** @nullable */
+  jobDescription?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+}
+
 export interface PropertyStats {
   owed: number;
   openJobs: number;
   /** @nullable */
   marginPct: number | null;
   mtdRevenue: number;
+  invoicedTotal: number;
+  collectedTotal: number;
+  expensesTotal: number;
 }
 
 export interface PropertyDetail {
@@ -246,6 +314,8 @@ export interface PropertyDetail {
   jobs: Job[];
   expenses: Expense[];
   agreements: Agreement[];
+  invoices: Invoice[];
+  upcomingVisits: UpcomingVisit[];
   stats: PropertyStats;
 }
 
@@ -493,6 +563,17 @@ export interface BidSendResult {
   to?: string | null;
   /** @nullable */
   error?: string | null;
+}
+
+export interface JobLineItemInput {
+  priceItemId: string;
+  /** @minimum 0 */
+  qty?: number;
+}
+
+export interface JobLineItemUpdate {
+  /** @minimum 0 */
+  qty?: number;
 }
 
 export interface Activity {
@@ -798,6 +879,18 @@ export interface CrewUpdate {
   services?: CrewService[] | null;
 }
 
+export type InvoiceStatusInputStatus = typeof InvoiceStatusInputStatus[keyof typeof InvoiceStatusInputStatus];
+
+
+export const InvoiceStatusInputStatus = {
+  sent: 'sent',
+  paid: 'paid',
+} as const;
+
+export interface InvoiceStatusInput {
+  status: InvoiceStatusInputStatus;
+}
+
 export interface OkResponse {
   ok: boolean;
 }
@@ -894,41 +987,6 @@ export interface ReportInsights {
 export interface ReverseGeocodeResult {
   /** @nullable */
   address: string | null;
-}
-
-export interface Invoice {
-  id: string;
-  invoiceNo: string;
-  /** @nullable */
-  jobId?: string | null;
-  propertyId?: string;
-  /** @nullable */
-  propertyName?: string | null;
-  amount: number;
-  /** draft | sent | past_due | paid */
-  status: string;
-  /** @nullable */
-  poNumber?: string | null;
-  /** @nullable */
-  terms?: string | null;
-  /** @nullable */
-  billToName?: string | null;
-  /** @nullable */
-  propertyAddress?: string | null;
-  /** @nullable */
-  notes?: string | null;
-  /** @nullable */
-  paymentInstructions?: string | null;
-  /** @nullable */
-  issuedOn?: string | null;
-  /** @nullable */
-  sentAt?: string | null;
-  /** @nullable */
-  dueAt?: string | null;
-  /** @nullable */
-  paidAt?: string | null;
-  /** @nullable */
-  daysLate?: number | null;
 }
 
 export interface InvoiceLineItem {

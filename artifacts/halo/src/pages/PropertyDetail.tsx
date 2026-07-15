@@ -1,7 +1,9 @@
-import { useGetProperty, getGetPropertyQueryKey } from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, getGetMoneySummaryQueryKey, getListInvoicesQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, Pencil, Plus } from "lucide-react";
+import { ChevronLeft, ChevronDown, Pencil, Plus, CalendarDays } from "lucide-react";
 import { useState } from "react";
+import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
 import { EditPropertySheet } from "@/components/EditPropertySheet";
 import { AddContactSheet } from "@/components/AddContactSheet";
 import { AddPriceItemSheet } from "@/components/AddPriceItemSheet";
@@ -47,6 +49,9 @@ export default function PropertyDetail() {
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const [editContactId, setEditContactId] = useState<string | null>(null);
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
+  const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const setStatus = useSetInvoiceStatus();
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -60,7 +65,20 @@ export default function PropertyDetail() {
 
   if (!data) return <div className="p-4 text-center text-muted-foreground">Property not found</div>;
 
-  const { property, stats, jobs, priceItems, contacts, expenses, agreements } = data;
+  const { property, stats, jobs, priceItems, contacts, expenses, agreements, invoices, upcomingVisits } = data;
+
+  const toggleInvoice = (invoiceId: string, next: "paid" | "sent") => {
+    setStatus.mutate(
+      { id: invoiceId, data: { status: next } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+        },
+      },
+    );
+  };
 
   return (
     <div className="pt-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -84,16 +102,28 @@ export default function PropertyDetail() {
         </button>
       </div>
 
-      <div className="flex gap-[9px] mb-[16px]">
-        <div className="flex-1 bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+      <div className="grid grid-cols-3 gap-[9px] mb-[16px]">
+        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
           <b className="block font-display font-bold text-[18px] tabular-nums">${stats.owed.toLocaleString()}</b>
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Owed</span>
         </div>
-        <div className="flex-1 bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+          <b className="block font-display font-bold text-[18px] tabular-nums">${stats.collectedTotal.toLocaleString()}</b>
+          <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Collected</span>
+        </div>
+        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+          <b className="block font-display font-bold text-[18px] tabular-nums">${stats.invoicedTotal.toLocaleString()}</b>
+          <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Invoiced</span>
+        </div>
+        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+          <b className="block font-display font-bold text-[18px] tabular-nums">${stats.expensesTotal.toLocaleString()}</b>
+          <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Expenses</span>
+        </div>
+        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
           <b className="block font-display font-bold text-[18px] tabular-nums">{stats.openJobs}</b>
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Open Jobs</span>
         </div>
-        <div className="flex-1 bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
           <b className="block font-display font-bold text-[18px] tabular-nums">{stats.marginPct ?? 0}%</b>
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Margin</span>
         </div>
@@ -111,38 +141,133 @@ export default function PropertyDetail() {
         {jobs.length > 0 ? (
           <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
             {jobs.map((job, idx) => (
-              <div key={job.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
-                <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
-                  <div className="font-semibold truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
-                  <div className="text-[12px] text-muted-foreground truncate">{job.description}</div>
-                  {job.isRecurring && (
-                    <div className="flex items-center gap-[5px] mt-[3px] text-[11.5px] font-semibold text-[var(--gold-dark)]">
-                      <Repeat className="w-[12px] h-[12px]" />
-                      {recurrenceLabels[job.recurrence ?? ""] ?? "Recurring"}
-                      <span className="text-muted-foreground font-normal">
-                        · {job.crewLeaderName ? `${job.crewLeaderName} goes` : "No crew assigned"}
-                      </span>
-                    </div>
-                  )}
-                </Link>
-                <div className="text-right shrink-0">
-                  <div className="text-[12px] font-mono text-muted-foreground">{job.jobNo}</div>
-                  {!job.isRecurring && job.crewLeaderName && (
-                    <div className="text-[11.5px] text-muted-foreground">{job.crewLeaderName}</div>
-                  )}
+              <div key={job.id} className={`py-[10px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
+                <div className="flex items-center gap-[10px] text-[14px]">
+                  <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
+                    <div className="font-semibold truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
+                    <div className="text-[12px] text-muted-foreground truncate">{job.description}</div>
+                    {job.isRecurring && (
+                      <div className="flex items-center gap-[5px] mt-[3px] text-[11.5px] font-semibold text-[var(--gold-dark)]">
+                        <Repeat className="w-[12px] h-[12px]" />
+                        {recurrenceLabels[job.recurrence ?? ""] ?? "Recurring"}
+                        <span className="text-muted-foreground font-normal">
+                          · {job.crewLeaderName ? `${job.crewLeaderName} goes` : "No crew assigned"}
+                        </span>
+                      </div>
+                    )}
+                  </Link>
+                  <div className="text-right shrink-0">
+                    <div className="text-[12px] font-mono text-muted-foreground">{job.jobNo}</div>
+                    {!job.isRecurring && job.crewLeaderName && (
+                      <div className="text-[11.5px] text-muted-foreground">{job.crewLeaderName}</div>
+                    )}
+                  </div>
+                  <button
+                    aria-label="Edit job"
+                    onClick={() => setEditJobId(job.id)}
+                    className="shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center bg-[rgba(23,24,28,0.05)] text-muted-foreground active:scale-[0.94]"
+                  >
+                    <Pencil className="w-[13px] h-[13px]" />
+                  </button>
                 </div>
                 <button
-                  aria-label="Edit job"
-                  onClick={() => setEditJobId(job.id)}
-                  className="shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center bg-[rgba(23,24,28,0.05)] text-muted-foreground active:scale-[0.94]"
+                  onClick={() => setOpenLineItemsJobId(openLineItemsJobId === job.id ? null : job.id)}
+                  className="flex items-center gap-[5px] mt-[6px] text-[12px] font-display font-bold text-[var(--gold-dark)] active:scale-[0.97]"
                 >
-                  <Pencil className="w-[13px] h-[13px]" />
+                  <ChevronDown className={`w-[13px] h-[13px] transition-transform ${openLineItemsJobId === job.id ? 'rotate-180' : ''}`} />
+                  Line items
+                  {(job.lineItems?.length ?? 0) > 0 && (
+                    <span className="text-muted-foreground font-normal">
+                      · {job.lineItems!.length} · ${(job.lineTotal ?? 0).toLocaleString()}
+                    </span>
+                  )}
                 </button>
+                {openLineItemsJobId === job.id && (
+                  <JobLineItemsPanel
+                    jobId={job.id}
+                    propertyId={id}
+                    lineItems={job.lineItems ?? []}
+                    priceItems={priceItems}
+                  />
+                )}
               </div>
             ))}
           </div>
         ) : (
           <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No jobs yet. Tap Add to create one.</div>
+        )}
+      </div>
+
+      <div className="mb-[18px]">
+        <div className="flex items-center justify-between mb-[8px] mx-[2px]">
+          <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-muted-foreground">Upcoming Visits</div>
+          <Link href="/calendar" className="flex items-center gap-[4px] text-[12px] font-display font-bold text-[var(--gold-dark)] active:scale-[0.95]">
+            <CalendarDays className="w-[13px] h-[13px]" /> Schedule
+          </Link>
+        </div>
+        {upcomingVisits.length > 0 ? (
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+            {upcomingVisits.map((v, idx) => (
+              <div key={v.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold truncate">
+                    {new Date(`${v.scheduledOn}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                    {v.windowStart ? ` · ${v.windowStart}` : ""}
+                  </div>
+                  <div className="text-[12px] text-muted-foreground truncate">
+                    {[v.jobDescription, v.unitNo ? `Unit ${v.unitNo}` : null].filter(Boolean).join(" · ") || "Scheduled visit"}
+                  </div>
+                </div>
+                {v.crewLeaderName && <div className="text-[12px] text-muted-foreground shrink-0">{v.crewLeaderName}</div>}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No upcoming visits scheduled.</div>
+        )}
+      </div>
+
+      <div className="mb-[18px]">
+        <SectionHeader title="Invoices" />
+        {invoices.length > 0 ? (
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+            {invoices.map((inv, idx) => (
+              <div key={inv.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold truncate">{inv.invoiceNo || "Invoice"}</div>
+                  <div className="text-[12px] text-muted-foreground">
+                    {inv.status === "paid"
+                      ? "Paid"
+                      : inv.status === "past_due"
+                        ? `Past due${inv.daysLate ? ` · ${inv.daysLate}d late` : ""}`
+                        : inv.status === "sent"
+                          ? "Sent"
+                          : "Draft"}
+                  </div>
+                </div>
+                <div className="font-display font-semibold tabular-nums shrink-0">${inv.amount.toLocaleString()}</div>
+                {inv.status === "paid" ? (
+                  <button
+                    disabled={setStatus.isPending}
+                    onClick={() => toggleInvoice(inv.id, "sent")}
+                    className="shrink-0 text-[12px] font-display font-bold px-[10px] py-[6px] rounded-full bg-[rgba(23,24,28,0.05)] text-muted-foreground active:scale-[0.95] disabled:opacity-50"
+                  >
+                    Mark pending
+                  </button>
+                ) : (
+                  <button
+                    disabled={setStatus.isPending}
+                    onClick={() => toggleInvoice(inv.id, "paid")}
+                    className="shrink-0 text-[12px] font-display font-bold px-[10px] py-[6px] rounded-full text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] active:scale-[0.95] disabled:opacity-50"
+                  >
+                    Mark paid
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No invoices for this property.</div>
         )}
       </div>
 

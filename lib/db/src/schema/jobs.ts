@@ -70,6 +70,19 @@ export const jobBroadcastsTable = pgTable("job_broadcasts", {
     .defaultNow(),
 });
 
+export const jobLineItemsTable = pgTable("job_line_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  jobId: uuid("job_id").notNull(),
+  priceItemId: uuid("price_item_id"),
+  service: text("service").notNull(),
+  unit: text("unit"),
+  rate: doublePrecision("rate").notNull(),
+  qty: doublePrecision("qty").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const schedulesTable = pgTable("schedules", {
   id: uuid("id").primaryKey().defaultRandom(),
   jobId: uuid("job_id").notNull(),
@@ -85,4 +98,5 @@ export const schedulesTable = pgTable("schedules", {
 export type Crew = typeof crewsTable.$inferSelect;
 export type Job = typeof jobsTable.$inferSelect;
 export type Schedule = typeof schedulesTable.$inferSelect;
+export type JobLineItem = typeof jobLineItemsTable.$inferSelect;
 export type JobBroadcast = typeof jobBroadcastsTable.$inferSelect;

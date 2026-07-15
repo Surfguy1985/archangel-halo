@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { JobLineItem } from './jobLineItem';
 
 export interface Job {
   id: string;
@@ -59,4 +60,7 @@ export interface Job {
   recurrence?: string | null;
   /** @nullable */
   createdAt?: string | null;
+  lineItems?: JobLineItem[];
+  /** @nullable */
+  lineTotal?: number | null;
 }

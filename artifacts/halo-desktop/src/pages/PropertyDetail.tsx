@@ -1,8 +1,10 @@
-import { useGetProperty, getGetPropertyQueryKey } from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, getGetMoneySummaryQueryKey, getListInvoicesQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, Pencil, Plus, Repeat } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronLeft, Pencil, Plus, Repeat } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
+import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
 import {
   EditPropertyDialog,
   AddPriceItemDialog,
@@ -23,6 +25,9 @@ export default function PropertyDetail() {
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const [editContactId, setEditContactId] = useState<string | null>(null);
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
+  const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const setStatus = useSetInvoiceStatus();
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -31,7 +36,20 @@ export default function PropertyDetail() {
 
   if (!data) return <div className="p-8 text-center text-muted-foreground">Property not found</div>;
 
-  const { property, stats, jobs, priceItems, contacts } = data;
+  const { property, stats, jobs, priceItems, contacts, expenses, invoices, upcomingVisits } = data;
+
+  const toggleInvoice = (invoiceId: string, next: "paid" | "sent") => {
+    setStatus.mutate(
+      { id: invoiceId, data: { status: next } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+        },
+      },
+    );
+  };
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -90,18 +108,30 @@ export default function PropertyDetail() {
         ) : null;
       })()}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-          <div className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Owed</div>
-          <div className="text-3xl font-mono font-bold text-[var(--ink)]">${stats.owed.toLocaleString()}</div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Owed</div>
+          <div className="text-2xl font-mono font-bold text-[var(--ink)]">${stats.owed.toLocaleString()}</div>
         </div>
-        <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-          <div className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Open Jobs</div>
-          <div className="text-3xl font-mono font-bold text-[var(--ink)]">{stats.openJobs}</div>
+        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Collected</div>
+          <div className="text-2xl font-mono font-bold text-[var(--ink)]">${stats.collectedTotal.toLocaleString()}</div>
         </div>
-        <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-          <div className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Margin</div>
-          <div className="text-3xl font-mono font-bold text-[var(--ink)]">{stats.marginPct ?? 0}%</div>
+        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Invoiced</div>
+          <div className="text-2xl font-mono font-bold text-[var(--ink)]">${stats.invoicedTotal.toLocaleString()}</div>
+        </div>
+        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Expenses</div>
+          <div className="text-2xl font-mono font-bold text-[var(--ink)]">${stats.expensesTotal.toLocaleString()}</div>
+        </div>
+        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Open Jobs</div>
+          <div className="text-2xl font-mono font-bold text-[var(--ink)]">{stats.openJobs}</div>
+        </div>
+        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Margin</div>
+          <div className="text-2xl font-mono font-bold text-[var(--ink)]">{stats.marginPct ?? 0}%</div>
         </div>
       </div>
 
@@ -119,33 +149,55 @@ export default function PropertyDetail() {
             </div>
             <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
               {jobs.map(job => (
-                <div key={job.id} className="flex items-center gap-3 p-4 hover:bg-black/[0.02] transition-colors">
-                  <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
-                    <div className="font-semibold">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
-                    <div className="text-sm text-muted-foreground">{job.description}</div>
-                    {job.isRecurring && (
-                      <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--gold-dark)]">
-                        <Repeat className="w-3 h-3" />
-                        {{ daily: "Daily", weekly: "Weekly", biweekly: "Bi-weekly", monthly: "Monthly", quarterly: "Quarterly" }[job.recurrence ?? ""] ?? "Recurring"}
-                        <span className="text-muted-foreground font-normal">
-                          · {job.crewLeaderName ? `${job.crewLeaderName} goes` : "No crew assigned"}
-                        </span>
-                      </div>
-                    )}
-                  </Link>
-                  <div className="text-right shrink-0">
-                    <div className="font-mono text-sm text-muted-foreground">{job.jobNo}</div>
-                    {!job.isRecurring && job.crewLeaderName && (
-                      <div className="text-xs text-muted-foreground">{job.crewLeaderName}</div>
-                    )}
+                <div key={job.id} className="p-4 hover:bg-black/[0.02] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
+                      <div className="font-semibold">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
+                      <div className="text-sm text-muted-foreground">{job.description}</div>
+                      {job.isRecurring && (
+                        <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--gold-dark)]">
+                          <Repeat className="w-3 h-3" />
+                          {{ daily: "Daily", weekly: "Weekly", biweekly: "Bi-weekly", monthly: "Monthly", quarterly: "Quarterly" }[job.recurrence ?? ""] ?? "Recurring"}
+                          <span className="text-muted-foreground font-normal">
+                            · {job.crewLeaderName ? `${job.crewLeaderName} goes` : "No crew assigned"}
+                          </span>
+                        </div>
+                      )}
+                    </Link>
+                    <div className="text-right shrink-0">
+                      <div className="font-mono text-sm text-muted-foreground">{job.jobNo}</div>
+                      {!job.isRecurring && job.crewLeaderName && (
+                        <div className="text-xs text-muted-foreground">{job.crewLeaderName}</div>
+                      )}
+                    </div>
+                    <button
+                      aria-label="Edit job"
+                      onClick={() => setEditJobId(job.id)}
+                      className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                   <button
-                    aria-label="Edit job"
-                    onClick={() => setEditJobId(job.id)}
-                    className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
+                    onClick={() => setOpenLineItemsJobId(openLineItemsJobId === job.id ? null : job.id)}
+                    className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
                   >
-                    <Pencil className="w-3.5 h-3.5" />
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${openLineItemsJobId === job.id ? 'rotate-180' : ''}`} />
+                    Line items
+                    {(job.lineItems?.length ?? 0) > 0 && (
+                      <span className="text-muted-foreground font-normal">
+                        · {job.lineItems!.length} · ${(job.lineTotal ?? 0).toLocaleString()}
+                      </span>
+                    )}
                   </button>
+                  {openLineItemsJobId === job.id && (
+                    <JobLineItemsPanel
+                      jobId={job.id}
+                      propertyId={id}
+                      lineItems={job.lineItems ?? []}
+                      priceItems={priceItems}
+                    />
+                  )}
                 </div>
               ))}
               {!jobs.length && <div className="p-6 text-center text-sm text-muted-foreground">No active jobs.</div>}
@@ -226,6 +278,91 @@ export default function PropertyDetail() {
                 </div>
               ))}
               {!priceItems.length && <div className="p-6 text-center text-sm text-muted-foreground">No agreed rates.</div>}
+            </div>
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-display font-bold text-[var(--ink)]">Upcoming Visits</h2>
+              <Link href="/calendar" className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors">
+                <CalendarDays className="w-4 h-4" /> Schedule
+              </Link>
+            </div>
+            <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
+              {upcomingVisits.map((v) => (
+                <div key={v.id} className="flex items-center gap-3 p-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold">
+                      {new Date(`${v.scheduledOn}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                      {v.windowStart ? ` · ${v.windowStart}` : ""}
+                    </div>
+                    <div className="text-sm text-muted-foreground truncate">
+                      {[v.jobDescription, v.unitNo ? `Unit ${v.unitNo}` : null].filter(Boolean).join(" · ") || "Scheduled visit"}
+                    </div>
+                  </div>
+                  {v.crewLeaderName && <div className="text-sm text-muted-foreground shrink-0">{v.crewLeaderName}</div>}
+                </div>
+              ))}
+              {!upcomingVisits.length && <div className="p-6 text-center text-sm text-muted-foreground">No upcoming visits scheduled.</div>}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-display font-bold text-[var(--ink)] mb-4">Invoices</h2>
+            <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
+              {invoices.map((inv) => (
+                <div key={inv.id} className="flex items-center gap-3 p-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold">{inv.invoiceNo || "Invoice"}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {inv.status === "paid"
+                        ? "Paid"
+                        : inv.status === "past_due"
+                          ? `Past due${inv.daysLate ? ` · ${inv.daysLate}d late` : ""}`
+                          : inv.status === "sent"
+                            ? "Sent"
+                            : "Draft"}
+                    </div>
+                  </div>
+                  <div className="font-mono font-bold shrink-0">${inv.amount.toLocaleString()}</div>
+                  {inv.status === "paid" ? (
+                    <button
+                      disabled={setStatus.isPending}
+                      onClick={() => toggleInvoice(inv.id, "sent")}
+                      className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-muted-foreground hover:bg-black/[0.08] transition-colors disabled:opacity-50"
+                    >
+                      Mark pending
+                    </button>
+                  ) : (
+                    <button
+                      disabled={setStatus.isPending}
+                      onClick={() => toggleInvoice(inv.id, "paid")}
+                      className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] hover:brightness-105 transition-all disabled:opacity-50"
+                    >
+                      Mark paid
+                    </button>
+                  )}
+                </div>
+              ))}
+              {!invoices.length && <div className="p-6 text-center text-sm text-muted-foreground">No invoices for this property.</div>}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-display font-bold text-[var(--ink)] mb-4">Expenses</h2>
+            <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
+              {expenses.map((e) => (
+                <div key={e.id} className="flex items-center gap-3 p-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold">{e.vendor || e.category || "Expense"}</div>
+                    <div className="text-sm text-muted-foreground truncate">
+                      {[e.category, e.spentOn ? new Date(e.spentOn).toLocaleDateString() : null].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                  <div className="font-mono font-bold shrink-0">${e.amount.toLocaleString()}</div>
+                </div>
+              ))}
+              {!expenses.length && <div className="p-6 text-center text-sm text-muted-foreground">No expenses logged.</div>}
             </div>
           </section>
         </div>

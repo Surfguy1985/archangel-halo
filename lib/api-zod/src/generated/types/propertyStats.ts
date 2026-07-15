@@ -12,4 +12,7 @@ export interface PropertyStats {
   /** @nullable */
   marginPct: number | null;
   mtdRevenue: number;
+  invoicedTotal: number;
+  collectedTotal: number;
+  expensesTotal: number;
 }

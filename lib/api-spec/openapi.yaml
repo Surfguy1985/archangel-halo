@@ -814,6 +814,91 @@ paths:
               schema:
                 $ref: "#/components/schemas/Job"
 
+  /jobs/{id}/line-items:
+    post:
+      operationId: addJobLineItem
+      tags: [jobs]
+      summary: Attach a price-list item to a job (retail-style line item)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobLineItemInput"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobLineItem"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /job-line-items/{id}:
+    patch:
+      operationId: updateJobLineItem
+      tags: [jobs]
+      summary: Update a job line item (quantity)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobLineItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobLineItem"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteJobLineItem
+      tags: [jobs]
+      summary: Remove a line item from a job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /jobs/{id}/recap:
     post:
       operationId: draftJobRecap
@@ -1477,6 +1562,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Invoice"
+
+  /invoices/{id}/status:
+    post:
+      operationId: setInvoiceStatus
+      tags: [money]
+      summary: Mark an invoice paid or back to pending (sent)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceStatusInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /payments:
     post:
@@ -3035,7 +3151,7 @@ components:
         marginPct: { type: ["number", "null"] }
     PropertyDetail:
       type: object
-      required: [property, contacts, priceItems, jobs, expenses, agreements, stats]
+      required: [property, contacts, priceItems, jobs, expenses, agreements, invoices, upcomingVisits, stats]
       properties:
         property:
           $ref: "#/components/schemas/Property"
@@ -3059,16 +3175,38 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Agreement"
+        invoices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invoice"
+        upcomingVisits:
+          type: array
+          items:
+            $ref: "#/components/schemas/UpcomingVisit"
         stats:
           $ref: "#/components/schemas/PropertyStats"
+    UpcomingVisit:
+      type: object
+      required: [id, jobId, scheduledOn]
+      properties:
+        id: { type: string }
+        jobId: { type: string }
+        scheduledOn: { type: string }
+        windowStart: { type: ["string", "null"] }
+        crewLeaderName: { type: ["string", "null"] }
+        jobDescription: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
     PropertyStats:
       type: object
-      required: [owed, openJobs, marginPct, mtdRevenue]
+      required: [owed, openJobs, marginPct, mtdRevenue, invoicedTotal, collectedTotal, expensesTotal]
       properties:
         owed: { type: number }
         openJobs: { type: integer }
         marginPct: { type: ["number", "null"] }
         mtdRevenue: { type: number }
+        invoicedTotal: { type: number }
+        collectedTotal: { type: number }
+        expensesTotal: { type: number }
     PropertyInput:
       type: object
       required: [name]
@@ -3361,6 +3499,33 @@ components:
         isRecurring: { type: ["boolean", "null"] }
         recurrence: { type: ["string", "null"], description: "daily | weekly | biweekly | monthly | quarterly" }
         createdAt: { type: ["string", "null"] }
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobLineItem"
+        lineTotal: { type: ["number", "null"] }
+    JobLineItem:
+      type: object
+      required: [id, jobId, service, rate, qty, amount]
+      properties:
+        id: { type: string }
+        jobId: { type: string }
+        priceItemId: { type: ["string", "null"] }
+        service: { type: string }
+        unit: { type: ["string", "null"] }
+        rate: { type: number }
+        qty: { type: number }
+        amount: { type: number }
+    JobLineItemInput:
+      type: object
+      required: [priceItemId]
+      properties:
+        priceItemId: { type: string }
+        qty: { type: number, minimum: 0 }
+    JobLineItemUpdate:
+      type: object
+      properties:
+        qty: { type: number, minimum: 0 }
     JobDetail:
       type: object
       required: [job, activities, expenses, schedules]
@@ -3613,6 +3778,11 @@ components:
           type: ["array", "null"]
           items:
             $ref: "#/components/schemas/CrewService"
+    InvoiceStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [sent, paid] }
     OkResponse:
       type: object
       required: [ok]

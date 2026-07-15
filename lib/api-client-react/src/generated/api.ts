@@ -84,10 +84,14 @@ import type {
   Invoice,
   InvoiceDetail,
   InvoiceInput,
+  InvoiceStatusInput,
   Job,
   JobBoardCard,
   JobDetail,
   JobInput,
+  JobLineItem,
+  JobLineItemInput,
+  JobLineItemUpdate,
   JobUpdate,
   Lead,
   LeadCampaignDef,
@@ -3021,6 +3025,221 @@ export const useScheduleJob = <TError = ErrorType<unknown>,
       return useMutation(getScheduleJobMutationOptions(options));
     }
 
+export const getAddJobLineItemUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/line-items`
+}
+
+/**
+ * @summary Attach a price-list item to a job (retail-style line item)
+ */
+export const addJobLineItem = async (id: string,
+    jobLineItemInput: JobLineItemInput, options?: RequestInit): Promise<JobLineItem> => {
+
+  return customFetch<JobLineItem>(getAddJobLineItemUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(jobLineItemInput)
+  }
+);}
+
+
+
+
+
+export const getAddJobLineItemMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addJobLineItem>>, TError,{id: string;data: BodyType<JobLineItemInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addJobLineItem>>, TError,{id: string;data: BodyType<JobLineItemInput>}, TContext> => {
+
+const mutationKey = ['addJobLineItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addJobLineItem>>, {id: string;data: BodyType<JobLineItemInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addJobLineItem(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddJobLineItemMutationResult = NonNullable<Awaited<ReturnType<typeof addJobLineItem>>>
+    export type AddJobLineItemMutationBody = BodyType<JobLineItemInput>
+    export type AddJobLineItemMutationError = ErrorType<Error>
+
+    /**
+ * @summary Attach a price-list item to a job (retail-style line item)
+ */
+export const useAddJobLineItem = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addJobLineItem>>, TError,{id: string;data: BodyType<JobLineItemInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addJobLineItem>>,
+        TError,
+        {id: string;data: BodyType<JobLineItemInput>},
+        TContext
+      > => {
+      return useMutation(getAddJobLineItemMutationOptions(options));
+    }
+
+export const getUpdateJobLineItemUrl = (id: string,) => {
+
+
+
+
+  return `/api/job-line-items/${id}`
+}
+
+/**
+ * @summary Update a job line item (quantity)
+ */
+export const updateJobLineItem = async (id: string,
+    jobLineItemUpdate: JobLineItemUpdate, options?: RequestInit): Promise<JobLineItem> => {
+
+  return customFetch<JobLineItem>(getUpdateJobLineItemUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(jobLineItemUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateJobLineItemMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateJobLineItem>>, TError,{id: string;data: BodyType<JobLineItemUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateJobLineItem>>, TError,{id: string;data: BodyType<JobLineItemUpdate>}, TContext> => {
+
+const mutationKey = ['updateJobLineItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateJobLineItem>>, {id: string;data: BodyType<JobLineItemUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateJobLineItem(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateJobLineItemMutationResult = NonNullable<Awaited<ReturnType<typeof updateJobLineItem>>>
+    export type UpdateJobLineItemMutationBody = BodyType<JobLineItemUpdate>
+    export type UpdateJobLineItemMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update a job line item (quantity)
+ */
+export const useUpdateJobLineItem = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateJobLineItem>>, TError,{id: string;data: BodyType<JobLineItemUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateJobLineItem>>,
+        TError,
+        {id: string;data: BodyType<JobLineItemUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateJobLineItemMutationOptions(options));
+    }
+
+export const getDeleteJobLineItemUrl = (id: string,) => {
+
+
+
+
+  return `/api/job-line-items/${id}`
+}
+
+/**
+ * @summary Remove a line item from a job
+ */
+export const deleteJobLineItem = async (id: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getDeleteJobLineItemUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteJobLineItemMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteJobLineItem>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteJobLineItem>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteJobLineItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteJobLineItem>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteJobLineItem(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteJobLineItemMutationResult = NonNullable<Awaited<ReturnType<typeof deleteJobLineItem>>>
+
+    export type DeleteJobLineItemMutationError = ErrorType<Error>
+
+    /**
+ * @summary Remove a line item from a job
+ */
+export const useDeleteJobLineItem = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteJobLineItem>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteJobLineItem>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteJobLineItemMutationOptions(options));
+    }
+
 export const getDraftJobRecapUrl = (id: string,) => {
 
 
@@ -5521,6 +5740,78 @@ export const useRemindInvoice = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRemindInvoiceMutationOptions(options));
+    }
+
+export const getSetInvoiceStatusUrl = (id: string,) => {
+
+
+
+
+  return `/api/invoices/${id}/status`
+}
+
+/**
+ * @summary Mark an invoice paid or back to pending (sent)
+ */
+export const setInvoiceStatus = async (id: string,
+    invoiceStatusInput: InvoiceStatusInput, options?: RequestInit): Promise<Invoice> => {
+
+  return customFetch<Invoice>(getSetInvoiceStatusUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(invoiceStatusInput)
+  }
+);}
+
+
+
+
+
+export const getSetInvoiceStatusMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setInvoiceStatus>>, TError,{id: string;data: BodyType<InvoiceStatusInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setInvoiceStatus>>, TError,{id: string;data: BodyType<InvoiceStatusInput>}, TContext> => {
+
+const mutationKey = ['setInvoiceStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setInvoiceStatus>>, {id: string;data: BodyType<InvoiceStatusInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setInvoiceStatus(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetInvoiceStatusMutationResult = NonNullable<Awaited<ReturnType<typeof setInvoiceStatus>>>
+    export type SetInvoiceStatusMutationBody = BodyType<InvoiceStatusInput>
+    export type SetInvoiceStatusMutationError = ErrorType<Error>
+
+    /**
+ * @summary Mark an invoice paid or back to pending (sent)
+ */
+export const useSetInvoiceStatus = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setInvoiceStatus>>, TError,{id: string;data: BodyType<InvoiceStatusInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setInvoiceStatus>>,
+        TError,
+        {id: string;data: BodyType<InvoiceStatusInput>},
+        TContext
+      > => {
+      return useMutation(getSetInvoiceStatusMutationOptions(options));
     }
 
 export const getRecordPaymentUrl = () => {
