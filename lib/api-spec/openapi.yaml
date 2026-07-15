@@ -282,6 +282,86 @@ paths:
               schema:
                 $ref: "#/components/schemas/Contact"
 
+  /contacts/{id}:
+    patch:
+      operationId: updateContact
+      tags: [properties]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+    delete:
+      operationId: deleteContact
+      tags: [properties]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  /price-items/{id}:
+    patch:
+      operationId: updatePriceItem
+      tags: [properties]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PriceItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceItem"
+    delete:
+      operationId: deletePriceItem
+      tags: [properties]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
   /leads:
     get:
       operationId: listLeads
@@ -3032,6 +3112,14 @@ components:
         phone: { type: string }
         email: { type: string }
         prefers: { type: string }
+    ContactUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        role: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        prefers: { type: ["string", "null"] }
 
     PriceItem:
       type: object
@@ -3053,6 +3141,14 @@ components:
         unit: { type: string }
         rate: { type: number }
         marginFloor: { type: number }
+    PriceItemUpdate:
+      type: object
+      properties:
+        service: { type: string, minLength: 1 }
+        detail: { type: ["string", "null"] }
+        unit: { type: ["string", "null"] }
+        rate: { type: number }
+        marginFloor: { type: ["number", "null"] }
 
     Agreement:
       type: object
@@ -3305,7 +3401,7 @@ components:
         category: { type: string }
         description: { type: string }
         status: { type: string }
-        crewLeaderId: { type: string }
+        crewLeaderId: { type: ["string", "null"] }
         inspectionRequired: { type: boolean }
         isRecurring: { type: boolean }
         recurrence: { type: ["string", "null"], enum: [daily, weekly, biweekly, monthly, quarterly, null] }
@@ -3452,6 +3548,12 @@ components:
         jobId: { type: ["string", "null"] }
         crewId: { type: ["string", "null"] }
 
+    CrewService:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        rate: { type: ["number", "null"] }
     Crew:
       type: object
       required: [id, name]
@@ -3463,6 +3565,11 @@ components:
         email: { type: ["string", "null"] }
         isLeader: { type: ["boolean", "null"] }
         active: { type: ["boolean", "null"] }
+        paymentTerms: { type: ["string", "null"], description: "due_on_receipt | net15 | net30 | net45" }
+        services:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/CrewService"
     CrewToday:
       type: object
       required: [id, name]
@@ -3487,6 +3594,11 @@ components:
         phone: { type: string }
         email: { type: string }
         isLeader: { type: boolean }
+        paymentTerms: { type: ["string", "null"] }
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrewService"
     CrewUpdate:
       type: object
       properties:
@@ -3496,6 +3608,11 @@ components:
         email: { type: ["string", "null"] }
         isLeader: { type: boolean }
         active: { type: boolean }
+        paymentTerms: { type: ["string", "null"] }
+        services:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/CrewService"
     OkResponse:
       type: object
       required: [ok]
@@ -4144,6 +4261,13 @@ components:
         portalToken: { type: ["string", "null"] }
         preferredPaymentMethod: { type: ["string", "null"] }
         paymentDetails: { type: ["string", "null"] }
+        paymentTerms: { type: ["string", "null"] }
+        services:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/CrewService"
+        paidTotal: { type: ["number", "null"] }
+        outstandingTotal: { type: ["number", "null"] }
         w9Submitted: { type: boolean }
         w9SubmittedAt: { type: ["string", "null"] }
         w9:
@@ -4383,7 +4507,7 @@ components:
           items: { type: string }
     PortalOffer:
       type: object
-      required: [id, jobId, status, priceItems, photos]
+      required: [id, jobId, status, photos]
       properties:
         id: { type: string }
         jobId: { type: string }
@@ -4404,10 +4528,6 @@ components:
         tasks:
           type: array
           items: { type: string }
-        priceItems:
-          type: array
-          items:
-            $ref: "#/components/schemas/PriceItem"
         photos:
           type: array
           items:

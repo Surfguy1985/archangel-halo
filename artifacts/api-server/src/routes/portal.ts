@@ -318,13 +318,7 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
         .filter((p): p is string => Boolean(p)),
     ),
   ];
-  const [offerPrices, offerPhotos] = await Promise.all([
-    offerPropIds.length > 0
-      ? db
-          .select()
-          .from(priceItemsTable)
-          .where(inArray(priceItemsTable.propertyId, offerPropIds))
-      : Promise.resolve([] as (typeof priceItemsTable.$inferSelect)[]),
+  const [offerPhotos] = await Promise.all([
     offerJobIds.length > 0
       ? db
           .select()
@@ -357,9 +351,6 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
         ...propFields(job.propertyId),
         filledByOther: job.boardStatus === "filled" && o.status !== "approved",
         tasks: taskify(job.description),
-        priceItems: offerPrices
-          .filter((pi) => pi.propertyId === job.propertyId)
-          .map((pi) => ser(pi)),
         photos: offerPhotos
           .filter(
             (a) =>

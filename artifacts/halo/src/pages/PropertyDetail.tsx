@@ -7,6 +7,9 @@ import { AddContactSheet } from "@/components/AddContactSheet";
 import { AddPriceItemSheet } from "@/components/AddPriceItemSheet";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
 import { AddJobSheet } from "@/components/AddJobSheet";
+import { EditJobSheet } from "@/components/EditJobSheet";
+import { EditContactSheet } from "@/components/EditContactSheet";
+import { EditPriceItemSheet } from "@/components/EditPriceItemSheet";
 import { Repeat } from "lucide-react";
 
 const recurrenceLabels: Record<string, string> = {
@@ -41,6 +44,9 @@ export default function PropertyDetail() {
   const [priceOpen, setPriceOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
+  const [editJobId, setEditJobId] = useState<string | null>(null);
+  const [editContactId, setEditContactId] = useState<string | null>(null);
+  const [editPriceId, setEditPriceId] = useState<string | null>(null);
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -105,8 +111,8 @@ export default function PropertyDetail() {
         {jobs.length > 0 ? (
           <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
             {jobs.map((job, idx) => (
-              <Link key={job.id} href={`/jobs/${job.id}`} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
-                <div className="flex-1 min-w-0">
+              <div key={job.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
+                <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
                   <div className="font-semibold truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
                   <div className="text-[12px] text-muted-foreground truncate">{job.description}</div>
                   {job.isRecurring && (
@@ -118,14 +124,21 @@ export default function PropertyDetail() {
                       </span>
                     </div>
                   )}
-                </div>
+                </Link>
                 <div className="text-right shrink-0">
                   <div className="text-[12px] font-mono text-muted-foreground">{job.jobNo}</div>
                   {!job.isRecurring && job.crewLeaderName && (
                     <div className="text-[11.5px] text-muted-foreground">{job.crewLeaderName}</div>
                   )}
                 </div>
-              </Link>
+                <button
+                  aria-label="Edit job"
+                  onClick={() => setEditJobId(job.id)}
+                  className="shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center bg-[rgba(23,24,28,0.05)] text-muted-foreground active:scale-[0.94]"
+                >
+                  <Pencil className="w-[13px] h-[13px]" />
+                </button>
+              </div>
             ))}
           </div>
         ) : (
@@ -147,6 +160,13 @@ export default function PropertyDetail() {
                   <div className="font-display font-semibold tabular-nums">${item.rate}</div>
                   {item.unit && <div className="text-[12px] text-muted-foreground">/{item.unit}</div>}
                 </div>
+                <button
+                  aria-label="Edit price item"
+                  onClick={() => setEditPriceId(item.id)}
+                  className="shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center bg-[rgba(23,24,28,0.05)] text-muted-foreground active:scale-[0.94]"
+                >
+                  <Pencil className="w-[13px] h-[13px]" />
+                </button>
               </div>
             ))}
           </div>
@@ -169,6 +189,13 @@ export default function PropertyDetail() {
                   {contact.phone && <div>{contact.phone}</div>}
                   {contact.email && <div>{contact.email}</div>}
                 </div>
+                <button
+                  aria-label="Edit contact"
+                  onClick={() => setEditContactId(contact.id)}
+                  className="shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center bg-[rgba(23,24,28,0.05)] text-muted-foreground active:scale-[0.94]"
+                >
+                  <Pencil className="w-[13px] h-[13px]" />
+                </button>
               </div>
             ))}
           </div>
@@ -224,6 +251,38 @@ export default function PropertyDetail() {
       <AddPriceItemSheet open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
       <AddExpenseSheet open={expenseOpen} onOpenChange={setExpenseOpen} propertyId={id} />
       <AddJobSheet open={jobOpen} onOpenChange={setJobOpen} propertyId={id} />
+      {(() => {
+        const j = jobs.find((x) => x.id === editJobId);
+        return j ? (
+          <EditJobSheet
+            open={!!editJobId}
+            onOpenChange={(o) => !o && setEditJobId(null)}
+            job={{ ...j, propertyId: id }}
+          />
+        ) : null;
+      })()}
+      {(() => {
+        const c = contacts.find((x) => x.id === editContactId);
+        return c ? (
+          <EditContactSheet
+            open={!!editContactId}
+            onOpenChange={(o) => !o && setEditContactId(null)}
+            contact={c}
+            propertyId={id}
+          />
+        ) : null;
+      })()}
+      {(() => {
+        const p = priceItems.find((x) => x.id === editPriceId);
+        return p ? (
+          <EditPriceItemSheet
+            open={!!editPriceId}
+            onOpenChange={(o) => !o && setEditPriceId(null)}
+            item={p}
+            propertyId={id}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }

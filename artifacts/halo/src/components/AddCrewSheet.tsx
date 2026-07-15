@@ -22,6 +22,8 @@ export function AddCrewSheet({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [isLeader, setIsLeader] = useState(true);
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [services, setServices] = useState<{ name: string; rate: string }[]>([]);
 
   const create = useCreateCrew();
 
@@ -31,6 +33,8 @@ export function AddCrewSheet({
     setPhone("");
     setEmail("");
     setIsLeader(true);
+    setPaymentTerms("");
+    setServices([]);
   };
 
   const submit = () => {
@@ -43,6 +47,13 @@ export function AddCrewSheet({
           phone: phone.trim() || undefined,
           email: email.trim() || undefined,
           isLeader,
+          paymentTerms: paymentTerms || null,
+          services: services
+            .filter((s) => s.name.trim())
+            .map((s) => ({
+              name: s.name.trim(),
+              rate: s.rate.trim() === "" || isNaN(parseFloat(s.rate)) ? null : parseFloat(s.rate),
+            })),
         },
       },
       {
@@ -126,6 +137,72 @@ export function AddCrewSheet({
                 />
               </span>
             </button>
+
+            <div className="mt-[4px]">
+              <div className="text-[12px] font-display font-semibold tracking-[0.14em] uppercase text-muted-foreground mb-[7px] mx-[2px]">Payment terms</div>
+              <div className="flex flex-wrap gap-[7px]">
+                {[
+                  { value: "due_on_receipt", label: "Due on receipt" },
+                  { value: "net15", label: "Net 15" },
+                  { value: "net30", label: "Net 30" },
+                  { value: "net45", label: "Net 45" },
+                ].map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setPaymentTerms((v) => (v === t.value ? "" : t.value))}
+                    className={`px-[13px] py-[8px] rounded-full text-[13px] font-semibold border transition-colors ${
+                      paymentTerms === t.value
+                        ? "bg-[var(--gold)] border-[var(--gold)] text-[var(--ink)]"
+                        : "bg-card border-border text-muted-foreground"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-[4px]">
+              <div className="flex items-center justify-between mb-[7px] mx-[2px]">
+                <div className="text-[12px] font-display font-semibold tracking-[0.14em] uppercase text-muted-foreground">Services & what they charge</div>
+                <button
+                  type="button"
+                  onClick={() => setServices((s) => [...s, { name: "", rate: "" }])}
+                  className="text-[12px] font-display font-bold text-[var(--gold-dark)]"
+                >
+                  + Add service
+                </button>
+              </div>
+              {services.length === 0 && (
+                <div className="text-[12.5px] text-muted-foreground mx-[2px]">e.g. Full turn — $600, Paint — $250/unit</div>
+              )}
+              {services.map((s, i) => (
+                <div key={i} className="flex gap-[8px] mb-[8px]">
+                  <input
+                    className={`${fieldCls} flex-1`}
+                    placeholder="Service (e.g. Paint)"
+                    value={s.name}
+                    onChange={(e) => setServices((list) => list.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+                  />
+                  <input
+                    className={`${fieldCls} w-[92px]`}
+                    placeholder="$ rate"
+                    inputMode="decimal"
+                    value={s.rate}
+                    onChange={(e) => setServices((list) => list.map((x, j) => (j === i ? { ...x, rate: e.target.value } : x)))}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Remove service"
+                    onClick={() => setServices((list) => list.filter((_, j) => j !== i))}
+                    className="shrink-0 w-[36px] rounded-[13px] border border-border text-muted-foreground text-[16px]"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
 
           <button

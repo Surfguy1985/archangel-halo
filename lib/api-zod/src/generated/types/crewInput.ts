@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { CrewService } from './crewService';
 
 export interface CrewInput {
   /** @minLength 1 */
@@ -13,4 +14,7 @@ export interface CrewInput {
   phone?: string;
   email?: string;
   isLeader?: boolean;
+  /** @nullable */
+  paymentTerms?: string | null;
+  services?: CrewService[];
 }

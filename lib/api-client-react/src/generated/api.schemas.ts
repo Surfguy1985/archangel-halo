@@ -281,6 +281,19 @@ export interface ContactInput {
   prefers?: string;
 }
 
+export interface ContactUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  prefers?: string | null;
+}
+
 export interface PriceItemInput {
   /** @minLength 1 */
   service: string;
@@ -288,6 +301,18 @@ export interface PriceItemInput {
   unit?: string;
   rate: number;
   marginFloor?: number;
+}
+
+export interface PriceItemUpdate {
+  /** @minLength 1 */
+  service?: string;
+  /** @nullable */
+  detail?: string | null;
+  /** @nullable */
+  unit?: string | null;
+  rate?: number;
+  /** @nullable */
+  marginFloor?: number | null;
 }
 
 export interface Lead {
@@ -546,7 +571,8 @@ export interface JobUpdate {
   category?: string;
   description?: string;
   status?: string;
-  crewLeaderId?: string;
+  /** @nullable */
+  crewLeaderId?: string | null;
   inspectionRequired?: boolean;
   isRecurring?: boolean;
   /** @nullable */
@@ -690,6 +716,13 @@ export interface CalendarEventPatch {
   crewId?: string | null;
 }
 
+export interface CrewService {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  rate?: number | null;
+}
+
 export interface Crew {
   id: string;
   name: string;
@@ -703,6 +736,13 @@ export interface Crew {
   isLeader?: boolean | null;
   /** @nullable */
   active?: boolean | null;
+  /**
+     * due_on_receipt | net15 | net30 | net45
+     * @nullable
+     */
+  paymentTerms?: string | null;
+  /** @nullable */
+  services?: CrewService[] | null;
 }
 
 export interface CrewToday {
@@ -738,6 +778,9 @@ export interface CrewInput {
   phone?: string;
   email?: string;
   isLeader?: boolean;
+  /** @nullable */
+  paymentTerms?: string | null;
+  services?: CrewService[];
 }
 
 export interface CrewUpdate {
@@ -749,6 +792,10 @@ export interface CrewUpdate {
   email?: string | null;
   isLeader?: boolean;
   active?: boolean;
+  /** @nullable */
+  paymentTerms?: string | null;
+  /** @nullable */
+  services?: CrewService[] | null;
 }
 
 export interface OkResponse {
@@ -1388,6 +1435,14 @@ export interface CrewDetail {
   preferredPaymentMethod?: string | null;
   /** @nullable */
   paymentDetails?: string | null;
+  /** @nullable */
+  paymentTerms?: string | null;
+  /** @nullable */
+  services?: CrewService[] | null;
+  /** @nullable */
+  paidTotal?: number | null;
+  /** @nullable */
+  outstandingTotal?: number | null;
   w9Submitted?: boolean;
   /** @nullable */
   w9SubmittedAt?: string | null;
@@ -1742,7 +1797,6 @@ export interface PortalOffer {
   contactPhone?: string | null;
   filledByOther?: boolean;
   tasks?: string[];
-  priceItems: PriceItem[];
   photos: JobPhoto[];
 }
 

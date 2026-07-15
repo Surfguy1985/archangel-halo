@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { JobPhoto } from './jobPhoto';
-import type { PriceItem } from './priceItem';
 
 export interface PortalOffer {
   id: string;
@@ -42,6 +41,5 @@ export interface PortalOffer {
   contactPhone?: string | null;
   filledByOther?: boolean;
   tasks?: string[];
-  priceItems: PriceItem[];
   photos: JobPhoto[];
 }

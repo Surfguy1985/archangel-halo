@@ -19,6 +19,7 @@ import {
   getGetJobQueryKey,
   getListJobsQueryKey,
   getGetTodayQueryKey,
+  getGetPropertyQueryKey,
 } from "@workspace/api-client-react";
 
 const fieldCls =
@@ -96,6 +97,11 @@ export function EditJobSheet({
     queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(job.id) });
     queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+    if (job.propertyId) {
+      queryClient.invalidateQueries({
+        queryKey: getGetPropertyQueryKey(job.propertyId),
+      });
+    }
   };
 
   const submit = () => {

@@ -360,6 +360,76 @@ export const CreateContactResponse = zod.object({
 })
 
 
+export const UpdateContactParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const UpdateContactBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "role": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "prefers": zod.string().nullish()
+})
+
+export const UpdateContactResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string().nullish(),
+  "name": zod.string(),
+  "role": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "prefers": zod.string().nullish()
+})
+
+
+export const DeleteContactParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteContactResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+export const UpdatePriceItemParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const UpdatePriceItemBody = zod.object({
+  "service": zod.string().min(1).optional(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number().optional(),
+  "marginFloor": zod.number().nullish()
+})
+
+export const UpdatePriceItemResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "service": zod.string(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "marginFloor": zod.number().nullish()
+})
+
+
+export const DeletePriceItemParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeletePriceItemResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
 export const ListLeadsResponseItem = zod.object({
   "id": zod.string(),
   "propertyId": zod.string().nullish(),
@@ -908,7 +978,7 @@ export const UpdateJobBody = zod.object({
   "category": zod.string().optional(),
   "description": zod.string().optional(),
   "status": zod.string().optional(),
-  "crewLeaderId": zod.string().optional(),
+  "crewLeaderId": zod.string().nullish(),
   "inspectionRequired": zod.boolean().optional(),
   "isRecurring": zod.boolean().optional(),
   "recurrence": zod.union([zod.literal('daily'),zod.literal('weekly'),zod.literal('biweekly'),zod.literal('monthly'),zod.literal('quarterly'),zod.literal(null)]).nullish()
@@ -1341,13 +1411,22 @@ export const ListCrewsResponse = zod.array(ListCrewsResponseItem)
 
 
 
+
 export const CreateCrewBody = zod.object({
   "name": zod.string().min(1),
   "trade": zod.string().optional(),
   "phone": zod.string().optional(),
   "email": zod.string().optional(),
-  "isLeader": zod.boolean().optional()
+  "isLeader": zod.boolean().optional(),
+  "paymentTerms": zod.string().nullish(),
+  "services": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "rate": zod.number().nullish()
+})).optional()
 })
+
+
+
 
 export const CreateCrewResponse = zod.object({
   "id": zod.string(),
@@ -1356,7 +1435,12 @@ export const CreateCrewResponse = zod.object({
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
-  "active": zod.boolean().nullish()
+  "active": zod.boolean().nullish(),
+  "paymentTerms": zod.string().nullish().describe('due_on_receipt | net15 | net30 | net45'),
+  "services": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "rate": zod.number().nullish()
+})).nullish()
 })
 
 
@@ -1367,14 +1451,23 @@ export const UpdateCrewParams = zod.object({
 
 
 
+
 export const UpdateCrewBody = zod.object({
   "name": zod.string().min(1).optional(),
   "trade": zod.string().optional(),
   "phone": zod.string().optional(),
   "email": zod.string().nullish(),
   "isLeader": zod.boolean().optional(),
-  "active": zod.boolean().optional()
+  "active": zod.boolean().optional(),
+  "paymentTerms": zod.string().nullish(),
+  "services": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "rate": zod.number().nullish()
+})).nullish()
 })
+
+
+
 
 export const UpdateCrewResponse = zod.object({
   "id": zod.string(),
@@ -1383,7 +1476,12 @@ export const UpdateCrewResponse = zod.object({
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
-  "active": zod.boolean().nullish()
+  "active": zod.boolean().nullish(),
+  "paymentTerms": zod.string().nullish().describe('due_on_receipt | net15 | net30 | net45'),
+  "services": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "rate": zod.number().nullish()
+})).nullish()
 })
 
 
@@ -2398,6 +2496,9 @@ export const GetCrewDetailParams = zod.object({
   "id": zod.coerce.string()
 })
 
+
+
+
 export const GetCrewDetailResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
@@ -2409,6 +2510,13 @@ export const GetCrewDetailResponse = zod.object({
   "portalToken": zod.string().nullish(),
   "preferredPaymentMethod": zod.string().nullish(),
   "paymentDetails": zod.string().nullish(),
+  "paymentTerms": zod.string().nullish(),
+  "services": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "rate": zod.number().nullish()
+})).nullish(),
+  "paidTotal": zod.number().nullish(),
+  "outstandingTotal": zod.number().nullish(),
   "w9Submitted": zod.boolean().optional(),
   "w9SubmittedAt": zod.string().nullish(),
   "w9": zod.union([zod.object({
@@ -2622,6 +2730,9 @@ export const UpdateCrewPaymentMethodBody = zod.object({
   "paymentDetails": zod.string().nullish()
 })
 
+
+
+
 export const UpdateCrewPaymentMethodResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
@@ -2633,6 +2744,13 @@ export const UpdateCrewPaymentMethodResponse = zod.object({
   "portalToken": zod.string().nullish(),
   "preferredPaymentMethod": zod.string().nullish(),
   "paymentDetails": zod.string().nullish(),
+  "paymentTerms": zod.string().nullish(),
+  "services": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "rate": zod.number().nullish()
+})).nullish(),
+  "paidTotal": zod.number().nullish(),
+  "outstandingTotal": zod.number().nullish(),
   "w9Submitted": zod.boolean().optional(),
   "w9SubmittedAt": zod.string().nullish(),
   "w9": zod.union([zod.object({
@@ -2783,15 +2901,6 @@ export const GetPortalResponse = zod.object({
   "contactPhone": zod.string().nullish(),
   "filledByOther": zod.boolean().optional(),
   "tasks": zod.array(zod.string()).optional(),
-  "priceItems": zod.array(zod.object({
-  "id": zod.string(),
-  "propertyId": zod.string(),
-  "service": zod.string(),
-  "detail": zod.string().nullish(),
-  "unit": zod.string().nullish(),
-  "rate": zod.number(),
-  "marginFloor": zod.number().nullish()
-})),
   "photos": zod.array(zod.object({
   "kind": zod.string().nullish(),
   "storagePath": zod.string()

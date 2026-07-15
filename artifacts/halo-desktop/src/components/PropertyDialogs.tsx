@@ -25,11 +25,18 @@ import {
   useUpdateProperty,
   useDeleteProperty,
   useCreatePriceItem,
+  useUpdatePriceItem,
+  useDeletePriceItem,
   useCreateContact,
+  useUpdateContact,
+  useDeleteContact,
   useCreateJob,
+  useUpdateJob,
+  useDeleteJob,
   useListCrews,
   getListPropertiesQueryKey,
   getGetPropertyQueryKey,
+  getGetJobQueryKey,
   getListJobsQueryKey,
   getGetTodayQueryKey,
 } from "@workspace/api-client-react";
@@ -823,5 +830,511 @@ export function AddJobDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------- Edit Price Item */
+
+export function EditPriceItemDialog({
+  open,
+  onOpenChange,
+  item,
+  propertyId,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  item: { id: string; service: string; detail?: string | null; unit?: string | null; rate: number };
+  propertyId: string;
+}) {
+  const queryClient = useQueryClient();
+  const [service, setService] = useState(item.service);
+  const [detail, setDetail] = useState(item.detail ?? "");
+  const [unit, setUnit] = useState(item.unit ?? "");
+  const [rate, setRate] = useState(String(item.rate));
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setService(item.service);
+      setDetail(item.detail ?? "");
+      setUnit(item.unit ?? "");
+      setRate(String(item.rate));
+      setDeleteError(null);
+    }
+  }, [open, item]);
+
+  const update = useUpdatePriceItem();
+  const del = useDeletePriceItem();
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+  };
+
+  const submit = () => {
+    const rateNum = parseFloat(rate);
+    if (!service.trim() || isNaN(rateNum)) return;
+    update.mutate(
+      {
+        id: item.id,
+        data: {
+          service: service.trim(),
+          detail: detail.trim() || null,
+          unit: unit.trim() || null,
+          rate: rateNum,
+        },
+      },
+      {
+        onSuccess: () => {
+          invalidate();
+          onOpenChange(false);
+        },
+      },
+    );
+  };
+
+  const confirmDelete = () => {
+    setDeleteError(null);
+    del.mutate(
+      { id: item.id },
+      {
+        onSuccess: () => {
+          invalidate();
+          setConfirmOpen(false);
+          onOpenChange(false);
+        },
+        onError: (err: unknown) => {
+          setDeleteError(
+            (err as { data?: { error?: string } })?.data?.error || "Couldn't delete this price item.",
+          );
+          setConfirmOpen(false);
+        },
+      },
+    );
+  };
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display">Edit price item</DialogTitle>
+            <DialogDescription>Update the agreed rate, or remove it.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-2">
+            <Field label="Service">
+              <input className={fieldCls} value={service} onChange={(e) => setService(e.target.value)} />
+            </Field>
+            <Field label="Detail">
+              <input className={fieldCls} placeholder="Optional" value={detail} onChange={(e) => setDetail(e.target.value)} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Rate">
+                <input className={fieldCls} inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+              </Field>
+              <Field label="Unit">
+                <input className={fieldCls} placeholder="each" value={unit} onChange={(e) => setUnit(e.target.value)} />
+              </Field>
+            </div>
+          </div>
+          {update.isError && <div className={errorCls}>Couldn't save. Check the fields and try again.</div>}
+          {deleteError && <div className={errorCls}>{deleteError}</div>}
+          <DialogFooter className="gap-2 sm:justify-between">
+            <button
+              className="flex items-center justify-center gap-2 text-destructive px-4 py-2 rounded-md font-medium border border-destructive/30 hover:bg-destructive/5 transition-colors text-sm"
+              onClick={() => setConfirmOpen(true)}
+              disabled={del.isPending}
+            >
+              <Trash2 className="w-4 h-4" /> {del.isPending ? "Deleting…" : "Delete"}
+            </button>
+            <button className={primaryBtn} onClick={submit} disabled={!service.trim() || !rate.trim() || update.isPending}>
+              {update.isPending ? "Saving…" : "Save changes"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Delete {item.service}?</AlertDialogTitle>
+            <AlertDialogDescription>This removes the agreed rate from this property. This can't be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmDelete(); }}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------- Edit Contact */
+
+export function EditContactDialog({
+  open,
+  onOpenChange,
+  contact,
+  propertyId,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  contact: { id: string; name: string; role?: string | null; phone?: string | null; email?: string | null; prefers?: string | null };
+  propertyId: string;
+}) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(contact.name);
+  const [role, setRole] = useState(contact.role ?? "");
+  const [phone, setPhone] = useState(contact.phone ?? "");
+  const [email, setEmail] = useState(contact.email ?? "");
+  const [prefers, setPrefers] = useState(contact.prefers ?? "");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setName(contact.name);
+      setRole(contact.role ?? "");
+      setPhone(contact.phone ?? "");
+      setEmail(contact.email ?? "");
+      setPrefers(contact.prefers ?? "");
+      setDeleteError(null);
+    }
+  }, [open, contact]);
+
+  const update = useUpdateContact();
+  const del = useDeleteContact();
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+  };
+
+  const submit = () => {
+    if (!name.trim()) return;
+    update.mutate(
+      {
+        id: contact.id,
+        data: {
+          name: name.trim(),
+          role: role.trim() || null,
+          phone: phone.trim() || null,
+          email: email.trim() || null,
+          prefers: prefers.trim() || null,
+        },
+      },
+      {
+        onSuccess: () => {
+          invalidate();
+          onOpenChange(false);
+        },
+      },
+    );
+  };
+
+  const confirmDelete = () => {
+    setDeleteError(null);
+    del.mutate(
+      { id: contact.id },
+      {
+        onSuccess: () => {
+          invalidate();
+          setConfirmOpen(false);
+          onOpenChange(false);
+        },
+        onError: (err: unknown) => {
+          setDeleteError(
+            (err as { data?: { error?: string } })?.data?.error || "Couldn't delete this contact.",
+          );
+          setConfirmOpen(false);
+        },
+      },
+    );
+  };
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display">Edit contact</DialogTitle>
+            <DialogDescription>Update their details, or remove them.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-2">
+            <Field label="Full name">
+              <input className={fieldCls} value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
+            <Field label="Role">
+              <input className={fieldCls} placeholder="e.g. Property Manager" value={role} onChange={(e) => setRole(e.target.value)} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Phone">
+                <input className={fieldCls} placeholder="Optional" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </Field>
+              <Field label="Email">
+                <input className={fieldCls} placeholder="Optional" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </Field>
+            </div>
+            <Field label="Prefers">
+              <input className={fieldCls} placeholder="e.g. text before 3pm" value={prefers} onChange={(e) => setPrefers(e.target.value)} />
+            </Field>
+          </div>
+          {update.isError && <div className={errorCls}>Couldn't save. Check the name and try again.</div>}
+          {deleteError && <div className={errorCls}>{deleteError}</div>}
+          <DialogFooter className="gap-2 sm:justify-between">
+            <button
+              className="flex items-center justify-center gap-2 text-destructive px-4 py-2 rounded-md font-medium border border-destructive/30 hover:bg-destructive/5 transition-colors text-sm"
+              onClick={() => setConfirmOpen(true)}
+              disabled={del.isPending}
+            >
+              <Trash2 className="w-4 h-4" /> {del.isPending ? "Deleting…" : "Delete"}
+            </button>
+            <button className={primaryBtn} onClick={submit} disabled={!name.trim() || update.isPending}>
+              {update.isPending ? "Saving…" : "Save changes"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Remove {contact.name}?</AlertDialogTitle>
+            <AlertDialogDescription>This removes the contact from this property. This can't be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep them</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmDelete(); }}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------- Edit Job */
+
+export function EditJobDialog({
+  open,
+  onOpenChange,
+  job,
+  propertyId,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  job: {
+    id: string;
+    description?: string | null;
+    category?: string | null;
+    unitNo?: string | null;
+    woNo?: string | null;
+    crewLeaderId?: string | null;
+    inspectionRequired?: boolean | null;
+    isRecurring?: boolean | null;
+    recurrence?: string | null;
+  };
+  propertyId: string;
+}) {
+  const queryClient = useQueryClient();
+  const { data: crews } = useListCrews();
+  const [description, setDescription] = useState(job.description ?? "");
+  const [category, setCategory] = useState(job.category ?? "");
+  const [unitNo, setUnitNo] = useState(job.unitNo ?? "");
+  const [woNo, setWoNo] = useState(job.woNo ?? "");
+  const [crewLeaderId, setCrewLeaderId] = useState(job.crewLeaderId ?? "");
+  const [inspectionRequired, setInspectionRequired] = useState(!!job.inspectionRequired);
+  const [isRecurring, setIsRecurring] = useState(!!job.isRecurring);
+  const [recurrence, setRecurrence] = useState(job.recurrence ?? "weekly");
+  const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setDescription(job.description ?? "");
+      setCategory(job.category ?? "");
+      setUnitNo(job.unitNo ?? "");
+      setWoNo(job.woNo ?? "");
+      setCrewLeaderId(job.crewLeaderId ?? "");
+      setInspectionRequired(!!job.inspectionRequired);
+      setIsRecurring(!!job.isRecurring);
+      setRecurrence(job.recurrence ?? "weekly");
+      setError(null);
+    }
+  }, [open, job]);
+
+  const update = useUpdateJob();
+  const del = useDeleteJob();
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+    queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(job.id) });
+    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+  };
+
+  const submit = () => {
+    if (!description.trim()) {
+      setError("A short description is required.");
+      return;
+    }
+    update.mutate(
+      {
+        id: job.id,
+        data: {
+          description: description.trim(),
+          category: category.trim() || undefined,
+          unitNo: unitNo.trim() || undefined,
+          woNo: woNo.trim() || undefined,
+          crewLeaderId: crewLeaderId || null,
+          inspectionRequired,
+          isRecurring,
+          recurrence: isRecurring
+            ? (recurrence as "daily" | "weekly" | "biweekly" | "monthly" | "quarterly")
+            : null,
+        },
+      },
+      {
+        onSuccess: () => {
+          invalidate();
+          onOpenChange(false);
+        },
+        onError: (err: unknown) => {
+          setError(
+            (err as { data?: { error?: string } })?.data?.error || "Couldn't save the job.",
+          );
+        },
+      },
+    );
+  };
+
+  const confirmDelete = () => {
+    setError(null);
+    del.mutate(
+      { id: job.id },
+      {
+        onSuccess: () => {
+          invalidate();
+          setConfirmOpen(false);
+          onOpenChange(false);
+        },
+        onError: (err: unknown) => {
+          setError(
+            (err as { data?: { error?: string } })?.data?.error || "Couldn't delete this job.",
+          );
+          setConfirmOpen(false);
+        },
+      },
+    );
+  };
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display">Edit job</DialogTitle>
+            <DialogDescription>Update the work order details, or delete it.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-2">
+            <Field label="Description">
+              <input className={fieldCls} value={description} onChange={(e) => setDescription(e.target.value)} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Category">
+                <input className={fieldCls} placeholder="e.g. Turn, Paint" value={category} onChange={(e) => setCategory(e.target.value)} />
+              </Field>
+              <Field label="Unit #">
+                <input className={fieldCls} placeholder="e.g. 204" value={unitNo} onChange={(e) => setUnitNo(e.target.value)} />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Work order # (optional)">
+                <input className={fieldCls} placeholder="WO-1234" value={woNo} onChange={(e) => setWoNo(e.target.value)} />
+              </Field>
+              <Field label="Crew leader (optional)">
+                <select className={fieldCls} value={crewLeaderId} onChange={(e) => setCrewLeaderId(e.target.value)}>
+                  <option value="">Unassigned</option>
+                  {(crews ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={inspectionRequired}
+                onChange={(e) => setInspectionRequired(e.target.checked)}
+                className="accent-[var(--gold)] w-4 h-4"
+              />
+              Inspection required before invoicing
+            </label>
+            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isRecurring}
+                onChange={(e) => setIsRecurring(e.target.checked)}
+                className="accent-[var(--gold)] w-4 h-4"
+              />
+              Recurring job
+            </label>
+            {isRecurring && (
+              <Field label="How often">
+                <select className={fieldCls} value={recurrence} onChange={(e) => setRecurrence(e.target.value)}>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Bi-weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                </select>
+              </Field>
+            )}
+            {error && <p className={errorCls}>{error}</p>}
+          </div>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <button
+              className="flex items-center justify-center gap-2 text-destructive px-4 py-2 rounded-md font-medium border border-destructive/30 hover:bg-destructive/5 transition-colors text-sm"
+              onClick={() => setConfirmOpen(true)}
+              disabled={del.isPending}
+            >
+              <Trash2 className="w-4 h-4" /> {del.isPending ? "Deleting…" : "Delete"}
+            </button>
+            <button className={primaryBtn} onClick={submit} disabled={update.isPending}>
+              {update.isPending ? "Saving…" : "Save changes"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display">Delete this job?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This deletes the job and its history. This can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmDelete(); }}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

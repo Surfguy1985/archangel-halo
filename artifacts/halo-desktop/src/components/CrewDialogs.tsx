@@ -91,6 +91,98 @@ function Toggle({
   );
 }
 
+type ServiceRow = { name: string; rate: string };
+
+function toServicePayload(rows: ServiceRow[]) {
+  return rows
+    .filter((s) => s.name.trim())
+    .map((s) => ({
+      name: s.name.trim(),
+      rate: s.rate.trim() === "" || isNaN(parseFloat(s.rate)) ? null : parseFloat(s.rate),
+    }));
+}
+
+function TermsAndServices({
+  paymentTerms,
+  setPaymentTerms,
+  services,
+  setServices,
+}: {
+  paymentTerms: string;
+  setPaymentTerms: (v: string) => void;
+  services: ServiceRow[];
+  setServices: React.Dispatch<React.SetStateAction<ServiceRow[]>>;
+}) {
+  return (
+    <>
+      <div>
+        <div className={`${labelCls} mb-1.5`}>Payment terms</div>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: "due_on_receipt", label: "Due on receipt" },
+            { value: "net15", label: "Net 15" },
+            { value: "net30", label: "Net 30" },
+            { value: "net45", label: "Net 45" },
+          ].map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setPaymentTerms(paymentTerms === t.value ? "" : t.value)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                paymentTerms === t.value
+                  ? "bg-[var(--gold)] border-[var(--gold)] text-white"
+                  : "bg-card border-input text-muted-foreground hover:bg-black/[0.03]"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className={labelCls}>Services & what they charge</span>
+          <button
+            type="button"
+            onClick={() => setServices((s) => [...s, { name: "", rate: "" }])}
+            className="text-xs font-bold text-[var(--gold-dark)]"
+          >
+            + Add service
+          </button>
+        </div>
+        {services.length === 0 && (
+          <div className="text-xs text-muted-foreground">e.g. Full turn — $600, Paint — $250/unit</div>
+        )}
+        {services.map((s, i) => (
+          <div key={i} className="flex gap-2 mb-2">
+            <input
+              className={`${fieldCls} flex-1`}
+              placeholder="Service (e.g. Paint)"
+              value={s.name}
+              onChange={(e) => setServices((list) => list.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+            />
+            <input
+              className={`${fieldCls} w-[100px]`}
+              placeholder="$ rate"
+              inputMode="decimal"
+              value={s.rate}
+              onChange={(e) => setServices((list) => list.map((x, j) => (j === i ? { ...x, rate: e.target.value } : x)))}
+            />
+            <button
+              type="button"
+              aria-label="Remove service"
+              onClick={() => setServices((list) => list.filter((_, j) => j !== i))}
+              className="shrink-0 w-9 rounded-md border border-input text-muted-foreground hover:bg-black/[0.03]"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 /* ---------------------------------------------------------------- Add Crew */
 
 export function AddCrewDialog({
@@ -106,6 +198,8 @@ export function AddCrewDialog({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [isLeader, setIsLeader] = useState(false);
+  const [paymentTerms, setPaymentTerms] = useState("");
+  const [services, setServices] = useState<ServiceRow[]>([]);
   const create = useCreateCrew();
 
   useEffect(() => {
@@ -115,6 +209,8 @@ export function AddCrewDialog({
       setPhone("");
       setEmail("");
       setIsLeader(false);
+      setPaymentTerms("");
+      setServices([]);
       create.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,6 +226,8 @@ export function AddCrewDialog({
           phone: phone.trim() || undefined,
           email: email.trim() || undefined,
           isLeader,
+          paymentTerms: paymentTerms || null,
+          services: toServicePayload(services),
         },
       },
       {
@@ -194,6 +292,12 @@ export function AddCrewDialog({
             title="Crew leader"
             subtitle="Can be assigned to run jobs"
           />
+          <TermsAndServices
+            paymentTerms={paymentTerms}
+            setPaymentTerms={setPaymentTerms}
+            services={services}
+            setServices={setServices}
+          />
         </div>
         {create.isError && (
           <div className={errorCls}>Couldn't add. Check the name and try again.</div>
@@ -222,6 +326,8 @@ export type EditableCrew = {
   email?: string | null;
   isLeader?: boolean | null;
   active?: boolean | null;
+  paymentTerms?: string | null;
+  services?: { name: string; rate?: number | null }[] | null;
 };
 
 export function EditCrewDialog({
@@ -242,6 +348,10 @@ export function EditCrewDialog({
   const [email, setEmail] = useState(crew.email ?? "");
   const [isLeader, setIsLeader] = useState(!!crew.isLeader);
   const [active, setActive] = useState(crew.active !== false);
+  const [paymentTerms, setPaymentTerms] = useState(crew.paymentTerms ?? "");
+  const [services, setServices] = useState<ServiceRow[]>(
+    (crew.services ?? []).map((s) => ({ name: s.name, rate: s.rate != null ? String(s.rate) : "" })),
+  );
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -253,6 +363,10 @@ export function EditCrewDialog({
       setEmail(crew.email ?? "");
       setIsLeader(!!crew.isLeader);
       setActive(crew.active !== false);
+      setPaymentTerms(crew.paymentTerms ?? "");
+      setServices(
+        (crew.services ?? []).map((s) => ({ name: s.name, rate: s.rate != null ? String(s.rate) : "" })),
+      );
       setDeleteError(null);
     }
   }, [open, crew]);
@@ -279,6 +393,8 @@ export function EditCrewDialog({
           email: email.trim() || null,
           isLeader,
           active,
+          paymentTerms: paymentTerms || null,
+          services: toServicePayload(services),
         },
       },
       {
@@ -372,6 +488,12 @@ export function EditCrewDialog({
               onChange={() => setIsLeader((v) => !v)}
               title="Crew leader"
               subtitle="Can be assigned to run jobs"
+            />
+            <TermsAndServices
+              paymentTerms={paymentTerms}
+              setPaymentTerms={setPaymentTerms}
+              services={services}
+              setServices={setServices}
             />
             <Toggle
               checked={active}

@@ -13,7 +13,8 @@ export interface JobUpdate {
   category?: string;
   description?: string;
   status?: string;
-  crewLeaderId?: string;
+  /** @nullable */
+  crewLeaderId?: string | null;
   inspectionRequired?: boolean;
   isRecurring?: boolean;
   /** @nullable */

@@ -47,6 +47,16 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 
+function paymentTermsLabel(v?: string | null): string {
+  switch (v) {
+    case "due_on_receipt": return "Due on receipt";
+    case "net15": return "Net 15";
+    case "net30": return "Net 30";
+    case "net45": return "Net 45";
+    default: return "Not set";
+  }
+}
+
 function formatWhen(iso?: string | null): string {
   if (!iso) return "";
   return new Date(iso).toLocaleString("en-US", {
@@ -610,6 +620,43 @@ export default function CrewDetail() {
 
       {/* Daily activity */}
       <DailyActivitySection crewId={id} crewName={crew.name} />
+
+      {/* Terms & money */}
+      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+        <div className={sectionTitle}>
+          <Wallet className="w-[13px] h-[13px]" /> Terms & money
+        </div>
+        <div className="flex gap-[8px] mb-[12px]">
+          <div className="flex-1 rounded-[12px] bg-[rgba(60,122,78,0.08)] p-[10px]">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--green,#3c7a4e)]">Paid</div>
+            <div className="font-display font-bold text-[17px] tabular-nums text-[var(--green,#3c7a4e)]">
+              ${(crew.paidTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </div>
+          </div>
+          <div className="flex-1 rounded-[12px] bg-[rgba(190,120,30,0.10)] p-[10px]">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-[var(--gold-dark)]">Outstanding</div>
+            <div className="font-display font-bold text-[17px] tabular-nums text-[var(--gold-dark)]">
+              ${(crew.outstandingTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </div>
+          </div>
+        </div>
+        <div className="text-[13px] mb-[10px]">
+          <span className="text-muted-foreground">Payment terms: </span>
+          <span className="font-semibold">{paymentTermsLabel(crew.paymentTerms)}</span>
+        </div>
+        {crew.services && crew.services.length > 0 ? (
+          <div className="rounded-[12px] bg-[var(--paper)] overflow-hidden">
+            {crew.services.map((s, i) => (
+              <div key={i} className={`flex items-center justify-between p-[9px_11px] text-[13px] ${i > 0 ? "border-t border-black/5" : ""}`}>
+                <span className="font-semibold">{s.name}</span>
+                <span className="font-mono font-semibold">{s.rate != null ? `$${s.rate.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-[12.5px] text-muted-foreground">No services on file. Add them from Edit.</div>
+        )}
+      </div>
 
       {/* Payment method */}
       <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">

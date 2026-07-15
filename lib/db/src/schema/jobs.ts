@@ -20,6 +20,8 @@ export const crewsTable = pgTable("crews", {
   portalToken: text("portal_token"),
   preferredPaymentMethod: text("preferred_payment_method"),
   paymentDetails: text("payment_details"),
+  paymentTerms: text("payment_terms"),
+  services: jsonb("services"),
   w9: jsonb("w9"),
   w9SubmittedAt: timestamp("w9_submitted_at", { withTimezone: true }),
   portalSeen: jsonb("portal_seen"),

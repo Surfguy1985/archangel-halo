@@ -25,9 +25,19 @@ import {
   DeletePropertyResponse,
   CreateContactBody,
   CreateContactResponse,
+  UpdateContactParams,
+  UpdateContactBody,
+  UpdateContactResponse,
+  DeleteContactParams,
+  DeleteContactResponse,
   CreatePriceItemBody,
   CreatePriceItemParams,
   CreatePriceItemResponse,
+  UpdatePriceItemParams,
+  UpdatePriceItemBody,
+  UpdatePriceItemResponse,
+  DeletePriceItemParams,
+  DeletePriceItemResponse,
   WritePropertyBriefParams,
   WritePropertyBriefResponse,
 } from "@workspace/api-zod";
@@ -239,6 +249,70 @@ router.post("/contacts", async (req, res): Promise<void> => {
   const body = CreateContactBody.parse(req.body);
   const [row] = await db.insert(contactsTable).values(body).returning();
   res.status(201).json(CreateContactResponse.parse(ser(row)));
+});
+
+router.patch("/contacts/:id", async (req, res): Promise<void> => {
+  const { id } = UpdateContactParams.parse(req.params);
+  const body = UpdateContactBody.parse(req.body);
+  if (Object.keys(body).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  const [row] = await db
+    .update(contactsTable)
+    .set(body)
+    .where(eq(contactsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+  res.json(UpdateContactResponse.parse(ser(row)));
+});
+
+router.delete("/contacts/:id", async (req, res): Promise<void> => {
+  const { id } = DeleteContactParams.parse(req.params);
+  const [row] = await db
+    .delete(contactsTable)
+    .where(eq(contactsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Contact not found" });
+    return;
+  }
+  res.json(DeleteContactResponse.parse({ ok: true }));
+});
+
+router.patch("/price-items/:id", async (req, res): Promise<void> => {
+  const { id } = UpdatePriceItemParams.parse(req.params);
+  const body = UpdatePriceItemBody.parse(req.body);
+  if (Object.keys(body).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  const [row] = await db
+    .update(priceItemsTable)
+    .set(body)
+    .where(eq(priceItemsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Price item not found" });
+    return;
+  }
+  res.json(UpdatePriceItemResponse.parse(ser(row)));
+});
+
+router.delete("/price-items/:id", async (req, res): Promise<void> => {
+  const { id } = DeletePriceItemParams.parse(req.params);
+  const [row] = await db
+    .delete(priceItemsTable)
+    .where(eq(priceItemsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Price item not found" });
+    return;
+  }
+  res.json(DeletePriceItemResponse.parse({ ok: true }));
 });
 
 router.post("/properties/:id/price-items", async (req, res): Promise<void> => {

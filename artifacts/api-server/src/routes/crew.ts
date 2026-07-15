@@ -68,6 +68,10 @@ function crewDetail(row: CrewRow) {
     portalToken: row.portalToken,
     preferredPaymentMethod: row.preferredPaymentMethod,
     paymentDetails: row.paymentDetails,
+    paymentTerms: row.paymentTerms,
+    services:
+      (row.services as { name: string; rate?: number | null }[] | null) ??
+      null,
     w9Submitted: row.w9SubmittedAt != null,
     w9SubmittedAt: row.w9SubmittedAt ? row.w9SubmittedAt.toISOString() : null,
     w9: (row.w9 as Record<string, unknown> | null) ?? null,
@@ -81,7 +85,23 @@ router.get("/crews/:id/detail", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Crew not found" });
     return;
   }
-  res.json(GetCrewDetailResponse.parse(crewDetail(row)));
+  const payments = await db
+    .select()
+    .from(crewPaymentsTable)
+    .where(eq(crewPaymentsTable.crewId, id));
+  let paidTotal = 0;
+  let outstandingTotal = 0;
+  for (const p of payments) {
+    if (p.status === "completed") paidTotal += p.amount;
+    else if (p.status !== "cancelled") outstandingTotal += p.amount;
+  }
+  res.json(
+    GetCrewDetailResponse.parse({
+      ...crewDetail(row),
+      paidTotal,
+      outstandingTotal,
+    }),
+  );
 });
 
 router.post("/crews/:id/portal-link", async (req, res): Promise<void> => {

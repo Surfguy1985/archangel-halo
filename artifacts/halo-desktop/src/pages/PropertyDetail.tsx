@@ -8,6 +8,9 @@ import {
   AddPriceItemDialog,
   AddContactDialog,
   AddJobDialog,
+  EditPriceItemDialog,
+  EditContactDialog,
+  EditJobDialog,
 } from "@/components/PropertyDialogs";
 
 export default function PropertyDetail() {
@@ -17,6 +20,9 @@ export default function PropertyDetail() {
   const [priceOpen, setPriceOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
+  const [editJobId, setEditJobId] = useState<string | null>(null);
+  const [editContactId, setEditContactId] = useState<string | null>(null);
+  const [editPriceId, setEditPriceId] = useState<string | null>(null);
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -50,6 +56,39 @@ export default function PropertyDetail() {
       <AddPriceItemDialog open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
       <AddContactDialog open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
       <AddJobDialog open={jobOpen} onOpenChange={setJobOpen} propertyId={id} />
+      {(() => {
+        const j = jobs.find((x) => x.id === editJobId);
+        return j ? (
+          <EditJobDialog
+            open={!!editJobId}
+            onOpenChange={(o) => !o && setEditJobId(null)}
+            job={j}
+            propertyId={id}
+          />
+        ) : null;
+      })()}
+      {(() => {
+        const c = contacts.find((x) => x.id === editContactId);
+        return c ? (
+          <EditContactDialog
+            open={!!editContactId}
+            onOpenChange={(o) => !o && setEditContactId(null)}
+            contact={c}
+            propertyId={id}
+          />
+        ) : null;
+      })()}
+      {(() => {
+        const p = priceItems.find((x) => x.id === editPriceId);
+        return p ? (
+          <EditPriceItemDialog
+            open={!!editPriceId}
+            onOpenChange={(o) => !o && setEditPriceId(null)}
+            item={p}
+            propertyId={id}
+          />
+        ) : null;
+      })()}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-card rounded-xl shadow-sm border border-border p-6">
@@ -80,8 +119,8 @@ export default function PropertyDetail() {
             </div>
             <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
               {jobs.map(job => (
-                <Link key={job.id} href={`/jobs/${job.id}`} className="flex items-center justify-between p-4 hover:bg-black/[0.02] transition-colors">
-                  <div>
+                <div key={job.id} className="flex items-center gap-3 p-4 hover:bg-black/[0.02] transition-colors">
+                  <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
                     <div className="font-semibold">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
                     <div className="text-sm text-muted-foreground">{job.description}</div>
                     {job.isRecurring && (
@@ -93,14 +132,21 @@ export default function PropertyDetail() {
                         </span>
                       </div>
                     )}
-                  </div>
-                  <div className="text-right">
+                  </Link>
+                  <div className="text-right shrink-0">
                     <div className="font-mono text-sm text-muted-foreground">{job.jobNo}</div>
                     {!job.isRecurring && job.crewLeaderName && (
                       <div className="text-xs text-muted-foreground">{job.crewLeaderName}</div>
                     )}
                   </div>
-                </Link>
+                  <button
+                    aria-label="Edit job"
+                    onClick={() => setEditJobId(job.id)}
+                    className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ))}
               {!jobs.length && <div className="p-6 text-center text-sm text-muted-foreground">No active jobs.</div>}
             </div>
@@ -118,15 +164,22 @@ export default function PropertyDetail() {
             </div>
             <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
               {contacts.map(contact => (
-                <div key={contact.id} className="flex items-center justify-between p-4">
-                  <div>
+                <div key={contact.id} className="flex items-center gap-3 p-4">
+                  <div className="flex-1 min-w-0">
                     <div className="font-semibold">{contact.name}</div>
                     <div className="text-sm text-muted-foreground">{contact.role}</div>
                   </div>
-                  <div className="text-right text-sm text-muted-foreground">
+                  <div className="text-right text-sm text-muted-foreground shrink-0">
                     <div>{contact.phone}</div>
                     <div>{contact.email}</div>
                   </div>
+                  <button
+                    aria-label="Edit contact"
+                    onClick={() => setEditContactId(contact.id)}
+                    className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               ))}
               {!contacts.length && <div className="p-6 text-center text-sm text-muted-foreground">No contacts.</div>}
@@ -154,15 +207,22 @@ export default function PropertyDetail() {
             </div>
             <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
               {priceItems.map(item => (
-                <div key={item.id} className="flex items-center justify-between p-4">
-                  <div>
+                <div key={item.id} className="flex items-center gap-3 p-4">
+                  <div className="flex-1 min-w-0">
                     <div className="font-semibold">{item.service}</div>
                     <div className="text-sm text-muted-foreground">{item.detail}</div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <div className="font-mono font-bold">${item.rate}</div>
                     {item.unit && <div className="text-xs text-muted-foreground">/{item.unit}</div>}
                   </div>
+                  <button
+                    aria-label="Edit price item"
+                    onClick={() => setEditPriceId(item.id)}
+                    className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               ))}
               {!priceItems.length && <div className="p-6 text-center text-sm text-muted-foreground">No agreed rates.</div>}

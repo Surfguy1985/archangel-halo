@@ -52,6 +52,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 import { EditCrewDialog } from "@/components/CrewDialogs";
 
+function paymentTermsLabel(v?: string | null): string {
+  switch (v) {
+    case "due_on_receipt": return "Due on receipt";
+    case "net15": return "Net 15";
+    case "net30": return "Net 30";
+    case "net45": return "Net 45";
+    default: return "Not set";
+  }
+}
+
 function formatWhen(iso?: string | null): string {
   if (!iso) return "";
   return new Date(iso).toLocaleString("en-US", {
@@ -438,6 +448,41 @@ export default function CrewDetail() {
 
         {/* Daily activity */}
         <DailyActivitySection crewId={id} crewName={crew.name} />
+
+        {/* Terms & money */}
+        <div className={card}>
+          <div className={sectionTitle}><Wallet className="w-3.5 h-3.5" /> Terms & money</div>
+          <div className="flex gap-3 mb-4">
+            <div className="flex-1 rounded-lg bg-emerald-50 p-3">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Paid</div>
+              <div className="font-display font-bold text-lg tabular-nums text-emerald-700">
+                ${(crew.paidTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="flex-1 rounded-lg bg-amber-50 p-3">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Outstanding</div>
+              <div className="font-display font-bold text-lg tabular-nums text-amber-700">
+                ${(crew.outstandingTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+          </div>
+          <div className="text-sm mb-3">
+            <span className="text-muted-foreground">Payment terms: </span>
+            <span className="font-semibold">{paymentTermsLabel(crew.paymentTerms)}</span>
+          </div>
+          {crew.services && crew.services.length > 0 ? (
+            <div className="rounded-lg bg-[var(--paper)] overflow-hidden">
+              {crew.services.map((s, i) => (
+                <div key={i} className={`flex items-center justify-between px-3 py-2 text-sm ${i > 0 ? "border-t border-black/5" : ""}`}>
+                  <span className="font-semibold">{s.name}</span>
+                  <span className="font-mono font-semibold">{s.rate != null ? `$${s.rate.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">No services on file. Add them from Edit.</div>
+          )}
+        </div>
 
         {/* Payment method */}
         <div className={card}>

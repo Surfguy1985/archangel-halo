@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { CrewService } from './crewService';
 
 export interface Crew {
   id: string;
@@ -19,4 +20,11 @@ export interface Crew {
   isLeader?: boolean | null;
   /** @nullable */
   active?: boolean | null;
+  /**
+     * due_on_receipt | net15 | net30 | net45
+     * @nullable
+     */
+  paymentTerms?: string | null;
+  /** @nullable */
+  services?: CrewService[] | null;
 }

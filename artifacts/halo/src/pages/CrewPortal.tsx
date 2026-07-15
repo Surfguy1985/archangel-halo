@@ -390,27 +390,6 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
                   </div>
                 )}
 
-                {/* Pricing */}
-                {o.priceItems && o.priceItems.length > 0 && (
-                  <div className="mt-[4px] pt-[12px] border-t border-border">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[6px]">Property Price List</div>
-                    <div className="bg-[var(--paper)] rounded-[8px] overflow-hidden">
-                      {o.priceItems.map((pi, i) => (
-                        <div key={pi.id} className={`flex items-center justify-between p-[8px] text-[12.5px] ${i > 0 ? "border-t border-black/5" : ""}`}>
-                          <div>
-                            <span className="font-semibold">{pi.service}</span>
-                            {pi.detail && <span className="text-muted-foreground"> · {pi.detail}</span>}
-                          </div>
-                          <div className="font-mono font-semibold">
-                            ${pi.rate.toFixed(2)}
-                            {pi.unit && <span className="text-muted-foreground font-sans font-normal"> / {pi.unit}</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* Photos */}
                 {o.photos && o.photos.length > 0 && (
                   <div className="mt-[4px] pt-[12px] border-t border-border">
