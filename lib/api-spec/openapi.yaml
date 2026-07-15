@@ -1799,6 +1799,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IngestCommitResult"
+  /ingest/scan:
+    post:
+      operationId: scanIngest
+      tags: [ingest]
+      summary: Scan a receipt photo with AI vision and extract structured records
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestScanInput"
+      responses:
+        "200":
+          description: Parsed preview from the receipt image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestParseResult"
   /ingest/history:
     get:
       operationId: listImportHistory
@@ -4007,6 +4025,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/IngestRecord"
+    IngestScanInput:
+      type: object
+      required: [image, mediaType]
+      properties:
+        image: { type: string, description: "Base64-encoded image data (no data: prefix)" }
+        mediaType: { type: string, enum: ["image/jpeg", "image/png", "image/webp", "image/gif"] }
+        filename: { type: ["string", "null"] }
     IngestCommitInput:
       type: object
       required: [records]

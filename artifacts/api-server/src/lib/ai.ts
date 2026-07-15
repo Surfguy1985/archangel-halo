@@ -47,3 +47,32 @@ export async function completeJson<T = unknown>(
   );
   return extractJson(raw) as T;
 }
+
+type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+
+export async function completeJsonWithImage<T = unknown>(
+  system: string,
+  user: string,
+  imageBase64: string,
+  mediaType: ImageMediaType,
+  maxTokens = 8192,
+): Promise<T> {
+  const message = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: maxTokens,
+    system: `${system}\n\nRespond with ONLY valid JSON. No prose, no markdown fences.`,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: mediaType, data: imageBase64 },
+          },
+          { type: "text", text: user },
+        ],
+      },
+    ],
+  });
+  return extractJson(textOf(message as never)) as T;
+}

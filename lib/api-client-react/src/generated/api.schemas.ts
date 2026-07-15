@@ -1207,6 +1207,24 @@ export interface IngestParseResult {
   records: IngestRecord[];
 }
 
+export type IngestScanInputMediaType = typeof IngestScanInputMediaType[keyof typeof IngestScanInputMediaType];
+
+
+export const IngestScanInputMediaType = {
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+  'image/webp': 'image/webp',
+  'image/gif': 'image/gif',
+} as const;
+
+export interface IngestScanInput {
+  /** Base64-encoded image data (no data: prefix) */
+  image: string;
+  mediaType: IngestScanInputMediaType;
+  /** @nullable */
+  filename?: string | null;
+}
+
 export interface IngestCommitInput {
   records: IngestRecord[];
   /** @nullable */

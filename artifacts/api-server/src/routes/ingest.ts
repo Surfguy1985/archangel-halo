@@ -15,9 +15,10 @@ import {
   ParseIngestResponse,
   CommitIngestBody,
   CommitIngestResponse,
+  ScanIngestBody,
   ListImportHistoryResponse,
 } from "@workspace/api-zod";
-import { completeJson } from "../lib/ai";
+import { completeJson, completeJsonWithImage } from "../lib/ai";
 
 const router: IRouter = Router();
 
@@ -74,6 +75,82 @@ Return {"detectedTarget": "...", "summary": "one sentence", "records": [{ "targe
       summary: "Could not parse the file automatically.",
       records: [],
     };
+  }
+
+  res.json(
+    ParseIngestResponse.parse({
+      detectedTarget: parsed.detectedTarget ?? "unknown",
+      summary: parsed.summary ?? null,
+      records: (parsed.records ?? []).map((r) => ({
+        target: r.target,
+        label: r.label,
+        confidence: r.confidence ?? 0.6,
+        fields: r.fields ?? {},
+      })),
+    }),
+  );
+});
+
+const scanHits = new Map<string, number[]>();
+const SCAN_WINDOW_MS = 60_000;
+const SCAN_MAX_PER_WINDOW = 8;
+const SCAN_MAX_BASE64_CHARS = 14_000_000;
+
+router.post("/ingest/scan", async (req, res): Promise<void> => {
+  const body = ScanIngestBody.parse(req.body);
+
+  if (body.image.length > SCAN_MAX_BASE64_CHARS) {
+    res.status(413).json({ error: "Image too large. Please retake the photo." });
+    return;
+  }
+  if (!/^[A-Za-z0-9+/=\s]+$/.test(body.image.slice(0, 1000))) {
+    res.status(400).json({ error: "Invalid image data." });
+    return;
+  }
+
+  const ip = req.ip ?? "unknown";
+  const now = Date.now();
+  const hits = (scanHits.get(ip) ?? []).filter((t) => now - t < SCAN_WINDOW_MS);
+  if (hits.length >= SCAN_MAX_PER_WINDOW) {
+    res.status(429).json({ error: "Too many scans. Wait a minute and try again." });
+    return;
+  }
+  hits.push(now);
+  scanHits.set(ip, hits);
+  if (scanHits.size > 1000) {
+    for (const [k, v] of scanHits) {
+      if (v.every((t) => now - t >= SCAN_WINDOW_MS)) scanHits.delete(k);
+    }
+  }
+
+  let parsed: { detectedTarget: string; summary?: string; records: IngestRecord[] };
+  try {
+    parsed = await completeJsonWithImage<{
+      detectedTarget: string;
+      summary?: string;
+      records: IngestRecord[];
+    }>(
+      `You are HALO's receipt scanner. Read the photographed receipt, invoice, or document and extract structured records for a property-maintenance contractor.
+Valid targets: properties, jobs, invoices, expenses, inventory.
+Fields by target:
+- properties { name, pmcName?, city?, units? (number) }
+- jobs { description, propertyName?, unitNo?, category? }
+- invoices { invoiceNo?, propertyName?, amount (number), issuedOn? (YYYY-MM-DD), poNumber?, billToName?, notes? }
+- expenses { vendor?, category?, amount (number), propertyName? }
+- inventory { name, qty (number), reorderAt? (number), unitCost? (number), preferredVendor? }
+A store/supplier receipt is almost always ONE expense record: vendor = store name, amount = the receipt TOTAL (after tax), category = best fit (materials, fuel, tools, supplies, etc.). Do not create one expense per line item.
+If the receipt clearly lists stockable materials the contractor would track (e.g. filters, paint, parts with quantities), you may ALSO add inventory records for those items.
+Include propertyName only if a property/job-site name is written on the receipt.
+Return {"detectedTarget": "...", "summary": "one sentence describing what was scanned", "records": [{ "target", "label" (human readable), "confidence" (0-1), "fields" {...} }]}.`,
+      `Filename: ${body.filename ?? "receipt photo"}. Extract the records from this image.`,
+      body.image,
+      body.mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+      4096,
+    );
+  } catch (err) {
+    req.log.error({ err }, "ingest scan failed");
+    res.status(502).json({ error: "Could not read the photo. Please try again." });
+    return;
   }
 
   res.json(

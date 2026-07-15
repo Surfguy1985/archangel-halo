@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useParseIngest,
   useCommitIngest,
+  useScanIngest,
   useListImportHistory,
   getListImportHistoryQueryKey,
   getListPropertiesQueryKey,
@@ -15,7 +16,7 @@ import {
   getGetTodayQueryKey,
   type IngestRecord,
 } from "@workspace/api-client-react";
-import { ChevronLeft, FileUp, Sparkles, Check, FileText, ExternalLink } from "lucide-react";
+import { ChevronLeft, FileUp, Camera, Sparkles, Check, FileText, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { extractFileText } from "@/lib/extractText";
 
@@ -38,6 +39,7 @@ export default function Import() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const parse = useParseIngest();
+  const scan = useScanIngest();
   const commit = useCommitIngest();
   const history = useListImportHistory();
 
@@ -90,6 +92,77 @@ export default function Import() {
       toast({
         title: "Import failed",
         description: "Could not parse that file. Please try another.",
+        variant: "destructive",
+      });
+    } finally {
+      setReading(false);
+    }
+  };
+
+  const downscalePhoto = (file: File): Promise<{ blob: Blob; base64: string }> =>
+    new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const maxEdge = 1800;
+        const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("no canvas"));
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return reject(new Error("no blob"));
+            const reader = new FileReader();
+            reader.onload = () => {
+              const dataUrl = String(reader.result);
+              resolve({ blob, base64: dataUrl.slice(dataUrl.indexOf(",") + 1) });
+            };
+            reader.onerror = () => reject(new Error("read failed"));
+            reader.readAsDataURL(blob);
+          },
+          "image/jpeg",
+          0.85,
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("bad image"));
+      };
+      img.src = url;
+    });
+
+  const onPhotoPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    reset();
+    const photoName = `receipt-${new Date().toISOString().slice(0, 10)}.jpg`;
+    setFilename(photoName);
+    setReading(true);
+    try {
+      const { blob, base64 } = await downscalePhoto(file);
+      setFileObj(new File([blob], photoName, { type: "image/jpeg" }));
+      const result = await scan.mutateAsync({
+        data: { image: base64, mediaType: "image/jpeg", filename: photoName },
+      });
+      setSummary(result.summary ?? null);
+      setRecords(result.records);
+      setSelected(new Set(result.records.map((_, i) => i)));
+      if (result.records.length === 0) {
+        toast({
+          title: "Couldn't read the receipt",
+          description: "Try a clearer, well-lit photo taken straight-on.",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({
+        title: "Scan failed",
+        description: "Could not read that photo. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -181,7 +254,7 @@ export default function Import() {
     }
   };
 
-  const busy = reading || parse.isPending;
+  const busy = reading || parse.isPending || scan.isPending;
 
   return (
     <div className="pt-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -195,12 +268,25 @@ export default function Import() {
         Import
       </div>
       <div className="text-[13px] text-muted-foreground mt-[6px] mb-[16px]">
-        Drop in a CSV, PDF, or any document. HALO reads it and files each record
-        where it belongs. Works best with CSV, text, and text-based PDFs.
+        Snap a receipt in the field or drop in a CSV, PDF, or any document. HALO
+        reads it and files each record where it belongs.
       </div>
 
-      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] cursor-pointer transition-transform active:scale-[0.98]">
-        <FileUp className="w-[18px] h-[18px]" />
+      <label className="w-full mb-[10px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] cursor-pointer transition-transform active:scale-[0.98]">
+        <Camera className="w-[18px] h-[18px]" />
+        {busy ? "Working…" : "Scan a receipt"}
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={onPhotoPicked}
+          disabled={busy}
+        />
+      </label>
+
+      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] text-[14px] font-display font-bold text-[var(--ink)] bg-card border border-border shadow-[var(--shadow)] cursor-pointer transition-transform active:scale-[0.98]">
+        <FileUp className="w-[17px] h-[17px] text-[var(--gold-dark)]" />
         {busy ? "Reading…" : "Choose a file"}
         <input
           type="file"

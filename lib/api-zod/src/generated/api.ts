@@ -2279,6 +2279,27 @@ export const CommitIngestResponse = zod.object({
 
 
 /**
+ * @summary Scan a receipt photo with AI vision and extract structured records
+ */
+export const ScanIngestBody = zod.object({
+  "image": zod.string().describe('Base64-encoded image data (no data: prefix)'),
+  "mediaType": zod.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+  "filename": zod.string().nullish()
+})
+
+export const ScanIngestResponse = zod.object({
+  "detectedTarget": zod.string(),
+  "summary": zod.string().nullish(),
+  "records": zod.array(zod.object({
+  "target": zod.string(),
+  "label": zod.string().optional(),
+  "confidence": zod.number().nullish(),
+  "fields": zod.record(zod.string(), zod.unknown())
+}))
+})
+
+
+/**
  * @summary List past import uploads with links to the original documents
  */
 export const ListImportHistoryResponse = zod.object({

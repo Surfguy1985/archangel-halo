@@ -79,6 +79,8 @@ export * from './ingestParseInput';
 export * from './ingestParseResult';
 export * from './ingestRecord';
 export * from './ingestRecordFields';
+export * from './ingestScanInput';
+export * from './ingestScanInputMediaType';
 export * from './inventoryAdjust';
 export * from './inventoryInput';
 export * from './inventoryItem';

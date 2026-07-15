@@ -76,6 +76,7 @@ import type {
   IngestCommitResult,
   IngestParseInput,
   IngestParseResult,
+  IngestScanInput,
   InventoryAdjust,
   InventoryInput,
   InventoryItem,
@@ -6799,6 +6800,77 @@ export const useCommitIngest = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCommitIngestMutationOptions(options));
+    }
+
+export const getScanIngestUrl = () => {
+
+
+
+
+  return `/api/ingest/scan`
+}
+
+/**
+ * @summary Scan a receipt photo with AI vision and extract structured records
+ */
+export const scanIngest = async (ingestScanInput: IngestScanInput, options?: RequestInit): Promise<IngestParseResult> => {
+
+  return customFetch<IngestParseResult>(getScanIngestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(ingestScanInput)
+  }
+);}
+
+
+
+
+
+export const getScanIngestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanIngest>>, TError,{data: BodyType<IngestScanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof scanIngest>>, TError,{data: BodyType<IngestScanInput>}, TContext> => {
+
+const mutationKey = ['scanIngest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof scanIngest>>, {data: BodyType<IngestScanInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  scanIngest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ScanIngestMutationResult = NonNullable<Awaited<ReturnType<typeof scanIngest>>>
+    export type ScanIngestMutationBody = BodyType<IngestScanInput>
+    export type ScanIngestMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Scan a receipt photo with AI vision and extract structured records
+ */
+export const useScanIngest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanIngest>>, TError,{data: BodyType<IngestScanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof scanIngest>>,
+        TError,
+        {data: BodyType<IngestScanInput>},
+        TContext
+      > => {
+      return useMutation(getScanIngestMutationOptions(options));
     }
 
 export const getListImportHistoryUrl = () => {
