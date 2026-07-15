@@ -3978,6 +3978,11 @@ components:
         isLeader: { type: ["boolean", "null"] }
         preferredPaymentMethod: { type: ["string", "null"] }
         paymentDetails: { type: ["string", "null"] }
+        paymentTerms: { type: ["string", "null"] }
+        services:
+          type: ["array", "null"]
+          items:
+            $ref: "#/components/schemas/CrewService"
         todayStatus: { type: ["string", "null"], description: "route | site | done | idle" }
         todayJob: { type: ["string", "null"] }
         todayProperty: { type: ["string", "null"] }

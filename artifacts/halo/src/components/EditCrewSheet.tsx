@@ -16,6 +16,7 @@ import {
   useUpdateCrew,
   useDeleteCrew,
   getListCrewsQueryKey,
+  getGetCrewDetailQueryKey,
 } from "@workspace/api-client-react";
 
 const fieldCls =
@@ -95,6 +96,7 @@ export function EditCrewSheet({
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListCrewsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetCrewDetailQueryKey(crew.id) });
           onOpenChange(false);
         },
       },

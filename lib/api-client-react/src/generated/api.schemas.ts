@@ -945,6 +945,10 @@ export interface CrewToday {
   preferredPaymentMethod?: string | null;
   /** @nullable */
   paymentDetails?: string | null;
+  /** @nullable */
+  paymentTerms?: string | null;
+  /** @nullable */
+  services?: CrewService[] | null;
   /**
      * route | site | done | idle
      * @nullable

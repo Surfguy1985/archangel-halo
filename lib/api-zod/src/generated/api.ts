@@ -1854,6 +1854,9 @@ export const DeleteCalendarEventResponse = zod.object({
 /**
  * @summary Crew members with today's dispatch status
  */
+
+
+
 export const ListCrewsResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
@@ -1863,6 +1866,11 @@ export const ListCrewsResponseItem = zod.object({
   "isLeader": zod.boolean().nullish(),
   "preferredPaymentMethod": zod.string().nullish(),
   "paymentDetails": zod.string().nullish(),
+  "paymentTerms": zod.string().nullish(),
+  "services": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "rate": zod.number().nullish()
+})).nullish(),
   "todayStatus": zod.string().nullish().describe('route | site | done | idle'),
   "todayJob": zod.string().nullish(),
   "todayProperty": zod.string().nullish()

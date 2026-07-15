@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { CrewService } from './crewService';
 
 export interface CrewToday {
   id: string;
@@ -21,6 +22,10 @@ export interface CrewToday {
   preferredPaymentMethod?: string | null;
   /** @nullable */
   paymentDetails?: string | null;
+  /** @nullable */
+  paymentTerms?: string | null;
+  /** @nullable */
+  services?: CrewService[] | null;
   /**
      * route | site | done | idle
      * @nullable

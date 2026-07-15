@@ -43,7 +43,9 @@ import {
   Camera,
   Share2,
   Receipt,
+  Pencil,
 } from "lucide-react";
+import { EditCrewSheet } from "@/components/EditCrewSheet";
 import { useToast } from "@/hooks/use-toast";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 
@@ -126,6 +128,7 @@ export default function CrewDetail() {
   const [draft, setDraft] = useState("");
   const [copied, setCopied] = useState(false);
   const [templateKey, setTemplateKey] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
 
   const { uploadFile, isUploading } = useUpload({
     onSuccess: async (res) => {
@@ -262,7 +265,7 @@ export default function CrewDetail() {
         <div className="w-[44px] h-[44px] rounded-full bg-[var(--ink)] text-[var(--gold-light)] font-display font-bold text-[17px] grid place-items-center shrink-0">
           {crew.name.substring(0, 1)}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="font-display font-bold text-[20px] tracking-[-0.01em] truncate">
             {crew.name}
           </div>
@@ -270,7 +273,29 @@ export default function CrewDetail() {
             {[crew.trade || "General", crew.phone].filter(Boolean).join(" · ")}
           </div>
         </div>
+        <button
+          onClick={() => setEditOpen(true)}
+          aria-label={`Edit ${crew.name}`}
+          className="shrink-0 h-[34px] flex items-center gap-[6px] rounded-full px-[13px] text-[12.5px] font-display font-bold bg-[rgba(143,106,31,0.12)] text-[var(--gold-dark,#8f6a1f)] transition-transform active:scale-[0.95]"
+        >
+          <Pencil className="w-[13px] h-[13px]" /> Edit
+        </button>
       </div>
+
+      <EditCrewSheet
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        crew={{
+          id: crew.id,
+          name: crew.name,
+          trade: crew.trade,
+          phone: crew.phone,
+          email: crew.email,
+          isLeader: crew.isLeader,
+          paymentTerms: crew.paymentTerms,
+          services: crew.services,
+        }}
+      />
 
       {/* Live link */}
       <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">

@@ -11,7 +11,10 @@ type CrewRow = {
   name: string;
   trade?: string | null;
   phone?: string | null;
+  email?: string | null;
   isLeader?: boolean | null;
+  paymentTerms?: string | null;
+  services?: { name: string; rate?: number | null }[] | null;
 };
 
 export default function Crews() {
@@ -125,7 +128,10 @@ export default function Crews() {
                   name: crew.name,
                   trade: crew.trade,
                   phone: crew.phone,
+                  email: crew.email,
                   isLeader: crew.isLeader,
+                  paymentTerms: crew.paymentTerms,
+                  services: crew.services,
                 })
               }
               aria-label={`Edit ${crew.name}`}
