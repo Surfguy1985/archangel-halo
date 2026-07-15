@@ -14,4 +14,16 @@ export interface PropertyInput {
   city?: string;
   units?: number;
   accessNotes?: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  marginMin?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  marginTarget?: number | null;
 }

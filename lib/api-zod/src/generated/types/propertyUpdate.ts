@@ -15,5 +15,17 @@ export interface PropertyUpdate {
   units?: number;
   accessNotes?: string;
   brief?: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  marginMin?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  marginTarget?: number | null;
   status?: string;
 }

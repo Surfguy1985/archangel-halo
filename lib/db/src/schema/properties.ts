@@ -19,6 +19,8 @@ export const propertiesTable = pgTable("properties", {
   brief: text("brief"),
   briefUpdatedAt: timestamp("brief_updated_at", { withTimezone: true }),
   avgDaysToPay: doublePrecision("avg_days_to_pay"),
+  marginMin: doublePrecision("margin_min"),
+  marginTarget: doublePrecision("margin_target"),
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

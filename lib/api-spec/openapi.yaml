@@ -3135,6 +3135,8 @@ components:
         brief: { type: ["string", "null"] }
         briefUpdatedAt: { type: ["string", "null"] }
         avgDaysToPay: { type: ["number", "null"] }
+        marginMin: { type: ["number", "null"], description: "Fraction, e.g. 0.25 = 25%" }
+        marginTarget: { type: ["number", "null"], description: "Fraction, e.g. 0.35 = 35%" }
         status: { type: string }
         createdAt: { type: ["string", "null"] }
     PropertySummary:
@@ -3217,6 +3219,8 @@ components:
         city: { type: string }
         units: { type: integer }
         accessNotes: { type: string }
+        marginMin: { type: ["number", "null"], minimum: 0, maximum: 1 }
+        marginTarget: { type: ["number", "null"], minimum: 0, maximum: 1 }
     PropertyUpdate:
       type: object
       properties:
@@ -3227,6 +3231,8 @@ components:
         units: { type: integer }
         accessNotes: { type: string }
         brief: { type: string }
+        marginMin: { type: ["number", "null"], minimum: 0, maximum: 1 }
+        marginTarget: { type: ["number", "null"], minimum: 0, maximum: 1 }
         status: { type: string }
 
     Contact:
@@ -3570,6 +3576,7 @@ components:
         inspectionRequired: { type: boolean }
         isRecurring: { type: boolean }
         recurrence: { type: ["string", "null"], enum: [daily, weekly, biweekly, monthly, quarterly, null] }
+        marginPct: { type: ["number", "null"], minimum: 0, maximum: 1, description: "Current margin as fraction, e.g. 0.25 = 25%" }
 
     JobPhoto:
       type: object

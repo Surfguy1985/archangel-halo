@@ -6,7 +6,7 @@
 - [HALO composite lib refs](halo-composite-lib-refs.md) — shared libs used as TS project references must emit .d.ts (composite+declaration) & be built before consuming apps typecheck.
 - [HALO no-auth posture](halo-no-auth-posture.md) — whole app is intentionally unauthenticated (single org, token portals); storage object routes are open by design, not a bug to "fix" with auth.
 - [HALO ingest pipeline](halo-ingest-pipeline.md) — AI file-import backend (/ingest/parse + /ingest/commit) already exists; reuse it, send extracted text not raw binary.
-- [HALO Margin Guardian](halo-margin-guardian.md) — marginPct is a FRACTION (0.25=25%); flag <0.25 excluding complete/paid/cancelled; surfaces in Today feed + emails.
+- [HALO Margin Guardian](halo-margin-guardian.md) — marginPct is a FRACTION (0.25=25%); floor is per-property marginMin (default 0.25) excluding complete/paid/cancelled; surfaces in Today feed + emails.
 - [HALO local date handling](halo-local-date-handling.md) — date-only YYYY-MM-DD values must be built/formatted from LOCAL date parts, never UTC toISOString/new Date("Y-M-D"), or days shift by one.
 - [HALO desktop API/asset URLs](halo-desktop-api-urls.md) — desktop BASE_URL is /desktop/; manual /api asset links (storage/PDF) must be absolute /api, never BASE_URL-prefixed; BASE_URL only for in-app route links.
 - [HALO desktop tour narration](halo-tour-narration.md) — tour steps voiced by pre-rendered ElevenLabs (Jessica) MP3s keyed chapterId-stepIndex; keep clip/speech/timer fallback chain + genRef nonce guard.

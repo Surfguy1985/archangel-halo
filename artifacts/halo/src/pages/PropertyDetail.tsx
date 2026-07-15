@@ -1,4 +1,5 @@
-import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, getGetMoneySummaryQueryKey, getListInvoicesQueryKey } from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey } from "@workspace/api-client-react";
+import { MarginSection } from "@/components/MarginSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { ChevronLeft, ChevronDown, Pencil, Plus, CalendarDays } from "lucide-react";
@@ -52,6 +53,7 @@ export default function PropertyDetail() {
   const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const setStatus = useSetInvoiceStatus();
+  const updateProperty = useUpdateProperty();
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -128,6 +130,26 @@ export default function PropertyDetail() {
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Margin</span>
         </div>
       </div>
+
+      <MarginSection
+        currentPct={stats.marginPct ?? null}
+        minFrac={property.marginMin}
+        targetFrac={property.marginTarget}
+        saving={updateProperty.isPending}
+        helperText="Current is the average margin across this property's jobs. Jobs below the minimum get flagged in Today."
+        onSave={({ minFrac, targetFrac }) =>
+          updateProperty.mutate(
+            { id, data: { marginMin: minFrac, marginTarget: targetFrac } },
+            {
+              onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+                queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
+                queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+              },
+            },
+          )
+        }
+      />
 
       {property.brief && (
         <div className="bg-[linear-gradient(135deg,#FFFDF8,#FBF6EA)] border border-[rgba(185,138,47,0.28)] rounded-[16px] p-[14px_15px] shadow-[var(--shadow)] mb-[18px]">

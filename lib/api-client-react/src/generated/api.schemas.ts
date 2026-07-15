@@ -98,6 +98,16 @@ export interface Property {
   briefUpdatedAt?: string | null;
   /** @nullable */
   avgDaysToPay?: number | null;
+  /**
+     * Fraction, e.g. 0.25 = 25%
+     * @nullable
+     */
+  marginMin?: number | null;
+  /**
+     * Fraction, e.g. 0.35 = 35%
+     * @nullable
+     */
+  marginTarget?: number | null;
   status: string;
   /** @nullable */
   createdAt?: string | null;
@@ -327,6 +337,18 @@ export interface PropertyInput {
   city?: string;
   units?: number;
   accessNotes?: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  marginMin?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  marginTarget?: number | null;
 }
 
 export interface PropertyUpdate {
@@ -338,6 +360,18 @@ export interface PropertyUpdate {
   units?: number;
   accessNotes?: string;
   brief?: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  marginMin?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  marginTarget?: number | null;
   status?: string;
 }
 
@@ -658,6 +692,13 @@ export interface JobUpdate {
   isRecurring?: boolean;
   /** @nullable */
   recurrence?: JobUpdateRecurrence;
+  /**
+     * Current margin as fraction, e.g. 0.25 = 25%
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  marginPct?: number | null;
 }
 
 export interface JobPhoto {

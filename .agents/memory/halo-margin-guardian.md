@@ -5,7 +5,11 @@ description: How thin-margin jobs are flagged into the Today/queues feed and the
 
 # Margin Guardian
 
-Adds a `margin` queue to the `computeQueues()` feed for jobs below the 25% margin floor.
+Adds a `margin` queue to the `computeQueues()` feed for jobs below the margin floor.
+The floor is now PER-PROPERTY: `properties.marginMin` (fraction, nullable) with a 0.25
+default fallback. Properties also have `marginTarget` (target margin). Both are editable
+from the Margin section on Property/Job detail pages in both apps (MarginSection component
+per app); job `marginPct` (current) is also settable via PATCH /jobs/:id.
 Tier is `now` when margin < 15%, else `today`. It surfaces in the Today feed and all
 task-list emails automatically because they render the same feed.
 

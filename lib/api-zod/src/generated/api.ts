@@ -121,6 +121,12 @@ export const ListPropertiesResponse = zod.array(ListPropertiesResponseItem)
  * @summary Create a property
  */
 
+export const createPropertyBodyMarginMinMin = 0;
+export const createPropertyBodyMarginMinMax = 1;
+
+export const createPropertyBodyMarginTargetMin = 0;
+export const createPropertyBodyMarginTargetMax = 1;
+
 
 
 export const CreatePropertyBody = zod.object({
@@ -129,7 +135,9 @@ export const CreatePropertyBody = zod.object({
   "address": zod.string().optional(),
   "city": zod.string().optional(),
   "units": zod.number().optional(),
-  "accessNotes": zod.string().optional()
+  "accessNotes": zod.string().optional(),
+  "marginMin": zod.number().min(createPropertyBodyMarginMinMin).max(createPropertyBodyMarginMinMax).nullish(),
+  "marginTarget": zod.number().min(createPropertyBodyMarginTargetMin).max(createPropertyBodyMarginTargetMax).nullish()
 })
 
 export const CreatePropertyResponse = zod.object({
@@ -143,6 +151,8 @@ export const CreatePropertyResponse = zod.object({
   "brief": zod.string().nullish(),
   "briefUpdatedAt": zod.string().nullish(),
   "avgDaysToPay": zod.number().nullish(),
+  "marginMin": zod.number().nullish().describe('Fraction, e.g. 0.25 = 25%'),
+  "marginTarget": zod.number().nullish().describe('Fraction, e.g. 0.35 = 35%'),
   "status": zod.string(),
   "createdAt": zod.string().nullish()
 })
@@ -167,6 +177,8 @@ export const GetPropertyResponse = zod.object({
   "brief": zod.string().nullish(),
   "briefUpdatedAt": zod.string().nullish(),
   "avgDaysToPay": zod.number().nullish(),
+  "marginMin": zod.number().nullish().describe('Fraction, e.g. 0.25 = 25%'),
+  "marginTarget": zod.number().nullish().describe('Fraction, e.g. 0.35 = 35%'),
   "status": zod.string(),
   "createdAt": zod.string().nullish()
 }),
@@ -290,6 +302,12 @@ export const UpdatePropertyParams = zod.object({
 })
 
 
+export const updatePropertyBodyMarginMinMin = 0;
+export const updatePropertyBodyMarginMinMax = 1;
+
+export const updatePropertyBodyMarginTargetMin = 0;
+export const updatePropertyBodyMarginTargetMax = 1;
+
 
 
 export const UpdatePropertyBody = zod.object({
@@ -300,6 +318,8 @@ export const UpdatePropertyBody = zod.object({
   "units": zod.number().optional(),
   "accessNotes": zod.string().optional(),
   "brief": zod.string().optional(),
+  "marginMin": zod.number().min(updatePropertyBodyMarginMinMin).max(updatePropertyBodyMarginMinMax).nullish(),
+  "marginTarget": zod.number().min(updatePropertyBodyMarginTargetMin).max(updatePropertyBodyMarginTargetMax).nullish(),
   "status": zod.string().optional()
 })
 
@@ -314,6 +334,8 @@ export const UpdatePropertyResponse = zod.object({
   "brief": zod.string().nullish(),
   "briefUpdatedAt": zod.string().nullish(),
   "avgDaysToPay": zod.number().nullish(),
+  "marginMin": zod.number().nullish().describe('Fraction, e.g. 0.25 = 25%'),
+  "marginTarget": zod.number().nullish().describe('Fraction, e.g. 0.35 = 35%'),
   "status": zod.string(),
   "createdAt": zod.string().nullish()
 })
@@ -349,6 +371,8 @@ export const WritePropertyBriefResponse = zod.object({
   "brief": zod.string().nullish(),
   "briefUpdatedAt": zod.string().nullish(),
   "avgDaysToPay": zod.number().nullish(),
+  "marginMin": zod.number().nullish().describe('Fraction, e.g. 0.25 = 25%'),
+  "marginTarget": zod.number().nullish().describe('Fraction, e.g. 0.35 = 35%'),
   "status": zod.string(),
   "createdAt": zod.string().nullish()
 })
@@ -1048,6 +1072,11 @@ export const UpdateJobParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const updateJobBodyMarginPctMin = 0;
+export const updateJobBodyMarginPctMax = 1;
+
+
+
 export const UpdateJobBody = zod.object({
   "woNo": zod.string().optional(),
   "unitNo": zod.string().optional(),
@@ -1057,7 +1086,8 @@ export const UpdateJobBody = zod.object({
   "crewLeaderId": zod.string().nullish(),
   "inspectionRequired": zod.boolean().optional(),
   "isRecurring": zod.boolean().optional(),
-  "recurrence": zod.union([zod.literal('daily'),zod.literal('weekly'),zod.literal('biweekly'),zod.literal('monthly'),zod.literal('quarterly'),zod.literal(null)]).nullish()
+  "recurrence": zod.union([zod.literal('daily'),zod.literal('weekly'),zod.literal('biweekly'),zod.literal('monthly'),zod.literal('quarterly'),zod.literal(null)]).nullish(),
+  "marginPct": zod.number().min(updateJobBodyMarginPctMin).max(updateJobBodyMarginPctMax).nullish().describe('Current margin as fraction, e.g. 0.25 = 25%')
 })
 
 export const UpdateJobResponse = zod.object({

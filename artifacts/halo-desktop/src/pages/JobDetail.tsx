@@ -10,7 +10,12 @@ import {
   useCompleteJob,
   useDeleteJob,
   useListCrews,
+  useUpdateJob,
+  useUpdateProperty,
+  useGetProperty,
+  getGetPropertyQueryKey,
 } from "@workspace/api-client-react";
+import { MarginSection } from "@/components/MarginSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link, useLocation } from "wouter";
 import {
@@ -80,6 +85,12 @@ export default function JobDetail() {
   const schedule = useScheduleJob();
   const complete = useCompleteJob();
   const del = useDeleteJob();
+  const updateJob = useUpdateJob();
+  const updateProperty = useUpdateProperty();
+  const propertyId = data?.job.propertyId ?? "";
+  const { data: propData } = useGetProperty(propertyId, {
+    query: { enabled: !!propertyId, queryKey: getGetPropertyQueryKey(propertyId) },
+  });
 
   const invalidateJob = () => {
     queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
@@ -234,6 +245,44 @@ export default function JobDetail() {
             </div>
             <div className="text-sm text-[var(--ink2)] leading-relaxed">{job.description}</div>
           </div>
+
+          <MarginSection
+            title="Job margin"
+            currentPct={job.marginPct != null ? Math.round(job.marginPct * 1000) / 10 : null}
+            minFrac={propData?.property.marginMin}
+            targetFrac={propData?.property.marginTarget}
+            currentEditable
+            saving={updateJob.isPending || updateProperty.isPending}
+            helperText="Thresholds come from the property. Below-minimum jobs get flagged in Today."
+            onSave={({ minFrac, targetFrac, currentFrac }) => {
+              updateJob.mutate(
+                { id, data: { marginPct: currentFrac ?? null } },
+                {
+                  onSuccess: () => {
+                    invalidateJob();
+                    if (propertyId)
+                      queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+                    toast({ title: "Margin updated" });
+                  },
+                  onError: (e) =>
+                    toast({ title: "Couldn't save margin", description: e.message, variant: "destructive" }),
+                },
+              );
+              if (propertyId) {
+                updateProperty.mutate(
+                  { id: propertyId, data: { marginMin: minFrac, marginTarget: targetFrac } },
+                  {
+                    onSuccess: () => {
+                      queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+                      queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+                    },
+                    onError: (e) =>
+                      toast({ title: "Couldn't save thresholds", description: e.message, variant: "destructive" }),
+                  },
+                );
+              }
+            }}
+          />
 
           {(job.status === "complete" || job.recapSentAt) && (
             <section>

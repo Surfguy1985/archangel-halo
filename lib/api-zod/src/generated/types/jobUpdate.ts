@@ -19,4 +19,11 @@ export interface JobUpdate {
   isRecurring?: boolean;
   /** @nullable */
   recurrence?: JobUpdateRecurrence;
+  /**
+     * Current margin as fraction, e.g. 0.25 = 25%
+     * @minimum 0
+     * @maximum 1
+     * @nullable
+     */
+  marginPct?: number | null;
 }

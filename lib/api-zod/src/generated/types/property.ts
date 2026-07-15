@@ -25,6 +25,16 @@ export interface Property {
   briefUpdatedAt?: string | null;
   /** @nullable */
   avgDaysToPay?: number | null;
+  /**
+     * Fraction, e.g. 0.25 = 25%
+     * @nullable
+     */
+  marginMin?: number | null;
+  /**
+     * Fraction, e.g. 0.35 = 35%
+     * @nullable
+     */
+  marginTarget?: number | null;
   status: string;
   /** @nullable */
   createdAt?: string | null;

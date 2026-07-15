@@ -128,24 +128,30 @@ export async function computeQueues(): Promise<{
     });
   }
 
-  // Margin Guardian — active jobs below the 25% margin floor
-  const MARGIN_FLOOR = 0.25;
+  // Margin Guardian — active jobs below the property's margin floor (default 25%)
+  const DEFAULT_MARGIN_FLOOR = 0.25;
+  const propMarginMin = new Map(
+    props.map((p) => [p.id, p.marginMin ?? DEFAULT_MARGIN_FLOOR]),
+  );
+  const floorFor = (propertyId: string) =>
+    propMarginMin.get(propertyId) ?? DEFAULT_MARGIN_FLOOR;
   const thinMargin = jobs.filter(
     (j) =>
       j.marginPct != null &&
-      j.marginPct < MARGIN_FLOOR &&
+      j.marginPct < floorFor(j.propertyId) &&
       j.status !== "complete" &&
       j.status !== "paid" &&
       j.status !== "cancelled",
   );
   for (const j of thinMargin) {
     const pct = Math.round((j.marginPct ?? 0) * 100);
+    const floorPct = Math.round(floorFor(j.propertyId) * 100);
     feed.push({
       id: `margin-${j.id}`,
       queue: "margin",
       tier: pct < 15 ? "now" : "today",
       title: `Thin margin: ${j.description ?? j.jobNo}`,
-      sub: `${propName.get(j.propertyId) ?? ""} — ${pct}% margin, below 25% floor`,
+      sub: `${propName.get(j.propertyId) ?? ""} — ${pct}% margin, below ${floorPct}% floor`,
       entityType: "job",
       entityId: j.id,
       amount: j.grossProfit,

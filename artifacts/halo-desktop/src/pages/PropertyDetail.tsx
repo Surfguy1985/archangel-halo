@@ -1,4 +1,5 @@
-import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, getGetMoneySummaryQueryKey, getListInvoicesQueryKey } from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey } from "@workspace/api-client-react";
+import { MarginSection } from "@/components/MarginSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { CalendarDays, ChevronDown, ChevronLeft, Pencil, Plus, Repeat } from "lucide-react";
@@ -28,6 +29,7 @@ export default function PropertyDetail() {
   const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const setStatus = useSetInvoiceStatus();
+  const updateProperty = useUpdateProperty();
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -134,6 +136,26 @@ export default function PropertyDetail() {
           <div className="text-2xl font-mono font-bold text-[var(--ink)]">{stats.marginPct ?? 0}%</div>
         </div>
       </div>
+
+      <MarginSection
+        currentPct={stats.marginPct ?? null}
+        minFrac={property.marginMin}
+        targetFrac={property.marginTarget}
+        saving={updateProperty.isPending}
+        helperText="Current is the average margin across this property's jobs. Jobs below the minimum get flagged in Today."
+        onSave={({ minFrac, targetFrac }) =>
+          updateProperty.mutate(
+            { id, data: { marginMin: minFrac, marginTarget: targetFrac } },
+            {
+              onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+                queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
+                queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+              },
+            },
+          )
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-6">
