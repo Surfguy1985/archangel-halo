@@ -14,6 +14,7 @@ import {
   Package,
   FileUp,
   BarChart3,
+  BookOpen,
   Landmark,
   Settings as SettingsIcon,
   Play,
@@ -46,6 +47,7 @@ const ICONS: Record<string, LucideIcon> = {
   Package,
   FileUp,
   BarChart3,
+  BookOpen,
   Landmark,
   Settings: SettingsIcon,
 };

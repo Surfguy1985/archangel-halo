@@ -82,6 +82,10 @@ export const trainingChapters: TrainingChapter[] = [
         title: "The notifications bell",
         body: "The bell at the top shows anything new that needs you, like a crew checking in or a bid being approved. A red dot means there's something fresh to look at.",
       },
+      {
+        title: "HALO emails you too",
+        body: "You don't even have to open the app. HALO sends you a daily email with your task list for the day, and an urgent alert the moment something can't wait, like an overdue invoice or a job with thin margin.",
+      },
     ],
   },
   {
@@ -106,6 +110,34 @@ export const trainingChapters: TrainingChapter[] = [
         title: "Money and open jobs at a glance",
         body: "Each property shows what it owes you and how many jobs are open there. It's an instant health check on any account.",
       },
+      {
+        title: "Price List and margins",
+        body: "Each property has its own Price List, the rates you've agreed with that client. HALO uses these rates automatically for jobs and invoices. You can also set margin thresholds, and HALO will flag any job whose profit runs below your minimum.",
+      },
+      {
+        title: "Crew photos on the property",
+        body: "When your crews send photos from a job site, they appear right on that property's page, matched to the crew and the day they worked. Proof of work, organized for you.",
+      },
+    ],
+  },
+  {
+    id: "pricebook",
+    title: "The Price Book",
+    sub: "Your master list of services & prices",
+    icon: "BookOpen",
+    steps: [
+      {
+        title: "One master list",
+        body: "Open More, then Price Book. This is the master list of every service you offer and its standard price. You set it up once, for the whole business.",
+      },
+      {
+        title: "Build it once",
+        body: "Add each service with its rate, unit, and an optional category. Full turn clean, HVAC check, paint per room, whatever you sell. Search and edit anytime as your prices change.",
+      },
+      {
+        title: "Pull it into any property",
+        body: "On any property's Price List, tap Add from Price Book. Tick the services you want and they're added with your standard rates. No re-typing prices for every new client, and services the property already has are skipped automatically.",
+      },
     ],
   },
   {
@@ -127,8 +159,20 @@ export const trainingChapters: TrainingChapter[] = [
         body: "Open More, then Job Board, to dispatch open work to your crews. You can broadcast a job to your team and let the right crew grab it.",
       },
       {
+        title: "Line items and pricing",
+        body: "Open a job and add line items for the work being done. HALO pulls the agreed rates from that property's Price List, so your pricing stays consistent and your margin is calculated for you as you go.",
+      },
+      {
         title: "Finish and invoice",
         body: "When the work is done, mark the job complete. HALO then nudges you to turn it into an invoice, so you never forget to bill for finished work.",
+      },
+      {
+        title: "When a job wraps up",
+        body: "A completed job shows a green Completed badge, plus the crew's site photos from that day. HALO can also send a polished recap email, a branded summary of the work, so your client sees the finished job professionally presented.",
+      },
+      {
+        title: "Clear to history, or restart",
+        body: "Once a completed job is fully wrapped, tap Clear to history to tuck it away. It moves into a Job History section on the property, keeping your active list clean. Client called back? Tap Restart job and it's active again.",
       },
     ],
   },

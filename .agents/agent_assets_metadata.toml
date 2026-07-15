@@ -24,3 +24,63 @@ id = "x78zwmzLnDUGgbe94Zq6h"
 uri = "file://attached_assets/voice-samples/sample-sarah.mp3"
 type = "audio"
 title = "4. Sarah — Mature, Reassuring"
+
+[[outputs]]
+id = "r4XtxhwZlAS2CmpG9XcYY"
+uri = "file://artifacts/halo-desktop/src/assets/tour-audio/properties-3.mp3"
+type = "audio"
+title = "properties-3"
+
+[[outputs]]
+id = "mct5d-4jobNjHPqaxNdA2"
+uri = "file://artifacts/halo-desktop/src/assets/tour-audio/properties-4.mp3"
+type = "audio"
+title = "properties-4"
+
+[[outputs]]
+id = "pEKetzxRy9lZtoZZLuhaB"
+uri = "file://artifacts/halo-desktop/src/assets/tour-audio/pricebook-0.mp3"
+type = "audio"
+title = "pricebook-0"
+
+[[outputs]]
+id = "UjdrFjX7S2VC8s4_SfPVR"
+uri = "file://artifacts/halo-desktop/src/assets/tour-audio/pricebook-1.mp3"
+type = "audio"
+title = "pricebook-1"
+
+[[outputs]]
+id = "PGPkH6wUaDLpxEGESPbHh"
+uri = "file://artifacts/halo-desktop/src/assets/tour-audio/pricebook-2.mp3"
+type = "audio"
+title = "pricebook-2"
+
+[[outputs]]
+id = "iwKNu0RstK8-ZJ5jR2bge"
+uri = "file://artifacts/halo-desktop/src/assets/tour-audio/jobs-2.mp3"
+type = "audio"
+title = "jobs-2"
+
+[[outputs]]
+id = "-jALodLeCQJn5PfbRthcc"
+uri = "file://artifacts/halo-desktop/src/assets/tour-audio/jobs-4.mp3"
+type = "audio"
+title = "jobs-4"
+
+[[outputs]]
+id = "v8Bs3WTNJCYl26Uu-I201"
+uri = "file://artifacts/halo-desktop/src/assets/tour-audio/jobs-5.mp3"
+type = "audio"
+title = "jobs-5"
+
+[[outputs]]
+id = "-VhDNoPrZsluCvpJXOL8o"
+uri = "file://artifacts/halo-desktop/src/assets/tour-audio/money-4.mp3"
+type = "audio"
+title = "money-4"
+
+[[outputs]]
+id = "BgOTdF2SIF8dfVQG1ycUM"
+uri = "file://artifacts/halo-desktop/src/assets/tour-audio/notifications-1.mp3"
+type = "audio"
+title = "notifications-1"

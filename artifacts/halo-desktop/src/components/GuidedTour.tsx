@@ -14,6 +14,7 @@ import {
   Truck,
   FileUp,
   Bell,
+  BookOpen,
   Settings as SettingsIcon,
   Play,
   Pause,
@@ -44,6 +45,7 @@ const ICONS: Record<string, LucideIcon> = {
   Truck,
   FileUp,
   Bell,
+  BookOpen,
   Settings: SettingsIcon,
 };
 
