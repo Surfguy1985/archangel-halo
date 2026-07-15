@@ -20,6 +20,7 @@ import Vendors from "./pages/Vendors";
 import Import from "./pages/Import";
 import JobBoard from "./pages/JobBoard";
 import Settings from "./pages/Settings";
+import Catalog from "./pages/Catalog";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ function AdminRouter() {
         <Route path="/crews/:id" component={CrewDetail} />
         <Route path="/pipeline" component={Pipeline} />
         <Route path="/jobboard" component={JobBoard} />
+        <Route path="/catalog" component={Catalog} />
         <Route path="/supply" component={Supply} />
         <Route path="/vendors" component={Vendors} />
         <Route path="/import" component={Import} />

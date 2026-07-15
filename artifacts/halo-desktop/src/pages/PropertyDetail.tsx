@@ -3,10 +3,11 @@ import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, History, Pencil, Plus, Repeat } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, History, Pencil, Plus, Repeat, BookOpen } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
+import { ImportFromCatalogDialog } from "@/components/ImportFromCatalogDialog";
 import {
   EditPropertyDialog,
   AddPriceItemDialog,
@@ -22,6 +23,7 @@ export default function PropertyDetail() {
   const id = params.id as string;
   const [editOpen, setEditOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
@@ -87,6 +89,7 @@ export default function PropertyDetail() {
 
       <EditPropertyDialog open={editOpen} onOpenChange={setEditOpen} property={property} />
       <AddPriceItemDialog open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
+      <ImportFromCatalogDialog open={importOpen} onOpenChange={setImportOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />
       <AddContactDialog open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
       <AddJobDialog open={jobOpen} onOpenChange={setJobOpen} propertyId={id} />
       {(() => {
@@ -347,12 +350,20 @@ export default function PropertyDetail() {
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-display font-bold text-[var(--ink)]">Price List</h2>
+              <div className="flex items-center gap-4">
+              <button
+                onClick={() => setImportOpen(true)}
+                className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+              >
+                <BookOpen className="w-4 h-4" /> From Price Book
+              </button>
               <button
                 onClick={() => setPriceOpen(true)}
                 className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
               >
                 <Plus className="w-4 h-4" /> Add
               </button>
+              </div>
             </div>
             <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
               {priceItems.map(item => (

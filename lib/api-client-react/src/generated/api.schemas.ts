@@ -438,6 +438,49 @@ export interface PriceItemUpdate {
   marginFloor?: number | null;
 }
 
+export interface CatalogItem {
+  id: string;
+  service: string;
+  /** @nullable */
+  detail?: string | null;
+  /** @nullable */
+  unit?: string | null;
+  rate: number;
+  /** @nullable */
+  category?: string | null;
+}
+
+export interface CatalogItemInput {
+  /** @minLength 1 */
+  service: string;
+  detail?: string;
+  unit?: string;
+  rate: number;
+  category?: string;
+}
+
+export interface CatalogItemUpdate {
+  /** @minLength 1 */
+  service?: string;
+  /** @nullable */
+  detail?: string | null;
+  /** @nullable */
+  unit?: string | null;
+  rate?: number;
+  /** @nullable */
+  category?: string | null;
+}
+
+export interface PriceItemImportInput {
+  /** @minItems 1 */
+  catalogItemIds: string[];
+}
+
+export interface PriceItemImportResult {
+  imported: PriceItem[];
+  skipped: number;
+}
+
 export interface Lead {
   id: string;
   /** @nullable */

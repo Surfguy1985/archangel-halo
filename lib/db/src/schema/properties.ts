@@ -27,6 +27,18 @@ export const propertiesTable = pgTable("properties", {
     .defaultNow(),
 });
 
+export const catalogItemsTable = pgTable("catalog_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  service: text("service").notNull(),
+  detail: text("detail"),
+  unit: text("unit"),
+  rate: doublePrecision("rate").notNull(),
+  category: text("category"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const contactsTable = pgTable("contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
   propertyId: uuid("property_id"),

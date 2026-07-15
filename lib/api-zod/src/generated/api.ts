@@ -389,6 +389,103 @@ export const WritePropertyBriefResponse = zod.object({
 })
 
 
+/**
+ * @summary Master price list — services shared across all properties
+ */
+export const ListCatalogItemsResponseItem = zod.object({
+  "id": zod.string(),
+  "service": zod.string(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "category": zod.string().nullish()
+})
+export const ListCatalogItemsResponse = zod.array(ListCatalogItemsResponseItem)
+
+
+
+
+
+export const CreateCatalogItemBody = zod.object({
+  "service": zod.string().min(1),
+  "detail": zod.string().optional(),
+  "unit": zod.string().optional(),
+  "rate": zod.number(),
+  "category": zod.string().optional()
+})
+
+export const CreateCatalogItemResponse = zod.object({
+  "id": zod.string(),
+  "service": zod.string(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "category": zod.string().nullish()
+})
+
+
+export const UpdateCatalogItemParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const UpdateCatalogItemBody = zod.object({
+  "service": zod.string().min(1).optional(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number().optional(),
+  "category": zod.string().nullish()
+})
+
+export const UpdateCatalogItemResponse = zod.object({
+  "id": zod.string(),
+  "service": zod.string(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "category": zod.string().nullish()
+})
+
+
+export const DeleteCatalogItemParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteCatalogItemResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Copy selected master-catalog services into this property's price list
+ */
+export const ImportPriceItemsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const ImportPriceItemsBody = zod.object({
+  "catalogItemIds": zod.array(zod.string()).min(1)
+})
+
+export const ImportPriceItemsResponse = zod.object({
+  "imported": zod.array(zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "service": zod.string(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "marginFloor": zod.number().nullish()
+})),
+  "skipped": zod.number()
+})
+
+
 export const CreatePriceItemParams = zod.object({
   "id": zod.coerce.string()
 })

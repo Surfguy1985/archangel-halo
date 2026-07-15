@@ -4,6 +4,7 @@ import { crewPhotosForJobs } from "../lib/jobPhotos";
 import {
   db,
   propertiesTable,
+  catalogItemsTable,
   contactsTable,
   priceItemsTable,
   jobsTable,
@@ -41,6 +42,17 @@ import {
   UpdatePriceItemResponse,
   DeletePriceItemParams,
   DeletePriceItemResponse,
+  ListCatalogItemsResponse,
+  CreateCatalogItemBody,
+  CreateCatalogItemResponse,
+  UpdateCatalogItemParams,
+  UpdateCatalogItemBody,
+  UpdateCatalogItemResponse,
+  DeleteCatalogItemParams,
+  DeleteCatalogItemResponse,
+  ImportPriceItemsParams,
+  ImportPriceItemsBody,
+  ImportPriceItemsResponse,
   WritePropertyBriefParams,
   WritePropertyBriefResponse,
 } from "@workspace/api-zod";
@@ -421,6 +433,115 @@ router.post("/properties/:id/price-items", async (req, res): Promise<void> => {
     .returning();
   res.status(201).json(CreatePriceItemResponse.parse(ser(row)));
 });
+
+router.get("/catalog-items", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select()
+    .from(catalogItemsTable)
+    .orderBy(catalogItemsTable.service);
+  res.json(ListCatalogItemsResponse.parse(serList(rows)));
+});
+
+router.post("/catalog-items", async (req, res): Promise<void> => {
+  const body = CreateCatalogItemBody.parse(req.body);
+  const [row] = await db.insert(catalogItemsTable).values(body).returning();
+  res.status(201).json(CreateCatalogItemResponse.parse(ser(row)));
+});
+
+router.patch("/catalog-items/:id", async (req, res): Promise<void> => {
+  const { id } = UpdateCatalogItemParams.parse(req.params);
+  const body = UpdateCatalogItemBody.parse(req.body);
+  if (Object.keys(body).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  const [row] = await db
+    .update(catalogItemsTable)
+    .set(body)
+    .where(eq(catalogItemsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Catalog item not found" });
+    return;
+  }
+  res.json(UpdateCatalogItemResponse.parse(ser(row)));
+});
+
+router.delete("/catalog-items/:id", async (req, res): Promise<void> => {
+  const { id } = DeleteCatalogItemParams.parse(req.params);
+  const [row] = await db
+    .delete(catalogItemsTable)
+    .where(eq(catalogItemsTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Catalog item not found" });
+    return;
+  }
+  res.json(DeleteCatalogItemResponse.parse({ ok: true }));
+});
+
+router.post(
+  "/properties/:id/price-items/import",
+  async (req, res): Promise<void> => {
+    const { id } = ImportPriceItemsParams.parse(req.params);
+    const { catalogItemIds } = ImportPriceItemsBody.parse(req.body);
+
+    const [property] = await db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, id));
+    if (!property) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+
+    const catalogRows = await db
+      .select()
+      .from(catalogItemsTable)
+      .where(inArray(catalogItemsTable.id, catalogItemIds));
+    if (catalogRows.length === 0) {
+      res.status(400).json({ error: "No matching catalog items" });
+      return;
+    }
+
+    const existing = await db
+      .select()
+      .from(priceItemsTable)
+      .where(eq(priceItemsTable.propertyId, id));
+    const existingServices = new Set(
+      existing.map((p) => p.service.trim().toLowerCase()),
+    );
+
+    const seen = new Set<string>();
+    const toInsert = catalogRows.filter((c) => {
+      const key = c.service.trim().toLowerCase();
+      if (existingServices.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    const skipped = catalogRows.length - toInsert.length;
+
+    let imported: (typeof priceItemsTable.$inferSelect)[] = [];
+    if (toInsert.length > 0) {
+      imported = await db
+        .insert(priceItemsTable)
+        .values(
+          toInsert.map((c) => ({
+            propertyId: id,
+            service: c.service,
+            detail: c.detail,
+            unit: c.unit,
+            rate: c.rate,
+          })),
+        )
+        .returning();
+    }
+
+    res.json(
+      ImportPriceItemsResponse.parse({ imported: serList(imported), skipped }),
+    );
+  },
+);
 
 router.post("/properties/:id/brief", async (req, res): Promise<void> => {
   const { id } = WritePropertyBriefParams.parse(req.params);

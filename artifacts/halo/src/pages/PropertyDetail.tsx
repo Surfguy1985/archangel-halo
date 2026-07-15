@@ -9,6 +9,7 @@ import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
 import { EditPropertySheet } from "@/components/EditPropertySheet";
 import { AddContactSheet } from "@/components/AddContactSheet";
 import { AddPriceItemSheet } from "@/components/AddPriceItemSheet";
+import { ImportFromCatalogSheet } from "@/components/ImportFromCatalogSheet";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
 import { AddJobSheet } from "@/components/AddJobSheet";
 import { EditJobSheet } from "@/components/EditJobSheet";
@@ -46,6 +47,7 @@ export default function PropertyDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
+  const [importCatalogOpen, setImportCatalogOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
@@ -368,7 +370,15 @@ export default function PropertyDetail() {
       </div>
 
       <div className="mb-[18px]">
-        <SectionHeader title="Price List" onAdd={() => setPriceOpen(true)} />
+        <div className="flex items-center justify-between">
+          <SectionHeader title="Price List" onAdd={() => setPriceOpen(true)} />
+        </div>
+        <button
+          onClick={() => setImportCatalogOpen(true)}
+          className="w-full mb-[10px] rounded-[13px] py-[10px] text-[13.5px] font-display font-bold text-[var(--gold-dark)] bg-card border border-[var(--gold-tint,rgba(143,106,31,0.25))] shadow-[var(--shadow)] active:scale-[0.98] transition-transform"
+        >
+          Add from Price Book
+        </button>
         {priceItems.length > 0 ? (
           <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
             {priceItems.map((item, idx) => (
@@ -470,6 +480,7 @@ export default function PropertyDetail() {
       <EditPropertySheet open={editOpen} onOpenChange={setEditOpen} property={property} />
       <AddContactSheet open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
       <AddPriceItemSheet open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
+      <ImportFromCatalogSheet open={importCatalogOpen} onOpenChange={setImportCatalogOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />
       <AddExpenseSheet open={expenseOpen} onOpenChange={setExpenseOpen} propertyId={id} />
       <AddJobSheet open={jobOpen} onOpenChange={setJobOpen} propertyId={id} />
       {(() => {
