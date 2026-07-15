@@ -4,15 +4,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useParseIngest,
   useCommitIngest,
+  useListImportHistory,
+  getListImportHistoryQueryKey,
   getListPropertiesQueryKey,
   getListJobsQueryKey,
   getListInvoicesQueryKey,
   getListExpensesQueryKey,
   getListInventoryQueryKey,
   getGetMoneySummaryQueryKey,
+  getGetTodayQueryKey,
   type IngestRecord,
 } from "@workspace/api-client-react";
-import { FileUp, Sparkles, Check } from "lucide-react";
+import { FileUp, Sparkles, Check, FileText, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { extractFileText } from "@/lib/extractText";
 
@@ -36,8 +39,10 @@ export default function Import() {
   const { toast } = useToast();
   const parse = useParseIngest();
   const commit = useCommitIngest();
+  const history = useListImportHistory();
 
   const [filename, setFilename] = useState<string | null>(null);
+  const [fileObj, setFileObj] = useState<File | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [records, setRecords] = useState<IngestRecord[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -57,6 +62,7 @@ export default function Import() {
     if (!file) return;
     reset();
     setFilename(file.name);
+    setFileObj(file);
     setReading(true);
     try {
       const { content, mimeType } = await extractFileText(file);
@@ -100,11 +106,55 @@ export default function Import() {
     });
   };
 
+  const uploadOriginal = async (file: File): Promise<string | null> => {
+    try {
+      const resp = await fetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          size: Math.max(file.size, 1),
+          contentType: file.type || "application/octet-stream",
+        }),
+      });
+      if (!resp.ok) return null;
+      const { uploadURL, objectPath } = (await resp.json()) as {
+        uploadURL: string;
+        objectPath: string;
+      };
+      const put = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+      return put.ok ? objectPath : null;
+    } catch {
+      return null;
+    }
+  };
+
   const onCommit = async () => {
     const chosen = records.filter((_, i) => selected.has(i));
     if (chosen.length === 0) return;
     try {
-      const result = await commit.mutateAsync({ data: { records: chosen } });
+      const objectPath = fileObj ? await uploadOriginal(fileObj) : null;
+      if (fileObj && !objectPath) {
+        toast({
+          title: "Couldn't save your document",
+          description: "The original file could not be stored, so the import was canceled. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const result = await commit.mutateAsync({
+        data: {
+          records: chosen,
+          filename: filename ?? fileObj?.name ?? null,
+          mimeType: fileObj?.type || null,
+          objectPath,
+          summary,
+        },
+      });
       for (const key of [
         getListPropertiesQueryKey(),
         getListJobsQueryKey(),
@@ -112,6 +162,8 @@ export default function Import() {
         getListExpensesQueryKey(),
         getListInventoryQueryKey(),
         getGetMoneySummaryQueryKey(),
+        getGetTodayQueryKey(),
+        getListImportHistoryQueryKey(),
       ]) {
         queryClient.invalidateQueries({ queryKey: key });
       }
@@ -232,6 +284,64 @@ export default function Import() {
           </button>
         </div>
       )}
+
+      <section className="space-y-3 pt-4">
+        <h2 className="font-display font-bold text-lg text-[var(--ink)]">Upload History</h2>
+        {(history.data?.uploads ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No imports yet. Your uploaded documents will appear here.
+          </p>
+        ) : (
+          <div className="grid gap-3">
+            {history.data!.uploads.map((u) => (
+              <div
+                key={u.id}
+                className="bg-card rounded-xl shadow-sm p-4 border border-border flex items-start gap-4"
+              >
+                <div className="w-10 h-10 rounded-lg bg-[var(--gold-tint)] flex items-center justify-center shrink-0">
+                  <FileText className="w-5 h-5 text-[var(--gold-dark)]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-semibold text-[var(--ink)] truncate">{u.filename}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(u.createdAt).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-0.5">
+                    {u.committed} imported
+                    {u.skipped ? ` · ${u.skipped} skipped` : ""}
+                    {u.summary ? ` — ${u.summary}` : ""}
+                  </div>
+                  {u.messages && u.messages.length > 0 && (
+                    <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside space-y-0.5">
+                      {u.messages.slice(0, 4).map((m, i) => (
+                        <li key={i}>{m}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                {u.objectPath && (
+                  <a
+                    href={`/api/storage${u.objectPath}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:underline"
+                  >
+                    View document <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

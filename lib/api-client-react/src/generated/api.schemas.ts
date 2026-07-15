@@ -1209,11 +1209,42 @@ export interface IngestParseResult {
 
 export interface IngestCommitInput {
   records: IngestRecord[];
+  /** @nullable */
+  filename?: string | null;
+  /** @nullable */
+  mimeType?: string | null;
+  /**
+     * Object storage path of the original uploaded document
+     * @nullable
+     */
+  objectPath?: string | null;
+  /** @nullable */
+  summary?: string | null;
 }
 
 export interface IngestCommitResult {
   committed: number;
   messages?: string[];
+}
+
+export interface ImportUpload {
+  id: string;
+  filename: string;
+  /** @nullable */
+  mimeType?: string | null;
+  /** @nullable */
+  objectPath?: string | null;
+  /** @nullable */
+  summary?: string | null;
+  committed: number;
+  skipped: number;
+  /** @nullable */
+  messages?: string[] | null;
+  createdAt: string;
+}
+
+export interface ImportHistoryResult {
+  uploads: ImportUpload[];
 }
 
 export interface UploadUrlRequest {

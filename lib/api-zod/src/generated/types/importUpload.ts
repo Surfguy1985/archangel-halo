@@ -5,19 +5,19 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
-import type { IngestRecord } from './ingestRecord';
 
-export interface IngestCommitInput {
-  records: IngestRecord[];
-  /** @nullable */
-  filename?: string | null;
+export interface ImportUpload {
+  id: string;
+  filename: string;
   /** @nullable */
   mimeType?: string | null;
-  /**
-     * Object storage path of the original uploaded document
-     * @nullable
-     */
+  /** @nullable */
   objectPath?: string | null;
   /** @nullable */
   summary?: string | null;
+  committed: number;
+  skipped: number;
+  /** @nullable */
+  messages?: string[] | null;
+  createdAt: string;
 }

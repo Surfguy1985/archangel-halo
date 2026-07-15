@@ -2265,12 +2265,34 @@ export const CommitIngestBody = zod.object({
   "label": zod.string().optional(),
   "confidence": zod.number().nullish(),
   "fields": zod.record(zod.string(), zod.unknown())
-}))
+})),
+  "filename": zod.string().nullish(),
+  "mimeType": zod.string().nullish(),
+  "objectPath": zod.string().nullish().describe('Object storage path of the original uploaded document'),
+  "summary": zod.string().nullish()
 })
 
 export const CommitIngestResponse = zod.object({
   "committed": zod.number(),
   "messages": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary List past import uploads with links to the original documents
+ */
+export const ListImportHistoryResponse = zod.object({
+  "uploads": zod.array(zod.object({
+  "id": zod.string(),
+  "filename": zod.string(),
+  "mimeType": zod.string().nullish(),
+  "objectPath": zod.string().nullish(),
+  "summary": zod.string().nullish(),
+  "committed": zod.number(),
+  "skipped": zod.number(),
+  "messages": zod.array(zod.string()).nullish(),
+  "createdAt": zod.string()
+}))
 })
 
 

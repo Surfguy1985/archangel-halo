@@ -26,6 +26,7 @@ import {
   notificationsTable,
   activitiesTable,
   voiceLogsTable,
+  importUploadsTable,
   inventoryItemsTable,
   purchaseOrdersTable,
   vendorsTable,
@@ -122,6 +123,7 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(notificationsTable);
     await tx.delete(activitiesTable);
     await tx.delete(voiceLogsTable);
+    await tx.delete(importUploadsTable);
     await tx.delete(inventoryItemsTable);
     await tx.delete(purchaseOrdersTable);
     await tx.delete(vendorsTable);

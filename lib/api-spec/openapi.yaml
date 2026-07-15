@@ -1799,6 +1799,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IngestCommitResult"
+  /ingest/history:
+    get:
+      operationId: listImportHistory
+      tags: [ingest]
+      summary: List past import uploads with links to the original documents
+      responses:
+        "200":
+          description: Import history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportHistoryResult"
 
   /storage/uploads/request-url:
     post:
@@ -4003,6 +4015,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/IngestRecord"
+        filename: { type: ["string", "null"] }
+        mimeType: { type: ["string", "null"] }
+        objectPath: { type: ["string", "null"], description: "Object storage path of the original uploaded document" }
+        summary: { type: ["string", "null"] }
     IngestCommitResult:
       type: object
       required: [committed]
@@ -4011,6 +4027,29 @@ components:
         messages:
           type: array
           items: { type: string }
+    ImportUpload:
+      type: object
+      required: [id, filename, committed, skipped, createdAt]
+      properties:
+        id: { type: string }
+        filename: { type: string }
+        mimeType: { type: ["string", "null"] }
+        objectPath: { type: ["string", "null"] }
+        summary: { type: ["string", "null"] }
+        committed: { type: integer }
+        skipped: { type: integer }
+        messages:
+          type: ["array", "null"]
+          items: { type: string }
+        createdAt: { type: string }
+    ImportHistoryResult:
+      type: object
+      required: [uploads]
+      properties:
+        uploads:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportUpload"
 
     UploadUrlRequest:
       type: object

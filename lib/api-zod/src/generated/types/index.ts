@@ -71,6 +71,8 @@ export * from './expenseInput';
 export * from './feedCard';
 export * from './getCalendarParams';
 export * from './healthStatus';
+export * from './importHistoryResult';
+export * from './importUpload';
 export * from './ingestCommitInput';
 export * from './ingestCommitResult';
 export * from './ingestParseInput';

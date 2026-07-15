@@ -4,15 +4,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useParseIngest,
   useCommitIngest,
+  useListImportHistory,
+  getListImportHistoryQueryKey,
   getListPropertiesQueryKey,
   getListJobsQueryKey,
   getListInvoicesQueryKey,
   getListExpensesQueryKey,
   getListInventoryQueryKey,
   getGetMoneySummaryQueryKey,
+  getGetTodayQueryKey,
   type IngestRecord,
 } from "@workspace/api-client-react";
-import { ChevronLeft, FileUp, Sparkles, Check } from "lucide-react";
+import { ChevronLeft, FileUp, Sparkles, Check, FileText, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { extractFileText } from "@/lib/extractText";
 
@@ -36,8 +39,10 @@ export default function Import() {
   const { toast } = useToast();
   const parse = useParseIngest();
   const commit = useCommitIngest();
+  const history = useListImportHistory();
 
   const [filename, setFilename] = useState<string | null>(null);
+  const [fileObj, setFileObj] = useState<File | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [records, setRecords] = useState<IngestRecord[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -57,6 +62,7 @@ export default function Import() {
     if (!file) return;
     reset();
     setFilename(file.name);
+    setFileObj(file);
     setReading(true);
     try {
       const { content, mimeType } = await extractFileText(file);
@@ -100,11 +106,55 @@ export default function Import() {
     });
   };
 
+  const uploadOriginal = async (file: File): Promise<string | null> => {
+    try {
+      const resp = await fetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          size: Math.max(file.size, 1),
+          contentType: file.type || "application/octet-stream",
+        }),
+      });
+      if (!resp.ok) return null;
+      const { uploadURL, objectPath } = (await resp.json()) as {
+        uploadURL: string;
+        objectPath: string;
+      };
+      const put = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+      return put.ok ? objectPath : null;
+    } catch {
+      return null;
+    }
+  };
+
   const onCommit = async () => {
     const chosen = records.filter((_, i) => selected.has(i));
     if (chosen.length === 0) return;
     try {
-      const result = await commit.mutateAsync({ data: { records: chosen } });
+      const objectPath = fileObj ? await uploadOriginal(fileObj) : null;
+      if (fileObj && !objectPath) {
+        toast({
+          title: "Couldn't save your document",
+          description: "The original file could not be stored, so the import was canceled. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const result = await commit.mutateAsync({
+        data: {
+          records: chosen,
+          filename: filename ?? fileObj?.name ?? null,
+          mimeType: fileObj?.type || null,
+          objectPath,
+          summary,
+        },
+      });
       for (const key of [
         getListPropertiesQueryKey(),
         getListJobsQueryKey(),
@@ -112,6 +162,8 @@ export default function Import() {
         getListExpensesQueryKey(),
         getListInventoryQueryKey(),
         getGetMoneySummaryQueryKey(),
+        getGetTodayQueryKey(),
+        getListImportHistoryQueryKey(),
       ]) {
         queryClient.invalidateQueries({ queryKey: key });
       }
@@ -228,6 +280,54 @@ export default function Import() {
           </button>
         </>
       )}
+
+      <div className="mt-[22px]">
+        <div className="font-display font-bold text-[16px] mb-[10px]">Upload History</div>
+        {(history.data?.uploads ?? []).length === 0 ? (
+          <div className="text-[12.5px] text-muted-foreground">
+            No imports yet. Your uploaded documents will appear here.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-[10px]">
+            {history.data!.uploads.map((u) => (
+              <div
+                key={u.id}
+                className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[13px] border border-border"
+              >
+                <div className="flex items-center gap-[8px]">
+                  <FileText className="w-[15px] h-[15px] text-[var(--gold-dark)] shrink-0" />
+                  <span className="font-semibold text-[13.5px] truncate flex-1">{u.filename}</span>
+                  {u.objectPath && (
+                    <a
+                      href={`/api/storage${u.objectPath}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0 inline-flex items-center gap-[4px] text-[12px] font-semibold text-[var(--gold-dark)]"
+                    >
+                      View <ExternalLink className="w-[12px] h-[12px]" />
+                    </a>
+                  )}
+                </div>
+                <div className="text-[12px] text-muted-foreground mt-[4px] pl-[23px]">
+                  {new Date(u.createdAt).toLocaleString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}{" "}
+                  · {u.committed} imported
+                  {u.skipped ? ` · ${u.skipped} skipped` : ""}
+                </div>
+                {u.summary && (
+                  <div className="text-[12px] text-muted-foreground mt-[2px] pl-[23px]">
+                    {u.summary}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
