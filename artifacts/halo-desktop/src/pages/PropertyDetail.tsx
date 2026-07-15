@@ -1,8 +1,9 @@
-import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey } from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useClearJob, useRestartJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey } from "@workspace/api-client-react";
 import { MarginSection } from "@/components/MarginSection";
+import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { CalendarDays, ChevronDown, ChevronLeft, Pencil, Plus, Repeat } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, History, Pencil, Plus, Repeat } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
@@ -28,7 +29,10 @@ export default function PropertyDetail() {
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
   const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const [historyOpen, setHistoryOpen] = useState(false);
   const setStatus = useSetInvoiceStatus();
+  const clearJob = useClearJob();
+  const restartJob = useRestartJob();
   const updateProperty = useUpdateProperty();
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
@@ -38,7 +42,16 @@ export default function PropertyDetail() {
 
   if (!data) return <div className="p-8 text-center text-muted-foreground">Property not found</div>;
 
-  const { property, stats, jobs, priceItems, contacts, expenses, invoices, upcomingVisits } = data;
+  const { property, stats, jobs, priceItems, contacts, expenses, invoices, upcomingVisits, crewPhotos } = data;
+  const activeJobs = jobs.filter((j) => !j.clearedAt);
+  const historyJobs = jobs.filter((j) => !!j.clearedAt);
+
+  const invalidateJobLists = () => {
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey() });
+  };
 
   const toggleInvoice = (invoiceId: string, next: "paid" | "sent") => {
     setStatus.mutate(
@@ -170,11 +183,18 @@ export default function PropertyDetail() {
               </button>
             </div>
             <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
-              {jobs.map(job => (
+              {activeJobs.map(job => (
                 <div key={job.id} className="p-4 hover:bg-black/[0.02] transition-colors">
                   <div className="flex items-center gap-3">
                     <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
-                      <div className="font-semibold">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
+                      <div className="font-semibold flex items-center gap-2">
+                        <span className="truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</span>
+                        {job.status === "complete" && (
+                          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                            <Check className="w-2.5 h-2.5" /> Completed
+                          </span>
+                        )}
+                      </div>
                       <div className="text-sm text-muted-foreground">{job.description}</div>
                       {job.isRecurring && (
                         <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--gold-dark)]">
@@ -220,11 +240,66 @@ export default function PropertyDetail() {
                       priceItems={priceItems}
                     />
                   )}
+                  {job.status === "complete" && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        disabled={clearJob.isPending}
+                        onClick={() => clearJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-muted-foreground hover:bg-black/[0.08] transition-colors disabled:opacity-50"
+                      >
+                        <Archive className="w-3 h-3" /> Clear to history
+                      </button>
+                      <button
+                        disabled={restartJob.isPending}
+                        onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[rgba(143,106,31,0.1)] text-[var(--gold-dark)] hover:bg-[rgba(143,106,31,0.16)] transition-colors disabled:opacity-50"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Restart job
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
-              {!jobs.length && <div className="p-6 text-center text-sm text-muted-foreground">No active jobs.</div>}
+              {!activeJobs.length && <div className="p-6 text-center text-sm text-muted-foreground">No active jobs.</div>}
             </div>
           </section>
+
+          {historyJobs.length > 0 && (
+            <section>
+              <button
+                onClick={() => setHistoryOpen(!historyOpen)}
+                className="flex items-center gap-2 mb-4 text-xl font-display font-bold text-[var(--ink)] hover:opacity-80 transition-opacity"
+              >
+                <History className="w-5 h-5 text-muted-foreground" />
+                Job History
+                <span className="text-sm font-normal text-muted-foreground">· {historyJobs.length}</span>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {historyOpen && (
+                <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
+                  {historyJobs.map((job) => (
+                    <div key={job.id} className="flex items-center gap-3 p-4">
+                      <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
+                        <div className="font-semibold text-muted-foreground truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
+                        <div className="text-sm text-muted-foreground truncate">
+                          {job.jobNo}{job.completedAt ? ` · Completed ${new Date(job.completedAt).toLocaleDateString()}` : ''}
+                        </div>
+                      </Link>
+                      <button
+                        disabled={restartJob.isPending}
+                        onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
+                        className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[rgba(143,106,31,0.1)] text-[var(--gold-dark)] hover:bg-[rgba(143,106,31,0.16)] transition-colors disabled:opacity-50"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Restart
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          <CrewPhotosSection photos={crewPhotos ?? []} showJob />
 
           <section>
             <div className="flex items-center justify-between mb-4">

@@ -59,9 +59,16 @@ import {
   DeleteJobLineItemParams,
   DeleteJobLineItemResponse,
 } from "@workspace/api-zod";
+import {
+  ClearJobParams,
+  ClearJobResponse,
+  RestartJobParams,
+  RestartJobResponse,
+} from "@workspace/api-zod";
 import { completeText } from "../lib/ai";
 import { sendEmail } from "../lib/email";
 import { ser, serList } from "../lib/serialize";
+import { crewPhotosForJobs, type CrewJobPhoto } from "../lib/jobPhotos";
 
 const router: IRouter = Router();
 
@@ -147,12 +154,14 @@ router.get("/jobs/:id", async (req, res): Promise<void> => {
     .select()
     .from(schedulesTable)
     .where(eq(schedulesTable.jobId, id));
+  const crewPhotos = await crewPhotosForJobs([job]);
   res.json(
     GetJobResponse.parse({
       job: decorateJob(job, propName, crewName),
       activities: serList(activities),
       expenses: serList(expenses),
       schedules: serList(schedules),
+      crewPhotos,
     }),
   );
 });
@@ -334,6 +343,65 @@ router.post("/jobs/:id/complete", async (req, res): Promise<void> => {
   res.json(CompleteJobResponse.parse(decorateJob(row, propName, crewName)));
 });
 
+router.post("/jobs/:id/clear", async (req, res): Promise<void> => {
+  const { id } = ClearJobParams.parse(req.params);
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  if (job.status !== "complete") {
+    res.status(409).json({
+      error: "Only completed jobs can be cleared to job history.",
+    });
+    return;
+  }
+  const [row] = await db
+    .update(jobsTable)
+    .set({ clearedAt: new Date() })
+    .where(eq(jobsTable.id, id))
+    .returning();
+  await db.insert(activitiesTable).values({
+    entityType: "job",
+    entityId: id,
+    kind: "note",
+    body: "Job cleared to history",
+  });
+  const { propName, crewName } = await lookups();
+  res.json(ClearJobResponse.parse(decorateJob(row, propName, crewName)));
+});
+
+router.post("/jobs/:id/restart", async (req, res): Promise<void> => {
+  const { id } = RestartJobParams.parse(req.params);
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  if (job.status !== "complete" && !job.clearedAt) {
+    res.status(409).json({ error: "Only completed or cleared jobs can be restarted" });
+    return;
+  }
+  const [row] = await db
+    .update(jobsTable)
+    .set({
+      status: "open",
+      boardStatus: "reopened",
+      completedAt: null,
+      clearedAt: null,
+    })
+    .where(eq(jobsTable.id, id))
+    .returning();
+  await db.insert(activitiesTable).values({
+    entityType: "job",
+    entityId: id,
+    kind: "note",
+    body: "Job restarted",
+  });
+  const { propName, crewName } = await lookups();
+  res.json(RestartJobResponse.parse(decorateJob(row, propName, crewName)));
+});
+
 async function gatherRecapContext(jobId: string) {
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
   if (!job) return null;
@@ -354,7 +422,12 @@ async function gatherRecapContext(jobId: string) {
   );
   const beforeCount = photos.filter((a) => a.kind === "photo_before").length;
   const afterCount = photos.filter((a) => a.kind === "photo_after").length;
-  return { job, prop, notes, beforeCount, afterCount };
+  const lineItems = await db
+    .select()
+    .from(jobLineItemsTable)
+    .where(eq(jobLineItemsTable.jobId, jobId));
+  const crewPhotos = await crewPhotosForJobs([job]);
+  return { job, prop, notes, beforeCount, afterCount, lineItems, crewPhotos };
 }
 
 router.post("/jobs/:id/recap", async (req, res): Promise<void> => {
@@ -364,20 +437,30 @@ router.post("/jobs/:id/recap", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Job not found" });
     return;
   }
-  const { job, prop, notes, beforeCount, afterCount } = ctx;
+  const { job, prop, notes, beforeCount, afterCount, lineItems, crewPhotos } =
+    ctx;
+  const totalPhotos = beforeCount + afterCount + crewPhotos.length;
   const system =
-    "You are HALO's recap writer for ArchAngel Contractors, a property maintenance company. " +
-    "Write a warm, professional, client-ready work recap email that a property manager would receive after a job is finished. " +
-    "Be concise (3-5 short sentences), specific about the work done, and reassuring about quality. " +
-    "Do not invent details that are not provided. Do not include a subject line or email headers in the body. " +
+    "You are HALO's recap writer for ArchAngel Contractors, a premium property maintenance company. " +
+    "Write a polished, client-ready work recap email that a property manager would be impressed to receive after a job is finished. " +
+    "Structure the body as: (1) a warm one-line opener confirming completion, (2) a 'What we did' rundown that walks through the work performed — use short lines starting with '• ' for each item, (3) a quality-assurance line about workmanship and site cleanup, and (4) if photos are on file, one line noting that the photo documentation is included below. " +
+    "Be specific and detailed using ONLY the facts provided — never invent work, dates, or numbers. Do not mention prices or costs. " +
+    "Keep it tight: roughly 6-10 short lines total. Do not include a subject line or email headers in the body. " +
     "Sign off as 'The ArchAngel Contractors team'. " +
-    'Respond with ONLY valid JSON of the form {"subject": string, "body": string}. The body may use \\n for line breaks. No markdown.';
+    'Respond with ONLY valid JSON of the form {"subject": string, "body": string}. The body may use \\n for line breaks. No markdown other than the • bullets.';
   const user = [
     `Property: ${prop?.name ?? "the property"}${job.unitNo ? `, Unit ${job.unitNo}` : ""}`,
+    `Job number: ${job.jobNo}`,
     `Service category: ${job.category ?? "general maintenance"}`,
     `Work description: ${job.description ?? "n/a"}`,
+    lineItems.length
+      ? `Services performed:\n${lineItems.map((li) => `- ${li.service}${li.qty > 1 ? ` x${li.qty}` : ""}`).join("\n")}`
+      : "Services performed: see work description",
     notes.length ? `Field notes:\n${notes.join("\n")}` : "Field notes: none",
-    `Before photos on file: ${beforeCount}. After photos on file: ${afterCount}.`,
+    job.completedAt
+      ? `Completed on: ${job.completedAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/New_York" })}`
+      : "Completed on: n/a",
+    `Photos on file (will be embedded in the email automatically): ${totalPhotos} total (${beforeCount} before, ${afterCount} after, ${crewPhotos.length} from the crew on site).`,
   ].join("\n");
 
   let draft: { subject: string; body: string };
@@ -407,14 +490,97 @@ router.post("/jobs/:id/recap", async (req, res): Promise<void> => {
   res.json(DraftJobRecapResponse.parse(draft));
 });
 
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function publicBaseUrl(): string {
+  const domain =
+    process.env.REPLIT_DOMAINS?.split(",")[0] ?? process.env.REPLIT_DEV_DOMAIN;
+  return domain ? `https://${domain}` : "";
+}
+
+function photoGridHtml(
+  photos: { url: string; label: string }[],
+  base: string,
+): string {
+  if (photos.length === 0) return "";
+  const cells = photos
+    .map(
+      (p) => `<td width="50%" style="padding:6px;vertical-align:top;">
+        <a href="${base}${p.url}" style="text-decoration:none;">
+          <img src="${base}${p.url}" alt="${escHtml(p.label)}" width="270" style="width:100%;max-width:270px;border-radius:10px;display:block;border:1px solid #e2e1dc;" />
+        </a>
+        <div style="font-size:11px;color:#9a9da4;margin-top:4px;text-transform:uppercase;letter-spacing:0.08em;">${escHtml(p.label)}</div>
+      </td>`,
+    )
+    .reduce<string[]>((rows, cell, i) => {
+      if (i % 2 === 0) rows.push(`<tr>${cell}`);
+      else rows[rows.length - 1] += `${cell}</tr>`;
+      return rows;
+    }, [])
+    .map((r) => (r.endsWith("</tr>") ? r : `${r}<td width="50%"></td></tr>`))
+    .join("");
+  return `<tr><td style="padding:14px 4px 0 4px;">
+      <div style="font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#8f6a1f;margin-bottom:4px;">Photo documentation · ${photos.length} photo${photos.length === 1 ? "" : "s"}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:8px;box-shadow:0 1px 3px rgba(23,24,28,0.08);">${cells}</table>
+    </td></tr>`;
+}
+
+function recapShell(opts: {
+  subject: string;
+  body: string;
+  propertyName: string | null;
+  unitNo: string | null;
+  jobNo: string;
+  photos: { url: string; label: string }[];
+}): string {
+  const base = publicBaseUrl();
+  const dateLabel = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "America/New_York",
+  });
+  const where = [opts.propertyName, opts.unitNo ? `Unit ${opts.unitNo}` : null]
+    .filter(Boolean)
+    .join(" · ");
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f2ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f2ee;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <tr><td style="padding:0 4px 16px 4px;">
+          <div style="font-size:12px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#8f6a1f;">ArchAngel Contractors</div>
+          <div style="font-size:22px;font-weight:800;color:#17181c;margin-top:4px;">${escHtml(opts.subject)}</div>
+          <div style="font-size:13px;color:#6b6e76;margin-top:2px;">${escHtml(where)}${where ? " · " : ""}${escHtml(opts.jobNo)} · ${escHtml(dateLabel)}</div>
+        </td></tr>
+        <tr><td style="padding:0 4px;">
+          <div style="font-size:14px;color:#17181c;line-height:1.7;background:#ffffff;border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(23,24,28,0.08);border-top:3px solid #8f6a1f;white-space:pre-wrap;">${escHtml(opts.body)}</div>
+        </td></tr>
+        ${photoGridHtml(opts.photos, base)}
+        <tr><td style="padding:18px 4px 4px 4px;">
+          <div style="font-size:12px;color:#9a9da4;line-height:1.5;border-top:1px solid #e2e1dc;padding-top:12px;">ArchAngel Contractors · Sent by HALO. Reply to this email with any questions — we're happy to help.</div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
 router.post("/jobs/:id/recap/send", async (req, res): Promise<void> => {
   const { id } = SendJobRecapParams.parse(req.params);
   const body = SendJobRecapBody.parse(req.body);
-  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
-  if (!job) {
+  const ctx = await gatherRecapContext(id);
+  if (!ctx) {
     res.status(404).json({ error: "Job not found" });
     return;
   }
+  const { job, prop, crewPhotos } = ctx;
   let to = body.to ?? null;
   if (!to) {
     const contacts = await db
@@ -430,10 +596,35 @@ router.post("/jobs/:id/recap/send", async (req, res): Promise<void> => {
     });
     return;
   }
-  const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:14px;color:#17181c;line-height:1.6;white-space:pre-wrap;">${body.body
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")}</div>`;
+  const photoActs = await db
+    .select()
+    .from(activitiesTable)
+    .where(eq(activitiesTable.entityId, id));
+  const photos: { url: string; label: string }[] = [];
+  for (const a of photoActs) {
+    if (!a.storagePath) continue;
+    if (a.kind === "photo_before")
+      photos.push({ url: `/api/storage${a.storagePath}`, label: "Before" });
+  }
+  for (const a of photoActs) {
+    if (!a.storagePath) continue;
+    if (a.kind === "photo_after")
+      photos.push({ url: `/api/storage${a.storagePath}`, label: "After" });
+  }
+  for (const p of crewPhotos as CrewJobPhoto[]) {
+    photos.push({
+      url: p.url,
+      label: p.crewName ? `On site · ${p.crewName}` : "On site",
+    });
+  }
+  const html = recapShell({
+    subject: body.subject,
+    body: body.body,
+    propertyName: prop?.name ?? null,
+    unitNo: job.unitNo,
+    jobNo: job.jobNo,
+    photos,
+  });
   const sent = await sendEmail({
     to,
     subject: body.subject,

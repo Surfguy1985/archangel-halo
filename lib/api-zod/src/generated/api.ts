@@ -217,6 +217,7 @@ export const GetPropertyResponse = zod.object({
   "inspectionRequired": zod.boolean().nullish(),
   "inspectionPassedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
@@ -293,7 +294,17 @@ export const GetPropertyResponse = zod.object({
   "invoicedTotal": zod.number(),
   "collectedTotal": zod.number(),
   "expensesTotal": zod.number()
-})
+}),
+  "crewPhotos": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string().describe('Relative API path to the image, e.g. \/api\/storage\/objects\/...'),
+  "takenOn": zod.string(),
+  "note": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "jobId": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish()
+})).optional()
 })
 
 
@@ -915,6 +926,7 @@ export const ListJobsResponseItem = zod.object({
   "inspectionRequired": zod.boolean().nullish(),
   "inspectionPassedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
@@ -972,6 +984,7 @@ export const CreateJobResponse = zod.object({
   "inspectionRequired": zod.boolean().nullish(),
   "inspectionPassedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
@@ -1017,6 +1030,7 @@ export const GetJobResponse = zod.object({
   "inspectionRequired": zod.boolean().nullish(),
   "inspectionPassedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
@@ -1064,7 +1078,17 @@ export const GetJobResponse = zod.object({
   "windowStart": zod.string().nullish(),
   "crewLeaderId": zod.string().nullish(),
   "status": zod.string()
-}))
+})),
+  "crewPhotos": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string().describe('Relative API path to the image, e.g. \/api\/storage\/objects\/...'),
+  "takenOn": zod.string(),
+  "note": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "jobId": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish()
+})).optional()
 })
 
 
@@ -1107,6 +1131,7 @@ export const UpdateJobResponse = zod.object({
   "inspectionRequired": zod.boolean().nullish(),
   "inspectionPassedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
@@ -1166,6 +1191,103 @@ export const CompleteJobResponse = zod.object({
   "inspectionRequired": zod.boolean().nullish(),
   "inspectionPassedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
+  "recapSentAt": zod.string().nullish(),
+  "warrantyUntil": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "grossProfit": zod.number().nullish(),
+  "marginPct": zod.number().nullish(),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
+})
+
+
+/**
+ * @summary Clear a completed job from the active list into job history
+ */
+export const ClearJobParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ClearJobResponse = zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "woNo": zod.string().nullish(),
+  "propertyId": zod.string().optional(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "crewLeaderId": zod.string().nullish(),
+  "crewLeaderName": zod.string().nullish(),
+  "bidId": zod.string().nullish(),
+  "contactId": zod.string().nullish(),
+  "inspectionRequired": zod.boolean().nullish(),
+  "inspectionPassedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
+  "recapSentAt": zod.string().nullish(),
+  "warrantyUntil": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "grossProfit": zod.number().nullish(),
+  "marginPct": zod.number().nullish(),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
+})
+
+
+/**
+ * @summary Restart a completed/cleared job — reopens it and returns it to the active list
+ */
+export const RestartJobParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RestartJobResponse = zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "woNo": zod.string().nullish(),
+  "propertyId": zod.string().optional(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "crewLeaderId": zod.string().nullish(),
+  "crewLeaderName": zod.string().nullish(),
+  "bidId": zod.string().nullish(),
+  "contactId": zod.string().nullish(),
+  "inspectionRequired": zod.boolean().nullish(),
+  "inspectionPassedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
@@ -1219,6 +1341,7 @@ export const ScheduleJobResponse = zod.object({
   "inspectionRequired": zod.boolean().nullish(),
   "inspectionPassedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
@@ -1352,6 +1475,7 @@ export const SendJobRecapResponse = zod.object({
   "inspectionRequired": zod.boolean().nullish(),
   "inspectionPassedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
@@ -1396,6 +1520,7 @@ export const ListJobBoardResponseItem = zod.object({
   "inspectionRequired": zod.boolean().nullish(),
   "inspectionPassedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
@@ -1487,6 +1612,7 @@ export const ReopenJobResponse = zod.object({
   "inspectionRequired": zod.boolean().nullish(),
   "inspectionPassedAt": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),

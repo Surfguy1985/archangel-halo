@@ -37,6 +37,8 @@ export interface Job {
   /** @nullable */
   completedAt?: string | null;
   /** @nullable */
+  clearedAt?: string | null;
+  /** @nullable */
   recapSentAt?: string | null;
   /** @nullable */
   warrantyUntil?: string | null;

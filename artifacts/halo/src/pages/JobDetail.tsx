@@ -7,13 +7,17 @@ import {
   getGetPropertyQueryKey,
   useUpdateJob,
   useUpdateProperty,
+  useRestartJob,
+  useClearJob,
   getGetTodayQueryKey,
   getListJobsQueryKey,
+  getGetCalendarQueryKey,
 } from "@workspace/api-client-react";
 import { MarginSection } from "@/components/MarginSection";
+import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, Pencil, Sparkles, Send, Check, CalendarDays } from "lucide-react";
+import { ChevronLeft, Pencil, Sparkles, Send, Check, CalendarDays, RotateCcw, Archive } from "lucide-react";
 import { useState } from "react";
 import { EditJobSheet } from "@/components/EditJobSheet";
 import { ScheduleJobSheet } from "@/components/ScheduleJobSheet";
@@ -32,7 +36,17 @@ export default function JobDetail() {
   const sendRecap = useSendJobRecap();
   const updateJob = useUpdateJob();
   const updateProperty = useUpdateProperty();
+  const restartJob = useRestartJob();
+  const clearJob = useClearJob();
   const propertyId = data?.job.propertyId ?? "";
+
+  const invalidateJobLists = () => {
+    queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
+    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey() });
+    if (propertyId) queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+  };
   const { data: propData } = useGetProperty(propertyId, {
     query: { enabled: !!propertyId, queryKey: getGetPropertyQueryKey(propertyId) },
   });
@@ -73,7 +87,7 @@ export default function JobDetail() {
 
   if (!data) return <div className="p-4 text-center text-muted-foreground">Job not found</div>;
 
-  const { job, activities, expenses, schedules } = data;
+  const { job, expenses, schedules, crewPhotos } = data;
 
   return (
     <div className="pt-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -101,7 +115,13 @@ export default function JobDetail() {
         <div className="flex justify-between items-start mb-[12px]">
           <div>
             <div className="text-[12px] text-muted-foreground uppercase tracking-[0.1em] font-semibold mb-[2px]">Status</div>
-            <div className="font-semibold text-[15px] capitalize">{job.status.replace('_', ' ')}</div>
+            {job.status === "complete" ? (
+              <span className="inline-flex items-center gap-[5px] text-[12px] font-display font-bold uppercase tracking-[0.08em] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-[10px] py-[4px]">
+                <Check className="w-[12px] h-[12px]" /> Completed
+              </span>
+            ) : (
+              <div className="font-semibold text-[15px] capitalize">{job.status.replace('_', ' ')}</div>
+            )}
           </div>
           <div className="text-right">
             <div className="text-[12px] font-mono text-muted-foreground">{job.jobNo}</div>
@@ -111,6 +131,29 @@ export default function JobDetail() {
         <div className="text-[14px] text-[var(--ink2)] leading-relaxed">
           {job.description}
         </div>
+        {job.status === "complete" && (
+          <div className="flex items-center gap-[8px] mt-[12px] pt-[12px] border-t border-border">
+            {!job.clearedAt && (
+              <button
+                disabled={clearJob.isPending}
+                onClick={() => clearJob.mutate({ id }, { onSuccess: invalidateJobLists })}
+                className="flex items-center gap-[5px] text-[12.5px] font-display font-bold px-[12px] py-[8px] rounded-full bg-[rgba(23,24,28,0.05)] text-muted-foreground active:scale-[0.95] disabled:opacity-50"
+              >
+                <Archive className="w-[13px] h-[13px]" /> Clear to history
+              </button>
+            )}
+            {job.clearedAt && (
+              <span className="text-[12px] text-muted-foreground">In job history</span>
+            )}
+            <button
+              disabled={restartJob.isPending}
+              onClick={() => restartJob.mutate({ id }, { onSuccess: invalidateJobLists })}
+              className="ml-auto flex items-center gap-[5px] text-[12.5px] font-display font-bold px-[12px] py-[8px] rounded-full bg-[rgba(143,106,31,0.1)] text-[var(--gold-dark)] active:scale-[0.95] disabled:opacity-50"
+            >
+              <RotateCcw className="w-[13px] h-[13px]" /> Restart job
+            </button>
+          </div>
+        )}
       </div>
 
       <MarginSection
@@ -193,6 +236,8 @@ export default function JobDetail() {
         </div>
       )}
 
+      <CrewPhotosSection photos={crewPhotos ?? []} />
+
       {(job.status === "complete" || job.recapSentAt) && (
         <div className="mb-[18px]">
           <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-muted-foreground mb-[8px] mx-[2px]">Client recap</div>
@@ -240,6 +285,11 @@ export default function JobDetail() {
                         className="w-full text-[14px] leading-relaxed bg-background border border-border rounded-[10px] px-[12px] py-[9px] outline-none focus:border-[var(--gold,#8f6a1f)] resize-y"
                       />
                     </div>
+                    {(crewPhotos?.length ?? 0) > 0 && (
+                      <div className="text-[12px] text-muted-foreground">
+                        {crewPhotos!.length} photo{crewPhotos!.length === 1 ? "" : "s"} from the crew will be included in the branded email automatically.
+                      </div>
+                    )}
                     <div className="flex items-center gap-[8px]">
                       <button
                         onClick={() => setRecapOpen(false)}

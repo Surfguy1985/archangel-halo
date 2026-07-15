@@ -45,6 +45,7 @@ export const jobsTable = pgTable("jobs", {
   inspectionRequired: boolean("inspection_required").default(false),
   inspectionPassedAt: timestamp("inspection_passed_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
+  clearedAt: timestamp("cleared_at", { withTimezone: true }),
   recapSentAt: timestamp("recap_sent_at", { withTimezone: true }),
   warrantyUntil: date("warranty_until", { mode: "string" }),
   scheduledOn: date("scheduled_on", { mode: "string" }),

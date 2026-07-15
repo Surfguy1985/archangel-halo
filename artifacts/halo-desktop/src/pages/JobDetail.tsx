@@ -8,6 +8,8 @@ import {
   useSendJobRecap,
   useScheduleJob,
   useCompleteJob,
+  useClearJob,
+  useRestartJob,
   useDeleteJob,
   useListCrews,
   useUpdateJob,
@@ -16,6 +18,7 @@ import {
   getGetPropertyQueryKey,
 } from "@workspace/api-client-react";
 import { MarginSection } from "@/components/MarginSection";
+import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link, useLocation } from "wouter";
 import {
@@ -25,6 +28,8 @@ import {
   Check,
   CalendarDays,
   Trash2,
+  Archive,
+  RotateCcw,
 } from "lucide-react";
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -84,6 +89,8 @@ export default function JobDetail() {
   const sendRecap = useSendJobRecap();
   const schedule = useScheduleJob();
   const complete = useCompleteJob();
+  const clearJob = useClearJob();
+  const restartJob = useRestartJob();
   const del = useDeleteJob();
   const updateJob = useUpdateJob();
   const updateProperty = useUpdateProperty();
@@ -97,7 +104,34 @@ export default function JobDetail() {
     queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey() });
+    if (propertyId) queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
   };
+
+  const onClear = () =>
+    clearJob.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          invalidateJob();
+          toast({ title: "Job cleared to history" });
+        },
+        onError: (e) =>
+          toast({ title: "Couldn't clear", description: e.message, variant: "destructive" }),
+      },
+    );
+
+  const onRestart = () =>
+    restartJob.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          invalidateJob();
+          toast({ title: "Job restarted" });
+        },
+        onError: (e) =>
+          toast({ title: "Couldn't restart", description: e.message, variant: "destructive" }),
+      },
+    );
 
   const generateRecap = () => {
     setRecapOpen(true);
@@ -182,7 +216,7 @@ export default function JobDetail() {
 
   if (!data) return <div className="p-8 text-center text-muted-foreground">Job not found</div>;
 
-  const { job, expenses, schedules } = data;
+  const { job, expenses, schedules, crewPhotos } = data;
   const leaders = (crews ?? []).filter((c) => c.isLeader !== false);
   const canComplete = job.status !== "complete" && job.status !== "paid" && job.status !== "cancelled";
 
@@ -221,6 +255,24 @@ export default function JobDetail() {
               <Check className="w-4 h-4" /> {complete.isPending ? "Completing…" : "Complete"}
             </button>
           )}
+          {job.status === "complete" && !job.clearedAt && (
+            <button
+              onClick={onClear}
+              disabled={clearJob.isPending}
+              className="flex items-center gap-2 bg-card border border-border px-4 py-2 rounded-md font-medium hover:bg-black/[0.03] transition-colors shadow-sm text-sm disabled:opacity-50"
+            >
+              <Archive className="w-4 h-4" /> {clearJob.isPending ? "Clearing…" : "Clear to history"}
+            </button>
+          )}
+          {job.status === "complete" && (
+            <button
+              onClick={onRestart}
+              disabled={restartJob.isPending}
+              className="flex items-center gap-2 bg-card border border-border px-4 py-2 rounded-md font-medium text-[var(--gold-dark)] hover:bg-[rgba(143,106,31,0.06)] transition-colors shadow-sm text-sm disabled:opacity-50"
+            >
+              <RotateCcw className="w-4 h-4" /> {restartJob.isPending ? "Restarting…" : "Restart"}
+            </button>
+          )}
           <button
             onClick={() => setConfirmDelete(true)}
             className="flex items-center gap-2 bg-card border border-border px-3 py-2 rounded-md font-medium hover:bg-destructive/10 hover:text-destructive transition-colors shadow-sm text-sm text-muted-foreground"
@@ -236,7 +288,16 @@ export default function JobDetail() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Status</div>
-                <div className="font-semibold text-base capitalize">{job.status.replace("_", " ")}</div>
+                {job.status === "complete" ? (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">
+                      <Check className="w-3 h-3" /> Completed
+                    </span>
+                    {job.clearedAt && <span className="text-xs text-muted-foreground">In job history</span>}
+                  </div>
+                ) : (
+                  <div className="font-semibold text-base capitalize">{job.status.replace("_", " ")}</div>
+                )}
               </div>
               <div className="text-right font-mono text-xs text-muted-foreground">
                 <div>{job.jobNo}</div>
@@ -283,6 +344,8 @@ export default function JobDetail() {
               }
             }}
           />
+
+          <CrewPhotosSection photos={crewPhotos ?? []} />
 
           {(job.status === "complete" || job.recapSentAt) && (
             <section>

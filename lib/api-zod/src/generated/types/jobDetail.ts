@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Activity } from './activity';
+import type { CrewJobPhoto } from './crewJobPhoto';
 import type { Expense } from './expense';
 import type { Job } from './job';
 import type { Schedule } from './schedule';
@@ -15,4 +16,5 @@ export interface JobDetail {
   activities: Activity[];
   expenses: Expense[];
   schedules: Schedule[];
+  crewPhotos?: CrewJobPhoto[];
 }

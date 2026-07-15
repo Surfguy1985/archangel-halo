@@ -1,8 +1,9 @@
-import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey } from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useClearJob, useRestartJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey } from "@workspace/api-client-react";
 import { MarginSection } from "@/components/MarginSection";
+import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, ChevronDown, Pencil, Plus, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronDown, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History } from "lucide-react";
 import { useState } from "react";
 import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
 import { EditPropertySheet } from "@/components/EditPropertySheet";
@@ -51,9 +52,12 @@ export default function PropertyDetail() {
   const [editContactId, setEditContactId] = useState<string | null>(null);
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
   const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const queryClient = useQueryClient();
   const setStatus = useSetInvoiceStatus();
   const updateProperty = useUpdateProperty();
+  const clearJob = useClearJob();
+  const restartJob = useRestartJob();
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -67,7 +71,16 @@ export default function PropertyDetail() {
 
   if (!data) return <div className="p-4 text-center text-muted-foreground">Property not found</div>;
 
-  const { property, stats, jobs, priceItems, contacts, expenses, agreements, invoices, upcomingVisits } = data;
+  const { property, stats, jobs, priceItems, contacts, expenses, agreements, invoices, upcomingVisits, crewPhotos } = data;
+  const activeJobs = jobs.filter((j) => !j.clearedAt);
+  const historyJobs = jobs.filter((j) => !!j.clearedAt);
+
+  const invalidateJobLists = () => {
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey() });
+  };
 
   const toggleInvoice = (invoiceId: string, next: "paid" | "sent") => {
     setStatus.mutate(
@@ -160,13 +173,20 @@ export default function PropertyDetail() {
 
       <div className="mb-[18px]">
         <SectionHeader title="Active Jobs" onAdd={() => setJobOpen(true)} />
-        {jobs.length > 0 ? (
+        {activeJobs.length > 0 ? (
           <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
-            {jobs.map((job, idx) => (
+            {activeJobs.map((job, idx) => (
               <div key={job.id} className={`py-[10px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
                 <div className="flex items-center gap-[10px] text-[14px]">
                   <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
-                    <div className="font-semibold truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
+                    <div className="font-semibold truncate flex items-center gap-[7px]">
+                      <span className="truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</span>
+                      {job.status === "complete" && (
+                        <span className="shrink-0 inline-flex items-center gap-[4px] text-[10.5px] font-display font-bold uppercase tracking-[0.08em] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-[8px] py-[2px]">
+                          <Check className="w-[10px] h-[10px]" /> Completed
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[12px] text-muted-foreground truncate">{job.description}</div>
                     {job.isRecurring && (
                       <div className="flex items-center gap-[5px] mt-[3px] text-[11.5px] font-semibold text-[var(--gold-dark)]">
@@ -212,6 +232,24 @@ export default function PropertyDetail() {
                     priceItems={priceItems}
                   />
                 )}
+                {job.status === "complete" && (
+                  <div className="flex items-center gap-[8px] mt-[8px]">
+                    <button
+                      disabled={clearJob.isPending}
+                      onClick={() => clearJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
+                      className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[rgba(23,24,28,0.05)] text-muted-foreground active:scale-[0.95] disabled:opacity-50"
+                    >
+                      <Archive className="w-[12px] h-[12px]" /> Clear to history
+                    </button>
+                    <button
+                      disabled={restartJob.isPending}
+                      onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
+                      className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[rgba(143,106,31,0.1)] text-[var(--gold-dark)] active:scale-[0.95] disabled:opacity-50"
+                    >
+                      <RotateCcw className="w-[12px] h-[12px]" /> Restart job
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -219,6 +257,42 @@ export default function PropertyDetail() {
           <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No jobs yet. Tap Add to create one.</div>
         )}
       </div>
+
+      {historyJobs.length > 0 && (
+        <div className="mb-[18px]">
+          <button
+            onClick={() => setHistoryOpen(!historyOpen)}
+            className="flex items-center gap-[6px] mb-[8px] mx-[2px] font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-muted-foreground active:scale-[0.97]"
+          >
+            <History className="w-[13px] h-[13px]" />
+            Job History · {historyJobs.length}
+            <ChevronDown className={`w-[13px] h-[13px] transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {historyOpen && (
+            <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+              {historyJobs.map((job, idx) => (
+                <div key={job.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
+                  <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
+                    <div className="font-semibold truncate text-muted-foreground">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
+                    <div className="text-[12px] text-muted-foreground truncate">
+                      {job.jobNo}{job.completedAt ? ` · Completed ${new Date(job.completedAt).toLocaleDateString()}` : ''}
+                    </div>
+                  </Link>
+                  <button
+                    disabled={restartJob.isPending}
+                    onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
+                    className="shrink-0 flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[rgba(143,106,31,0.1)] text-[var(--gold-dark)] active:scale-[0.95] disabled:opacity-50"
+                  >
+                    <RotateCcw className="w-[12px] h-[12px]" /> Restart
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <CrewPhotosSection photos={crewPhotos ?? []} showJob />
 
       <div className="mb-[18px]">
         <div className="flex items-center justify-between mb-[8px] mx-[2px]">

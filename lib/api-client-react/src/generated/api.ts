@@ -2953,6 +2953,148 @@ export const useCompleteJob = <TError = ErrorType<unknown>,
       return useMutation(getCompleteJobMutationOptions(options));
     }
 
+export const getClearJobUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/clear`
+}
+
+/**
+ * @summary Clear a completed job from the active list into job history
+ */
+export const clearJob = async (id: string, options?: RequestInit): Promise<Job> => {
+
+  return customFetch<Job>(getClearJobUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getClearJobMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof clearJob>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['clearJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearJob>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  clearJob(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClearJobMutationResult = NonNullable<Awaited<ReturnType<typeof clearJob>>>
+
+    export type ClearJobMutationError = ErrorType<Error>
+
+    /**
+ * @summary Clear a completed job from the active list into job history
+ */
+export const useClearJob = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof clearJob>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getClearJobMutationOptions(options));
+    }
+
+export const getRestartJobUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/restart`
+}
+
+/**
+ * @summary Restart a completed/cleared job — reopens it and returns it to the active list
+ */
+export const restartJob = async (id: string, options?: RequestInit): Promise<Job> => {
+
+  return customFetch<Job>(getRestartJobUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRestartJobMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restartJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof restartJob>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['restartJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof restartJob>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  restartJob(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RestartJobMutationResult = NonNullable<Awaited<ReturnType<typeof restartJob>>>
+
+    export type RestartJobMutationError = ErrorType<Error>
+
+    /**
+ * @summary Restart a completed/cleared job — reopens it and returns it to the active list
+ */
+export const useRestartJob = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restartJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof restartJob>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getRestartJobMutationOptions(options));
+    }
+
 export const getScheduleJobUrl = (id: string,) => {
 
 

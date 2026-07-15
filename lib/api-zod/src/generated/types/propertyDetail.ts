@@ -7,6 +7,7 @@
  */
 import type { Agreement } from './agreement';
 import type { Contact } from './contact';
+import type { CrewJobPhoto } from './crewJobPhoto';
 import type { Expense } from './expense';
 import type { Invoice } from './invoice';
 import type { Job } from './job';
@@ -25,4 +26,5 @@ export interface PropertyDetail {
   invoices: Invoice[];
   upcomingVisits: UpcomingVisit[];
   stats: PropertyStats;
+  crewPhotos?: CrewJobPhoto[];
 }

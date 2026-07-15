@@ -789,6 +789,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Job"
+  /jobs/{id}/clear:
+    post:
+      operationId: clearJob
+      tags: [jobs]
+      summary: Clear a completed job from the active list into job history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Job is not complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /jobs/{id}/restart:
+    post:
+      operationId: restartJob
+      tags: [jobs]
+      summary: Restart a completed/cleared job — reopens it and returns it to the active list
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Restarted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /jobs/{id}/schedule:
     post:
       operationId: scheduleJob
@@ -3187,6 +3241,22 @@ components:
             $ref: "#/components/schemas/UpcomingVisit"
         stats:
           $ref: "#/components/schemas/PropertyStats"
+        crewPhotos:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrewJobPhoto"
+    CrewJobPhoto:
+      type: object
+      required: [id, url, takenOn, jobId]
+      properties:
+        id: { type: string }
+        url: { type: string, description: "Relative API path to the image, e.g. /api/storage/objects/..." }
+        takenOn: { type: string }
+        note: { type: ["string", "null"] }
+        crewName: { type: ["string", "null"] }
+        jobId: { type: string }
+        jobNo: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
     UpcomingVisit:
       type: object
       required: [id, jobId, scheduledOn]
@@ -3496,6 +3566,7 @@ components:
         inspectionRequired: { type: ["boolean", "null"] }
         inspectionPassedAt: { type: ["string", "null"] }
         completedAt: { type: ["string", "null"] }
+        clearedAt: { type: ["string", "null"] }
         recapSentAt: { type: ["string", "null"] }
         warrantyUntil: { type: ["string", "null"] }
         scheduledOn: { type: ["string", "null"] }
@@ -3550,6 +3621,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Schedule"
+        crewPhotos:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrewJobPhoto"
     JobInput:
       type: object
       required: [propertyId, description]

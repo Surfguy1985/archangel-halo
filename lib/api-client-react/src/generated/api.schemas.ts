@@ -199,6 +199,8 @@ export interface Job {
   /** @nullable */
   completedAt?: string | null;
   /** @nullable */
+  clearedAt?: string | null;
+  /** @nullable */
   recapSentAt?: string | null;
   /** @nullable */
   warrantyUntil?: string | null;
@@ -317,6 +319,22 @@ export interface PropertyStats {
   expensesTotal: number;
 }
 
+export interface CrewJobPhoto {
+  id: string;
+  /** Relative API path to the image, e.g. /api/storage/objects/... */
+  url: string;
+  takenOn: string;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  crewName?: string | null;
+  jobId: string;
+  /** @nullable */
+  jobNo?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+}
+
 export interface PropertyDetail {
   property: Property;
   contacts: Contact[];
@@ -327,6 +345,7 @@ export interface PropertyDetail {
   invoices: Invoice[];
   upcomingVisits: UpcomingVisit[];
   stats: PropertyStats;
+  crewPhotos?: CrewJobPhoto[];
 }
 
 export interface PropertyInput {
@@ -639,6 +658,7 @@ export interface JobDetail {
   activities: Activity[];
   expenses: Expense[];
   schedules: Schedule[];
+  crewPhotos?: CrewJobPhoto[];
 }
 
 export type JobInputRecurrence = typeof JobInputRecurrence[keyof typeof JobInputRecurrence];

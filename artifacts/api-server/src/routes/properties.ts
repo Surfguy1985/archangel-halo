@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { crewPhotosForJobs } from "../lib/jobPhotos";
 import {
   db,
   propertiesTable,
@@ -247,6 +248,8 @@ router.get("/properties/:id", async (req, res): Promise<void> => {
       };
     });
 
+  const crewPhotos = await crewPhotosForJobs(rawJobs);
+
   res.json(
     GetPropertyResponse.parse({
       property: ser(property),
@@ -257,6 +260,7 @@ router.get("/properties/:id", async (req, res): Promise<void> => {
       agreements: serList(agreements),
       invoices: decoratedInvoices,
       upcomingVisits,
+      crewPhotos,
       stats: {
         owed,
         openJobs,
