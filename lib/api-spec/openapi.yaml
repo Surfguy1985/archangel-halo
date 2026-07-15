@@ -2046,6 +2046,13 @@ paths:
           required: false
           schema:
             type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
       responses:
         "200":
           description: Activities

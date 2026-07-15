@@ -2770,9 +2770,14 @@ export const DeleteNotificationParams = zod.object({
 export const DeleteNotificationResponse = zod.void()
 
 
+export const listActivitiesQueryLimitMax = 200;
+
+
+
 export const ListActivitiesQueryParams = zod.object({
   "entityType": zod.coerce.string().optional(),
-  "entityId": zod.coerce.string().optional()
+  "entityId": zod.coerce.string().optional(),
+  "limit": zod.coerce.number().min(1).max(listActivitiesQueryLimitMax).optional()
 })
 
 export const ListActivitiesResponseItem = zod.object({

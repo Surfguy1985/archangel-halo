@@ -2160,5 +2160,10 @@ status?: string;
 export type ListActivitiesParams = {
 entityType?: string;
 entityId?: string;
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
 };
 

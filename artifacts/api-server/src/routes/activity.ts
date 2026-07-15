@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db, notificationsTable, activitiesTable } from "@workspace/db";
 import {
   ListNotificationsResponse,
@@ -51,13 +51,17 @@ router.delete("/notifications/:id", async (req, res): Promise<void> => {
 });
 
 router.get("/activities", async (req, res): Promise<void> => {
-  const { entityType, entityId } = ListActivitiesQueryParams.parse(req.query);
-  let rows = await db
+  const { entityType, entityId, limit } = ListActivitiesQueryParams.parse(req.query);
+  const conditions = [
+    ...(entityType ? [eq(activitiesTable.entityType, entityType)] : []),
+    ...(entityId ? [eq(activitiesTable.entityId, entityId)] : []),
+  ];
+  const rows = await db
     .select()
     .from(activitiesTable)
-    .orderBy(desc(activitiesTable.createdAt));
-  if (entityType) rows = rows.filter((r) => r.entityType === entityType);
-  if (entityId) rows = rows.filter((r) => r.entityId === entityId);
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(activitiesTable.createdAt))
+    .limit(limit ?? 100);
   res.json(ListActivitiesResponse.parse(rows.map((r) => ser(r))));
 });
 

@@ -5,7 +5,7 @@ description: The "wipe all data" endpoint — what it clears, what it must never
 
 # Start-fresh / wipe-all-data
 
-Rule: POST /settings/reset deletes every operational table inside one transaction to give a clean slate, but must PRESERVE `business_settings` (company info) and `plaid_items` (real bank connection).
+Rule: POST /settings/reset deletes every operational table inside one transaction to give a clean slate, but must PRESERVE `business_settings` (company info), `plaid_items` (real bank connection), and `activities` (permanent activity log — see halo-activity-log.md).
 
 **Why:** the user wants demo/sample data gone without re-entering company branding or reconnecting their bank.
 

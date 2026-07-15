@@ -121,7 +121,8 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(leadsTable);
     await tx.delete(leadCampaignsTable);
     await tx.delete(notificationsTable);
-    await tx.delete(activitiesTable);
+    // Intentionally preserved: activitiesTable — the activity log is a
+    // permanent history that survives data wipes.
     await tx.delete(voiceLogsTable);
     await tx.delete(importUploadsTable);
     await tx.delete(inventoryItemsTable);
@@ -135,6 +136,12 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(propertiesTable);
     // Intentionally preserved: businessSettingsTable (company info),
     // plaidItemsTable (real bank connection).
+    await tx.insert(activitiesTable).values({
+      entityType: "system",
+      entityId: "reset",
+      kind: "note",
+      body: "All data wiped — fresh start",
+    });
   });
   res.json(ResetAllDataResponse.parse({ ok: true }));
 });

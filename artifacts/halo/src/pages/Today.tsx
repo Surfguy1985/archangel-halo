@@ -1,10 +1,12 @@
-import { useGetToday } from "@workspace/api-client-react";
+import { useGetToday, useListActivities } from "@workspace/api-client-react";
 import { useState } from "react";
+import { History } from "lucide-react";
 import { BriefCard, FeedCard } from "@/components/FeedCard";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
 
 export default function Today() {
   const { data: today, isLoading } = useGetToday();
+  const { data: activities } = useListActivities({ limit: 10 });
   const [invoiceJobId, setInvoiceJobId] = useState<string | null>(null);
 
   if (isLoading || !today) {
@@ -53,6 +55,29 @@ export default function Today() {
             <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[rgba(23,24,28,0.08)] text-[var(--ink2)] text-[11px] grid place-items-center tracking-normal">{weekCards.length}</span>
           </div>
           {weekCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
+        </>
+      )}
+
+      {(activities?.length ?? 0) > 0 && (
+        <>
+          <div className="flex items-center gap-[8px] mx-[2px] mt-[20px] mb-[9px] font-display font-semibold text-[11.5px] tracking-[0.2em] uppercase text-muted-foreground">
+            <History className="w-[13px] h-[13px]" /> Activity Log
+          </div>
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+            {activities!.slice(0, 10).map((a, idx) => (
+              <div key={a.id} className={`py-[10px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
+                <div className="text-[13px] leading-snug">{a.body || a.kind}</div>
+                {a.createdAt && (
+                  <div className="text-[11px] text-muted-foreground mt-[2px]">
+                    {new Date(a.createdAt).toLocaleDateString()} · {new Date(a.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="text-[11px] text-muted-foreground mx-[2px] mt-[6px] mb-[4px]">
+            This log is permanent — it stays even after a data wipe.
+          </div>
         </>
       )}
 

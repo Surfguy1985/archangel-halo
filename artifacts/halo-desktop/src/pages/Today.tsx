@@ -1,7 +1,7 @@
-import { useGetToday, useRefreshBrief, useGetQueues, useAskHalo, getGetTodayQueryKey } from "@workspace/api-client-react";
+import { useGetToday, useRefreshBrief, useGetQueues, useAskHalo, useListActivities, getGetTodayQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, ArrowRight, RefreshCw, Send, Loader2, X } from "lucide-react";
+import { Sparkles, ArrowRight, RefreshCw, Send, Loader2, X, History } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +29,7 @@ function entityRoute(entityType?: string | null, entityId?: string | null): stri
 export default function Today() {
   const { data: today, isLoading } = useGetToday();
   const { data: queues } = useGetQueues();
+  const { data: activities } = useListActivities({ limit: 12 });
   const refreshBrief = useRefreshBrief();
   const askHalo = useAskHalo();
   const queryClient = useQueryClient();
@@ -220,6 +221,39 @@ export default function Today() {
               ))}
             </div>
           </div>
+
+          {/* Activity Log */}
+          <Card className="border-[var(--hairline2)] bg-card shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-display flex items-center gap-2">
+                <History className="w-4 h-4 text-muted-foreground" /> Activity Log
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(activities?.length ?? 0) > 0 ? (
+                <div className="space-y-3">
+                  {activities!.slice(0, 12).map((a) => (
+                    <div key={a.id} className="flex items-start gap-2 text-sm">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--gold)] mt-1.5 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-[var(--ink)] leading-snug">{a.body || a.kind}</div>
+                        {a.createdAt && (
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(a.createdAt).toLocaleDateString()} · {new Date(a.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+              )}
+              <p className="mt-3 text-[11px] text-muted-foreground">
+                This log is permanent — it stays even after a data wipe.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
