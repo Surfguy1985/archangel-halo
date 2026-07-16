@@ -59,6 +59,17 @@ export const jobsTable = pgTable("jobs", {
     .defaultNow(),
 });
 
+export const recapSharesTable = pgTable("recap_shares", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  jobId: uuid("job_id").notNull(),
+  token: text("token").notNull().unique(),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const jobBroadcastsTable = pgTable("job_broadcasts", {
   id: uuid("id").primaryKey().defaultRandom(),
   jobId: uuid("job_id").notNull(),

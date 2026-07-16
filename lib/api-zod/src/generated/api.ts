@@ -1597,6 +1597,47 @@ export const SendJobRecapResponse = zod.object({
 
 
 /**
+ * @summary Create a public live-link recap page for a job and stamp recapSentAt
+ */
+export const CreateRecapShareParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateRecapShareBody = zod.object({
+  "subject": zod.string(),
+  "body": zod.string()
+})
+
+export const CreateRecapShareResponse = zod.object({
+  "token": zod.string()
+})
+
+
+/**
+ * @summary Public branded recap view with details and photos
+ */
+export const GetRecapShareParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetRecapShareResponse = zod.object({
+  "subject": zod.string(),
+  "body": zod.string(),
+  "jobNo": zod.string(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "sentOn": zod.string().nullish(),
+  "photos": zod.array(zod.object({
+  "url": zod.string(),
+  "label": zod.string()
+}))
+})
+
+
+/**
  * @summary Job board cards (job + property price list + photos + broadcast statuses)
  */
 export const ListJobBoardResponseItem = zod.object({

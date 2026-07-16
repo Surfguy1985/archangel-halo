@@ -7,6 +7,7 @@ import {
   crewInvoicesTable,
   crewPaymentsTable,
   photoSharesTable,
+  recapSharesTable,
   crewPhotosTable,
   crewDocumentsTable,
   crewCheckinsTable,
@@ -104,6 +105,7 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(crewInvoicesTable);
     await tx.delete(crewPaymentsTable);
     await tx.delete(photoSharesTable);
+    await tx.delete(recapSharesTable);
     await tx.delete(crewPhotosTable);
     await tx.delete(crewDocumentsTable);
     await tx.delete(crewCheckinsTable);

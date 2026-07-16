@@ -5,7 +5,7 @@ import {
   getGetTodayQueryKey,
   getGetCalendarQueryKey,
   useDraftJobRecap,
-  useSendJobRecap,
+  useCreateRecapShare,
   useScheduleJob,
   useCompleteJob,
   useClearJob,
@@ -86,7 +86,7 @@ export default function JobDetail() {
   const [crewLeaderId, setCrewLeaderId] = useState("");
 
   const draft = useDraftJobRecap();
-  const sendRecap = useSendJobRecap();
+  const createShare = useCreateRecapShare();
   const schedule = useScheduleJob();
   const complete = useCompleteJob();
   const clearJob = useClearJob();
@@ -147,16 +147,27 @@ export default function JobDetail() {
   };
 
   const send = () => {
-    sendRecap.mutate(
+    createShare.mutate(
       { id, data: { subject, body: recapBody } },
       {
-        onSuccess: () => {
+        onSuccess: async (share) => {
           invalidateJob();
           setRecapOpen(false);
-          toast({ title: "Recap sent" });
+          const url = `${window.location.origin}/recap/${share.token}`;
+          const message = `${subject}\n\n${recapBody}\n\nFull recap with photos: ${url}`;
+          try {
+            await navigator.clipboard.writeText(url);
+            toast({
+              title: "Recap link copied",
+              description: "Opening Messages with the prefilled recap…",
+            });
+          } catch {
+            toast({ title: "Recap link ready", description: url });
+          }
+          window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
         },
         onError: (e) =>
-          toast({ title: "Couldn't send", description: e.message, variant: "destructive" }),
+          toast({ title: "Couldn't create recap link", description: e.message, variant: "destructive" }),
       },
     );
   };
@@ -384,10 +395,10 @@ export default function JobDetail() {
                           <button onClick={() => setRecapOpen(false)} className="text-sm font-semibold text-muted-foreground px-3 py-2">Cancel</button>
                           <button
                             onClick={send}
-                            disabled={sendRecap.isPending || !subject || !recapBody}
+                            disabled={createShare.isPending || !subject || !recapBody}
                             className="ml-auto flex items-center gap-2 px-4 py-2 rounded-md bg-[var(--gold)] text-white text-sm font-semibold disabled:opacity-50 hover:bg-[var(--gold-dark)] transition-colors"
                           >
-                            <Send className="w-4 h-4" /> {sendRecap.isPending ? "Sending…" : "Send recap"}
+                            <Send className="w-4 h-4" /> {createShare.isPending ? "Preparing…" : "Send recap"}
                           </button>
                         </div>
                       </>

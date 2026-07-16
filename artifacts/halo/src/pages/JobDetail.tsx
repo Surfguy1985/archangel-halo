@@ -2,7 +2,7 @@ import {
   useGetJob,
   getGetJobQueryKey,
   useDraftJobRecap,
-  useSendJobRecap,
+  useCreateRecapShare,
   useGetProperty,
   getGetPropertyQueryKey,
   useUpdateJob,
@@ -33,7 +33,7 @@ export default function JobDetail() {
   const [subject, setSubject] = useState("");
   const [recapBody, setRecapBody] = useState("");
   const draft = useDraftJobRecap();
-  const sendRecap = useSendJobRecap();
+  const createShare = useCreateRecapShare();
   const updateJob = useUpdateJob();
   const updateProperty = useUpdateProperty();
   const restartJob = useRestartJob();
@@ -65,12 +65,20 @@ export default function JobDetail() {
   };
 
   const send = () => {
-    sendRecap.mutate(
+    createShare.mutate(
       { id, data: { subject, body: recapBody } },
       {
-        onSuccess: () => {
+        onSuccess: async (share) => {
           queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
           setRecapOpen(false);
+          const url = `${window.location.origin}/recap/${share.token}`;
+          const message = `${subject}\n\n${recapBody}\n\nFull recap with photos: ${url}`;
+          try {
+            await navigator.clipboard.writeText(url);
+          } catch {
+            // clipboard unavailable — the link is still in the message
+          }
+          window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
         },
       },
     );
@@ -287,7 +295,7 @@ export default function JobDetail() {
                     </div>
                     {(crewPhotos?.length ?? 0) > 0 && (
                       <div className="text-[12px] text-muted-foreground">
-                        {crewPhotos!.length} photo{crewPhotos!.length === 1 ? "" : "s"} from the crew will be included in the branded email automatically.
+                        {crewPhotos!.length} photo{crewPhotos!.length === 1 ? "" : "s"} from the crew will be included on the branded recap page automatically.
                       </div>
                     )}
                     <div className="flex items-center gap-[8px]">
@@ -299,11 +307,11 @@ export default function JobDetail() {
                       </button>
                       <button
                         onClick={send}
-                        disabled={sendRecap.isPending || !subject || !recapBody}
+                        disabled={createShare.isPending || !subject || !recapBody}
                         className="ml-auto flex items-center gap-[7px] px-[16px] py-[9px] rounded-[12px] bg-[var(--gold,#8f6a1f)] text-white text-[14px] font-semibold disabled:opacity-50 transition-transform active:scale-[0.98]"
                       >
                         <Send className="w-[15px] h-[15px]" />
-                        {sendRecap.isPending ? "Sending…" : "Send recap"}
+                        {createShare.isPending ? "Preparing…" : "Send recap"}
                       </button>
                     </div>
                   </>

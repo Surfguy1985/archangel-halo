@@ -822,6 +822,39 @@ export interface RecapSendInput {
   to?: string | null;
 }
 
+export interface RecapShareInput {
+  subject: string;
+  body: string;
+}
+
+export interface RecapShare {
+  token: string;
+}
+
+export interface RecapSharePhoto {
+  url: string;
+  label: string;
+}
+
+export interface RecapShareView {
+  subject: string;
+  body: string;
+  jobNo: string;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  crewName?: string | null;
+  /** @nullable */
+  sentOn?: string | null;
+  photos: RecapSharePhoto[];
+}
+
 export type CalendarEventKind = typeof CalendarEventKind[keyof typeof CalendarEventKind];
 
 

@@ -1091,6 +1091,60 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Job"
+  /jobs/{id}/recap/share:
+    post:
+      operationId: createRecapShare
+      tags: [jobs]
+      summary: Create a public live-link recap page for a job and stamp recapSentAt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecapShareInput"
+      responses:
+        "201":
+          description: Share link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecapShare"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /recap-shares/{token}:
+    get:
+      operationId: getRecapShare
+      tags: [jobs]
+      summary: Public branded recap view with details and photos
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Recap
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecapShareView"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /job-board:
     get:
@@ -3912,6 +3966,40 @@ components:
         subject: { type: string }
         body: { type: string }
         to: { type: ["string", "null"] }
+    RecapShareInput:
+      type: object
+      required: [subject, body]
+      properties:
+        subject: { type: string }
+        body: { type: string }
+    RecapShare:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+    RecapSharePhoto:
+      type: object
+      required: [url, label]
+      properties:
+        url: { type: string }
+        label: { type: string }
+    RecapShareView:
+      type: object
+      required: [subject, body, jobNo, photos]
+      properties:
+        subject: { type: string }
+        body: { type: string }
+        jobNo: { type: string }
+        propertyName: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        completedAt: { type: ["string", "null"] }
+        crewName: { type: ["string", "null"] }
+        sentOn: { type: ["string", "null"] }
+        photos:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecapSharePhoto"
 
     CalendarEvent:
       type: object

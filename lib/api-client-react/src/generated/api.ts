@@ -146,6 +146,9 @@ import type {
   Queue,
   RecapDraft,
   RecapSendInput,
+  RecapShare,
+  RecapShareInput,
+  RecapShareView,
   ReportInsights,
   ReverseGeocodeParams,
   ReverseGeocodeResult,
@@ -3875,6 +3878,155 @@ export const useSendJobRecap = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getSendJobRecapMutationOptions(options));
     }
+
+export const getCreateRecapShareUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/recap/share`
+}
+
+/**
+ * @summary Create a public live-link recap page for a job and stamp recapSentAt
+ */
+export const createRecapShare = async (id: string,
+    recapShareInput: RecapShareInput, options?: RequestInit): Promise<RecapShare> => {
+
+  return customFetch<RecapShare>(getCreateRecapShareUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(recapShareInput)
+  }
+);}
+
+
+
+
+
+export const getCreateRecapShareMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRecapShare>>, TError,{id: string;data: BodyType<RecapShareInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRecapShare>>, TError,{id: string;data: BodyType<RecapShareInput>}, TContext> => {
+
+const mutationKey = ['createRecapShare'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRecapShare>>, {id: string;data: BodyType<RecapShareInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createRecapShare(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRecapShareMutationResult = NonNullable<Awaited<ReturnType<typeof createRecapShare>>>
+    export type CreateRecapShareMutationBody = BodyType<RecapShareInput>
+    export type CreateRecapShareMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create a public live-link recap page for a job and stamp recapSentAt
+ */
+export const useCreateRecapShare = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRecapShare>>, TError,{id: string;data: BodyType<RecapShareInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createRecapShare>>,
+        TError,
+        {id: string;data: BodyType<RecapShareInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRecapShareMutationOptions(options));
+    }
+
+export const getGetRecapShareUrl = (token: string,) => {
+
+
+
+
+  return `/api/recap-shares/${token}`
+}
+
+/**
+ * @summary Public branded recap view with details and photos
+ */
+export const getRecapShare = async (token: string, options?: RequestInit): Promise<RecapShareView> => {
+
+  return customFetch<RecapShareView>(getGetRecapShareUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRecapShareQueryKey = (token: string,) => {
+    return [
+    `/api/recap-shares/${token}`
+    ] as const;
+    }
+
+
+export const getGetRecapShareQueryOptions = <TData = Awaited<ReturnType<typeof getRecapShare>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRecapShare>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRecapShareQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRecapShare>>> = ({ signal }) => getRecapShare(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRecapShare>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRecapShareQueryResult = NonNullable<Awaited<ReturnType<typeof getRecapShare>>>
+export type GetRecapShareQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Public branded recap view with details and photos
+ */
+
+export function useGetRecapShare<TData = Awaited<ReturnType<typeof getRecapShare>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRecapShare>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRecapShareQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListJobBoardUrl = () => {
 

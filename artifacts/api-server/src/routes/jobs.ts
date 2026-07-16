@@ -1,8 +1,10 @@
 import { Router, type IRouter } from "express";
+import { randomBytes } from "node:crypto";
 import { desc, eq } from "drizzle-orm";
 import {
   db,
   jobsTable,
+  recapSharesTable,
   crewsTable,
   jobBroadcastsTable,
   schedulesTable,
@@ -42,6 +44,11 @@ import {
   SendJobRecapParams,
   SendJobRecapBody,
   SendJobRecapResponse,
+  CreateRecapShareParams,
+  CreateRecapShareBody,
+  CreateRecapShareResponse,
+  GetRecapShareParams,
+  GetRecapShareResponse,
   ListCrewsResponse,
   CreateCrewBody,
   CreateCrewResponse,
@@ -204,6 +211,9 @@ router.delete("/jobs/:id", async (req, res): Promise<void> => {
     await tx
       .delete(jobLineItemsTable)
       .where(eq(jobLineItemsTable.jobId, id));
+    await tx
+      .delete(recapSharesTable)
+      .where(eq(recapSharesTable.jobId, id));
     await tx.delete(jobsTable).where(eq(jobsTable.id, id));
     return { status: 200 as const };
   });
@@ -572,6 +582,101 @@ function recapShell(opts: {
 </html>`;
 }
 
+async function gatherRecapPhotos(
+  jobId: string,
+  crewPhotos: CrewJobPhoto[],
+): Promise<{ url: string; label: string }[]> {
+  const photoActs = await db
+    .select()
+    .from(activitiesTable)
+    .where(eq(activitiesTable.entityId, jobId));
+  const photos: { url: string; label: string }[] = [];
+  for (const a of photoActs) {
+    if (!a.storagePath) continue;
+    if (a.kind === "photo_before")
+      photos.push({ url: `/api/storage${a.storagePath}`, label: "Before" });
+  }
+  for (const a of photoActs) {
+    if (!a.storagePath) continue;
+    if (a.kind === "photo_after")
+      photos.push({ url: `/api/storage${a.storagePath}`, label: "After" });
+  }
+  for (const p of crewPhotos) {
+    photos.push({
+      url: p.url,
+      label: p.crewName ? `On site · ${p.crewName}` : "On site",
+    });
+  }
+  return photos;
+}
+
+router.post("/jobs/:id/recap/share", async (req, res): Promise<void> => {
+  const { id } = CreateRecapShareParams.parse(req.params);
+  const body = CreateRecapShareBody.parse(req.body);
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  const token = randomBytes(18).toString("base64url");
+  const [row] = await db
+    .insert(recapSharesTable)
+    .values({ jobId: id, token, subject: body.subject, body: body.body })
+    .returning();
+  await db
+    .update(jobsTable)
+    .set({ recapSentAt: new Date() })
+    .where(eq(jobsTable.id, id));
+  await db.insert(activitiesTable).values({
+    entityType: "job",
+    entityId: id,
+    kind: "note",
+    body: `Recap live link created: ${body.subject}`,
+  });
+  res.status(201).json(CreateRecapShareResponse.parse({ token: row.token }));
+});
+
+router.get("/recap-shares/:token", async (req, res): Promise<void> => {
+  const { token } = GetRecapShareParams.parse(req.params);
+  const [share] = await db
+    .select()
+    .from(recapSharesTable)
+    .where(eq(recapSharesTable.token, token));
+  if (!share) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const ctx = await gatherRecapContext(share.jobId);
+  if (!ctx) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const { job, prop, crewPhotos } = ctx;
+  const photos = await gatherRecapPhotos(share.jobId, crewPhotos as CrewJobPhoto[]);
+  let crewName: string | null = null;
+  if (job.crewLeaderId) {
+    const [crew] = await db
+      .select()
+      .from(crewsTable)
+      .where(eq(crewsTable.id, job.crewLeaderId));
+    crewName = crew?.name ?? null;
+  }
+  res.json(
+    GetRecapShareResponse.parse({
+      subject: share.subject,
+      body: share.body,
+      jobNo: job.jobNo,
+      propertyName: prop?.name ?? null,
+      unitNo: job.unitNo ?? null,
+      category: job.category ?? null,
+      completedAt: job.completedAt ? job.completedAt.toISOString() : null,
+      crewName,
+      sentOn: share.createdAt ? share.createdAt.toISOString() : null,
+      photos,
+    }),
+  );
+});
+
 router.post("/jobs/:id/recap/send", async (req, res): Promise<void> => {
   const { id } = SendJobRecapParams.parse(req.params);
   const body = SendJobRecapBody.parse(req.body);
@@ -596,27 +701,7 @@ router.post("/jobs/:id/recap/send", async (req, res): Promise<void> => {
     });
     return;
   }
-  const photoActs = await db
-    .select()
-    .from(activitiesTable)
-    .where(eq(activitiesTable.entityId, id));
-  const photos: { url: string; label: string }[] = [];
-  for (const a of photoActs) {
-    if (!a.storagePath) continue;
-    if (a.kind === "photo_before")
-      photos.push({ url: `/api/storage${a.storagePath}`, label: "Before" });
-  }
-  for (const a of photoActs) {
-    if (!a.storagePath) continue;
-    if (a.kind === "photo_after")
-      photos.push({ url: `/api/storage${a.storagePath}`, label: "After" });
-  }
-  for (const p of crewPhotos as CrewJobPhoto[]) {
-    photos.push({
-      url: p.url,
-      label: p.crewName ? `On site · ${p.crewName}` : "On site",
-    });
-  }
+  const photos = await gatherRecapPhotos(id, crewPhotos as CrewJobPhoto[]);
   const html = recapShell({
     subject: body.subject,
     body: body.body,
