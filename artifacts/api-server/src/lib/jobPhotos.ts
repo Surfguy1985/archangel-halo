@@ -54,23 +54,44 @@ export async function crewPhotosForJobs(
       if (!pairToJob.has(key)) pairToJob.set(key, j.id);
     }
   }
-  if (pairToJob.size === 0) return [];
-
-  const crewIds = [...new Set([...pairToJob.keys()].map((k) => k.split("|")[0]))];
-  const [photos, crews] = await Promise.all([
+  const crewIds = [
+    ...new Set([...pairToJob.keys()].map((k) => k.split("|")[0])),
+  ];
+  const [taggedPhotos, inferredPhotos, crews] = await Promise.all([
     db
       .select()
       .from(crewPhotosTable)
-      .where(inArray(crewPhotosTable.crewId, crewIds)),
-    db.select().from(crewsTable).where(inArray(crewsTable.id, crewIds)),
+      .where(inArray(crewPhotosTable.jobId, jobIds)),
+    crewIds.length > 0
+      ? db
+          .select()
+          .from(crewPhotosTable)
+          .where(inArray(crewPhotosTable.crewId, crewIds))
+      : Promise.resolve([]),
+    db.select().from(crewsTable),
   ]);
   const crewName = new Map(crews.map((c) => [c.id, c.name]));
   const jobById = new Map(jobs.map((j) => [j.id, j]));
 
-  const out: CrewJobPhoto[] = [];
-  for (const p of photos) {
+  const seen = new Set<string>();
+  const photos: { photo: (typeof taggedPhotos)[number]; jobId: string }[] = [];
+  for (const p of taggedPhotos) {
+    if (!p.jobId || seen.has(p.id)) continue;
+    seen.add(p.id);
+    photos.push({ photo: p, jobId: p.jobId });
+  }
+  for (const p of inferredPhotos) {
+    if (seen.has(p.id)) continue;
+    // Photos explicitly tagged to some other job never fall back to inference.
+    if (p.jobId) continue;
     const jobId = pairToJob.get(`${p.crewId}|${p.takenOn}`);
     if (!jobId) continue;
+    seen.add(p.id);
+    photos.push({ photo: p, jobId });
+  }
+
+  const out: CrewJobPhoto[] = [];
+  for (const { photo: p, jobId } of photos) {
     const job = jobById.get(jobId);
     if (!job) continue;
     out.push({

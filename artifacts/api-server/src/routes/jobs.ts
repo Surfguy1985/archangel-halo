@@ -602,9 +602,10 @@ async function gatherRecapPhotos(
       photos.push({ url: `/api/storage${a.storagePath}`, label: "After" });
   }
   for (const p of crewPhotos) {
+    const base = p.note?.trim() || "On site";
     photos.push({
       url: p.url,
-      label: p.crewName ? `On site · ${p.crewName}` : "On site",
+      label: p.crewName ? `${base} · ${p.crewName}` : base,
     });
   }
   return photos;
