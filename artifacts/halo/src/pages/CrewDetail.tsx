@@ -789,14 +789,34 @@ function DailyActivitySection({
     "font-display font-bold text-[11px] tracking-[0.14em] uppercase text-muted-foreground mb-[12px] flex items-center gap-[6px]";
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-  const groups = useMemo(() => {
-    const map = new Map<string, CrewPhoto[]>();
+  const jobGroups = useMemo(() => {
+    const map = new Map<
+      string,
+      { label: string; days: Map<string, CrewPhoto[]> }
+    >();
     for (const p of photos ?? []) {
-      const arr = map.get(p.takenOn) ?? [];
+      const key = p.jobId ?? "none";
+      const g = map.get(key) ?? {
+        label: p.jobLabel ?? (p.jobId ? "Job" : "General photos"),
+        days: new Map<string, CrewPhoto[]>(),
+      };
+      const arr = g.days.get(p.takenOn) ?? [];
       arr.push(p);
-      map.set(p.takenOn, arr);
+      g.days.set(p.takenOn, arr);
+      map.set(key, g);
     }
-    return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+    return Array.from(map.entries())
+      .sort((a, b) => {
+        if (a[0] === "none") return 1;
+        if (b[0] === "none") return -1;
+        return 0;
+      })
+      .map(([key, g]) => ({
+        key,
+        label: g.label,
+        count: Array.from(g.days.values()).reduce((n, arr) => n + arr.length, 0),
+        days: Array.from(g.days.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1)),
+      }));
   }, [photos]);
 
   const onShare = async (day: string) => {
@@ -827,47 +847,56 @@ function DailyActivitySection({
       <div className={sectionTitle}>
         <Camera className="w-[13px] h-[13px]" /> Daily activity
       </div>
-      {groups.length === 0 ? (
+      {jobGroups.length === 0 ? (
         <div className="text-[12.5px] text-muted-foreground py-[6px] text-center">
           No photos yet. Photos the crew sends from their portal show up here.
         </div>
       ) : (
-        <div className="flex flex-col gap-[16px]">
-          {groups.map(([day, dayPhotos]) => (
-            <div key={day}>
-              <div className="flex items-center justify-between mb-[8px] gap-[8px]">
-                <div className="text-[13px] font-semibold min-w-0">
-                  {formatDayLabel(day)}
-                  <span className="text-muted-foreground font-normal">
-                    {" "}
-                    · {dayPhotos.length} photo{dayPhotos.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-                <button
-                  onClick={() => onShare(day)}
-                  disabled={sharingDay === day}
-                  className="flex items-center gap-[5px] text-[11px] font-bold rounded-full border border-border px-[10px] py-[6px] shrink-0 transition-transform active:scale-[0.96] disabled:opacity-60"
-                >
-                  <Share2 className="w-[12px] h-[12px]" />
-                  {sharingDay === day ? "Preparing…" : "Share link"}
-                </button>
+        <div className="flex flex-col gap-[18px]">
+          {jobGroups.map((jg) => (
+            <div key={jg.key}>
+              <div className="text-[13.5px] font-display font-bold mb-[9px]">
+                {jg.label}
+                <span className="text-muted-foreground font-normal font-sans text-[12.5px]">
+                  {" "}
+                  · {jg.count} photo{jg.count === 1 ? "" : "s"}
+                </span>
               </div>
-              <div className="grid grid-cols-3 gap-[6px]">
-                {dayPhotos.map((p) => (
-                  <a
-                    key={p.id}
-                    href={`${base}/api/storage${p.storagePath}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block aspect-square rounded-[10px] overflow-hidden bg-[var(--paper)] border border-border"
-                  >
-                    <img
-                      src={`${base}/api/storage${p.storagePath}`}
-                      alt={p.note || "Crew photo"}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  </a>
+              <div className="flex flex-col gap-[12px]">
+                {jg.days.map(([day, dayPhotos]) => (
+                  <div key={`${jg.key}-${day}`}>
+                    <div className="flex items-center justify-between mb-[8px] gap-[8px]">
+                      <div className="text-[12.5px] font-semibold min-w-0 text-muted-foreground">
+                        {formatDayLabel(day)}
+                      </div>
+                      <button
+                        onClick={() => onShare(day)}
+                        disabled={sharingDay === day}
+                        className="flex items-center gap-[5px] text-[11px] font-bold rounded-full border border-border px-[10px] py-[6px] shrink-0 transition-transform active:scale-[0.96] disabled:opacity-60"
+                      >
+                        <Share2 className="w-[12px] h-[12px]" />
+                        {sharingDay === day ? "Preparing…" : "Share link"}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-[6px]">
+                      {dayPhotos.map((p) => (
+                        <a
+                          key={p.id}
+                          href={`${base}/api/storage${p.storagePath}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block aspect-square rounded-[10px] overflow-hidden bg-[var(--paper)] border border-border"
+                        >
+                          <img
+                            src={`${base}/api/storage${p.storagePath}`}
+                            alt={p.note || "Crew photo"}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

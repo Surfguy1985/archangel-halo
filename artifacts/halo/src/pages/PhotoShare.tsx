@@ -70,23 +70,54 @@ export default function PhotoShare() {
             No photos for this day.
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-[8px]">
-            {data.photos.map((p) => (
-              <a
-                key={p.id}
-                href={`${base}/api/storage${p.storagePath}`}
-                target="_blank"
-                rel="noreferrer"
-                className="block aspect-square rounded-[12px] overflow-hidden bg-card border border-border shadow-[var(--shadow)]"
-              >
-                <img
-                  src={`${base}/api/storage${p.storagePath}`}
-                  alt={p.note || "Crew photo"}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              </a>
-            ))}
+          <div className="flex flex-col gap-[18px]">
+            {(() => {
+              const map = new Map<string, { label: string; photos: typeof data.photos }>();
+              for (const p of data.photos) {
+                const key = p.jobId ?? "none";
+                const g = map.get(key) ?? {
+                  label: p.jobLabel ?? (p.jobId ? "Job" : "General photos"),
+                  photos: [],
+                };
+                g.photos.push(p);
+                map.set(key, g);
+              }
+              return Array.from(map.entries())
+                .sort((a, b) => {
+                  if (a[0] === "none") return 1;
+                  if (b[0] === "none") return -1;
+                  return 0;
+                })
+                .map(([key, g]) => (
+                  <div key={key}>
+                    <div className="text-[13.5px] font-display font-bold mb-[8px]">
+                      {g.label}
+                      <span className="text-muted-foreground font-normal font-sans text-[12.5px]">
+                        {" "}
+                        · {g.photos.length} photo{g.photos.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-[8px]">
+                      {g.photos.map((p) => (
+                        <a
+                          key={p.id}
+                          href={`${base}/api/storage${p.storagePath}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block aspect-square rounded-[12px] overflow-hidden bg-card border border-border shadow-[var(--shadow)]"
+                        >
+                          <img
+                            src={`${base}/api/storage${p.storagePath}`}
+                            alt={p.note || "Crew photo"}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ));
+            })()}
           </div>
         )}
       </main>

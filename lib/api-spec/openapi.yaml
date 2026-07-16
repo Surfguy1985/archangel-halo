@@ -2711,6 +2711,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /portal/{token}/jobs:
+    get:
+      operationId: listPortalJobs
+      tags: [portal]
+      summary: Jobs assigned to this crew, for tagging photos
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PortalJob"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /portal/{token}/photos:
     get:
       operationId: listPortalPhotos
@@ -4804,12 +4829,25 @@ components:
           pattern: "^\\d{4}-\\d{2}-\\d{2}$"
           description: Local date (YYYY-MM-DD) on the crew's device
         note: { type: ["string", "null"] }
+        jobId: { type: ["string", "null"] }
+    PortalJob:
+      type: object
+      required: [id, jobNo, label]
+      properties:
+        id: { type: string }
+        jobNo: { type: string }
+        label: { type: string }
+        propertyName: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        status: { type: ["string", "null"] }
     CrewPhoto:
       type: object
       required: [id, crewId, storagePath, takenOn]
       properties:
         id: { type: string }
         crewId: { type: string }
+        jobId: { type: ["string", "null"] }
+        jobLabel: { type: ["string", "null"] }
         storagePath: { type: string }
         note: { type: ["string", "null"] }
         takenOn: { type: string }

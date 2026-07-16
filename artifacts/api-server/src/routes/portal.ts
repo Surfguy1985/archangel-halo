@@ -41,6 +41,8 @@ import {
   UploadPortalPhotoParams,
   UploadPortalPhotoBody,
   UploadPortalPhotoResponse,
+  ListPortalJobsParams,
+  ListPortalJobsResponse,
   GetPortalW9Params,
   GetPortalW9Response,
   SubmitPortalW9Params,
@@ -62,6 +64,7 @@ import {
   MarkPortalSeenResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
+import { buildJobLabel, jobLabelMap } from "../lib/jobLabels";
 
 const router: IRouter = Router();
 
@@ -659,6 +662,75 @@ router.post("/portal/:token/documents", async (req, res): Promise<void> => {
   res.status(201).json(UploadPortalDocumentResponse.parse(ser(row)));
 });
 
+async function jobBelongsToCrew(
+  jobId: string,
+  crewId: string,
+): Promise<boolean> {
+  const [direct] = await db
+    .select({ id: jobsTable.id })
+    .from(jobsTable)
+    .where(and(eq(jobsTable.id, jobId), eq(jobsTable.crewLeaderId, crewId)))
+    .limit(1);
+  if (direct) return true;
+  const [sched] = await db
+    .select({ id: schedulesTable.id })
+    .from(schedulesTable)
+    .where(
+      and(
+        eq(schedulesTable.jobId, jobId),
+        eq(schedulesTable.crewLeaderId, crewId),
+      ),
+    )
+    .limit(1);
+  return !!sched;
+}
+
+router.get("/portal/:token/jobs", async (req, res): Promise<void> => {
+  const { token } = ListPortalJobsParams.parse(req.params);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const schedules = await db
+    .select()
+    .from(schedulesTable)
+    .where(eq(schedulesTable.crewLeaderId, crew.id));
+  const directJobs = await db
+    .select()
+    .from(jobsTable)
+    .where(eq(jobsTable.crewLeaderId, crew.id));
+  const jobIds = Array.from(
+    new Set([...schedules.map((s) => s.jobId), ...directJobs.map((j) => j.id)]),
+  );
+  const jobs = jobIds.length
+    ? await db.select().from(jobsTable).where(inArray(jobsTable.id, jobIds))
+    : [];
+  const propIds = Array.from(new Set(jobs.map((j) => j.propertyId)));
+  const props = propIds.length
+    ? await db
+        .select()
+        .from(propertiesTable)
+        .where(inArray(propertiesTable.id, propIds))
+    : [];
+  const propName = new Map(props.map((p) => [p.id, p.name]));
+  const sorted = jobs
+    .filter((j) => j.status !== "cancelled")
+    .sort((a, b) => (b.scheduledOn ?? "").localeCompare(a.scheduledOn ?? ""));
+  res.json(
+    ListPortalJobsResponse.parse(
+      sorted.map((j) => ({
+        id: j.id,
+        jobNo: j.jobNo,
+        label: buildJobLabel(j.jobNo, propName.get(j.propertyId), j.unitNo),
+        propertyName: propName.get(j.propertyId) ?? null,
+        unitNo: j.unitNo ?? null,
+        status: j.status ?? null,
+      })),
+    ),
+  );
+});
+
 router.get("/portal/:token/photos", async (req, res): Promise<void> => {
   const { token } = ListPortalPhotosParams.parse(req.params);
   const crew = await crewByToken(token);
@@ -671,7 +743,17 @@ router.get("/portal/:token/photos", async (req, res): Promise<void> => {
     .from(crewPhotosTable)
     .where(eq(crewPhotosTable.crewId, crew.id))
     .orderBy(desc(crewPhotosTable.createdAt));
-  res.json(ListPortalPhotosResponse.parse(rows.map((r) => ser(r))));
+  const labels = await jobLabelMap(
+    rows.map((r) => r.jobId).filter((v): v is string => !!v),
+  );
+  res.json(
+    ListPortalPhotosResponse.parse(
+      rows.map((r) => ({
+        ...ser(r),
+        jobLabel: r.jobId ? (labels.get(r.jobId) ?? null) : null,
+      })),
+    ),
+  );
 });
 
 router.post("/portal/:token/photos", async (req, res): Promise<void> => {
@@ -682,10 +764,18 @@ router.post("/portal/:token/photos", async (req, res): Promise<void> => {
     return;
   }
   const body = UploadPortalPhotoBody.parse(req.body);
+  if (body.jobId) {
+    const owned = await jobBelongsToCrew(body.jobId, crew.id);
+    if (!owned) {
+      res.status(400).json({ error: "That job isn't assigned to this crew" });
+      return;
+    }
+  }
   const [row] = await db
     .insert(crewPhotosTable)
     .values({
       crewId: crew.id,
+      jobId: body.jobId ?? null,
       storagePath: body.storagePath,
       takenOn: body.takenOn,
       note: body.note ?? null,

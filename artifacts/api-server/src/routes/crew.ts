@@ -51,6 +51,7 @@ import {
   ListCrewInvoicesResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
+import { jobLabelMap } from "../lib/jobLabels";
 
 const router: IRouter = Router();
 
@@ -154,7 +155,17 @@ router.get("/crews/:id/photos", async (req, res): Promise<void> => {
     .from(crewPhotosTable)
     .where(eq(crewPhotosTable.crewId, id))
     .orderBy(desc(crewPhotosTable.createdAt));
-  res.json(ListCrewPhotosResponse.parse(rows.map((r) => ser(r))));
+  const labels = await jobLabelMap(
+    rows.map((r) => r.jobId).filter((v): v is string => !!v),
+  );
+  res.json(
+    ListCrewPhotosResponse.parse(
+      rows.map((r) => ({
+        ...ser(r),
+        jobLabel: r.jobId ? (labels.get(r.jobId) ?? null) : null,
+      })),
+    ),
+  );
 });
 
 router.post("/crews/:id/photo-shares", async (req, res): Promise<void> => {
@@ -214,12 +225,18 @@ router.get("/photo-shares/:token", async (req, res): Promise<void> => {
       ),
     )
     .orderBy(crewPhotosTable.createdAt);
+  const labels = await jobLabelMap(
+    photos.map((p) => p.jobId).filter((v): v is string => !!v),
+  );
   res.json(
     GetPhotoShareResponse.parse({
       crewName: crew?.name ?? "Crew",
       trade: crew?.trade ?? null,
       day: share.day,
-      photos: photos.map((p) => ser(p)),
+      photos: photos.map((p) => ({
+        ...ser(p),
+        jobLabel: p.jobId ? (labels.get(p.jobId) ?? null) : null,
+      })),
     }),
   );
 });

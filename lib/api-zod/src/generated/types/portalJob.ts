@@ -6,17 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CrewPhoto {
+export interface PortalJob {
   id: string;
-  crewId: string;
+  jobNo: string;
+  label: string;
   /** @nullable */
-  jobId?: string | null;
+  propertyName?: string | null;
   /** @nullable */
-  jobLabel?: string | null;
-  storagePath: string;
+  unitNo?: string | null;
   /** @nullable */
-  note?: string | null;
-  takenOn: string;
-  /** @nullable */
-  createdAt?: string | null;
+  status?: string | null;
 }

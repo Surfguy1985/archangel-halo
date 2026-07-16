@@ -48,6 +48,7 @@ export const crewDocumentsTable = pgTable("crew_documents", {
 export const crewPhotosTable = pgTable("crew_photos", {
   id: uuid("id").primaryKey().defaultRandom(),
   crewId: uuid("crew_id").notNull(),
+  jobId: uuid("job_id"),
   storagePath: text("storage_path").notNull(),
   note: text("note"),
   takenOn: text("taken_on").notNull(),

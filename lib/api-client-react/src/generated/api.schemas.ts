@@ -1792,11 +1792,29 @@ export interface CrewPhotoInput {
   takenOn: string;
   /** @nullable */
   note?: string | null;
+  /** @nullable */
+  jobId?: string | null;
+}
+
+export interface PortalJob {
+  id: string;
+  jobNo: string;
+  label: string;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  status?: string | null;
 }
 
 export interface CrewPhoto {
   id: string;
   crewId: string;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  jobLabel?: string | null;
   storagePath: string;
   /** @nullable */
   note?: string | null;

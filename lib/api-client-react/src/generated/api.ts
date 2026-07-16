@@ -126,6 +126,7 @@ import type {
   PhotoShareView,
   PlaidExchangeInput,
   PortalBundle,
+  PortalJob,
   PortalOfferRespondInput,
   PortalOfferRespondResult,
   PortalSeenInput,
@@ -9661,6 +9662,83 @@ export const useUploadPortalDocument = <TError = ErrorType<Error>,
       > => {
       return useMutation(getUploadPortalDocumentMutationOptions(options));
     }
+
+export const getListPortalJobsUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/jobs`
+}
+
+/**
+ * @summary Jobs assigned to this crew, for tagging photos
+ */
+export const listPortalJobs = async (token: string, options?: RequestInit): Promise<PortalJob[]> => {
+
+  return customFetch<PortalJob[]>(getListPortalJobsUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPortalJobsQueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}/jobs`
+    ] as const;
+    }
+
+
+export const getListPortalJobsQueryOptions = <TData = Awaited<ReturnType<typeof listPortalJobs>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPortalJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPortalJobsQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPortalJobs>>> = ({ signal }) => listPortalJobs(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPortalJobs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPortalJobsQueryResult = NonNullable<Awaited<ReturnType<typeof listPortalJobs>>>
+export type ListPortalJobsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Jobs assigned to this crew, for tagging photos
+ */
+
+export function useListPortalJobs<TData = Awaited<ReturnType<typeof listPortalJobs>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPortalJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPortalJobsQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListPortalPhotosUrl = (token: string,) => {
 

@@ -16,4 +16,6 @@ export interface CrewPhotoInput {
   takenOn: string;
   /** @nullable */
   note?: string | null;
+  /** @nullable */
+  jobId?: string | null;
 }

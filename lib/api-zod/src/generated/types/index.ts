@@ -142,6 +142,7 @@ export * from './photoShareView';
 export * from './plaidExchangeInput';
 export * from './portalBundle';
 export * from './portalCrew';
+export * from './portalJob';
 export * from './portalOffer';
 export * from './portalOfferRespondInput';
 export * from './portalOfferRespondResult';

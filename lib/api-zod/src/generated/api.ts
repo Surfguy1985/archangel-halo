@@ -3176,6 +3176,8 @@ export const ListCrewPhotosParams = zod.object({
 export const ListCrewPhotosResponseItem = zod.object({
   "id": zod.string(),
   "crewId": zod.string(),
+  "jobId": zod.string().nullish(),
+  "jobLabel": zod.string().nullish(),
   "storagePath": zod.string(),
   "note": zod.string().nullish(),
   "takenOn": zod.string(),
@@ -3218,6 +3220,8 @@ export const GetPhotoShareResponse = zod.object({
   "photos": zod.array(zod.object({
   "id": zod.string(),
   "crewId": zod.string(),
+  "jobId": zod.string().nullish(),
+  "jobLabel": zod.string().nullish(),
   "storagePath": zod.string(),
   "note": zod.string().nullish(),
   "takenOn": zod.string(),
@@ -3537,6 +3541,24 @@ export const UploadPortalDocumentResponse = zod.object({
 })
 
 
+/**
+ * @summary Jobs assigned to this crew, for tagging photos
+ */
+export const ListPortalJobsParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ListPortalJobsResponseItem = zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "label": zod.string(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "status": zod.string().nullish()
+})
+export const ListPortalJobsResponse = zod.array(ListPortalJobsResponseItem)
+
+
 export const ListPortalPhotosParams = zod.object({
   "token": zod.coerce.string()
 })
@@ -3544,6 +3566,8 @@ export const ListPortalPhotosParams = zod.object({
 export const ListPortalPhotosResponseItem = zod.object({
   "id": zod.string(),
   "crewId": zod.string(),
+  "jobId": zod.string().nullish(),
+  "jobLabel": zod.string().nullish(),
   "storagePath": zod.string(),
   "note": zod.string().nullish(),
   "takenOn": zod.string(),
@@ -3566,12 +3590,15 @@ export const uploadPortalPhotoBodyTakenOnRegExp = new RegExp('^\\d{4}-\\d{2}-\\d
 export const UploadPortalPhotoBody = zod.object({
   "storagePath": zod.string().min(1),
   "takenOn": zod.string().regex(uploadPortalPhotoBodyTakenOnRegExp).describe('Local date (YYYY-MM-DD) on the crew\'s device'),
-  "note": zod.string().nullish()
+  "note": zod.string().nullish(),
+  "jobId": zod.string().nullish()
 })
 
 export const UploadPortalPhotoResponse = zod.object({
   "id": zod.string(),
   "crewId": zod.string(),
+  "jobId": zod.string().nullish(),
+  "jobLabel": zod.string().nullish(),
   "storagePath": zod.string(),
   "note": zod.string().nullish(),
   "takenOn": zod.string(),

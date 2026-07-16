@@ -10,6 +10,7 @@ import {
   useUploadPortalDocument,
   useListPortalPhotos,
   useUploadPortalPhoto,
+  useListPortalJobs,
   getListPortalPhotosQueryKey,
   useGetPortalW9,
   useSubmitPortalW9,
@@ -771,9 +772,11 @@ function PhotosTab({ token }: { token: string }) {
   const { data: photos } = useListPortalPhotos(token, {
     query: { queryKey: getListPortalPhotosQueryKey(token) },
   });
+  const { data: jobs } = useListPortalJobs(token);
   const sendPhoto = useUploadPortalPhoto();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string>("");
   const { uploadFile } = useUpload({
     onError: () =>
       setUploadError("Upload failed. Check your connection and try again."),
@@ -791,7 +794,11 @@ function PhotosTab({ token }: { token: string }) {
         if (!res) return;
         await sendPhoto.mutateAsync({
           token,
-          data: { storagePath: res.objectPath, takenOn: localToday() },
+          data: {
+            storagePath: res.objectPath,
+            takenOn: localToday(),
+            jobId: selectedJobId || null,
+          },
         });
       }
       queryClient.invalidateQueries({
@@ -806,8 +813,58 @@ function PhotosTab({ token }: { token: string }) {
 
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+  const groups = useMemo(() => {
+    const map = new Map<string, { label: string; photos: NonNullable<typeof photos> }>();
+    for (const p of photos ?? []) {
+      const key = p.jobId ?? "none";
+      const g = map.get(key) ?? {
+        label: p.jobLabel ?? (p.jobId ? "Job" : "General photos"),
+        photos: [],
+      };
+      g.photos.push(p);
+      map.set(key, g);
+    }
+    return Array.from(map.entries()).sort((a, b) => {
+      if (a[0] === "none") return 1;
+      if (b[0] === "none") return -1;
+      return 0;
+    });
+  }, [photos]);
+
   return (
     <div className="animate-in fade-in duration-200">
+      <div className={`${card} mb-[12px]`}>
+        <div className="text-[12px] font-display font-semibold tracking-[0.14em] uppercase text-muted-foreground mb-[8px]">
+          Which job are these photos for?
+        </div>
+        <div className="flex flex-wrap gap-[7px]">
+          <button
+            type="button"
+            onClick={() => setSelectedJobId("")}
+            className={`px-[12px] py-[8px] rounded-full text-[12.5px] font-semibold border transition-colors ${
+              selectedJobId === ""
+                ? "bg-[var(--gold)] border-[var(--gold)] text-[var(--ink)]"
+                : "bg-card border-border text-muted-foreground"
+            }`}
+          >
+            General
+          </button>
+          {(jobs ?? []).map((j) => (
+            <button
+              key={j.id}
+              type="button"
+              onClick={() => setSelectedJobId((v) => (v === j.id ? "" : j.id))}
+              className={`px-[12px] py-[8px] rounded-full text-[12.5px] font-semibold border transition-colors ${
+                selectedJobId === j.id
+                  ? "bg-[var(--gold)] border-[var(--gold)] text-[var(--ink)]"
+                  : "bg-card border-border text-muted-foreground"
+              }`}
+            >
+              {j.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] cursor-pointer transition-transform active:scale-[0.98]">
         {sending ? (
           <Loader2 className="w-[18px] h-[18px] animate-spin" />
@@ -835,22 +892,35 @@ function PhotosTab({ token }: { token: string }) {
           No photos yet. Snap your work as you go — the office sees them instantly.
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-[6px]">
-          {photos.map((p) => (
-            <a
-              key={p.id}
-              href={`${base}/api/storage${p.storagePath}`}
-              target="_blank"
-              rel="noreferrer"
-              className="block aspect-square rounded-[10px] overflow-hidden bg-[var(--paper)] border border-border"
-            >
-              <img
-                src={`${base}/api/storage${p.storagePath}`}
-                alt={p.note || "Crew photo"}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-            </a>
+        <div className="flex flex-col gap-[16px]">
+          {groups.map(([key, g]) => (
+            <div key={key}>
+              <div className="text-[13px] font-semibold mb-[7px]">
+                {g.label}
+                <span className="text-muted-foreground font-normal">
+                  {" "}
+                  · {g.photos.length} photo{g.photos.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-[6px]">
+                {g.photos.map((p) => (
+                  <a
+                    key={p.id}
+                    href={`${base}/api/storage${p.storagePath}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block aspect-square rounded-[10px] overflow-hidden bg-[var(--paper)] border border-border"
+                  >
+                    <img
+                      src={`${base}/api/storage${p.storagePath}`}
+                      alt={p.note || "Crew photo"}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </a>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
