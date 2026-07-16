@@ -3452,11 +3452,13 @@ components:
         unitNo: { type: ["string", "null"] }
     PropertyStats:
       type: object
-      required: [owed, openJobs, marginPct, mtdRevenue, invoicedTotal, collectedTotal, expensesTotal]
+      required: [owed, openJobs, marginPct, mtdRevenue, invoicedTotal, collectedTotal, expensesTotal, activeMarginPct, historicalMarginPct]
       properties:
         owed: { type: number }
         openJobs: { type: integer }
         marginPct: { type: ["number", "null"] }
+        activeMarginPct: { type: ["number", "null"], description: "Percent (0-100) margin across active jobs, revenue-weighted" }
+        historicalMarginPct: { type: ["number", "null"], description: "Percent (0-100) average margin of cleared/completed jobs" }
         mtdRevenue: { type: number }
         invoicedTotal: { type: number }
         collectedTotal: { type: number }
@@ -3800,6 +3802,10 @@ components:
         scheduledOn: { type: ["string", "null"] }
         grossProfit: { type: ["number", "null"] }
         marginPct: { type: ["number", "null"] }
+        crewRate: { type: ["number", "null"], description: "Payout rate the crew must accept for this job" }
+        invoicedTotal: { type: ["number", "null"], description: "Sum of non-draft invoices attached to this job (property detail only)" }
+        paidTotal: { type: ["number", "null"], description: "Sum of paid invoices attached to this job (property detail only)" }
+        expensesTotal: { type: ["number", "null"], description: "Sum of expenses attached to this job (property detail only)" }
         boardStatus: { type: ["string", "null"], description: "active | filled | reopened | completed" }
         isRecurring: { type: ["boolean", "null"] }
         recurrence: { type: ["string", "null"], description: "daily | weekly | biweekly | monthly | quarterly" }
@@ -3880,6 +3886,7 @@ components:
         isRecurring: { type: boolean }
         recurrence: { type: ["string", "null"], enum: [daily, weekly, biweekly, monthly, quarterly, null] }
         marginPct: { type: ["number", "null"], minimum: 0, maximum: 1, description: "Current margin as fraction, e.g. 0.25 = 25%" }
+        crewRate: { type: ["number", "null"], minimum: 0, description: "Payout rate the crew must accept for this job" }
 
     JobPhoto:
       type: object

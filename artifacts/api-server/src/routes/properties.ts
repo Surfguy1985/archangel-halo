@@ -177,6 +177,52 @@ router.get("/properties/:id", async (req, res): Promise<void> => {
     .from(invoicesTable)
     .where(eq(invoicesTable.propertyId, id));
 
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const jobsWithMoney = jobs.map((j) => {
+    const jobInvoices = invoices.filter(
+      (i) => i.jobId === j.id && i.status !== "draft",
+    );
+    const jobExpenses = expenses.filter((e) => e.jobId === j.id);
+    return {
+      ...j,
+      invoicedTotal: round2(jobInvoices.reduce((s, i) => s + i.amount, 0)),
+      paidTotal: round2(
+        jobInvoices
+          .filter((i) => i.status === "paid")
+          .reduce((s, i) => s + i.amount, 0),
+      ),
+      expensesTotal: round2(jobExpenses.reduce((s, e) => s + e.amount, 0)),
+    };
+  });
+
+  const isActive = (j: (typeof rawJobs)[number]) =>
+    !j.clearedAt && !["complete", "closed", "cancelled"].includes(j.status);
+  const weightedMargin = (list: typeof rawJobs): number | null => {
+    let revenue = 0;
+    let profit = 0;
+    let fallbackSum = 0;
+    let fallbackN = 0;
+    for (const j of list) {
+      const jobInvoiced = invoices
+        .filter((i) => i.jobId === j.id && i.status !== "draft")
+        .reduce((s, i) => s + i.amount, 0);
+      if (jobInvoiced > 0 && j.grossProfit != null) {
+        revenue += jobInvoiced;
+        profit += j.grossProfit;
+      } else if (j.marginPct != null) {
+        fallbackSum += j.marginPct;
+        fallbackN++;
+      }
+    }
+    if (revenue > 0) return Math.round((profit / revenue) * 1000) / 10;
+    if (fallbackN > 0) return Math.round((fallbackSum / fallbackN) * 1000) / 10;
+    return null;
+  };
+  const activeMarginPct = weightedMargin(rawJobs.filter(isActive));
+  const historicalMarginPct = weightedMargin(
+    rawJobs.filter((j) => !isActive(j)),
+  );
+
   const owed = invoices
     .filter((i) => i.status === "sent" || i.status === "overdue")
     .reduce((s, i) => s + i.amount, 0);
@@ -267,7 +313,7 @@ router.get("/properties/:id", async (req, res): Promise<void> => {
       property: ser(property),
       contacts: serList(contacts),
       priceItems: serList(priceItems),
-      jobs,
+      jobs: jobsWithMoney,
       expenses: serList(expenses),
       agreements: serList(agreements),
       invoices: decoratedInvoices,
@@ -277,6 +323,8 @@ router.get("/properties/:id", async (req, res): Promise<void> => {
         owed,
         openJobs,
         marginPct,
+        activeMarginPct,
+        historicalMarginPct,
         mtdRevenue,
         invoicedTotal,
         collectedTotal,

@@ -40,6 +40,7 @@ import {
   GenerateReportInsightsResponse,
 } from "@workspace/api-zod";
 import { computeBusinessReport } from "../lib/businessReport";
+import { recomputeJobFinancials } from "../lib/jobFinance";
 import { generateBusinessReportPdf } from "../lib/reportPdf";
 import { completeJson } from "../lib/ai";
 import { ser } from "../lib/serialize";
@@ -400,6 +401,7 @@ router.post("/invoices", async (req, res): Promise<void> => {
     return created;
   });
 
+  if (row.jobId) await recomputeJobFinancials(row.jobId);
   const names = await propertyNames();
   res.status(201).json(CreateInvoiceResponse.parse(decorateInvoice(row, names)));
 });
@@ -466,12 +468,19 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
     return updated;
   });
 
+  await recomputeJobFinancials(
+    [existing.jobId, row.jobId].filter((x): x is string => !!x),
+  );
   const names = await propertyNames();
   res.json(UpdateInvoiceResponse.parse(await invoiceDetail(row, names)));
 });
 
 router.delete("/invoices/:id", async (req, res): Promise<void> => {
   const { id } = DeleteInvoiceParams.parse(req.params);
+  const [existing] = await db
+    .select()
+    .from(invoicesTable)
+    .where(eq(invoicesTable.id, id));
   await db.transaction(async (tx) => {
     await tx
       .delete(invoiceLineItemsTable)
@@ -479,6 +488,7 @@ router.delete("/invoices/:id", async (req, res): Promise<void> => {
     await tx.delete(paymentsTable).where(eq(paymentsTable.invoiceId, id));
     await tx.delete(invoicesTable).where(eq(invoicesTable.id, id));
   });
+  if (existing?.jobId) await recomputeJobFinancials(existing.jobId);
   res.status(204).end();
 });
 
@@ -593,6 +603,7 @@ router.post("/invoices/:id/send", async (req, res): Promise<void> => {
     .set({ status: "sent", sentAt: new Date() })
     .where(eq(invoicesTable.id, id))
     .returning();
+  if (row.jobId) await recomputeJobFinancials(row.jobId);
   res.json(SendInvoiceResponse.parse(decorateInvoice(row, names)));
 });
 
@@ -649,6 +660,7 @@ router.post("/invoices/:id/status", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Invoice not found" });
     return;
   }
+  if (row.jobId) await recomputeJobFinancials(row.jobId);
   const names = await propertyNames();
   res.json(SetInvoiceStatusResponse.parse(decorateInvoice(row, names)));
 });
@@ -656,10 +668,12 @@ router.post("/invoices/:id/status", async (req, res): Promise<void> => {
 router.post("/payments", async (req, res): Promise<void> => {
   const body = RecordPaymentBody.parse(req.body);
   const [row] = await db.insert(paymentsTable).values(body).returning();
-  await db
+  const [inv] = await db
     .update(invoicesTable)
     .set({ status: "paid", paidAt: new Date() })
-    .where(eq(invoicesTable.id, body.invoiceId));
+    .where(eq(invoicesTable.id, body.invoiceId))
+    .returning();
+  if (inv?.jobId) await recomputeJobFinancials(inv.jobId);
   res.status(201).json(RecordPaymentResponse.parse(ser(row)));
 });
 
@@ -676,7 +690,22 @@ router.get("/expenses", async (req, res): Promise<void> => {
 
 router.post("/expenses", async (req, res): Promise<void> => {
   const body = CreateExpenseBody.parse(req.body);
+  if (body.jobId) {
+    const [job] = await db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, body.jobId));
+    if (!job) {
+      res.status(400).json({ error: "Job not found" });
+      return;
+    }
+    if (body.propertyId && job.propertyId && job.propertyId !== body.propertyId) {
+      res.status(400).json({ error: "Job does not belong to this property" });
+      return;
+    }
+  }
   const [row] = await db.insert(expensesTable).values(body).returning();
+  if (row.jobId) await recomputeJobFinancials(row.jobId);
   res.status(201).json(CreateExpenseResponse.parse(ser(row)));
 });
 

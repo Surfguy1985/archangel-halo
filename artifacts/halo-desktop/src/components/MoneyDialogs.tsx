@@ -147,9 +147,13 @@ export function RecordPaymentDialog({
 export function AddExpenseDialog({
   open,
   onOpenChange,
+  propertyId: fixedPropertyId,
+  jobId: fixedJobId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  propertyId?: string;
+  jobId?: string;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -166,10 +170,10 @@ export function AddExpenseDialog({
       setVendor("");
       setCategory("");
       setAmount("");
-      setPropertyId("");
+      setPropertyId(fixedPropertyId ?? "");
       setError(null);
     }
-  }, [open]);
+  }, [open, fixedPropertyId]);
 
   const submit = () => {
     const amountNum = parseFloat(amount);
@@ -183,7 +187,8 @@ export function AddExpenseDialog({
           amount: amountNum,
           vendor: vendor.trim() || undefined,
           category: category.trim() || undefined,
-          propertyId: propertyId || undefined,
+          propertyId: (fixedPropertyId ?? propertyId) || undefined,
+          jobId: fixedJobId || undefined,
         },
       },
       {
@@ -244,21 +249,30 @@ export function AddExpenseDialog({
               />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Property (optional)</Label>
-            <Select value={propertyId} onValueChange={setPropertyId}>
-              <SelectTrigger>
-                <SelectValue placeholder="No property" />
-              </SelectTrigger>
-              <SelectContent>
-                {(properties ?? []).map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {fixedPropertyId ? (
+            <div className="space-y-1.5">
+              <Label>Property</Label>
+              <div className="text-sm font-medium py-2 px-3 rounded-md border border-border bg-black/[0.03]">
+                {(properties ?? []).find((p) => p.id === fixedPropertyId)?.name ?? "This property"}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label>Property (optional)</Label>
+              <Select value={propertyId} onValueChange={setPropertyId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="No property" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(properties ?? []).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>

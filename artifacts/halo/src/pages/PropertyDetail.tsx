@@ -1,4 +1,4 @@
-import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useClearJob, useRestartJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey } from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey } from "@workspace/api-client-react";
 import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
@@ -57,8 +57,12 @@ export default function PropertyDetail() {
   const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [invoiceJobId, setInvoiceJobId] = useState<string | null>(null);
+  const [expenseJobId, setExpenseJobId] = useState<string | null>(null);
+  const [rateJobId, setRateJobId] = useState<string | null>(null);
+  const [rateDraft, setRateDraft] = useState("");
   const queryClient = useQueryClient();
   const setStatus = useSetInvoiceStatus();
+  const updateJob = useUpdateJob();
   const updateProperty = useUpdateProperty();
   const clearJob = useClearJob();
   const restartJob = useRestartJob();
@@ -106,16 +110,47 @@ export default function PropertyDetail() {
     queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey() });
   };
 
-  const toggleInvoice = (invoiceId: string, next: "paid" | "sent") => {
-    setStatus.mutate(
-      { id: invoiceId, data: { status: next } },
+  const invalidateMoney = (jobId?: string) => {
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+    if (jobId) queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(jobId) });
+  };
+
+  const saveRate = (jobId: string) => {
+    const parsed = rateDraft.trim() === "" ? null : Number(rateDraft);
+    if (parsed != null && (Number.isNaN(parsed) || parsed < 0)) return;
+    updateJob.mutate(
+      { id: jobId, data: { crewRate: parsed } },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
-          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+          setRateJobId(null);
+          invalidateMoney(jobId);
         },
       },
+    );
+  };
+
+  const marginBadge = (pct: number | null | undefined) => {
+    if (pct == null) return null;
+    const val = Math.round(pct * 100);
+    const cls =
+      pct < (property?.marginMin ?? 0.25)
+        ? "bg-red-50 text-red-700 border border-red-200"
+        : "bg-emerald-50 text-emerald-700 border border-emerald-200";
+    return (
+      <span className={`inline-flex items-center text-[10.5px] font-display font-bold uppercase tracking-[0.06em] rounded-full px-[8px] py-[2px] ${cls}`}>
+        {val}% margin
+      </span>
+    );
+  };
+
+  const toggleInvoice = (invoiceId: string, next: "paid" | "sent") => {
+    const jobId = invoices.find((inv) => inv.id === invoiceId)?.jobId ?? undefined;
+    setStatus.mutate(
+      { id: invoiceId, data: { status: next } },
+      { onSuccess: () => invalidateMoney(jobId) },
     );
   };
 
@@ -165,6 +200,14 @@ export default function PropertyDetail() {
         <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
           <b className="block font-display font-bold text-[18px] tabular-nums">{stats.marginPct ?? 0}%</b>
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Margin</span>
+        </div>
+        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+          <b className="block font-display font-bold text-[18px] tabular-nums">{stats.activeMarginPct != null ? `${stats.activeMarginPct}%` : "—"}</b>
+          <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Active Margin</span>
+        </div>
+        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+          <b className="block font-display font-bold text-[18px] tabular-nums">{stats.historicalMarginPct != null ? `${stats.historicalMarginPct}%` : "—"}</b>
+          <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Past Margin</span>
         </div>
       </div>
 
@@ -256,6 +299,54 @@ export default function PropertyDetail() {
                     priceItems={priceItems}
                   />
                 )}
+                <div className="flex items-center flex-wrap gap-x-[12px] gap-y-[6px] mt-[8px] text-[12px] text-muted-foreground">
+                  {rateJobId === job.id ? (
+                    <span className="inline-flex items-center gap-[5px]">
+                      Crew $
+                      <input
+                        autoFocus
+                        inputMode="decimal"
+                        value={rateDraft}
+                        onChange={(e) => setRateDraft(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveRate(job.id); if (e.key === "Escape") setRateJobId(null); }}
+                        className="w-[70px] px-[6px] py-[2px] rounded-[7px] border border-border bg-background text-[12px] tabular-nums"
+                      />
+                      <button
+                        disabled={updateJob.isPending}
+                        onClick={() => saveRate(job.id)}
+                        className="font-display font-bold text-[var(--gold-dark)] disabled:opacity-50"
+                      >
+                        Save
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => { setRateJobId(job.id); setRateDraft(job.crewRate != null ? String(job.crewRate) : ""); }}
+                      className="inline-flex items-center gap-[4px] font-semibold text-[var(--ink)] active:scale-[0.97]"
+                    >
+                      Crew {job.crewRate != null ? `$${job.crewRate.toLocaleString()}` : "rate —"}
+                      <Pencil className="w-[10px] h-[10px] text-muted-foreground" />
+                    </button>
+                  )}
+                  <span>Invoiced <b className="text-[var(--ink)] tabular-nums">${(job.invoicedTotal ?? 0).toLocaleString()}</b></span>
+                  <span>Paid <b className="text-emerald-700 tabular-nums">${(job.paidTotal ?? 0).toLocaleString()}</b></span>
+                  <span>Expenses <b className="text-[var(--ink)] tabular-nums">${(job.expensesTotal ?? 0).toLocaleString()}</b></span>
+                  {marginBadge(job.marginPct)}
+                </div>
+                <div className="flex items-center gap-[8px] mt-[8px]">
+                  <button
+                    onClick={() => setInvoiceJobId(job.id)}
+                    className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[rgba(23,24,28,0.05)] text-[var(--ink)] active:scale-[0.95]"
+                  >
+                    <Plus className="w-[12px] h-[12px]" /> Invoice
+                  </button>
+                  <button
+                    onClick={() => setExpenseJobId(job.id)}
+                    className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[rgba(23,24,28,0.05)] text-[var(--ink)] active:scale-[0.95]"
+                  >
+                    <Plus className="w-[12px] h-[12px]" /> Expense
+                  </button>
+                </div>
                 {job.status === "complete" && (
                   <div className="flex items-center flex-wrap gap-[8px] mt-[8px]">
                     {(() => {
@@ -533,6 +624,15 @@ export default function PropertyDetail() {
       <AddPriceItemSheet open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
       <ImportFromCatalogSheet open={importCatalogOpen} onOpenChange={setImportCatalogOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />
       <AddExpenseSheet open={expenseOpen} onOpenChange={setExpenseOpen} propertyId={id} />
+      {expenseJobId && (
+        <AddExpenseSheet
+          key={expenseJobId}
+          open={!!expenseJobId}
+          onOpenChange={(o) => { if (!o) setExpenseJobId(null); }}
+          propertyId={id}
+          jobId={expenseJobId}
+        />
+      )}
       <AddJobSheet open={jobOpen} onOpenChange={setJobOpen} propertyId={id} />
       <InvoiceEditor
         open={!!invoiceJobId}

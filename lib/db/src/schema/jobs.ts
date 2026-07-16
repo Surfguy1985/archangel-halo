@@ -51,6 +51,7 @@ export const jobsTable = pgTable("jobs", {
   scheduledOn: date("scheduled_on", { mode: "string" }),
   grossProfit: doublePrecision("gross_profit"),
   marginPct: doublePrecision("margin_pct"),
+  crewRate: doublePrecision("crew_rate"),
   boardStatus: text("board_status").notNull().default("active"),
   isRecurring: boolean("is_recurring").default(false),
   recurrence: text("recurrence"),

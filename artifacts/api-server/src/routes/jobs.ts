@@ -76,6 +76,7 @@ import { completeText } from "../lib/ai";
 import { sendEmail } from "../lib/email";
 import { ser, serList } from "../lib/serialize";
 import { crewPhotosForJobs, type CrewJobPhoto } from "../lib/jobPhotos";
+import { recomputeJobFinancials } from "../lib/jobFinance";
 
 const router: IRouter = Router();
 
@@ -190,8 +191,17 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Job not found" });
     return;
   }
+  let fresh = row;
+  if ("crewRate" in body) {
+    await recomputeJobFinancials(id);
+    const [reloaded] = await db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, id));
+    if (reloaded) fresh = reloaded;
+  }
   const { propName, crewName } = await lookups();
-  res.json(UpdateJobResponse.parse(decorateJob(row, propName, crewName)));
+  res.json(UpdateJobResponse.parse(decorateJob(fresh, propName, crewName)));
 });
 
 router.delete("/jobs/:id", async (req, res): Promise<void> => {

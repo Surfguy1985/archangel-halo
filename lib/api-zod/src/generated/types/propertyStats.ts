@@ -11,6 +11,16 @@ export interface PropertyStats {
   openJobs: number;
   /** @nullable */
   marginPct: number | null;
+  /**
+     * Percent (0-100) margin across active jobs, revenue-weighted
+     * @nullable
+     */
+  activeMarginPct: number | null;
+  /**
+     * Percent (0-100) average margin of cleared/completed jobs
+     * @nullable
+     */
+  historicalMarginPct: number | null;
   mtdRevenue: number;
   invoicedTotal: number;
   collectedTotal: number;

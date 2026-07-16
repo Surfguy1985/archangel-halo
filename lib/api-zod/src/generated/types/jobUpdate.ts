@@ -26,4 +26,10 @@ export interface JobUpdate {
      * @nullable
      */
   marginPct?: number | null;
+  /**
+     * Payout rate the crew must accept for this job
+     * @minimum 0
+     * @nullable
+     */
+  crewRate?: number | null;
 }

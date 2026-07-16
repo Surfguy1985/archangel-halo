@@ -1,4 +1,5 @@
-import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useClearJob, useRestartJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey } from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey, getListExpensesQueryKey } from "@workspace/api-client-react";
+import { AddExpenseDialog } from "@/components/MoneyDialogs";
 import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
@@ -32,6 +33,10 @@ export default function PropertyDetail() {
   const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [expenseJobId, setExpenseJobId] = useState<string | null>(null);
+  const [rateJobId, setRateJobId] = useState<string | null>(null);
+  const [rateDraft, setRateDraft] = useState("");
+  const updateJob = useUpdateJob();
   const setStatus = useSetInvoiceStatus();
   const clearJob = useClearJob();
   const restartJob = useRestartJob();
@@ -75,16 +80,48 @@ export default function PropertyDetail() {
     queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey() });
   };
 
-  const toggleInvoice = (invoiceId: string, next: "paid" | "sent") => {
-    setStatus.mutate(
-      { id: invoiceId, data: { status: next } },
+  const invalidateMoney = (jobId?: string) => {
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+    if (jobId) queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(jobId) });
+  };
+
+  const saveRate = (jobId: string) => {
+    const parsed = rateDraft.trim() === "" ? null : Number(rateDraft);
+    if (parsed != null && (Number.isNaN(parsed) || parsed < 0)) return;
+    updateJob.mutate(
+      { id: jobId, data: { crewRate: parsed } },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
-          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+          setRateJobId(null);
+          invalidateMoney(jobId);
         },
       },
+    );
+  };
+
+  const marginBadge = (pct: number | null | undefined) => {
+    if (pct == null) return null;
+    const val = Math.round(pct * 100);
+    const cls =
+      pct < (property.marginMin ?? 0.25)
+        ? "bg-red-50 text-red-700 border border-red-200"
+        : "bg-emerald-50 text-emerald-700 border border-emerald-200";
+    return (
+      <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5 ${cls}`}>
+        {val}% margin
+      </span>
+    );
+  };
+
+  const toggleInvoice = (invoiceId: string, next: "paid" | "sent") => {
+    const jobId = invoices.find((inv) => inv.id === invoiceId)?.jobId ?? undefined;
+    setStatus.mutate(
+      { id: invoiceId, data: { status: next } },
+      { onSuccess: () => invalidateMoney(jobId) },
     );
   };
 
@@ -112,6 +149,15 @@ export default function PropertyDetail() {
       <ImportFromCatalogDialog open={importOpen} onOpenChange={setImportOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />
       <AddContactDialog open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
       <AddJobDialog open={jobOpen} onOpenChange={setJobOpen} propertyId={id} />
+      {expenseJobId && (
+        <AddExpenseDialog
+          key={expenseJobId}
+          open={!!expenseJobId}
+          onOpenChange={(o) => { if (!o) setExpenseJobId(null); }}
+          propertyId={id}
+          jobId={expenseJobId}
+        />
+      )}
       {(() => {
         const j = jobs.find((x) => x.id === editJobId);
         return j ? (
@@ -170,6 +216,14 @@ export default function PropertyDetail() {
         <div className="bg-card rounded-xl shadow-sm border border-border p-5">
           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Margin</div>
           <div className="text-2xl font-mono font-bold text-[var(--ink)]">{stats.marginPct ?? 0}%</div>
+        </div>
+        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Active Margin</div>
+          <div className="text-2xl font-mono font-bold text-[var(--ink)]">{stats.activeMarginPct != null ? `${stats.activeMarginPct}%` : "—"}</div>
+        </div>
+        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Past Margin</div>
+          <div className="text-2xl font-mono font-bold text-[var(--ink)]">{stats.historicalMarginPct != null ? `${stats.historicalMarginPct}%` : "—"}</div>
         </div>
       </div>
 
@@ -263,6 +317,54 @@ export default function PropertyDetail() {
                       priceItems={priceItems}
                     />
                   )}
+                  <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 mt-2 text-xs text-muted-foreground">
+                    {rateJobId === job.id ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        Crew $
+                        <input
+                          autoFocus
+                          inputMode="decimal"
+                          value={rateDraft}
+                          onChange={(e) => setRateDraft(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveRate(job.id); if (e.key === "Escape") setRateJobId(null); }}
+                          className="w-20 px-1.5 py-0.5 rounded-md border border-border bg-background text-xs tabular-nums"
+                        />
+                        <button
+                          disabled={updateJob.isPending}
+                          onClick={() => saveRate(job.id)}
+                          className="font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] disabled:opacity-50"
+                        >
+                          Save
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => { setRateJobId(job.id); setRateDraft(job.crewRate != null ? String(job.crewRate) : ""); }}
+                        className="inline-flex items-center gap-1 font-semibold text-[var(--ink)] hover:opacity-70"
+                      >
+                        Crew {job.crewRate != null ? `$${job.crewRate.toLocaleString()}` : "rate —"}
+                        <Pencil className="w-2.5 h-2.5 text-muted-foreground" />
+                      </button>
+                    )}
+                    <span>Invoiced <b className="text-[var(--ink)] tabular-nums">${(job.invoicedTotal ?? 0).toLocaleString()}</b></span>
+                    <span>Paid <b className="text-emerald-700 tabular-nums">${(job.paidTotal ?? 0).toLocaleString()}</b></span>
+                    <span>Expenses <b className="text-[var(--ink)] tabular-nums">${(job.expensesTotal ?? 0).toLocaleString()}</b></span>
+                    {marginBadge(job.marginPct)}
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Link
+                      href={`/invoices/new?jobId=${job.id}&propertyId=${id}`}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-[var(--ink)] hover:bg-black/[0.08] transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Invoice
+                    </Link>
+                    <button
+                      onClick={() => setExpenseJobId(job.id)}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-[var(--ink)] hover:bg-black/[0.08] transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Expense
+                    </button>
+                  </div>
                   {job.status === "complete" && (
                     <div className="flex items-center flex-wrap gap-2 mt-2">
                       {(() => {

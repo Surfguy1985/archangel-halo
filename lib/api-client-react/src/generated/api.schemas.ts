@@ -211,6 +211,26 @@ export interface Job {
   /** @nullable */
   marginPct?: number | null;
   /**
+     * Payout rate the crew must accept for this job
+     * @nullable
+     */
+  crewRate?: number | null;
+  /**
+     * Sum of non-draft invoices attached to this job (property detail only)
+     * @nullable
+     */
+  invoicedTotal?: number | null;
+  /**
+     * Sum of paid invoices attached to this job (property detail only)
+     * @nullable
+     */
+  paidTotal?: number | null;
+  /**
+     * Sum of expenses attached to this job (property detail only)
+     * @nullable
+     */
+  expensesTotal?: number | null;
+  /**
      * active | filled | reopened | completed
      * @nullable
      */
@@ -313,6 +333,16 @@ export interface PropertyStats {
   openJobs: number;
   /** @nullable */
   marginPct: number | null;
+  /**
+     * Percent (0-100) margin across active jobs, revenue-weighted
+     * @nullable
+     */
+  activeMarginPct: number | null;
+  /**
+     * Percent (0-100) average margin of cleared/completed jobs
+     * @nullable
+     */
+  historicalMarginPct: number | null;
   mtdRevenue: number;
   invoicedTotal: number;
   collectedTotal: number;
@@ -762,6 +792,12 @@ export interface JobUpdate {
      * @nullable
      */
   marginPct?: number | null;
+  /**
+     * Payout rate the crew must accept for this job
+     * @minimum 0
+     * @nullable
+     */
+  crewRate?: number | null;
 }
 
 export interface JobPhoto {
