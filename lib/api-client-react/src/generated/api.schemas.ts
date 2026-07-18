@@ -1385,6 +1385,29 @@ export interface BankAnalysis {
   totals: BankAnalysisTotals;
 }
 
+export type BankTxnCategorizationKind = typeof BankTxnCategorizationKind[keyof typeof BankTxnCategorizationKind];
+
+
+export const BankTxnCategorizationKind = {
+  expense: 'expense',
+  crew: 'crew',
+  invoice: 'invoice',
+  other: 'other',
+} as const;
+
+export interface BankTxnCategorization {
+  transactionId: string;
+  kind: BankTxnCategorizationKind;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  crewId?: string | null;
+  /** @nullable */
+  personName?: string | null;
+  /** @nullable */
+  invoiceId?: string | null;
+}
+
 export interface BankAnalysisApplyResult {
   expensesCreated: number;
   crewPaymentsCreated: number;
@@ -2681,6 +2704,14 @@ refresh?: boolean;
 };
 
 export type ApplyBankAnalysisParams = {
+/**
+ * @minimum 1
+ * @maximum 90
+ */
+days?: number;
+};
+
+export type CategorizeBankTransactionParams = {
 /**
  * @minimum 1
  * @maximum 90

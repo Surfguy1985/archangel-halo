@@ -21,6 +21,7 @@ import {
   CopyPlus,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { CategorizeTxnSheet } from "./CategorizeTxnSheet";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -41,6 +42,7 @@ function Section({
   tone,
   empty,
   render,
+  onItemTap,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -49,6 +51,7 @@ function Section({
   tone: "in" | "out";
   empty: string;
   render: (item: BankAnalysisItem) => React.ReactNode;
+  onItemTap: (item: BankAnalysisItem) => void;
 }) {
   const [open, setOpen] = useState(true);
   return (
@@ -83,12 +86,13 @@ function Section({
             <div className="text-[12.5px] text-muted-foreground pb-[12px]">{empty}</div>
           ) : (
             items.map((item, idx) => (
-              <div
+              <button
                 key={item.transactionId}
-                className={`py-[10px] ${idx !== 0 ? "border-t border-border" : ""}`}
+                onClick={() => onItemTap(item)}
+                className={`block w-full text-left py-[10px] transition-colors active:bg-muted/40 ${idx !== 0 ? "border-t border-border" : ""}`}
               >
                 {render(item)}
-              </div>
+              </button>
             ))
           )}
         </div>
@@ -131,6 +135,10 @@ export function BankAnalysisSection() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [force, setForce] = useState(false);
+  const [editing, setEditing] = useState<{
+    item: BankAnalysisItem;
+    kind: "expense" | "crew" | "invoice" | "other";
+  } | null>(null);
   const apply = useApplyBankAnalysis();
 
   const copyToTabs = () => {
@@ -241,6 +249,7 @@ export function BankAnalysisSection() {
             total={analysis.data.totals.paidInvoices}
             tone="in"
             empty="No deposits in this period."
+            onItemTap={(item) => setEditing({ item, kind: "invoice" })}
             render={(item) => (
               <Row
                 primary={
@@ -261,6 +270,7 @@ export function BankAnalysisSection() {
             total={analysis.data.totals.crewPayments}
             tone="out"
             empty="No payments to people found."
+            onItemTap={(item) => setEditing({ item, kind: "crew" })}
             render={(item) => (
               <Row
                 primary={item.personName || item.name}
@@ -282,6 +292,7 @@ export function BankAnalysisSection() {
             total={analysis.data.totals.expenses}
             tone="out"
             empty="No expenses found."
+            onItemTap={(item) => setEditing({ item, kind: "expense" })}
             render={(item) => (
               <Row
                 primary={item.name}
@@ -299,6 +310,7 @@ export function BankAnalysisSection() {
               total={analysis.data.totals.other}
               tone="out"
               empty=""
+              onItemTap={(item) => setEditing({ item, kind: "other" })}
               render={(item) => (
                 <Row
                   primary={item.name}
@@ -313,6 +325,13 @@ export function BankAnalysisSection() {
           )}
         </>
       ) : null}
+      <CategorizeTxnSheet
+        item={editing?.item ?? null}
+        initialKind={editing?.kind ?? "expense"}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+      />
     </div>
   );
 }

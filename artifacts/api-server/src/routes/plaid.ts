@@ -27,6 +27,8 @@ import {
   GetBankAnalysisQueryParams,
   ApplyBankAnalysisQueryParams,
   ApplyBankAnalysisResponse,
+  CategorizeBankTransactionQueryParams,
+  CategorizeBankTransactionBody,
 } from "@workspace/api-zod";
 import { completeJson } from "../lib/ai";
 import { logger } from "../lib/logger";
@@ -525,6 +527,108 @@ router.get("/plaid/analysis", async (req, res): Promise<void> => {
   }
 });
 
+async function loadAnalysis(
+  plaidItem: { id: string; accessToken: string },
+  days: number,
+): Promise<AnalysisData> {
+  const cacheKey = `${plaidItem.id}:${days}`;
+  const cached = analysisCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < ANALYSIS_TTL_MS) return cached.data;
+  let inFlight = analysisInFlight.get(cacheKey);
+  if (!inFlight) {
+    inFlight = buildAnalysis(plaidItem.accessToken, days).finally(() => {
+      analysisInFlight.delete(cacheKey);
+    });
+    analysisInFlight.set(cacheKey, inFlight);
+  }
+  const data = await inFlight;
+  analysisCache.set(cacheKey, { at: Date.now(), data });
+  return data;
+}
+
+type ImportOutcome = "created" | "skippedExisting" | "skippedUnmatched";
+
+async function importExpenseItem(itemRow: AnalysisItem): Promise<ImportOutcome> {
+  const sourceTag = `bank:${itemRow.transactionId}`;
+  const [existing] = await db
+    .select({ id: expensesTable.id })
+    .from(expensesTable)
+    .where(eq(expensesTable.source, sourceTag));
+  if (existing) return "skippedExisting";
+  const [row] = await db
+    .insert(expensesTable)
+    .values({
+      vendor: itemRow.name,
+      category: itemRow.category ?? "Uncategorized",
+      amount: itemRow.amount,
+      source: sourceTag,
+      paymentStatus: "paid",
+      paidAt: new Date(),
+      spentOn: parseLocalDate(itemRow.date),
+    })
+    .returning();
+  await syncExpenseLedger(row.id);
+  return "created";
+}
+
+async function importCrewPaymentItem(itemRow: AnalysisItem): Promise<ImportOutcome> {
+  let crewId = itemRow.crewId ?? null;
+  if (!crewId && itemRow.personName) {
+    const wanted = itemRow.personName.trim().toLowerCase();
+    const allCrews = await db.select().from(crewsTable);
+    const found = allCrews.find((c) => c.name.trim().toLowerCase() === wanted);
+    if (found) {
+      crewId = found.id;
+    } else {
+      const [createdCrew] = await db
+        .insert(crewsTable)
+        .values({ name: itemRow.personName.trim() })
+        .returning();
+      crewId = createdCrew.id;
+    }
+  }
+  if (!crewId) return "skippedUnmatched";
+  const dedupeTag = `bank:${itemRow.transactionId}`;
+  const [existing] = await db
+    .select({ id: crewPaymentsTable.id })
+    .from(crewPaymentsTable)
+    .where(like(crewPaymentsTable.note, `%${dedupeTag}%`));
+  if (existing) return "skippedExisting";
+  await db.insert(crewPaymentsTable).values({
+    crewId,
+    amount: itemRow.amount,
+    method: "Bank",
+    status: "completed",
+    note: `Imported from bank (${dedupeTag})`,
+    paidAt: parseLocalDate(itemRow.date),
+  });
+  return "created";
+}
+
+async function importPaidInvoiceItem(itemRow: AnalysisItem): Promise<ImportOutcome> {
+  if (!itemRow.invoiceId) return "skippedUnmatched";
+  const [inv] = await db
+    .select()
+    .from(invoicesTable)
+    .where(eq(invoicesTable.id, itemRow.invoiceId));
+  if (!inv || inv.status === "paid") return "skippedExisting";
+  await db.transaction(async (tx) => {
+    await tx.insert(paymentsTable).values({
+      invoiceId: inv.id,
+      amount: itemRow.amount,
+      method: "Bank deposit",
+      receivedAt: parseLocalDate(itemRow.date),
+    });
+    await tx
+      .update(invoicesTable)
+      .set({ status: "paid", paidAt: parseLocalDate(itemRow.date) })
+      .where(eq(invoicesTable.id, inv.id));
+  });
+  if (inv.jobId) await recomputeJobFinancials(inv.jobId);
+  await syncInvoiceLedger(inv.id);
+  return "created";
+}
+
 // Serialize apply runs: read-then-insert dedupe checks are only safe when
 // one apply executes at a time (single-instance server, single-org app).
 let applyChain: Promise<unknown> = Promise.resolve();
@@ -534,6 +638,146 @@ router.post("/plaid/analysis/apply", async (req, res): Promise<void> => {
   applyChain = run.catch(() => undefined);
   await run;
 });
+
+router.post("/plaid/analysis/categorize", async (req, res): Promise<void> => {
+  const run = applyChain.then(() => handleCategorize(req, res));
+  applyChain = run.catch(() => undefined);
+  await run;
+});
+
+async function handleCategorize(
+  req: import("express").Request,
+  res: import("express").Response,
+): Promise<void> {
+  const item = await getItem();
+  if (!item) {
+    res.status(409).json({ error: "No bank connected" });
+    return;
+  }
+  const q = CategorizeBankTransactionQueryParams.parse(req.query);
+  const days = q.days ?? 30;
+  const body = CategorizeBankTransactionBody.parse(req.body);
+
+  let data: AnalysisData;
+  try {
+    data = await loadAnalysis(item, days);
+  } catch (err: any) {
+    if (err?.plaid) {
+      res.status(502).json({ error: "Couldn't fetch transactions from your bank" });
+      return;
+    }
+    throw err;
+  }
+
+  // Locate the transaction without mutating the cached analysis yet —
+  // all validation must pass before any bucket move is committed.
+  const buckets = ["expenses", "crewPayments", "paidInvoices", "other"] as const;
+  let found: AnalysisItem | null = null;
+  let foundBucket: (typeof buckets)[number] | null = null;
+  for (const bucket of buckets) {
+    const match = data[bucket].find((t) => t.transactionId === body.transactionId);
+    if (match) {
+      found = match;
+      foundBucket = bucket;
+      break;
+    }
+  }
+  if (!found || !foundBucket) {
+    res.status(404).json({ error: "Transaction not found in current analysis" });
+    return;
+  }
+
+  const moved: AnalysisItem = {
+    transactionId: found.transactionId,
+    date: found.date,
+    name: found.name,
+    amount: found.amount,
+    note: found.note ?? null,
+  };
+  let targetBucket: (typeof buckets)[number];
+
+  if (body.kind === "expense") {
+    moved.category = body.category?.trim() || found.category || "Uncategorized";
+    targetBucket = "expenses";
+  } else if (body.kind === "crew") {
+    if (body.crewId) {
+      let crew: typeof crewsTable.$inferSelect | undefined;
+      try {
+        [crew] = await db.select().from(crewsTable).where(eq(crewsTable.id, body.crewId));
+      } catch {
+        crew = undefined;
+      }
+      if (!crew) {
+        res.status(404).json({ error: "Crew not found" });
+        return;
+      }
+      moved.crewId = crew.id;
+      moved.crewName = crew.name;
+      moved.personName = crew.name;
+    } else {
+      moved.personName = body.personName?.trim() || found.personName || found.name;
+    }
+    targetBucket = "crewPayments";
+  } else if (body.kind === "invoice") {
+    if (!body.invoiceId) {
+      res.status(404).json({ error: "Pick an invoice to match this deposit to" });
+      return;
+    }
+    let inv: typeof invoicesTable.$inferSelect | undefined;
+    try {
+      [inv] = await db
+        .select()
+        .from(invoicesTable)
+        .where(eq(invoicesTable.id, body.invoiceId));
+    } catch {
+      inv = undefined;
+    }
+    if (!inv) {
+      res.status(404).json({ error: "Invoice not found" });
+      return;
+    }
+    moved.invoiceId = inv.id;
+    moved.invoiceNo = inv.invoiceNo;
+    targetBucket = "paidInvoices";
+  } else {
+    targetBucket = "other";
+  }
+
+  // Import into the books first; only commit the bucket move if it succeeds.
+  if (body.kind === "expense") {
+    await importExpenseItem(moved);
+  } else if (body.kind === "crew") {
+    const outcome = await importCrewPaymentItem(moved);
+    if (outcome === "created" && !moved.crewId) {
+      const wanted = (moved.personName ?? "").trim().toLowerCase();
+      const allCrews = await db.select().from(crewsTable);
+      const match = allCrews.find((c) => c.name.trim().toLowerCase() === wanted);
+      if (match) {
+        moved.crewId = match.id;
+        moved.crewName = match.name;
+      }
+    }
+  } else if (body.kind === "invoice") {
+    await importPaidInvoiceItem(moved);
+  }
+
+  const idx = data[foundBucket].findIndex(
+    (t) => t.transactionId === body.transactionId,
+  );
+  if (idx !== -1) data[foundBucket].splice(idx, 1);
+  data[targetBucket].push(moved);
+
+  const sum = (rows: AnalysisItem[]) => rows.reduce((s, r) => s + r.amount, 0);
+  data.totals = {
+    expenses: sum(data.expenses),
+    crewPayments: sum(data.crewPayments),
+    paidInvoices: sum(data.paidInvoices),
+    other: sum(data.other),
+  };
+  analysisCache.set(`${item.id}:${days}`, { at: Date.now(), data });
+
+  res.json(GetBankAnalysisResponse.parse(data));
+}
 
 async function handleApply(
   req: import("express").Request,
@@ -546,24 +790,10 @@ async function handleApply(
   }
   const q = ApplyBankAnalysisQueryParams.parse(req.query);
   const days = q.days ?? 30;
-  const cacheKey = `${item.id}:${days}`;
 
   let data: AnalysisData;
   try {
-    const cached = analysisCache.get(cacheKey);
-    if (cached && Date.now() - cached.at < ANALYSIS_TTL_MS) {
-      data = cached.data;
-    } else {
-      let inFlight = analysisInFlight.get(cacheKey);
-      if (!inFlight) {
-        inFlight = buildAnalysis(item.accessToken, days).finally(() => {
-          analysisInFlight.delete(cacheKey);
-        });
-        analysisInFlight.set(cacheKey, inFlight);
-      }
-      data = await inFlight;
-      analysisCache.set(cacheKey, { at: Date.now(), data });
-    }
+    data = await loadAnalysis(item, days);
   } catch (err: any) {
     if (err?.plaid) {
       res.status(502).json({ error: "Couldn't fetch transactions from your bank" });
@@ -579,99 +809,24 @@ async function handleApply(
   let skippedUnmatched = 0;
 
   for (const itemRow of data.expenses) {
-    const sourceTag = `bank:${itemRow.transactionId}`;
-    const [existing] = await db
-      .select({ id: expensesTable.id })
-      .from(expensesTable)
-      .where(eq(expensesTable.source, sourceTag));
-    if (existing) {
-      skippedExisting++;
-      continue;
-    }
-    const [row] = await db
-      .insert(expensesTable)
-      .values({
-        vendor: itemRow.name,
-        category: itemRow.category ?? "Uncategorized",
-        amount: itemRow.amount,
-        source: sourceTag,
-        paymentStatus: "paid",
-        paidAt: new Date(),
-        spentOn: parseLocalDate(itemRow.date),
-      })
-      .returning();
-    await syncExpenseLedger(row.id);
-    expensesCreated++;
+    const outcome = await importExpenseItem(itemRow);
+    if (outcome === "created") expensesCreated++;
+    else if (outcome === "skippedExisting") skippedExisting++;
+    else skippedUnmatched++;
   }
 
   for (const itemRow of data.crewPayments) {
-    let crewId = itemRow.crewId ?? null;
-    if (!crewId && itemRow.personName) {
-      const wanted = itemRow.personName.trim().toLowerCase();
-      const allCrews = await db.select().from(crewsTable);
-      const found = allCrews.find((c) => c.name.trim().toLowerCase() === wanted);
-      if (found) {
-        crewId = found.id;
-      } else {
-        const [createdCrew] = await db
-          .insert(crewsTable)
-          .values({ name: itemRow.personName.trim() })
-          .returning();
-        crewId = createdCrew.id;
-      }
-    }
-    if (!crewId) {
-      skippedUnmatched++;
-      continue;
-    }
-    const dedupeTag = `bank:${itemRow.transactionId}`;
-    const [existing] = await db
-      .select({ id: crewPaymentsTable.id })
-      .from(crewPaymentsTable)
-      .where(like(crewPaymentsTable.note, `%${dedupeTag}%`));
-    if (existing) {
-      skippedExisting++;
-      continue;
-    }
-    await db.insert(crewPaymentsTable).values({
-      crewId,
-      amount: itemRow.amount,
-      method: "Bank",
-      status: "completed",
-      note: `Imported from bank (${dedupeTag})`,
-      paidAt: parseLocalDate(itemRow.date),
-    });
-    crewPaymentsCreated++;
+    const outcome = await importCrewPaymentItem(itemRow);
+    if (outcome === "created") crewPaymentsCreated++;
+    else if (outcome === "skippedExisting") skippedExisting++;
+    else skippedUnmatched++;
   }
 
   for (const itemRow of data.paidInvoices) {
-    if (!itemRow.invoiceId) {
-      skippedUnmatched++;
-      continue;
-    }
-    const [inv] = await db
-      .select()
-      .from(invoicesTable)
-      .where(eq(invoicesTable.id, itemRow.invoiceId));
-    if (!inv || inv.status === "paid") {
-      skippedExisting++;
-      continue;
-    }
-    await db.transaction(async (tx) => {
-      await tx.insert(paymentsTable).values({
-        invoiceId: inv.id,
-        amount: itemRow.amount,
-        method: "Bank deposit",
-        receivedAt: parseLocalDate(itemRow.date),
-      });
-      await tx
-        .update(invoicesTable)
-        .set({ status: "paid", paidAt: parseLocalDate(itemRow.date) })
-        .where(eq(invoicesTable.id, inv.id));
-    });
-    if (inv.jobId) await recomputeJobFinancials(inv.jobId);
-    await syncInvoiceLedger(inv.id);
-    invoicesPaid++;
+    const outcome = await importPaidInvoiceItem(itemRow);
+    if (outcome === "created") invoicesPaid++;
+    else if (outcome === "skippedExisting") skippedExisting++;
+    else skippedUnmatched++;
   }
 
   res.json(

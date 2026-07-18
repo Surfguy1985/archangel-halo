@@ -1655,6 +1655,47 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /plaid/analysis/categorize:
+    post:
+      operationId: categorizeBankTransaction
+      tags: [money]
+      summary: Recategorize one analyzed bank transaction and add it under the right tab
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 90, default: 30 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankTxnCategorization"
+      responses:
+        "200":
+          description: Updated analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankAnalysis"
+        "404":
+          description: Transaction not found in current analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: No bank connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Plaid error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /plaid/item:
     delete:
       operationId: disconnectBank
@@ -4954,6 +4995,18 @@ components:
             crewPayments: { type: number }
             paidInvoices: { type: number }
             other: { type: number }
+
+    BankTxnCategorization:
+      type: object
+      required: [transactionId, kind]
+      additionalProperties: false
+      properties:
+        transactionId: { type: string }
+        kind: { type: string, enum: [expense, crew, invoice, other] }
+        category: { type: ["string", "null"] }
+        crewId: { type: ["string", "null"] }
+        personName: { type: ["string", "null"] }
+        invoiceId: { type: ["string", "null"] }
 
     BankAnalysisApplyResult:
       type: object

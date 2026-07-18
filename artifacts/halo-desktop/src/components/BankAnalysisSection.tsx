@@ -22,6 +22,7 @@ import {
   CopyPlus,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { CategorizeTxnDialog } from "./CategorizeTxnDialog";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -42,6 +43,7 @@ function Column({
   tone,
   empty,
   render,
+  onItemClick,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -50,6 +52,7 @@ function Column({
   tone: "in" | "out";
   empty: string;
   render: (item: BankAnalysisItem) => { primary: string; secondary: string };
+  onItemClick: (item: BankAnalysisItem) => void;
 }) {
   return (
     <div className="bg-card rounded-xl border border-border shadow-sm flex flex-col min-w-0">
@@ -74,7 +77,11 @@ function Column({
           items.map((item) => {
             const r = render(item);
             return (
-              <div key={item.transactionId} className="flex items-center gap-3 p-3.5">
+              <button
+                key={item.transactionId}
+                onClick={() => onItemClick(item)}
+                className="flex items-center gap-3 p-3.5 w-full text-left hover:bg-muted/40 transition-colors cursor-pointer"
+              >
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-[13px] text-[var(--ink)] truncate">
                     {r.primary}
@@ -90,7 +97,7 @@ function Column({
                 >
                   {tone === "in" ? `+${money(item.amount)}` : `-${money(item.amount)}`}
                 </div>
-              </div>
+              </button>
             );
           })
         )}
@@ -103,6 +110,10 @@ export function BankAnalysisSection() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [force, setForce] = useState(false);
+  const [editing, setEditing] = useState<{
+    item: BankAnalysisItem;
+    kind: "expense" | "crew" | "invoice" | "other";
+  } | null>(null);
   const apply = useApplyBankAnalysis();
 
   const copyToTabs = () => {
@@ -210,6 +221,7 @@ export function BankAnalysisSection() {
               total={analysis.data.totals.paidInvoices}
               tone="in"
               empty="No deposits in this period."
+              onItemClick={(item) => setEditing({ item, kind: "invoice" })}
               render={(item) => ({
                 primary: item.invoiceNo
                   ? `Invoice ${item.invoiceNo}${item.propertyName ? ` — ${item.propertyName}` : ""}`
@@ -224,6 +236,7 @@ export function BankAnalysisSection() {
               total={analysis.data.totals.crewPayments}
               tone="out"
               empty="No payments to people found."
+              onItemClick={(item) => setEditing({ item, kind: "crew" })}
               render={(item) => ({
                 primary: item.personName || item.name,
                 secondary: [
@@ -241,6 +254,7 @@ export function BankAnalysisSection() {
               total={analysis.data.totals.expenses}
               tone="out"
               empty="No expenses found."
+              onItemClick={(item) => setEditing({ item, kind: "expense" })}
               render={(item) => ({
                 primary: item.name,
                 secondary: [fmtDate(item.date), item.category].filter(Boolean).join(" · "),
@@ -255,6 +269,7 @@ export function BankAnalysisSection() {
               total={analysis.data.totals.other}
               tone="out"
               empty=""
+              onItemClick={(item) => setEditing({ item, kind: "other" })}
               render={(item) => ({
                 primary: item.name,
                 secondary: [fmtDate(item.date), item.category].filter(Boolean).join(" · "),
@@ -263,6 +278,13 @@ export function BankAnalysisSection() {
           )}
         </>
       ) : null}
+      <CategorizeTxnDialog
+        item={editing?.item ?? null}
+        initialKind={editing?.kind ?? "expense"}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+      />
     </div>
   );
 }

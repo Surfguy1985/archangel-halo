@@ -36,6 +36,7 @@ import type {
   BankReconciliation,
   BankStatus,
   BankTransaction,
+  BankTxnCategorization,
   Bid,
   BidDetail,
   BidInput,
@@ -55,6 +56,7 @@ import type {
   CatalogItem,
   CatalogItemInput,
   CatalogItemUpdate,
+  CategorizeBankTransactionParams,
   Contact,
   ContactInput,
   ContactUpdate,
@@ -5770,6 +5772,85 @@ export const useApplyBankAnalysis = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getApplyBankAnalysisMutationOptions(options));
+    }
+
+export const getCategorizeBankTransactionUrl = (params?: CategorizeBankTransactionParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/plaid/analysis/categorize?${stringifiedParams}` : `/api/plaid/analysis/categorize`
+}
+
+/**
+ * @summary Recategorize one analyzed bank transaction and add it under the right tab
+ */
+export const categorizeBankTransaction = async (bankTxnCategorization: BankTxnCategorization,
+    params?: CategorizeBankTransactionParams, options?: RequestInit): Promise<BankAnalysis> => {
+
+  return customFetch<BankAnalysis>(getCategorizeBankTransactionUrl(params),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(bankTxnCategorization)
+  }
+);}
+
+
+
+
+
+export const getCategorizeBankTransactionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof categorizeBankTransaction>>, TError,{data: BodyType<BankTxnCategorization>;params?: CategorizeBankTransactionParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof categorizeBankTransaction>>, TError,{data: BodyType<BankTxnCategorization>;params?: CategorizeBankTransactionParams}, TContext> => {
+
+const mutationKey = ['categorizeBankTransaction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof categorizeBankTransaction>>, {data: BodyType<BankTxnCategorization>;params?: CategorizeBankTransactionParams}> = (props) => {
+          const {data,params} = props ?? {};
+
+          return  categorizeBankTransaction(data,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CategorizeBankTransactionMutationResult = NonNullable<Awaited<ReturnType<typeof categorizeBankTransaction>>>
+    export type CategorizeBankTransactionMutationBody = BodyType<BankTxnCategorization>
+    export type CategorizeBankTransactionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Recategorize one analyzed bank transaction and add it under the right tab
+ */
+export const useCategorizeBankTransaction = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof categorizeBankTransaction>>, TError,{data: BodyType<BankTxnCategorization>;params?: CategorizeBankTransactionParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof categorizeBankTransaction>>,
+        TError,
+        {data: BodyType<BankTxnCategorization>;params?: CategorizeBankTransactionParams},
+        TContext
+      > => {
+      return useMutation(getCategorizeBankTransactionMutationOptions(options));
     }
 
 export const getDisconnectBankUrl = () => {
