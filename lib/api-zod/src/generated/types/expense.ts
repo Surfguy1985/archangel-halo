@@ -19,6 +19,12 @@ export interface Expense {
   amount: number;
   /** @nullable */
   source?: string | null;
+  /** paid or open (unpaid vendor bill) */
+  paymentStatus?: string;
+  /** @nullable */
+  dueDate?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
   /** @nullable */
   spentOn?: string | null;
 }

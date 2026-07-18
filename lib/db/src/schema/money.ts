@@ -25,6 +25,7 @@ export const invoicesTable = pgTable("invoices", {
   sentAt: timestamp("sent_at", { withTimezone: true }),
   dueAt: timestamp("due_at", { withTimezone: true }),
   paidAt: timestamp("paid_at", { withTimezone: true }),
+  taxAmount: doublePrecision("tax_amount").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -64,6 +65,9 @@ export const expensesTable = pgTable("expenses", {
   category: text("category"),
   amount: doublePrecision("amount").notNull(),
   source: text("source"),
+  paymentStatus: text("payment_status").notNull().default("paid"),
+  dueDate: date("due_date", { mode: "string" }),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
   spentOn: timestamp("spent_on", { withTimezone: true })
     .notNull()
     .defaultNow(),

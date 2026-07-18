@@ -8,6 +8,8 @@ import {
   useListCrewPayments,
   useRemindInvoice,
   useUpdateCrewPayment,
+  usePayExpenseBill,
+  getListExpensesQueryKey,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
   getListCrewPaymentsQueryKey,
@@ -411,8 +413,25 @@ function Invoices() {
 }
 
 function Expenses() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { data: expenses, isLoading } = useListExpenses();
   const [addOpen, setAddOpen] = useState(false);
+  const payBill = usePayExpenseBill();
+
+  const doPay = (id: string, vendor: string | null | undefined) =>
+    payBill.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: ["/accounting"] });
+          toast({ title: `Paid ${vendor || "bill"}` });
+        },
+        onError: () => toast({ title: "Couldn't mark that bill paid", variant: "destructive" }),
+      },
+    );
 
   const sorted = useMemo(
     () =>
@@ -477,11 +496,29 @@ function Expenses() {
                 </div>
                 <div className="text-xs text-muted-foreground truncate mt-0.5">
                   {[e.category, fmtDate(e.spentOn), e.source].filter(Boolean).join(" · ")}
+                  {e.paymentStatus === "open" && e.dueDate ? ` · due ${fmtDate(e.dueDate)}` : ""}
                 </div>
               </div>
+              {e.paymentStatus === "open" && (
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 shrink-0">
+                  Unpaid bill
+                </span>
+              )}
               <div className="font-display font-semibold tabular-nums text-[var(--ink)] shrink-0">
                 {money(e.amount)}
               </div>
+              {e.paymentStatus === "open" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 shrink-0"
+                  disabled={payBill.isPending}
+                  onClick={() => doPay(e.id, e.vendor)}
+                  data-testid={`button-pay-bill-${e.id}`}
+                >
+                  Mark paid
+                </Button>
+              )}
             </div>
           ))}
         </div>

@@ -20,5 +20,6 @@ export interface InvoiceInput {
   propertyAddress?: string;
   notes?: string;
   paymentInstructions?: string;
+  taxAmount?: number;
   lineItems?: InvoiceLineItemInput[];
 }

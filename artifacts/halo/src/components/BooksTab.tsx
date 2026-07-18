@@ -12,6 +12,7 @@ import {
   getGetProfitAndLossQueryKey,
   getGetBalanceSheetReportQueryKey,
   getGetCashFlowReportQueryKey,
+  useGetTaxReport,
   type LedgerAccount,
   type JournalEntryFull,
 } from "@workspace/api-client-react";
@@ -204,7 +205,7 @@ function NewEntrySheet({
 }
 
 export function BooksTab() {
-  const [view, setView] = useState<"pnl" | "balance" | "cash" | "journal">("pnl");
+  const [view, setView] = useState<"pnl" | "balance" | "cash" | "journal" | "tax">("pnl");
   const [entryOpen, setEntryOpen] = useState(false);
   const from = `${new Date().getFullYear()}-01-01`;
   const to = localToday();
@@ -223,6 +224,7 @@ export function BooksTab() {
     { key: "balance", label: "Balance" },
     { key: "cash", label: "Cash" },
     { key: "journal", label: "Journal" },
+    { key: "tax", label: "Tax" },
   ] as const;
 
   return (
@@ -366,7 +368,56 @@ export function BooksTab() {
         </div>
       )}
 
+      {view === "tax" && <TaxView />}
+
       <NewEntrySheet open={entryOpen} onOpenChange={setEntryOpen} accounts={accounts} />
     </div>
+  );
+}
+
+function TaxView() {
+  const year = new Date().getFullYear();
+  const { data: tax } = useGetTaxReport({ year });
+
+  if (!tax) return <div className="animate-pulse h-32 bg-card rounded-[14px]" />;
+
+  return (
+    <>
+      <Section title={`Tax summary — ${tax.year}`}>
+        {[
+          { label: "Gross receipts", value: tax.grossReceipts },
+          { label: "Sales tax collected", value: tax.salesTaxCollected },
+          { label: "Sales tax still owed", value: tax.salesTaxBalance },
+        ].map((r) => (
+          <div key={r.label} className="flex justify-between py-[5px] text-[13px]">
+            <span>{r.label}</span>
+            <span className="font-display font-semibold tabular-nums">{money(r.value)}</span>
+          </div>
+        ))}
+      </Section>
+      <Section title="Schedule C deductions">
+        {tax.scheduleC.length === 0 && (
+          <div className="text-[12.5px] text-muted-foreground py-[4px]">No deductible expenses yet.</div>
+        )}
+        {tax.scheduleC.map((r) => (
+          <div key={r.line + r.label} className="flex justify-between py-[5px] text-[13px]">
+            <span>
+              <span className="text-muted-foreground mr-[6px]">Line {r.line}</span>
+              {r.label}
+            </span>
+            <span className="font-display font-semibold tabular-nums">{money(r.amount)}</span>
+          </div>
+        ))}
+        <div className="flex justify-between pt-[7px] mt-[3px] border-t border-border text-[13px] font-display font-bold">
+          <span>Net profit</span>
+          <span className={`tabular-nums ${tax.netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+            {money(tax.netProfit)}
+          </span>
+        </div>
+      </Section>
+      <div className="text-[11.5px] text-muted-foreground px-[2px]">
+        Full report with CSV export is on the desktop app under Books → Taxes.
+      </div>
+    </>
   );
 }

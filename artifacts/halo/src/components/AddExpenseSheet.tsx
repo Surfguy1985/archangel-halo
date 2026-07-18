@@ -32,6 +32,8 @@ export function AddExpenseSheet({
   const [amount, setAmount] = useState("");
   const [vendor, setVendor] = useState("");
   const [category, setCategory] = useState("");
+  const [isBill, setIsBill] = useState(false);
+  const [dueDate, setDueDate] = useState("");
   const create = useCreateExpense();
 
   const reset = () => {
@@ -40,6 +42,8 @@ export function AddExpenseSheet({
     setAmount("");
     setVendor("");
     setCategory("");
+    setIsBill(false);
+    setDueDate("");
   };
 
   const submit = () => {
@@ -53,6 +57,8 @@ export function AddExpenseSheet({
           jobId: jobId || undefined,
           vendor: vendor.trim() || undefined,
           category: category.trim() || undefined,
+          paymentStatus: isBill ? "open" : undefined,
+          dueDate: isBill && dueDate ? dueDate : undefined,
         },
       },
       {
@@ -100,6 +106,25 @@ export function AddExpenseSheet({
                   <option key={j.id} value={j.id}>{j.jobNo} · {j.category || j.description}</option>
                 ))}
               </select>
+            )}
+            <label className="flex items-center gap-[10px] text-[13.5px] font-medium py-[4px]">
+              <input
+                type="checkbox"
+                checked={isBill}
+                onChange={(e) => setIsBill(e.target.checked)}
+                className="w-[17px] h-[17px] accent-[var(--gold)]"
+                data-testid="checkbox-is-bill"
+              />
+              Unpaid bill — I owe the vendor
+            </label>
+            {isBill && (
+              <input
+                className={fieldCls}
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                data-testid="input-bill-due"
+              />
             )}
           </div>
           <button

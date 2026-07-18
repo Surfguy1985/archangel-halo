@@ -9,6 +9,11 @@ import {
   useGetBalanceSheetReport,
   useGetCashFlowReport,
   useRebuildLedgerEntries,
+  useGetTaxReport,
+  useGetBankReconciliation,
+  useImportBankTransaction,
+  getGetTaxReportQueryKey,
+  getGetBankReconciliationQueryKey,
   getListLedgerAccountsQueryKey,
   getListJournalEntriesQueryKey,
   getGetProfitAndLossQueryKey,
@@ -16,6 +21,7 @@ import {
   getGetCashFlowReportQueryKey,
   type LedgerAccount,
   type JournalEntryFull,
+  type BankTxnMatch,
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Trash2, Landmark, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const money = (n: number) =>
@@ -63,7 +69,7 @@ function yearStart(): string {
   return `${new Date().getFullYear()}-01-01`;
 }
 
-type SubTab = "pnl" | "balance" | "cash" | "journal" | "accounts";
+type SubTab = "pnl" | "balance" | "cash" | "journal" | "accounts" | "tax" | "bank";
 
 function ReportRows({
   rows,
@@ -298,6 +304,8 @@ export function BooksTab() {
     { key: "cash", label: "Cash Flow" },
     { key: "journal", label: "Journal" },
     { key: "accounts", label: "Accounts" },
+    { key: "tax", label: "Taxes" },
+    { key: "bank", label: "Bank Match" },
   ];
 
   return (
@@ -562,7 +570,250 @@ export function BooksTab() {
         </Card>
       )}
 
+      {sub === "tax" && <TaxSection />}
+      {sub === "bank" && <BankSection />}
+
       <JournalEntryDialog open={entryOpen} onOpenChange={setEntryOpen} accounts={accounts} />
+    </div>
+  );
+}
+
+function TaxSection() {
+  const [year, setYear] = useState(new Date().getFullYear());
+  const { data: tax, isLoading } = useGetTaxReport({ year });
+  const years = [0, 1, 2].map((i) => new Date().getFullYear() - i);
+
+  const exportCsv = () => {
+    if (!tax) return;
+    const lines = [
+      `HALO Tax Report,${tax.year}`,
+      "",
+      `Gross receipts,${tax.grossReceipts}`,
+      `Sales tax collected,${tax.salesTaxCollected}`,
+      `Sales tax still owed,${tax.salesTaxBalance}`,
+      "",
+      "Schedule C line,Category,Amount",
+      ...tax.scheduleC.map((r) => `Line ${r.line},${r.label},${r.amount}`),
+      "",
+      `Total expenses,${tax.totalExpenses}`,
+      `Net profit,${tax.netProfit}`,
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `halo-tax-report-${tax.year}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1 bg-black/[0.04] rounded-lg p-1">
+          {years.map((y) => (
+            <button
+              key={y}
+              onClick={() => setYear(y)}
+              className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
+                year === y ? "bg-white shadow-sm" : "text-muted-foreground"
+              }`}
+              data-testid={`tax-year-${y}`}
+            >
+              {y}
+            </button>
+          ))}
+        </div>
+        <Button variant="outline" size="sm" onClick={exportCsv} disabled={!tax} data-testid="button-tax-export">
+          <Download className="w-4 h-4 mr-1.5" />
+          Export CSV
+        </Button>
+      </div>
+      {isLoading && <Skeleton className="h-40 w-full" />}
+      {tax && (
+        <>
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { label: "Gross receipts", value: tax.grossReceipts },
+              { label: "Sales tax collected", value: tax.salesTaxCollected },
+              { label: "Sales tax still owed", value: tax.salesTaxBalance },
+            ].map((c) => (
+              <Card key={c.label}>
+                <CardContent className="pt-5">
+                  <p className="text-xs text-muted-foreground uppercase font-semibold">{c.label}</p>
+                  <p className="font-display font-bold text-2xl tabular-nums" data-testid={`tax-${c.label.replaceAll(" ", "-").toLowerCase()}`}>
+                    {money(c.value)}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card>
+            <CardContent className="pt-5">
+              <h3 className="font-display font-bold mb-2">Schedule C deductions</h3>
+              {tax.scheduleC.length === 0 && (
+                <p className="text-sm text-muted-foreground py-2">No deductible expenses recorded for {tax.year}.</p>
+              )}
+              {tax.scheduleC.map((r) => (
+                <div key={r.line + r.label} className="flex items-center justify-between py-2 border-b border-border/60 last:border-0">
+                  <span className="text-sm">
+                    <span className="text-muted-foreground mr-2">Line {r.line}</span>
+                    {r.label}
+                  </span>
+                  <span className="text-sm font-semibold tabular-nums">{money(r.amount)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-3 mt-1 border-t border-border">
+                <span className="text-sm font-bold">Total expenses</span>
+                <span className="text-sm font-bold tabular-nums">{money(tax.totalExpenses)}</span>
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-sm font-bold">Net profit (Schedule C line 31)</span>
+                <span className={`text-sm font-bold tabular-nums ${tax.netProfit >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                  {money(tax.netProfit)}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+          <p className="text-xs text-muted-foreground">
+            Set your sales tax rate in Settings to split tax out of new invoices automatically.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+const BANK_STATUS_BADGE: Record<string, string> = {
+  matched: "bg-emerald-500/10 text-emerald-600",
+  unmatched: "bg-amber-500/15 text-amber-700",
+  imported: "bg-black/[0.05] text-muted-foreground",
+};
+
+function BankSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [days, setDays] = useState(30);
+  const { data: rec, isLoading, error } = useGetBankReconciliation({ days });
+  const importTxn = useImportBankTransaction();
+
+  const doImport = (t: BankTxnMatch) =>
+    importTxn.mutate(
+      {
+        data: {
+          transactionId: t.transactionId,
+          date: t.date,
+          name: t.name,
+          amount: t.amount,
+          direction: t.direction as "in" | "out",
+          category: t.category ?? undefined,
+        },
+      },
+      {
+        onSuccess: (r) => {
+          queryClient.invalidateQueries({ queryKey: getGetBankReconciliationQueryKey() });
+          queryClient.invalidateQueries({ queryKey: ["/accounting"] });
+          queryClient.invalidateQueries({ queryKey: getListLedgerAccountsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetProfitAndLossQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetCashFlowReportQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetBalanceSheetReportQueryKey() });
+          queryClient.invalidateQueries({ queryKey: ["/expenses"] });
+          toast({ title: r.message ?? "Imported" });
+        },
+        onError: () => toast({ title: "Couldn't import that transaction", variant: "destructive" }),
+      },
+    );
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="pt-8 pb-8 text-center">
+          <Landmark className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
+          <p className="font-semibold mb-1">No bank connected</p>
+          <p className="text-sm text-muted-foreground">
+            Connect your bank in the Money tab to match bank activity against your books.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1 bg-black/[0.04] rounded-lg p-1">
+          {[14, 30, 60, 90].map((d) => (
+            <button
+              key={d}
+              onClick={() => setDays(d)}
+              className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
+                days === d ? "bg-white shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              {d}d
+            </button>
+          ))}
+        </div>
+        {rec && (
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-emerald-600 font-semibold">{rec.matchedCount} matched</span>
+            <span className="text-amber-700 font-semibold">{rec.unmatchedCount} unmatched</span>
+            <span className="text-muted-foreground">Ledger cash {money(rec.ledgerCash)}</span>
+          </div>
+        )}
+      </div>
+      {isLoading && <Skeleton className="h-40 w-full" />}
+      {rec?.truncated && (
+        <p className="text-xs text-amber-700">
+          Showing the most recent transactions only — older activity in this window was cut off.
+        </p>
+      )}
+      {rec && rec.transactions.length === 0 && (
+        <p className="text-sm text-muted-foreground py-4">No bank transactions in this window.</p>
+      )}
+      {rec && rec.transactions.length > 0 && (
+        <Card>
+          <CardContent className="pt-5">
+            {rec.transactions.map((t) => (
+              <div
+                key={t.transactionId}
+                className="flex items-center justify-between gap-3 py-2.5 border-b border-border/60 last:border-0"
+                data-testid={`bank-txn-${t.transactionId}`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold truncate">{t.merchantName || t.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {fmtDate(t.date)}
+                    {t.category ? ` · ${t.category.toLowerCase()}` : ""}
+                    {t.status === "matched" && t.matchedEntryNo ? ` · matches ${t.matchedEntryNo}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`text-sm font-bold tabular-nums ${t.direction === "in" ? "text-emerald-600" : ""}`}>
+                    {t.direction === "in" ? "+" : "−"}{money(t.amount)}
+                  </span>
+                  <Badge className={`text-[10px] ${BANK_STATUS_BADGE[t.status] ?? ""}`} variant="secondary">
+                    {t.status}
+                  </Badge>
+                  {t.status === "unmatched" && !t.pending && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7"
+                      disabled={importTxn.isPending}
+                      onClick={() => doImport(t)}
+                      data-testid={`button-import-${t.transactionId}`}
+                    >
+                      Add to books
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

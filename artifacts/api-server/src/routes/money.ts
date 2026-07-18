@@ -35,6 +35,8 @@ import {
   ListExpensesResponse,
   ListExpensesQueryParams,
   CreateExpenseBody,
+  PayExpenseBillParams,
+  PayExpenseBillResponse,
   CreateExpenseResponse,
   GetBusinessReportResponse,
   GenerateReportInsightsResponse,
@@ -87,6 +89,22 @@ function invoicePdfData(
 }
 
 const router: IRouter = Router();
+
+/**
+ * Explicit taxAmount wins; otherwise apply the business tax rate (tax-inclusive
+ * total: tax = total * r / (1 + r)) when one is configured.
+ */
+async function resolveTaxAmount(
+  explicit: number | undefined,
+  total: number,
+): Promise<number> {
+  if (explicit != null)
+    return Math.min(Math.max(Math.round(explicit * 100) / 100, 0), total);
+  const settings = await getBusinessSettings();
+  const r = (settings.taxRatePct ?? 0) / 100;
+  if (r <= 0) return 0;
+  return Math.round(((total * r) / (1 + r)) * 100) / 100;
+}
 const DAY = 1000 * 60 * 60 * 24;
 
 type LineItemInput = {
@@ -391,6 +409,7 @@ router.post("/invoices", async (req, res): Promise<void> => {
         propertyAddress: body.propertyAddress ?? defaults.propertyAddress,
         notes: body.notes ?? null,
         paymentInstructions: body.paymentInstructions ?? null,
+        taxAmount: await resolveTaxAmount(body.taxAmount, total),
         status: "draft",
       })
       .returning();
@@ -440,6 +459,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
       : (body.amount ?? existing.amount);
   const dueAt =
     body.dueOn || body.dueInDays != null ? computeDueAt(body) : existing.dueAt;
+  const taxAmount = await resolveTaxAmount(body.taxAmount, total);
 
   const row = await db.transaction(async (tx) => {
     const [updated] = await tx
@@ -456,6 +476,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
         propertyAddress: body.propertyAddress ?? existing.propertyAddress,
         notes: body.notes ?? null,
         paymentInstructions: body.paymentInstructions ?? null,
+        taxAmount,
       })
       .where(eq(invoicesTable.id, id))
       .returning();
@@ -715,6 +736,26 @@ router.post("/expenses", async (req, res): Promise<void> => {
   if (row.jobId) await recomputeJobFinancials(row.jobId);
   await syncExpenseLedger(row.id);
   res.status(201).json(CreateExpenseResponse.parse(ser(row)));
+});
+
+router.post("/expenses/:id/pay", async (req, res): Promise<void> => {
+  const { id } = PayExpenseBillParams.parse(req.params);
+  const [exp] = await db.select().from(expensesTable).where(eq(expensesTable.id, id));
+  if (!exp) {
+    res.status(404).json({ error: "Expense not found" });
+    return;
+  }
+  if (exp.paymentStatus === "paid") {
+    res.json(PayExpenseBillResponse.parse(ser(exp)));
+    return;
+  }
+  const [updated] = await db
+    .update(expensesTable)
+    .set({ paymentStatus: "paid", paidAt: new Date() })
+    .where(eq(expensesTable.id, id))
+    .returning();
+  await syncExpenseLedger(updated.id);
+  res.json(PayExpenseBillResponse.parse(ser(updated)));
 });
 
 export default router;

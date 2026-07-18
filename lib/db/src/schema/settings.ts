@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
+import { doublePrecision, pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
 
 export const businessSettingsTable = pgTable("business_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -10,6 +10,7 @@ export const businessSettingsTable = pgTable("business_settings", {
   phone: text("phone").notNull().default(""),
   email: text("email").notNull().default("admin@archangelcontractors.com"),
   paymentInstructions: text("payment_instructions").notNull().default(""),
+  taxRatePct: doublePrecision("tax_rate_pct").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

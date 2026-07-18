@@ -18,7 +18,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 // In-process per-key mutex: serializes remove+repost cycles for the same
 // source document so concurrent syncs can't double-post (single-server app).
 const refLocks = new Map<string, Promise<void>>();
-async function withRefLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+export async function withRefLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const prev = refLocks.get(key) ?? Promise.resolve();
   let release!: () => void;
   const gate = new Promise<void>((r) => (release = r));
@@ -44,6 +44,7 @@ export const CHART_OF_ACCOUNTS: ReadonlyArray<{
   { code: "1000", name: "Cash", type: "asset" },
   { code: "1100", name: "Accounts Receivable", type: "asset" },
   { code: "2000", name: "Accounts Payable", type: "liability" },
+  { code: "2100", name: "Sales Tax Payable", type: "liability" },
   { code: "3000", name: "Owner's Equity", type: "equity" },
   { code: "4000", name: "Service Revenue", type: "income" },
   { code: "5000", name: "Crew Labor", type: "expense" },
@@ -219,6 +220,8 @@ async function syncInvoiceLedgerInner(invoiceId: string): Promise<void> {
 }
 
 async function postInvoiceEntries(inv: Invoice): Promise<void> {
+  const tax = Math.min(Math.max(inv.taxAmount ?? 0, 0), inv.amount);
+  const net = round2(inv.amount - tax);
   await postJournal({
     entryDate: dateOnly(inv.sentAt ?? inv.issuedOn),
     memo: `Invoice ${inv.invoiceNo} issued`,
@@ -227,7 +230,10 @@ async function postInvoiceEntries(inv: Invoice): Promise<void> {
     source: "system",
     lines: [
       { accountCode: "1100", debit: inv.amount, description: inv.invoiceNo },
-      { accountCode: "4000", credit: inv.amount, description: inv.invoiceNo },
+      { accountCode: "4000", credit: net, description: inv.invoiceNo },
+      ...(tax > 0
+        ? [{ accountCode: "2100", credit: tax, description: `${inv.invoiceNo} sales tax` }]
+        : []),
     ],
   });
   if (inv.status === "paid") {
@@ -251,7 +257,7 @@ export async function syncExpenseLedger(expenseId: string): Promise<void> {
 }
 
 async function syncExpenseLedgerInner(expenseId: string): Promise<void> {
-  await removeEntriesForRef(["expense"], expenseId);
+  await removeEntriesForRef(["expense", "expense_payment"], expenseId);
   const [exp] = await db
     .select()
     .from(expensesTable)
@@ -262,17 +268,33 @@ async function syncExpenseLedgerInner(expenseId: string): Promise<void> {
 
 async function postExpenseEntry(exp: Expense): Promise<void> {
   const label = [exp.vendor, exp.category].filter(Boolean).join(" — ") || "Expense";
+  const isBill = exp.paymentStatus === "open";
+  // Expense is recognized when incurred; credit AP for unpaid bills, Cash otherwise.
   await postJournal({
     entryDate: dateOnly(exp.spentOn),
-    memo: `Expense: ${label}`,
+    memo: isBill ? `Bill: ${label}` : `Expense: ${label}`,
     refType: "expense",
     refId: exp.id,
     source: "system",
     lines: [
       { accountCode: expenseAccountCode(exp.category), debit: exp.amount, description: label },
-      { accountCode: "1000", credit: exp.amount, description: label },
+      { accountCode: isBill || exp.paidAt ? "2000" : "1000", credit: exp.amount, description: label },
     ],
   });
+  // A bill that has been paid clears AP with cash.
+  if (exp.paymentStatus === "paid" && exp.paidAt) {
+    await postJournal({
+      entryDate: dateOnly(exp.paidAt),
+      memo: `Bill paid: ${label}`,
+      refType: "expense_payment",
+      refId: exp.id,
+      source: "system",
+      lines: [
+        { accountCode: "2000", debit: exp.amount, description: label },
+        { accountCode: "1000", credit: exp.amount, description: label },
+      ],
+    });
+  }
 }
 
 /**

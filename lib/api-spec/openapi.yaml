@@ -1860,6 +1860,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/Expense"
 
+  /expenses/{id}/pay:
+    post:
+      operationId: payExpenseBill
+      tags: [money]
+      summary: Mark an open vendor bill as paid
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated expense
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /inventory:
     get:
       operationId: listInventory
@@ -3464,6 +3488,77 @@ paths:
                 properties:
                   posted: { type: number }
 
+  /accounting/reports/tax:
+    get:
+      operationId: getTaxReport
+      tags: [accounting]
+      summary: Yearly tax summary — sales tax collected and Schedule C expense lines
+      parameters:
+        - name: year
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tax report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxReport"
+
+  /accounting/bank/reconcile:
+    get:
+      operationId: getBankReconciliation
+      tags: [accounting]
+      summary: Match recent bank transactions against ledger cash entries
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Reconciliation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankReconciliation"
+        "409":
+          description: No bank connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /accounting/bank/import:
+    post:
+      operationId: importBankTransaction
+      tags: [accounting]
+      summary: Import an unmatched bank transaction into the books
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BankImportInput"
+      responses:
+        "200":
+          description: Imported
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        "400":
+          description: Invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   schemas:
     HealthStatus:
@@ -4508,6 +4603,7 @@ components:
         sentAt: { type: ["string", "null"] }
         dueAt: { type: ["string", "null"] }
         paidAt: { type: ["string", "null"] }
+        taxAmount: { type: number }
         daysLate: { type: ["integer", "null"] }
     InvoiceLineItem:
       type: object
@@ -4554,6 +4650,7 @@ components:
         sentAt: { type: ["string", "null"] }
         dueAt: { type: ["string", "null"] }
         paidAt: { type: ["string", "null"] }
+        taxAmount: { type: number }
         daysLate: { type: ["integer", "null"] }
         recipientEmail: { type: ["string", "null"] }
         lineItems:
@@ -4621,6 +4718,7 @@ components:
         phone: { type: string }
         email: { type: string }
         paymentInstructions: { type: string }
+        taxRatePct: { type: number }
     BusinessSettingsInput:
       type: object
       properties:
@@ -4632,6 +4730,7 @@ components:
         phone: { type: string }
         email: { type: string }
         paymentInstructions: { type: string }
+        taxRatePct: { type: number }
     InvoiceInput:
       type: object
       required: [propertyId]
@@ -4648,6 +4747,7 @@ components:
         propertyAddress: { type: string }
         notes: { type: string }
         paymentInstructions: { type: string }
+        taxAmount: { type: number }
         lineItems:
           type: array
           items: { $ref: "#/components/schemas/InvoiceLineItemInput" }
@@ -4680,6 +4780,9 @@ components:
         category: { type: ["string", "null"] }
         amount: { type: number }
         source: { type: ["string", "null"] }
+        paymentStatus: { type: string, description: "paid or open (unpaid vendor bill)" }
+        dueDate: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"] }
         spentOn: { type: ["string", "null"] }
     ExpenseInput:
       type: object
@@ -4690,6 +4793,8 @@ components:
         vendor: { type: string }
         category: { type: string }
         amount: { type: number }
+        paymentStatus: { type: string, enum: [paid, open] }
+        dueDate: { type: string }
 
     InventoryItem:
       type: object
@@ -5556,3 +5661,64 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AccountLedgerLine"
+
+    TaxReport:
+      type: object
+      required: [year, salesTaxCollected, salesTaxBalance, grossReceipts, scheduleC, totalExpenses, netProfit]
+      properties:
+        year: { type: integer }
+        salesTaxCollected: { type: number }
+        salesTaxBalance: { type: number, description: "Sales tax still owed (liability balance)" }
+        grossReceipts: { type: number }
+        scheduleC:
+          type: array
+          items:
+            type: object
+            required: [line, label, amount]
+            properties:
+              line: { type: string }
+              label: { type: string }
+              amount: { type: number }
+        totalExpenses: { type: number }
+        netProfit: { type: number }
+
+    BankTxnMatch:
+      type: object
+      required: [transactionId, date, name, amount, direction, status]
+      properties:
+        transactionId: { type: string }
+        date: { type: string }
+        name: { type: string }
+        merchantName: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        amount: { type: number, description: "Positive dollars" }
+        direction: { type: string, description: "in or out" }
+        status: { type: string, description: "matched | unmatched | imported" }
+        matchedEntryNo: { type: ["string", "null"] }
+        matchedMemo: { type: ["string", "null"] }
+        pending: { type: boolean }
+
+    BankReconciliation:
+      type: object
+      required: [transactions, matchedCount, unmatchedCount, ledgerCash]
+      properties:
+        transactions:
+          type: array
+          items: { $ref: "#/components/schemas/BankTxnMatch" }
+        matchedCount: { type: integer }
+        unmatchedCount: { type: integer }
+        ledgerCash: { type: number }
+        truncated:
+          type: ["boolean", "null"]
+          description: True when older transactions were cut off by the fetch limit
+
+    BankImportInput:
+      type: object
+      required: [transactionId, date, name, amount, direction]
+      properties:
+        transactionId: { type: string }
+        date: { type: string }
+        name: { type: string }
+        amount: { type: number }
+        direction: { type: string, enum: [in, out] }
+        category: { type: string }

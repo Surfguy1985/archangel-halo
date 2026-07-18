@@ -163,6 +163,8 @@ export function AddExpenseDialog({
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [propertyId, setPropertyId] = useState("");
+  const [isBill, setIsBill] = useState(false);
+  const [dueDate, setDueDate] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -171,6 +173,8 @@ export function AddExpenseDialog({
       setCategory("");
       setAmount("");
       setPropertyId(fixedPropertyId ?? "");
+      setIsBill(false);
+      setDueDate("");
       setError(null);
     }
   }, [open, fixedPropertyId]);
@@ -189,6 +193,8 @@ export function AddExpenseDialog({
           category: category.trim() || undefined,
           propertyId: (fixedPropertyId ?? propertyId) || undefined,
           jobId: fixedJobId || undefined,
+          paymentStatus: isBill ? "open" : undefined,
+          dueDate: isBill && dueDate ? dueDate : undefined,
         },
       },
       {
@@ -199,7 +205,7 @@ export function AddExpenseDialog({
             queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
           }
           onOpenChange(false);
-          toast({ title: "Expense logged" });
+          toast({ title: isBill ? "Bill logged — it shows as unpaid" : "Expense logged" });
         },
         onError: (err: unknown) => {
           setError(
@@ -273,6 +279,30 @@ export function AddExpenseDialog({
               </Select>
             </div>
           )}
+          <div className="rounded-md border border-border p-3 space-y-3">
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isBill}
+                onChange={(e) => setIsBill(e.target.checked)}
+                className="accent-[var(--gold,#B98A2F)]"
+                data-testid="checkbox-is-bill"
+              />
+              This is an unpaid bill (I owe the vendor)
+            </label>
+            {isBill && (
+              <div className="space-y-1.5">
+                <Label htmlFor="exp-due">Due date (optional)</Label>
+                <Input
+                  id="exp-due"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  data-testid="input-bill-due"
+                />
+              </div>
+            )}
+          </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>

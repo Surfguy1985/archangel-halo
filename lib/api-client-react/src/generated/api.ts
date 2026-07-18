@@ -27,6 +27,8 @@ import type {
   AskInput,
   BalanceSheetReport,
   BankAccount,
+  BankImportInput,
+  BankReconciliation,
   BankStatus,
   BankTransaction,
   Bid,
@@ -78,10 +80,13 @@ import type {
   ExpenseInput,
   GetAccountLedgerParams,
   GetBalanceSheetReportParams,
+  GetBankReconciliationParams,
   GetCalendarParams,
   GetCashFlowReportParams,
   GetProfitAndLossParams,
+  GetTaxReportParams,
   HealthStatus,
+  ImportBankTransaction200,
   ImportHistoryResult,
   IngestCommitInput,
   IngestCommitResult,
@@ -170,6 +175,7 @@ import type {
   ScheduleInput,
   SendInvoiceInput,
   SendPacketInput,
+  TaxReport,
   TodayPayload,
   UploadUrlRequest,
   UploadUrlResponse,
@@ -6687,6 +6693,77 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getCreateExpenseMutationOptions(options));
     }
 
+export const getPayExpenseBillUrl = (id: string,) => {
+
+
+
+
+  return `/api/expenses/${id}/pay`
+}
+
+/**
+ * @summary Mark an open vendor bill as paid
+ */
+export const payExpenseBill = async (id: string, options?: RequestInit): Promise<Expense> => {
+
+  return customFetch<Expense>(getPayExpenseBillUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPayExpenseBillMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof payExpenseBill>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof payExpenseBill>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['payExpenseBill'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof payExpenseBill>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  payExpenseBill(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PayExpenseBillMutationResult = NonNullable<Awaited<ReturnType<typeof payExpenseBill>>>
+
+    export type PayExpenseBillMutationError = ErrorType<Error>
+
+    /**
+ * @summary Mark an open vendor bill as paid
+ */
+export const usePayExpenseBill = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof payExpenseBill>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof payExpenseBill>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getPayExpenseBillMutationOptions(options));
+    }
+
 export const getListInventoryUrl = () => {
 
 
@@ -11883,5 +11960,244 @@ export const useRebuildLedgerEntries = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRebuildLedgerEntriesMutationOptions(options));
+    }
+
+export const getGetTaxReportUrl = (params?: GetTaxReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/accounting/reports/tax?${stringifiedParams}` : `/api/accounting/reports/tax`
+}
+
+/**
+ * @summary Yearly tax summary — sales tax collected and Schedule C expense lines
+ */
+export const getTaxReport = async (params?: GetTaxReportParams, options?: RequestInit): Promise<TaxReport> => {
+
+  return customFetch<TaxReport>(getGetTaxReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTaxReportQueryKey = (params?: GetTaxReportParams,) => {
+    return [
+    `/api/accounting/reports/tax`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetTaxReportQueryOptions = <TData = Awaited<ReturnType<typeof getTaxReport>>, TError = ErrorType<unknown>>(params?: GetTaxReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTaxReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTaxReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTaxReport>>> = ({ signal }) => getTaxReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTaxReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTaxReportQueryResult = NonNullable<Awaited<ReturnType<typeof getTaxReport>>>
+export type GetTaxReportQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Yearly tax summary — sales tax collected and Schedule C expense lines
+ */
+
+export function useGetTaxReport<TData = Awaited<ReturnType<typeof getTaxReport>>, TError = ErrorType<unknown>>(
+ params?: GetTaxReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTaxReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTaxReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetBankReconciliationUrl = (params?: GetBankReconciliationParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/accounting/bank/reconcile?${stringifiedParams}` : `/api/accounting/bank/reconcile`
+}
+
+/**
+ * @summary Match recent bank transactions against ledger cash entries
+ */
+export const getBankReconciliation = async (params?: GetBankReconciliationParams, options?: RequestInit): Promise<BankReconciliation> => {
+
+  return customFetch<BankReconciliation>(getGetBankReconciliationUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBankReconciliationQueryKey = (params?: GetBankReconciliationParams,) => {
+    return [
+    `/api/accounting/bank/reconcile`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetBankReconciliationQueryOptions = <TData = Awaited<ReturnType<typeof getBankReconciliation>>, TError = ErrorType<Error>>(params?: GetBankReconciliationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBankReconciliation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBankReconciliationQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBankReconciliation>>> = ({ signal }) => getBankReconciliation(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBankReconciliation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBankReconciliationQueryResult = NonNullable<Awaited<ReturnType<typeof getBankReconciliation>>>
+export type GetBankReconciliationQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Match recent bank transactions against ledger cash entries
+ */
+
+export function useGetBankReconciliation<TData = Awaited<ReturnType<typeof getBankReconciliation>>, TError = ErrorType<Error>>(
+ params?: GetBankReconciliationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBankReconciliation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBankReconciliationQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getImportBankTransactionUrl = () => {
+
+
+
+
+  return `/api/accounting/bank/import`
+}
+
+/**
+ * @summary Import an unmatched bank transaction into the books
+ */
+export const importBankTransaction = async (bankImportInput: BankImportInput, options?: RequestInit): Promise<ImportBankTransaction200> => {
+
+  return customFetch<ImportBankTransaction200>(getImportBankTransactionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(bankImportInput)
+  }
+);}
+
+
+
+
+
+export const getImportBankTransactionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importBankTransaction>>, TError,{data: BodyType<BankImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importBankTransaction>>, TError,{data: BodyType<BankImportInput>}, TContext> => {
+
+const mutationKey = ['importBankTransaction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importBankTransaction>>, {data: BodyType<BankImportInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importBankTransaction(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportBankTransactionMutationResult = NonNullable<Awaited<ReturnType<typeof importBankTransaction>>>
+    export type ImportBankTransactionMutationBody = BodyType<BankImportInput>
+    export type ImportBankTransactionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Import an unmatched bank transaction into the books
+ */
+export const useImportBankTransaction = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importBankTransaction>>, TError,{data: BodyType<BankImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importBankTransaction>>,
+        TError,
+        {data: BodyType<BankImportInput>},
+        TContext
+      > => {
+      return useMutation(getImportBankTransactionMutationOptions(options));
     }
 

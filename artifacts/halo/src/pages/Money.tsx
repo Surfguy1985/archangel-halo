@@ -9,6 +9,8 @@ import {
   useUpdateCrewPayment,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
+  usePayExpenseBill,
+  getListExpensesQueryKey,
   getListCrewPaymentsQueryKey,
   type Invoice,
 } from "@workspace/api-client-react";
@@ -385,9 +387,26 @@ function Invoices() {
 }
 
 function Expenses() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { data: expenses, isLoading } = useListExpenses();
   const [addOpen, setAddOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const payBill = usePayExpenseBill();
+
+  const doPay = (id: string, vendor?: string | null) =>
+    payBill.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: ["/accounting"] });
+          toast({ title: `Paid ${vendor || "bill"}` });
+        },
+        onError: () => toast({ title: "Couldn't mark that bill paid" }),
+      },
+    );
 
   const sorted = [...(expenses ?? [])].sort(
     (a, b) =>
@@ -448,7 +467,22 @@ function Expenses() {
                   {[e.category, e.spentOn ? new Date(e.spentOn).toLocaleDateString() : null].filter(Boolean).join(" · ")}
                 </div>
               </div>
+              {e.paymentStatus === "open" && (
+                <span className="text-[9.5px] font-bold uppercase px-[7px] py-[2px] rounded-full bg-amber-500/15 text-amber-700 shrink-0">
+                  Unpaid
+                </span>
+              )}
               <div className="font-display font-semibold tabular-nums shrink-0">${e.amount.toLocaleString()}</div>
+              {e.paymentStatus === "open" && (
+                <button
+                  className="text-[11.5px] font-display font-bold px-[9px] py-[5px] rounded-[9px] border border-border bg-background shrink-0 disabled:opacity-50"
+                  disabled={payBill.isPending}
+                  onClick={() => doPay(e.id, e.vendor)}
+                  data-testid={`button-pay-bill-${e.id}`}
+                >
+                  Mark paid
+                </button>
+              )}
             </div>
           ))}
         </div>

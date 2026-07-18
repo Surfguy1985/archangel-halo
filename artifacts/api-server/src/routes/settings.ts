@@ -59,6 +59,7 @@ function serialize(row: {
   phone: string;
   email: string;
   paymentInstructions: string;
+  taxRatePct?: number | null;
 }) {
   return {
     companyName: row.companyName,
@@ -66,6 +67,7 @@ function serialize(row: {
     street: row.street,
     city: row.city,
     attn: row.attn,
+    taxRatePct: row.taxRatePct ?? 0,
     phone: row.phone,
     email: row.email,
     paymentInstructions: row.paymentInstructions,
@@ -92,6 +94,9 @@ router.put("/settings/business", async (req, res): Promise<void> => {
       ...(body.email != null ? { email: body.email } : {}),
       ...(body.paymentInstructions != null
         ? { paymentInstructions: body.paymentInstructions }
+        : {}),
+      ...(body.taxRatePct != null
+        ? { taxRatePct: Math.min(Math.max(body.taxRatePct, 0), 25) }
         : {}),
       updatedAt: new Date(),
     })

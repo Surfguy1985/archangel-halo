@@ -68,6 +68,7 @@ export function BusinessInfoDialog({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [paymentInstructions, setPaymentInstructions] = useState("");
+  const [taxRate, setTaxRate] = useState("");
 
   useEffect(() => {
     if (open && settings) {
@@ -79,6 +80,7 @@ export function BusinessInfoDialog({
       setPhone(settings.phone);
       setEmail(settings.email);
       setPaymentInstructions(settings.paymentInstructions);
+      setTaxRate(settings.taxRatePct ? String(settings.taxRatePct) : "");
     }
   }, [open, settings]);
 
@@ -94,6 +96,7 @@ export function BusinessInfoDialog({
           phone: phone.trim(),
           email: email.trim(),
           paymentInstructions: paymentInstructions.trim(),
+          taxRatePct: Number.isFinite(parseFloat(taxRate)) ? parseFloat(taxRate) : 0,
         },
       },
       {
@@ -153,6 +156,20 @@ export function BusinessInfoDialog({
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <p className="text-xs text-muted-foreground">
               Invoices are emailed from this address — its domain must be verified with the email provider.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Sales tax rate (%)</Label>
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={taxRate}
+              onChange={(e) => setTaxRate(e.target.value)}
+              placeholder="0"
+              data-testid="input-tax-rate"
+            />
+            <p className="text-xs text-muted-foreground">
+              When set, new invoices automatically split this much sales tax out of the total for the tax report. Leave 0 if you don't collect sales tax.
             </p>
           </div>
           <div className="space-y-1.5">

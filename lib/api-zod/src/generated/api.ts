@@ -251,6 +251,9 @@ export const GetPropertyResponse = zod.object({
   "category": zod.string().nullish(),
   "amount": zod.number(),
   "source": zod.string().nullish(),
+  "paymentStatus": zod.string().optional().describe('paid or open (unpaid vendor bill)'),
+  "dueDate": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
   "spentOn": zod.string().nullish()
 })),
   "agreements": zod.array(zod.object({
@@ -279,6 +282,7 @@ export const GetPropertyResponse = zod.object({
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
+  "taxAmount": zod.number().optional(),
   "daysLate": zod.number().nullish()
 })),
   "upcomingVisits": zod.array(zod.object({
@@ -1184,6 +1188,9 @@ export const GetJobResponse = zod.object({
   "category": zod.string().nullish(),
   "amount": zod.number(),
   "source": zod.string().nullish(),
+  "paymentStatus": zod.string().optional().describe('paid or open (unpaid vendor bill)'),
+  "dueDate": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
   "spentOn": zod.string().nullish()
 })),
   "schedules": zod.array(zod.object({
@@ -2072,7 +2079,8 @@ export const GetBusinessSettingsResponse = zod.object({
   "attn": zod.string(),
   "phone": zod.string(),
   "email": zod.string(),
-  "paymentInstructions": zod.string()
+  "paymentInstructions": zod.string(),
+  "taxRatePct": zod.number().optional()
 })
 
 
@@ -2087,7 +2095,8 @@ export const UpdateBusinessSettingsBody = zod.object({
   "attn": zod.string().optional(),
   "phone": zod.string().optional(),
   "email": zod.string().optional(),
-  "paymentInstructions": zod.string().optional()
+  "paymentInstructions": zod.string().optional(),
+  "taxRatePct": zod.number().optional()
 })
 
 export const UpdateBusinessSettingsResponse = zod.object({
@@ -2098,7 +2107,8 @@ export const UpdateBusinessSettingsResponse = zod.object({
   "attn": zod.string(),
   "phone": zod.string(),
   "email": zod.string(),
-  "paymentInstructions": zod.string()
+  "paymentInstructions": zod.string(),
+  "taxRatePct": zod.number().optional()
 })
 
 
@@ -2320,6 +2330,7 @@ export const ListInvoicesResponseItem = zod.object({
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
+  "taxAmount": zod.number().optional(),
   "daysLate": zod.number().nullish()
 })
 export const ListInvoicesResponse = zod.array(ListInvoicesResponseItem)
@@ -2338,6 +2349,7 @@ export const CreateInvoiceBody = zod.object({
   "propertyAddress": zod.string().optional(),
   "notes": zod.string().optional(),
   "paymentInstructions": zod.string().optional(),
+  "taxAmount": zod.number().optional(),
   "lineItems": zod.array(zod.object({
   "dateOfWork": zod.string().optional(),
   "unitNo": zod.string().optional(),
@@ -2366,6 +2378,7 @@ export const CreateInvoiceResponse = zod.object({
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
+  "taxAmount": zod.number().optional(),
   "daysLate": zod.number().nullish()
 })
 
@@ -2395,6 +2408,7 @@ export const GetInvoiceResponse = zod.object({
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
+  "taxAmount": zod.number().optional(),
   "daysLate": zod.number().nullish(),
   "recipientEmail": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
@@ -2432,6 +2446,7 @@ export const UpdateInvoiceBody = zod.object({
   "propertyAddress": zod.string().optional(),
   "notes": zod.string().optional(),
   "paymentInstructions": zod.string().optional(),
+  "taxAmount": zod.number().optional(),
   "lineItems": zod.array(zod.object({
   "dateOfWork": zod.string().optional(),
   "unitNo": zod.string().optional(),
@@ -2460,6 +2475,7 @@ export const UpdateInvoiceResponse = zod.object({
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
+  "taxAmount": zod.number().optional(),
   "daysLate": zod.number().nullish(),
   "recipientEmail": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
@@ -2518,6 +2534,7 @@ export const SendInvoiceResponse = zod.object({
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
+  "taxAmount": zod.number().optional(),
   "daysLate": zod.number().nullish()
 })
 
@@ -2547,6 +2564,7 @@ export const RemindInvoiceResponse = zod.object({
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
+  "taxAmount": zod.number().optional(),
   "daysLate": zod.number().nullish()
 })
 
@@ -2580,6 +2598,7 @@ export const SetInvoiceStatusResponse = zod.object({
   "sentAt": zod.string().nullish(),
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
+  "taxAmount": zod.number().optional(),
   "daysLate": zod.number().nullish()
 })
 
@@ -2615,6 +2634,9 @@ export const ListExpensesResponseItem = zod.object({
   "category": zod.string().nullish(),
   "amount": zod.number(),
   "source": zod.string().nullish(),
+  "paymentStatus": zod.string().optional().describe('paid or open (unpaid vendor bill)'),
+  "dueDate": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
   "spentOn": zod.string().nullish()
 })
 export const ListExpensesResponse = zod.array(ListExpensesResponseItem)
@@ -2625,7 +2647,9 @@ export const CreateExpenseBody = zod.object({
   "propertyId": zod.string().optional(),
   "vendor": zod.string().optional(),
   "category": zod.string().optional(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "paymentStatus": zod.enum(['paid', 'open']).optional(),
+  "dueDate": zod.string().optional()
 })
 
 export const CreateExpenseResponse = zod.object({
@@ -2636,6 +2660,31 @@ export const CreateExpenseResponse = zod.object({
   "category": zod.string().nullish(),
   "amount": zod.number(),
   "source": zod.string().nullish(),
+  "paymentStatus": zod.string().optional().describe('paid or open (unpaid vendor bill)'),
+  "dueDate": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "spentOn": zod.string().nullish()
+})
+
+
+/**
+ * @summary Mark an open vendor bill as paid
+ */
+export const PayExpenseBillParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const PayExpenseBillResponse = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string().nullish(),
+  "propertyId": zod.string().nullish(),
+  "vendor": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "amount": zod.number(),
+  "source": zod.string().nullish(),
+  "paymentStatus": zod.string().optional().describe('paid or open (unpaid vendor bill)'),
+  "dueDate": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
   "spentOn": zod.string().nullish()
 })
 
@@ -4402,6 +4451,74 @@ export const GetAccountLedgerResponse = zod.object({
  */
 export const RebuildLedgerEntriesResponse = zod.object({
   "posted": zod.number()
+})
+
+
+/**
+ * @summary Yearly tax summary — sales tax collected and Schedule C expense lines
+ */
+export const GetTaxReportQueryParams = zod.object({
+  "year": zod.coerce.number().optional()
+})
+
+export const GetTaxReportResponse = zod.object({
+  "year": zod.number(),
+  "salesTaxCollected": zod.number(),
+  "salesTaxBalance": zod.number().describe('Sales tax still owed (liability balance)'),
+  "grossReceipts": zod.number(),
+  "scheduleC": zod.array(zod.object({
+  "line": zod.string(),
+  "label": zod.string(),
+  "amount": zod.number()
+})),
+  "totalExpenses": zod.number(),
+  "netProfit": zod.number()
+})
+
+
+/**
+ * @summary Match recent bank transactions against ledger cash entries
+ */
+export const GetBankReconciliationQueryParams = zod.object({
+  "days": zod.coerce.number().optional()
+})
+
+export const GetBankReconciliationResponse = zod.object({
+  "transactions": zod.array(zod.object({
+  "transactionId": zod.string(),
+  "date": zod.string(),
+  "name": zod.string(),
+  "merchantName": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "amount": zod.number().describe('Positive dollars'),
+  "direction": zod.string().describe('in or out'),
+  "status": zod.string().describe('matched | unmatched | imported'),
+  "matchedEntryNo": zod.string().nullish(),
+  "matchedMemo": zod.string().nullish(),
+  "pending": zod.boolean().optional()
+})),
+  "matchedCount": zod.number(),
+  "unmatchedCount": zod.number(),
+  "ledgerCash": zod.number(),
+  "truncated": zod.boolean().nullish().describe('True when older transactions were cut off by the fetch limit')
+})
+
+
+/**
+ * @summary Import an unmatched bank transaction into the books
+ */
+export const ImportBankTransactionBody = zod.object({
+  "transactionId": zod.string(),
+  "date": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "direction": zod.enum(['in', 'out']),
+  "category": zod.string().optional()
+})
+
+export const ImportBankTransactionResponse = zod.object({
+  "ok": zod.boolean(),
+  "message": zod.string().optional()
 })
 
 

@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { ExpenseInputPaymentStatus } from './expenseInputPaymentStatus';
 
 export interface ExpenseInput {
   jobId?: string;
@@ -12,4 +13,6 @@ export interface ExpenseInput {
   vendor?: string;
   category?: string;
   amount: number;
+  paymentStatus?: ExpenseInputPaymentStatus;
+  dueDate?: string;
 }

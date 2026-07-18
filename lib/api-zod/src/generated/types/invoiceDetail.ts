@@ -38,6 +38,7 @@ export interface InvoiceDetail {
   dueAt?: string | null;
   /** @nullable */
   paidAt?: string | null;
+  taxAmount?: number;
   /** @nullable */
   daysLate?: number | null;
   /** @nullable */

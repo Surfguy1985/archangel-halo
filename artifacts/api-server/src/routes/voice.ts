@@ -59,6 +59,8 @@ const TOOLS = `Available tools and their fields:
 - add_inventory_item { name, qty? (number), reorderAt? (number, restock threshold), unitCost? (number), preferredVendor? }
 - adjust_inventory { itemName, delta (number — positive when stock was bought/received, negative when materials were used) }
 - mark_invoice_paid { invoiceNo (like INV-5001), or propertyName + amount when the number is unknown }
+- log_bill { vendor, amount (number), dueDate? (YYYY-MM-DD), category?, propertyName?, jobNo? } — an unpaid vendor bill (bought on account / net terms / "I owe them")
+- pay_bill { vendor, amount? (number) } — mark an open vendor bill as paid
 - create_journal_entry { memo, amount (number), debitAccount (account code or name), creditAccount (account code or name), date? (YYYY-MM-DD) } — for bookkeeping adjustments like owner draws, deposits, loan payments. Accounts: 1000 Cash, 1100 Accounts Receivable, 2000 Accounts Payable, 3000 Owner's Equity, 4000 Service Revenue, 5000 Crew Labor, 5100 Materials & Supplies, 5300 Equipment & Tools, 5400 Vehicle & Fuel, 5500 Insurance & Licenses, 5900 Other Expenses`;
 
 router.post("/voice/parse", async (req, res): Promise<void> => {
@@ -81,7 +83,7 @@ Known crews: ${crews.map((c) => c.name).join(", ") || "none"}.
 Known inventory items: ${inventory.map((i) => i.name).join(", ") || "none"}.
 Known vendors: ${vendors.map((v) => v.name).join(", ") || "none"}.
 Use create_property when the user describes a new property/building not in the known list. Use create_crew when they mention adding a new crew member or subcontractor. Use schedule_job when they want to set a date for existing work. Use create_bid when they quoted or want to quote a price/proposal for work — the bid is saved as a draft for review, never sent automatically.
-Use mark_invoice_paid when they say a check/payment came in for an invoice. Use create_journal_entry only for pure bookkeeping moves (owner put money in, owner draw, moving money between accounts) — regular purchases are log_expense, not journal entries. Use create_invoice when work is done and they want to bill for it — the invoice is saved as a draft for review, never sent automatically. Use create_vendor for a new supplier or subcontracting company. Use adjust_inventory when they mention using or buying materials that match a known inventory item (negative delta for materials used, positive for stock received); use add_inventory_item for a material they want tracked that is not in the known list. A purchase of materials can be both a log_expense and an inventory adjustment when it matches a tracked item.
+Use mark_invoice_paid when they say a check/payment came in for an invoice. Use log_bill (not log_expense) when they OWE a vendor and have not paid yet; use pay_bill when they pay a bill they logged earlier. Use create_journal_entry only for pure bookkeeping moves (owner put money in, owner draw, moving money between accounts) — regular purchases are log_expense, not journal entries. Use create_invoice when work is done and they want to bill for it — the invoice is saved as a draft for review, never sent automatically. Use create_vendor for a new supplier or subcontracting company. Use adjust_inventory when they mention using or buying materials that match a known inventory item (negative delta for materials used, positive for stock received); use add_inventory_item for a material they want tracked that is not in the known list. A purchase of materials can be both a log_expense and an inventory adjustment when it matches a tracked item.
 For each action include: tool, title (short), summary (one sentence of what will happen), confidence (0-1), needsReview (true if amounts/names are uncertain), and fields. Return {"actions": [...]}. If nothing actionable, return {"actions": []}.`,
       transcript,
       2048,
@@ -449,6 +451,69 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
         applied++;
         messages.push(
           `${delta > 0 ? "Added" : "Used"} ${Math.abs(delta)} ${item.name} (now ${newQty})`,
+        );
+      } else if (a.tool === "log_bill") {
+        const amount = Number(f.amount);
+        if (!Number.isFinite(amount) || amount <= 0) {
+          messages.push("Skipped bill — no valid amount given");
+          continue;
+        }
+        const prop = f.propertyName
+          ? propByName.get(String(f.propertyName).toLowerCase())
+          : undefined;
+        const job = f.jobNo ? jobByNo.get(String(f.jobNo).toLowerCase()) : undefined;
+        const dueDate = /^\d{4}-\d{2}-\d{2}$/.test(String(f.dueDate ?? ""))
+          ? String(f.dueDate)
+          : null;
+        const [billRow] = await db
+          .insert(expensesTable)
+          .values({
+            vendor: f.vendor ? String(f.vendor) : null,
+            category: f.category ? String(f.category) : null,
+            amount,
+            propertyId: prop?.id ?? null,
+            jobId: job?.id ?? null,
+            source: "voice",
+            paymentStatus: "open",
+            dueDate,
+          })
+          .returning();
+        if (billRow.jobId) await recomputeJobFinancials(billRow.jobId);
+        await syncExpenseLedger(billRow.id);
+        applied++;
+        messages.push(
+          `Logged bill — ${f.vendor ?? "vendor"} $${amount.toLocaleString()}${dueDate ? ` due ${dueDate}` : ""}`,
+        );
+      } else if (a.tool === "pay_bill") {
+        const vendor = String(f.vendor ?? "").trim().toLowerCase();
+        const amount = Number(f.amount);
+        const open = await db
+          .select()
+          .from(expensesTable)
+          .where(eqId(expensesTable.paymentStatus, "open"));
+        const candidates = open.filter(
+          (e) =>
+            (!vendor || (e.vendor ?? "").toLowerCase().includes(vendor)) &&
+            (!Number.isFinite(amount) || Math.abs(e.amount - amount) < 0.01),
+        );
+        if (candidates.length !== 1) {
+          messages.push(
+            candidates.length === 0
+              ? `No open bill found${vendor ? ` for "${f.vendor}"` : ""}`
+              : `Multiple open bills match${vendor ? ` "${f.vendor}"` : ""} — pay it from the Money page`,
+          );
+          continue;
+        }
+        const bill = candidates[0];
+        const [paidBill] = await db
+          .update(expensesTable)
+          .set({ paymentStatus: "paid", paidAt: new Date() })
+          .where(eqId(expensesTable.id, bill.id))
+          .returning();
+        await syncExpenseLedger(paidBill.id);
+        applied++;
+        messages.push(
+          `Paid ${bill.vendor ?? "bill"} — $${bill.amount.toLocaleString()}`,
         );
       } else if (a.tool === "mark_invoice_paid") {
         const allInvoices = await db.select().from(invoicesTable);

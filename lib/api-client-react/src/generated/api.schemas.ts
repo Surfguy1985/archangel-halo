@@ -262,6 +262,12 @@ export interface Expense {
   amount: number;
   /** @nullable */
   source?: string | null;
+  /** paid or open (unpaid vendor bill) */
+  paymentStatus?: string;
+  /** @nullable */
+  dueDate?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
   /** @nullable */
   spentOn?: string | null;
 }
@@ -310,6 +316,7 @@ export interface Invoice {
   dueAt?: string | null;
   /** @nullable */
   paidAt?: string | null;
+  taxAmount?: number;
   /** @nullable */
   daysLate?: number | null;
 }
@@ -1224,6 +1231,7 @@ export interface InvoiceDetail {
   dueAt?: string | null;
   /** @nullable */
   paidAt?: string | null;
+  taxAmount?: number;
   /** @nullable */
   daysLate?: number | null;
   /** @nullable */
@@ -1291,6 +1299,7 @@ export interface BusinessSettings {
   phone: string;
   email: string;
   paymentInstructions: string;
+  taxRatePct?: number;
 }
 
 export interface BusinessSettingsInput {
@@ -1302,6 +1311,7 @@ export interface BusinessSettingsInput {
   phone?: string;
   email?: string;
   paymentInstructions?: string;
+  taxRatePct?: number;
 }
 
 export interface InvoiceInput {
@@ -1317,6 +1327,7 @@ export interface InvoiceInput {
   propertyAddress?: string;
   notes?: string;
   paymentInstructions?: string;
+  taxAmount?: number;
   lineItems?: InvoiceLineItemInput[];
 }
 
@@ -1337,12 +1348,22 @@ export interface PaymentInput {
   method?: string;
 }
 
+export type ExpenseInputPaymentStatus = typeof ExpenseInputPaymentStatus[keyof typeof ExpenseInputPaymentStatus];
+
+
+export const ExpenseInputPaymentStatus = {
+  paid: 'paid',
+  open: 'open',
+} as const;
+
 export interface ExpenseInput {
   jobId?: string;
   propertyId?: string;
   vendor?: string;
   category?: string;
   amount: number;
+  paymentStatus?: ExpenseInputPaymentStatus;
+  dueDate?: string;
 }
 
 export interface InventoryItem {
@@ -2297,6 +2318,73 @@ export interface AccountLedger {
   entries: AccountLedgerLine[];
 }
 
+export type TaxReportScheduleCItem = {
+  line: string;
+  label: string;
+  amount: number;
+};
+
+export interface TaxReport {
+  year: number;
+  salesTaxCollected: number;
+  /** Sales tax still owed (liability balance) */
+  salesTaxBalance: number;
+  grossReceipts: number;
+  scheduleC: TaxReportScheduleCItem[];
+  totalExpenses: number;
+  netProfit: number;
+}
+
+export interface BankTxnMatch {
+  transactionId: string;
+  date: string;
+  name: string;
+  /** @nullable */
+  merchantName?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /** Positive dollars */
+  amount: number;
+  /** in or out */
+  direction: string;
+  /** matched | unmatched | imported */
+  status: string;
+  /** @nullable */
+  matchedEntryNo?: string | null;
+  /** @nullable */
+  matchedMemo?: string | null;
+  pending?: boolean;
+}
+
+export interface BankReconciliation {
+  transactions: BankTxnMatch[];
+  matchedCount: number;
+  unmatchedCount: number;
+  ledgerCash: number;
+  /**
+     * True when older transactions were cut off by the fetch limit
+     * @nullable
+     */
+  truncated?: boolean | null;
+}
+
+export type BankImportInputDirection = typeof BankImportInputDirection[keyof typeof BankImportInputDirection];
+
+
+export const BankImportInputDirection = {
+  in: 'in',
+  out: 'out',
+} as const;
+
+export interface BankImportInput {
+  transactionId: string;
+  date: string;
+  name: string;
+  amount: number;
+  direction: BankImportInputDirection;
+  category?: string;
+}
+
 export type ListPropertiesParams = {
 search?: string;
 };
@@ -2398,5 +2486,18 @@ to?: string;
 
 export type RebuildLedgerEntries200 = {
   posted: number;
+};
+
+export type GetTaxReportParams = {
+year?: number;
+};
+
+export type GetBankReconciliationParams = {
+days?: number;
+};
+
+export type ImportBankTransaction200 = {
+  ok: boolean;
+  message?: string;
 };
 
