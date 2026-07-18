@@ -10,23 +10,38 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles, ChevronRight } from "lucide-react";
 import { HaloRing } from "./HaloRing";
 
 export function BriefCard({ brief }: { brief: Brief }) {
   return (
-    <div className="bg-[linear-gradient(135deg,#FFFDF8,#FBF6EA)] border border-[rgba(185,138,47,0.28)] rounded-[16px] p-[14px_15px] shadow-[0_1px_2px_rgba(23,24,28,0.05),0_8px_28px_rgba(23,24,28,0.07)] mb-[18px]">
-      <div className="flex items-center gap-[8px] mb-[7px]">
-        <HaloRing className="w-[16px] h-[16px]" />
-        <span className="font-display font-semibold text-[11px] tracking-[0.18em] uppercase text-[var(--gold-dark)]">Morning brief</span>
-        <span className="ml-auto text-[11.5px] text-muted-foreground">{brief.when}</span>
+    <div className="relative overflow-hidden bg-[linear-gradient(145deg,#202226,#121316)] rounded-[28px] p-[22px] shadow-[0_20px_40px_rgba(23,24,28,0.25)] mb-[20px] border border-[rgba(255,255,255,0.06)] text-white">
+      <div className="absolute top-[-20%] right-[-10%] opacity-20 pointer-events-none">
+         <div className="w-[180px] h-[180px] rounded-full bg-[var(--gold)] blur-[60px]" />
       </div>
-      <div className="text-[14px] text-[var(--ink2)] leading-relaxed" dangerouslySetInnerHTML={{ __html: brief.body }} />
-      <div className="mt-[9px] flex gap-[6px]">
-        <span className="text-[11px] font-semibold text-[var(--gold-dark)] bg-[var(--gold-tint)] rounded-[20px] px-[9px] py-[3px]">Written by HALO</span>
-        {brief.needsYou > 0 && (
-          <span className="text-[11px] font-semibold text-[var(--gold-dark)] bg-[var(--gold-tint)] rounded-[20px] px-[9px] py-[3px]">{brief.needsYou} need you</span>
-        )}
+      <div className="relative z-10 flex items-center gap-[8px] mb-[12px]">
+        <HaloRing className="w-[18px] h-[18px] text-[var(--gold-light)]" />
+        <span className="font-display font-semibold text-[12px] tracking-[0.2em] uppercase text-[var(--gold-light)] opacity-90">
+          {(() => {
+            const h = new Date().getHours();
+            return h < 12 ? "Morning Brief" : h < 17 ? "Afternoon Brief" : "Evening Brief";
+          })()}
+        </span>
+      </div>
+      <div className="relative z-10 text-[16px] text-white/90 leading-[1.4] font-medium mb-[16px]" dangerouslySetInnerHTML={{ __html: brief.body }} />
+      <div className="relative z-10 mt-[8px] flex items-center justify-between">
+        <div className="flex gap-[8px]">
+          <span className="text-[11px] font-bold text-[#121316] bg-[var(--gold-light)] rounded-[20px] px-[10px] py-[4px] shadow-[0_4px_12px_rgba(185,138,47,0.3)] flex items-center gap-[4px]">
+            <Sparkles className="w-[12px] h-[12px]" />
+            HALO
+          </span>
+          {brief.needsYou > 0 && (
+            <span className="text-[11px] font-bold text-white bg-white/10 backdrop-blur-md rounded-[20px] px-[10px] py-[4px] border border-white/10">
+              {brief.needsYou} NEED YOU
+            </span>
+          )}
+        </div>
+        <span className="text-[11.5px] text-white/40 font-medium">{brief.when}</span>
       </div>
     </div>
   );
@@ -114,27 +129,38 @@ export function FeedCard({
     }
   };
 
+  const isNow = card.tier === 'now';
+  const isHandled = card.tier === 'handled';
+
   return (
     <div
       onClick={route ? () => navigate(route) : undefined}
-      className={`bg-card rounded-[16px] shadow-[0_1px_2px_rgba(23,24,28,0.05),0_8px_28px_rgba(23,24,28,0.07)] p-[13px_14px] mb-[10px] border border-transparent ${card.tier === 'handled' ? 'opacity-60 bg-[#FCFBF9]' : ''} ${route ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}
+      className={`group relative overflow-hidden bg-card rounded-[22px] p-[16px] mb-[12px] border border-transparent shadow-[0_2px_10px_rgba(23,24,28,0.04),0_10px_20px_rgba(23,24,28,0.02)] transition-all ${isHandled ? 'opacity-60 bg-[rgba(255,255,255,0.5)] grayscale-[0.2]' : ''} ${route ? 'cursor-pointer active:scale-[0.98]' : ''} ${isNow ? 'bg-[linear-gradient(160deg,#fff,#FCF7ED)] border-[var(--gold-tint)]' : ''}`}
     >
-      <div className="flex gap-[9px] items-start">
-        <div className={`w-[9px] h-[9px] rounded-full shrink-0 mt-[6px] ${card.tier === 'now' ? 'bg-destructive' : 'bg-[var(--gold)]'}`} />
+      <div className="flex gap-[12px] items-start">
+        <div className={`w-[10px] h-[10px] rounded-full shrink-0 mt-[6px] shadow-sm ${isNow ? 'bg-[#FF453A] shadow-[#FF453A]/40' : 'bg-[var(--gold)] shadow-[var(--gold)]/40'}`} />
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-[15px] tracking-[-0.01em]">{card.title}</div>
-          {card.sub && <div className="text-[13px] text-muted-foreground mt-[2px]">{card.sub}</div>}
+          <div className="flex justify-between items-start gap-[8px]">
+            <div className="font-display font-bold text-[16px] leading-[1.2] text-[var(--ink)] tracking-[-0.01em] pr-[8px]">
+              {card.title}
+            </div>
+            {route && <ChevronRight className="w-[16px] h-[16px] text-muted-foreground/50 shrink-0 mt-[2px]" />}
+          </div>
+          
+          {card.sub && <div className="text-[13.5px] text-muted-foreground mt-[4px] leading-[1.3] pr-[20px]">{card.sub}</div>}
+          
           {card.meta && card.meta.length > 0 && (
-            <div className="flex flex-wrap gap-[6px] mt-[8px]">
+            <div className="flex flex-wrap gap-[6px] mt-[10px]">
               {card.meta.map((m, i) => (
-                <span key={i} className={`text-[11.5px] rounded-[20px] px-[9px] py-[3px] font-medium ${m.mono ? 'font-mono text-[10.5px] tracking-[0.02em]' : ''} ${m.warn ? 'text-destructive bg-[rgba(192,69,58,0.09)] font-semibold' : m.gold ? 'text-[var(--gold-dark)] bg-[var(--gold-tint)] font-semibold' : 'text-[var(--ink2)] bg-[rgba(23,24,28,0.055)]'}`}>
+                <span key={i} className={`text-[11px] rounded-[8px] px-[8px] py-[3px] font-semibold tracking-wide flex items-center ${m.mono ? 'font-mono text-[10px] tracking-[0.04em]' : ''} ${m.warn ? 'text-[#FF453A] bg-[#FF453A]/10' : m.gold ? 'text-[var(--gold-dark)] bg-[var(--gold-tint)]' : 'text-[var(--ink2)] bg-[rgba(23,24,28,0.06)]'}`}>
                   {m.label}
                 </span>
               ))}
             </div>
           )}
+          
           {card.actions && card.actions.length > 0 && (
-            <div className="flex gap-[8px] mt-[11px]">
+            <div className="flex gap-[8px] mt-[14px]">
               {card.actions.map((a, i) => (
                 <button
                   key={i}
@@ -143,7 +169,7 @@ export function FeedCard({
                     e.stopPropagation();
                     runAction(a.action);
                   }}
-                  className={`rounded-[11px] px-[13px] py-[8px] text-[13.5px] font-semibold transition-transform active:scale-95 disabled:opacity-60 inline-flex items-center gap-[6px] ${a.kind === 'gold' ? 'btn-gold' : a.kind === 'ghost' ? 'btn-ghost' : 'btn-line'}`}
+                  className={`rounded-[12px] px-[14px] py-[8px] text-[13px] font-bold tracking-wide transition-all active:scale-95 disabled:opacity-50 inline-flex items-center justify-center gap-[6px] shadow-sm ${a.kind === 'gold' ? 'bg-[linear-gradient(135deg,var(--gold-light),var(--gold))] text-[#171410] shadow-[0_4px_12px_rgba(185,138,47,0.25)] border border-white/20' : a.kind === 'ghost' ? 'bg-[rgba(23,24,28,0.06)] text-[var(--ink)] hover:bg-[rgba(23,24,28,0.08)]' : 'bg-white border border-[rgba(23,24,28,0.12)] text-[var(--ink)] shadow-[0_2px_4px_rgba(23,24,28,0.02)]'}`}
                 >
                   {actionPending && (a.action === "remindInvoice" || a.action === "nudgeBid") && (
                     <Loader2 className="w-[14px] h-[14px] animate-spin" />
