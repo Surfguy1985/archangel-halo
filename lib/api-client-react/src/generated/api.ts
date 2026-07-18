@@ -20,10 +20,12 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AccountLedger,
   Activity,
   ActivityInput,
   AskAnswer,
   AskInput,
+  BalanceSheetReport,
   BankAccount,
   BankStatus,
   BankTransaction,
@@ -42,6 +44,7 @@ import type {
   CalendarBundle,
   CalendarEvent,
   CalendarEventPatch,
+  CashFlowReport,
   CatalogItem,
   CatalogItemInput,
   CatalogItemUpdate,
@@ -73,7 +76,11 @@ import type {
   Error,
   Expense,
   ExpenseInput,
+  GetAccountLedgerParams,
+  GetBalanceSheetReportParams,
   GetCalendarParams,
+  GetCashFlowReportParams,
+  GetProfitAndLossParams,
   HealthStatus,
   ImportHistoryResult,
   IngestCommitInput,
@@ -96,6 +103,8 @@ import type {
   JobLineItemInput,
   JobLineItemUpdate,
   JobUpdate,
+  JournalEntryFull,
+  JournalEntryInput,
   Lead,
   LeadCampaignDef,
   LeadCampaignStartInput,
@@ -110,6 +119,9 @@ import type {
   ListExpensesParams,
   ListInvoicesParams,
   ListJobsParams,
+  ListJournalEntries200,
+  ListJournalEntriesParams,
+  ListLedgerAccounts200,
   ListPropertiesParams,
   ListPurchaseOrdersParams,
   MessageInput,
@@ -125,6 +137,7 @@ import type {
   PhotoShareInput,
   PhotoShareView,
   PlaidExchangeInput,
+  PnlReport,
   PortalBundle,
   PortalJob,
   PortalOfferRespondInput,
@@ -144,6 +157,7 @@ import type {
   PurchaseOrder,
   PurchaseOrderInput,
   Queue,
+  RebuildLedgerEntries200,
   RecapDraft,
   RecapSendInput,
   RecapShare,
@@ -11160,4 +11174,714 @@ export function useListCrewInvoices<TData = Awaited<ReturnType<typeof listCrewIn
 
 
 
+
+export const getListLedgerAccountsUrl = () => {
+
+
+
+
+  return `/api/accounting/accounts`
+}
+
+/**
+ * @summary Chart of accounts with current balances
+ */
+export const listLedgerAccounts = async ( options?: RequestInit): Promise<ListLedgerAccounts200> => {
+
+  return customFetch<ListLedgerAccounts200>(getListLedgerAccountsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListLedgerAccountsQueryKey = () => {
+    return [
+    `/api/accounting/accounts`
+    ] as const;
+    }
+
+
+export const getListLedgerAccountsQueryOptions = <TData = Awaited<ReturnType<typeof listLedgerAccounts>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLedgerAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListLedgerAccountsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLedgerAccounts>>> = ({ signal }) => listLedgerAccounts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLedgerAccounts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListLedgerAccountsQueryResult = NonNullable<Awaited<ReturnType<typeof listLedgerAccounts>>>
+export type ListLedgerAccountsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Chart of accounts with current balances
+ */
+
+export function useListLedgerAccounts<TData = Awaited<ReturnType<typeof listLedgerAccounts>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listLedgerAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListLedgerAccountsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListJournalEntriesUrl = (params?: ListJournalEntriesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/accounting/journal?${stringifiedParams}` : `/api/accounting/journal`
+}
+
+/**
+ * @summary Journal entries newest first
+ */
+export const listJournalEntries = async (params?: ListJournalEntriesParams, options?: RequestInit): Promise<ListJournalEntries200> => {
+
+  return customFetch<ListJournalEntries200>(getListJournalEntriesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListJournalEntriesQueryKey = (params?: ListJournalEntriesParams,) => {
+    return [
+    `/api/accounting/journal`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListJournalEntriesQueryOptions = <TData = Awaited<ReturnType<typeof listJournalEntries>>, TError = ErrorType<unknown>>(params?: ListJournalEntriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listJournalEntries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListJournalEntriesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listJournalEntries>>> = ({ signal }) => listJournalEntries(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listJournalEntries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListJournalEntriesQueryResult = NonNullable<Awaited<ReturnType<typeof listJournalEntries>>>
+export type ListJournalEntriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Journal entries newest first
+ */
+
+export function useListJournalEntries<TData = Awaited<ReturnType<typeof listJournalEntries>>, TError = ErrorType<unknown>>(
+ params?: ListJournalEntriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listJournalEntries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListJournalEntriesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateJournalEntryUrl = () => {
+
+
+
+
+  return `/api/accounting/journal`
+}
+
+/**
+ * @summary Post a manual balanced journal entry
+ */
+export const createJournalEntry = async (journalEntryInput: JournalEntryInput, options?: RequestInit): Promise<JournalEntryFull> => {
+
+  return customFetch<JournalEntryFull>(getCreateJournalEntryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(journalEntryInput)
+  }
+);}
+
+
+
+
+
+export const getCreateJournalEntryMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createJournalEntry>>, TError,{data: BodyType<JournalEntryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createJournalEntry>>, TError,{data: BodyType<JournalEntryInput>}, TContext> => {
+
+const mutationKey = ['createJournalEntry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createJournalEntry>>, {data: BodyType<JournalEntryInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createJournalEntry(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateJournalEntryMutationResult = NonNullable<Awaited<ReturnType<typeof createJournalEntry>>>
+    export type CreateJournalEntryMutationBody = BodyType<JournalEntryInput>
+    export type CreateJournalEntryMutationError = ErrorType<Error>
+
+    /**
+ * @summary Post a manual balanced journal entry
+ */
+export const useCreateJournalEntry = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createJournalEntry>>, TError,{data: BodyType<JournalEntryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createJournalEntry>>,
+        TError,
+        {data: BodyType<JournalEntryInput>},
+        TContext
+      > => {
+      return useMutation(getCreateJournalEntryMutationOptions(options));
+    }
+
+export const getDeleteJournalEntryUrl = (id: string,) => {
+
+
+
+
+  return `/api/accounting/journal/${id}`
+}
+
+/**
+ * @summary Delete a manual journal entry (system entries are protected)
+ */
+export const deleteJournalEntry = async (id: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getDeleteJournalEntryUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteJournalEntryMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteJournalEntry>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteJournalEntry>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteJournalEntry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteJournalEntry>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteJournalEntry(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteJournalEntryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteJournalEntry>>>
+
+    export type DeleteJournalEntryMutationError = ErrorType<Error>
+
+    /**
+ * @summary Delete a manual journal entry (system entries are protected)
+ */
+export const useDeleteJournalEntry = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteJournalEntry>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteJournalEntry>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteJournalEntryMutationOptions(options));
+    }
+
+export const getGetProfitAndLossUrl = (params?: GetProfitAndLossParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/accounting/reports/pnl?${stringifiedParams}` : `/api/accounting/reports/pnl`
+}
+
+/**
+ * @summary Profit and loss for a date range
+ */
+export const getProfitAndLoss = async (params?: GetProfitAndLossParams, options?: RequestInit): Promise<PnlReport> => {
+
+  return customFetch<PnlReport>(getGetProfitAndLossUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProfitAndLossQueryKey = (params?: GetProfitAndLossParams,) => {
+    return [
+    `/api/accounting/reports/pnl`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetProfitAndLossQueryOptions = <TData = Awaited<ReturnType<typeof getProfitAndLoss>>, TError = ErrorType<unknown>>(params?: GetProfitAndLossParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProfitAndLoss>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProfitAndLossQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProfitAndLoss>>> = ({ signal }) => getProfitAndLoss(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProfitAndLoss>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProfitAndLossQueryResult = NonNullable<Awaited<ReturnType<typeof getProfitAndLoss>>>
+export type GetProfitAndLossQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Profit and loss for a date range
+ */
+
+export function useGetProfitAndLoss<TData = Awaited<ReturnType<typeof getProfitAndLoss>>, TError = ErrorType<unknown>>(
+ params?: GetProfitAndLossParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProfitAndLoss>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProfitAndLossQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetBalanceSheetReportUrl = (params?: GetBalanceSheetReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/accounting/reports/balance-sheet?${stringifiedParams}` : `/api/accounting/reports/balance-sheet`
+}
+
+/**
+ * @summary Balance sheet as of a date
+ */
+export const getBalanceSheetReport = async (params?: GetBalanceSheetReportParams, options?: RequestInit): Promise<BalanceSheetReport> => {
+
+  return customFetch<BalanceSheetReport>(getGetBalanceSheetReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBalanceSheetReportQueryKey = (params?: GetBalanceSheetReportParams,) => {
+    return [
+    `/api/accounting/reports/balance-sheet`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetBalanceSheetReportQueryOptions = <TData = Awaited<ReturnType<typeof getBalanceSheetReport>>, TError = ErrorType<unknown>>(params?: GetBalanceSheetReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBalanceSheetReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBalanceSheetReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBalanceSheetReport>>> = ({ signal }) => getBalanceSheetReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBalanceSheetReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBalanceSheetReportQueryResult = NonNullable<Awaited<ReturnType<typeof getBalanceSheetReport>>>
+export type GetBalanceSheetReportQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Balance sheet as of a date
+ */
+
+export function useGetBalanceSheetReport<TData = Awaited<ReturnType<typeof getBalanceSheetReport>>, TError = ErrorType<unknown>>(
+ params?: GetBalanceSheetReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBalanceSheetReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBalanceSheetReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCashFlowReportUrl = (params?: GetCashFlowReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/accounting/reports/cash-flow?${stringifiedParams}` : `/api/accounting/reports/cash-flow`
+}
+
+/**
+ * @summary Cash flow for a date range
+ */
+export const getCashFlowReport = async (params?: GetCashFlowReportParams, options?: RequestInit): Promise<CashFlowReport> => {
+
+  return customFetch<CashFlowReport>(getGetCashFlowReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCashFlowReportQueryKey = (params?: GetCashFlowReportParams,) => {
+    return [
+    `/api/accounting/reports/cash-flow`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCashFlowReportQueryOptions = <TData = Awaited<ReturnType<typeof getCashFlowReport>>, TError = ErrorType<unknown>>(params?: GetCashFlowReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCashFlowReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCashFlowReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCashFlowReport>>> = ({ signal }) => getCashFlowReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCashFlowReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCashFlowReportQueryResult = NonNullable<Awaited<ReturnType<typeof getCashFlowReport>>>
+export type GetCashFlowReportQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Cash flow for a date range
+ */
+
+export function useGetCashFlowReport<TData = Awaited<ReturnType<typeof getCashFlowReport>>, TError = ErrorType<unknown>>(
+ params?: GetCashFlowReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCashFlowReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCashFlowReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAccountLedgerUrl = (params: GetAccountLedgerParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/accounting/ledger?${stringifiedParams}` : `/api/accounting/ledger`
+}
+
+/**
+ * @summary General ledger for one account with running balance
+ */
+export const getAccountLedger = async (params: GetAccountLedgerParams, options?: RequestInit): Promise<AccountLedger> => {
+
+  return customFetch<AccountLedger>(getGetAccountLedgerUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAccountLedgerQueryKey = (params?: GetAccountLedgerParams,) => {
+    return [
+    `/api/accounting/ledger`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAccountLedgerQueryOptions = <TData = Awaited<ReturnType<typeof getAccountLedger>>, TError = ErrorType<Error>>(params: GetAccountLedgerParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccountLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAccountLedgerQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAccountLedger>>> = ({ signal }) => getAccountLedger(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAccountLedger>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAccountLedgerQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountLedger>>>
+export type GetAccountLedgerQueryError = ErrorType<Error>
+
+
+/**
+ * @summary General ledger for one account with running balance
+ */
+
+export function useGetAccountLedger<TData = Awaited<ReturnType<typeof getAccountLedger>>, TError = ErrorType<Error>>(
+ params: GetAccountLedgerParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccountLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAccountLedgerQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRebuildLedgerEntriesUrl = () => {
+
+
+
+
+  return `/api/accounting/rebuild`
+}
+
+/**
+ * @summary Rebuild system ledger entries from invoices, expenses, and jobs (manual entries preserved)
+ */
+export const rebuildLedgerEntries = async ( options?: RequestInit): Promise<RebuildLedgerEntries200> => {
+
+  return customFetch<RebuildLedgerEntries200>(getRebuildLedgerEntriesUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRebuildLedgerEntriesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rebuildLedgerEntries>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rebuildLedgerEntries>>, TError,void, TContext> => {
+
+const mutationKey = ['rebuildLedgerEntries'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rebuildLedgerEntries>>, void> = () => {
+
+
+          return  rebuildLedgerEntries(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RebuildLedgerEntriesMutationResult = NonNullable<Awaited<ReturnType<typeof rebuildLedgerEntries>>>
+
+    export type RebuildLedgerEntriesMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Rebuild system ledger entries from invoices, expenses, and jobs (manual entries preserved)
+ */
+export const useRebuildLedgerEntries = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rebuildLedgerEntries>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rebuildLedgerEntries>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRebuildLedgerEntriesMutationOptions(options));
+    }
 

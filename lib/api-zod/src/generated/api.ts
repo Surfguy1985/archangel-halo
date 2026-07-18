@@ -4190,3 +4190,218 @@ export const ListCrewInvoicesResponseItem = zod.object({
 export const ListCrewInvoicesResponse = zod.array(ListCrewInvoicesResponseItem)
 
 
+/**
+ * @summary Chart of accounts with current balances
+ */
+export const ListLedgerAccountsResponse = zod.object({
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "type": zod.string().describe('asset | liability | equity | income | expense'),
+  "isSystem": zod.boolean(),
+  "balance": zod.number().describe('Natural-sign balance: debit-positive for assets\/expenses, credit-positive otherwise')
+}))
+})
+
+
+/**
+ * @summary Journal entries newest first
+ */
+export const ListJournalEntriesQueryParams = zod.object({
+  "limit": zod.coerce.number().optional(),
+  "accountId": zod.coerce.string().optional()
+})
+
+export const ListJournalEntriesResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "id": zod.string(),
+  "entryNo": zod.string(),
+  "entryDate": zod.string(),
+  "memo": zod.string().nullish(),
+  "refType": zod.string(),
+  "refId": zod.string().nullish(),
+  "source": zod.string().describe('system | manual | voice'),
+  "createdAt": zod.string().nullish(),
+  "lines": zod.array(zod.object({
+  "id": zod.string(),
+  "accountId": zod.string(),
+  "accountCode": zod.string(),
+  "accountName": zod.string(),
+  "debit": zod.number(),
+  "credit": zod.number(),
+  "description": zod.string().nullish()
+}))
+}))
+})
+
+
+/**
+ * @summary Post a manual balanced journal entry
+ */
+export const CreateJournalEntryBody = zod.object({
+  "entryDate": zod.string().optional(),
+  "memo": zod.string().nullish(),
+  "lines": zod.array(zod.object({
+  "accountCode": zod.string(),
+  "debit": zod.number().optional(),
+  "credit": zod.number().optional(),
+  "description": zod.string().nullish()
+}))
+})
+
+export const CreateJournalEntryResponse = zod.object({
+  "id": zod.string(),
+  "entryNo": zod.string(),
+  "entryDate": zod.string(),
+  "memo": zod.string().nullish(),
+  "refType": zod.string(),
+  "refId": zod.string().nullish(),
+  "source": zod.string().describe('system | manual | voice'),
+  "createdAt": zod.string().nullish(),
+  "lines": zod.array(zod.object({
+  "id": zod.string(),
+  "accountId": zod.string(),
+  "accountCode": zod.string(),
+  "accountName": zod.string(),
+  "debit": zod.number(),
+  "credit": zod.number(),
+  "description": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Delete a manual journal entry (system entries are protected)
+ */
+export const DeleteJournalEntryParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteJournalEntryResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Profit and loss for a date range
+ */
+export const GetProfitAndLossQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const GetProfitAndLossResponse = zod.object({
+  "from": zod.string(),
+  "to": zod.string(),
+  "income": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "expenses": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "totalIncome": zod.number(),
+  "totalExpenses": zod.number(),
+  "netProfit": zod.number()
+})
+
+
+/**
+ * @summary Balance sheet as of a date
+ */
+export const GetBalanceSheetReportQueryParams = zod.object({
+  "asOf": zod.coerce.string().optional()
+})
+
+export const GetBalanceSheetReportResponse = zod.object({
+  "asOf": zod.string(),
+  "assets": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "liabilities": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "equity": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "totalAssets": zod.number(),
+  "totalLiabilities": zod.number(),
+  "totalEquity": zod.number()
+})
+
+
+/**
+ * @summary Cash flow for a date range
+ */
+export const GetCashFlowReportQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const GetCashFlowReportResponse = zod.object({
+  "from": zod.string(),
+  "to": zod.string(),
+  "inflows": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "outflows": zod.array(zod.object({
+  "code": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number()
+})),
+  "netChange": zod.number(),
+  "openingCash": zod.number(),
+  "closingCash": zod.number()
+})
+
+
+/**
+ * @summary General ledger for one account with running balance
+ */
+export const GetAccountLedgerQueryParams = zod.object({
+  "accountId": zod.coerce.string(),
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const GetAccountLedgerResponse = zod.object({
+  "account": zod.object({
+  "id": zod.string(),
+  "code": zod.string(),
+  "name": zod.string(),
+  "type": zod.string().describe('asset | liability | equity | income | expense'),
+  "isSystem": zod.boolean(),
+  "balance": zod.number().describe('Natural-sign balance: debit-positive for assets\/expenses, credit-positive otherwise')
+}),
+  "entries": zod.array(zod.object({
+  "entryId": zod.string(),
+  "entryNo": zod.string(),
+  "entryDate": zod.string(),
+  "memo": zod.string().nullish(),
+  "debit": zod.number(),
+  "credit": zod.number(),
+  "balance": zod.number()
+}))
+})
+
+
+/**
+ * @summary Rebuild system ledger entries from invoices, expenses, and jobs (manual entries preserved)
+ */
+export const RebuildLedgerEntriesResponse = zod.object({
+  "posted": zod.number()
+})
+
+

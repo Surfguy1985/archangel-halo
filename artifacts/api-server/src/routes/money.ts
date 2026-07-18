@@ -41,6 +41,7 @@ import {
 } from "@workspace/api-zod";
 import { computeBusinessReport } from "../lib/businessReport";
 import { recomputeJobFinancials } from "../lib/jobFinance";
+import { syncInvoiceLedger, syncExpenseLedger, removeEntriesForRef } from "../lib/ledger";
 import { generateBusinessReportPdf } from "../lib/reportPdf";
 import { completeJson } from "../lib/ai";
 import { ser } from "../lib/serialize";
@@ -402,6 +403,7 @@ router.post("/invoices", async (req, res): Promise<void> => {
   });
 
   if (row.jobId) await recomputeJobFinancials(row.jobId);
+  await syncInvoiceLedger(row.id);
   const names = await propertyNames();
   res.status(201).json(CreateInvoiceResponse.parse(decorateInvoice(row, names)));
 });
@@ -471,6 +473,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   await recomputeJobFinancials(
     [existing.jobId, row.jobId].filter((x): x is string => !!x),
   );
+  await syncInvoiceLedger(row.id);
   const names = await propertyNames();
   res.json(UpdateInvoiceResponse.parse(await invoiceDetail(row, names)));
 });
@@ -489,6 +492,7 @@ router.delete("/invoices/:id", async (req, res): Promise<void> => {
     await tx.delete(invoicesTable).where(eq(invoicesTable.id, id));
   });
   if (existing?.jobId) await recomputeJobFinancials(existing.jobId);
+  await removeEntriesForRef(["invoice", "invoice_payment"], id);
   res.status(204).end();
 });
 
@@ -604,6 +608,7 @@ router.post("/invoices/:id/send", async (req, res): Promise<void> => {
     .where(eq(invoicesTable.id, id))
     .returning();
   if (row.jobId) await recomputeJobFinancials(row.jobId);
+  await syncInvoiceLedger(row.id);
   res.json(SendInvoiceResponse.parse(decorateInvoice(row, names)));
 });
 
@@ -661,6 +666,7 @@ router.post("/invoices/:id/status", async (req, res): Promise<void> => {
     return;
   }
   if (row.jobId) await recomputeJobFinancials(row.jobId);
+  await syncInvoiceLedger(row.id);
   const names = await propertyNames();
   res.json(SetInvoiceStatusResponse.parse(decorateInvoice(row, names)));
 });
@@ -674,6 +680,7 @@ router.post("/payments", async (req, res): Promise<void> => {
     .where(eq(invoicesTable.id, body.invoiceId))
     .returning();
   if (inv?.jobId) await recomputeJobFinancials(inv.jobId);
+  if (inv) await syncInvoiceLedger(inv.id);
   res.status(201).json(RecordPaymentResponse.parse(ser(row)));
 });
 
@@ -706,6 +713,7 @@ router.post("/expenses", async (req, res): Promise<void> => {
   }
   const [row] = await db.insert(expensesTable).values(body).returning();
   if (row.jobId) await recomputeJobFinancials(row.jobId);
+  await syncExpenseLedger(row.id);
   res.status(201).json(CreateExpenseResponse.parse(ser(row)));
 });
 

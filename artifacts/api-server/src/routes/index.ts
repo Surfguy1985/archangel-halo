@@ -19,6 +19,7 @@ import calendarRouter from "./calendar";
 import settingsRouter from "./settings";
 import plaidRouter from "./plaid";
 import geoRouter from "./geo";
+import accountingRouter from "./accounting";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(calendarRouter);
 router.use(settingsRouter);
 router.use(plaidRouter);
 router.use(geoRouter);
+router.use(accountingRouter);
 
 export default router;

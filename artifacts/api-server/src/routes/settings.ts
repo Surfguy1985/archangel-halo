@@ -37,6 +37,8 @@ import {
   jobsTable,
   crewsTable,
   propertiesTable,
+  journalLinesTable,
+  journalEntriesTable,
 } from "@workspace/db";
 import {
   GetBusinessSettingsResponse,
@@ -114,6 +116,8 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(jobBroadcastsTable);
     await tx.delete(schedulesTable);
     await tx.delete(calendarEventsTable);
+    await tx.delete(journalLinesTable);
+    await tx.delete(journalEntriesTable);
     await tx.delete(invoiceLineItemsTable);
     await tx.delete(paymentsTable);
     await tx.delete(expensesTable);

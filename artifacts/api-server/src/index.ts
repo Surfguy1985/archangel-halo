@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startScheduler } from "./lib/scheduler";
+import { ensureChartOfAccounts } from "./lib/ledger";
 
 const rawPort = process.env["PORT"];
 
@@ -24,4 +25,7 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
   startScheduler();
+  ensureChartOfAccounts().catch((err) =>
+    logger.error({ err }, "Failed to seed chart of accounts"),
+  );
 });

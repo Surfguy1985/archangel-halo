@@ -44,6 +44,7 @@ import { BankTab } from "@/components/BankTab";
 import { ZellePayDialog } from "@/components/ZellePayDialog";
 import { BusinessInfoDialog } from "@/components/BusinessInfoDialog";
 import { BusinessReportTab } from "@/components/BusinessReportTab";
+import { BooksTab } from "@/components/BooksTab";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -647,6 +648,7 @@ export default function Money() {
           <TabsTrigger value="bank">Bank</TabsTrigger>
           <TabsTrigger value="aging">Aging</TabsTrigger>
           <TabsTrigger value="report" data-testid="tab-report">Report</TabsTrigger>
+          <TabsTrigger value="books" data-testid="tab-books">Books</TabsTrigger>
         </TabsList>
 
         <TabsContent value="invoices">
@@ -660,6 +662,9 @@ export default function Money() {
         </TabsContent>
         <TabsContent value="bank">
           <BankTab />
+        </TabsContent>
+        <TabsContent value="books">
+          <BooksTab />
         </TabsContent>
         <TabsContent value="aging">
           <AgingReceivables />

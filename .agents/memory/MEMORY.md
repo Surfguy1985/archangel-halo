@@ -23,3 +23,4 @@
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.
 - [HALO Plaid credentials](halo-plaid-credentials.md) — Plaid uses PLAID_CLIENT_ID/PLAID_SECRET secrets (connector was dismissed); keys are PRODUCTION — sandbox endpoints won't work.
 - [OpenAPI naming vs orval](halo-openapi-naming.md) — schema names must not match <OperationId>Response/Body or codegen exports collide and typecheck:libs fails.
+- [HALO double-entry ledger](halo-ledger.md) — Books engine: every money mutation (REST and voice) must call syncXLedger; rebuild+syncs serialized by in-process mutex; JE numbering via advisory lock.

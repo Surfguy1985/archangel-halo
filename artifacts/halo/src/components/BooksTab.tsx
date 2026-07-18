@@ -1,0 +1,372 @@
+import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useListLedgerAccounts,
+  useListJournalEntries,
+  useCreateJournalEntry,
+  useGetProfitAndLoss,
+  useGetBalanceSheetReport,
+  useGetCashFlowReport,
+  getListLedgerAccountsQueryKey,
+  getListJournalEntriesQueryKey,
+  getGetProfitAndLossQueryKey,
+  getGetBalanceSheetReportQueryKey,
+  getGetCashFlowReportQueryKey,
+  type LedgerAccount,
+  type JournalEntryFull,
+} from "@workspace/api-client-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Plus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+const money = (n: number) =>
+  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+const fmtDate = (s: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (!m) return s;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+};
+
+function localToday(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[14px] mb-[12px]">
+      <div className="text-[11px] font-display font-bold uppercase tracking-wide text-muted-foreground mb-[8px]">
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Rows({
+  rows,
+  totalLabel,
+  total,
+}: {
+  rows: Array<{ code: string; name: string; amount: number }>;
+  totalLabel: string;
+  total: number;
+}) {
+  return (
+    <div>
+      {rows.length === 0 && (
+        <div className="text-[12.5px] text-muted-foreground py-[4px]">Nothing yet.</div>
+      )}
+      {rows.map((r) => (
+        <div key={r.code} className="flex justify-between py-[5px] text-[13px]">
+          <span>{r.name}</span>
+          <span className="font-display font-semibold tabular-nums">{money(r.amount)}</span>
+        </div>
+      ))}
+      <div className="flex justify-between pt-[7px] mt-[3px] border-t border-border text-[13px] font-display font-bold">
+        <span>{totalLabel}</span>
+        <span className="tabular-nums">{money(total)}</span>
+      </div>
+    </div>
+  );
+}
+
+const SOURCE_COLOR: Record<string, string> = {
+  system: "bg-black/[0.05] text-muted-foreground",
+  manual: "bg-amber-500/15 text-amber-700",
+  voice: "bg-blue-500/10 text-blue-600",
+};
+
+function NewEntrySheet({
+  open,
+  onOpenChange,
+  accounts,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  accounts: LedgerAccount[];
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const create = useCreateJournalEntry();
+  const [amount, setAmount] = useState("");
+  const [memo, setMemo] = useState("");
+  const [debitCode, setDebitCode] = useState("");
+  const [creditCode, setCreditCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const inputCls =
+    "w-full rounded-[11px] border border-border bg-background px-[12px] py-[10px] text-[14px]";
+
+  const submit = () => {
+    setError(null);
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt <= 0) return setError("Enter a valid amount.");
+    if (!debitCode || !creditCode || debitCode === creditCode)
+      return setError("Pick two different accounts.");
+    create.mutate(
+      {
+        data: {
+          entryDate: localToday(),
+          memo: memo.trim() || null,
+          lines: [
+            { accountCode: debitCode, debit: amt },
+            { accountCode: creditCode, credit: amt },
+          ],
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListLedgerAccountsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetProfitAndLossQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetBalanceSheetReportQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetCashFlowReportQueryKey() });
+          onOpenChange(false);
+          setAmount("");
+          setMemo("");
+          toast({ title: "Journal entry posted" });
+        },
+        onError: (err: unknown) =>
+          setError(
+            (err as { data?: { error?: string } })?.data?.error || "Couldn't post the entry.",
+          ),
+      },
+    );
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="rounded-t-[20px]">
+        <SheetHeader>
+          <SheetTitle>New journal entry</SheetTitle>
+        </SheetHeader>
+        <div className="space-y-[10px] mt-[10px] pb-[8px]">
+          <input
+            className={inputCls}
+            type="number"
+            inputMode="decimal"
+            placeholder="Amount"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            data-testid="input-je-amount"
+          />
+          <select
+            className={inputCls}
+            value={debitCode}
+            onChange={(e) => setDebitCode(e.target.value)}
+            data-testid="select-je-debit"
+          >
+            <option value="">Debit — money goes to…</option>
+            {accounts.map((a) => (
+              <option key={a.code} value={a.code}>
+                {a.code} — {a.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className={inputCls}
+            value={creditCode}
+            onChange={(e) => setCreditCode(e.target.value)}
+            data-testid="select-je-credit"
+          >
+            <option value="">Credit — money comes from…</option>
+            {accounts.map((a) => (
+              <option key={a.code} value={a.code}>
+                {a.code} — {a.name}
+              </option>
+            ))}
+          </select>
+          <input
+            className={inputCls}
+            placeholder="Memo (optional)"
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+          />
+          {error && <div className="text-[12.5px] text-destructive">{error}</div>}
+          <button
+            className="w-full rounded-[12px] bg-[var(--ink)] text-white py-[12px] text-[14px] font-display font-bold disabled:opacity-50"
+            onClick={submit}
+            disabled={create.isPending}
+            data-testid="button-je-post"
+          >
+            {create.isPending ? "Posting…" : "Post entry"}
+          </button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+export function BooksTab() {
+  const [view, setView] = useState<"pnl" | "balance" | "cash" | "journal">("pnl");
+  const [entryOpen, setEntryOpen] = useState(false);
+  const from = `${new Date().getFullYear()}-01-01`;
+  const to = localToday();
+
+  const { data: acctData } = useListLedgerAccounts();
+  const { data: journalData } = useListJournalEntries({ limit: 50 });
+  const { data: pnl } = useGetProfitAndLoss({ from, to });
+  const { data: bs } = useGetBalanceSheetReport({ asOf: to });
+  const { data: cf } = useGetCashFlowReport({ from, to });
+
+  const accounts = useMemo(() => acctData?.accounts ?? [], [acctData]);
+  const entries: JournalEntryFull[] = journalData?.entries ?? [];
+
+  const views = [
+    { key: "pnl", label: "P&L" },
+    { key: "balance", label: "Balance" },
+    { key: "cash", label: "Cash" },
+    { key: "journal", label: "Journal" },
+  ] as const;
+
+  return (
+    <div>
+      <div className="flex gap-[6px] mb-[12px]">
+        {views.map((v) => (
+          <button
+            key={v.key}
+            onClick={() => setView(v.key)}
+            className={`flex-1 rounded-[10px] py-[7px] text-[12px] font-display font-bold border ${
+              view === v.key
+                ? "bg-[var(--ink)] text-white border-transparent"
+                : "bg-card border-border text-muted-foreground"
+            }`}
+            data-testid={`books-view-${v.key}`}
+          >
+            {v.label}
+          </button>
+        ))}
+        <button
+          onClick={() => setEntryOpen(true)}
+          className="rounded-[10px] px-[11px] bg-card border border-border"
+          data-testid="button-new-entry"
+        >
+          <Plus className="w-[16px] h-[16px]" />
+        </button>
+      </div>
+
+      {view === "pnl" && (
+        <>
+          <Section title="Income (this year)">
+            <Rows rows={pnl?.income ?? []} totalLabel="Total income" total={pnl?.totalIncome ?? 0} />
+          </Section>
+          <Section title="Expenses">
+            <Rows
+              rows={pnl?.expenses ?? []}
+              totalLabel="Total expenses"
+              total={pnl?.totalExpenses ?? 0}
+            />
+          </Section>
+          <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[14px] flex justify-between items-center">
+            <span className="font-display font-bold text-[14px]">Net profit</span>
+            <span
+              className={`font-display font-bold text-[20px] tabular-nums ${
+                (pnl?.netProfit ?? 0) >= 0 ? "text-emerald-600" : "text-destructive"
+              }`}
+              data-testid="text-net-profit"
+            >
+              {money(pnl?.netProfit ?? 0)}
+            </span>
+          </div>
+        </>
+      )}
+
+      {view === "balance" && (
+        <>
+          <Section title="Assets">
+            <Rows rows={bs?.assets ?? []} totalLabel="Total assets" total={bs?.totalAssets ?? 0} />
+          </Section>
+          <Section title="Liabilities">
+            <Rows
+              rows={bs?.liabilities ?? []}
+              totalLabel="Total liabilities"
+              total={bs?.totalLiabilities ?? 0}
+            />
+          </Section>
+          <Section title="Equity">
+            <Rows rows={bs?.equity ?? []} totalLabel="Total equity" total={bs?.totalEquity ?? 0} />
+          </Section>
+        </>
+      )}
+
+      {view === "cash" && (
+        <>
+          <Section title="Cash in (this year)">
+            <Rows
+              rows={cf?.inflows ?? []}
+              totalLabel="Total in"
+              total={(cf?.inflows ?? []).reduce((s, r) => s + r.amount, 0)}
+            />
+          </Section>
+          <Section title="Cash out">
+            <Rows
+              rows={cf?.outflows ?? []}
+              totalLabel="Total out"
+              total={(cf?.outflows ?? []).reduce((s, r) => s + r.amount, 0)}
+            />
+          </Section>
+          <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[14px] grid grid-cols-3 text-center">
+            {[
+              { label: "Opening", value: cf?.openingCash ?? 0 },
+              { label: "Change", value: cf?.netChange ?? 0 },
+              { label: "Closing", value: cf?.closingCash ?? 0 },
+            ].map((c) => (
+              <div key={c.label}>
+                <div className="text-[10.5px] uppercase font-bold text-muted-foreground">{c.label}</div>
+                <div className="font-display font-bold text-[15px] tabular-nums">{money(c.value)}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {view === "journal" && (
+        <div className="space-y-[10px]">
+          {entries.length === 0 && (
+            <div className="text-[13px] text-muted-foreground py-[8px]">
+              No journal entries yet — they appear automatically as you invoice and spend.
+            </div>
+          )}
+          {entries.map((e) => (
+            <div
+              key={e.id}
+              className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[12px]"
+              data-testid={`journal-entry-${e.entryNo}`}
+            >
+              <div className="flex items-center gap-[8px] mb-[4px]">
+                <span className="font-display font-bold text-[13px] tabular-nums">{e.entryNo}</span>
+                <span className="text-[11.5px] text-muted-foreground">{fmtDate(e.entryDate)}</span>
+                <span
+                  className={`text-[10px] font-bold px-[7px] py-[2px] rounded-full ${
+                    SOURCE_COLOR[e.source] ?? ""
+                  }`}
+                >
+                  {e.source}
+                </span>
+              </div>
+              {e.memo && <div className="text-[12.5px] text-muted-foreground mb-[4px]">{e.memo}</div>}
+              <div className="text-[11.5px] space-y-[2px]">
+                {e.lines.map((l) => (
+                  <div key={l.id} className="flex justify-between tabular-nums">
+                    <span className={l.debit > 0 ? "" : "pl-[16px] text-muted-foreground"}>
+                      {l.accountName}
+                    </span>
+                    <span>{l.debit > 0 ? `${money(l.debit)} DR` : `${money(l.credit)} CR`}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <NewEntrySheet open={entryOpen} onOpenChange={setEntryOpen} accounts={accounts} />
+    </div>
+  );
+}

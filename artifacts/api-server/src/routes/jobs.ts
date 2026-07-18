@@ -77,6 +77,7 @@ import { sendEmail } from "../lib/email";
 import { ser, serList } from "../lib/serialize";
 import { crewPhotosForJobs, type CrewJobPhoto } from "../lib/jobPhotos";
 import { recomputeJobFinancials } from "../lib/jobFinance";
+import { syncJobLaborLedger, removeEntriesForRef } from "../lib/ledger";
 
 const router: IRouter = Router();
 
@@ -200,6 +201,7 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
       .where(eq(jobsTable.id, id));
     if (reloaded) fresh = reloaded;
   }
+  if ("crewRate" in body || "status" in body) await syncJobLaborLedger(id);
   const { propName, crewName } = await lookups();
   res.json(UpdateJobResponse.parse(decorateJob(fresh, propName, crewName)));
 });
@@ -231,6 +233,7 @@ router.delete("/jobs/:id", async (req, res): Promise<void> => {
     res.status(result.status).json({ error: result.error });
     return;
   }
+  await removeEntriesForRef(["job_labor"], id);
   res.json(DeleteJobResponse.parse({ ok: true }));
 });
 
@@ -359,6 +362,7 @@ router.post("/jobs/:id/complete", async (req, res): Promise<void> => {
     kind: "completed",
     body: "Job marked complete",
   });
+  await syncJobLaborLedger(id);
   const { propName, crewName } = await lookups();
   res.json(CompleteJobResponse.parse(decorateJob(row, propName, crewName)));
 });
@@ -418,6 +422,7 @@ router.post("/jobs/:id/restart", async (req, res): Promise<void> => {
     kind: "note",
     body: "Job restarted",
   });
+  await syncJobLaborLedger(id);
   const { propName, crewName } = await lookups();
   res.json(RestartJobResponse.parse(decorateJob(row, propName, crewName)));
 });

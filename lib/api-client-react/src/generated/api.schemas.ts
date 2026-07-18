@@ -2192,6 +2192,111 @@ export interface CrewInvoice {
   items: CrewInvoiceItem[];
 }
 
+export interface LedgerAccount {
+  id: string;
+  code: string;
+  name: string;
+  /** asset | liability | equity | income | expense */
+  type: string;
+  isSystem: boolean;
+  /** Natural-sign balance: debit-positive for assets/expenses, credit-positive otherwise */
+  balance: number;
+}
+
+export interface JournalLineDetail {
+  id: string;
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  /** @nullable */
+  description?: string | null;
+}
+
+export interface JournalEntryFull {
+  id: string;
+  entryNo: string;
+  entryDate: string;
+  /** @nullable */
+  memo?: string | null;
+  refType: string;
+  /** @nullable */
+  refId?: string | null;
+  /** system | manual | voice */
+  source: string;
+  /** @nullable */
+  createdAt?: string | null;
+  lines: JournalLineDetail[];
+}
+
+export interface JournalLineEntryInput {
+  accountCode: string;
+  debit?: number;
+  credit?: number;
+  /** @nullable */
+  description?: string | null;
+}
+
+export interface JournalEntryInput {
+  entryDate?: string;
+  /** @nullable */
+  memo?: string | null;
+  lines: JournalLineEntryInput[];
+}
+
+export interface ReportLine {
+  code: string;
+  name: string;
+  amount: number;
+}
+
+export interface PnlReport {
+  from: string;
+  to: string;
+  income: ReportLine[];
+  expenses: ReportLine[];
+  totalIncome: number;
+  totalExpenses: number;
+  netProfit: number;
+}
+
+export interface BalanceSheetReport {
+  asOf: string;
+  assets: ReportLine[];
+  liabilities: ReportLine[];
+  equity: ReportLine[];
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+}
+
+export interface CashFlowReport {
+  from: string;
+  to: string;
+  inflows: ReportLine[];
+  outflows: ReportLine[];
+  netChange: number;
+  openingCash: number;
+  closingCash: number;
+}
+
+export interface AccountLedgerLine {
+  entryId: string;
+  entryNo: string;
+  entryDate: string;
+  /** @nullable */
+  memo?: string | null;
+  debit: number;
+  credit: number;
+  balance: number;
+}
+
+export interface AccountLedger {
+  account: LedgerAccount;
+  entries: AccountLedgerLine[];
+}
+
 export type ListPropertiesParams = {
 search?: string;
 };
@@ -2256,5 +2361,42 @@ entityId?: string;
  * @maximum 200
  */
 limit?: number;
+};
+
+export type ListLedgerAccounts200 = {
+  accounts: LedgerAccount[];
+};
+
+export type ListJournalEntriesParams = {
+limit?: number;
+accountId?: string;
+};
+
+export type ListJournalEntries200 = {
+  entries: JournalEntryFull[];
+};
+
+export type GetProfitAndLossParams = {
+from?: string;
+to?: string;
+};
+
+export type GetBalanceSheetReportParams = {
+asOf?: string;
+};
+
+export type GetCashFlowReportParams = {
+from?: string;
+to?: string;
+};
+
+export type GetAccountLedgerParams = {
+accountId: string;
+from?: string;
+to?: string;
+};
+
+export type RebuildLedgerEntries200 = {
+  posted: number;
 };
 

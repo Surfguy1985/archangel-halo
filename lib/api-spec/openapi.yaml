@@ -34,6 +34,8 @@ tags:
     description: Admin-side crew portal, documents, payments
   - name: portal
     description: Public token-gated crew portal
+  - name: accounting
+    description: Double-entry ledger, journal, and financial reports
 paths:
   /healthz:
     get:
@@ -3261,6 +3263,207 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /accounting/accounts:
+    get:
+      operationId: listLedgerAccounts
+      tags: [accounting]
+      summary: Chart of accounts with current balances
+      responses:
+        "200":
+          description: Accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accounts]
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LedgerAccount"
+
+  /accounting/journal:
+    get:
+      operationId: listJournalEntries
+      tags: [accounting]
+      summary: Journal entries newest first
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer }
+        - name: accountId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries]
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/JournalEntryFull"
+    post:
+      operationId: createJournalEntry
+      tags: [accounting]
+      summary: Post a manual balanced journal entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JournalEntryInput"
+      responses:
+        "201":
+          description: Entry posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntryFull"
+        "400":
+          description: Out of balance or invalid account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /accounting/journal/{id}:
+    delete:
+      operationId: deleteJournalEntry
+      tags: [accounting]
+      summary: Delete a manual journal entry (system entries are protected)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          description: Cannot delete system entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /accounting/reports/pnl:
+    get:
+      operationId: getProfitAndLoss
+      tags: [accounting]
+      summary: Profit and loss for a date range
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string }
+        - name: to
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: P&L
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PnlReport"
+
+  /accounting/reports/balance-sheet:
+    get:
+      operationId: getBalanceSheetReport
+      tags: [accounting]
+      summary: Balance sheet as of a date
+      parameters:
+        - name: asOf
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Balance sheet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceSheetReport"
+
+  /accounting/reports/cash-flow:
+    get:
+      operationId: getCashFlowReport
+      tags: [accounting]
+      summary: Cash flow for a date range
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string }
+        - name: to
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Cash flow
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashFlowReport"
+
+  /accounting/ledger:
+    get:
+      operationId: getAccountLedger
+      tags: [accounting]
+      summary: General ledger for one account with running balance
+      parameters:
+        - name: accountId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string }
+        - name: to
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Ledger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountLedger"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /accounting/rebuild:
+    post:
+      operationId: rebuildLedgerEntries
+      tags: [accounting]
+      summary: Rebuild system ledger entries from invoices, expenses, and jobs (manual entries preserved)
+      responses:
+        "200":
+          description: Rebuilt
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [posted]
+                properties:
+                  posted: { type: number }
+
 components:
   schemas:
     HealthStatus:
@@ -5205,3 +5408,151 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CrewInvoiceItem"
+
+    LedgerAccount:
+      type: object
+      required: [id, code, name, type, isSystem, balance]
+      properties:
+        id: { type: string }
+        code: { type: string }
+        name: { type: string }
+        type: { type: string, description: "asset | liability | equity | income | expense" }
+        isSystem: { type: boolean }
+        balance: { type: number, description: "Natural-sign balance: debit-positive for assets/expenses, credit-positive otherwise" }
+
+    JournalLineDetail:
+      type: object
+      required: [id, accountId, accountCode, accountName, debit, credit]
+      properties:
+        id: { type: string }
+        accountId: { type: string }
+        accountCode: { type: string }
+        accountName: { type: string }
+        debit: { type: number }
+        credit: { type: number }
+        description: { type: ["string", "null"] }
+
+    JournalEntryFull:
+      type: object
+      required: [id, entryNo, entryDate, refType, source, lines]
+      properties:
+        id: { type: string }
+        entryNo: { type: string }
+        entryDate: { type: string }
+        memo: { type: ["string", "null"] }
+        refType: { type: string }
+        refId: { type: ["string", "null"] }
+        source: { type: string, description: "system | manual | voice" }
+        createdAt: { type: ["string", "null"] }
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/JournalLineDetail"
+
+    JournalLineEntryInput:
+      type: object
+      required: [accountCode]
+      properties:
+        accountCode: { type: string }
+        debit: { type: number }
+        credit: { type: number }
+        description: { type: ["string", "null"] }
+
+    JournalEntryInput:
+      type: object
+      required: [lines]
+      properties:
+        entryDate: { type: string }
+        memo: { type: ["string", "null"] }
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/JournalLineEntryInput"
+
+    ReportLine:
+      type: object
+      required: [code, name, amount]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        amount: { type: number }
+
+    PnlReport:
+      type: object
+      required: [from, to, income, expenses, totalIncome, totalExpenses, netProfit]
+      properties:
+        from: { type: string }
+        to: { type: string }
+        income:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportLine"
+        expenses:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportLine"
+        totalIncome: { type: number }
+        totalExpenses: { type: number }
+        netProfit: { type: number }
+
+    BalanceSheetReport:
+      type: object
+      required: [asOf, assets, liabilities, equity, totalAssets, totalLiabilities, totalEquity]
+      properties:
+        asOf: { type: string }
+        assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportLine"
+        liabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportLine"
+        equity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportLine"
+        totalAssets: { type: number }
+        totalLiabilities: { type: number }
+        totalEquity: { type: number }
+
+    CashFlowReport:
+      type: object
+      required: [from, to, inflows, outflows, netChange, openingCash, closingCash]
+      properties:
+        from: { type: string }
+        to: { type: string }
+        inflows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportLine"
+        outflows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportLine"
+        netChange: { type: number }
+        openingCash: { type: number }
+        closingCash: { type: number }
+
+    AccountLedgerLine:
+      type: object
+      required: [entryId, entryNo, entryDate, debit, credit, balance]
+      properties:
+        entryId: { type: string }
+        entryNo: { type: string }
+        entryDate: { type: string }
+        memo: { type: ["string", "null"] }
+        debit: { type: number }
+        credit: { type: number }
+        balance: { type: number }
+
+    AccountLedger:
+      type: object
+      required: [account, entries]
+      properties:
+        account:
+          $ref: "#/components/schemas/LedgerAccount"
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccountLedgerLine"

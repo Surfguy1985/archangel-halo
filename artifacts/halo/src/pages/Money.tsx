@@ -24,8 +24,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { exportCsv } from "@/lib/exportCsv";
 import { BusinessReportTab } from "@/components/BusinessReportTab";
+import { BooksTab } from "@/components/BooksTab";
 
-type Tab = "overview" | "invoices" | "expenses" | "crew" | "bank" | "report";
+type Tab = "overview" | "invoices" | "expenses" | "crew" | "bank" | "report" | "books";
 
 type HistoryRow = {
   id: string;
@@ -599,6 +600,7 @@ export default function Money() {
     { key: "crew", label: "Crew" },
     { key: "bank", label: "Bank" },
     { key: "report", label: "Report" },
+    { key: "books", label: "Books" },
   ];
   return (
     <div className="pt-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -622,6 +624,7 @@ export default function Money() {
       {tab === "crew" && <CrewPay />}
       {tab === "bank" && <BankTab />}
       {tab === "report" && <BusinessReportTab />}
+      {tab === "books" && <BooksTab />}
     </div>
   );
 }
