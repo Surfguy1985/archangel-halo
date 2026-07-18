@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   useGetMoneySummary,
   useListInvoices,
@@ -15,8 +15,22 @@ import {
   type Invoice,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
-import { Plus, Check, History, Download, ChevronRight } from "lucide-react";
+import { useLocation, useSearch } from "wouter";
+import {
+  Plus,
+  Check,
+  History,
+  Download,
+  ChevronRight,
+  ChevronLeft,
+  FileText,
+  Receipt,
+  Users,
+  Landmark,
+  BarChart3,
+  BookOpen,
+  Wallet,
+} from "lucide-react";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
 import { RecordPaymentSheet } from "@/components/RecordPaymentSheet";
@@ -27,8 +41,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { exportCsv } from "@/lib/exportCsv";
 import { BusinessReportTab } from "@/components/BusinessReportTab";
 import { BooksTab } from "@/components/BooksTab";
-
-type Tab = "overview" | "invoices" | "expenses" | "crew" | "bank" | "report" | "books";
 
 type HistoryRow = {
   id: string;
@@ -48,14 +60,14 @@ function SecondaryActions({
   disabled?: boolean;
 }) {
   const cls =
-    "flex-1 flex items-center justify-center gap-[6px] rounded-[11px] py-[9px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] disabled:opacity-40 transition-transform active:scale-[0.98]";
+    "flex-1 flex items-center justify-center gap-[8px] rounded-[16px] py-[12px] text-[14px] font-display font-bold bg-card border border-border shadow-[0_2px_4px_rgba(0,0,0,0.02)] disabled:opacity-40 transition-transform active:scale-[0.98]";
   return (
-    <div className="flex gap-[8px] mb-[12px]">
+    <div className="flex gap-[10px] mb-[16px]">
       <button onClick={onHistory} disabled={disabled} className={cls}>
-        <History className="w-[15px] h-[15px]" /> History
+        <History className="w-[16px] h-[16px] text-muted-foreground" /> History
       </button>
       <button onClick={onExport} disabled={disabled} className={cls}>
-        <Download className="w-[15px] h-[15px]" /> Export
+        <Download className="w-[16px] h-[16px] text-muted-foreground" /> Export
       </button>
     </div>
   );
@@ -76,46 +88,48 @@ function HistorySheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="rounded-t-[26px] bg-[var(--paper)] p-0 flex flex-col max-h-[86vh] border-none shadow-[0_-12px_44px_rgba(23,24,28,0.24)]"
+        className="rounded-t-[32px] bg-[var(--paper)] p-0 flex flex-col max-h-[88vh] border-none shadow-[0_-12px_44px_rgba(23,24,28,0.24)]"
       >
-        <div className="w-[40px] h-[4.5px] rounded-[3px] bg-[rgba(23,24,28,0.16)] mx-auto mt-[10px] mb-[4px] shrink-0" />
-        <div className="p-[8px_20px_26px] overflow-y-auto">
-          <SheetHeader className="text-left mb-[14px]">
-            <SheetTitle className="font-display font-bold text-[19px] m-[6px_0_2px]">
+        <div className="w-[40px] h-[5px] rounded-full bg-[rgba(23,24,28,0.16)] mx-auto mt-[12px] mb-[4px] shrink-0" />
+        <div className="p-[12px_24px_32px] overflow-y-auto">
+          <SheetHeader className="text-left mb-[16px]">
+            <SheetTitle className="font-display font-bold text-[22px] tracking-[-0.01em] m-[6px_0_2px]">
               {title}
             </SheetTitle>
-            <div className="text-[13px] text-muted-foreground">
+            <div className="text-[14px] text-muted-foreground">
               {rows.length} record{rows.length === 1 ? "" : "s"}, newest first.
             </div>
           </SheetHeader>
           {rows.length === 0 ? (
-            <div className="text-center text-[13px] text-muted-foreground py-[30px]">
+            <div className="text-center text-[14px] text-muted-foreground py-[40px]">
               Nothing here yet.
             </div>
           ) : (
-            <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+            <div className="bg-card rounded-[20px] shadow-[0_2px_6px_rgba(0,0,0,0.04)] p-[8px_16px]">
               {rows.map((r, idx) => (
                 <div
                   key={r.id}
-                  className={`flex items-center gap-[10px] py-[11px] text-[14px] ${idx !== 0 ? "border-t border-border" : ""}`}
+                  className={`flex items-center gap-[12px] py-[14px] text-[15px] ${
+                    idx !== 0 ? "border-t border-border/60" : ""
+                  }`}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-[7px]">
-                      <span className="font-semibold truncate">{r.primary}</span>
+                    <div className="flex items-center gap-[8px]">
+                      <span className="font-semibold truncate text-[15px]">{r.primary}</span>
                       {r.badge && (
                         <span
-                          className="text-[10px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full text-white shrink-0"
+                          className="text-[10px] font-bold uppercase tracking-[0.06em] px-[8px] py-[3px] rounded-full text-white shrink-0"
                           style={{ backgroundColor: r.badge.color }}
                         >
                           {r.badge.label}
                         </span>
                       )}
                     </div>
-                    <div className="text-[12px] text-muted-foreground truncate mt-[2px]">
+                    <div className="text-[13px] text-muted-foreground truncate mt-[2px]">
                       {r.secondary}
                     </div>
                   </div>
-                  <div className="font-display font-semibold tabular-nums shrink-0">
+                  <div className="font-display font-semibold tabular-nums shrink-0 text-[16px]">
                     ${r.amount.toLocaleString()}
                   </div>
                 </div>
@@ -145,47 +159,65 @@ const statusLabel: Record<string, string> = {
   draft: "Draft",
 };
 
-function Overview() {
+function OverviewHero() {
   const { data: money, isLoading } = useGetMoneySummary();
   if (isLoading || !money) {
-    return (
-      <div className="animate-pulse space-y-4 pt-4">
-        <div className="h-48 bg-card rounded-[16px]"></div>
-      </div>
-    );
+    return <div className="animate-pulse h-[260px] bg-card rounded-[24px]" />;
   }
   return (
-    <div className="animate-in fade-in duration-200">
-      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[18px_16px] mb-[10px]">
-        <div className="font-display font-bold text-[38px] tracking-[-0.02em] tabular-nums leading-none">
+    <div className="bg-card rounded-[24px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[24px] relative overflow-hidden">
+      <div className="absolute top-0 right-0 p-[24px] opacity-[0.04] pointer-events-none">
+        <Wallet className="w-[140px] h-[140px]" />
+      </div>
+      <div className="relative z-10">
+        <div className="text-[12.5px] font-semibold text-muted-foreground uppercase tracking-[0.1em] mb-[6px]">
+          Landing this week
+        </div>
+        <div className="font-display font-bold text-[48px] tracking-[-0.02em] tabular-nums leading-none mb-[28px] text-[var(--ink)]">
           ${money.landing.toLocaleString()}
         </div>
-        <div className="text-[12.5px] text-muted-foreground mt-[5px]">Landing this week</div>
-        <div className="mt-[20px] pt-[16px] border-t border-border flex gap-[20px]">
+
+        <div className="grid grid-cols-3 gap-[16px] pt-[20px] border-t border-border/60">
           <div>
-            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">At Risk</div>
-            <div className="font-display font-bold text-[18px] text-destructive tabular-nums mt-[2px]">${money.atRisk.toLocaleString()}</div>
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">At Risk</div>
+            <div className="font-display font-bold text-[18px] text-destructive tabular-nums mt-[4px]">
+              ${money.atRisk.toLocaleString()}
+            </div>
           </div>
           <div>
-            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">MTD Rev</div>
-            <div className="font-display font-bold text-[18px] tabular-nums mt-[2px]">${money.mtd.toLocaleString()}</div>
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">MTD Rev</div>
+            <div className="font-display font-bold text-[18px] tabular-nums mt-[4px] text-[var(--ink)]">
+              ${money.mtd.toLocaleString()}
+            </div>
           </div>
           <div>
-            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">Margin</div>
-            <div className="font-display font-bold text-[18px] tabular-nums mt-[2px]">{money.marginPct}%</div>
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">Margin</div>
+            <div className="font-display font-bold text-[18px] tabular-nums mt-[4px] text-[var(--ink)]">
+              {money.marginPct}%
+            </div>
           </div>
         </div>
-      </div>
-      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px]">
-        <div className="font-display font-semibold text-[13px] tracking-[0.15em] uppercase text-muted-foreground mb-[12px]">Aging Accounts</div>
-        <div className="flex gap-[5px]">
-          {money.aging.map((b, i) => (
-            <div key={i} className="flex-1 text-center">
-              <div className="h-[8px] rounded-[4px] mb-[5px]" style={{ backgroundColor: b.color || "var(--muted)" }} />
-              <span className="text-[10.5px] text-muted-foreground">{b.label}</span>
-              <b className="block text-[12.5px] font-display tabular-nums mt-[2px]">${b.value.toLocaleString()}</b>
-            </div>
-          ))}
+
+        <div className="mt-[24px] pt-[20px] border-t border-border/60">
+          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-[14px]">
+            Aging Accounts
+          </div>
+          <div className="flex gap-[8px]">
+            {money.aging.map((b, i) => (
+              <div key={i} className="flex-1 text-center">
+                <div
+                  className="h-[6px] rounded-full mb-[8px] opacity-90"
+                  style={{ backgroundColor: b.color || "var(--muted)" }}
+                />
+                <span className="block text-[10.5px] text-muted-foreground font-medium uppercase tracking-wider">
+                  {b.label}
+                </span>
+                <b className="block text-[13.5px] font-display tabular-nums mt-[2px] text-[var(--ink)]">
+                  ${b.value.toLocaleString()}
+                </b>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -208,13 +240,15 @@ function Invoices() {
     queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
   };
 
-  const sorted = [...(invoices ?? [])].sort(
-    (a, b) =>
-      new Date(b.sentAt || b.dueAt || 0).getTime() -
-      new Date(a.sentAt || a.dueAt || 0).getTime(),
-  );
+  const sorted = useMemo(() => {
+    return [...(invoices ?? [])].sort(
+      (a, b) =>
+        new Date(b.sentAt || b.dueAt || 0).getTime() -
+        new Date(a.sentAt || a.dueAt || 0).getTime()
+    );
+  }, [invoices]);
 
-  const historyRows: HistoryRow[] = sorted.map((inv) => ({
+  const historyRows: HistoryRow[] = useMemo(() => sorted.map((inv) => ({
     id: inv.id,
     primary: inv.propertyName || inv.invoiceNo,
     secondary: [
@@ -229,7 +263,7 @@ function Invoices() {
       label: statusLabel[inv.status] || inv.status,
       color: statusColor[inv.status] || "#8B8577",
     },
-  }));
+  })), [sorted]);
 
   const onExport = () => {
     exportCsv(
@@ -251,7 +285,7 @@ function Invoices() {
         sentAt: fmtDate(inv.sentAt),
         dueAt: fmtDate(inv.dueAt),
         paidAt: fmtDate(inv.paidAt),
-      })),
+      }))
     );
   };
 
@@ -259,9 +293,9 @@ function Invoices() {
     <div className="animate-in fade-in duration-200">
       <button
         onClick={() => setAddOpen(true)}
-        className="w-full mb-[12px] flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+        className="w-full mb-[16px] flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[16px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
       >
-        <Plus className="w-[17px] h-[17px]" /> New invoice
+        <Plus className="w-[20px] h-[20px]" /> New invoice
       </button>
       <SecondaryActions
         onHistory={() => setHistoryOpen(true)}
@@ -269,40 +303,50 @@ function Invoices() {
         disabled={!invoices || invoices.length === 0}
       />
       {isLoading ? (
-        <div className="animate-pulse h-32 bg-card rounded-[16px]" />
+        <div className="animate-pulse h-32 bg-card rounded-[20px]" />
       ) : !invoices || invoices.length === 0 ? (
-        <div className="text-center text-[13px] text-muted-foreground py-[40px]">No invoices yet.</div>
+        <div className="text-center text-[15px] text-muted-foreground py-[50px]">
+          No invoices yet.
+        </div>
       ) : (
-        <div className="flex flex-col gap-[10px]">
-          {invoices.map((inv) => (
+        <div className="flex flex-col gap-[12px]">
+          {sorted.map((inv) => (
             <div
               key={inv.id}
               onClick={() => navigate(`/invoices/${inv.id}`)}
-              className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px] cursor-pointer transition-transform active:scale-[0.99]"
+              className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[18px] cursor-pointer transition-transform active:scale-[0.98]"
             >
-              <div className="flex items-start gap-[10px]">
+              <div className="flex items-start gap-[12px]">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-[8px]">
-                    <span className="font-mono text-[12.5px] text-muted-foreground">{inv.invoiceNo}</span>
+                  <div className="flex items-center gap-[10px]">
+                    <span className="font-mono text-[13px] text-muted-foreground">
+                      {inv.invoiceNo}
+                    </span>
                     <span
-                      className="text-[10.5px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full text-white"
+                      className="text-[10px] font-bold uppercase tracking-[0.06em] px-[8px] py-[3px] rounded-full text-white"
                       style={{ backgroundColor: statusColor[inv.status] || "#8B8577" }}
                     >
                       {statusLabel[inv.status] || inv.status}
-                      {inv.status === "past_due" && inv.daysLate ? ` · ${inv.daysLate}d` : ""}
+                      {inv.status === "past_due" && inv.daysLate
+                        ? ` · ${inv.daysLate}d`
+                        : ""}
                     </span>
                   </div>
-                  <div className="font-semibold text-[14.5px] truncate mt-[3px]">{inv.propertyName || "—"}</div>
+                  <div className="font-semibold text-[16px] truncate mt-[6px]">
+                    {inv.propertyName || "—"}
+                  </div>
                 </div>
-                <div className="flex items-center gap-[6px] shrink-0">
-                  <span className="font-display font-bold text-[19px] tabular-nums">${inv.amount.toLocaleString()}</span>
-                  <ChevronRight className="w-[16px] h-[16px] text-muted-foreground" />
+                <div className="flex items-center gap-[6px] shrink-0 pt-[2px]">
+                  <span className="font-display font-bold text-[22px] tabular-nums text-[var(--ink)]">
+                    ${inv.amount.toLocaleString()}
+                  </span>
+                  <ChevronRight className="w-[20px] h-[20px] text-muted-foreground/50" />
                 </div>
               </div>
-              <div className="flex gap-[8px] mt-[12px]">
+              <div className="flex gap-[10px] mt-[16px]">
                 {inv.status === "draft" && (
                   <button
-                    className="flex-1 rounded-[11px] py-[9px] text-[13px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+                    className="flex-1 rounded-[14px] py-[12px] text-[14px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_2px_8px_rgba(143,106,31,0.2)] disabled:opacity-50 transition-transform active:scale-[0.98]"
                     onClick={(e) => {
                       e.stopPropagation();
                       send.mutate(
@@ -321,17 +365,17 @@ function Invoices() {
                               description: e.message,
                               variant: "destructive",
                             }),
-                        },
+                        }
                       );
                     }}
                     disabled={send.isPending}
                   >
-                    Send
+                    Send to client
                   </button>
                 )}
                 {inv.status === "past_due" && (
                   <button
-                    className="flex-1 rounded-[11px] py-[9px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+                    className="flex-1 rounded-[14px] py-[12px] text-[14px] font-display font-bold bg-card border border-destructive/20 text-destructive shadow-[0_2px_4px_rgba(190,60,60,0.05)] disabled:opacity-50 transition-transform active:scale-[0.98]"
                     onClick={(e) => {
                       e.stopPropagation();
                       remind.mutate(
@@ -350,7 +394,7 @@ function Invoices() {
                               description: e.message,
                               variant: "destructive",
                             }),
-                        },
+                        }
                       );
                     }}
                     disabled={remind.isPending}
@@ -360,7 +404,7 @@ function Invoices() {
                 )}
                 {inv.status !== "paid" && inv.status !== "draft" && (
                   <button
-                    className="flex-1 rounded-[11px] py-[9px] text-[13px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] transition-transform active:scale-[0.98]"
+                    className="flex-1 rounded-[14px] py-[12px] text-[14px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_2px_8px_rgba(143,106,31,0.2)] transition-transform active:scale-[0.98]"
                     onClick={(e) => {
                       e.stopPropagation();
                       setPayInvoice(inv);
@@ -375,7 +419,11 @@ function Invoices() {
         </div>
       )}
       <InvoiceEditor open={addOpen} onOpenChange={setAddOpen} />
-      <RecordPaymentSheet open={!!payInvoice} onOpenChange={(o) => !o && setPayInvoice(null)} invoice={payInvoice} />
+      <RecordPaymentSheet
+        open={!!payInvoice}
+        onOpenChange={(o) => !o && setPayInvoice(null)}
+        invoice={payInvoice}
+      />
       <HistorySheet
         open={historyOpen}
         onOpenChange={setHistoryOpen}
@@ -405,20 +453,22 @@ function Expenses() {
           toast({ title: `Paid ${vendor || "bill"}` });
         },
         onError: () => toast({ title: "Couldn't mark that bill paid" }),
-      },
+      }
     );
 
-  const sorted = [...(expenses ?? [])].sort(
-    (a, b) =>
-      new Date(b.spentOn || 0).getTime() - new Date(a.spentOn || 0).getTime(),
-  );
+  const sorted = useMemo(() => {
+    return [...(expenses ?? [])].sort(
+      (a, b) =>
+        new Date(b.spentOn || 0).getTime() - new Date(a.spentOn || 0).getTime()
+    );
+  }, [expenses]);
 
-  const historyRows: HistoryRow[] = sorted.map((e) => ({
+  const historyRows: HistoryRow[] = useMemo(() => sorted.map((e) => ({
     id: e.id,
     primary: e.vendor || e.category || "Expense",
     secondary: [e.category, fmtDate(e.spentOn)].filter(Boolean).join(" · "),
     amount: e.amount,
-  }));
+  })), [sorted]);
 
   const onExport = () => {
     exportCsv(
@@ -436,7 +486,7 @@ function Expenses() {
         amount: e.amount,
         spentOn: fmtDate(e.spentOn),
         source: e.source || "",
-      })),
+      }))
     );
   };
 
@@ -444,9 +494,9 @@ function Expenses() {
     <div className="animate-in fade-in duration-200">
       <button
         onClick={() => setAddOpen(true)}
-        className="w-full mb-[12px] flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+        className="w-full mb-[16px] flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[16px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
       >
-        <Plus className="w-[17px] h-[17px]" /> Log expense
+        <Plus className="w-[20px] h-[20px]" /> Log expense
       </button>
       <SecondaryActions
         onHistory={() => setHistoryOpen(true)}
@@ -454,28 +504,44 @@ function Expenses() {
         disabled={!expenses || expenses.length === 0}
       />
       {isLoading ? (
-        <div className="animate-pulse h-32 bg-card rounded-[16px]" />
+        <div className="animate-pulse h-32 bg-card rounded-[20px]" />
       ) : !expenses || expenses.length === 0 ? (
-        <div className="text-center text-[13px] text-muted-foreground py-[40px]">No expenses logged.</div>
+        <div className="text-center text-[15px] text-muted-foreground py-[50px]">
+          No expenses logged.
+        </div>
       ) : (
-        <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
-          {expenses.map((e, idx) => (
-            <div key={e.id} className={`flex items-center gap-[10px] py-[11px] text-[14px] ${idx !== 0 ? "border-t border-border" : ""}`}>
+        <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[8px_16px]">
+          {sorted.map((e, idx) => (
+            <div
+              key={e.id}
+              className={`flex items-center gap-[12px] py-[16px] text-[15px] ${
+                idx !== 0 ? "border-t border-border/60" : ""
+              }`}
+            >
               <div className="flex-1 min-w-0">
-                <div className="font-semibold truncate">{e.vendor || e.category || "Expense"}</div>
-                <div className="text-[12px] text-muted-foreground truncate">
-                  {[e.category, e.spentOn ? new Date(e.spentOn).toLocaleDateString() : null].filter(Boolean).join(" · ")}
+                <div className="font-semibold truncate text-[16px] text-[var(--ink)]">
+                  {e.vendor || e.category || "Expense"}
+                </div>
+                <div className="text-[13px] text-muted-foreground truncate mt-[2px]">
+                  {[
+                    e.category,
+                    e.spentOn ? new Date(e.spentOn).toLocaleDateString() : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </div>
               </div>
               {e.paymentStatus === "open" && (
-                <span className="text-[9.5px] font-bold uppercase px-[7px] py-[2px] rounded-full bg-amber-500/15 text-amber-700 shrink-0">
+                <span className="text-[10px] font-bold uppercase px-[8px] py-[3px] rounded-full bg-amber-500/15 text-amber-700 shrink-0">
                   Unpaid
                 </span>
               )}
-              <div className="font-display font-semibold tabular-nums shrink-0">${e.amount.toLocaleString()}</div>
+              <div className="font-display font-semibold tabular-nums shrink-0 text-[18px] text-[var(--ink)]">
+                ${e.amount.toLocaleString()}
+              </div>
               {e.paymentStatus === "open" && (
                 <button
-                  className="text-[11.5px] font-display font-bold px-[9px] py-[5px] rounded-[9px] border border-border bg-background shrink-0 disabled:opacity-50"
+                  className="text-[13px] font-display font-bold px-[12px] py-[8px] rounded-[12px] border border-border bg-background shrink-0 disabled:opacity-50 active:scale-[0.95] transition-transform shadow-sm"
                   disabled={payBill.isPending}
                   onClick={() => doPay(e.id, e.vendor)}
                   data-testid={`button-pay-bill-${e.id}`}
@@ -509,7 +575,7 @@ function CrewPay() {
 
   type Payment = NonNullable<typeof payments>[number];
 
-  const groups = (() => {
+  const groups = useMemo(() => {
     const map = new Map<string, { name: string; items: Payment[] }>();
     for (const p of payments ?? []) {
       const key = p.crewId ?? p.crewName ?? "unknown";
@@ -518,38 +584,40 @@ function CrewPay() {
       map.get(key)!.items.push(p);
     }
     return Array.from(map.values()).sort((a, b) =>
-      a.name.localeCompare(b.name),
+      a.name.localeCompare(b.name)
     );
-  })();
+  }, [payments]);
 
   const row = (p: Payment, idx: number, len: number) => {
     const dateStr = p.paidAt
       ? new Date(p.paidAt).toLocaleDateString()
       : p.dueOn
-        ? `Due ${new Date(p.dueOn).toLocaleDateString()}`
-        : null;
+      ? `Due ${new Date(p.dueOn).toLocaleDateString()}`
+      : null;
     const isDone = p.status === "completed";
     return (
       <div
         key={p.id}
-        className={`flex items-center gap-[10px] py-[12px] ${idx !== len - 1 ? "border-t border-border" : ""}`}
+        className={`flex items-center gap-[12px] py-[16px] ${
+          idx !== len - 1 ? "border-t border-border/60" : ""
+        }`}
       >
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-[7px]">
-            <span className="font-display font-bold text-[15px] tabular-nums">
+          <div className="flex items-center gap-[10px]">
+            <span className="font-display font-bold text-[18px] tabular-nums text-[var(--ink)]">
               ${p.amount.toLocaleString()}
             </span>
             <span
-              className={`text-[10px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full ${
+              className={`text-[10px] font-bold uppercase tracking-[0.06em] px-[8px] py-[3px] rounded-full ${
                 isDone
-                  ? "bg-[rgba(60,122,78,0.14)] text-[var(--green,#3c7a4e)]"
-                  : "bg-[rgba(190,60,60,0.12)] text-destructive"
+                  ? "bg-[rgba(60,122,78,0.12)] text-[var(--green,#3c7a4e)]"
+                  : "bg-[rgba(190,60,60,0.1)] text-destructive"
               }`}
             >
               {isDone ? "Completed" : "Pending"}
             </span>
           </div>
-          <div className="text-[12px] text-muted-foreground truncate mt-[2px]">
+          <div className="text-[13px] text-muted-foreground truncate mt-[4px]">
             {[p.method || "No method", dateStr, p.note]
               .filter(Boolean)
               .join(" · ")}
@@ -566,13 +634,13 @@ function CrewPay() {
                     paidAt: new Date().toISOString().slice(0, 10),
                   },
                 },
-                { onSuccess: invalidate },
+                { onSuccess: invalidate }
               )
             }
             disabled={markPaid.isPending}
-            className="shrink-0 inline-flex items-center gap-[4px] text-[11.5px] font-bold text-[var(--blue)] disabled:opacity-50"
+            className="shrink-0 inline-flex items-center gap-[6px] text-[13px] font-bold text-[var(--blue)] disabled:opacity-50 active:scale-95 transition-transform bg-[rgba(59,111,181,0.08)] px-[14px] py-[10px] rounded-[14px]"
           >
-            <Check className="w-[12px] h-[12px]" /> Mark paid
+            <Check className="w-[16px] h-[16px]" /> Mark paid
           </button>
         )}
       </div>
@@ -583,87 +651,141 @@ function CrewPay() {
     <div className="animate-in fade-in duration-200">
       <button
         onClick={() => setAddOpen(true)}
-        className="w-full mb-[12px] flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+        className="w-full mb-[24px] flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[16px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
       >
-        <Plus className="w-[17px] h-[17px]" /> Record crew payment
+        <Plus className="w-[20px] h-[20px]" /> Record crew payout
       </button>
+
       {isLoading ? (
-        <div className="animate-pulse h-32 bg-card rounded-[16px]" />
-      ) : !payments || payments.length === 0 ? (
-        <div className="text-center text-[13px] text-muted-foreground py-[40px]">
-          No crew payments yet.
+        <div className="animate-pulse h-32 bg-card rounded-[20px]" />
+      ) : groups.length === 0 ? (
+        <div className="text-center text-[15px] text-muted-foreground py-[50px]">
+          No crew payments logged.
         </div>
       ) : (
-        <div className="flex flex-col gap-[12px]">
+        <div className="flex flex-col gap-[20px]">
           {groups.map((g) => {
             const pendingTotal = g.items
-              .filter((p) => p.status !== "completed")
-              .reduce((s, p) => s + p.amount, 0);
+              .filter((i) => i.status === "pending")
+              .reduce((sum, i) => sum + i.amount, 0);
+
             return (
-              <div
-                key={g.name}
-                className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]"
-              >
-                <div className="flex items-center justify-between pt-[10px] pb-[2px]">
-                  <span className="font-display font-bold text-[14px] truncate">
-                    {g.name}
-                  </span>
+              <div key={g.name} className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
+                <div className="bg-muted/5 p-[16px_20px] border-b border-border/60 flex items-center justify-between">
+                  <div className="font-display font-bold text-[17px] text-[var(--ink)]">{g.name}</div>
                   {pendingTotal > 0 && (
-                    <span className="font-display font-bold text-[12px] tabular-nums text-destructive shrink-0">
-                      ${pendingTotal.toLocaleString()} due
-                    </span>
+                    <div className="text-[13px] font-bold text-destructive">
+                      Owed: ${pendingTotal.toLocaleString()}
+                    </div>
                   )}
                 </div>
-                {g.items.map((p, i) => row(p, i, g.items.length))}
+                <div className="p-[4px_20px]">
+                  {g.items.map((item, idx) => row(item, idx, g.items.length))}
+                </div>
               </div>
             );
           })}
         </div>
       )}
+
       <AddCrewPaymentSheet open={addOpen} onOpenChange={setAddOpen} />
     </div>
   );
 }
 
-const TAB_KEYS = ["overview", "invoices", "expenses", "crew", "bank", "report", "books"];
+const MENU_ITEMS = [
+  { id: "invoices", label: "Invoices & Billing", icon: FileText, desc: "Create invoices, track payments" },
+  { id: "expenses", label: "Expenses", icon: Receipt, desc: "Log expenses, pay bills" },
+  { id: "crew", label: "Crew Pay", icon: Users, desc: "Manage crew payouts" },
+  { id: "bank", label: "Bank Account", icon: Landmark, desc: "Connected accounts & txns" },
+  { id: "report", label: "Business Report", icon: BarChart3, desc: "Profit, margins, top jobs" },
+  { id: "books", label: "Books & Taxes", icon: BookOpen, desc: "P&L, balance sheet, planner" },
+];
 
 export default function Money() {
-  const [tab, setTab] = useState<Tab>(() => {
-    const t = new URLSearchParams(window.location.search).get("tab");
-    return t && TAB_KEYS.includes(t) ? (t as Tab) : "overview";
-  });
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "overview", label: "Overview" },
-    { key: "invoices", label: "Invoices" },
-    { key: "expenses", label: "Expenses" },
-    { key: "crew", label: "Crew" },
-    { key: "bank", label: "Bank" },
-    { key: "report", label: "Report" },
-    { key: "books", label: "Books" },
-  ];
-  return (
-    <div className="pt-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <div className="text-[13px] text-muted-foreground mb-[14px]">Cash radar. Computed live, never typed.</div>
-      <div className="flex gap-[4px] bg-card rounded-[13px] p-[4px] shadow-[var(--shadow)] mb-[16px]">
-        {tabs.map((t) => (
+  const search = useSearch();
+  const VALID_TABS = ["overview", "invoices", "expenses", "crew", "bank", "report", "books"];
+  const rawTab = new URLSearchParams(search).get("tab") || "overview";
+  const activeTab = VALID_TABS.includes(rawTab) ? rawTab : "overview";
+  const [location, navigate] = useLocation();
+
+  const setTab = (t: string) => {
+    navigate(`${location}?tab=${t}`);
+  };
+
+  if (activeTab !== "overview") {
+    const titles: Record<string, string> = {
+      invoices: "Invoices & Billing",
+      expenses: "Expenses",
+      crew: "Crew Pay",
+      bank: "Bank Account",
+      report: "Business Report",
+      books: "Books & Taxes",
+    };
+
+    return (
+      <div className="animate-in slide-in-from-right-8 fade-in duration-300 pb-[100px]">
+        <div className="flex items-center mb-[16px] px-[4px]">
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex-1 rounded-[10px] py-[8px] text-[12px] font-display font-bold transition-colors ${
-              tab === t.key ? "bg-[var(--ink)] text-white" : "text-muted-foreground"
-            }`}
+            onClick={() => setTab("overview")}
+            className="flex items-center gap-[4px] text-[var(--gold-dark)] font-semibold active:opacity-70 p-[8px] ml-[-8px] rounded-full transition-colors hover:bg-muted/10"
           >
-            {t.label}
+            <ChevronLeft className="w-[24px] h-[24px]" />
+            <span className="text-[16px]">Money</span>
           </button>
-        ))}
+        </div>
+        <h1 className="font-display font-bold text-[34px] tracking-[-0.02em] mb-[24px] px-[8px] text-[var(--ink)]">
+          {titles[activeTab] || "Money"}
+        </h1>
+        <div className="px-[8px]">
+          {activeTab === "invoices" && <Invoices />}
+          {activeTab === "expenses" && <Expenses />}
+          {activeTab === "crew" && <CrewPay />}
+          {activeTab === "bank" && <BankTab />}
+          {activeTab === "report" && <BusinessReportTab />}
+          {activeTab === "books" && <BooksTab />}
+        </div>
       </div>
-      {tab === "overview" && <Overview />}
-      {tab === "invoices" && <Invoices />}
-      {tab === "expenses" && <Expenses />}
-      {tab === "crew" && <CrewPay />}
-      {tab === "bank" && <BankTab />}
-      {tab === "report" && <BusinessReportTab />}
-      {tab === "books" && <BooksTab />}
+    );
+  }
+
+  return (
+    <div className="animate-in fade-in duration-300 pb-[100px]">
+      <h1 className="font-display font-bold text-[34px] tracking-[-0.02em] mb-[24px] px-[8px] text-[var(--ink)]">
+        Money
+      </h1>
+
+      <div className="px-[8px]">
+        <OverviewHero />
+      </div>
+
+      <div className="px-[8px] mt-[32px]">
+        <h2 className="font-display font-bold text-[20px] mb-[16px] text-[var(--ink)] px-[4px] tracking-[-0.01em]">
+          Management
+        </h2>
+        <div className="flex flex-col gap-[14px]">
+          {MENU_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setTab(item.id)}
+              className="bg-card p-[20px] rounded-[24px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center gap-[20px] active:scale-[0.98] transition-transform text-left border border-transparent active:border-[var(--gold-tint)]"
+            >
+              <div className="w-[56px] h-[56px] rounded-full bg-[var(--gold-tint)] text-[var(--gold-dark)] flex items-center justify-center shrink-0">
+                <item.icon className="w-[26px] h-[26px]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-display font-bold text-[18px] text-[var(--ink)]">
+                  {item.label}
+                </div>
+                <div className="text-[14px] text-muted-foreground truncate mt-[4px]">
+                  {item.desc}
+                </div>
+              </div>
+              <ChevronRight className="w-[24px] h-[24px] text-muted-foreground/40 shrink-0" />
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
