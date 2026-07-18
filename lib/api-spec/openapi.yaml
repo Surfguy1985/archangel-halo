@@ -3860,6 +3860,8 @@ components:
         accessNotes: { type: string }
         marginMin: { type: ["number", "null"], minimum: 0, maximum: 1 }
         marginTarget: { type: ["number", "null"], minimum: 0, maximum: 1 }
+        latitude: { type: ["number", "null"], minimum: -90, maximum: 90 }
+        longitude: { type: ["number", "null"], minimum: -180, maximum: 180 }
     PropertyUpdate:
       type: object
       properties:

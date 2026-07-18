@@ -127,6 +127,12 @@ export const createPropertyBodyMarginMinMax = 1;
 export const createPropertyBodyMarginTargetMin = 0;
 export const createPropertyBodyMarginTargetMax = 1;
 
+export const createPropertyBodyLatitudeMin = -90;
+export const createPropertyBodyLatitudeMax = 90;
+
+export const createPropertyBodyLongitudeMin = -180;
+export const createPropertyBodyLongitudeMax = 180;
+
 
 
 export const CreatePropertyBody = zod.object({
@@ -137,7 +143,9 @@ export const CreatePropertyBody = zod.object({
   "units": zod.number().optional(),
   "accessNotes": zod.string().optional(),
   "marginMin": zod.number().min(createPropertyBodyMarginMinMin).max(createPropertyBodyMarginMinMax).nullish(),
-  "marginTarget": zod.number().min(createPropertyBodyMarginTargetMin).max(createPropertyBodyMarginTargetMax).nullish()
+  "marginTarget": zod.number().min(createPropertyBodyMarginTargetMin).max(createPropertyBodyMarginTargetMax).nullish(),
+  "latitude": zod.number().min(createPropertyBodyLatitudeMin).max(createPropertyBodyLatitudeMax).nullish(),
+  "longitude": zod.number().min(createPropertyBodyLongitudeMin).max(createPropertyBodyLongitudeMax).nullish()
 })
 
 export const CreatePropertyResponse = zod.object({

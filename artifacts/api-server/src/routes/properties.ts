@@ -105,7 +105,21 @@ router.get("/properties", async (req, res): Promise<void> => {
 
 router.post("/properties", async (req, res): Promise<void> => {
   const body = CreatePropertyBody.parse(req.body);
-  const [row] = await db.insert(propertiesTable).values(body).returning();
+  if ((body.latitude == null) !== (body.longitude == null)) {
+    res.status(400).json({ error: "latitude and longitude must be provided together" });
+    return;
+  }
+  const [row] = await db
+    .insert(propertiesTable)
+    .values({
+      ...body,
+      // Pinned coordinates are authoritative — mark as geocoded so the
+      // background address geocoder never overwrites them.
+      ...(body.latitude != null && body.longitude != null
+        ? { geocodedAt: new Date() }
+        : {}),
+    })
+    .returning();
   res.status(201).json(CreatePropertyResponse.parse(ser(row)));
 });
 

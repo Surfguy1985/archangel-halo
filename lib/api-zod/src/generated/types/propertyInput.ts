@@ -26,4 +26,16 @@ export interface PropertyInput {
      * @nullable
      */
   marginTarget?: number | null;
+  /**
+     * @minimum -90
+     * @maximum 90
+     * @nullable
+     */
+  latitude?: number | null;
+  /**
+     * @minimum -180
+     * @maximum 180
+     * @nullable
+     */
+  longitude?: number | null;
 }

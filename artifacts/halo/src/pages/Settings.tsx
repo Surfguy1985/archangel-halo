@@ -13,9 +13,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2, GraduationCap, Play, MapPin } from "lucide-react";
+import { Trash2, GraduationCap, Play, MapPin, Radar, Loader2 } from "lucide-react";
 import { TrainingCenter } from "@/components/TrainingCenter";
-import { onsiteStorage } from "@/components/ArrivalSheet";
+import { onsiteStorage, ArrivalSheet } from "@/components/ArrivalSheet";
+import {
+  useCheckArrival,
+  type ArrivalCheckResult,
+} from "@workspace/api-client-react";
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -24,6 +28,60 @@ export default function Settings() {
   const [trainingOpen, setTrainingOpen] = useState(false);
   const [onsiteEnabled, setOnsiteEnabled] = useState(onsiteStorage.isEnabled());
   const [ownerName, setOwnerName] = useState(onsiteStorage.getOwner());
+  const [testResult, setTestResult] = useState<ArrivalCheckResult | null>(null);
+  const [testOpen, setTestOpen] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const checkArrival = useCheckArrival();
+
+  const testDetection = () => {
+    if (!("geolocation" in navigator)) {
+      toast({ title: "Location not supported", description: "This browser can't share location.", variant: "destructive" });
+      return;
+    }
+    setTesting(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        checkArrival.mutate(
+          {
+            data: {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              owner: ownerName.trim() || undefined,
+            },
+          },
+          {
+            onSuccess: (r) => {
+              setTesting(false);
+              if (r.match) {
+                setTestResult(r);
+                setTestOpen(true);
+                if ("vibrate" in navigator) navigator.vibrate?.(200);
+              } else {
+                toast({
+                  title: "No property found here",
+                  description:
+                    "You're not within 250m of any property. Add a property and pin it to your current location, then test again.",
+                });
+              }
+            },
+            onError: () => {
+              setTesting(false);
+              toast({ title: "Test failed", description: "Couldn't reach the server. Try again.", variant: "destructive" });
+            },
+          },
+        );
+      },
+      () => {
+        setTesting(false);
+        toast({
+          title: "Location permission needed",
+          description: "Allow location access for HALO, then try again.",
+          variant: "destructive",
+        });
+      },
+      { enableHighAccuracy: true, timeout: 20_000 },
+    );
+  };
 
   const toggleOnsite = () => {
     if (onsiteEnabled) {
@@ -141,7 +199,24 @@ export default function Settings() {
           <MapPin className="w-[16px] h-[16px]" strokeWidth={2} />
           {onsiteEnabled ? "Turn off on this phone" : "Turn on for this phone"}
         </button>
+        <button
+          onClick={testDetection}
+          disabled={testing || checkArrival.isPending}
+          className="mt-[10px] w-full flex items-center justify-center gap-[8px] rounded-[12px] bg-[var(--ink)] text-white font-display font-bold text-[14px] py-[12px] transition-transform active:scale-[0.98] disabled:opacity-60"
+        >
+          {testing || checkArrival.isPending ? (
+            <Loader2 className="w-[16px] h-[16px] animate-spin" />
+          ) : (
+            <Radar className="w-[16px] h-[16px]" strokeWidth={2} />
+          )}
+          {testing || checkArrival.isPending ? "Checking your location…" : "Test it now"}
+        </button>
+        <p className="text-[11.5px] text-muted-foreground mt-[8px] text-center">
+          Checks where you are right now and pops the arrival prompt if a property matches.
+        </p>
       </div>
+
+      <ArrivalSheet open={testOpen} onOpenChange={setTestOpen} result={testResult} />
 
       <div className="rounded-[16px] border border-destructive/30 bg-[rgba(220,38,38,0.05)] p-[16px]">
         <div className="font-display font-bold text-[15px] text-destructive">Start fresh</div>
