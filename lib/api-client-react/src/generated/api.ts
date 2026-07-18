@@ -23,6 +23,8 @@ import type {
   AccountLedger,
   Activity,
   ActivityInput,
+  ArrivalCheckInput,
+  ArrivalCheckResult,
   AskAnswer,
   AskInput,
   BalanceSheetReport,
@@ -5294,6 +5296,77 @@ export function useReverseGeocode<TData = Awaited<ReturnType<typeof reverseGeoco
 
 
 
+
+export const getCheckArrivalUrl = () => {
+
+
+
+
+  return `/api/arrivals/check`
+}
+
+/**
+ * @summary Check whether the caller's location matches a property and build an AI arrival prompt
+ */
+export const checkArrival = async (arrivalCheckInput: ArrivalCheckInput, options?: RequestInit): Promise<ArrivalCheckResult> => {
+
+  return customFetch<ArrivalCheckResult>(getCheckArrivalUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(arrivalCheckInput)
+  }
+);}
+
+
+
+
+
+export const getCheckArrivalMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkArrival>>, TError,{data: BodyType<ArrivalCheckInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof checkArrival>>, TError,{data: BodyType<ArrivalCheckInput>}, TContext> => {
+
+const mutationKey = ['checkArrival'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkArrival>>, {data: BodyType<ArrivalCheckInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  checkArrival(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckArrivalMutationResult = NonNullable<Awaited<ReturnType<typeof checkArrival>>>
+    export type CheckArrivalMutationBody = BodyType<ArrivalCheckInput>
+    export type CheckArrivalMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Check whether the caller's location matches a property and build an AI arrival prompt
+ */
+export const useCheckArrival = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkArrival>>, TError,{data: BodyType<ArrivalCheckInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof checkArrival>>,
+        TError,
+        {data: BodyType<ArrivalCheckInput>},
+        TContext
+      > => {
+      return useMutation(getCheckArrivalMutationOptions(options));
+    }
 
 export const getGetBankStatusUrl = () => {
 

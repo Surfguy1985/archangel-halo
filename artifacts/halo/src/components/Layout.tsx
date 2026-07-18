@@ -6,6 +6,7 @@ import { useState } from "react";
 import { VoiceCaptureSheet } from "./VoiceCaptureSheet";
 import { NotificationsDrawer } from "./NotificationsDrawer";
 import { MoreMenuSheet } from "./MoreMenuSheet";
+import { ArrivalDetection } from "./ArrivalSheet";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -108,6 +109,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <VoiceCaptureSheet open={voiceOpen} onOpenChange={setVoiceOpen} />
         <NotificationsDrawer open={notificationsOpen} onOpenChange={setNotificationsOpen} />
         <MoreMenuSheet open={moreOpen} onOpenChange={setMoreOpen} />
+        <ArrivalDetection />
       </div>
     </div>
   );

@@ -13,14 +13,53 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2, GraduationCap, Play } from "lucide-react";
+import { Trash2, GraduationCap, Play, MapPin } from "lucide-react";
 import { TrainingCenter } from "@/components/TrainingCenter";
+import { onsiteStorage } from "@/components/ArrivalSheet";
 
 export default function Settings() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const reset = useResetAllData();
   const [trainingOpen, setTrainingOpen] = useState(false);
+  const [onsiteEnabled, setOnsiteEnabled] = useState(onsiteStorage.isEnabled());
+  const [ownerName, setOwnerName] = useState(onsiteStorage.getOwner());
+
+  const toggleOnsite = () => {
+    if (onsiteEnabled) {
+      onsiteStorage.setEnabled(false);
+      setOnsiteEnabled(false);
+      toast({ title: "On-site detection off", description: "This phone will no longer watch for arrivals." });
+      return;
+    }
+    if (!ownerName.trim()) {
+      toast({ title: "Add your name first", description: "So HALO knows which owner arrived.", variant: "destructive" });
+      return;
+    }
+    if (!("geolocation" in navigator)) {
+      toast({ title: "Location not supported", description: "This browser can't share location.", variant: "destructive" });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        onsiteStorage.setOwner(ownerName.trim());
+        onsiteStorage.setEnabled(true);
+        setOnsiteEnabled(true);
+        toast({
+          title: "On-site detection on",
+          description: "When this phone arrives at one of your properties, HALO will prompt you.",
+        });
+      },
+      () => {
+        toast({
+          title: "Location permission needed",
+          description: "Allow location access for HALO in your browser settings, then try again.",
+          variant: "destructive",
+        });
+      },
+      { timeout: 15_000 },
+    );
+  };
 
   const wipeData = () => {
     reset.mutate(undefined, {
@@ -61,6 +100,46 @@ export default function Settings() {
         >
           <Play className="w-[16px] h-[16px]" strokeWidth={0} fill="currentColor" />
           Start guided training
+        </button>
+      </div>
+
+      <div className="rounded-[16px] border border-border bg-card p-[16px] mb-[16px] shadow-[var(--shadow)]">
+        <div className="flex items-center gap-[10px]">
+          <div className="w-[36px] h-[36px] rounded-full grid place-items-center bg-[var(--ink)] shrink-0">
+            <MapPin className="w-[19px] h-[19px] text-[var(--gold-light)]" strokeWidth={2} />
+          </div>
+          <div className="font-display font-bold text-[15px]">On-site detection</div>
+          {onsiteEnabled && (
+            <span className="ml-auto text-[11px] font-display font-bold tracking-[0.1em] uppercase text-[var(--gold-dark)]">
+              Active
+            </span>
+          )}
+        </div>
+        <p className="text-[12.5px] text-muted-foreground mt-[10px] leading-[1.5]">
+          When your phone arrives at one of your apartment communities, HALO recognizes the
+          property and prompts you with open work and smart job suggestions — so you can start
+          a job on the spot. Each owner turns this on from their own phone. HALO only checks
+          location while the app is open.
+        </p>
+        <input
+          className="w-full mt-[12px] bg-[var(--paper)] border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
+          placeholder="Your name (e.g. Mike)"
+          value={ownerName}
+          onChange={(e) => {
+            setOwnerName(e.target.value);
+            onsiteStorage.setOwner(e.target.value.trim());
+          }}
+        />
+        <button
+          onClick={toggleOnsite}
+          className={`mt-[12px] w-full flex items-center justify-center gap-[8px] rounded-[12px] font-display font-bold text-[14px] py-[12px] transition-transform active:scale-[0.98] ${
+            onsiteEnabled
+              ? "bg-card border border-border text-muted-foreground shadow-[var(--shadow)]"
+              : "text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)]"
+          }`}
+        >
+          <MapPin className="w-[16px] h-[16px]" strokeWidth={2} />
+          {onsiteEnabled ? "Turn off on this phone" : "Turn on for this phone"}
         </button>
       </div>
 

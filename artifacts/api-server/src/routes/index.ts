@@ -19,6 +19,7 @@ import calendarRouter from "./calendar";
 import settingsRouter from "./settings";
 import plaidRouter from "./plaid";
 import geoRouter from "./geo";
+import arrivalsRouter from "./arrivals";
 import accountingRouter from "./accounting";
 import taxPlannerRouter from "./taxPlanner";
 
@@ -44,6 +45,7 @@ router.use(calendarRouter);
 router.use(settingsRouter);
 router.use(plaidRouter);
 router.use(geoRouter);
+router.use(arrivalsRouter);
 router.use(accountingRouter);
 router.use(taxPlannerRouter);
 

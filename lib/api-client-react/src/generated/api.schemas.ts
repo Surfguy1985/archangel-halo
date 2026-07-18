@@ -1173,6 +1173,49 @@ export interface ReverseGeocodeResult {
   address: string | null;
 }
 
+export interface ArrivalCheckInput {
+  lat: number;
+  lng: number;
+  /** Name of the owner whose phone is checking in */
+  owner?: string;
+}
+
+export interface ArrivalOpenJob {
+  id: string;
+  jobNo: string;
+  description: string;
+  status: string;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  category?: string | null;
+}
+
+export interface ArrivalJobIdea {
+  category: string;
+  description: string;
+  /** @nullable */
+  unitNo?: string | null;
+}
+
+export interface ArrivalSuggestion {
+  headline: string;
+  message: string;
+  openJobs: ArrivalOpenJob[];
+  jobIdeas: ArrivalJobIdea[];
+}
+
+export interface ArrivalCheckResult {
+  match: boolean;
+  /** @nullable */
+  propertyId?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  distanceMeters?: number | null;
+  suggestion?: ArrivalSuggestion | null;
+}
+
 export interface InvoiceLineItem {
   id: string;
   /** @nullable */

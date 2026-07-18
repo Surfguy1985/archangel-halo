@@ -2157,6 +2157,40 @@ export const ReverseGeocodeResponse = zod.object({
 
 
 /**
+ * @summary Check whether the caller's location matches a property and build an AI arrival prompt
+ */
+export const CheckArrivalBody = zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "owner": zod.string().optional().describe('Name of the owner whose phone is checking in')
+})
+
+export const CheckArrivalResponse = zod.object({
+  "match": zod.boolean(),
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "distanceMeters": zod.number().nullish(),
+  "suggestion": zod.union([zod.object({
+  "headline": zod.string(),
+  "message": zod.string(),
+  "openJobs": zod.array(zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "description": zod.string(),
+  "status": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish()
+})),
+  "jobIdeas": zod.array(zod.object({
+  "category": zod.string(),
+  "description": zod.string(),
+  "unitNo": zod.string().nullish()
+}))
+}),zod.null()]).optional()
+})
+
+
+/**
  * @summary Whether a bank is connected via Plaid
  */
 export const GetBankStatusResponse = zod.object({

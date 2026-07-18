@@ -1504,6 +1504,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/ReverseGeocodeResult"
 
+  /arrivals/check:
+    post:
+      operationId: checkArrival
+      tags: [misc]
+      summary: Check whether the caller's location matches a property and build an AI arrival prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArrivalCheckInput"
+      responses:
+        "200":
+          description: Arrival match result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArrivalCheckResult"
+
   /plaid/status:
     get:
       operationId: getBankStatus
@@ -4641,6 +4660,61 @@ components:
       required: [address]
       properties:
         address: { type: ["string", "null"] }
+
+    ArrivalCheckInput:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat: { type: number }
+        lng: { type: number }
+        owner: { type: string, description: "Name of the owner whose phone is checking in" }
+
+    ArrivalOpenJob:
+      type: object
+      required: [id, jobNo, description, status]
+      properties:
+        id: { type: string }
+        jobNo: { type: string }
+        description: { type: string }
+        status: { type: string }
+        unitNo: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+
+    ArrivalJobIdea:
+      type: object
+      required: [category, description]
+      properties:
+        category: { type: string }
+        description: { type: string }
+        unitNo: { type: ["string", "null"] }
+
+    ArrivalSuggestion:
+      type: object
+      required: [headline, message, openJobs, jobIdeas]
+      properties:
+        headline: { type: string }
+        message: { type: string }
+        openJobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ArrivalOpenJob"
+        jobIdeas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ArrivalJobIdea"
+
+    ArrivalCheckResult:
+      type: object
+      required: [match]
+      properties:
+        match: { type: boolean }
+        propertyId: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        distanceMeters: { type: ["number", "null"] }
+        suggestion:
+          anyOf:
+            - $ref: "#/components/schemas/ArrivalSuggestion"
+            - type: "null"
 
     AgingBucket:
       type: object
