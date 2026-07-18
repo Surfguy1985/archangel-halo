@@ -1385,6 +1385,14 @@ export interface BankAnalysis {
   totals: BankAnalysisTotals;
 }
 
+export interface BankAnalysisApplyResult {
+  expensesCreated: number;
+  crewPaymentsCreated: number;
+  invoicesPaid: number;
+  skippedExisting: number;
+  skippedUnmatched: number;
+}
+
 export interface BusinessSettings {
   companyName: string;
   tagline: string;
@@ -2670,6 +2678,14 @@ export type GetBankAnalysisParams = {
  */
 days?: number;
 refresh?: boolean;
+};
+
+export type ApplyBankAnalysisParams = {
+/**
+ * @minimum 1
+ * @maximum 90
+ */
+days?: number;
 };
 
 export type ListInvoicesParams = {

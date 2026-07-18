@@ -1,11 +1,14 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, like } from "drizzle-orm";
 import {
   db,
   plaidItemsTable,
   crewsTable,
   invoicesTable,
   propertiesTable,
+  expensesTable,
+  crewPaymentsTable,
+  paymentsTable,
 } from "@workspace/db";
 import {
   plaidPost,
@@ -22,9 +25,13 @@ import {
   CreatePlaidLinkTokenResponse,
   GetBankAnalysisResponse,
   GetBankAnalysisQueryParams,
+  ApplyBankAnalysisQueryParams,
+  ApplyBankAnalysisResponse,
 } from "@workspace/api-zod";
 import { completeJson } from "../lib/ai";
 import { logger } from "../lib/logger";
+import { syncExpenseLedger, syncInvoiceLedger } from "../lib/ledger";
+import { recomputeJobFinancials } from "../lib/jobFinance";
 
 const router: IRouter = Router();
 
@@ -296,6 +303,13 @@ export function invalidateBankAnalysisCache(): void {
   analysisCache.clear();
 }
 
+function parseLocalDate(s: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12);
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -510,6 +524,166 @@ router.get("/plaid/analysis", async (req, res): Promise<void> => {
     throw err;
   }
 });
+
+// Serialize apply runs: read-then-insert dedupe checks are only safe when
+// one apply executes at a time (single-instance server, single-org app).
+let applyChain: Promise<unknown> = Promise.resolve();
+
+router.post("/plaid/analysis/apply", async (req, res): Promise<void> => {
+  const run = applyChain.then(() => handleApply(req, res));
+  applyChain = run.catch(() => undefined);
+  await run;
+});
+
+async function handleApply(
+  req: import("express").Request,
+  res: import("express").Response,
+): Promise<void> {
+  const item = await getItem();
+  if (!item) {
+    res.status(409).json({ error: "No bank connected" });
+    return;
+  }
+  const q = ApplyBankAnalysisQueryParams.parse(req.query);
+  const days = q.days ?? 30;
+  const cacheKey = `${item.id}:${days}`;
+
+  let data: AnalysisData;
+  try {
+    const cached = analysisCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < ANALYSIS_TTL_MS) {
+      data = cached.data;
+    } else {
+      let inFlight = analysisInFlight.get(cacheKey);
+      if (!inFlight) {
+        inFlight = buildAnalysis(item.accessToken, days).finally(() => {
+          analysisInFlight.delete(cacheKey);
+        });
+        analysisInFlight.set(cacheKey, inFlight);
+      }
+      data = await inFlight;
+      analysisCache.set(cacheKey, { at: Date.now(), data });
+    }
+  } catch (err: any) {
+    if (err?.plaid) {
+      res.status(502).json({ error: "Couldn't fetch transactions from your bank" });
+      return;
+    }
+    throw err;
+  }
+
+  let expensesCreated = 0;
+  let crewPaymentsCreated = 0;
+  let invoicesPaid = 0;
+  let skippedExisting = 0;
+  let skippedUnmatched = 0;
+
+  for (const itemRow of data.expenses) {
+    const sourceTag = `bank:${itemRow.transactionId}`;
+    const [existing] = await db
+      .select({ id: expensesTable.id })
+      .from(expensesTable)
+      .where(eq(expensesTable.source, sourceTag));
+    if (existing) {
+      skippedExisting++;
+      continue;
+    }
+    const [row] = await db
+      .insert(expensesTable)
+      .values({
+        vendor: itemRow.name,
+        category: itemRow.category ?? "Uncategorized",
+        amount: itemRow.amount,
+        source: sourceTag,
+        paymentStatus: "paid",
+        paidAt: new Date(),
+        spentOn: parseLocalDate(itemRow.date),
+      })
+      .returning();
+    await syncExpenseLedger(row.id);
+    expensesCreated++;
+  }
+
+  for (const itemRow of data.crewPayments) {
+    let crewId = itemRow.crewId ?? null;
+    if (!crewId && itemRow.personName) {
+      const wanted = itemRow.personName.trim().toLowerCase();
+      const allCrews = await db.select().from(crewsTable);
+      const found = allCrews.find((c) => c.name.trim().toLowerCase() === wanted);
+      if (found) {
+        crewId = found.id;
+      } else {
+        const [createdCrew] = await db
+          .insert(crewsTable)
+          .values({ name: itemRow.personName.trim() })
+          .returning();
+        crewId = createdCrew.id;
+      }
+    }
+    if (!crewId) {
+      skippedUnmatched++;
+      continue;
+    }
+    const dedupeTag = `bank:${itemRow.transactionId}`;
+    const [existing] = await db
+      .select({ id: crewPaymentsTable.id })
+      .from(crewPaymentsTable)
+      .where(like(crewPaymentsTable.note, `%${dedupeTag}%`));
+    if (existing) {
+      skippedExisting++;
+      continue;
+    }
+    await db.insert(crewPaymentsTable).values({
+      crewId,
+      amount: itemRow.amount,
+      method: "Bank",
+      status: "completed",
+      note: `Imported from bank (${dedupeTag})`,
+      paidAt: parseLocalDate(itemRow.date),
+    });
+    crewPaymentsCreated++;
+  }
+
+  for (const itemRow of data.paidInvoices) {
+    if (!itemRow.invoiceId) {
+      skippedUnmatched++;
+      continue;
+    }
+    const [inv] = await db
+      .select()
+      .from(invoicesTable)
+      .where(eq(invoicesTable.id, itemRow.invoiceId));
+    if (!inv || inv.status === "paid") {
+      skippedExisting++;
+      continue;
+    }
+    await db.transaction(async (tx) => {
+      await tx.insert(paymentsTable).values({
+        invoiceId: inv.id,
+        amount: itemRow.amount,
+        method: "Bank deposit",
+        receivedAt: parseLocalDate(itemRow.date),
+      });
+      await tx
+        .update(invoicesTable)
+        .set({ status: "paid", paidAt: parseLocalDate(itemRow.date) })
+        .where(eq(invoicesTable.id, inv.id));
+    });
+    if (inv.jobId) await recomputeJobFinancials(inv.jobId);
+    await syncInvoiceLedger(inv.id);
+    invoicesPaid++;
+  }
+
+  res.json(
+    ApplyBankAnalysisResponse.parse({
+      expensesCreated,
+      crewPaymentsCreated,
+      invoicesPaid,
+      skippedExisting,
+      skippedUnmatched,
+    }),
+  );
+}
 
 router.delete("/plaid/item", async (_req, res): Promise<void> => {
   const item = await getItem();

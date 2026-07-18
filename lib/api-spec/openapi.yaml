@@ -1626,6 +1626,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /plaid/analysis/apply:
+    post:
+      operationId: applyBankAnalysis
+      tags: [money]
+      summary: Copy analyzed bank items into expenses, crew payments and paid invoices
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 90, default: 30 }
+      responses:
+        "200":
+          description: Items copied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankAnalysisApplyResult"
+        "409":
+          description: No bank connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Plaid error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /plaid/item:
     delete:
       operationId: disconnectBank
@@ -4925,6 +4954,17 @@ components:
             crewPayments: { type: number }
             paidInvoices: { type: number }
             other: { type: number }
+
+    BankAnalysisApplyResult:
+      type: object
+      required:
+        [expensesCreated, crewPaymentsCreated, invoicesPaid, skippedExisting, skippedUnmatched]
+      properties:
+        expensesCreated: { type: integer }
+        crewPaymentsCreated: { type: integer }
+        invoicesPaid: { type: integer }
+        skippedExisting: { type: integer }
+        skippedUnmatched: { type: integer }
 
     BusinessSettings:
       type: object

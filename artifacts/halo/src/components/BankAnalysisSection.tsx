@@ -3,6 +3,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetBankAnalysis,
   getGetBankAnalysisQueryKey,
+  useApplyBankAnalysis,
+  getListExpensesQueryKey,
+  getListCrewPaymentsQueryKey,
+  getListInvoicesQueryKey,
+  getGetMoneySummaryQueryKey,
   type BankAnalysisItem,
 } from "@workspace/api-client-react";
 import {
@@ -13,7 +18,9 @@ import {
   FileCheck2,
   CircleDollarSign,
   ChevronDown,
+  CopyPlus,
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -122,7 +129,45 @@ function Row({
 
 export function BankAnalysisSection() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [force, setForce] = useState(false);
+  const apply = useApplyBankAnalysis();
+
+  const copyToTabs = () => {
+    apply.mutate(
+      { params: { days: 30 } },
+      {
+        onSuccess: (r) => {
+          queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListCrewPaymentsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+          const created = r.expensesCreated + r.crewPaymentsCreated + r.invoicesPaid;
+          toast({
+            title: created > 0 ? "Copied to your tabs" : "Nothing new to copy",
+            description:
+              created > 0
+                ? [
+                    r.expensesCreated > 0 ? `${r.expensesCreated} expenses` : null,
+                    r.crewPaymentsCreated > 0
+                      ? `${r.crewPaymentsCreated} crew payments`
+                      : null,
+                    r.invoicesPaid > 0 ? `${r.invoicesPaid} invoices marked paid` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")
+                : "Everything here was already in your books.",
+          });
+        },
+        onError: () =>
+          toast({
+            title: "Couldn't copy items",
+            description: "Please try again in a moment.",
+            variant: "destructive",
+          }),
+      },
+    );
+  };
   const analysis = useGetBankAnalysis(force ? { days: 30, refresh: true } : { days: 30 });
 
   // One-shot refresh: once the forced analysis lands, seed the normal query
@@ -153,6 +198,16 @@ export function BankAnalysisSection() {
             <span className="normal-case tracking-normal font-normal">(30 days)</span>
           </span>
         </div>
+        <button
+          onClick={copyToTabs}
+          disabled={apply.isPending || analysis.isFetching || !analysis.data}
+          className="shrink-0 inline-flex items-center gap-[5px] rounded-[10px] px-[10px] py-[7px] text-[12px] font-display font-bold bg-[var(--ink)] text-[var(--paper,#f5f1e8)] shadow-[var(--shadow)] disabled:opacity-40 transition-transform active:scale-[0.98]"
+        >
+          <CopyPlus
+            className={`w-[13px] h-[13px] ${apply.isPending ? "animate-pulse" : ""}`}
+          />
+          {apply.isPending ? "Copying…" : "Copy to tabs"}
+        </button>
         <button
           onClick={refresh}
           disabled={analysis.isFetching}

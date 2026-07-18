@@ -23,6 +23,7 @@ import type {
   AccountLedger,
   Activity,
   ActivityInput,
+  ApplyBankAnalysisParams,
   ArrivalCheckInput,
   ArrivalCheckResult,
   AskAnswer,
@@ -30,6 +31,7 @@ import type {
   BalanceSheetReport,
   BankAccount,
   BankAnalysis,
+  BankAnalysisApplyResult,
   BankImportInput,
   BankReconciliation,
   BankStatus,
@@ -5691,6 +5693,84 @@ export function useGetBankAnalysis<TData = Awaited<ReturnType<typeof getBankAnal
 
 
 
+
+export const getApplyBankAnalysisUrl = (params?: ApplyBankAnalysisParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/plaid/analysis/apply?${stringifiedParams}` : `/api/plaid/analysis/apply`
+}
+
+/**
+ * @summary Copy analyzed bank items into expenses, crew payments and paid invoices
+ */
+export const applyBankAnalysis = async (params?: ApplyBankAnalysisParams, options?: RequestInit): Promise<BankAnalysisApplyResult> => {
+
+  return customFetch<BankAnalysisApplyResult>(getApplyBankAnalysisUrl(params),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApplyBankAnalysisMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyBankAnalysis>>, TError,{params?: ApplyBankAnalysisParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof applyBankAnalysis>>, TError,{params?: ApplyBankAnalysisParams}, TContext> => {
+
+const mutationKey = ['applyBankAnalysis'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof applyBankAnalysis>>, {params?: ApplyBankAnalysisParams}> = (props) => {
+          const {params} = props ?? {};
+
+          return  applyBankAnalysis(params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApplyBankAnalysisMutationResult = NonNullable<Awaited<ReturnType<typeof applyBankAnalysis>>>
+
+    export type ApplyBankAnalysisMutationError = ErrorType<Error>
+
+    /**
+ * @summary Copy analyzed bank items into expenses, crew payments and paid invoices
+ */
+export const useApplyBankAnalysis = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyBankAnalysis>>, TError,{params?: ApplyBankAnalysisParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof applyBankAnalysis>>,
+        TError,
+        {params?: ApplyBankAnalysisParams},
+        TContext
+      > => {
+      return useMutation(getApplyBankAnalysisMutationOptions(options));
+    }
 
 export const getDisconnectBankUrl = () => {
 

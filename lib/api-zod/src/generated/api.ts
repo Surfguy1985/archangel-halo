@@ -2332,6 +2332,27 @@ export const GetBankAnalysisResponse = zod.object({
 
 
 /**
+ * @summary Copy analyzed bank items into expenses, crew payments and paid invoices
+ */
+export const applyBankAnalysisQueryDaysDefault = 30;
+export const applyBankAnalysisQueryDaysMax = 90;
+
+
+
+export const ApplyBankAnalysisQueryParams = zod.object({
+  "days": zod.coerce.number().min(1).max(applyBankAnalysisQueryDaysMax).default(applyBankAnalysisQueryDaysDefault)
+})
+
+export const ApplyBankAnalysisResponse = zod.object({
+  "expensesCreated": zod.number(),
+  "crewPaymentsCreated": zod.number(),
+  "invoicesPaid": zod.number(),
+  "skippedExisting": zod.number(),
+  "skippedUnmatched": zod.number()
+})
+
+
+/**
  * @summary Disconnect the bank connection
  */
 export const DisconnectBankResponse = zod.void()
