@@ -1594,6 +1594,38 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /plaid/analysis:
+    get:
+      operationId: getBankAnalysis
+      tags: [money]
+      summary: AI breakdown of bank transactions — expenses, crew payments, paid invoices
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 90, default: 30 }
+        - name: refresh
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Analyzed transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BankAnalysis"
+        "409":
+          description: No bank connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Plaid error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /plaid/item:
     delete:
       operationId: disconnectBank
@@ -4848,6 +4880,51 @@ components:
         merchantName: { type: ["string", "null"] }
         category: { type: ["string", "null"] }
         pending: { type: boolean }
+
+    BankAnalysisItem:
+      type: object
+      required: [transactionId, date, name, amount]
+      properties:
+        transactionId: { type: string }
+        date: { type: string }
+        name: { type: string }
+        amount: { type: number }
+        category: { type: ["string", "null"] }
+        personName: { type: ["string", "null"] }
+        crewId: { type: ["string", "null"] }
+        crewName: { type: ["string", "null"] }
+        invoiceId: { type: ["string", "null"] }
+        invoiceNo: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+
+    BankAnalysis:
+      type: object
+      required:
+        [periodDays, analyzedAt, expenses, crewPayments, paidInvoices, other, totals]
+      properties:
+        periodDays: { type: integer }
+        analyzedAt: { type: string }
+        expenses:
+          type: array
+          items: { $ref: "#/components/schemas/BankAnalysisItem" }
+        crewPayments:
+          type: array
+          items: { $ref: "#/components/schemas/BankAnalysisItem" }
+        paidInvoices:
+          type: array
+          items: { $ref: "#/components/schemas/BankAnalysisItem" }
+        other:
+          type: array
+          items: { $ref: "#/components/schemas/BankAnalysisItem" }
+        totals:
+          type: object
+          required: [expenses, crewPayments, paidInvoices, other]
+          properties:
+            expenses: { type: number }
+            crewPayments: { type: number }
+            paidInvoices: { type: number }
+            other: { type: number }
 
     BusinessSettings:
       type: object

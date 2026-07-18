@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Landmark, RefreshCw, Unlink, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { BankAnalysisSection } from "./BankAnalysisSection";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -224,6 +225,8 @@ function ConnectedView({ institutionName }: { institutionName: string | null }) 
           ))}
         </div>
       )}
+
+      <BankAnalysisSection />
 
       <div>
         <div className="font-display font-bold text-[var(--ink)] mb-2">

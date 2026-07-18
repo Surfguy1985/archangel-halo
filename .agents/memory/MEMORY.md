@@ -22,6 +22,7 @@
 - [HALO portal schedule feed](halo-portal-schedule.md) — portal schedule merges crew_schedules + crew-assigned calendar_events (deduped by jobId|date); new assignment sources must merge into this feed.
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.
 - [HALO Plaid credentials](halo-plaid-credentials.md) — Plaid uses PLAID_CLIENT_ID/PLAID_SECRET secrets (connector was dismissed); keys are PRODUCTION — sandbox endpoints won't work.
+- [HALO bank analysis](halo-bank-analysis.md) — /plaid/analysis caches per item+days, invalidated on connect/disconnect; parse refresh flag manually (coerce.boolean bug); UI Re-analyze is one-shot.
 - [HALO Books tax/AP/bank](halo-books-tax-banking.md) — tax is tax-inclusive & must be recomputed on every invoice write; bills post via AP 2000; bank imports locked per txn id.
 - [HALO Tax Planner](halo-tax-planner.md) — per-year rule packs; S/C-corp must deduct owner wages+payroll pre-tax; settings singleton survives reset; pcts→fractions at engine edge.
 - [HALO arrival detection](halo-arrival-detection.md) — lazy Nominatim geocode off the request path; dual client+server 4h dedupe; watcher must react live to the Settings toggle.

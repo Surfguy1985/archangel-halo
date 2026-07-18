@@ -29,6 +29,7 @@ import type {
   AskInput,
   BalanceSheetReport,
   BankAccount,
+  BankAnalysis,
   BankImportInput,
   BankReconciliation,
   BankStatus,
@@ -82,6 +83,7 @@ import type {
   ExpenseInput,
   GetAccountLedgerParams,
   GetBalanceSheetReportParams,
+  GetBankAnalysisParams,
   GetBankReconciliationParams,
   GetCalendarParams,
   GetCashFlowReportParams,
@@ -5594,6 +5596,90 @@ export function useListBankTransactions<TData = Awaited<ReturnType<typeof listBa
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListBankTransactionsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetBankAnalysisUrl = (params?: GetBankAnalysisParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/plaid/analysis?${stringifiedParams}` : `/api/plaid/analysis`
+}
+
+/**
+ * @summary AI breakdown of bank transactions — expenses, crew payments, paid invoices
+ */
+export const getBankAnalysis = async (params?: GetBankAnalysisParams, options?: RequestInit): Promise<BankAnalysis> => {
+
+  return customFetch<BankAnalysis>(getGetBankAnalysisUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetBankAnalysisQueryKey = (params?: GetBankAnalysisParams,) => {
+    return [
+    `/api/plaid/analysis`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetBankAnalysisQueryOptions = <TData = Awaited<ReturnType<typeof getBankAnalysis>>, TError = ErrorType<Error>>(params?: GetBankAnalysisParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBankAnalysis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBankAnalysisQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBankAnalysis>>> = ({ signal }) => getBankAnalysis(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBankAnalysis>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetBankAnalysisQueryResult = NonNullable<Awaited<ReturnType<typeof getBankAnalysis>>>
+export type GetBankAnalysisQueryError = ErrorType<Error>
+
+
+/**
+ * @summary AI breakdown of bank transactions — expenses, crew payments, paid invoices
+ */
+
+export function useGetBankAnalysis<TData = Awaited<ReturnType<typeof getBankAnalysis>>, TError = ErrorType<Error>>(
+ params?: GetBankAnalysisParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBankAnalysis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetBankAnalysisQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -2251,6 +2251,87 @@ export const ListBankTransactionsResponse = zod.array(ListBankTransactionsRespon
 
 
 /**
+ * @summary AI breakdown of bank transactions — expenses, crew payments, paid invoices
+ */
+export const getBankAnalysisQueryDaysDefault = 30;
+export const getBankAnalysisQueryDaysMax = 90;
+
+
+
+export const GetBankAnalysisQueryParams = zod.object({
+  "days": zod.coerce.number().min(1).max(getBankAnalysisQueryDaysMax).default(getBankAnalysisQueryDaysDefault),
+  "refresh": zod.coerce.boolean().optional()
+})
+
+export const GetBankAnalysisResponse = zod.object({
+  "periodDays": zod.number(),
+  "analyzedAt": zod.string(),
+  "expenses": zod.array(zod.object({
+  "transactionId": zod.string(),
+  "date": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "category": zod.string().nullish(),
+  "personName": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "invoiceId": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "note": zod.string().nullish()
+})),
+  "crewPayments": zod.array(zod.object({
+  "transactionId": zod.string(),
+  "date": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "category": zod.string().nullish(),
+  "personName": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "invoiceId": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "note": zod.string().nullish()
+})),
+  "paidInvoices": zod.array(zod.object({
+  "transactionId": zod.string(),
+  "date": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "category": zod.string().nullish(),
+  "personName": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "invoiceId": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "note": zod.string().nullish()
+})),
+  "other": zod.array(zod.object({
+  "transactionId": zod.string(),
+  "date": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "category": zod.string().nullish(),
+  "personName": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "invoiceId": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "note": zod.string().nullish()
+})),
+  "totals": zod.object({
+  "expenses": zod.number(),
+  "crewPayments": zod.number(),
+  "paidInvoices": zod.number(),
+  "other": zod.number()
+})
+})
+
+
+/**
  * @summary Disconnect the bank connection
  */
 export const DisconnectBankResponse = zod.void()

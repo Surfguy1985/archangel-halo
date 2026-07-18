@@ -625,8 +625,13 @@ function CrewPay() {
   );
 }
 
+const TAB_KEYS = ["overview", "invoices", "expenses", "crew", "bank", "report", "books"];
+
 export default function Money() {
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    return t && TAB_KEYS.includes(t) ? (t as Tab) : "overview";
+  });
   const tabs: { key: Tab; label: string }[] = [
     { key: "overview", label: "Overview" },
     { key: "invoices", label: "Invoices" },

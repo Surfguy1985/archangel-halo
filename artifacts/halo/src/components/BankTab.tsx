@@ -14,6 +14,7 @@ import {
 } from "@workspace/api-client-react";
 import { Landmark, RefreshCw, Unlink, Wallet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { BankAnalysisSection } from "./BankAnalysisSection";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -218,6 +219,8 @@ function ConnectedView({ institutionName }: { institutionName: string | null }) 
           ))}
         </div>
       )}
+
+      <BankAnalysisSection />
 
       <div>
         <div className="font-display font-semibold text-[13px] tracking-[0.15em] uppercase text-muted-foreground mb-[8px] mt-[4px]">

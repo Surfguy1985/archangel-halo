@@ -1345,6 +1345,46 @@ export interface BankTransaction {
   pending: boolean;
 }
 
+export interface BankAnalysisItem {
+  transactionId: string;
+  date: string;
+  name: string;
+  amount: number;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  personName?: string | null;
+  /** @nullable */
+  crewId?: string | null;
+  /** @nullable */
+  crewName?: string | null;
+  /** @nullable */
+  invoiceId?: string | null;
+  /** @nullable */
+  invoiceNo?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export type BankAnalysisTotals = {
+  expenses: number;
+  crewPayments: number;
+  paidInvoices: number;
+  other: number;
+};
+
+export interface BankAnalysis {
+  periodDays: number;
+  analyzedAt: string;
+  expenses: BankAnalysisItem[];
+  crewPayments: BankAnalysisItem[];
+  paidInvoices: BankAnalysisItem[];
+  other: BankAnalysisItem[];
+  totals: BankAnalysisTotals;
+}
+
 export interface BusinessSettings {
   companyName: string;
   tagline: string;
@@ -2621,6 +2661,15 @@ export type ListBankTransactionsParams = {
  * @maximum 90
  */
 days?: number;
+};
+
+export type GetBankAnalysisParams = {
+/**
+ * @minimum 1
+ * @maximum 90
+ */
+days?: number;
+refresh?: boolean;
 };
 
 export type ListInvoicesParams = {
