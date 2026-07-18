@@ -3488,6 +3488,74 @@ paths:
                 properties:
                   posted: { type: number }
 
+  /accounting/tax-planner:
+    get:
+      operationId: getTaxPlanner
+      tags: [accounting]
+      summary: Saved tax planner settings plus Books-derived prefill numbers
+      responses:
+        "200":
+          description: Planner state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxPlannerState"
+    put:
+      operationId: saveTaxPlannerSettings
+      tags: [accounting]
+      summary: Save tax planner settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaxPlannerSettingsInput"
+      responses:
+        "200":
+          description: Saved planner state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxPlannerState"
+
+  /accounting/tax-planner/estimate:
+    post:
+      operationId: runTaxPlannerEstimate
+      tags: [accounting]
+      summary: Run a 2026 federal planning estimate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaxPlannerRunInput"
+      responses:
+        "200":
+          description: Estimate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxEstimate"
+
+  /accounting/tax-planner/compare:
+    post:
+      operationId: compareTaxPlannerEntities
+      tags: [accounting]
+      summary: Compare projected tax across the five entity types
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaxPlannerRunInput"
+      responses:
+        "200":
+          description: Comparison
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxEntityComparison"
+
   /accounting/reports/tax:
     get:
       operationId: getTaxReport
@@ -5662,6 +5730,146 @@ components:
           items:
             $ref: "#/components/schemas/AccountLedgerLine"
 
+    TaxPlannerSettingsData:
+      type: object
+      required:
+        [entityType, filingStatus, ownershipPercent, ownerW2Wages, otherW2Wages,
+         otherTaxableIncome, aboveLineAdjustments, itemizedDeductions, qbiDeduction,
+         taxCredits, federalWithholding, estimatedPaymentsMade, stateEffectiveRatePct,
+         partnershipSEIncomePercent, reserveBufferRatePct]
+      properties:
+        entityType:
+          type: string
+          enum: [sole_proprietor, single_member_llc, partnership, s_corp, c_corp]
+        filingStatus:
+          type: string
+          enum: [single, married_joint, married_separate, head_household]
+        ownershipPercent: { type: number }
+        ownerW2Wages: { type: number }
+        otherW2Wages: { type: number }
+        otherTaxableIncome: { type: number }
+        aboveLineAdjustments: { type: number }
+        itemizedDeductions: { type: number }
+        qbiDeduction: { type: number }
+        taxCredits: { type: number }
+        federalWithholding: { type: number }
+        estimatedPaymentsMade: { type: number }
+        stateEffectiveRatePct: { type: number }
+        partnershipSEIncomePercent: { type: number }
+        reserveBufferRatePct: { type: number }
+    TaxPlannerSettingsInput:
+      type: object
+      properties:
+        entityType:
+          type: string
+          enum: [sole_proprietor, single_member_llc, partnership, s_corp, c_corp]
+        filingStatus:
+          type: string
+          enum: [single, married_joint, married_separate, head_household]
+        ownershipPercent: { type: number }
+        ownerW2Wages: { type: number }
+        otherW2Wages: { type: number }
+        otherTaxableIncome: { type: number }
+        aboveLineAdjustments: { type: number }
+        itemizedDeductions: { type: number }
+        qbiDeduction: { type: number }
+        taxCredits: { type: number }
+        federalWithholding: { type: number }
+        estimatedPaymentsMade: { type: number }
+        stateEffectiveRatePct: { type: number }
+        partnershipSEIncomePercent: { type: number }
+        reserveBufferRatePct: { type: number }
+    TaxPlannerPrefill:
+      type: object
+      required:
+        [year, daysElapsed, ytdRevenue, ytdExpenses, ytdProfit,
+         annualizedRevenue, annualizedExpenses, annualizedProfit]
+      properties:
+        year: { type: integer }
+        daysElapsed: { type: integer }
+        ytdRevenue: { type: number }
+        ytdExpenses: { type: number }
+        ytdProfit: { type: number }
+        annualizedRevenue: { type: number }
+        annualizedExpenses: { type: number }
+        annualizedProfit: { type: number }
+    TaxPlannerState:
+      type: object
+      required: [settings, prefill]
+      properties:
+        settings: { $ref: "#/components/schemas/TaxPlannerSettingsData" }
+        prefill: { $ref: "#/components/schemas/TaxPlannerPrefill" }
+    TaxPlannerRunInput:
+      type: object
+      required: [grossRevenue, ordinaryExpenses]
+      properties:
+        grossRevenue: { type: number }
+        ordinaryExpenses: { type: number }
+        settings: { $ref: "#/components/schemas/TaxPlannerSettingsInput" }
+    TaxComponentItem:
+      type: object
+      required: [key, label, amount]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        amount: { type: number }
+        note: { type: string }
+    TaxQuarterlyPayment:
+      type: object
+      required: [label, dueDate, suggestedPayment]
+      properties:
+        label: { type: string }
+        dueDate: { type: string }
+        suggestedPayment: { type: number }
+    TaxEstimate:
+      type: object
+      required:
+        [version, taxYear, entityType, businessProfitBeforeOwnerComp,
+         ownerPassThroughIncome, ownerW2Wages, adjustedGrossIncomeEstimate,
+         deductionUsed, taxableIncomeEstimate, components, federalTaxEstimate,
+         stateTaxEstimate, totalProjectedTax, creditsAndPrepayments,
+         projectedBalanceDue, effectiveRateOnBusinessProfit,
+         reserveRecommendation, quarterlyPayments, assumptions, warnings, disclaimer]
+      properties:
+        version: { type: string }
+        taxYear: { type: integer }
+        entityType: { type: string }
+        businessProfitBeforeOwnerComp: { type: number }
+        ownerPassThroughIncome: { type: number }
+        ownerW2Wages: { type: number }
+        adjustedGrossIncomeEstimate: { type: number }
+        deductionUsed: { type: number }
+        taxableIncomeEstimate: { type: number }
+        components:
+          type: array
+          items: { $ref: "#/components/schemas/TaxComponentItem" }
+        federalTaxEstimate: { type: number }
+        stateTaxEstimate: { type: number }
+        totalProjectedTax: { type: number }
+        creditsAndPrepayments: { type: number }
+        projectedBalanceDue: { type: number }
+        effectiveRateOnBusinessProfit: { type: number }
+        reserveRecommendation: { type: number }
+        quarterlyPayments:
+          type: array
+          items: { $ref: "#/components/schemas/TaxQuarterlyPayment" }
+        assumptions:
+          type: array
+          items: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+        disclaimer: { type: string }
+    TaxEntityComparison:
+      type: object
+      required: [scenarios, lowestProjectedTaxEntity, spread, warning]
+      properties:
+        scenarios:
+          type: array
+          items: { $ref: "#/components/schemas/TaxEstimate" }
+        lowestProjectedTaxEntity: { type: string }
+        spread: { type: number }
+        warning: { type: string }
     TaxReport:
       type: object
       required: [year, salesTaxCollected, salesTaxBalance, grossReceipts, scheduleC, totalExpenses, netProfit]

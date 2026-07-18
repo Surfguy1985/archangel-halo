@@ -2,6 +2,12 @@ import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListLedgerAccounts,
+  useGetTaxPlanner,
+  useRunTaxPlannerEstimate,
+  useCompareTaxPlannerEntities,
+  useSaveTaxPlannerSettings,
+  type TaxEstimate,
+  type TaxEntityComparison,
   useListJournalEntries,
   useCreateJournalEntry,
   useGetProfitAndLoss,
@@ -205,7 +211,7 @@ function NewEntrySheet({
 }
 
 export function BooksTab() {
-  const [view, setView] = useState<"pnl" | "balance" | "cash" | "journal" | "tax">("pnl");
+  const [view, setView] = useState<"pnl" | "balance" | "cash" | "journal" | "tax" | "plan">("pnl");
   const [entryOpen, setEntryOpen] = useState(false);
   const from = `${new Date().getFullYear()}-01-01`;
   const to = localToday();
@@ -225,6 +231,7 @@ export function BooksTab() {
     { key: "cash", label: "Cash" },
     { key: "journal", label: "Journal" },
     { key: "tax", label: "Tax" },
+    { key: "plan", label: "Plan" },
   ] as const;
 
   return (
@@ -369,9 +376,177 @@ export function BooksTab() {
       )}
 
       {view === "tax" && <TaxView />}
+      {view === "plan" && <PlannerView />}
 
       <NewEntrySheet open={entryOpen} onOpenChange={setEntryOpen} accounts={accounts} />
     </div>
+  );
+}
+
+
+const ENTITY_LABELS: Record<string, string> = {
+  sole_proprietor: "Sole proprietor",
+  single_member_llc: "Single-member LLC",
+  partnership: "Partnership",
+  s_corp: "S-corporation",
+  c_corp: "C-corporation",
+};
+
+function PlannerView() {
+  const { data: planner } = useGetTaxPlanner();
+  const save = useSaveTaxPlannerSettings();
+  const runEstimate = useRunTaxPlannerEstimate();
+  const runCompare = useCompareTaxPlannerEntities();
+  const [revenue, setRevenue] = useState("");
+  const [expenses, setExpenses] = useState("");
+  const [entityType, setEntityType] = useState<string | null>(null);
+  const [filingStatus, setFilingStatus] = useState<string | null>(null);
+  const [est, setEst] = useState<TaxEstimate | null>(null);
+  const [cmp, setCmp] = useState<TaxEntityComparison | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  if (!planner) return <div className="animate-pulse h-32 bg-card rounded-[14px]" />;
+  const s = planner.settings;
+  const pf = planner.prefill;
+  const et = entityType ?? s.entityType;
+  const fs = filingStatus ?? s.filingStatus;
+  const ready = revenue !== "" && expenses !== "";
+  const busy = save.isPending || runEstimate.isPending || runCompare.isPending;
+
+  const run = async () => {
+    setErr(null);
+    try {
+      const settings = { ...s, entityType: et as typeof s.entityType, filingStatus: fs as typeof s.filingStatus };
+      await save.mutateAsync({ data: settings });
+      const payload = { grossRevenue: Number(revenue) || 0, ordinaryExpenses: Number(expenses) || 0, settings };
+      const [e, c] = await Promise.all([
+        runEstimate.mutateAsync({ data: payload }),
+        runCompare.mutateAsync({ data: payload }),
+      ]);
+      setEst(e);
+      setCmp(c);
+    } catch {
+      setErr("Could not run the estimate. Try again.");
+    }
+  };
+
+  const inputCls =
+    "w-full rounded-[10px] border border-border bg-card px-[10px] py-[8px] text-[14px]";
+
+  return (
+    <>
+      <Section title={`From your books — ${pf.year}`}>
+        <div className="text-[12.5px] mb-[8px]">
+          So far: <b>{money(pf.ytdRevenue)}</b> revenue, <b>{money(pf.ytdExpenses)}</b> expenses.
+          Full-year pace: <b>{money(pf.annualizedRevenue)}</b> / <b>{money(pf.annualizedExpenses)}</b>.
+        </div>
+        <div className="flex gap-[8px]">
+          <button
+            className="flex-1 rounded-[10px] py-[8px] text-[12px] font-display font-bold bg-card border border-border"
+            onClick={() => { setRevenue(String(pf.ytdRevenue)); setExpenses(String(pf.ytdExpenses)); }}
+            data-testid="button-plan-ytd"
+          >
+            Use year-to-date
+          </button>
+          <button
+            className="flex-1 rounded-[10px] py-[8px] text-[12px] font-display font-bold bg-[var(--ink)] text-white"
+            onClick={() => { setRevenue(String(pf.annualizedRevenue)); setExpenses(String(pf.annualizedExpenses)); }}
+            data-testid="button-plan-pace"
+          >
+            Use full-year pace
+          </button>
+        </div>
+      </Section>
+      <Section title="Your numbers">
+        <div className="grid grid-cols-2 gap-[8px] mb-[8px]">
+          <div>
+            <div className="text-[11px] text-muted-foreground mb-[3px]">Revenue (year)</div>
+            <input type="number" inputMode="decimal" className={inputCls} value={revenue}
+              onChange={(e) => setRevenue(e.target.value)} placeholder="0" data-testid="input-plan-revenue" />
+          </div>
+          <div>
+            <div className="text-[11px] text-muted-foreground mb-[3px]">Expenses (year)</div>
+            <input type="number" inputMode="decimal" className={inputCls} value={expenses}
+              onChange={(e) => setExpenses(e.target.value)} placeholder="0" data-testid="input-plan-expenses" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-[8px] mb-[10px]">
+          <div>
+            <div className="text-[11px] text-muted-foreground mb-[3px]">Entity type</div>
+            <select className={inputCls} value={et} onChange={(e) => setEntityType(e.target.value)} data-testid="select-plan-entity">
+              {Object.entries(ENTITY_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </div>
+          <div>
+            <div className="text-[11px] text-muted-foreground mb-[3px]">Filing status</div>
+            <select className={inputCls} value={fs} onChange={(e) => setFilingStatus(e.target.value)} data-testid="select-plan-filing">
+              <option value="single">Single</option>
+              <option value="married_joint">Married joint</option>
+              <option value="married_separate">Married separate</option>
+              <option value="head_household">Head of household</option>
+            </select>
+          </div>
+        </div>
+        <button
+          className="w-full rounded-[10px] py-[10px] text-[13px] font-display font-bold bg-[var(--ink)] text-white disabled:opacity-50"
+          disabled={!ready || busy}
+          onClick={run}
+          data-testid="button-plan-run"
+        >
+          {busy ? "Calculating…" : "Calculate my taxes"}
+        </button>
+        {err && <div className="text-[12px] text-destructive mt-[6px]">{err}</div>}
+        <div className="text-[11px] text-muted-foreground mt-[6px]">
+          More detail (wages, deductions, credits) is on the desktop Tax Planner.
+        </div>
+      </Section>
+      {est && (
+        <Section title="Projection">
+          {[
+            { label: "Projected total tax", value: est.totalProjectedTax },
+            { label: "Balance still due", value: est.projectedBalanceDue },
+            { label: "Set aside (with buffer)", value: est.reserveRecommendation },
+          ].map((r) => (
+            <div key={r.label} className="flex justify-between py-[5px] text-[13px]">
+              <span>{r.label}</span>
+              <span className="font-display font-bold tabular-nums" data-testid={`plan-${r.label.replaceAll(" ", "-").toLowerCase()}`}>{money(r.value)}</span>
+            </div>
+          ))}
+          <div className="mt-[6px] pt-[6px] border-t border-border">
+            {est.quarterlyPayments.map((q) => (
+              <div key={q.label} className="flex justify-between py-[4px] text-[12.5px]">
+                <span className="text-muted-foreground">{q.label} — due {q.dueDate}</span>
+                <span className="font-display font-semibold tabular-nums">{money(q.suggestedPayment)}</span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+      {cmp && (
+        <Section title="Entity comparison">
+          {cmp.scenarios.map((sc) => {
+            const best = sc.entityType === cmp.lowestProjectedTaxEntity;
+            return (
+              <div key={sc.entityType} className="flex justify-between py-[5px] text-[13px]">
+                <span>
+                  {ENTITY_LABELS[sc.entityType]}
+                  {best && <span className="ml-[6px] text-[10px] font-display font-bold text-emerald-600 uppercase">Best</span>}
+                </span>
+                <span className={`font-display font-semibold tabular-nums ${best ? "text-emerald-600" : ""}`}>
+                  {money(sc.totalProjectedTax)}
+                </span>
+              </div>
+            );
+          })}
+          <div className="text-[11px] text-muted-foreground mt-[6px]">
+            Potential savings: {money(cmp.spread)}. {cmp.warning}
+          </div>
+        </Section>
+      )}
+      {est && (
+        <div className="text-[11px] text-muted-foreground px-[2px] mb-[10px]">{est.disclaimer}</div>
+      )}
+    </>
   );
 }
 

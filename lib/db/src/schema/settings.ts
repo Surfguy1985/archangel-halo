@@ -17,3 +17,29 @@ export const businessSettingsTable = pgTable("business_settings", {
 });
 
 export type BusinessSettings = typeof businessSettingsTable.$inferSelect;
+
+// Singleton row of saved Tax Planner inputs. Like business_settings, this is
+// preserved by the Settings data reset.
+export const taxPlannerSettingsTable = pgTable("tax_planner_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityType: text("entity_type").notNull().default("sole_proprietor"),
+  filingStatus: text("filing_status").notNull().default("single"),
+  ownershipPercent: doublePrecision("ownership_percent").notNull().default(100),
+  ownerW2Wages: doublePrecision("owner_w2_wages").notNull().default(0),
+  otherW2Wages: doublePrecision("other_w2_wages").notNull().default(0),
+  otherTaxableIncome: doublePrecision("other_taxable_income").notNull().default(0),
+  aboveLineAdjustments: doublePrecision("above_line_adjustments").notNull().default(0),
+  itemizedDeductions: doublePrecision("itemized_deductions").notNull().default(0),
+  qbiDeduction: doublePrecision("qbi_deduction").notNull().default(0),
+  taxCredits: doublePrecision("tax_credits").notNull().default(0),
+  federalWithholding: doublePrecision("federal_withholding").notNull().default(0),
+  estimatedPaymentsMade: doublePrecision("estimated_payments_made").notNull().default(0),
+  stateEffectiveRatePct: doublePrecision("state_effective_rate_pct").notNull().default(0),
+  partnershipSEIncomePercent: doublePrecision("partnership_se_income_percent")
+    .notNull()
+    .default(100),
+  reserveBufferRatePct: doublePrecision("reserve_buffer_rate_pct").notNull().default(5),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type TaxPlannerSettings = typeof taxPlannerSettingsTable.$inferSelect;

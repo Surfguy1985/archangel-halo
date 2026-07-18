@@ -4455,6 +4455,215 @@ export const RebuildLedgerEntriesResponse = zod.object({
 
 
 /**
+ * @summary Saved tax planner settings plus Books-derived prefill numbers
+ */
+export const GetTaxPlannerResponse = zod.object({
+  "settings": zod.object({
+  "entityType": zod.enum(['sole_proprietor', 'single_member_llc', 'partnership', 's_corp', 'c_corp']),
+  "filingStatus": zod.enum(['single', 'married_joint', 'married_separate', 'head_household']),
+  "ownershipPercent": zod.number(),
+  "ownerW2Wages": zod.number(),
+  "otherW2Wages": zod.number(),
+  "otherTaxableIncome": zod.number(),
+  "aboveLineAdjustments": zod.number(),
+  "itemizedDeductions": zod.number(),
+  "qbiDeduction": zod.number(),
+  "taxCredits": zod.number(),
+  "federalWithholding": zod.number(),
+  "estimatedPaymentsMade": zod.number(),
+  "stateEffectiveRatePct": zod.number(),
+  "partnershipSEIncomePercent": zod.number(),
+  "reserveBufferRatePct": zod.number()
+}),
+  "prefill": zod.object({
+  "year": zod.number(),
+  "daysElapsed": zod.number(),
+  "ytdRevenue": zod.number(),
+  "ytdExpenses": zod.number(),
+  "ytdProfit": zod.number(),
+  "annualizedRevenue": zod.number(),
+  "annualizedExpenses": zod.number(),
+  "annualizedProfit": zod.number()
+})
+})
+
+
+/**
+ * @summary Save tax planner settings
+ */
+export const SaveTaxPlannerSettingsBody = zod.object({
+  "entityType": zod.enum(['sole_proprietor', 'single_member_llc', 'partnership', 's_corp', 'c_corp']).optional(),
+  "filingStatus": zod.enum(['single', 'married_joint', 'married_separate', 'head_household']).optional(),
+  "ownershipPercent": zod.number().optional(),
+  "ownerW2Wages": zod.number().optional(),
+  "otherW2Wages": zod.number().optional(),
+  "otherTaxableIncome": zod.number().optional(),
+  "aboveLineAdjustments": zod.number().optional(),
+  "itemizedDeductions": zod.number().optional(),
+  "qbiDeduction": zod.number().optional(),
+  "taxCredits": zod.number().optional(),
+  "federalWithholding": zod.number().optional(),
+  "estimatedPaymentsMade": zod.number().optional(),
+  "stateEffectiveRatePct": zod.number().optional(),
+  "partnershipSEIncomePercent": zod.number().optional(),
+  "reserveBufferRatePct": zod.number().optional()
+})
+
+export const SaveTaxPlannerSettingsResponse = zod.object({
+  "settings": zod.object({
+  "entityType": zod.enum(['sole_proprietor', 'single_member_llc', 'partnership', 's_corp', 'c_corp']),
+  "filingStatus": zod.enum(['single', 'married_joint', 'married_separate', 'head_household']),
+  "ownershipPercent": zod.number(),
+  "ownerW2Wages": zod.number(),
+  "otherW2Wages": zod.number(),
+  "otherTaxableIncome": zod.number(),
+  "aboveLineAdjustments": zod.number(),
+  "itemizedDeductions": zod.number(),
+  "qbiDeduction": zod.number(),
+  "taxCredits": zod.number(),
+  "federalWithholding": zod.number(),
+  "estimatedPaymentsMade": zod.number(),
+  "stateEffectiveRatePct": zod.number(),
+  "partnershipSEIncomePercent": zod.number(),
+  "reserveBufferRatePct": zod.number()
+}),
+  "prefill": zod.object({
+  "year": zod.number(),
+  "daysElapsed": zod.number(),
+  "ytdRevenue": zod.number(),
+  "ytdExpenses": zod.number(),
+  "ytdProfit": zod.number(),
+  "annualizedRevenue": zod.number(),
+  "annualizedExpenses": zod.number(),
+  "annualizedProfit": zod.number()
+})
+})
+
+
+/**
+ * @summary Run a 2026 federal planning estimate
+ */
+export const RunTaxPlannerEstimateBody = zod.object({
+  "grossRevenue": zod.number(),
+  "ordinaryExpenses": zod.number(),
+  "settings": zod.object({
+  "entityType": zod.enum(['sole_proprietor', 'single_member_llc', 'partnership', 's_corp', 'c_corp']).optional(),
+  "filingStatus": zod.enum(['single', 'married_joint', 'married_separate', 'head_household']).optional(),
+  "ownershipPercent": zod.number().optional(),
+  "ownerW2Wages": zod.number().optional(),
+  "otherW2Wages": zod.number().optional(),
+  "otherTaxableIncome": zod.number().optional(),
+  "aboveLineAdjustments": zod.number().optional(),
+  "itemizedDeductions": zod.number().optional(),
+  "qbiDeduction": zod.number().optional(),
+  "taxCredits": zod.number().optional(),
+  "federalWithholding": zod.number().optional(),
+  "estimatedPaymentsMade": zod.number().optional(),
+  "stateEffectiveRatePct": zod.number().optional(),
+  "partnershipSEIncomePercent": zod.number().optional(),
+  "reserveBufferRatePct": zod.number().optional()
+}).optional()
+})
+
+export const RunTaxPlannerEstimateResponse = zod.object({
+  "version": zod.string(),
+  "taxYear": zod.number(),
+  "entityType": zod.string(),
+  "businessProfitBeforeOwnerComp": zod.number(),
+  "ownerPassThroughIncome": zod.number(),
+  "ownerW2Wages": zod.number(),
+  "adjustedGrossIncomeEstimate": zod.number(),
+  "deductionUsed": zod.number(),
+  "taxableIncomeEstimate": zod.number(),
+  "components": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "amount": zod.number(),
+  "note": zod.string().optional()
+})),
+  "federalTaxEstimate": zod.number(),
+  "stateTaxEstimate": zod.number(),
+  "totalProjectedTax": zod.number(),
+  "creditsAndPrepayments": zod.number(),
+  "projectedBalanceDue": zod.number(),
+  "effectiveRateOnBusinessProfit": zod.number(),
+  "reserveRecommendation": zod.number(),
+  "quarterlyPayments": zod.array(zod.object({
+  "label": zod.string(),
+  "dueDate": zod.string(),
+  "suggestedPayment": zod.number()
+})),
+  "assumptions": zod.array(zod.string()),
+  "warnings": zod.array(zod.string()),
+  "disclaimer": zod.string()
+})
+
+
+/**
+ * @summary Compare projected tax across the five entity types
+ */
+export const CompareTaxPlannerEntitiesBody = zod.object({
+  "grossRevenue": zod.number(),
+  "ordinaryExpenses": zod.number(),
+  "settings": zod.object({
+  "entityType": zod.enum(['sole_proprietor', 'single_member_llc', 'partnership', 's_corp', 'c_corp']).optional(),
+  "filingStatus": zod.enum(['single', 'married_joint', 'married_separate', 'head_household']).optional(),
+  "ownershipPercent": zod.number().optional(),
+  "ownerW2Wages": zod.number().optional(),
+  "otherW2Wages": zod.number().optional(),
+  "otherTaxableIncome": zod.number().optional(),
+  "aboveLineAdjustments": zod.number().optional(),
+  "itemizedDeductions": zod.number().optional(),
+  "qbiDeduction": zod.number().optional(),
+  "taxCredits": zod.number().optional(),
+  "federalWithholding": zod.number().optional(),
+  "estimatedPaymentsMade": zod.number().optional(),
+  "stateEffectiveRatePct": zod.number().optional(),
+  "partnershipSEIncomePercent": zod.number().optional(),
+  "reserveBufferRatePct": zod.number().optional()
+}).optional()
+})
+
+export const CompareTaxPlannerEntitiesResponse = zod.object({
+  "scenarios": zod.array(zod.object({
+  "version": zod.string(),
+  "taxYear": zod.number(),
+  "entityType": zod.string(),
+  "businessProfitBeforeOwnerComp": zod.number(),
+  "ownerPassThroughIncome": zod.number(),
+  "ownerW2Wages": zod.number(),
+  "adjustedGrossIncomeEstimate": zod.number(),
+  "deductionUsed": zod.number(),
+  "taxableIncomeEstimate": zod.number(),
+  "components": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "amount": zod.number(),
+  "note": zod.string().optional()
+})),
+  "federalTaxEstimate": zod.number(),
+  "stateTaxEstimate": zod.number(),
+  "totalProjectedTax": zod.number(),
+  "creditsAndPrepayments": zod.number(),
+  "projectedBalanceDue": zod.number(),
+  "effectiveRateOnBusinessProfit": zod.number(),
+  "reserveRecommendation": zod.number(),
+  "quarterlyPayments": zod.array(zod.object({
+  "label": zod.string(),
+  "dueDate": zod.string(),
+  "suggestedPayment": zod.number()
+})),
+  "assumptions": zod.array(zod.string()),
+  "warnings": zod.array(zod.string()),
+  "disclaimer": zod.string()
+})),
+  "lowestProjectedTaxEntity": zod.string(),
+  "spread": zod.number(),
+  "warning": zod.string()
+})
+
+
+/**
  * @summary Yearly tax summary — sales tax collected and Schedule C expense lines
  */
 export const GetTaxReportQueryParams = zod.object({

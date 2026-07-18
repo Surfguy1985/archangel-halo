@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, RefreshCw, Trash2, Landmark, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { TaxPlannerSection } from "./TaxPlannerSection";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -69,7 +70,7 @@ function yearStart(): string {
   return `${new Date().getFullYear()}-01-01`;
 }
 
-type SubTab = "pnl" | "balance" | "cash" | "journal" | "accounts" | "tax" | "bank";
+type SubTab = "pnl" | "balance" | "cash" | "journal" | "accounts" | "tax" | "planner" | "bank";
 
 function ReportRows({
   rows,
@@ -305,6 +306,7 @@ export function BooksTab() {
     { key: "journal", label: "Journal" },
     { key: "accounts", label: "Accounts" },
     { key: "tax", label: "Taxes" },
+    { key: "planner", label: "Tax Planner" },
     { key: "bank", label: "Bank Match" },
   ];
 
@@ -571,6 +573,7 @@ export function BooksTab() {
       )}
 
       {sub === "tax" && <TaxSection />}
+      {sub === "planner" && <TaxPlannerSection />}
       {sub === "bank" && <BankSection />}
 
       <JournalEntryDialog open={entryOpen} onOpenChange={setEntryOpen} accounts={accounts} />

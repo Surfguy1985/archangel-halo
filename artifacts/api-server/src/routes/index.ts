@@ -20,6 +20,7 @@ import settingsRouter from "./settings";
 import plaidRouter from "./plaid";
 import geoRouter from "./geo";
 import accountingRouter from "./accounting";
+import taxPlannerRouter from "./taxPlanner";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(settingsRouter);
 router.use(plaidRouter);
 router.use(geoRouter);
 router.use(accountingRouter);
+router.use(taxPlannerRouter);
 
 export default router;

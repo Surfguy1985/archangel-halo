@@ -175,6 +175,11 @@ import type {
   ScheduleInput,
   SendInvoiceInput,
   SendPacketInput,
+  TaxEntityComparison,
+  TaxEstimate,
+  TaxPlannerRunInput,
+  TaxPlannerSettingsInput,
+  TaxPlannerState,
   TaxReport,
   TodayPayload,
   UploadUrlRequest,
@@ -11960,6 +11965,296 @@ export const useRebuildLedgerEntries = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRebuildLedgerEntriesMutationOptions(options));
+    }
+
+export const getGetTaxPlannerUrl = () => {
+
+
+
+
+  return `/api/accounting/tax-planner`
+}
+
+/**
+ * @summary Saved tax planner settings plus Books-derived prefill numbers
+ */
+export const getTaxPlanner = async ( options?: RequestInit): Promise<TaxPlannerState> => {
+
+  return customFetch<TaxPlannerState>(getGetTaxPlannerUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTaxPlannerQueryKey = () => {
+    return [
+    `/api/accounting/tax-planner`
+    ] as const;
+    }
+
+
+export const getGetTaxPlannerQueryOptions = <TData = Awaited<ReturnType<typeof getTaxPlanner>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTaxPlanner>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTaxPlannerQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTaxPlanner>>> = ({ signal }) => getTaxPlanner({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTaxPlanner>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTaxPlannerQueryResult = NonNullable<Awaited<ReturnType<typeof getTaxPlanner>>>
+export type GetTaxPlannerQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Saved tax planner settings plus Books-derived prefill numbers
+ */
+
+export function useGetTaxPlanner<TData = Awaited<ReturnType<typeof getTaxPlanner>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTaxPlanner>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTaxPlannerQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveTaxPlannerSettingsUrl = () => {
+
+
+
+
+  return `/api/accounting/tax-planner`
+}
+
+/**
+ * @summary Save tax planner settings
+ */
+export const saveTaxPlannerSettings = async (taxPlannerSettingsInput: TaxPlannerSettingsInput, options?: RequestInit): Promise<TaxPlannerState> => {
+
+  return customFetch<TaxPlannerState>(getSaveTaxPlannerSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(taxPlannerSettingsInput)
+  }
+);}
+
+
+
+
+
+export const getSaveTaxPlannerSettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveTaxPlannerSettings>>, TError,{data: BodyType<TaxPlannerSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveTaxPlannerSettings>>, TError,{data: BodyType<TaxPlannerSettingsInput>}, TContext> => {
+
+const mutationKey = ['saveTaxPlannerSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveTaxPlannerSettings>>, {data: BodyType<TaxPlannerSettingsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveTaxPlannerSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveTaxPlannerSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof saveTaxPlannerSettings>>>
+    export type SaveTaxPlannerSettingsMutationBody = BodyType<TaxPlannerSettingsInput>
+    export type SaveTaxPlannerSettingsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Save tax planner settings
+ */
+export const useSaveTaxPlannerSettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveTaxPlannerSettings>>, TError,{data: BodyType<TaxPlannerSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveTaxPlannerSettings>>,
+        TError,
+        {data: BodyType<TaxPlannerSettingsInput>},
+        TContext
+      > => {
+      return useMutation(getSaveTaxPlannerSettingsMutationOptions(options));
+    }
+
+export const getRunTaxPlannerEstimateUrl = () => {
+
+
+
+
+  return `/api/accounting/tax-planner/estimate`
+}
+
+/**
+ * @summary Run a 2026 federal planning estimate
+ */
+export const runTaxPlannerEstimate = async (taxPlannerRunInput: TaxPlannerRunInput, options?: RequestInit): Promise<TaxEstimate> => {
+
+  return customFetch<TaxEstimate>(getRunTaxPlannerEstimateUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(taxPlannerRunInput)
+  }
+);}
+
+
+
+
+
+export const getRunTaxPlannerEstimateMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runTaxPlannerEstimate>>, TError,{data: BodyType<TaxPlannerRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runTaxPlannerEstimate>>, TError,{data: BodyType<TaxPlannerRunInput>}, TContext> => {
+
+const mutationKey = ['runTaxPlannerEstimate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runTaxPlannerEstimate>>, {data: BodyType<TaxPlannerRunInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  runTaxPlannerEstimate(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunTaxPlannerEstimateMutationResult = NonNullable<Awaited<ReturnType<typeof runTaxPlannerEstimate>>>
+    export type RunTaxPlannerEstimateMutationBody = BodyType<TaxPlannerRunInput>
+    export type RunTaxPlannerEstimateMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Run a 2026 federal planning estimate
+ */
+export const useRunTaxPlannerEstimate = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runTaxPlannerEstimate>>, TError,{data: BodyType<TaxPlannerRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runTaxPlannerEstimate>>,
+        TError,
+        {data: BodyType<TaxPlannerRunInput>},
+        TContext
+      > => {
+      return useMutation(getRunTaxPlannerEstimateMutationOptions(options));
+    }
+
+export const getCompareTaxPlannerEntitiesUrl = () => {
+
+
+
+
+  return `/api/accounting/tax-planner/compare`
+}
+
+/**
+ * @summary Compare projected tax across the five entity types
+ */
+export const compareTaxPlannerEntities = async (taxPlannerRunInput: TaxPlannerRunInput, options?: RequestInit): Promise<TaxEntityComparison> => {
+
+  return customFetch<TaxEntityComparison>(getCompareTaxPlannerEntitiesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(taxPlannerRunInput)
+  }
+);}
+
+
+
+
+
+export const getCompareTaxPlannerEntitiesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compareTaxPlannerEntities>>, TError,{data: BodyType<TaxPlannerRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof compareTaxPlannerEntities>>, TError,{data: BodyType<TaxPlannerRunInput>}, TContext> => {
+
+const mutationKey = ['compareTaxPlannerEntities'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof compareTaxPlannerEntities>>, {data: BodyType<TaxPlannerRunInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  compareTaxPlannerEntities(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompareTaxPlannerEntitiesMutationResult = NonNullable<Awaited<ReturnType<typeof compareTaxPlannerEntities>>>
+    export type CompareTaxPlannerEntitiesMutationBody = BodyType<TaxPlannerRunInput>
+    export type CompareTaxPlannerEntitiesMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Compare projected tax across the five entity types
+ */
+export const useCompareTaxPlannerEntities = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof compareTaxPlannerEntities>>, TError,{data: BodyType<TaxPlannerRunInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof compareTaxPlannerEntities>>,
+        TError,
+        {data: BodyType<TaxPlannerRunInput>},
+        TContext
+      > => {
+      return useMutation(getCompareTaxPlannerEntitiesMutationOptions(options));
     }
 
 export const getGetTaxReportUrl = (params?: GetTaxReportParams,) => {

@@ -23,5 +23,6 @@
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.
 - [HALO Plaid credentials](halo-plaid-credentials.md) — Plaid uses PLAID_CLIENT_ID/PLAID_SECRET secrets (connector was dismissed); keys are PRODUCTION — sandbox endpoints won't work.
 - [HALO Books tax/AP/bank](halo-books-tax-banking.md) — tax is tax-inclusive & must be recomputed on every invoice write; bills post via AP 2000; bank imports locked per txn id.
+- [HALO Tax Planner](halo-tax-planner.md) — per-year rule packs; S/C-corp must deduct owner wages+payroll pre-tax; settings singleton survives reset; pcts→fractions at engine edge.
 - [OpenAPI naming vs orval](halo-openapi-naming.md) — schema names must not match <OperationId>Response/Body or codegen exports collide and typecheck:libs fails.
 - [HALO double-entry ledger](halo-ledger.md) — Books engine: every money mutation (REST and voice) must call syncXLedger; rebuild+syncs serialized by in-process mutex; JE numbering via advisory lock.

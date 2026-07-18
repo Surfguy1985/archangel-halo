@@ -2318,6 +2318,150 @@ export interface AccountLedger {
   entries: AccountLedgerLine[];
 }
 
+export type TaxPlannerSettingsDataEntityType = typeof TaxPlannerSettingsDataEntityType[keyof typeof TaxPlannerSettingsDataEntityType];
+
+
+export const TaxPlannerSettingsDataEntityType = {
+  sole_proprietor: 'sole_proprietor',
+  single_member_llc: 'single_member_llc',
+  partnership: 'partnership',
+  s_corp: 's_corp',
+  c_corp: 'c_corp',
+} as const;
+
+export type TaxPlannerSettingsDataFilingStatus = typeof TaxPlannerSettingsDataFilingStatus[keyof typeof TaxPlannerSettingsDataFilingStatus];
+
+
+export const TaxPlannerSettingsDataFilingStatus = {
+  single: 'single',
+  married_joint: 'married_joint',
+  married_separate: 'married_separate',
+  head_household: 'head_household',
+} as const;
+
+export interface TaxPlannerSettingsData {
+  entityType: TaxPlannerSettingsDataEntityType;
+  filingStatus: TaxPlannerSettingsDataFilingStatus;
+  ownershipPercent: number;
+  ownerW2Wages: number;
+  otherW2Wages: number;
+  otherTaxableIncome: number;
+  aboveLineAdjustments: number;
+  itemizedDeductions: number;
+  qbiDeduction: number;
+  taxCredits: number;
+  federalWithholding: number;
+  estimatedPaymentsMade: number;
+  stateEffectiveRatePct: number;
+  partnershipSEIncomePercent: number;
+  reserveBufferRatePct: number;
+}
+
+export type TaxPlannerSettingsInputEntityType = typeof TaxPlannerSettingsInputEntityType[keyof typeof TaxPlannerSettingsInputEntityType];
+
+
+export const TaxPlannerSettingsInputEntityType = {
+  sole_proprietor: 'sole_proprietor',
+  single_member_llc: 'single_member_llc',
+  partnership: 'partnership',
+  s_corp: 's_corp',
+  c_corp: 'c_corp',
+} as const;
+
+export type TaxPlannerSettingsInputFilingStatus = typeof TaxPlannerSettingsInputFilingStatus[keyof typeof TaxPlannerSettingsInputFilingStatus];
+
+
+export const TaxPlannerSettingsInputFilingStatus = {
+  single: 'single',
+  married_joint: 'married_joint',
+  married_separate: 'married_separate',
+  head_household: 'head_household',
+} as const;
+
+export interface TaxPlannerSettingsInput {
+  entityType?: TaxPlannerSettingsInputEntityType;
+  filingStatus?: TaxPlannerSettingsInputFilingStatus;
+  ownershipPercent?: number;
+  ownerW2Wages?: number;
+  otherW2Wages?: number;
+  otherTaxableIncome?: number;
+  aboveLineAdjustments?: number;
+  itemizedDeductions?: number;
+  qbiDeduction?: number;
+  taxCredits?: number;
+  federalWithholding?: number;
+  estimatedPaymentsMade?: number;
+  stateEffectiveRatePct?: number;
+  partnershipSEIncomePercent?: number;
+  reserveBufferRatePct?: number;
+}
+
+export interface TaxPlannerPrefill {
+  year: number;
+  daysElapsed: number;
+  ytdRevenue: number;
+  ytdExpenses: number;
+  ytdProfit: number;
+  annualizedRevenue: number;
+  annualizedExpenses: number;
+  annualizedProfit: number;
+}
+
+export interface TaxPlannerState {
+  settings: TaxPlannerSettingsData;
+  prefill: TaxPlannerPrefill;
+}
+
+export interface TaxPlannerRunInput {
+  grossRevenue: number;
+  ordinaryExpenses: number;
+  settings?: TaxPlannerSettingsInput;
+}
+
+export interface TaxComponentItem {
+  key: string;
+  label: string;
+  amount: number;
+  note?: string;
+}
+
+export interface TaxQuarterlyPayment {
+  label: string;
+  dueDate: string;
+  suggestedPayment: number;
+}
+
+export interface TaxEstimate {
+  version: string;
+  taxYear: number;
+  entityType: string;
+  businessProfitBeforeOwnerComp: number;
+  ownerPassThroughIncome: number;
+  ownerW2Wages: number;
+  adjustedGrossIncomeEstimate: number;
+  deductionUsed: number;
+  taxableIncomeEstimate: number;
+  components: TaxComponentItem[];
+  federalTaxEstimate: number;
+  stateTaxEstimate: number;
+  totalProjectedTax: number;
+  creditsAndPrepayments: number;
+  projectedBalanceDue: number;
+  effectiveRateOnBusinessProfit: number;
+  reserveRecommendation: number;
+  quarterlyPayments: TaxQuarterlyPayment[];
+  assumptions: string[];
+  warnings: string[];
+  disclaimer: string;
+}
+
+export interface TaxEntityComparison {
+  scenarios: TaxEstimate[];
+  lowestProjectedTaxEntity: string;
+  spread: number;
+  warning: string;
+}
+
 export type TaxReportScheduleCItem = {
   line: string;
   label: string;
