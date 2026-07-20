@@ -26,6 +26,7 @@
 - [HALO Books tax/AP/bank](halo-books-tax-banking.md) — tax is tax-inclusive & must be recomputed on every invoice write; bills post via AP 2000; bank imports locked per txn id.
 - [HALO Tax Planner](halo-tax-planner.md) — per-year rule packs; S/C-corp must deduct owner wages+payroll pre-tax; settings singleton survives reset; pcts→fractions at engine edge.
 - [HALO arrival detection](halo-arrival-detection.md) — lazy Nominatim geocode off the request path; dual client+server 4h dedupe; watcher must react live to the Settings toggle.
+- [HALO billing integration package](halo-billing-integration-package.md) — supplied billing spec/instructions live in repo-root /integration; audit-first workflow required before integrating.
 - [OpenAPI naming vs orval](halo-openapi-naming.md) — schema names must not match <OperationId>Response/Body or codegen exports collide and typecheck:libs fails.
 - [HALO Developer Portal](halo-devportal.md) — docs site is registry-driven; new uploaded doc = md file + one registry.ts entry, never hardcode links.
 - [HALO double-entry ledger](halo-ledger.md) — Books engine: every money mutation (REST and voice) must call syncXLedger; rebuild+syncs serialized by in-process mutex; JE numbering via advisory lock.
