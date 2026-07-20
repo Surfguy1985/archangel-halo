@@ -30,5 +30,6 @@
 - [OpenAPI naming vs orval](halo-openapi-naming.md) — schema names must not match <OperationId>Response/Body or codegen exports collide and typecheck:libs fails.
 - [HALO Developer Portal](halo-devportal.md) — docs site is registry-driven; new uploaded doc = md file + one registry.ts entry, never hardcode links.
 - [HALO expense approvals & receipts](halo-expense-approvals.md) — every expense aggregator/poster must filter approvalStatus==="approved" (pending AND rejected stay off the books, incl. ledger rebuild).
+- [HALO invoice quick-create](halo-invoice-quick-create.md) — tap-to-add price-book pills + dueTouched auto due date; mobile InvoiceEditor doubles as the edit form, don't break edit mode.
 - [HALO property hero images](halo-property-images.md) — runtime gpt-image-1 via OpenAI proxy, stored in object storage; keep the triple cost guard or paid regen loops happen.
 - [HALO double-entry ledger](halo-ledger.md) — Books engine: every money mutation (REST and voice) must call syncXLedger; rebuild+syncs serialized by in-process mutex; JE numbering via advisory lock.

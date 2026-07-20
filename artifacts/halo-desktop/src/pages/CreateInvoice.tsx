@@ -6,6 +6,7 @@ import {
   useListProperties,
   useGetBusinessSettings,
   useGetJob,
+  useGetProperty,
   getGetJobQueryKey,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
@@ -13,7 +14,7 @@ import {
   getGetTodayQueryKey,
   type InvoiceLineItemInput,
 } from "@workspace/api-client-react";
-import { ChevronLeft, Pencil, Plus, Save, Send, Trash2 } from "lucide-react";
+import { ChevronLeft, Pencil, Plus, Save, Send, Trash2, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,22 @@ const itemAmount = (it: ItemDraft) => {
 const labelCls =
   "text-[10px] font-bold uppercase tracking-wide text-[var(--gold-dark)]";
 
+const TERM_OPTIONS = [
+  { label: "On receipt", value: "Due on receipt", days: 0 },
+  { label: "Net 15", value: "Net 15", days: 15 },
+  { label: "Net 30", value: "Net 30", days: 30 },
+  { label: "Net 45", value: "Net 45", days: 45 },
+  { label: "Net 60", value: "Net 60", days: 60 },
+];
+
+const addDaysFrom = (base: string, days: number) => {
+  const [y, m, dd] = base.split("-").map(Number);
+  const d = new Date(y, (m ?? 1) - 1, dd ?? 1, 12);
+  d.setDate(d.getDate() + days);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 export default function CreateInvoice() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
@@ -78,7 +95,8 @@ export default function CreateInvoice() {
   const [poNumber, setPoNumber] = useState("");
   const [terms, setTerms] = useState("Net 30");
   const [issuedOn, setIssuedOn] = useState(todayLocal());
-  const [dueOn, setDueOn] = useState("");
+  const [dueOn, setDueOn] = useState(() => addDaysFrom(todayLocal(), 30));
+  const [dueTouched, setDueTouched] = useState(false);
   const [notes, setNotes] = useState("");
   const [paymentInstructions, setPaymentInstructions] = useState("");
   const [instructionsTouched, setInstructionsTouched] = useState(false);
@@ -107,6 +125,41 @@ export default function CreateInvoice() {
       setPropertyAddress([prop.name, prop.city].filter(Boolean).join(", "));
     }
   };
+
+  // Price book for the selected property → one-click line items.
+  const { data: propertyDetail } = useGetProperty(propertyId, {
+    query: { enabled: !!propertyId, queryKey: getGetPropertyQueryKey(propertyId) },
+  });
+  const priceItems = propertyDetail?.priceItems ?? [];
+
+  const quickAdd = (service: string, rate: number) => {
+    setItems((prev) => {
+      const existing = prev.find(
+        (it) => it.typeOfWork === service && parseFloat(it.unitPrice) === rate,
+      );
+      if (existing) {
+        return prev.map((it) =>
+          it === existing ? { ...it, qty: String((parseFloat(it.qty) || 1) + 1) } : it,
+        );
+      }
+      const kept = prev.filter((it) => it.typeOfWork.trim() || it.unitPrice.trim());
+      return [...kept, { ...emptyItem(), typeOfWork: service, unitPrice: String(rate) }];
+    });
+  };
+
+  // Terms drive the due date until the user overrides it manually.
+  const pickTerms = (value: string, days: number) => {
+    setTerms(value);
+    if (!dueTouched) setDueOn(addDaysFrom(issuedOn || todayLocal(), days));
+  };
+
+  // Keep the auto due date in sync when the invoice date changes.
+  useEffect(() => {
+    if (dueTouched || !issuedOn) return;
+    const opt = TERM_OPTIONS.find((t) => t.value === terms);
+    if (opt) setDueOn(addDaysFrom(issuedOn, opt.days));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issuedOn]);
 
   // Prefill from ?jobId=&propertyId= (the "Create invoice" shortcut on a job).
   const search = useSearch();
@@ -310,36 +363,68 @@ export default function CreateInvoice() {
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Due date</div>
-                  <Input type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} />
+                  <Input
+                    type="date"
+                    value={dueOn}
+                    onChange={(e) => {
+                      setDueTouched(true);
+                      setDueOn(e.target.value);
+                    }}
+                  />
                 </div>
-                <div>
+                <div className="col-span-2">
                   <div className="text-xs text-muted-foreground mb-1">Terms</div>
-                  <Select value={terms} onValueChange={setTerms}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["Due on receipt", "Net 15", "Net 30", "Net 45", "Net 60"].map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-1 bg-muted/60 rounded-full p-1">
+                    {TERM_OPTIONS.map((t) => (
+                      <button
+                        key={t.value}
+                        onClick={() => pickTerms(t.value, t.days)}
+                        className={`flex-1 py-1.5 px-1 rounded-full text-[11px] font-bold transition-all ${
+                          terms === t.value
+                            ? "bg-card shadow-sm text-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <div className="text-xs text-muted-foreground mb-1">PO number</div>
                   <Input value={poNumber} onChange={(e) => setPoNumber(e.target.value)} placeholder="Optional" />
                 </div>
               </div>
-              {!dueOn && (
-                <p className="text-xs text-muted-foreground">No due date set — defaults to 30 days out.</p>
-              )}
             </div>
           </div>
 
           {/* Line items */}
           <div className="pt-4 border-t border-border">
+            {propertyId && priceItems.length > 0 && (
+              <div className="mb-4 p-3 rounded-xl bg-[rgba(185,138,47,0.06)] border border-[rgba(185,138,47,0.18)]">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Zap className="w-3.5 h-3.5 text-[var(--gold-dark)]" />
+                  <span className={labelCls}>Click to add from this property's price book</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {priceItems.map((pi) => (
+                    <button
+                      key={pi.id}
+                      onClick={() => quickAdd(pi.service, pi.rate)}
+                      className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-card border border-border shadow-sm text-[13px] font-semibold hover:border-[var(--gold)] active:scale-95 transition-all"
+                    >
+                      {pi.service}
+                      <span className="text-xs font-bold text-[var(--gold-dark)] tabular-nums">
+                        {money(pi.rate)}
+                      </span>
+                      <span className="w-4 h-4 rounded-full bg-[rgba(185,138,47,0.14)] grid place-items-center">
+                        <Plus className="w-2.5 h-2.5 text-[var(--gold-dark)]" strokeWidth={3} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="hidden md:grid grid-cols-[110px_70px_1fr_64px_96px_96px_32px] gap-2 px-1 pb-2">
               {["Date", "Unit #", "Type of work / description", "Qty", "Unit price", "Amount", ""].map((h) => (
                 <span key={h} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
