@@ -1,14 +1,39 @@
-import { useListProperties } from "@workspace/api-client-react";
+import { useListProperties, useGeneratePropertyImage, getListPropertiesQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Building, Plus, Search } from "lucide-react";
-import { useState } from "react";
+import { Building, Plus, Search, MapPin, Briefcase, Building2, Sparkles } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AddPropertyDialog } from "@/components/PropertyDialogs";
+
+function useAutoGenerateImages(properties?: { id: string; imagePath?: string | null }[]) {
+  const queryClient = useQueryClient();
+  const requested = useRef<Set<string>>(new Set());
+  const { mutate } = useGeneratePropertyImage({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
+      },
+    },
+  });
+
+  useEffect(() => {
+    if (!properties) return;
+    for (const p of properties) {
+      if (!p.imagePath && !requested.current.has(p.id)) {
+        requested.current.add(p.id);
+        mutate({ id: p.id });
+      }
+    }
+  }, [properties, mutate]);
+}
 
 export default function Properties() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const { data: properties, isLoading } = useListProperties();
+
+  useAutoGenerateImages(properties);
 
   const filtered = properties?.filter(p => 
     p.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -16,7 +41,7 @@ export default function Properties() {
   ) || [];
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
+    <div className="p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">Properties</h1>
@@ -45,67 +70,93 @@ export default function Properties() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-4">
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-20 w-full" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <Skeleton className="h-[260px] w-full rounded-2xl" />
+          <Skeleton className="h-[260px] w-full rounded-2xl" />
+          <Skeleton className="h-[260px] w-full rounded-2xl" />
         </div>
       ) : (
-        <div data-tour="properties-list" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[var(--paper)] border-b border-border">
-              <tr>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Property</th>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Location</th>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs text-right">Owed</th>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs text-right">Open Jobs</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map(p => (
-                <tr key={p.id} className="hover:bg-black/[0.02] transition-colors group">
-                  <td className="px-6 py-4">
-                    <Link href={`/properties/${p.id}`} className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[var(--gold-tint)] flex items-center justify-center text-[var(--gold-dark)] group-hover:bg-[var(--gold)] group-hover:text-white transition-colors">
-                        <Building className="w-5 h-5" />
+        <div data-tour="properties-list" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filtered.map(p => {
+            const hasOwed = p.owed > 0;
+            const hasJobs = p.openJobs > 0;
+            return (
+              <Link
+                key={p.id}
+                href={`/properties/${p.id}`}
+                className="group relative block rounded-2xl overflow-hidden bg-[var(--ink)] shadow-[0_8px_30px_rgba(23,24,28,0.12)] hover:shadow-[0_16px_44px_rgba(23,24,28,0.22)] hover:-translate-y-0.5 transition-all duration-300"
+              >
+                <div className="relative w-full aspect-[3/2]">
+                  {p.imagePath ? (
+                    <img
+                      src={`/api/storage${p.imagePath}`}
+                      alt={p.name}
+                      loading="lazy"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-[linear-gradient(135deg,#2a2b31,#17181c)] flex flex-col items-center justify-center gap-2.5">
+                      <div className="w-12 h-12 rounded-xl bg-white/[0.06] border border-white/[0.08] grid place-items-center">
+                        <Building2 className="w-6 h-6 text-white/40" />
                       </div>
-                      <div>
-                        <div className="font-semibold text-[var(--ink)] text-base group-hover:text-[var(--gold-dark)] transition-colors">{p.name}</div>
-                        <div className="text-muted-foreground">{p.pmcName || 'Independent'}</div>
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-white/50 uppercase tracking-[0.1em]">
+                        <Sparkles className="w-3 h-3 animate-pulse" />
+                        Creating photo
                       </div>
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4 text-muted-foreground">
-                    {p.city || '—'}
-                    {p.units ? <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-black/5">{p.units} units</span> : null}
-                  </td>
-                  <td className="px-6 py-4 text-right font-mono font-medium">
-                    {p.owed > 0 ? (
-                      <span className="text-destructive">${p.owed.toLocaleString()}</span>
-                    ) : (
-                      <span className="text-muted-foreground">$0</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    {p.openJobs > 0 ? (
-                      <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full bg-[var(--gold-tint)] text-[var(--gold-dark)] font-bold text-xs">
-                        {p.openJobs}
+                    </div>
+                  )}
+
+                  {/* Bottom scrim */}
+                  <div className="absolute inset-x-0 bottom-0 h-[65%] bg-[linear-gradient(to_top,rgba(10,10,12,0.88),rgba(10,10,12,0.45)_45%,transparent)]" />
+
+                  {/* Badges */}
+                  <div className="absolute top-3.5 right-3.5 flex flex-col items-end gap-1.5">
+                    {hasOwed && (
+                      <span className="px-3 py-1 rounded-full bg-white/90 backdrop-blur-md text-[var(--ink)] text-xs font-bold tabular-nums shadow-sm">
+                        ${p.owed.toLocaleString()} owed
                       </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
                     )}
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-muted-foreground">
-                    No properties found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    {hasJobs && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md text-white text-[11px] font-bold shadow-sm">
+                        <Briefcase className="w-2.5 h-2.5" />
+                        {p.openJobs} active
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Text */}
+                  <div className="absolute inset-x-0 bottom-0 p-5">
+                    <div className="font-display font-bold text-[22px] leading-[1.1] tracking-[-0.02em] text-white drop-shadow-sm mb-1">
+                      {p.name}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[13px] font-medium text-white/75">
+                      {p.city && (
+                        <span className="flex items-center gap-1 shrink-0">
+                          <MapPin className="w-3 h-3" />
+                          {p.city}
+                        </span>
+                      )}
+                      {p.city && p.pmcName && <span className="opacity-50">•</span>}
+                      {p.pmcName && <span className="truncate">{p.pmcName}</span>}
+                      {!p.city && !p.pmcName && <span>No location set</span>}
+                      {p.units ? (
+                        <>
+                          <span className="opacity-50">•</span>
+                          <span className="shrink-0">{p.units} units</span>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+          {filtered.length === 0 && (
+            <div className="col-span-full flex flex-col items-center justify-center py-16 text-center bg-card rounded-2xl border border-border">
+              <Building className="w-8 h-8 text-muted-foreground/40 mb-3" />
+              <div className="text-muted-foreground">No properties found.</div>
+            </div>
+          )}
         </div>
       )}
     </div>

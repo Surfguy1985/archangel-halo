@@ -1046,6 +1046,77 @@ export const useWritePropertyBrief = <TError = ErrorType<unknown>,
       return useMutation(getWritePropertyBriefMutationOptions(options));
     }
 
+export const getGeneratePropertyImageUrl = (id: string,) => {
+
+
+
+
+  return `/api/properties/${id}/image`
+}
+
+/**
+ * @summary AI-generate a hero image for the property
+ */
+export const generatePropertyImage = async (id: string, options?: RequestInit): Promise<Property> => {
+
+  return customFetch<Property>(getGeneratePropertyImageUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getGeneratePropertyImageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generatePropertyImage>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generatePropertyImage>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['generatePropertyImage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generatePropertyImage>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  generatePropertyImage(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GeneratePropertyImageMutationResult = NonNullable<Awaited<ReturnType<typeof generatePropertyImage>>>
+
+    export type GeneratePropertyImageMutationError = ErrorType<unknown>
+
+    /**
+ * @summary AI-generate a hero image for the property
+ */
+export const useGeneratePropertyImage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generatePropertyImage>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof generatePropertyImage>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getGeneratePropertyImageMutationOptions(options));
+    }
+
 export const getListCatalogItemsUrl = () => {
 
 

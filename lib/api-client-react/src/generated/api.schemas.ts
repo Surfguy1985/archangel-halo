@@ -93,6 +93,8 @@ export interface Property {
   /** @nullable */
   accessNotes?: string | null;
   /** @nullable */
+  imagePath?: string | null;
+  /** @nullable */
   brief?: string | null;
   /** @nullable */
   briefUpdatedAt?: string | null;
@@ -126,6 +128,10 @@ export interface PropertySummary {
   openJobs: number;
   /** @nullable */
   marginPct?: number | null;
+  /** @nullable */
+  imagePath?: string | null;
+  /** @nullable */
+  address?: string | null;
 }
 
 export interface Contact {

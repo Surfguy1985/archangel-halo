@@ -112,7 +112,9 @@ export const ListPropertiesResponseItem = zod.object({
   "units": zod.number().nullish(),
   "owed": zod.number(),
   "openJobs": zod.number(),
-  "marginPct": zod.number().nullish()
+  "marginPct": zod.number().nullish(),
+  "imagePath": zod.string().nullish(),
+  "address": zod.string().nullish()
 })
 export const ListPropertiesResponse = zod.array(ListPropertiesResponseItem)
 
@@ -156,6 +158,7 @@ export const CreatePropertyResponse = zod.object({
   "city": zod.string().nullish(),
   "units": zod.number().nullish(),
   "accessNotes": zod.string().nullish(),
+  "imagePath": zod.string().nullish(),
   "brief": zod.string().nullish(),
   "briefUpdatedAt": zod.string().nullish(),
   "avgDaysToPay": zod.number().nullish(),
@@ -182,6 +185,7 @@ export const GetPropertyResponse = zod.object({
   "city": zod.string().nullish(),
   "units": zod.number().nullish(),
   "accessNotes": zod.string().nullish(),
+  "imagePath": zod.string().nullish(),
   "brief": zod.string().nullish(),
   "briefUpdatedAt": zod.string().nullish(),
   "avgDaysToPay": zod.number().nullish(),
@@ -365,6 +369,7 @@ export const UpdatePropertyResponse = zod.object({
   "city": zod.string().nullish(),
   "units": zod.number().nullish(),
   "accessNotes": zod.string().nullish(),
+  "imagePath": zod.string().nullish(),
   "brief": zod.string().nullish(),
   "briefUpdatedAt": zod.string().nullish(),
   "avgDaysToPay": zod.number().nullish(),
@@ -402,6 +407,33 @@ export const WritePropertyBriefResponse = zod.object({
   "city": zod.string().nullish(),
   "units": zod.number().nullish(),
   "accessNotes": zod.string().nullish(),
+  "imagePath": zod.string().nullish(),
+  "brief": zod.string().nullish(),
+  "briefUpdatedAt": zod.string().nullish(),
+  "avgDaysToPay": zod.number().nullish(),
+  "marginMin": zod.number().nullish().describe('Fraction, e.g. 0.25 = 25%'),
+  "marginTarget": zod.number().nullish().describe('Fraction, e.g. 0.35 = 35%'),
+  "status": zod.string(),
+  "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary AI-generate a hero image for the property
+ */
+export const GeneratePropertyImageParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GeneratePropertyImageResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "pmcName": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "units": zod.number().nullish(),
+  "accessNotes": zod.string().nullish(),
+  "imagePath": zod.string().nullish(),
   "brief": zod.string().nullish(),
   "briefUpdatedAt": zod.string().nullish(),
   "avgDaysToPay": zod.number().nullish(),

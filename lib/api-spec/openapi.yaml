@@ -242,6 +242,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/Property"
 
+  /properties/{id}/image:
+    post:
+      operationId: generatePropertyImage
+      tags: [properties]
+      summary: AI-generate a hero image for the property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Image generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Property"
+
   /catalog-items:
     get:
       operationId: listCatalogItems
@@ -3921,6 +3940,7 @@ components:
         city: { type: ["string", "null"] }
         units: { type: ["integer", "null"] }
         accessNotes: { type: ["string", "null"] }
+        imagePath: { type: ["string", "null"] }
         brief: { type: ["string", "null"] }
         briefUpdatedAt: { type: ["string", "null"] }
         avgDaysToPay: { type: ["number", "null"] }
@@ -3940,6 +3960,8 @@ components:
         owed: { type: number }
         openJobs: { type: integer }
         marginPct: { type: ["number", "null"] }
+        imagePath: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
     PropertyDetail:
       type: object
       required: [property, contacts, priceItems, jobs, expenses, agreements, invoices, upcomingVisits, stats]

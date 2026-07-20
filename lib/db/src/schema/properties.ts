@@ -19,6 +19,8 @@ export const propertiesTable = pgTable("properties", {
   latitude: doublePrecision("latitude"),
   longitude: doublePrecision("longitude"),
   geocodedAt: timestamp("geocoded_at", { withTimezone: true }),
+  imagePath: text("image_path"),
+  imageGeneratedAt: timestamp("image_generated_at", { withTimezone: true }),
   brief: text("brief"),
   briefUpdatedAt: timestamp("brief_updated_at", { withTimezone: true }),
   avgDaysToPay: doublePrecision("avg_days_to_pay"),

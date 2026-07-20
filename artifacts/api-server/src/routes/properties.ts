@@ -58,6 +58,10 @@ import {
 } from "@workspace/api-zod";
 import { ser, serList } from "../lib/serialize";
 import { completeText } from "../lib/ai";
+import {
+  GeneratePropertyImageParams,
+  GeneratePropertyImageResponse,
+} from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
@@ -120,6 +124,12 @@ router.post("/properties", async (req, res): Promise<void> => {
         : {}),
     })
     .returning();
+  // Kick off hero image generation in the background — never blocks creation.
+  if (row) {
+    generateAndStorePropertyImage(row.id).catch((err) =>
+      req.log.error({ err }, "Background property image generation failed"),
+    );
+  }
   res.status(201).json(CreatePropertyResponse.parse(ser(row)));
 });
 
@@ -683,6 +693,103 @@ router.post("/properties/:id/brief", async (req, res): Promise<void> => {
     .returning();
 
   res.json(WritePropertyBriefResponse.parse(ser(row)));
+});
+
+// ---------------------------------------------------------------------------
+// AI property hero image generation
+// ---------------------------------------------------------------------------
+
+const imageInFlight = new Set<string>();
+
+async function generateAndStorePropertyImage(propertyId: string): Promise<
+  typeof propertiesTable.$inferSelect | null
+> {
+  if (imageInFlight.has(propertyId)) return null;
+  imageInFlight.add(propertyId);
+  try {
+    const [property] = await db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, propertyId));
+    if (!property) return null;
+    // Never regenerate an existing image — caps spend.
+    if (property.imagePath) return property;
+
+    const locationBits = [property.address, property.city]
+      .filter(Boolean)
+      .join(", ");
+    const sizeHint =
+      property.units && property.units > 40
+        ? "a large multi-building apartment community"
+        : property.units && property.units > 8
+          ? "a mid-size garden-style apartment complex"
+          : property.units && property.units > 1
+            ? "a small residential multifamily building"
+            : "a well-kept commercial/residential property";
+
+    const prompt = [
+      `Photorealistic golden-hour aerial photograph of ${sizeHint}`,
+      locationBits ? `located at ${locationBits}` : "in an American suburb",
+      `named "${property.name}".`,
+      "Shot from a drone at roughly 60 meters, three-quarter angle, architectural photography style.",
+      "Manicured landscaping, clean parking areas, warm late-afternoon light, soft long shadows, clear sky.",
+      "Realistic regional architecture consistent with the location. No people, no text, no watermarks, no logos.",
+      "High-end real-estate marketing photo, crisp, natural colors, Apple-advert level of polish.",
+    ].join(" ");
+
+    const { generateImageBuffer } = await import(
+      "@workspace/integrations-openai-ai-server/image"
+    );
+    const buffer = await generateImageBuffer(prompt, "1536x1024");
+    if (!buffer || buffer.length === 0) {
+      throw new Error("Empty image buffer returned");
+    }
+
+    const { ObjectStorageService } = await import("../lib/objectStorage");
+    const svc = new ObjectStorageService();
+    const uploadURL = await svc.getObjectEntityUploadURL();
+    const putRes = await fetch(uploadURL, {
+      method: "PUT",
+      headers: { "Content-Type": "image/png" },
+      body: new Uint8Array(buffer),
+    });
+    if (!putRes.ok) {
+      throw new Error(`Storage upload failed: ${putRes.status}`);
+    }
+    const imagePath = svc.normalizeObjectEntityPath(uploadURL);
+
+    const [row] = await db
+      .update(propertiesTable)
+      .set({ imagePath, imageGeneratedAt: new Date() })
+      .where(eq(propertiesTable.id, propertyId))
+      .returning();
+    return row ?? null;
+  } finally {
+    imageInFlight.delete(propertyId);
+  }
+}
+
+router.post("/properties/:id/image", async (req, res): Promise<void> => {
+  const { id } = GeneratePropertyImageParams.parse(req.params);
+  const [existing] = await db
+    .select()
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Property not found" });
+    return;
+  }
+  if (imageInFlight.has(id)) {
+    res.json(GeneratePropertyImageResponse.parse(ser(existing)));
+    return;
+  }
+  try {
+    const row = await generateAndStorePropertyImage(id);
+    res.json(GeneratePropertyImageResponse.parse(ser(row ?? existing)));
+  } catch (err) {
+    req.log.error({ err }, "Property image generation failed");
+    res.status(500).json({ error: "Image generation failed" });
+  }
 });
 
 export default router;

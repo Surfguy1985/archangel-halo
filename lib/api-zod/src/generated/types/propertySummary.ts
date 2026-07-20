@@ -19,4 +19,8 @@ export interface PropertySummary {
   openJobs: number;
   /** @nullable */
   marginPct?: number | null;
+  /** @nullable */
+  imagePath?: string | null;
+  /** @nullable */
+  address?: string | null;
 }

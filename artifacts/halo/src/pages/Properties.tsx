@@ -1,15 +1,39 @@
-import { useListProperties } from "@workspace/api-client-react";
-import { Search, Plus, MapPin, Briefcase, ChevronRight, Building2 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useListProperties, useGeneratePropertyImage, getListPropertiesQueryKey } from "@workspace/api-client-react";
+import { Search, Plus, MapPin, Briefcase, Building2, Sparkles } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { AddPropertySheet } from "@/components/AddPropertySheet";
+
+function useAutoGenerateImages(properties?: { id: string; imagePath?: string | null }[]) {
+  const queryClient = useQueryClient();
+  const requested = useRef<Set<string>>(new Set());
+  const { mutate } = useGeneratePropertyImage({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
+      },
+    },
+  });
+
+  useEffect(() => {
+    if (!properties) return;
+    for (const p of properties) {
+      if (!p.imagePath && !requested.current.has(p.id)) {
+        requested.current.add(p.id);
+        mutate({ id: p.id });
+      }
+    }
+  }, [properties, mutate]);
+}
 
 export default function Properties() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const { data: properties, isLoading } = useListProperties({ search: search || undefined });
 
-  // Quick summary stats if no search is active
+  useAutoGenerateImages(properties);
+
   const totalOwed = useMemo(() => properties?.reduce((sum, p) => sum + p.owed, 0) || 0, [properties]);
   const activeJobs = useMemo(() => properties?.reduce((sum, p) => sum + p.openJobs, 0) || 0, [properties]);
 
@@ -68,70 +92,76 @@ export default function Properties() {
       </div>
 
       {isLoading ? (
-        <div className="animate-pulse space-y-[12px] px-[6px]">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-[90px] bg-card rounded-[24px]"></div>)}
+        <div className="animate-pulse space-y-[16px] px-[6px]">
+          {[1, 2, 3].map(i => <div key={i} className="h-[240px] bg-card rounded-[28px]"></div>)}
         </div>
       ) : (
-        <div className="flex flex-col gap-[12px] px-[6px]">
+        <div className="flex flex-col gap-[16px] px-[6px]">
           {properties?.map(p => {
             const hasOwed = p.owed > 0;
             const hasJobs = p.openJobs > 0;
-            
+
             return (
               <Link
                 key={p.id}
                 href={`/properties/${p.id}`}
-                className="group relative block bg-card rounded-[24px] p-[16px] shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-[rgba(23,24,28,0.03)] cursor-pointer overflow-hidden transition-transform active:scale-[0.98]"
+                className="group relative block rounded-[28px] overflow-hidden shadow-[0_8px_28px_rgba(23,24,28,0.12)] cursor-pointer transition-transform active:scale-[0.98] bg-[var(--ink)]"
               >
-                {/* Decorative background accent based on status */}
-                <div className={`absolute top-0 right-0 w-[120px] h-[120px] opacity-[0.03] pointer-events-none rounded-full blur-2xl transition-colors ${hasOwed ? 'bg-destructive' : hasJobs ? 'bg-blue-500' : 'bg-[var(--gold)]'} -translate-y-1/2 translate-x-1/4`}></div>
-                
-                <div className="flex items-start gap-[14px] relative z-10">
-                  <div className="w-[46px] h-[46px] rounded-[16px] bg-[linear-gradient(135deg,rgba(185,138,47,0.1),rgba(185,138,47,0.2))] text-[var(--gold-dark)] flex items-center justify-center shrink-0 shadow-inner">
-                    <Building2 className="w-[20px] h-[20px]" />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0 pt-[2px]">
-                    <div className="flex justify-between items-start gap-[12px] mb-[4px]">
-                      <div className="font-semibold text-[17px] tracking-[-0.01em] text-[var(--ink)] truncate">
-                        {p.name}
+                {/* Full-bleed hero image */}
+                <div className="relative w-full aspect-[3/2]">
+                  {p.imagePath ? (
+                    <img
+                      src={`/api/storage${p.imagePath}`}
+                      alt={p.name}
+                      loading="lazy"
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-[linear-gradient(135deg,#2a2b31,#17181c)] flex flex-col items-center justify-center gap-[10px]">
+                      <div className="w-[52px] h-[52px] rounded-[18px] bg-white/[0.06] border border-white/[0.08] grid place-items-center">
+                        <Building2 className="w-[24px] h-[24px] text-white/40" />
                       </div>
-                      <div className={`font-display font-bold text-[16px] tabular-nums shrink-0 ${hasOwed ? "text-destructive" : "text-muted-foreground/50"}`}>
-                        ${p.owed.toLocaleString()}
+                      <div className="flex items-center gap-[6px] text-[12px] font-semibold text-white/50 uppercase tracking-[0.1em]">
+                        <Sparkles className="w-[12px] h-[12px] animate-pulse" />
+                        Creating photo
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-[6px] text-[13px] text-muted-foreground truncate mb-[12px]">
+                  )}
+
+                  {/* Apple-style bottom gradient scrim */}
+                  <div className="absolute inset-x-0 bottom-0 h-[65%] bg-[linear-gradient(to_top,rgba(10,10,12,0.88),rgba(10,10,12,0.45)_45%,transparent)]" />
+
+                  {/* Top-right badges */}
+                  <div className="absolute top-[14px] right-[14px] flex flex-col items-end gap-[6px]">
+                    {hasOwed && (
+                      <span className="px-[12px] py-[5px] rounded-full bg-white/90 backdrop-blur-md text-[var(--ink)] text-[13px] font-bold tabular-nums shadow-sm">
+                        ${p.owed.toLocaleString()} owed
+                      </span>
+                    )}
+                    {hasJobs && (
+                      <span className="inline-flex items-center gap-[5px] px-[12px] py-[5px] rounded-full bg-black/40 backdrop-blur-md text-white text-[12px] font-bold shadow-sm">
+                        <Briefcase className="w-[11px] h-[11px]" />
+                        {p.openJobs} active
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Bottom text block */}
+                  <div className="absolute inset-x-0 bottom-0 p-[18px]">
+                    <div className="font-display font-bold text-[24px] leading-[1.1] tracking-[-0.02em] text-white drop-shadow-sm mb-[5px]">
+                      {p.name}
+                    </div>
+                    <div className="flex items-center gap-[6px] text-[13px] font-medium text-white/75">
                       {p.city && (
-                        <span className="flex items-center gap-[3px] shrink-0">
+                        <span className="flex items-center gap-[4px] shrink-0">
                           <MapPin className="w-[12px] h-[12px]" />
                           {p.city}
                         </span>
                       )}
-                      {p.city && p.pmcName && <span className="opacity-40">•</span>}
-                      {p.pmcName && (
-                        <span className="truncate">{p.pmcName}</span>
-                      )}
-                      {!p.city && !p.pmcName && <span>No location/PMC set</span>}
+                      {p.city && p.pmcName && <span className="opacity-50">•</span>}
+                      {p.pmcName && <span className="truncate">{p.pmcName}</span>}
+                      {!p.city && !p.pmcName && <span>No location set</span>}
                     </div>
-
-                    <div className="flex items-center gap-[8px]">
-                      {hasJobs ? (
-                        <span className="inline-flex items-center gap-[4px] px-[10px] py-[4px] rounded-full bg-blue-500/10 text-blue-700 text-[11px] font-bold tracking-wide uppercase">
-                          <Briefcase className="w-[10px] h-[10px]" />
-                          {p.openJobs} Active Job{p.openJobs === 1 ? '' : 's'}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-[4px] px-[10px] py-[4px] rounded-full bg-[rgba(23,24,28,0.05)] text-muted-foreground text-[11px] font-bold tracking-wide uppercase">
-                          <Briefcase className="w-[10px] h-[10px]" />
-                          0 Open Jobs
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="shrink-0 self-center pl-[4px]">
-                    <ChevronRight className="w-[20px] h-[20px] text-muted-foreground/30 group-hover:translate-x-[2px] transition-transform" />
                   </div>
                 </div>
               </Link>

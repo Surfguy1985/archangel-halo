@@ -20,6 +20,8 @@ export interface Property {
   /** @nullable */
   accessNotes?: string | null;
   /** @nullable */
+  imagePath?: string | null;
+  /** @nullable */
   brief?: string | null;
   /** @nullable */
   briefUpdatedAt?: string | null;
