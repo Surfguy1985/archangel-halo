@@ -72,9 +72,11 @@
     "vaul": "^1.1.2",
     "vite": "catalog:",
     "wouter": "^3.3.5",
+    "xlsx": "^0.18.5",
     "zod": "catalog:"
   },
   "dependencies": {
+    "@scalar/api-reference-react": "^0.9.58",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   }

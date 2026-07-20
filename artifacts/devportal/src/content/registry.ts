@@ -1,5 +1,6 @@
 import billingService from "./billing-service.md?raw";
 import billingIntegrationAddendum from "./billing-integration-addendum.md?raw";
+import pricingModel from "./pricing-model.md?raw";
 
 export interface DocEntry {
   slug: string;
@@ -25,5 +26,13 @@ export const docs: DocEntry[] = [
     description:
       "Commercial source of truth, collection models (partner wholesale, HALO direct, Stripe Connect), charge timing, enterprise pricing boundaries, and integration sequence.",
     markdown: billingIntegrationAddendum,
+  },
+  {
+    slug: "pricing-model",
+    title: "User-Tier Pricing Model",
+    category: "Commercial",
+    description:
+      "50-user pricing bands, a-la-carte module rates, API usage and overage pricing, wholesale calculator, enterprise triggers, and billing definitions.",
+    markdown: pricingModel,
   },
 ];

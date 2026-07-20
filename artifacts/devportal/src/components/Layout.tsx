@@ -33,6 +33,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
               <Link href="/" className={location === "/" ? "text-foreground" : "hover:text-foreground transition-colors"}>Home</Link>
               <Link href={docs.length > 0 ? `/docs/${docs[0].slug}` : "/"} className={location.startsWith("/docs") ? "text-foreground" : "hover:text-foreground transition-colors"}>Documentation</Link>
+              <Link href="/api-reference" className="hover:text-foreground transition-colors">API Reference</Link>
             </nav>
           </div>
 

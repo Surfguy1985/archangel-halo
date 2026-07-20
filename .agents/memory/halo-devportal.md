@@ -9,3 +9,5 @@ The devportal (previewPath /devportal/) is frontend-only, no backend. All docs a
 **Why:** the user will upload many docs over time; hardcoded links (like the original "/docs/billing-service" nav link) go stale.
 
 **How to apply:** headings/TOC use a single shared slugify + extractText in Doc.tsx — keep TOC extraction and heading id generation in sync. Tailwind v4: `@apply ... !important` is invalid and 500s the dev server; don't use it.
+
+Non-markdown uploads: OpenAPI specs render via @scalar/api-reference-react on the /api-reference route (outside Layout, spec at src/content/halo-openapi.yaml via ?raw). Spreadsheets convert with `node scripts/xlsx-to-md.cjs <xlsx> <out.md> "<title>"` then register the md as usual; rerun the script on spreadsheet revisions instead of hand-editing the generated md.
