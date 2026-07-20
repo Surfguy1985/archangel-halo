@@ -22,3 +22,13 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+HALO_INTERNAL_JOB_SECRET = "ca11ebbe426c5e3780069978f99c66ccb067dbb43c520352242106b1f0d1ba64"
+HALO_API_KEY_PEPPER = "913f771ce9f1a153cd2962afdbc117512e5781c4265120e6c3e14afc1037d649"
+HALO_API_BASE_URL = "https://bff8695c-1bc6-462a-82ec-dbe35b22681d-00-wh8czlva3w1n.spock.replit.dev/api"
+HALO_DASHBOARD_URL = "https://bff8695c-1bc6-462a-82ec-dbe35b22681d-00-wh8czlva3w1n.spock.replit.dev/desktop/"
+PUBLIC_APP_URL = "https://bff8695c-1bc6-462a-82ec-dbe35b22681d-00-wh8czlva3w1n.spock.replit.dev/"
+ALLOWED_ORIGINS = "https://bff8695c-1bc6-462a-82ec-dbe35b22681d-00-wh8czlva3w1n.spock.replit.dev"
