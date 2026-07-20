@@ -1,6 +1,7 @@
 import billingService from "./billing-service.md?raw";
 import billingIntegrationAddendum from "./billing-integration-addendum.md?raw";
 import pricingModel from "./pricing-model.md?raw";
+import pricingConfig from "./pricing-config.md?raw";
 
 export interface DocEntry {
   slug: string;
@@ -34,5 +35,13 @@ export const docs: DocEntry[] = [
     description:
       "50-user pricing bands, a-la-carte module rates, API usage and overage pricing, wholesale calculator, enterprise triggers, and billing definitions.",
     markdown: pricingModel,
+  },
+  {
+    slug: "pricing-config",
+    title: "Pricing Configuration (JSON)",
+    category: "Commercial",
+    description:
+      "Machine-readable pricing config v2.1.0: tiers, module rates, bundles, API overage bands, enterprise framework, and collection model.",
+    markdown: pricingConfig,
   },
 ];
