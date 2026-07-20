@@ -27,4 +27,20 @@ export interface Expense {
   paidAt?: string | null;
   /** @nullable */
   spentOn?: string | null;
+  /**
+     * Storage path of the attached receipt or bill document
+     * @nullable
+     */
+  receiptPath?: string | null;
+  /** approved, pending, or rejected */
+  approvalStatus?: string;
+  /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
+  bankTxnId?: string | null;
+  /**
+     * Human label of the matched bank transaction
+     * @nullable
+     */
+  bankTxnLabel?: string | null;
 }

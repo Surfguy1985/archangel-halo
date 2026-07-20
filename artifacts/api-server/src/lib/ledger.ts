@@ -263,10 +263,16 @@ async function syncExpenseLedgerInner(expenseId: string): Promise<void> {
     .from(expensesTable)
     .where(eq(expensesTable.id, expenseId));
   if (!exp || exp.amount <= 0) return;
+  // Pending/rejected expenses never touch the books; entries were already
+  // removed above, so simply skip posting.
+  if (exp.approvalStatus !== "approved") return;
   await postExpenseEntry(exp);
 }
 
 async function postExpenseEntry(exp: Expense): Promise<void> {
+  // Pending/rejected expenses stay off the books — guard here so the
+  // rebuild path matches the per-expense sync behavior.
+  if (exp.approvalStatus !== "approved") return;
   const label = [exp.vendor, exp.category].filter(Boolean).join(" — ") || "Expense";
   const isBill = exp.paymentStatus === "open";
   // Expense is recognized when incurred; credit AP for unpaid bills, Cash otherwise.

@@ -9,6 +9,8 @@ import {
   useRemindInvoice,
   useUpdateCrewPayment,
   usePayExpenseBill,
+  useApproveExpense,
+  useRejectExpense,
   getListExpensesQueryKey,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
@@ -33,6 +35,11 @@ import {
   Check,
   Building2,
   Smartphone,
+  FileUp,
+  Paperclip,
+  Landmark,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { exportCsv } from "@/lib/exportCsv";
@@ -417,19 +424,50 @@ function Expenses() {
   const { toast } = useToast();
   const { data: expenses, isLoading } = useListExpenses();
   const [addOpen, setAddOpen] = useState(false);
+  const [billOpen, setBillOpen] = useState(false);
   const payBill = usePayExpenseBill();
+  const approve = useApproveExpense();
+  const reject = useRejectExpense();
+
+  const invalidateExpenseViews = () => {
+    queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: ["/accounting"] });
+  };
 
   const doPay = (id: string, vendor: string | null | undefined) =>
     payBill.mutate(
       { id },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
-          queryClient.invalidateQueries({ queryKey: ["/accounting"] });
+          invalidateExpenseViews();
           toast({ title: `Paid ${vendor || "bill"}` });
         },
         onError: () => toast({ title: "Couldn't mark that bill paid", variant: "destructive" }),
+      },
+    );
+
+  const doApprove = (id: string, vendor: string | null | undefined) =>
+    approve.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          invalidateExpenseViews();
+          toast({ title: `Approved ${vendor || "expense"} — it's on the books now` });
+        },
+        onError: () => toast({ title: "Couldn't approve that expense", variant: "destructive" }),
+      },
+    );
+
+  const doReject = (id: string, vendor: string | null | undefined) =>
+    reject.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          invalidateExpenseViews();
+          toast({ title: `Rejected ${vendor || "expense"} — it won't count in your numbers` });
+        },
+        onError: () => toast({ title: "Couldn't reject that expense", variant: "destructive" }),
       },
     );
 
@@ -441,7 +479,10 @@ function Expenses() {
     [expenses],
   );
 
-  const total = sorted.reduce((s, e) => s + e.amount, 0);
+  const total = sorted
+    .filter((e) => e.approvalStatus !== "rejected")
+    .reduce((s, e) => s + e.amount, 0);
+  const pendingCount = sorted.filter((e) => e.approvalStatus === "pending").length;
 
   const onExport = () => {
     exportCsv(
@@ -469,10 +510,18 @@ function Expenses() {
         <div className="text-sm text-muted-foreground">
           {sorted.length} expense{sorted.length === 1 ? "" : "s"} ·{" "}
           <span className="font-semibold text-[var(--ink)]">{money(total)}</span> total
+          {pendingCount > 0 && (
+            <span className="ml-2 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--gold)]/15 text-[var(--gold-dark,#8f6a1f)]">
+              {pendingCount} awaiting approval
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={onExport} disabled={!sorted.length}>
             <Download className="w-4 h-4 mr-1.5" /> Export
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setBillOpen(true)} data-testid="button-upload-bill">
+            <FileUp className="w-4 h-4 mr-1.5" /> Upload bill
           </Button>
           <Button size="sm" onClick={() => setAddOpen(true)}>
             <Plus className="w-4 h-4 mr-1.5" /> Log expense
@@ -488,43 +537,97 @@ function Expenses() {
         </div>
       ) : (
         <div className="bg-card rounded-xl border border-border shadow-sm divide-y divide-border">
-          {sorted.map((e) => (
-            <div key={e.id} className="flex items-center gap-4 p-4">
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[var(--ink)] truncate">
-                  {e.vendor || e.category || "Expense"}
+          {sorted.map((e) => {
+            const isPending = e.approvalStatus === "pending";
+            const isRejected = e.approvalStatus === "rejected";
+            return (
+              <div key={e.id} className={`flex items-center gap-4 p-4 ${isRejected ? "opacity-50" : ""}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-[var(--ink)] truncate flex items-center gap-1.5">
+                    {e.vendor || e.category || "Expense"}
+                    {e.receiptPath && (
+                      <a
+                        href={`/api/storage${e.receiptPath}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="View receipt"
+                        className="text-[var(--gold-dark,#8f6a1f)] hover:opacity-70 shrink-0"
+                        data-testid={`link-receipt-${e.id}`}
+                      >
+                        <Paperclip className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate mt-0.5">
+                    {[e.category, fmtDate(e.spentOn), e.source].filter(Boolean).join(" · ")}
+                    {e.paymentStatus === "open" && e.dueDate ? ` · due ${fmtDate(e.dueDate)}` : ""}
+                  </div>
+                  {e.bankTxnLabel && (
+                    <div className="text-[11px] text-emerald-700 truncate mt-0.5 flex items-center gap-1">
+                      <Landmark className="w-3 h-3 shrink-0" /> Matched: {e.bankTxnLabel}
+                    </div>
+                  )}
                 </div>
-                <div className="text-xs text-muted-foreground truncate mt-0.5">
-                  {[e.category, fmtDate(e.spentOn), e.source].filter(Boolean).join(" · ")}
-                  {e.paymentStatus === "open" && e.dueDate ? ` · due ${fmtDate(e.dueDate)}` : ""}
+                {isPending && (
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--gold)]/15 text-[var(--gold-dark,#8f6a1f)] shrink-0">
+                    Needs approval
+                  </span>
+                )}
+                {isRejected && (
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-black/10 text-muted-foreground shrink-0">
+                    Rejected
+                  </span>
+                )}
+                {!isPending && !isRejected && e.paymentStatus === "open" && (
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 shrink-0">
+                    Unpaid bill
+                  </span>
+                )}
+                <div className="font-display font-semibold tabular-nums text-[var(--ink)] shrink-0">
+                  {money(e.amount)}
                 </div>
+                {isPending ? (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      size="sm"
+                      className="h-7"
+                      disabled={approve.isPending || reject.isPending}
+                      onClick={() => doApprove(e.id, e.vendor)}
+                      data-testid={`button-approve-${e.id}`}
+                    >
+                      <ThumbsUp className="w-3.5 h-3.5 mr-1" /> Approve
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                      disabled={approve.isPending || reject.isPending}
+                      onClick={() => doReject(e.id, e.vendor)}
+                      data-testid={`button-reject-${e.id}`}
+                    >
+                      <ThumbsDown className="w-3.5 h-3.5 mr-1" /> Reject
+                    </Button>
+                  </div>
+                ) : !isRejected && e.paymentStatus === "open" ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 shrink-0"
+                    disabled={payBill.isPending}
+                    onClick={() => doPay(e.id, e.vendor)}
+                    data-testid={`button-pay-bill-${e.id}`}
+                  >
+                    Mark paid
+                  </Button>
+                ) : null}
               </div>
-              {e.paymentStatus === "open" && (
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 shrink-0">
-                  Unpaid bill
-                </span>
-              )}
-              <div className="font-display font-semibold tabular-nums text-[var(--ink)] shrink-0">
-                {money(e.amount)}
-              </div>
-              {e.paymentStatus === "open" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 shrink-0"
-                  disabled={payBill.isPending}
-                  onClick={() => doPay(e.id, e.vendor)}
-                  data-testid={`button-pay-bill-${e.id}`}
-                >
-                  Mark paid
-                </Button>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       <AddExpenseDialog open={addOpen} onOpenChange={setAddOpen} />
+      <AddExpenseDialog open={billOpen} onOpenChange={setBillOpen} billMode />
     </div>
   );
 }

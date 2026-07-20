@@ -15,4 +15,9 @@ export interface ExpenseInput {
   amount: number;
   paymentStatus?: ExpenseInputPaymentStatus;
   dueDate?: string;
+  /** YYYY-MM-DD the money was spent (defaults to today) */
+  spentOn?: string;
+  receiptPath?: string;
+  bankTxnId?: string;
+  bankTxnLabel?: string;
 }

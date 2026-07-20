@@ -189,7 +189,8 @@ export async function computeBusinessReport(): Promise<BusinessReport> {
   }
 
   // Supplies: logged expenses (materials, parts, supplies...).
-  for (const e of expenses) {
+  // Only approved expenses count toward the books.
+  for (const e of expenses.filter((x) => x.approvalStatus === "approved")) {
     const key = e.propertyId ?? (e.jobId ? jobToProp.get(e.jobId) : null);
     const a = bucket(key ?? UNASSIGNED);
     a.supplies += e.amount;

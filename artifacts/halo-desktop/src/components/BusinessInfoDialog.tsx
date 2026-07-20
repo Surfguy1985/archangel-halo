@@ -69,6 +69,7 @@ export function BusinessInfoDialog({
   const [email, setEmail] = useState("");
   const [paymentInstructions, setPaymentInstructions] = useState("");
   const [taxRate, setTaxRate] = useState("");
+  const [approvalThreshold, setApprovalThreshold] = useState("");
 
   useEffect(() => {
     if (open && settings) {
@@ -81,6 +82,9 @@ export function BusinessInfoDialog({
       setEmail(settings.email);
       setPaymentInstructions(settings.paymentInstructions);
       setTaxRate(settings.taxRatePct ? String(settings.taxRatePct) : "");
+      setApprovalThreshold(
+        settings.expenseApprovalThreshold ? String(settings.expenseApprovalThreshold) : "",
+      );
     }
   }, [open, settings]);
 
@@ -97,6 +101,9 @@ export function BusinessInfoDialog({
           email: email.trim(),
           paymentInstructions: paymentInstructions.trim(),
           taxRatePct: Number.isFinite(parseFloat(taxRate)) ? parseFloat(taxRate) : 0,
+          expenseApprovalThreshold: Number.isFinite(parseFloat(approvalThreshold))
+            ? parseFloat(approvalThreshold)
+            : 0,
         },
       },
       {
@@ -170,6 +177,20 @@ export function BusinessInfoDialog({
             />
             <p className="text-xs text-muted-foreground">
               When set, new invoices automatically split this much sales tax out of the total for the tax report. Leave 0 if you don't collect sales tax.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Expense approval limit ($)</Label>
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={approvalThreshold}
+              onChange={(e) => setApprovalThreshold(e.target.value)}
+              placeholder="0"
+              data-testid="input-approval-threshold"
+            />
+            <p className="text-xs text-muted-foreground">
+              Expenses at or above this amount wait for your approval before they hit the books. Leave 0 to turn approvals off.
             </p>
           </div>
           <div className="space-y-1.5">

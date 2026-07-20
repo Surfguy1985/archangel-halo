@@ -30,7 +30,7 @@ export async function recomputeJobFinancials(
     const costs =
       (job.crewRate ?? 0) +
       expenses
-        .filter((e) => e.jobId === job.id)
+        .filter((e) => e.jobId === job.id && e.approvalStatus === "approved")
         .reduce((s, e) => s + e.amount, 0);
     if (revenue <= 0 && costs <= 0) continue;
     const grossProfit = round2(revenue - costs);

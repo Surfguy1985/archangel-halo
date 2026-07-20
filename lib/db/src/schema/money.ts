@@ -68,6 +68,11 @@ export const expensesTable = pgTable("expenses", {
   paymentStatus: text("payment_status").notNull().default("paid"),
   dueDate: date("due_date", { mode: "string" }),
   paidAt: timestamp("paid_at", { withTimezone: true }),
+  receiptPath: text("receipt_path"),
+  approvalStatus: text("approval_status").notNull().default("approved"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  bankTxnId: text("bank_txn_id"),
+  bankTxnLabel: text("bank_txn_label"),
   spentOn: timestamp("spent_on", { withTimezone: true })
     .notNull()
     .defaultNow(),

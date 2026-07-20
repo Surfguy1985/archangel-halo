@@ -60,8 +60,10 @@ function serialize(row: {
   email: string;
   paymentInstructions: string;
   taxRatePct?: number | null;
+  expenseApprovalThreshold?: number | null;
 }) {
   return {
+    expenseApprovalThreshold: row.expenseApprovalThreshold ?? 0,
     companyName: row.companyName,
     tagline: row.tagline,
     street: row.street,
@@ -97,6 +99,9 @@ router.put("/settings/business", async (req, res): Promise<void> => {
         : {}),
       ...(body.taxRatePct != null
         ? { taxRatePct: Math.min(Math.max(body.taxRatePct, 0), 25) }
+        : {}),
+      ...(body.expenseApprovalThreshold != null
+        ? { expenseApprovalThreshold: Math.max(body.expenseApprovalThreshold, 0) }
         : {}),
       updatedAt: new Date(),
     })

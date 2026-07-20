@@ -176,6 +176,8 @@ import type {
   RecapShare,
   RecapShareInput,
   RecapShareView,
+  ReceiptExtractInput,
+  ReceiptExtractResult,
   ReportInsights,
   ReverseGeocodeParams,
   ReverseGeocodeResult,
@@ -7018,6 +7020,148 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getCreateExpenseMutationOptions(options));
     }
 
+export const getApproveExpenseUrl = (id: string,) => {
+
+
+
+
+  return `/api/expenses/${id}/approve`
+}
+
+/**
+ * @summary Approve a pending expense so it posts to the books
+ */
+export const approveExpense = async (id: string, options?: RequestInit): Promise<Expense> => {
+
+  return customFetch<Expense>(getApproveExpenseUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApproveExpenseMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveExpense>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveExpense>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['approveExpense'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveExpense>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  approveExpense(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveExpenseMutationResult = NonNullable<Awaited<ReturnType<typeof approveExpense>>>
+
+    export type ApproveExpenseMutationError = ErrorType<Error>
+
+    /**
+ * @summary Approve a pending expense so it posts to the books
+ */
+export const useApproveExpense = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveExpense>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveExpense>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getApproveExpenseMutationOptions(options));
+    }
+
+export const getRejectExpenseUrl = (id: string,) => {
+
+
+
+
+  return `/api/expenses/${id}/reject`
+}
+
+/**
+ * @summary Reject a pending expense so it never posts to the books
+ */
+export const rejectExpense = async (id: string, options?: RequestInit): Promise<Expense> => {
+
+  return customFetch<Expense>(getRejectExpenseUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRejectExpenseMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectExpense>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectExpense>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['rejectExpense'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectExpense>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  rejectExpense(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RejectExpenseMutationResult = NonNullable<Awaited<ReturnType<typeof rejectExpense>>>
+
+    export type RejectExpenseMutationError = ErrorType<Error>
+
+    /**
+ * @summary Reject a pending expense so it never posts to the books
+ */
+export const useRejectExpense = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectExpense>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rejectExpense>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getRejectExpenseMutationOptions(options));
+    }
+
 export const getPayExpenseBillUrl = (id: string,) => {
 
 
@@ -8487,6 +8631,77 @@ export const useScanIngest = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getScanIngestMutationOptions(options));
+    }
+
+export const getExtractReceiptUrl = () => {
+
+
+
+
+  return `/api/ingest/receipt`
+}
+
+/**
+ * @summary Read a receipt or bill photo with AI and extract one expense, with a bank-transaction match when a bank is connected
+ */
+export const extractReceipt = async (receiptExtractInput: ReceiptExtractInput, options?: RequestInit): Promise<ReceiptExtractResult> => {
+
+  return customFetch<ReceiptExtractResult>(getExtractReceiptUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(receiptExtractInput)
+  }
+);}
+
+
+
+
+
+export const getExtractReceiptMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractReceipt>>, TError,{data: BodyType<ReceiptExtractInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof extractReceipt>>, TError,{data: BodyType<ReceiptExtractInput>}, TContext> => {
+
+const mutationKey = ['extractReceipt'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extractReceipt>>, {data: BodyType<ReceiptExtractInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  extractReceipt(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExtractReceiptMutationResult = NonNullable<Awaited<ReturnType<typeof extractReceipt>>>
+    export type ExtractReceiptMutationBody = BodyType<ReceiptExtractInput>
+    export type ExtractReceiptMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Read a receipt or bill photo with AI and extract one expense, with a bank-transaction match when a bank is connected
+ */
+export const useExtractReceipt = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractReceipt>>, TError,{data: BodyType<ReceiptExtractInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof extractReceipt>>,
+        TError,
+        {data: BodyType<ReceiptExtractInput>},
+        TContext
+      > => {
+      return useMutation(getExtractReceiptMutationOptions(options));
     }
 
 export const getListImportHistoryUrl = () => {

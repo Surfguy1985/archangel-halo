@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useRecordPayment,
   useCreateExpense,
+  useExtractReceipt,
   useCreateCrewPayment,
   useListProperties,
   useListCrews,
@@ -12,8 +13,11 @@ import {
   getListExpensesQueryKey,
   getListCrewPaymentsQueryKey,
   getGetPropertyQueryKey,
+  getGetTodayQueryKey,
   type Invoice,
+  type ReceiptBankMatch,
 } from "@workspace/api-client-react";
+import { ScanLine, Sparkles, Landmark, X, FileImage } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -38,6 +42,55 @@ function todayLocal() {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+const RECEIPT_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+function fmtShortDate(s?: string | null) {
+  if (!s) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(s);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const s = String(reader.result ?? "");
+      resolve(s.includes(",") ? s.slice(s.indexOf(",") + 1) : s);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function uploadReceiptFile(file: File): Promise<string | null> {
+  try {
+    const resp = await fetch("/api/storage/uploads/request-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: file.name,
+        size: Math.max(file.size, 1),
+        contentType: file.type || "application/octet-stream",
+      }),
+    });
+    if (!resp.ok) return null;
+    const { uploadURL, objectPath } = (await resp.json()) as {
+      uploadURL: string;
+      objectPath: string;
+    };
+    const put = await fetch(uploadURL, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+    });
+    return put.ok ? objectPath : null;
+  } catch {
+    return null;
+  }
 }
 
 export function RecordPaymentDialog({
@@ -149,15 +202,19 @@ export function AddExpenseDialog({
   onOpenChange,
   propertyId: fixedPropertyId,
   jobId: fixedJobId,
+  billMode = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   propertyId?: string;
   jobId?: string;
+  /** Opens tuned for uploading an unpaid vendor bill. */
+  billMode?: boolean;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const create = useCreateExpense();
+  const extract = useExtractReceipt();
   const { data: properties } = useListProperties();
   const [vendor, setVendor] = useState("");
   const [category, setCategory] = useState("");
@@ -165,7 +222,14 @@ export function AddExpenseDialog({
   const [propertyId, setPropertyId] = useState("");
   const [isBill, setIsBill] = useState(false);
   const [dueDate, setDueDate] = useState("");
+  const [spentOn, setSpentOn] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [scanSummary, setScanSummary] = useState<string | null>(null);
+  const [bankMatch, setBankMatch] = useState<ReceiptBankMatch | null>(null);
+  const [saving, setSaving] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -173,17 +237,84 @@ export function AddExpenseDialog({
       setCategory("");
       setAmount("");
       setPropertyId(fixedPropertyId ?? "");
-      setIsBill(false);
+      setIsBill(billMode);
       setDueDate("");
+      setSpentOn("");
       setError(null);
+      setReceiptFile(null);
+      setReceiptPreview(null);
+      setScanSummary(null);
+      setBankMatch(null);
+      setSaving(false);
     }
-  }, [open, fixedPropertyId]);
+  }, [open, fixedPropertyId, billMode]);
 
-  const submit = () => {
+  const clearReceipt = () => {
+    setReceiptFile(null);
+    setReceiptPreview(null);
+    setScanSummary(null);
+    setBankMatch(null);
+  };
+
+  const onReceiptPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!RECEIPT_MEDIA_TYPES.includes(file.type)) {
+      setError("Please choose a photo (JPG, PNG, WebP, or GIF).");
+      return;
+    }
+    setError(null);
+    setScanSummary(null);
+    setBankMatch(null);
+    setReceiptFile(file);
+    setReceiptPreview(URL.createObjectURL(file));
+    try {
+      const base64 = await fileToBase64(file);
+      const result = await extract.mutateAsync({
+        data: {
+          image: base64,
+          mediaType: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+          filename: file.name,
+          kind: isBill ? "bill" : "receipt",
+        },
+      });
+      if (!result.found) {
+        setScanSummary(null);
+        setError("Couldn't read that photo — you can still fill the fields in yourself.");
+        return;
+      }
+      if (result.vendor) setVendor(result.vendor);
+      if (result.amount) setAmount(String(result.amount));
+      if (result.category) setCategory(result.category);
+      if (result.spentOn) setSpentOn(result.spentOn);
+      if (result.isBill) {
+        setIsBill(true);
+        if (result.dueDate) setDueDate(result.dueDate);
+      }
+      setScanSummary(result.summary ?? "Details filled in from the photo.");
+      setBankMatch(result.bankMatch ?? null);
+    } catch {
+      setError("Couldn't read that photo — you can still fill the fields in yourself.");
+    }
+  };
+
+  const submit = async () => {
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
       setError("Enter a valid amount.");
       return;
+    }
+    setSaving(true);
+    let receiptPath: string | undefined;
+    if (receiptFile) {
+      const uploaded = await uploadReceiptFile(receiptFile);
+      if (!uploaded) {
+        setSaving(false);
+        setError("Couldn't save the receipt photo. Please try again.");
+        return;
+      }
+      receiptPath = uploaded;
     }
     create.mutate(
       {
@@ -195,17 +326,30 @@ export function AddExpenseDialog({
           jobId: fixedJobId || undefined,
           paymentStatus: isBill ? "open" : undefined,
           dueDate: isBill && dueDate ? dueDate : undefined,
+          spentOn: spentOn || undefined,
+          receiptPath,
+          bankTxnId: bankMatch?.txnId,
+          bankTxnLabel: bankMatch?.label,
         },
       },
       {
-        onSuccess: () => {
+        onSuccess: (created) => {
           queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+          queryClient.invalidateQueries({ queryKey: ["/accounting"] });
           if (propertyId) {
             queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
           }
           onOpenChange(false);
-          toast({ title: isBill ? "Bill logged — it shows as unpaid" : "Expense logged" });
+          if (created.approvalStatus === "pending") {
+            toast({
+              title: "Waiting for approval",
+              description: "This expense is over your approval limit — approve it in the Expenses tab.",
+            });
+          } else {
+            toast({ title: isBill ? "Bill logged — it shows as unpaid" : "Expense logged" });
+          }
         },
         onError: (err: unknown) => {
           setError(
@@ -213,18 +357,94 @@ export function AddExpenseDialog({
               "Couldn't log expense.",
           );
         },
+        onSettled: () => setSaving(false),
       },
     );
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Log expense</DialogTitle>
-          <DialogDescription>Record a cost against the business.</DialogDescription>
+          <DialogTitle>{billMode ? "Upload a bill" : "Log expense"}</DialogTitle>
+          <DialogDescription>
+            {billMode
+              ? "Snap or upload the vendor bill — AI reads the amount and due date."
+              : "Record a cost against the business."}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={onReceiptPicked}
+            data-testid="input-receipt-file"
+          />
+          {!receiptFile ? (
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="w-full rounded-xl border-2 border-dashed border-[var(--gold)]/40 bg-[var(--gold)]/[0.06] hover:bg-[var(--gold)]/[0.12] transition-colors p-4 flex items-center gap-3 text-left"
+              data-testid="button-scan-receipt"
+            >
+              <div className="w-10 h-10 rounded-lg bg-[var(--gold)]/15 flex items-center justify-center shrink-0">
+                <ScanLine className="w-5 h-5 text-[var(--gold-dark,#8f6a1f)]" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm text-[var(--ink)]">
+                  {billMode ? "Upload the bill photo" : "Scan a receipt"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  AI fills in the vendor, amount, and date for you.
+                </div>
+              </div>
+            </button>
+          ) : (
+            <div className="rounded-xl border border-border bg-black/[0.02] p-3 space-y-2">
+              <div className="flex items-center gap-3">
+                {receiptPreview ? (
+                  <img
+                    src={receiptPreview}
+                    alt="Receipt"
+                    className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
+                  />
+                ) : (
+                  <FileImage className="w-10 h-10 text-muted-foreground shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  {extract.isPending ? (
+                    <div className="flex items-center gap-2 text-sm font-medium text-[var(--gold-dark,#8f6a1f)]">
+                      <Sparkles className="w-4 h-4 animate-pulse" /> Reading the photo…
+                    </div>
+                  ) : scanSummary ? (
+                    <div className="flex items-start gap-2 text-sm text-[var(--ink)]">
+                      <Sparkles className="w-4 h-4 mt-0.5 text-[var(--gold-dark,#8f6a1f)] shrink-0" />
+                      <span>{scanSummary}</span>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground truncate">{receiptFile.name}</div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={clearReceipt}
+                  className="p-1.5 rounded-md hover:bg-black/5 shrink-0"
+                  aria-label="Remove receipt"
+                  data-testid="button-remove-receipt"
+                >
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </div>
+              {bankMatch && (
+                <div className="flex items-center gap-2 rounded-lg bg-emerald-600/10 text-emerald-800 px-3 py-2 text-xs font-medium">
+                  <Landmark className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Matched to your bank: {bankMatch.label} · {fmtShortDate(bankMatch.date)}</span>
+                </div>
+              )}
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="exp-vendor">Vendor</Label>
             <Input
@@ -254,6 +474,16 @@ export function AddExpenseDialog({
                 onChange={(e) => setAmount(e.target.value)}
               />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="exp-spent-on">Date (optional)</Label>
+            <Input
+              id="exp-spent-on"
+              type="date"
+              value={spentOn}
+              onChange={(e) => setSpentOn(e.target.value)}
+              data-testid="input-spent-on"
+            />
           </div>
           {fixedPropertyId ? (
             <div className="space-y-1.5">
@@ -309,8 +539,8 @@ export function AddExpenseDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={create.isPending}>
-            {create.isPending ? "Saving…" : "Log expense"}
+          <Button onClick={submit} disabled={create.isPending || saving || extract.isPending}>
+            {create.isPending || saving ? "Saving…" : billMode || isBill ? "Save bill" : "Log expense"}
           </Button>
         </DialogFooter>
       </DialogContent>

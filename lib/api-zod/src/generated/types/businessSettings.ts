@@ -16,4 +16,6 @@ export interface BusinessSettings {
   email: string;
   paymentInstructions: string;
   taxRatePct?: number;
+  /** Expenses at or above this amount need approval; 0 = off */
+  expenseApprovalThreshold?: number;
 }

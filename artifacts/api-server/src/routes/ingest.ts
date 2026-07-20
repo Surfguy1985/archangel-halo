@@ -16,9 +16,12 @@ import {
   CommitIngestBody,
   CommitIngestResponse,
   ScanIngestBody,
+  ExtractReceiptBody,
+  ExtractReceiptResponse,
   ListImportHistoryResponse,
 } from "@workspace/api-zod";
 import { completeJson, completeJsonWithImage } from "../lib/ai";
+import { plaidPost, getPlaidItem } from "../lib/plaidClient";
 
 const router: IRouter = Router();
 
@@ -163,6 +166,168 @@ Return {"detectedTarget": "...", "summary": "one sentence describing what was sc
         confidence: r.confidence ?? 0.6,
         fields: r.fields ?? {},
       })),
+    }),
+  );
+});
+
+type BankTxnMatch = {
+  txnId: string;
+  label: string;
+  amount: number;
+  date: string;
+};
+
+/**
+ * Look for a bank transaction matching the receipt: same amount (to the cent,
+ * or within $0.02) within ±4 days of the receipt date. Returns null when no
+ * bank is connected, Plaid fails, or nothing matches confidently.
+ */
+async function findBankMatch(
+  amount: number | null,
+  dateStr: string | null,
+): Promise<BankTxnMatch | null> {
+  if (!amount || amount <= 0) return null;
+  const item = await getPlaidItem();
+  if (!item) return null;
+
+  const center = /^\d{4}-\d{2}-\d{2}$/.test(dateStr ?? "")
+    ? new Date(`${dateStr}T12:00:00`)
+    : new Date();
+  if (isNaN(center.getTime())) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const start = new Date(center);
+  start.setDate(start.getDate() - 4);
+  const end = new Date(center);
+  end.setDate(end.getDate() + 4);
+  const today = new Date();
+  const endCapped = end > today ? today : end;
+  if (start > endCapped) return null;
+
+  const result = await plaidPost("/transactions/get", {
+    access_token: item.accessToken,
+    start_date: fmt(start),
+    end_date: fmt(endCapped),
+    options: { count: 100, offset: 0 },
+  });
+  if (!result.ok) return null;
+  const txns: any[] = result.data.transactions ?? [];
+  const accounts: any[] = result.data.accounts ?? [];
+  const accountLabel = (accountId: string): string => {
+    const acct = accounts.find((a) => a.account_id === accountId);
+    if (!acct) return "bank account";
+    return `${acct.name ?? "Account"}${acct.mask ? ` ••${acct.mask}` : ""}`;
+  };
+
+  // Plaid: positive amount = money leaving the account (a purchase).
+  const candidates = txns.filter(
+    (t) => Number(t.amount) > 0 && Math.abs(Number(t.amount) - amount) <= 0.02,
+  );
+  if (candidates.length === 0) return null;
+  // Closest to the receipt date wins.
+  candidates.sort(
+    (a, b) =>
+      Math.abs(new Date(`${a.date}T12:00:00`).getTime() - center.getTime()) -
+      Math.abs(new Date(`${b.date}T12:00:00`).getTime() - center.getTime()),
+  );
+  const best = candidates[0];
+  return {
+    txnId: String(best.transaction_id),
+    label: `${best.merchant_name || best.name || "Card charge"} · ${accountLabel(String(best.account_id))}`,
+    amount: Number(best.amount),
+    date: String(best.date),
+  };
+}
+
+router.post("/ingest/receipt", async (req, res): Promise<void> => {
+  const body = ExtractReceiptBody.parse(req.body);
+
+  if (body.image.length > SCAN_MAX_BASE64_CHARS) {
+    res.status(413).json({ error: "Image too large. Please retake the photo." });
+    return;
+  }
+  if (!/^[A-Za-z0-9+/=\s]+$/.test(body.image.slice(0, 1000))) {
+    res.status(400).json({ error: "Invalid image data." });
+    return;
+  }
+
+  const ip = req.ip ?? "unknown";
+  const now = Date.now();
+  const hits = (scanHits.get(ip) ?? []).filter((t) => now - t < SCAN_WINDOW_MS);
+  if (hits.length >= SCAN_MAX_PER_WINDOW) {
+    res.status(429).json({ error: "Too many scans. Wait a minute and try again." });
+    return;
+  }
+  hits.push(now);
+  scanHits.set(ip, hits);
+
+  const isBillHint = body.kind === "bill";
+  let parsed: {
+    found: boolean;
+    vendor?: string | null;
+    amount?: number | null;
+    category?: string | null;
+    spentOn?: string | null;
+    dueDate?: string | null;
+    isBill?: boolean | null;
+    summary?: string | null;
+    confidence?: number | null;
+  };
+  try {
+    parsed = await completeJsonWithImage<typeof parsed>(
+      `You are HALO's receipt and bill reader for a property-maintenance contractor.
+Read the photographed document and extract ONE expense.
+Rules:
+- vendor: the store/supplier/company name.
+- amount: the document TOTAL (after tax), as a number.
+- category: best fit — Materials, Fuel, Tools, Supplies, Equipment, Subcontractor, Utilities, Insurance, Office, Other.
+- spentOn: the receipt/invoice date as YYYY-MM-DD if printed, else null.
+- dueDate: the payment due date as YYYY-MM-DD if this is a bill/invoice to pay, else null.
+- isBill: true if this is an unpaid vendor bill or invoice TO the contractor (has a due date, "amount due", "net 30", etc.), false for a paid store receipt.${isBillHint ? "\n- The user says this is an unpaid vendor bill; lean toward isBill: true." : ""}
+- summary: one short human sentence, e.g. "Home Depot receipt for $214.85 on June 3".
+- confidence: 0-1 how sure you are about the amount.
+If the image is not a receipt/bill or is unreadable, return {"found": false}.
+Return {"found": true, "vendor", "amount", "category", "spentOn", "dueDate", "isBill", "summary", "confidence"}.`,
+      `Filename: ${body.filename ?? "receipt photo"}. Extract the expense from this image.`,
+      body.image,
+      body.mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+      2048,
+    );
+  } catch (err) {
+    req.log.error({ err }, "receipt extract failed");
+    res.status(502).json({ error: "Could not read the photo. Please try again." });
+    return;
+  }
+
+  if (!parsed?.found) {
+    res.json(ExtractReceiptResponse.parse({ found: false }));
+    return;
+  }
+
+  const amount = typeof parsed.amount === "number" && parsed.amount > 0 ? parsed.amount : null;
+  let bankMatch: BankTxnMatch | null = null;
+  try {
+    // Only paid receipts get matched to card/bank charges — unpaid bills
+    // haven't hit the bank yet.
+    if (!parsed.isBill) {
+      bankMatch = await findBankMatch(amount, parsed.spentOn ?? null);
+    }
+  } catch (err) {
+    req.log.warn({ err }, "bank match lookup failed");
+  }
+
+  res.json(
+    ExtractReceiptResponse.parse({
+      found: true,
+      vendor: parsed.vendor ?? null,
+      amount,
+      category: parsed.category ?? null,
+      spentOn: isValidDateOnly(parsed.spentOn) ? parsed.spentOn : null,
+      dueDate: isValidDateOnly(parsed.dueDate) ? parsed.dueDate : null,
+      isBill: parsed.isBill ?? isBillHint,
+      summary: parsed.summary ?? null,
+      confidence: parsed.confidence ?? null,
+      bankMatch,
     }),
   );
 });

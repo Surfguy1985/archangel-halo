@@ -270,6 +270,22 @@ export interface Expense {
   paidAt?: string | null;
   /** @nullable */
   spentOn?: string | null;
+  /**
+     * Storage path of the attached receipt or bill document
+     * @nullable
+     */
+  receiptPath?: string | null;
+  /** approved, pending, or rejected */
+  approvalStatus?: string;
+  /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
+  bankTxnId?: string | null;
+  /**
+     * Human label of the matched bank transaction
+     * @nullable
+     */
+  bankTxnLabel?: string | null;
 }
 
 export interface Agreement {
@@ -1426,6 +1442,8 @@ export interface BusinessSettings {
   email: string;
   paymentInstructions: string;
   taxRatePct?: number;
+  /** Expenses at or above this amount need approval; 0 = off */
+  expenseApprovalThreshold?: number;
 }
 
 export interface BusinessSettingsInput {
@@ -1438,6 +1456,7 @@ export interface BusinessSettingsInput {
   email?: string;
   paymentInstructions?: string;
   taxRatePct?: number;
+  expenseApprovalThreshold?: number;
 }
 
 export interface InvoiceInput {
@@ -1490,6 +1509,77 @@ export interface ExpenseInput {
   amount: number;
   paymentStatus?: ExpenseInputPaymentStatus;
   dueDate?: string;
+  /** YYYY-MM-DD the money was spent (defaults to today) */
+  spentOn?: string;
+  receiptPath?: string;
+  bankTxnId?: string;
+  bankTxnLabel?: string;
+}
+
+export interface ReceiptBankMatch {
+  txnId: string;
+  /** e.g. 'Home Depot · Chase Checking ••1234' */
+  label: string;
+  amount: number;
+  date: string;
+}
+
+export type ReceiptExtractInputMediaType = typeof ReceiptExtractInputMediaType[keyof typeof ReceiptExtractInputMediaType];
+
+
+export const ReceiptExtractInputMediaType = {
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+  'image/webp': 'image/webp',
+  'image/gif': 'image/gif',
+} as const;
+
+/**
+ * receipt = paid expense, bill = unpaid vendor bill
+ */
+export type ReceiptExtractInputKind = typeof ReceiptExtractInputKind[keyof typeof ReceiptExtractInputKind];
+
+
+export const ReceiptExtractInputKind = {
+  receipt: 'receipt',
+  bill: 'bill',
+} as const;
+
+export interface ReceiptExtractInput {
+  /** Base64-encoded photo or document image */
+  image: string;
+  mediaType: ReceiptExtractInputMediaType;
+  filename?: string;
+  /** receipt = paid expense, bill = unpaid vendor bill */
+  kind?: ReceiptExtractInputKind;
+}
+
+export interface ReceiptExtractResult {
+  /** Whether an expense could be read from the image */
+  found: boolean;
+  /** @nullable */
+  vendor?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  category?: string | null;
+  /**
+     * YYYY-MM-DD from the document
+     * @nullable
+     */
+  spentOn?: string | null;
+  /**
+     * YYYY-MM-DD for bills
+     * @nullable
+     */
+  dueDate?: string | null;
+  /** @nullable */
+  isBill?: boolean | null;
+  /** @nullable */
+  summary?: string | null;
+  /** @nullable */
+  confidence?: number | null;
+  bankMatch?: ReceiptBankMatch | null;
 }
 
 export interface InventoryItem {

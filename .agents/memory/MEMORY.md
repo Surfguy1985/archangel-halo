@@ -29,4 +29,5 @@
 - [HALO billing integration package](halo-billing-integration-package.md) — supplied billing spec/instructions live in repo-root /integration; audit-first workflow required before integrating.
 - [OpenAPI naming vs orval](halo-openapi-naming.md) — schema names must not match <OperationId>Response/Body or codegen exports collide and typecheck:libs fails.
 - [HALO Developer Portal](halo-devportal.md) — docs site is registry-driven; new uploaded doc = md file + one registry.ts entry, never hardcode links.
+- [HALO expense approvals & receipts](halo-expense-approvals.md) — every expense aggregator/poster must filter approvalStatus==="approved" (pending AND rejected stay off the books, incl. ledger rebuild).
 - [HALO double-entry ledger](halo-ledger.md) — Books engine: every money mutation (REST and voice) must call syncXLedger; rebuild+syncs serialized by in-process mutex; JE numbering via advisory lock.

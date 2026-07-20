@@ -16,4 +16,5 @@ export interface BusinessSettingsInput {
   email?: string;
   paymentInstructions?: string;
   taxRatePct?: number;
+  expenseApprovalThreshold?: number;
 }

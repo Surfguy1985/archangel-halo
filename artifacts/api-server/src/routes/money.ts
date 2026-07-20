@@ -9,6 +9,7 @@ import {
   jobsTable,
   propertiesTable,
   contactsTable,
+  activitiesTable,
 } from "@workspace/db";
 import {
   GetMoneySummaryResponse,
@@ -38,6 +39,10 @@ import {
   PayExpenseBillParams,
   PayExpenseBillResponse,
   CreateExpenseResponse,
+  ApproveExpenseParams,
+  ApproveExpenseResponse,
+  RejectExpenseParams,
+  RejectExpenseResponse,
   GetBusinessReportResponse,
   GenerateReportInsightsResponse,
 } from "@workspace/api-zod";
@@ -732,10 +737,79 @@ router.post("/expenses", async (req, res): Promise<void> => {
       return;
     }
   }
-  const [row] = await db.insert(expensesTable).values(body).returning();
+  // Approval workflow: expenses at/above the configured threshold start as
+  // pending and stay off the books until approved.
+  const settings = await getBusinessSettings();
+  const threshold = settings.expenseApprovalThreshold ?? 0;
+  const needsApproval = threshold > 0 && body.amount >= threshold;
+  // spentOn arrives as YYYY-MM-DD; anchor at local noon so the day never
+  // shifts across timezones.
+  const { spentOn: spentOnStr, ...rest } = body;
+  const spentOn =
+    spentOnStr && /^\d{4}-\d{2}-\d{2}$/.test(spentOnStr)
+      ? new Date(`${spentOnStr}T12:00:00`)
+      : undefined;
+  const [row] = await db
+    .insert(expensesTable)
+    .values({
+      ...rest,
+      ...(spentOn ? { spentOn } : {}),
+      approvalStatus: needsApproval ? "pending" : "approved",
+    })
+    .returning();
   if (row.jobId) await recomputeJobFinancials(row.jobId);
   await syncExpenseLedger(row.id);
   res.status(201).json(CreateExpenseResponse.parse(ser(row)));
+});
+
+router.post("/expenses/:id/approve", async (req, res): Promise<void> => {
+  const { id } = ApproveExpenseParams.parse(req.params);
+  const [exp] = await db.select().from(expensesTable).where(eq(expensesTable.id, id));
+  if (!exp) {
+    res.status(404).json({ error: "Expense not found" });
+    return;
+  }
+  if (exp.approvalStatus === "approved") {
+    res.json(ApproveExpenseResponse.parse(ser(exp)));
+    return;
+  }
+  const [updated] = await db
+    .update(expensesTable)
+    .set({ approvalStatus: "approved", approvedAt: new Date() })
+    .where(eq(expensesTable.id, id))
+    .returning();
+  if (updated.jobId) await recomputeJobFinancials(updated.jobId);
+  await syncExpenseLedger(updated.id);
+  await db.insert(activitiesTable).values({
+    entityType: "expense",
+    entityId: updated.id,
+    kind: "note",
+    body: `Approved expense of $${updated.amount.toFixed(2)}${updated.vendor ? ` at ${updated.vendor}` : ""}`,
+  });
+  res.json(ApproveExpenseResponse.parse(ser(updated)));
+});
+
+router.post("/expenses/:id/reject", async (req, res): Promise<void> => {
+  const { id } = RejectExpenseParams.parse(req.params);
+  const [exp] = await db.select().from(expensesTable).where(eq(expensesTable.id, id));
+  if (!exp) {
+    res.status(404).json({ error: "Expense not found" });
+    return;
+  }
+  const [updated] = await db
+    .update(expensesTable)
+    .set({ approvalStatus: "rejected", approvedAt: null })
+    .where(eq(expensesTable.id, id))
+    .returning();
+  if (updated.jobId) await recomputeJobFinancials(updated.jobId);
+  await syncExpenseLedger(updated.id);
+  await db.insert(activitiesTable).values({
+    entityType: "expense",
+    entityId: updated.id,
+    kind: "note",
+    body: `Rejected expense of $${updated.amount.toFixed(2)}${updated.vendor ? ` at ${updated.vendor}` : ""}`,
+  });
+  res.json(RejectExpenseResponse.parse(ser(updated)));
 });
 
 router.post("/expenses/:id/pay", async (req, res): Promise<void> => {

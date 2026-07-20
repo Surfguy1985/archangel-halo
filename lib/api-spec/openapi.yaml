@@ -1981,6 +1981,54 @@ paths:
               schema:
                 $ref: "#/components/schemas/Expense"
 
+  /expenses/{id}/approve:
+    post:
+      operationId: approveExpense
+      tags: [money]
+      summary: Approve a pending expense so it posts to the books
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated expense
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /expenses/{id}/reject:
+    post:
+      operationId: rejectExpense
+      tags: [money]
+      summary: Reject a pending expense so it never posts to the books
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated expense
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /expenses/{id}/pay:
     post:
       operationId: payExpenseBill
@@ -2371,6 +2419,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IngestParseResult"
+  /ingest/receipt:
+    post:
+      operationId: extractReceipt
+      tags: [ingest]
+      summary: Read a receipt or bill photo with AI and extract one expense, with a bank-transaction match when a bank is connected
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReceiptExtractInput"
+      responses:
+        "200":
+          description: Extracted expense details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptExtractResult"
   /ingest/history:
     get:
       operationId: listImportHistory
@@ -5033,6 +5099,7 @@ components:
         email: { type: string }
         paymentInstructions: { type: string }
         taxRatePct: { type: number }
+        expenseApprovalThreshold: { type: number, description: "Expenses at or above this amount need approval; 0 = off" }
     BusinessSettingsInput:
       type: object
       properties:
@@ -5045,6 +5112,7 @@ components:
         email: { type: string }
         paymentInstructions: { type: string }
         taxRatePct: { type: number }
+        expenseApprovalThreshold: { type: number }
     InvoiceInput:
       type: object
       required: [propertyId]
@@ -5098,6 +5166,11 @@ components:
         dueDate: { type: ["string", "null"] }
         paidAt: { type: ["string", "null"] }
         spentOn: { type: ["string", "null"] }
+        receiptPath: { type: ["string", "null"], description: "Storage path of the attached receipt or bill document" }
+        approvalStatus: { type: string, description: "approved, pending, or rejected" }
+        approvedAt: { type: ["string", "null"] }
+        bankTxnId: { type: ["string", "null"] }
+        bankTxnLabel: { type: ["string", "null"], description: "Human label of the matched bank transaction" }
     ExpenseInput:
       type: object
       required: [amount]
@@ -5109,6 +5182,44 @@ components:
         amount: { type: number }
         paymentStatus: { type: string, enum: [paid, open] }
         dueDate: { type: string }
+        spentOn: { type: string, description: "YYYY-MM-DD the money was spent (defaults to today)" }
+        receiptPath: { type: string }
+        bankTxnId: { type: string }
+        bankTxnLabel: { type: string }
+
+    ReceiptBankMatch:
+      type: object
+      required: [txnId, label, amount, date]
+      properties:
+        txnId: { type: string }
+        label: { type: string, description: "e.g. 'Home Depot · Chase Checking ••1234'" }
+        amount: { type: number }
+        date: { type: string }
+    ReceiptExtractInput:
+      type: object
+      required: [image, mediaType]
+      properties:
+        image: { type: string, description: "Base64-encoded photo or document image" }
+        mediaType: { type: string, enum: [image/jpeg, image/png, image/webp, image/gif] }
+        filename: { type: string }
+        kind: { type: string, enum: [receipt, bill], description: "receipt = paid expense, bill = unpaid vendor bill" }
+    ReceiptExtractResult:
+      type: object
+      required: [found]
+      properties:
+        found: { type: boolean, description: "Whether an expense could be read from the image" }
+        vendor: { type: ["string", "null"] }
+        amount: { type: ["number", "null"] }
+        category: { type: ["string", "null"] }
+        spentOn: { type: ["string", "null"], description: "YYYY-MM-DD from the document" }
+        dueDate: { type: ["string", "null"], description: "YYYY-MM-DD for bills" }
+        isBill: { type: ["boolean", "null"] }
+        summary: { type: ["string", "null"] }
+        confidence: { type: ["number", "null"] }
+        bankMatch:
+          oneOf:
+            - $ref: "#/components/schemas/ReceiptBankMatch"
+            - type: "null"
 
     InventoryItem:
       type: object

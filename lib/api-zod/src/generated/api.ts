@@ -262,7 +262,12 @@ export const GetPropertyResponse = zod.object({
   "paymentStatus": zod.string().optional().describe('paid or open (unpaid vendor bill)'),
   "dueDate": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
-  "spentOn": zod.string().nullish()
+  "spentOn": zod.string().nullish(),
+  "receiptPath": zod.string().nullish().describe('Storage path of the attached receipt or bill document'),
+  "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
+  "approvedAt": zod.string().nullish(),
+  "bankTxnId": zod.string().nullish(),
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
 })),
   "agreements": zod.array(zod.object({
   "id": zod.string(),
@@ -1199,7 +1204,12 @@ export const GetJobResponse = zod.object({
   "paymentStatus": zod.string().optional().describe('paid or open (unpaid vendor bill)'),
   "dueDate": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
-  "spentOn": zod.string().nullish()
+  "spentOn": zod.string().nullish(),
+  "receiptPath": zod.string().nullish().describe('Storage path of the attached receipt or bill document'),
+  "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
+  "approvedAt": zod.string().nullish(),
+  "bankTxnId": zod.string().nullish(),
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
 })),
   "schedules": zod.array(zod.object({
   "id": zod.string(),
@@ -2088,7 +2098,8 @@ export const GetBusinessSettingsResponse = zod.object({
   "phone": zod.string(),
   "email": zod.string(),
   "paymentInstructions": zod.string(),
-  "taxRatePct": zod.number().optional()
+  "taxRatePct": zod.number().optional(),
+  "expenseApprovalThreshold": zod.number().optional().describe('Expenses at or above this amount need approval; 0 = off')
 })
 
 
@@ -2104,7 +2115,8 @@ export const UpdateBusinessSettingsBody = zod.object({
   "phone": zod.string().optional(),
   "email": zod.string().optional(),
   "paymentInstructions": zod.string().optional(),
-  "taxRatePct": zod.number().optional()
+  "taxRatePct": zod.number().optional(),
+  "expenseApprovalThreshold": zod.number().optional()
 })
 
 export const UpdateBusinessSettingsResponse = zod.object({
@@ -2116,7 +2128,8 @@ export const UpdateBusinessSettingsResponse = zod.object({
   "phone": zod.string(),
   "email": zod.string(),
   "paymentInstructions": zod.string(),
-  "taxRatePct": zod.number().optional()
+  "taxRatePct": zod.number().optional(),
+  "expenseApprovalThreshold": zod.number().optional().describe('Expenses at or above this amount need approval; 0 = off')
 })
 
 
@@ -2870,7 +2883,12 @@ export const ListExpensesResponseItem = zod.object({
   "paymentStatus": zod.string().optional().describe('paid or open (unpaid vendor bill)'),
   "dueDate": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
-  "spentOn": zod.string().nullish()
+  "spentOn": zod.string().nullish(),
+  "receiptPath": zod.string().nullish().describe('Storage path of the attached receipt or bill document'),
+  "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
+  "approvedAt": zod.string().nullish(),
+  "bankTxnId": zod.string().nullish(),
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
 })
 export const ListExpensesResponse = zod.array(ListExpensesResponseItem)
 
@@ -2882,7 +2900,11 @@ export const CreateExpenseBody = zod.object({
   "category": zod.string().optional(),
   "amount": zod.number(),
   "paymentStatus": zod.enum(['paid', 'open']).optional(),
-  "dueDate": zod.string().optional()
+  "dueDate": zod.string().optional(),
+  "spentOn": zod.string().optional().describe('YYYY-MM-DD the money was spent (defaults to today)'),
+  "receiptPath": zod.string().optional(),
+  "bankTxnId": zod.string().optional(),
+  "bankTxnLabel": zod.string().optional()
 })
 
 export const CreateExpenseResponse = zod.object({
@@ -2896,7 +2918,66 @@ export const CreateExpenseResponse = zod.object({
   "paymentStatus": zod.string().optional().describe('paid or open (unpaid vendor bill)'),
   "dueDate": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
-  "spentOn": zod.string().nullish()
+  "spentOn": zod.string().nullish(),
+  "receiptPath": zod.string().nullish().describe('Storage path of the attached receipt or bill document'),
+  "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
+  "approvedAt": zod.string().nullish(),
+  "bankTxnId": zod.string().nullish(),
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
+})
+
+
+/**
+ * @summary Approve a pending expense so it posts to the books
+ */
+export const ApproveExpenseParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ApproveExpenseResponse = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string().nullish(),
+  "propertyId": zod.string().nullish(),
+  "vendor": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "amount": zod.number(),
+  "source": zod.string().nullish(),
+  "paymentStatus": zod.string().optional().describe('paid or open (unpaid vendor bill)'),
+  "dueDate": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "spentOn": zod.string().nullish(),
+  "receiptPath": zod.string().nullish().describe('Storage path of the attached receipt or bill document'),
+  "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
+  "approvedAt": zod.string().nullish(),
+  "bankTxnId": zod.string().nullish(),
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
+})
+
+
+/**
+ * @summary Reject a pending expense so it never posts to the books
+ */
+export const RejectExpenseParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RejectExpenseResponse = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string().nullish(),
+  "propertyId": zod.string().nullish(),
+  "vendor": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "amount": zod.number(),
+  "source": zod.string().nullish(),
+  "paymentStatus": zod.string().optional().describe('paid or open (unpaid vendor bill)'),
+  "dueDate": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "spentOn": zod.string().nullish(),
+  "receiptPath": zod.string().nullish().describe('Storage path of the attached receipt or bill document'),
+  "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
+  "approvedAt": zod.string().nullish(),
+  "bankTxnId": zod.string().nullish(),
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
 })
 
 
@@ -2918,7 +2999,12 @@ export const PayExpenseBillResponse = zod.object({
   "paymentStatus": zod.string().optional().describe('paid or open (unpaid vendor bill)'),
   "dueDate": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
-  "spentOn": zod.string().nullish()
+  "spentOn": zod.string().nullish(),
+  "receiptPath": zod.string().nullish().describe('Storage path of the attached receipt or bill document'),
+  "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
+  "approvedAt": zod.string().nullish(),
+  "bankTxnId": zod.string().nullish(),
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
 })
 
 
@@ -3302,6 +3388,35 @@ export const ScanIngestResponse = zod.object({
   "confidence": zod.number().nullish(),
   "fields": zod.record(zod.string(), zod.unknown())
 }))
+})
+
+
+/**
+ * @summary Read a receipt or bill photo with AI and extract one expense, with a bank-transaction match when a bank is connected
+ */
+export const ExtractReceiptBody = zod.object({
+  "image": zod.string().describe('Base64-encoded photo or document image'),
+  "mediaType": zod.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+  "filename": zod.string().optional(),
+  "kind": zod.enum(['receipt', 'bill']).optional().describe('receipt = paid expense, bill = unpaid vendor bill')
+})
+
+export const ExtractReceiptResponse = zod.object({
+  "found": zod.boolean().describe('Whether an expense could be read from the image'),
+  "vendor": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "category": zod.string().nullish(),
+  "spentOn": zod.string().nullish().describe('YYYY-MM-DD from the document'),
+  "dueDate": zod.string().nullish().describe('YYYY-MM-DD for bills'),
+  "isBill": zod.boolean().nullish(),
+  "summary": zod.string().nullish(),
+  "confidence": zod.number().nullish(),
+  "bankMatch": zod.union([zod.object({
+  "txnId": zod.string(),
+  "label": zod.string().describe('e.g. \'Home Depot · Chase Checking ••1234\''),
+  "amount": zod.number(),
+  "date": zod.string()
+}),zod.null()]).optional()
 })
 
 

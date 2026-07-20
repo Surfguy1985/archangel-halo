@@ -11,6 +11,11 @@ export const businessSettingsTable = pgTable("business_settings", {
   email: text("email").notNull().default("admin@archangelcontractors.com"),
   paymentInstructions: text("payment_instructions").notNull().default(""),
   taxRatePct: doublePrecision("tax_rate_pct").notNull().default(0),
+  // Expenses at or above this amount require approval before posting to the
+  // books. 0 disables the approval workflow.
+  expenseApprovalThreshold: doublePrecision("expense_approval_threshold")
+    .notNull()
+    .default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
