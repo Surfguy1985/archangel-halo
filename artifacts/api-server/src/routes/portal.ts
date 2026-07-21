@@ -871,6 +871,8 @@ router.put("/portal/:token/payment-method", async (req, res): Promise<void> => {
   );
 });
 
+class OfferConflictError extends Error {}
+
 router.post(
   "/portal/:token/offers/:offerId/respond",
   async (req, res): Promise<void> => {
@@ -886,7 +888,9 @@ router.post(
       return;
     }
 
-    const result = await db.transaction(async (tx) => {
+    let result;
+    try {
+      result = await db.transaction(async (tx) => {
       const [offer] = await tx
         .select()
         .from(jobBroadcastsTable)
@@ -940,8 +944,30 @@ router.post(
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const scheduledOn = job.scheduledOn ?? fmtLocal(now);
 
+      // Guarded: only approve an offer that is still pending — an unlist that
+      // withdrew or deleted this offer concurrently must not be re-approved.
+      // This runs FIRST so a failure returns before any other write happens.
+      const approvedRows = await tx
+        .update(jobBroadcastsTable)
+        .set({ status: "approved", respondedAt: now })
+        .where(
+          and(
+            eq(jobBroadcastsTable.id, offer.id),
+            eq(jobBroadcastsTable.status, "pending"),
+          ),
+        )
+        .returning({ id: jobBroadcastsTable.id });
+      if (approvedRows.length === 0) {
+        return {
+          code: 409 as const,
+          error: "This job offer is no longer available.",
+        };
+      }
+
       // Guarded update: only fills the job if nobody else filled it first.
-      // The affected-row check makes first-approver-wins atomic under concurrency.
+      // The affected-row check makes first-approver-wins atomic under
+      // concurrency. If the claim fails we THROW so the whole transaction
+      // (including the offer approval above) rolls back atomically.
       const claimed = await tx
         .update(jobsTable)
         .set({
@@ -960,30 +986,9 @@ router.post(
         )
         .returning({ id: jobsTable.id });
       if (claimed.length === 0) {
-        return {
-          code: 409 as const,
-          error: "This job is no longer available.",
-        };
+        throw new OfferConflictError("This job is no longer available.");
       }
 
-      // Guarded: only approve an offer that is still pending — an unlist that
-      // withdrew this offer concurrently must not be re-approved.
-      const approvedRows = await tx
-        .update(jobBroadcastsTable)
-        .set({ status: "approved", respondedAt: now })
-        .where(
-          and(
-            eq(jobBroadcastsTable.id, offer.id),
-            eq(jobBroadcastsTable.status, "pending"),
-          ),
-        )
-        .returning({ id: jobBroadcastsTable.id });
-      if (approvedRows.length === 0) {
-        return {
-          code: 409 as const,
-          error: "This job offer is no longer available.",
-        };
-      }
       await tx.insert(schedulesTable).values({
         jobId: job.id,
         scheduledOn,
@@ -996,7 +1001,14 @@ router.post(
         status: "approved" as const,
         scheduledOn,
       };
-    });
+      });
+    } catch (err) {
+      if (err instanceof OfferConflictError) {
+        res.status(409).json({ error: err.message });
+        return;
+      }
+      throw err;
+    }
 
     if (result.code !== 200) {
       res.status(result.code).json({ error: result.error });
