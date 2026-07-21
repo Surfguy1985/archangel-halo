@@ -1,4 +1,4 @@
-import { useGetToday, useRefreshBrief, useGetQueues, useAskHalo, useListActivities, getGetTodayQueryKey } from "@workspace/api-client-react";
+import { useGetToday, useRefreshBrief, useGetQueues, useAskHalo, useListActivities, getGetTodayQueryKey, getListActivitiesQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, ArrowRight, RefreshCw, Send, Loader2, X, History } from "lucide-react";
@@ -27,9 +27,14 @@ function entityRoute(entityType?: string | null, entityId?: string | null): stri
 }
 
 export default function Today() {
-  const { data: today, isLoading } = useGetToday();
+  const { data: today, isLoading } = useGetToday({
+    query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000 },
+  });
   const { data: queues } = useGetQueues();
-  const { data: activities } = useListActivities({ limit: 12 });
+  const { data: activities } = useListActivities(
+    { limit: 12 },
+    { query: { queryKey: getListActivitiesQueryKey({ limit: 12 }), refetchInterval: 10_000 } },
+  );
   const refreshBrief = useRefreshBrief();
   const askHalo = useAskHalo();
   const queryClient = useQueryClient();

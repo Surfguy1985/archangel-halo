@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { useListLeads, useListBids } from "@workspace/api-client-react";
+import {
+  useListLeads,
+  useListBids,
+  getListLeadsQueryKey,
+  getListBidsQueryKey,
+} from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Target, FileText, Zap, Mail, Phone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,8 +18,12 @@ import {
 } from "@/components/PipelineDialogs";
 
 export default function Pipeline() {
-  const { data: leads, isLoading: loadingLeads } = useListLeads();
-  const { data: bids, isLoading: loadingBids } = useListBids();
+  const { data: leads, isLoading: loadingLeads } = useListLeads({
+    query: { queryKey: getListLeadsQueryKey(), refetchInterval: 10_000 },
+  });
+  const { data: bids, isLoading: loadingBids } = useListBids(undefined, {
+    query: { queryKey: getListBidsQueryKey(), refetchInterval: 10_000 },
+  });
 
   const [addLeadOpen, setAddLeadOpen] = useState(false);
   const [leadDetail, setLeadDetail] = useState<LeadRow | null>(null);

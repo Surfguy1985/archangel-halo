@@ -1,6 +1,7 @@
 import { 
   useGetToday, 
   useListActivities,
+  getListActivitiesQueryKey,
   useGetMoneySummary,
   useGetCalendar,
   useListJobs,
@@ -22,7 +23,10 @@ import { InvoiceEditor } from "@/components/InvoiceEditor";
 export default function Today() {
   const [location, setLocation] = useLocation();
   const { data: today, isLoading: isLoadingToday } = useGetToday();
-  const { data: activities } = useListActivities({ limit: 10 });
+  const { data: activities } = useListActivities(
+    { limit: 10 },
+    { query: { queryKey: getListActivitiesQueryKey({ limit: 10 }), refetchInterval: 10_000 } },
+  );
   const { data: moneySummary, isLoading: isLoadingMoney } = useGetMoneySummary();
   const { data: jobs, isLoading: isLoadingJobs } = useListJobs();
   const { data: crews, isLoading: isLoadingCrews } = useListCrews();

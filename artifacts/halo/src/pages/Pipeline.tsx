@@ -2,6 +2,8 @@ import { useState } from "react";
 import {
   useListLeads,
   useListBids,
+  getListLeadsQueryKey,
+  getListBidsQueryKey,
 } from "@workspace/api-client-react";
 import { Plus, Zap, Mail } from "lucide-react";
 import { AddLeadSheet } from "@/components/AddLeadSheet";
@@ -22,7 +24,9 @@ const bidStatusColor: Record<string, string> = {
 };
 
 function Bids() {
-  const { data: bids, isLoading } = useListBids();
+  const { data: bids, isLoading } = useListBids(undefined, {
+    query: { queryKey: getListBidsQueryKey(), refetchInterval: 10_000 },
+  });
   const [addOpen, setAddOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
 
@@ -75,7 +79,9 @@ function Bids() {
 }
 
 function Leads() {
-  const { data: leads, isLoading } = useListLeads();
+  const { data: leads, isLoading } = useListLeads({
+    query: { queryKey: getListLeadsQueryKey(), refetchInterval: 10_000 },
+  });
   const [addOpen, setAddOpen] = useState(false);
   const [detailLead, setDetailLead] = useState<MobileLeadRow | null>(null);
 
