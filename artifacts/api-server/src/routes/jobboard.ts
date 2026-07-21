@@ -220,21 +220,14 @@ router.post("/jobs/:id/unlist", async (req, res): Promise<void> => {
       };
     }
 
-    // Withdraw every live offer so the posting disappears from crew portals.
-    const live = await tx
+    // Clear the posting entirely: remove schedules created by any approved
+    // offer, then delete every broadcast row for this job so nothing remains
+    // visible in any crew portal (pending, approved, declined, or withdrawn).
+    const rows = await tx
       .select()
       .from(jobBroadcastsTable)
-      .where(
-        and(
-          eq(jobBroadcastsTable.jobId, id),
-          inArray(jobBroadcastsTable.status, ["pending", "approved"]),
-        ),
-      );
-    for (const b of live) {
-      await tx
-        .update(jobBroadcastsTable)
-        .set({ status: "withdrawn", respondedAt: new Date() })
-        .where(eq(jobBroadcastsTable.id, b.id));
+      .where(eq(jobBroadcastsTable.jobId, id));
+    for (const b of rows) {
       if (b.status === "approved") {
         await tx
           .delete(schedulesTable)
@@ -246,6 +239,9 @@ router.post("/jobs/:id/unlist", async (req, res): Promise<void> => {
           );
       }
     }
+    await tx
+      .delete(jobBroadcastsTable)
+      .where(eq(jobBroadcastsTable.jobId, id));
 
     await tx
       .update(jobsTable)

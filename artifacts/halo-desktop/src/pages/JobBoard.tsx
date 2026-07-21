@@ -5,6 +5,7 @@ import {
   useBroadcastJob, 
   useReopenJob, 
   useUnlistJob,
+  useUpdateJob,
   useListCrews,
   getListCrewsQueryKey,
   type JobBoardCard,
@@ -35,7 +36,9 @@ import {
   Trash2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useLocation } from "wouter";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useEffect } from "react";
 
 export default function JobBoard() {
   const { data: jobBoard, isLoading } = useListJobBoard();
@@ -100,7 +103,7 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [reopenConfirmOpen, setReopenConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [, navigate] = useLocation();
+  const [editOpen, setEditOpen] = useState(false);
   
   const statusColors: Record<string, string> = {
     active: "bg-[var(--blue)]/10 text-[var(--blue)] border-[var(--blue)]/20",
@@ -228,7 +231,7 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
         <div className="p-4 bg-card border-t border-border flex justify-end gap-3 shrink-0">
           <Button
             variant="outline"
-            onClick={() => navigate(`/jobs/${job.id}`)}
+            onClick={() => setEditOpen(true)}
             className="text-[var(--ink)]"
           >
             <Pencil className="w-4 h-4 mr-2" /> Edit
@@ -261,6 +264,7 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
       <BroadcastDialog open={broadcastOpen} onOpenChange={setBroadcastOpen} job={job} />
       <ReopenConfirmDialog open={reopenConfirmOpen} onOpenChange={setReopenConfirmOpen} job={job} />
       <DeleteConfirmDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen} job={job} />
+      <EditJobDialog open={editOpen} onOpenChange={setEditOpen} job={job} />
     </Card>
   );
 }
@@ -379,6 +383,116 @@ function BroadcastDialog({ open, onOpenChange, job }: { open: boolean, onOpenCha
             className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white"
           >
             {broadcastJob.isPending ? "Sending..." : "Send Broadcast"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const JOB_STATUSES = ["open", "scheduled", "in_progress", "blocked", "complete", "invoiced", "paid", "cancelled"];
+
+function EditJobDialog({ open, onOpenChange, job }: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job'] }) {
+  const updateJob = useUpdateJob();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [category, setCategory] = useState(job.category ?? "");
+  const [description, setDescription] = useState(job.description ?? "");
+  const [unitNo, setUnitNo] = useState(job.unitNo ?? "");
+  const [woNo, setWoNo] = useState(job.woNo ?? "");
+  const [status, setStatus] = useState(job.status);
+
+  useEffect(() => {
+    if (open) {
+      setCategory(job.category ?? "");
+      setDescription(job.description ?? "");
+      setUnitNo(job.unitNo ?? "");
+      setWoNo(job.woNo ?? "");
+      setStatus(job.status);
+    }
+  }, [open, job]);
+
+  const handleSave = () => {
+    updateJob.mutate({
+      id: job.id,
+      data: {
+        category: category.trim() || undefined,
+        description: description.trim() || undefined,
+        unitNo: unitNo.trim() || undefined,
+        woNo: woNo.trim() || undefined,
+        status,
+      }
+    }, {
+      onSuccess: () => {
+        toast({ title: "Job Updated", description: `${job.jobNo} was saved. Crews see the updated details.` });
+        queryClient.invalidateQueries();
+        onOpenChange(false);
+      },
+      onError: (err) => {
+        toast({
+          title: "Could not save",
+          description: (err as any)?.data?.error ?? "Something went wrong",
+          variant: "destructive"
+        });
+      }
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>Edit Job</DialogTitle>
+          <DialogDescription>
+            Update {job.jobNo} at {job.propertyName}. Changes appear on the board and crew portals.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-2 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="ej-category">Category</Label>
+              <Input id="ej-category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Cleaning" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ej-status">Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger id="ej-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {JOB_STATUSES.map(s => (
+                    <SelectItem key={s} value={s} className="capitalize">{s.replace("_", " ")}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="ej-unit">Unit #</Label>
+              <Input id="ej-unit" value={unitNo} onChange={(e) => setUnitNo(e.target.value)} placeholder="Unit" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ej-wo">WO #</Label>
+              <Input id="ej-wo" value={woNo} onChange={(e) => setWoNo(e.target.value)} placeholder="Work order" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ej-desc">Scope of Work</Label>
+            <Textarea id="ej-desc" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe the work..." />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={handleSave}
+            disabled={updateJob.isPending}
+            className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white"
+          >
+            {updateJob.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>
