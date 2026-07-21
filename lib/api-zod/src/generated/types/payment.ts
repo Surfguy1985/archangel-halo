@@ -14,5 +14,11 @@ export interface Payment {
   /** @nullable */
   method?: string | null;
   /** @nullable */
+  payerName?: string | null;
+  /** @nullable */
+  checkNumber?: string | null;
+  /** @nullable */
+  checkImagePath?: string | null;
+  /** @nullable */
   receivedAt?: string | null;
 }

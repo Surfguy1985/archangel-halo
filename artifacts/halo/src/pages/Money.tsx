@@ -30,10 +30,12 @@ import {
   BarChart3,
   BookOpen,
   Wallet,
+  ScanLine,
 } from "lucide-react";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
 import { RecordPaymentSheet } from "@/components/RecordPaymentSheet";
+import { ScanCheckSheet } from "@/components/ScanCheckSheet";
 import { AddCrewPaymentSheet } from "@/components/AddCrewPaymentSheet";
 import { BankTab } from "@/components/BankTab";
 import { useToast } from "@/hooks/use-toast";
@@ -229,6 +231,7 @@ function Invoices() {
   const [, navigate] = useLocation();
   const { data: invoices, isLoading } = useListInvoices();
   const [addOpen, setAddOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
   const send = useSendInvoice();
@@ -291,12 +294,21 @@ function Invoices() {
 
   return (
     <div className="animate-in fade-in duration-200">
-      <button
-        onClick={() => setAddOpen(true)}
-        className="w-full mb-[16px] flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[16px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
-      >
-        <Plus className="w-[20px] h-[20px]" /> New invoice
-      </button>
+      <div className="flex gap-[10px] mb-[16px]">
+        <button
+          onClick={() => setAddOpen(true)}
+          className="flex-1 flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
+        >
+          <Plus className="w-[19px] h-[19px]" /> New invoice
+        </button>
+        <button
+          onClick={() => setScanOpen(true)}
+          className="flex-1 flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[15px] bg-card border border-[var(--gold)]/40 text-[var(--gold-dark)] shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+          data-testid="button-open-scan-check"
+        >
+          <ScanLine className="w-[19px] h-[19px]" /> Scan check
+        </button>
+      </div>
       <SecondaryActions
         onHistory={() => setHistoryOpen(true)}
         onExport={onExport}
@@ -419,6 +431,7 @@ function Invoices() {
         </div>
       )}
       <InvoiceEditor open={addOpen} onOpenChange={setAddOpen} />
+      <ScanCheckSheet open={scanOpen} onOpenChange={setScanOpen} />
       <RecordPaymentSheet
         open={!!payInvoice}
         onOpenChange={(o) => !o && setPayInvoice(null)}

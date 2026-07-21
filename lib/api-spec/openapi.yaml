@@ -1984,6 +1984,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /checks/scan:
+    post:
+      operationId: scanCheck
+      tags: [money]
+      summary: Read a photo of a paper check with AI and suggest the matching open invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckScanInput"
+      responses:
+        "200":
+          description: Extracted check details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckScanResult"
+
   /payments:
     post:
       operationId: recordPayment
@@ -5224,6 +5243,9 @@ components:
         invoiceId: { type: ["string", "null"] }
         amount: { type: number }
         method: { type: ["string", "null"] }
+        payerName: { type: ["string", "null"] }
+        checkNumber: { type: ["string", "null"] }
+        checkImagePath: { type: ["string", "null"] }
         receivedAt: { type: ["string", "null"] }
     PaymentInput:
       type: object
@@ -5232,6 +5254,37 @@ components:
         invoiceId: { type: string }
         amount: { type: number }
         method: { type: string }
+        payerName: { type: string }
+        checkNumber: { type: string }
+        checkImagePath: { type: string }
+
+    CheckScanInput:
+      type: object
+      required: [image, mediaType]
+      properties:
+        image:
+          type: string
+          description: Base64-encoded photo of the check (no data URL prefix)
+        mediaType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp, image/gif]
+    CheckScanResult:
+      type: object
+      required: [found]
+      properties:
+        found: { type: boolean }
+        amount: { type: ["number", "null"] }
+        payerName: { type: ["string", "null"] }
+        checkNumber: { type: ["string", "null"] }
+        checkDate: { type: ["string", "null"] }
+        memo: { type: ["string", "null"] }
+        bankName: { type: ["string", "null"] }
+        suggestedInvoiceId:
+          type: ["string", "null"]
+          description: Best-guess open invoice this check pays, if any
+        suggestedPropertyId: { type: ["string", "null"] }
+        suggestedJobId: { type: ["string", "null"] }
+        summary: { type: ["string", "null"] }
 
     Expense:
       type: object

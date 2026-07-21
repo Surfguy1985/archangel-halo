@@ -1507,6 +1507,12 @@ export interface Payment {
   /** @nullable */
   method?: string | null;
   /** @nullable */
+  payerName?: string | null;
+  /** @nullable */
+  checkNumber?: string | null;
+  /** @nullable */
+  checkImagePath?: string | null;
+  /** @nullable */
   receivedAt?: string | null;
 }
 
@@ -1514,6 +1520,52 @@ export interface PaymentInput {
   invoiceId: string;
   amount: number;
   method?: string;
+  payerName?: string;
+  checkNumber?: string;
+  checkImagePath?: string;
+}
+
+export type CheckScanInputMediaType = typeof CheckScanInputMediaType[keyof typeof CheckScanInputMediaType];
+
+
+export const CheckScanInputMediaType = {
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+  'image/webp': 'image/webp',
+  'image/gif': 'image/gif',
+} as const;
+
+export interface CheckScanInput {
+  /** Base64-encoded photo of the check (no data URL prefix) */
+  image: string;
+  mediaType: CheckScanInputMediaType;
+}
+
+export interface CheckScanResult {
+  found: boolean;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  payerName?: string | null;
+  /** @nullable */
+  checkNumber?: string | null;
+  /** @nullable */
+  checkDate?: string | null;
+  /** @nullable */
+  memo?: string | null;
+  /** @nullable */
+  bankName?: string | null;
+  /**
+     * Best-guess open invoice this check pays, if any
+     * @nullable
+     */
+  suggestedInvoiceId?: string | null;
+  /** @nullable */
+  suggestedPropertyId?: string | null;
+  /** @nullable */
+  suggestedJobId?: string | null;
+  /** @nullable */
+  summary?: string | null;
 }
 
 export type ExpenseInputPaymentStatus = typeof ExpenseInputPaymentStatus[keyof typeof ExpenseInputPaymentStatus];

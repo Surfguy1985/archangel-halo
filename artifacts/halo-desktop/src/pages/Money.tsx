@@ -40,6 +40,7 @@ import {
   Landmark,
   ThumbsUp,
   ThumbsDown,
+  ScanLine,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { exportCsv } from "@/lib/exportCsv";
@@ -49,6 +50,7 @@ import {
   AddCrewPaymentDialog,
 } from "@/components/MoneyDialogs";
 import { SendInvoiceDialog } from "@/components/SendInvoiceDialog";
+import { ScanCheckDialog } from "@/components/ScanCheckDialog";
 import { BankTab } from "@/components/BankTab";
 import { ZellePayDialog } from "@/components/ZellePayDialog";
 import { BusinessInfoDialog } from "@/components/BusinessInfoDialog";
@@ -220,6 +222,7 @@ function Invoices() {
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
   const [sendInvoice, setSendInvoice] = useState<Invoice | null>(null);
   const [businessOpen, setBusinessOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const remind = useRemindInvoice();
 
   const invalidate = () => {
@@ -305,6 +308,14 @@ function Invoices() {
             disabled={!sorted.length}
           >
             <Download className="w-4 h-4 mr-1.5" /> Export
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setScanOpen(true)}
+            data-testid="button-open-scan-check"
+          >
+            <ScanLine className="w-4 h-4 mr-1.5" /> Scan check
           </Button>
           <Button size="sm" onClick={() => navigate("/invoices/new")}>
             <Plus className="w-4 h-4 mr-1.5" /> New invoice
@@ -415,6 +426,7 @@ function Invoices() {
         invoice={sendInvoice}
       />
       <BusinessInfoDialog open={businessOpen} onOpenChange={setBusinessOpen} />
+      <ScanCheckDialog open={scanOpen} onOpenChange={setScanOpen} />
     </div>
   );
 }

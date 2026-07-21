@@ -52,6 +52,9 @@ export const paymentsTable = pgTable("payments", {
   invoiceId: uuid("invoice_id"),
   amount: doublePrecision("amount").notNull(),
   method: text("method"),
+  payerName: text("payer_name"),
+  checkNumber: text("check_number"),
+  checkImagePath: text("check_image_path"),
   receivedAt: timestamp("received_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

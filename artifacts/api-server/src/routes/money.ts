@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import {
   db,
   invoicesTable,
@@ -30,6 +30,8 @@ import {
   RemindInvoiceResponse,
   RecordPaymentBody,
   RecordPaymentResponse,
+  ScanCheckBody,
+  ScanCheckResponse,
   SetInvoiceStatusParams,
   SetInvoiceStatusBody,
   SetInvoiceStatusResponse,
@@ -50,7 +52,7 @@ import { computeBusinessReport } from "../lib/businessReport";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import { syncInvoiceLedger, syncExpenseLedger, removeEntriesForRef } from "../lib/ledger";
 import { generateBusinessReportPdf } from "../lib/reportPdf";
-import { completeJson } from "../lib/ai";
+import { completeJson, completeJsonWithImage } from "../lib/ai";
 import { ser } from "../lib/serialize";
 import { sendEmail } from "../lib/email";
 import { generateInvoicePdf, type InvoicePdfCompany } from "../lib/invoicePdf";
@@ -697,6 +699,85 @@ router.post("/invoices/:id/status", async (req, res): Promise<void> => {
   res.json(SetInvoiceStatusResponse.parse(decorateInvoice(row, names)));
 });
 
+router.post("/checks/scan", async (req, res): Promise<void> => {
+  const body = ScanCheckBody.parse(req.body);
+  let extracted: {
+    found: boolean;
+    amount: number | null;
+    payerName: string | null;
+    checkNumber: string | null;
+    checkDate: string | null;
+    memo: string | null;
+    bankName: string | null;
+  };
+  try {
+    extracted = await completeJsonWithImage(
+      `You read photos of paper checks (US bank checks) for a property-maintenance business.
+Return STRICT JSON: {"found": boolean, "amount": number|null, "payerName": string|null, "checkNumber": string|null, "checkDate": "YYYY-MM-DD"|null, "memo": string|null, "bankName": string|null}.
+- found=false if the image is not a check or is unreadable.
+- amount: the numeric courtesy-box amount (prefer it; cross-check with the written amount line).
+- payerName: the printed account holder / company name at the top left.
+- checkNumber: the check number (top right, also in the MICR line).
+- memo: the memo/for line if written.`,
+      "Read this check and extract the fields.",
+      body.image,
+      body.mediaType,
+    );
+  } catch {
+    res.json(ScanCheckResponse.parse({ found: false }));
+    return;
+  }
+  if (!extracted.found) {
+    res.json(ScanCheckResponse.parse({ found: false }));
+    return;
+  }
+
+  // Suggest the open invoice this check most likely pays: match on amount
+  // first, then payer-name tokens against property / contact names.
+  const openInvoices = await db
+    .select()
+    .from(invoicesTable)
+    .where(inArray(invoicesTable.status, ["sent", "past_due"]));
+  const props = await db.select().from(propertiesTable);
+  const contacts = await db.select().from(contactsTable);
+  const propName = (id: string | null) => props.find((p) => p.id === id)?.name ?? "";
+  const tokens = (s: string) =>
+    s.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 2);
+  const payerTokens = tokens(
+    [extracted.payerName ?? "", extracted.memo ?? ""].join(" "),
+  );
+  let best: { inv: (typeof openInvoices)[number]; score: number } | null = null;
+  for (const inv of openInvoices) {
+    let score = 0;
+    if (extracted.amount != null && Math.abs(inv.amount - extracted.amount) < 0.005) score += 5;
+    const propContacts = contacts.filter((c) => c.propertyId === inv.propertyId);
+    const nameTokens = tokens(
+      [propName(inv.propertyId), ...propContacts.map((c) => c.name ?? "")].join(" "),
+    );
+    for (const t of payerTokens) if (nameTokens.includes(t)) score += 2;
+    if (score > (best?.score ?? 0)) best = { inv, score };
+  }
+  const suggestion = best && best.score >= 2 ? best.inv : null;
+
+  res.json(
+    ScanCheckResponse.parse({
+      found: true,
+      amount: extracted.amount ?? null,
+      payerName: extracted.payerName ?? null,
+      checkNumber: extracted.checkNumber ?? null,
+      checkDate: extracted.checkDate ?? null,
+      memo: extracted.memo ?? null,
+      bankName: extracted.bankName ?? null,
+      suggestedInvoiceId: suggestion?.id ?? null,
+      suggestedPropertyId: suggestion?.propertyId ?? null,
+      suggestedJobId: suggestion?.jobId ?? null,
+      summary: suggestion
+        ? `Looks like a $${extracted.amount?.toFixed(2) ?? "?"} check from ${extracted.payerName ?? "an unknown payer"} — likely for invoice ${suggestion.invoiceNo}. Confirm the property and job below.`
+        : `Read a $${extracted.amount?.toFixed(2) ?? "?"} check from ${extracted.payerName ?? "an unknown payer"}. Pick the property and job it pays below.`,
+    }),
+  );
+});
+
 router.post("/payments", async (req, res): Promise<void> => {
   const body = RecordPaymentBody.parse(req.body);
   const [row] = await db.insert(paymentsTable).values(body).returning();
@@ -707,6 +788,16 @@ router.post("/payments", async (req, res): Promise<void> => {
     .returning();
   if (inv?.jobId) await recomputeJobFinancials(inv.jobId);
   if (inv) await syncInvoiceLedger(inv.id);
+  if (inv && (body.checkNumber || body.checkImagePath)) {
+    const names = await propertyNames();
+    await db.insert(activitiesTable).values({
+      kind: "payment",
+      body: `Check payment recorded — $${body.amount.toFixed(2)} for ${inv.invoiceNo}${inv.propertyId ? ` (${names.get(inv.propertyId) ?? "property"})` : ""}${body.checkNumber ? `, check #${body.checkNumber}` : ""}`,
+      entityType: "invoice",
+      entityId: inv.id,
+      storagePath: body.checkImagePath ?? undefined,
+    });
+  }
   res.status(201).json(RecordPaymentResponse.parse(ser(row)));
 });
 

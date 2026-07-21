@@ -10,4 +10,7 @@ export interface PaymentInput {
   invoiceId: string;
   amount: number;
   method?: string;
+  payerName?: string;
+  checkNumber?: string;
+  checkImagePath?: string;
 }

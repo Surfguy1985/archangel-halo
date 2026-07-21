@@ -58,6 +58,8 @@ import type {
   CatalogItemInput,
   CatalogItemUpdate,
   CategorizeBankTransactionParams,
+  CheckScanInput,
+  CheckScanResult,
   Contact,
   ContactInput,
   ContactUpdate,
@@ -7018,6 +7020,77 @@ export const useSetInvoiceStatus = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getSetInvoiceStatusMutationOptions(options));
+    }
+
+export const getScanCheckUrl = () => {
+
+
+
+
+  return `/api/checks/scan`
+}
+
+/**
+ * @summary Read a photo of a paper check with AI and suggest the matching open invoice
+ */
+export const scanCheck = async (checkScanInput: CheckScanInput, options?: RequestInit): Promise<CheckScanResult> => {
+
+  return customFetch<CheckScanResult>(getScanCheckUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(checkScanInput)
+  }
+);}
+
+
+
+
+
+export const getScanCheckMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanCheck>>, TError,{data: BodyType<CheckScanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof scanCheck>>, TError,{data: BodyType<CheckScanInput>}, TContext> => {
+
+const mutationKey = ['scanCheck'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof scanCheck>>, {data: BodyType<CheckScanInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  scanCheck(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ScanCheckMutationResult = NonNullable<Awaited<ReturnType<typeof scanCheck>>>
+    export type ScanCheckMutationBody = BodyType<CheckScanInput>
+    export type ScanCheckMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Read a photo of a paper check with AI and suggest the matching open invoice
+ */
+export const useScanCheck = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanCheck>>, TError,{data: BodyType<CheckScanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof scanCheck>>,
+        TError,
+        {data: BodyType<CheckScanInput>},
+        TContext
+      > => {
+      return useMutation(getScanCheckMutationOptions(options));
     }
 
 export const getRecordPaymentUrl = () => {

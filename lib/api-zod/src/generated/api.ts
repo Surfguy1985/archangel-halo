@@ -2921,12 +2921,38 @@ export const SetInvoiceStatusResponse = zod.object({
 
 
 /**
+ * @summary Read a photo of a paper check with AI and suggest the matching open invoice
+ */
+export const ScanCheckBody = zod.object({
+  "image": zod.string().describe('Base64-encoded photo of the check (no data URL prefix)'),
+  "mediaType": zod.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+})
+
+export const ScanCheckResponse = zod.object({
+  "found": zod.boolean(),
+  "amount": zod.number().nullish(),
+  "payerName": zod.string().nullish(),
+  "checkNumber": zod.string().nullish(),
+  "checkDate": zod.string().nullish(),
+  "memo": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "suggestedInvoiceId": zod.string().nullish().describe('Best-guess open invoice this check pays, if any'),
+  "suggestedPropertyId": zod.string().nullish(),
+  "suggestedJobId": zod.string().nullish(),
+  "summary": zod.string().nullish()
+})
+
+
+/**
  * @summary Record a payment against an invoice
  */
 export const RecordPaymentBody = zod.object({
   "invoiceId": zod.string(),
   "amount": zod.number(),
-  "method": zod.string().optional()
+  "method": zod.string().optional(),
+  "payerName": zod.string().optional(),
+  "checkNumber": zod.string().optional(),
+  "checkImagePath": zod.string().optional()
 })
 
 export const RecordPaymentResponse = zod.object({
@@ -2934,6 +2960,9 @@ export const RecordPaymentResponse = zod.object({
   "invoiceId": zod.string().nullish(),
   "amount": zod.number(),
   "method": zod.string().nullish(),
+  "payerName": zod.string().nullish(),
+  "checkNumber": zod.string().nullish(),
+  "checkImagePath": zod.string().nullish(),
   "receivedAt": zod.string().nullish()
 })
 
