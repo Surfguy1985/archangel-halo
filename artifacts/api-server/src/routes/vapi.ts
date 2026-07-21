@@ -145,7 +145,8 @@ Rules:
 - propertyName: EXACTLY one of the known property names if the call clearly refers to it, else null.
 - services: the concrete work items requested, each with a qty (default 1). Keep service names short (e.g. "paint", "carpet clean", "full turn"). Empty array if none.
 - requestSummary: 1-3 sentences an office manager can act on: who called, what they need, where, and any timeline.
-- contactPhone: caller's phone if stated; else null.`,
+- contactPhone: the phone number the caller CONFIRMED as best (they may confirm a read-back). Format as digits, e.g. "9727506075". If none stated, null.
+- contactEmail: the email the caller gave, normalized to standard form (they may have spelled it out letter by letter, e.g. "j o h n at gmail dot com" -> "john@gmail.com"). Null if declined or not given.`,
       `Caller number (from phone system): ${callerNumber ?? "unknown"}
 Call summary: ${summary ?? "(none)"}
 Transcript:
