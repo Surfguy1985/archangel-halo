@@ -12,6 +12,7 @@ import {
   notificationsTable,
 } from "@workspace/db";
 import { completeJson } from "../lib/ai";
+import { sendLeadThankYouEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -250,6 +251,28 @@ ${(transcript ?? "").slice(0, 12000)}`,
       kind: "created",
       body: `Phone call-in lead captured by AI${prop ? ` for ${prop.name}` : ""}${bidNote ? " with a draft bid" : ""}`,
     });
+    // Autopilot: branded thank-you email to the caller (when we got an email).
+    if (extracted.contactEmail) {
+      const emailResult = await sendLeadThankYouEmail({
+        to: extracted.contactEmail,
+        contactName: extracted.contactName,
+        requestSummary: extracted.requestSummary,
+      });
+      if (emailResult.ok) {
+        await db.insert(activitiesTable).values({
+          entityType: "lead",
+          entityId: lead.id,
+          kind: "email_sent",
+          body: `Autopilot sent a branded thank-you email to ${extracted.contactEmail} (team will follow up within 48 hours)`,
+        });
+      } else {
+        logger.warn(
+          { leadId: lead.id, error: emailResult.error },
+          "Lead thank-you email failed",
+        );
+      }
+    }
+
     await db.insert(notificationsTable).values({
       kind: "lead_call_in",
       priority: "urgent",
