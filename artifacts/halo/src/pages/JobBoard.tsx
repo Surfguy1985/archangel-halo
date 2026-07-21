@@ -3,6 +3,7 @@ import {
   useListJobBoard,
   useBroadcastJob,
   useReopenJob,
+  useUnlistJob,
   useListCrews,
   getListJobBoardQueryKey,
 } from "@workspace/api-client-react";
@@ -20,9 +21,12 @@ import {
   MapPin,
   Calendar,
   Image as ImageIcon,
-  ClipboardList
+  ClipboardList,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import { Link } from "wouter";
+import { EditJobSheet } from "@/components/EditJobSheet";
 
 const boardStatusColors: Record<string, { bg: string; text: string; label: string }> = {
   active: { bg: "rgba(185,138,47,0.15)", text: "var(--gold-dark)", label: "Open" },
@@ -179,7 +183,7 @@ function BroadcastSheet({
 }
 
 
-function JobCard({ data, onBroadcast, onReopen }: { data: JobBoardCard; onBroadcast: () => void; onReopen: () => void }) {
+function JobCard({ data, onBroadcast, onReopen, onEdit, onDelete }: { data: JobBoardCard; onBroadcast: () => void; onReopen: () => void; onEdit: () => void; onDelete: () => void }) {
   const { job, priceItems, photos, broadcasts } = data;
   const status = job.boardStatus || "active";
   const stConfig = boardStatusColors[status] || boardStatusColors.active;
@@ -305,6 +309,22 @@ function JobCard({ data, onBroadcast, onReopen }: { data: JobBoardCard; onBroadc
             <RefreshCw className="w-[15px] h-[15px]" /> Reopen Job
           </button>
         ) : null}
+
+        <button
+          onClick={onEdit}
+          aria-label="Edit job"
+          className="rounded-[11px] px-[14px] py-[10px] text-[13px] font-display font-bold text-[var(--ink)] bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98] flex items-center justify-center gap-[6px]"
+        >
+          <Pencil className="w-[15px] h-[15px]" /> Edit
+        </button>
+
+        <button
+          onClick={onDelete}
+          aria-label="Delete posting"
+          className="rounded-[11px] px-[14px] py-[10px] text-[13px] font-display font-bold text-[#be3c3c] bg-card border border-[#be3c3c]/25 shadow-[var(--shadow)] transition-transform active:scale-[0.98] flex items-center justify-center gap-[6px]"
+        >
+          <Trash2 className="w-[15px] h-[15px]" /> Delete
+        </button>
       </div>
     </div>
   );
@@ -317,7 +337,25 @@ export default function JobBoard() {
   const { toast } = useToast();
 
   const [broadcastJobId, setBroadcastJobId] = useState<string | null>(null);
+  const [editJob, setEditJob] = useState<JobBoardCard["job"] | null>(null);
   const [filter, setFilter] = useState<"active" | "filled" | "completed">("active");
+  const unlist = useUnlistJob();
+
+  const handleDelete = (jobId: string, jobNo: string) => {
+    if (!window.confirm(`Remove job ${jobNo} from the board? Crews will no longer see it in their portals. The job itself is not deleted.`)) return;
+    unlist.mutate(
+      { id: jobId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries();
+          toast({ title: "Posting Removed", description: `Job ${jobNo} is off the board and crew portals.` });
+        },
+        onError: (err: any) => {
+          toast({ title: "Could not remove posting", description: err?.data?.error ?? "Something went wrong", variant: "destructive" });
+        }
+      }
+    );
+  };
 
   const handleReopen = (jobId: string, jobNo: string) => {
     if (!window.confirm(`Are you sure you want to reopen job ${jobNo}? This will withdraw the assigned crew and clear the schedule.`)) return;
@@ -389,6 +427,8 @@ export default function JobBoard() {
               data={d}
               onBroadcast={() => setBroadcastJobId(d.job.id)}
               onReopen={() => handleReopen(d.job.id, d.job.jobNo)}
+              onEdit={() => setEditJob(d.job)}
+              onDelete={() => handleDelete(d.job.id, d.job.jobNo)}
             />
           ))}
         </div>
@@ -399,6 +439,14 @@ export default function JobBoard() {
         onOpenChange={(o) => !o && setBroadcastJobId(null)}
         jobId={broadcastJobId}
       />
+
+      {editJob && (
+        <EditJobSheet
+          open={!!editJob}
+          onOpenChange={(o) => !o && setEditJob(null)}
+          job={editJob}
+        />
+      )}
     </div>
   );
 }

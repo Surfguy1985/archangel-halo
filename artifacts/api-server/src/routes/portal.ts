@@ -954,6 +954,7 @@ router.post(
           and(
             eq(jobsTable.id, job.id),
             ne(jobsTable.boardStatus, "filled"),
+            ne(jobsTable.boardStatus, "removed"),
             ne(jobsTable.status, "complete"),
           ),
         )
@@ -961,14 +962,28 @@ router.post(
       if (claimed.length === 0) {
         return {
           code: 409 as const,
-          error: "This job has already been filled.",
+          error: "This job is no longer available.",
         };
       }
 
-      await tx
+      // Guarded: only approve an offer that is still pending — an unlist that
+      // withdrew this offer concurrently must not be re-approved.
+      const approvedRows = await tx
         .update(jobBroadcastsTable)
         .set({ status: "approved", respondedAt: now })
-        .where(eq(jobBroadcastsTable.id, offer.id));
+        .where(
+          and(
+            eq(jobBroadcastsTable.id, offer.id),
+            eq(jobBroadcastsTable.status, "pending"),
+          ),
+        )
+        .returning({ id: jobBroadcastsTable.id });
+      if (approvedRows.length === 0) {
+        return {
+          code: 409 as const,
+          error: "This job offer is no longer available.",
+        };
+      }
       await tx.insert(schedulesTable).values({
         jobId: job.id,
         scheduledOn,

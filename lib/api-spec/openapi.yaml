@@ -1236,6 +1236,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /jobs/{id}/unlist:
+    post:
+      operationId: unlistJob
+      tags: [jobs]
+      summary: Remove a job's posting from the board (withdraws broadcasts, keeps the job)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Posting removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Job is filled — reopen it first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /calendar:
     get:
       operationId: getCalendar

@@ -18,6 +18,8 @@ import {
   BroadcastJobResponse,
   ReopenJobParams,
   ReopenJobResponse,
+  UnlistJobParams,
+  UnlistJobResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 
@@ -61,7 +63,7 @@ router.get("/job-board", async (_req, res): Promise<void> => {
     broadcastsByJob.set(b.jobId, list);
   }
 
-  const cards = jobs.map((j) => {
+  const cards = jobs.filter((j) => j.boardStatus !== "removed").map((j) => {
     const prop = propsById.get(j.propertyId);
     const boardStatus =
       j.status === "complete" ? "completed" : (j.boardStatus ?? "active");
@@ -187,7 +189,10 @@ router.post("/jobs/:id/broadcast", async (req, res): Promise<void> => {
     sentNames.push(crew.name);
   }
 
-  if (toSend.length > 0 && job.boardStatus === "reopened") {
+  if (
+    toSend.length > 0 &&
+    (job.boardStatus === "reopened" || job.boardStatus === "removed")
+  ) {
     await db
       .update(jobsTable)
       .set({ boardStatus: "active" })
@@ -201,6 +206,59 @@ router.post("/jobs/:id/broadcast", async (req, res): Promise<void> => {
       crewNames: sentNames,
     }),
   );
+});
+
+router.post("/jobs/:id/unlist", async (req, res): Promise<void> => {
+  const { id } = UnlistJobParams.parse(req.params);
+  const result = await db.transaction(async (tx) => {
+    const [job] = await tx.select().from(jobsTable).where(eq(jobsTable.id, id));
+    if (!job) return { status: 404 as const, error: "Job not found" };
+    if (job.boardStatus === "filled") {
+      return {
+        status: 409 as const,
+        error: "This job is filled. Reopen it first, then remove the posting.",
+      };
+    }
+
+    // Withdraw every live offer so the posting disappears from crew portals.
+    const live = await tx
+      .select()
+      .from(jobBroadcastsTable)
+      .where(
+        and(
+          eq(jobBroadcastsTable.jobId, id),
+          inArray(jobBroadcastsTable.status, ["pending", "approved"]),
+        ),
+      );
+    for (const b of live) {
+      await tx
+        .update(jobBroadcastsTable)
+        .set({ status: "withdrawn", respondedAt: new Date() })
+        .where(eq(jobBroadcastsTable.id, b.id));
+      if (b.status === "approved") {
+        await tx
+          .delete(schedulesTable)
+          .where(
+            and(
+              eq(schedulesTable.jobId, id),
+              eq(schedulesTable.crewLeaderId, b.crewId),
+            ),
+          );
+      }
+    }
+
+    await tx
+      .update(jobsTable)
+      .set({ boardStatus: "removed" })
+      .where(eq(jobsTable.id, id));
+    return { status: 200 as const };
+  });
+
+  if (result.status !== 200) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  res.json(UnlistJobResponse.parse({ ok: true }));
 });
 
 router.post("/jobs/:id/reopen", async (req, res): Promise<void> => {

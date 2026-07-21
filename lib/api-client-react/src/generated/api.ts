@@ -4354,6 +4354,77 @@ export const useReopenJob = <TError = ErrorType<Error>,
       return useMutation(getReopenJobMutationOptions(options));
     }
 
+export const getUnlistJobUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/unlist`
+}
+
+/**
+ * @summary Remove a job's posting from the board (withdraws broadcasts, keeps the job)
+ */
+export const unlistJob = async (id: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getUnlistJobUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getUnlistJobMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlistJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unlistJob>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['unlistJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unlistJob>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  unlistJob(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnlistJobMutationResult = NonNullable<Awaited<ReturnType<typeof unlistJob>>>
+
+    export type UnlistJobMutationError = ErrorType<Error>
+
+    /**
+ * @summary Remove a job's posting from the board (withdraws broadcasts, keeps the job)
+ */
+export const useUnlistJob = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlistJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unlistJob>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getUnlistJobMutationOptions(options));
+    }
+
 export const getGetCalendarUrl = (params: GetCalendarParams,) => {
   const normalizedParams = new URLSearchParams();
 

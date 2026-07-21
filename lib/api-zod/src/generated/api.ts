@@ -1885,6 +1885,18 @@ export const ReopenJobResponse = zod.object({
 
 
 /**
+ * @summary Remove a job's posting from the board (withdraws broadcasts, keeps the job)
+ */
+export const UnlistJobParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UnlistJobResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
  * @summary Unified calendar events (job schedules + ad-hoc notes) in a date range
  */
 export const GetCalendarQueryParams = zod.object({

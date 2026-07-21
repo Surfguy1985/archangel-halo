@@ -4,6 +4,7 @@ import {
   getListJobBoardQueryKey, 
   useBroadcastJob, 
   useReopenJob, 
+  useUnlistJob,
   useListCrews,
   getListCrewsQueryKey,
   type JobBoardCard,
@@ -29,9 +30,12 @@ import {
   RotateCcw, 
   CheckCircle2,
   Image as ImageIcon,
-  Clock
+  Clock,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useLocation } from "wouter";
 
 export default function JobBoard() {
   const { data: jobBoard, isLoading } = useListJobBoard();
@@ -95,6 +99,8 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
   const { job, priceItems, photos, broadcasts } = card;
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [reopenConfirmOpen, setReopenConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [, navigate] = useLocation();
   
   const statusColors: Record<string, string> = {
     active: "bg-[var(--blue)]/10 text-[var(--blue)] border-[var(--blue)]/20",
@@ -220,6 +226,20 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
         </div>
 
         <div className="p-4 bg-card border-t border-border flex justify-end gap-3 shrink-0">
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/jobs/${job.id}`)}
+            className="text-[var(--ink)]"
+          >
+            <Pencil className="w-4 h-4 mr-2" /> Edit
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setDeleteConfirmOpen(true)}
+            className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="w-4 h-4 mr-2" /> Delete
+          </Button>
           {(boardStatus === 'active' || boardStatus === 'reopened') && (
             <Button onClick={() => setBroadcastOpen(true)} className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white">
               <Send className="w-4 h-4 mr-2" /> Broadcast Job
@@ -240,6 +260,7 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
 
       <BroadcastDialog open={broadcastOpen} onOpenChange={setBroadcastOpen} job={job} />
       <ReopenConfirmDialog open={reopenConfirmOpen} onOpenChange={setReopenConfirmOpen} job={job} />
+      <DeleteConfirmDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen} job={job} />
     </Card>
   );
 }
@@ -362,6 +383,55 @@ function BroadcastDialog({ open, onOpenChange, job }: { open: boolean, onOpenCha
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function DeleteConfirmDialog({ open, onOpenChange, job }: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job'] }) {
+  const unlistJob = useUnlistJob();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const handleDelete = () => {
+    unlistJob.mutate({ id: job.id }, {
+      onSuccess: () => {
+        toast({
+          title: "Posting Removed",
+          description: `${job.jobNo} is off the board and crew portals. The job itself still exists on the Jobs page.`,
+        });
+        queryClient.invalidateQueries();
+        onOpenChange(false);
+      },
+      onError: (err) => {
+        toast({
+          title: "Could not remove posting",
+          description: (err as any)?.data?.error ?? "Something went wrong",
+          variant: "destructive"
+        });
+      }
+    });
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Posting?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This removes {job.jobNo} from the job board and withdraws it from all crew portals. The job itself is not deleted — you can rebroadcast it later from the Jobs page.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={(e) => { e.preventDefault(); handleDelete(); }}
+            className="bg-destructive hover:bg-destructive/90 text-white"
+            disabled={unlistJob.isPending}
+          >
+            {unlistJob.isPending ? "Removing..." : "Delete Posting"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
