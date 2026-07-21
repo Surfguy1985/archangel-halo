@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useListLeads, useListBids } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Target, FileText, Zap, Mail } from "lucide-react";
+import { Plus, Target, FileText, Zap, Mail, Phone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
 import {
@@ -83,6 +83,11 @@ export default function Pipeline() {
                       <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--ink)] px-2 py-0.5 rounded-full bg-black/5 border border-border">
                         {lead.status}
                       </span>
+                      {lead.source === "phone" && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] border border-[var(--gold)]/20 flex items-center gap-1">
+                          <Phone className="w-2.5 h-2.5" /> call
+                        </span>
+                      )}
                       {lead.campaignStatus === "active" && (
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] border border-[var(--gold)]/20 flex items-center gap-1">
                           <Zap className="w-2.5 h-2.5" /> drip

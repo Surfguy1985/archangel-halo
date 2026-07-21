@@ -47,6 +47,7 @@ import {
   ResetAllDataResponse,
 } from "@workspace/api-zod";
 import { getBusinessSettings } from "../lib/businessSettings";
+import { runAutopilot } from "../lib/autopilot";
 
 const router: IRouter = Router();
 
@@ -61,9 +62,13 @@ function serialize(row: {
   paymentInstructions: string;
   taxRatePct?: number | null;
   expenseApprovalThreshold?: number | null;
+  autoSendRecapLinks?: boolean | null;
+  autopilotEnabled?: boolean | null;
 }) {
   return {
     expenseApprovalThreshold: row.expenseApprovalThreshold ?? 0,
+    autoSendRecapLinks: row.autoSendRecapLinks ?? true,
+    autopilotEnabled: row.autopilotEnabled ?? true,
     companyName: row.companyName,
     tagline: row.tagline,
     street: row.street,
@@ -103,11 +108,22 @@ router.put("/settings/business", async (req, res): Promise<void> => {
       ...(body.expenseApprovalThreshold != null
         ? { expenseApprovalThreshold: Math.max(body.expenseApprovalThreshold, 0) }
         : {}),
+      ...(body.autoSendRecapLinks != null
+        ? { autoSendRecapLinks: body.autoSendRecapLinks }
+        : {}),
+      ...(body.autopilotEnabled != null
+        ? { autopilotEnabled: body.autopilotEnabled }
+        : {}),
       updatedAt: new Date(),
     })
     .where(eq(businessSettingsTable.id, existing.id))
     .returning();
   res.json(UpdateBusinessSettingsResponse.parse(serialize(updated)));
+});
+
+router.post("/autopilot/run", async (_req, res): Promise<void> => {
+  const actions = await runAutopilot();
+  res.json({ ok: true, actions });
 });
 
 router.post("/settings/reset", async (_req, res): Promise<void> => {

@@ -18,4 +18,8 @@ export interface BusinessSettings {
   taxRatePct?: number;
   /** Expenses at or above this amount need approval; 0 = off */
   expenseApprovalThreshold?: number;
+  /** Auto-email property contacts a live job link on schedule/completion */
+  autoSendRecapLinks?: boolean;
+  /** Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs */
+  autopilotEnabled?: boolean;
 }

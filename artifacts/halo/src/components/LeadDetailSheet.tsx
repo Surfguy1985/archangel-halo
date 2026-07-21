@@ -1,7 +1,7 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Mail, Send, StopCircle, Zap } from "lucide-react";
+import { Mail, Phone, Send, StopCircle, Zap } from "lucide-react";
 import {
   useUpdateLead,
   useListLeadEmailTemplates,
@@ -21,10 +21,13 @@ export interface MobileLeadRow {
   id: string;
   propertyId?: string | null;
   propertyName?: string | null;
+  source?: string | null;
   summary?: string | null;
   status: string;
   contactName?: string | null;
   contactEmail?: string | null;
+  contactPhone?: string | null;
+  callTranscript?: string | null;
   lastContactAt?: string | null;
   campaignKind?: string | null;
   campaignStatus?: string | null;
@@ -56,16 +59,20 @@ export function LeadDetailSheet({
   const [status, setStatus] = useState("new");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [showTranscript, setShowTranscript] = useState(false);
 
   useEffect(() => {
     if (open && lead) {
       setStatus(lead.status);
       setContactName(lead.contactName ?? "");
       setContactEmail(lead.contactEmail ?? "");
+      setContactPhone(lead.contactPhone ?? "");
       setSelectedTemplate(null);
       setFeedback(null);
+      setShowTranscript(false);
     }
   }, [open, lead?.id]);
 
@@ -79,7 +86,8 @@ export function LeadDetailSheet({
   const dirty =
     status !== lead.status ||
     contactName !== (lead.contactName ?? "") ||
-    contactEmail !== (lead.contactEmail ?? "");
+    contactEmail !== (lead.contactEmail ?? "") ||
+    contactPhone !== (lead.contactPhone ?? "");
 
   const saveDetails = () => {
     update.mutate(
@@ -89,6 +97,7 @@ export function LeadDetailSheet({
           status,
           contactName: contactName.trim() || undefined,
           contactEmail: contactEmail.trim() || undefined,
+          contactPhone: contactPhone.trim() || undefined,
         },
       },
       {
@@ -117,8 +126,13 @@ export function LeadDetailSheet({
         <div className="w-[40px] h-[4.5px] rounded-[3px] bg-[rgba(23,24,28,0.16)] mx-auto mt-[10px] mb-[4px] shrink-0" />
         <div className="p-[8px_20px_26px] overflow-y-auto">
           <SheetHeader className="text-left mb-[12px]">
-            <SheetTitle className="font-display font-bold text-[19px] m-[6px_0_2px]">
+            <SheetTitle className="font-display font-bold text-[19px] m-[6px_0_2px] flex items-center gap-[8px]">
               {lead.propertyName || lead.contactName || "Lead"}
+              {lead.source === "phone" && (
+                <span className="text-[10.5px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full bg-[rgba(143,106,31,0.12)] text-[var(--gold-dark)] inline-flex items-center gap-[3px]">
+                  <Phone className="w-[10px] h-[10px]" /> call
+                </span>
+              )}
             </SheetTitle>
             {lead.summary && (
               <div className="text-[13px] text-muted-foreground">{lead.summary}</div>
@@ -135,6 +149,25 @@ export function LeadDetailSheet({
               <input className={`${fieldCls} flex-1`} placeholder="Contact name" value={contactName} onChange={(e) => setContactName(e.target.value)} />
               <input className={`${fieldCls} flex-1`} type="email" placeholder="Contact email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
             </div>
+            <input className={fieldCls} type="tel" placeholder="Contact phone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+            {lead.callTranscript && (
+              <div className="bg-card rounded-[16px] shadow-[var(--shadow)]">
+                <button
+                  className="w-full flex items-center justify-between px-[14px] py-[11px] text-[13px] font-display font-bold"
+                  onClick={() => setShowTranscript((v) => !v)}
+                >
+                  <span className="flex items-center gap-[6px]">
+                    <Phone className="w-[14px] h-[14px] text-[var(--gold-dark)]" /> Call transcript
+                  </span>
+                  <span className="text-[11.5px] text-muted-foreground font-normal">{showTranscript ? "Hide" : "Show"}</span>
+                </button>
+                {showTranscript && (
+                  <div className="px-[14px] pb-[14px] text-[12.5px] text-muted-foreground whitespace-pre-line max-h-[200px] overflow-y-auto">
+                    {lead.callTranscript}
+                  </div>
+                )}
+              </div>
+            )}
             {dirty && (
               <button className={btnGold} onClick={saveDetails} disabled={update.isPending}>
                 {update.isPending ? "Saving…" : "Save changes"}

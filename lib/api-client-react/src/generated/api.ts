@@ -28,6 +28,7 @@ import type {
   ArrivalCheckResult,
   AskAnswer,
   AskInput,
+  AutopilotRunResult,
   BalanceSheetReport,
   BankAccount,
   BankAnalysis,
@@ -5219,6 +5220,77 @@ export const useResetAllData = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getResetAllDataMutationOptions(options));
+    }
+
+export const getRunAutopilotNowUrl = () => {
+
+
+
+
+  return `/api/autopilot/run`
+}
+
+/**
+ * @summary Run the Autopilot background checks immediately
+ */
+export const runAutopilotNow = async ( options?: RequestInit): Promise<AutopilotRunResult> => {
+
+  return customFetch<AutopilotRunResult>(getRunAutopilotNowUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRunAutopilotNowMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runAutopilotNow>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runAutopilotNow>>, TError,void, TContext> => {
+
+const mutationKey = ['runAutopilotNow'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runAutopilotNow>>, void> = () => {
+
+
+          return  runAutopilotNow(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunAutopilotNowMutationResult = NonNullable<Awaited<ReturnType<typeof runAutopilotNow>>>
+
+    export type RunAutopilotNowMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Run the Autopilot background checks immediately
+ */
+export const useRunAutopilotNow = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runAutopilotNow>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runAutopilotNow>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRunAutopilotNowMutationOptions(options));
     }
 
 export const getCreatePlaidLinkTokenUrl = () => {

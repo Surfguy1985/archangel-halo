@@ -12,4 +12,5 @@ export interface LeadUpdate {
   source?: string;
   contactName?: string;
   contactEmail?: string;
+  contactPhone?: string;
 }

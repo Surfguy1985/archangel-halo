@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Trash2 } from "lucide-react";
 
 export function BusinessInfoDialog({
@@ -70,6 +71,8 @@ export function BusinessInfoDialog({
   const [paymentInstructions, setPaymentInstructions] = useState("");
   const [taxRate, setTaxRate] = useState("");
   const [approvalThreshold, setApprovalThreshold] = useState("");
+  const [autoSendLinks, setAutoSendLinks] = useState(true);
+  const [autopilot, setAutopilot] = useState(true);
 
   useEffect(() => {
     if (open && settings) {
@@ -85,6 +88,8 @@ export function BusinessInfoDialog({
       setApprovalThreshold(
         settings.expenseApprovalThreshold ? String(settings.expenseApprovalThreshold) : "",
       );
+      setAutoSendLinks(settings.autoSendRecapLinks ?? true);
+      setAutopilot(settings.autopilotEnabled ?? true);
     }
   }, [open, settings]);
 
@@ -104,6 +109,8 @@ export function BusinessInfoDialog({
           expenseApprovalThreshold: Number.isFinite(parseFloat(approvalThreshold))
             ? parseFloat(approvalThreshold)
             : 0,
+          autoSendRecapLinks: autoSendLinks,
+          autopilotEnabled: autopilot,
         },
       },
       {
@@ -192,6 +199,35 @@ export function BusinessInfoDialog({
             <p className="text-xs text-muted-foreground">
               Expenses at or above this amount wait for your approval before they hit the books. Leave 0 to turn approvals off.
             </p>
+          </div>
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-3">
+            <div>
+              <Label>Auto-send live job links</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                When a job is scheduled or completed, HALO automatically emails the
+                property's contact a live link with status and photos.
+              </p>
+            </div>
+            <Switch
+              checked={autoSendLinks}
+              onCheckedChange={setAutoSendLinks}
+              data-testid="switch-auto-send-links"
+            />
+          </div>
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-3">
+            <div>
+              <Label>Autopilot agent</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                HALO quietly watches your business in the background — overdue
+                invoices, crews sitting on job offers, jobs waiting too long to be
+                scheduled — and raises an alert for each one.
+              </p>
+            </div>
+            <Switch
+              checked={autopilot}
+              onCheckedChange={setAutopilot}
+              data-testid="switch-autopilot"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Payment instructions</Label>

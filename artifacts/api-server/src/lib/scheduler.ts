@@ -9,6 +9,7 @@ import {
   urgentSignature,
 } from "./notifications";
 import { campaignByKind } from "./leadTemplates";
+import { runAutopilot } from "./autopilot";
 import { sendCampaignStepEmail } from "../routes/pipeline";
 import { logger } from "./logger";
 
@@ -21,12 +22,14 @@ const WEEKLY_MINUTE = 0;
 const WEEKLY_DOW = 1; // Monday
 const TICK_MS = 60 * 1000;
 const URGENT_CHECK_MS = 15 * 60 * 1000;
+const AUTOPILOT_CHECK_MS = 15 * 60 * 1000;
 
 let lastDailyDate: string | null = null;
 let lastCloseDate: string | null = null;
 let lastWeeklyDate: string | null = null;
 let lastUrgentSignature = "";
 let lastUrgentCheck = 0;
+let lastAutopilotCheck = 0;
 
 function nowInEastern(): {
   date: string;
@@ -239,6 +242,13 @@ async function tick(): Promise<void> {
   }
 
   const stamp = Date.now();
+
+  if (stamp - lastAutopilotCheck >= AUTOPILOT_CHECK_MS) {
+    lastAutopilotCheck = stamp;
+    // runAutopilot never throws; it checks the settings toggle itself.
+    await runAutopilot();
+  }
+
   if (stamp - lastUrgentCheck >= URGENT_CHECK_MS) {
     lastUrgentCheck = stamp;
     try {

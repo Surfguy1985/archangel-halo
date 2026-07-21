@@ -1,4 +1,4 @@
-import { doublePrecision, pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
 
 export const businessSettingsTable = pgTable("business_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -16,6 +16,12 @@ export const businessSettingsTable = pgTable("business_settings", {
   expenseApprovalThreshold: doublePrecision("expense_approval_threshold")
     .notNull()
     .default(0),
+  // When true, HALO automatically emails the property contact a live job link
+  // when a job is scheduled and again when it's completed.
+  autoSendRecapLinks: boolean("auto_send_recap_links").notNull().default(true),
+  // When true, the Autopilot background agent watches for overdue invoices,
+  // stale crew offers, and aging unscheduled jobs and raises alerts.
+  autopilotEnabled: boolean("autopilot_enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -22,6 +22,10 @@ export interface Lead {
   /** @nullable */
   contactEmail?: string | null;
   /** @nullable */
+  contactPhone?: string | null;
+  /** @nullable */
+  callTranscript?: string | null;
+  /** @nullable */
   lastContactAt?: string | null;
   /** @nullable */
   campaignKind?: string | null;

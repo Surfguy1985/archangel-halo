@@ -22,6 +22,7 @@ import geoRouter from "./geo";
 import arrivalsRouter from "./arrivals";
 import accountingRouter from "./accounting";
 import taxPlannerRouter from "./taxPlanner";
+import vapiRouter from "./vapi";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use(geoRouter);
 router.use(arrivalsRouter);
 router.use(accountingRouter);
 router.use(taxPlannerRouter);
+router.use(vapiRouter);
 
 export default router;

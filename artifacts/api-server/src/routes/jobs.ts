@@ -21,6 +21,7 @@ import {
   expensesTable,
   priceItemsTable,
   jobLineItemsTable,
+  businessSettingsTable,
 } from "@workspace/db";
 import {
   ListJobsResponse,
@@ -74,6 +75,7 @@ import {
 } from "@workspace/api-zod";
 import { completeText } from "../lib/ai";
 import { sendEmail } from "../lib/email";
+import { logger } from "../lib/logger";
 import { ser, serList } from "../lib/serialize";
 import { crewPhotosForJobs, type CrewJobPhoto } from "../lib/jobPhotos";
 import { recomputeJobFinancials } from "../lib/jobFinance";
@@ -341,6 +343,7 @@ router.post("/jobs/:id/schedule", async (req, res): Promise<void> => {
     windowStart: body.windowStart,
     crewLeaderId: body.crewLeaderId,
   });
+  await autoSendLiveLink(id, "scheduled");
   const { propName, crewName } = await lookups();
   res.json(ScheduleJobResponse.parse(decorateJob(row, propName, crewName)));
 });
@@ -363,6 +366,7 @@ router.post("/jobs/:id/complete", async (req, res): Promise<void> => {
     body: "Job marked complete",
   });
   await syncJobLaborLedger(id);
+  await autoSendLiveLink(id, "completed");
   const { propName, crewName } = await lookups();
   res.json(CompleteJobResponse.parse(decorateJob(row, propName, crewName)));
 });
@@ -525,6 +529,87 @@ function publicBaseUrl(): string {
   return domain ? `https://${domain}` : "";
 }
 
+/**
+ * Auto-send a live job link to the property's contact when a job is
+ * scheduled or completed. Controlled by the autoSendRecapLinks business
+ * setting. Never throws — failures are logged and the triggering request
+ * still succeeds.
+ */
+async function autoSendLiveLink(
+  jobId: string,
+  event: "scheduled" | "completed",
+): Promise<void> {
+  try {
+    const [settings] = await db.select().from(businessSettingsTable);
+    if (settings && settings.autoSendRecapLinks === false) return;
+
+    const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
+    if (!job) return;
+    const [prop] = await db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, job.propertyId));
+    const contacts = await db
+      .select()
+      .from(contactsTable)
+      .where(eq(contactsTable.propertyId, job.propertyId));
+    const withEmail = contacts.filter((c) => c.email?.trim());
+    if (!withEmail.length) return;
+    const managerish = withEmail.find((c) =>
+      /manager|pm|property|regional|director/i.test(c.role ?? ""),
+    );
+    const contact = managerish ?? withEmail[0];
+    const to = contact.email!.trim();
+
+    const where = [prop?.name, job.unitNo ? `Unit ${job.unitNo}` : null]
+      .filter(Boolean)
+      .join(" · ");
+    const companyName = settings?.companyName ?? "ArchAngel Contractors";
+    const subject =
+      event === "scheduled"
+        ? `Work scheduled${where ? ` at ${where}` : ""} — ${job.jobNo}`
+        : `Work completed${where ? ` at ${where}` : ""} — ${job.jobNo}`;
+    const intro =
+      event === "scheduled"
+        ? `Hi ${contact.name},\n\nGood news — your job ${job.jobNo}${where ? ` at ${where}` : ""} is on the schedule${job.scheduledOn ? ` for ${job.scheduledOn}` : ""}. You can follow along with a live link that updates as the crew works, including photos.\n\nPlease reply to this email with any questions.\n\n${companyName}`
+        : `Hi ${contact.name},\n\nYour job ${job.jobNo}${where ? ` at ${where}` : ""} is complete. The live link below has the full recap, including the crew's photo documentation.\n\nPlease reply to this email with any questions.\n\n${companyName}`;
+
+    const token = randomBytes(18).toString("base64url");
+    await db.insert(recapSharesTable).values({
+      jobId,
+      token,
+      subject,
+      body: intro,
+    });
+    const link = `${publicBaseUrl()}/recap/${token}`;
+
+    const html = recapShell({
+      subject,
+      body: intro,
+      propertyName: prop?.name ?? null,
+      unitNo: job.unitNo,
+      jobNo: job.jobNo,
+      photos: [],
+      ctaUrl: link,
+      ctaLabel: "View live job link",
+    });
+
+    const sent = await sendEmail({ to, subject, html });
+    if (!sent.ok) {
+      logger.warn({ jobId, event, to, error: sent.error }, "Auto live-link email failed");
+      return;
+    }
+    await db.insert(activitiesTable).values({
+      entityType: "job",
+      entityId: jobId,
+      kind: "email",
+      body: `Live job link auto-sent to ${contact.name} (${to}) — job ${event}.`,
+    });
+  } catch (err) {
+    logger.warn({ err, jobId, event }, "Auto live-link send failed");
+  }
+}
+
 function photoGridHtml(
   photos: { url: string; label: string }[],
   base: string,
@@ -559,6 +644,8 @@ function recapShell(opts: {
   unitNo: string | null;
   jobNo: string;
   photos: { url: string; label: string }[];
+  ctaUrl?: string;
+  ctaLabel?: string;
 }): string {
   const base = publicBaseUrl();
   const dateLabel = new Date().toLocaleDateString("en-US", {
@@ -587,6 +674,13 @@ function recapShell(opts: {
           <div style="font-size:14px;color:#17181c;line-height:1.7;background:#ffffff;border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(23,24,28,0.08);border-top:3px solid #8f6a1f;white-space:pre-wrap;">${escHtml(opts.body)}</div>
         </td></tr>
         ${photoGridHtml(opts.photos, base)}
+        ${
+          opts.ctaUrl
+            ? `<tr><td style="padding:16px 4px 0 4px;" align="center">
+          <a href="${opts.ctaUrl}" style="display:inline-block;background:#8f6a1f;color:#ffffff;font-weight:700;font-size:14px;text-decoration:none;padding:12px 26px;border-radius:10px;">${escHtml(opts.ctaLabel ?? "View live link")}</a>
+        </td></tr>`
+            : ""
+        }
         <tr><td style="padding:18px 4px 4px 4px;">
           <div style="font-size:12px;color:#9a9da4;line-height:1.5;border-top:1px solid #e2e1dc;padding-top:12px;">ArchAngel Contractors · Sent by HALO. Reply to this email with any questions — we're happy to help.</div>
         </td></tr>

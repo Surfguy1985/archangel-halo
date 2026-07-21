@@ -669,6 +669,8 @@ export const ListLeadsResponseItem = zod.object({
   "status": zod.string(),
   "contactName": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "callTranscript": zod.string().nullish(),
   "lastContactAt": zod.string().nullish(),
   "campaignKind": zod.string().nullish(),
   "campaignStatus": zod.string().nullish(),
@@ -687,7 +689,8 @@ export const CreateLeadBody = zod.object({
   "source": zod.string().optional(),
   "summary": zod.string().min(1),
   "contactName": zod.string().optional(),
-  "contactEmail": zod.string().optional()
+  "contactEmail": zod.string().optional(),
+  "contactPhone": zod.string().optional()
 })
 
 export const CreateLeadResponse = zod.object({
@@ -699,6 +702,8 @@ export const CreateLeadResponse = zod.object({
   "status": zod.string(),
   "contactName": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "callTranscript": zod.string().nullish(),
   "lastContactAt": zod.string().nullish(),
   "campaignKind": zod.string().nullish(),
   "campaignStatus": zod.string().nullish(),
@@ -717,7 +722,8 @@ export const UpdateLeadBody = zod.object({
   "summary": zod.string().optional(),
   "source": zod.string().optional(),
   "contactName": zod.string().optional(),
-  "contactEmail": zod.string().optional()
+  "contactEmail": zod.string().optional(),
+  "contactPhone": zod.string().optional()
 })
 
 export const UpdateLeadResponse = zod.object({
@@ -729,6 +735,8 @@ export const UpdateLeadResponse = zod.object({
   "status": zod.string(),
   "contactName": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "callTranscript": zod.string().nullish(),
   "lastContactAt": zod.string().nullish(),
   "campaignKind": zod.string().nullish(),
   "campaignStatus": zod.string().nullish(),
@@ -810,6 +818,8 @@ export const StartLeadCampaignResponse = zod.object({
   "status": zod.string(),
   "contactName": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "callTranscript": zod.string().nullish(),
   "lastContactAt": zod.string().nullish(),
   "campaignKind": zod.string().nullish(),
   "campaignStatus": zod.string().nullish(),
@@ -835,6 +845,8 @@ export const StopLeadCampaignResponse = zod.object({
   "status": zod.string(),
   "contactName": zod.string().nullish(),
   "contactEmail": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "callTranscript": zod.string().nullish(),
   "lastContactAt": zod.string().nullish(),
   "campaignKind": zod.string().nullish(),
   "campaignStatus": zod.string().nullish(),
@@ -2143,7 +2155,9 @@ export const GetBusinessSettingsResponse = zod.object({
   "email": zod.string(),
   "paymentInstructions": zod.string(),
   "taxRatePct": zod.number().optional(),
-  "expenseApprovalThreshold": zod.number().optional().describe('Expenses at or above this amount need approval; 0 = off')
+  "expenseApprovalThreshold": zod.number().optional().describe('Expenses at or above this amount need approval; 0 = off'),
+  "autoSendRecapLinks": zod.boolean().optional().describe('Auto-email property contacts a live job link on schedule\/completion'),
+  "autopilotEnabled": zod.boolean().optional().describe('Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs')
 })
 
 
@@ -2160,7 +2174,9 @@ export const UpdateBusinessSettingsBody = zod.object({
   "email": zod.string().optional(),
   "paymentInstructions": zod.string().optional(),
   "taxRatePct": zod.number().optional(),
-  "expenseApprovalThreshold": zod.number().optional()
+  "expenseApprovalThreshold": zod.number().optional(),
+  "autoSendRecapLinks": zod.boolean().optional(),
+  "autopilotEnabled": zod.boolean().optional()
 })
 
 export const UpdateBusinessSettingsResponse = zod.object({
@@ -2173,7 +2189,9 @@ export const UpdateBusinessSettingsResponse = zod.object({
   "email": zod.string(),
   "paymentInstructions": zod.string(),
   "taxRatePct": zod.number().optional(),
-  "expenseApprovalThreshold": zod.number().optional().describe('Expenses at or above this amount need approval; 0 = off')
+  "expenseApprovalThreshold": zod.number().optional().describe('Expenses at or above this amount need approval; 0 = off'),
+  "autoSendRecapLinks": zod.boolean().optional().describe('Auto-email property contacts a live job link on schedule\/completion'),
+  "autopilotEnabled": zod.boolean().optional().describe('Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs')
 })
 
 
@@ -2182,6 +2200,15 @@ export const UpdateBusinessSettingsResponse = zod.object({
  */
 export const ResetAllDataResponse = zod.object({
   "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Run the Autopilot background checks immediately
+ */
+export const RunAutopilotNowResponse = zod.object({
+  "ok": zod.boolean(),
+  "actions": zod.array(zod.string())
 })
 
 

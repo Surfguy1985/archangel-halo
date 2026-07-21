@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen } from "lucide-react";
+import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles } from "lucide-react";
 import { useGetToday, getGetTodayQueryKey } from "@workspace/api-client-react";
 import haloLogo from "../assets/halo-logo.png";
 import { NotificationsPopover } from "./NotificationsPopover";
@@ -19,6 +19,16 @@ import {
 export function DesktopLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [cmdText, setCmdText] = useState("");
+  const [cmdInitial, setCmdInitial] = useState<string | undefined>(undefined);
+
+  const submitCommand = () => {
+    const text = cmdText.trim();
+    if (!text) return;
+    setCmdInitial(text);
+    setCmdText("");
+    setVoiceOpen(true);
+  };
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const { data: today } = useGetToday({
@@ -103,10 +113,42 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <main className="ml-[240px] flex-1 bg-[var(--paper)]">
+        <div className="sticky top-0 z-30 bg-[var(--paper)]/95 backdrop-blur px-8 pt-4 pb-2">
+          <div className="relative max-w-2xl">
+            <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--gold-dark)]" />
+            <input
+              value={cmdText}
+              onChange={(e) => setCmdText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitCommand();
+              }}
+              placeholder="Ask HALO to do anything — “Invoice Maple Grove $950 for painting unit 5”, “Schedule J-2001 tomorrow with Ray”…"
+              className="w-full h-11 rounded-full bg-card border border-border shadow-sm pl-11 pr-24 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gold)] placeholder:text-muted-foreground/70"
+              data-testid="input-command-bar"
+            />
+            {cmdText.trim() && (
+              <button
+                type="button"
+                onClick={submitCommand}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 px-4 rounded-full bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white text-xs font-bold transition-colors"
+                data-testid="button-command-go"
+              >
+                Do it
+              </button>
+            )}
+          </div>
+        </div>
         {children}
       </main>
 
-      <VoiceCaptureDialog open={voiceOpen} onOpenChange={setVoiceOpen} />
+      <VoiceCaptureDialog
+        open={voiceOpen}
+        onOpenChange={(o) => {
+          setVoiceOpen(o);
+          if (!o) setCmdInitial(undefined);
+        }}
+        initialText={cmdInitial}
+      />
       <BusinessInfoDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <GuidedTour open={tourOpen} onOpenChange={setTourOpen} />
     </div>

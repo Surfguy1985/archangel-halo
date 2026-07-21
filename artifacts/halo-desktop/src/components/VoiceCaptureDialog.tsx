@@ -220,9 +220,11 @@ function getRecognition(): SpeechRecognitionLike | null {
 export function VoiceCaptureDialog({
   open,
   onOpenChange,
+  initialText,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialText?: string;
 }) {
   const queryClient = useQueryClient();
   const [phase, setPhase] = useState<Phase>("capture");
@@ -263,6 +265,30 @@ export function VoiceCaptureDialog({
     if (!open) resetAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Command-bar entry: when opened with typed text, parse it immediately.
+  useEffect(() => {
+    if (!open || !initialText || !initialText.trim()) return;
+    let cancelled = false;
+    const text = initialText.trim();
+    setTranscript(text);
+    parse.mutate(
+      { data: { transcript: text } },
+      {
+        onSuccess: (res) => {
+          if (cancelled) return;
+          setActions(res.actions);
+          setSelected(new Set(res.actions.map((_, i) => i)));
+          setVoiceLogId(res.voiceLogId ?? null);
+          setPhase("review");
+        },
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialText]);
 
   const toggleListen = () => {
     if (listening) {

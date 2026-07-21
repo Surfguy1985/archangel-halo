@@ -32,4 +32,5 @@
 - [HALO expense approvals & receipts](halo-expense-approvals.md) — every expense aggregator/poster must filter approvalStatus==="approved" (pending AND rejected stay off the books, incl. ledger rebuild).
 - [HALO invoice quick-create](halo-invoice-quick-create.md) — tap-to-add price-book pills + dueTouched auto due date; mobile InvoiceEditor doubles as the edit form, don't break edit mode.
 - [HALO property hero images](halo-property-images.md) — runtime gpt-image-1 via OpenAI proxy, stored in object storage; keep the triple cost guard or paid regen loops happen.
+- [HALO autopilot & JARVIS entry](halo-autopilot-jarvis.md) — autopilot dedupe key must match raise() entityId; Vapi webhook secret optional via env; command-bar initialText parse needs cancel guard.
 - [HALO double-entry ledger](halo-ledger.md) — Books engine: every money mutation (REST and voice) must call syncXLedger; rebuild+syncs serialized by in-process mutex; JE numbering via advisory lock.

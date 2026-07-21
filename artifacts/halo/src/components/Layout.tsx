@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Mic, Bell, LayoutGrid, CalendarDays } from "lucide-react";
+import { Mic, Bell, LayoutGrid, CalendarDays, Sparkles } from "lucide-react";
 import haloLogo from "../assets/halo-logo.png";
 import { useGetToday, getGetTodayQueryKey } from "@workspace/api-client-react";
 import { useState } from "react";
@@ -16,6 +16,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [cmdText, setCmdText] = useState("");
+  const [cmdInitial, setCmdInitial] = useState<string | undefined>(undefined);
+
+  const submitCommand = () => {
+    const text = cmdText.trim();
+    if (!text) return;
+    setCmdInitial(text);
+    setCmdText("");
+    setVoiceOpen(true);
+  };
 
   return (
     <div className="min-h-[100dvh] flex flex-col items-center justify-center py-0 sm:py-7">
@@ -54,6 +64,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
             ) : null}
           </button>
         </header>
+
+        {/* JARVIS command bar */}
+        <div className="px-[18px] pb-[10px] shrink-0">
+          <div className="relative">
+            <Sparkles className="absolute left-[14px] top-1/2 -translate-y-1/2 w-[15px] h-[15px] text-[var(--gold-dark)]" />
+            <input
+              value={cmdText}
+              onChange={(e) => setCmdText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitCommand();
+              }}
+              placeholder="Tell HALO what to do…"
+              className="w-full h-[42px] rounded-full bg-card border border-border shadow-[var(--shadow)] pl-[38px] pr-[74px] text-[14px] focus:outline-none focus:ring-2 focus:ring-[var(--gold)] placeholder:text-muted-foreground/70"
+              data-testid="input-command-bar"
+            />
+            {cmdText.trim() && (
+              <button
+                type="button"
+                onClick={submitCommand}
+                className="absolute right-[5px] top-1/2 -translate-y-1/2 h-[32px] px-[14px] rounded-full bg-[var(--gold)] text-white text-[11.5px] font-bold"
+                data-testid="button-command-go"
+              >
+                Do it
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto px-[18px] pb-[118px] scroll-smooth">
@@ -106,7 +143,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Link>
         </nav>
 
-        <VoiceCaptureSheet open={voiceOpen} onOpenChange={setVoiceOpen} />
+        <VoiceCaptureSheet
+          open={voiceOpen}
+          onOpenChange={(o) => {
+            setVoiceOpen(o);
+            if (!o) setCmdInitial(undefined);
+          }}
+          initialText={cmdInitial}
+        />
         <NotificationsDrawer open={notificationsOpen} onOpenChange={setNotificationsOpen} />
         <MoreMenuSheet open={moreOpen} onOpenChange={setMoreOpen} />
         <ArrivalDetection />

@@ -17,4 +17,6 @@ export interface BusinessSettingsInput {
   paymentInstructions?: string;
   taxRatePct?: number;
   expenseApprovalThreshold?: number;
+  autoSendRecapLinks?: boolean;
+  autopilotEnabled?: boolean;
 }

@@ -568,6 +568,10 @@ export interface Lead {
   /** @nullable */
   contactEmail?: string | null;
   /** @nullable */
+  contactPhone?: string | null;
+  /** @nullable */
+  callTranscript?: string | null;
+  /** @nullable */
   lastContactAt?: string | null;
   /** @nullable */
   campaignKind?: string | null;
@@ -588,6 +592,7 @@ export interface LeadInput {
   summary: string;
   contactName?: string;
   contactEmail?: string;
+  contactPhone?: string;
 }
 
 export interface LeadUpdate {
@@ -596,6 +601,7 @@ export interface LeadUpdate {
   source?: string;
   contactName?: string;
   contactEmail?: string;
+  contactPhone?: string;
 }
 
 export interface LeadEmailTemplate {
@@ -1450,6 +1456,10 @@ export interface BusinessSettings {
   taxRatePct?: number;
   /** Expenses at or above this amount need approval; 0 = off */
   expenseApprovalThreshold?: number;
+  /** Auto-email property contacts a live job link on schedule/completion */
+  autoSendRecapLinks?: boolean;
+  /** Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs */
+  autopilotEnabled?: boolean;
 }
 
 export interface BusinessSettingsInput {
@@ -1463,6 +1473,13 @@ export interface BusinessSettingsInput {
   paymentInstructions?: string;
   taxRatePct?: number;
   expenseApprovalThreshold?: number;
+  autoSendRecapLinks?: boolean;
+  autopilotEnabled?: boolean;
+}
+
+export interface AutopilotRunResult {
+  ok: boolean;
+  actions: string[];
 }
 
 export interface InvoiceInput {

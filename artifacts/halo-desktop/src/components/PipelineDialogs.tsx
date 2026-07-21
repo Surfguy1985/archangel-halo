@@ -51,6 +51,7 @@ import {
   Zap,
   StopCircle,
   Pencil,
+  Phone,
 } from "lucide-react";
 
 const money = (n: number) =>
@@ -212,6 +213,8 @@ export interface LeadRow {
   status: string;
   contactName?: string | null;
   contactEmail?: string | null;
+  contactPhone?: string | null;
+  callTranscript?: string | null;
   lastContactAt?: string | null;
   campaignKind?: string | null;
   campaignStatus?: string | null;
@@ -246,14 +249,18 @@ export function LeadDetailDialog({
   const [status, setStatus] = useState("new");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [showTranscript, setShowTranscript] = useState(false);
 
   useEffect(() => {
     if (open && lead) {
       setStatus(lead.status);
       setContactName(lead.contactName ?? "");
       setContactEmail(lead.contactEmail ?? "");
+      setContactPhone(lead.contactPhone ?? "");
       setSelectedTemplate(null);
+      setShowTranscript(false);
     }
   }, [open, lead]);
 
@@ -267,7 +274,8 @@ export function LeadDetailDialog({
   const dirty =
     status !== lead.status ||
     contactName !== (lead.contactName ?? "") ||
-    contactEmail !== (lead.contactEmail ?? "");
+    contactEmail !== (lead.contactEmail ?? "") ||
+    contactPhone !== (lead.contactPhone ?? "");
 
   const saveDetails = () => {
     updateLead.mutate(
@@ -277,6 +285,7 @@ export function LeadDetailDialog({
           status,
           contactName: contactName.trim() || undefined,
           contactEmail: contactEmail.trim() || undefined,
+          contactPhone: contactPhone.trim() || undefined,
         },
       },
       {
@@ -348,14 +357,19 @@ export function LeadDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display">
+          <DialogTitle className="font-display flex items-center gap-2">
             {lead.propertyName || "Lead"}
+            {lead.source === "phone" && (
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] border border-[var(--gold)]/20 inline-flex items-center gap-1">
+                <Phone className="w-2.5 h-2.5" /> phone call
+              </span>
+            )}
           </DialogTitle>
           <DialogDescription>{lead.summary}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Status</Label>
               <Select value={status} onValueChange={setStatus}>
@@ -382,7 +396,35 @@ export function LeadDetailDialog({
                 data-testid="input-detail-contact-email"
               />
             </div>
+            <div className="space-y-1.5">
+              <Label>Contact phone</Label>
+              <Input
+                type="tel"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                data-testid="input-detail-contact-phone"
+              />
+            </div>
           </div>
+          {lead.callTranscript && (
+            <div className="border border-border rounded-lg bg-[var(--paper)]">
+              <button
+                className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium"
+                onClick={() => setShowTranscript((v) => !v)}
+                data-testid="button-toggle-transcript"
+              >
+                <span className="flex items-center gap-2">
+                  <Phone className="w-3.5 h-3.5 text-[var(--gold-dark)]" /> Call transcript
+                </span>
+                <span className="text-xs text-muted-foreground">{showTranscript ? "Hide" : "Show"}</span>
+              </button>
+              {showTranscript && (
+                <p className="px-4 pb-4 text-sm text-muted-foreground whitespace-pre-line max-h-64 overflow-y-auto">
+                  {lead.callTranscript}
+                </p>
+              )}
+            </div>
+          )}
           {dirty && (
             <Button
               size="sm"

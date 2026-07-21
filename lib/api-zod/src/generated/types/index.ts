@@ -20,6 +20,7 @@ export * from './arrivalOpenJob';
 export * from './arrivalSuggestion';
 export * from './askAnswer';
 export * from './askInput';
+export * from './autopilotRunResult';
 export * from './balanceSheetReport';
 export * from './bankAccount';
 export * from './bankAnalysis';

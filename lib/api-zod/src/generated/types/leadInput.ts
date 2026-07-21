@@ -13,4 +13,5 @@ export interface LeadInput {
   summary: string;
   contactName?: string;
   contactEmail?: string;
+  contactPhone?: string;
 }
