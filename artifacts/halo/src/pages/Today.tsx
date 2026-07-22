@@ -83,10 +83,10 @@ export default function Today() {
         {/* Money */}
         <div 
           onClick={() => setLocation('/money')}
-          className="bg-[linear-gradient(135deg,#FFFFFF,#F7F6F2)] p-[16px] rounded-[24px] shadow-[0_4px_14px_rgba(23,24,28,0.04)] border border-[rgba(23,24,28,0.04)] cursor-pointer active:scale-95 transition-transform relative overflow-hidden group"
+          className="bg-white p-[16px] rounded-[24px] shadow-[0_4px_14px_rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.05)] cursor-pointer active:scale-95 transition-transform relative overflow-hidden group"
         >
           <div className="w-[36px] h-[36px] rounded-[14px] bg-[var(--gold-tint)] flex items-center justify-center mb-[12px]">
-            <Wallet className="w-[18px] h-[18px] text-[var(--gold-dark)]" />
+            <Wallet className="w-[18px] h-[18px] text-[var(--gold)]" />
           </div>
           <div className="font-display font-bold text-[24px] leading-none text-[var(--ink)] tracking-tight mb-[4px]">{mtdStr}</div>
           <div className="text-[12px] font-medium text-muted-foreground">MTD Revenue</div>
@@ -96,10 +96,10 @@ export default function Today() {
         {/* Calendar */}
         <div 
           onClick={() => setLocation('/calendar')}
-          className="bg-[linear-gradient(135deg,#FFFFFF,#F7F6F2)] p-[16px] rounded-[24px] shadow-[0_4px_14px_rgba(23,24,28,0.04)] border border-[rgba(23,24,28,0.04)] cursor-pointer active:scale-95 transition-transform relative overflow-hidden group"
+          className="bg-white p-[16px] rounded-[24px] shadow-[0_4px_14px_rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.05)] cursor-pointer active:scale-95 transition-transform relative overflow-hidden group"
         >
-          <div className="w-[36px] h-[36px] rounded-[14px] bg-[#E8F2FF] flex items-center justify-center mb-[12px]">
-            <CalendarIcon className="w-[18px] h-[18px] text-[#0066FF]" />
+          <div className="w-[36px] h-[36px] rounded-[14px] bg-[#E5F1FF] flex items-center justify-center mb-[12px]">
+            <CalendarIcon className="w-[18px] h-[18px] text-[#007AFF]" />
           </div>
           <div className="font-display font-bold text-[24px] leading-none text-[var(--ink)] tracking-tight mb-[4px]">{eventsCount}</div>
           <div className="text-[12px] font-medium text-muted-foreground">Events Today</div>
@@ -109,10 +109,10 @@ export default function Today() {
         {/* Jobs */}
         <div 
           onClick={() => setLocation('/properties')}
-          className="bg-[linear-gradient(135deg,#FFFFFF,#F7F6F2)] p-[16px] rounded-[24px] shadow-[0_4px_14px_rgba(23,24,28,0.04)] border border-[rgba(23,24,28,0.04)] cursor-pointer active:scale-95 transition-transform relative overflow-hidden group"
+          className="bg-white p-[16px] rounded-[24px] shadow-[0_4px_14px_rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.05)] cursor-pointer active:scale-95 transition-transform relative overflow-hidden group"
         >
-          <div className="w-[36px] h-[36px] rounded-[14px] bg-[#F2F0FF] flex items-center justify-center mb-[12px]">
-            <Briefcase className="w-[18px] h-[18px] text-[#5E5CE6]" />
+          <div className="w-[36px] h-[36px] rounded-[14px] bg-[#EFEFFC] flex items-center justify-center mb-[12px]">
+            <Briefcase className="w-[18px] h-[18px] text-[#5856D6]" />
           </div>
           <div className="font-display font-bold text-[24px] leading-none text-[var(--ink)] tracking-tight mb-[4px]">{activeJobsCount}</div>
           <div className="text-[12px] font-medium text-muted-foreground">Active Jobs</div>
@@ -122,10 +122,10 @@ export default function Today() {
         {/* Crews */}
         <div 
           onClick={() => setLocation('/crews')}
-          className="bg-[linear-gradient(135deg,#FFFFFF,#F7F6F2)] p-[16px] rounded-[24px] shadow-[0_4px_14px_rgba(23,24,28,0.04)] border border-[rgba(23,24,28,0.04)] cursor-pointer active:scale-95 transition-transform relative overflow-hidden group"
+          className="bg-white p-[16px] rounded-[24px] shadow-[0_4px_14px_rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.05)] cursor-pointer active:scale-95 transition-transform relative overflow-hidden group"
         >
-          <div className="w-[36px] h-[36px] rounded-[14px] bg-[#E8FAF0] flex items-center justify-center mb-[12px]">
-            <Users className="w-[18px] h-[18px] text-[#00C566]" />
+          <div className="w-[36px] h-[36px] rounded-[14px] bg-[#EAF9EE] flex items-center justify-center mb-[12px]">
+            <Users className="w-[18px] h-[18px] text-[#34C759]" />
           </div>
           <div className="font-display font-bold text-[24px] leading-none text-[var(--ink)] tracking-tight mb-[4px]">{activeCrewsCount}</div>
           <div className="text-[12px] font-medium text-muted-foreground">Active Crews</div>
@@ -135,9 +135,9 @@ export default function Today() {
 
       {nowCards.length > 0 && (
         <div className="mb-[24px]">
-          <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[13px] tracking-[0.1em] uppercase text-[#FF453A]">
+          <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[13px] tracking-[0.1em] uppercase text-[#FF3B30]">
             Requires Action
-            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[#FF453A]/10 text-[#FF453A] text-[11px] grid place-items-center tracking-normal font-sans">{nowCards.length}</span>
+            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[#FF3B30]/10 text-[#FF3B30] text-[11px] grid place-items-center tracking-normal font-sans">{nowCards.length}</span>
           </div>
           {nowCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
         </div>
@@ -147,7 +147,7 @@ export default function Today() {
         <div className="mb-[24px]">
           <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[13px] tracking-[0.1em] uppercase text-[var(--ink)]">
             Up Next
-            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[rgba(23,24,28,0.08)] text-[var(--ink2)] text-[11px] grid place-items-center tracking-normal font-sans">{todayCards.length}</span>
+            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[rgba(0,0,0,0.05)] text-[var(--ink2)] text-[11px] grid place-items-center tracking-normal font-sans">{todayCards.length}</span>
           </div>
           {todayCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
         </div>
@@ -157,7 +157,7 @@ export default function Today() {
         <div className="mb-[24px]">
           <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[13px] tracking-[0.1em] uppercase text-muted-foreground">
             Later This Week
-            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[rgba(23,24,28,0.06)] text-muted-foreground text-[11px] grid place-items-center tracking-normal font-sans">{weekCards.length}</span>
+            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[rgba(0,0,0,0.05)] text-muted-foreground text-[11px] grid place-items-center tracking-normal font-sans">{weekCards.length}</span>
           </div>
           {weekCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
         </div>
@@ -168,9 +168,9 @@ export default function Today() {
           <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[12px] tracking-[0.15em] uppercase text-muted-foreground/60">
             <History className="w-[14px] h-[14px]" /> System Activity
           </div>
-          <div className="bg-card/50 rounded-[24px] border border-[rgba(23,24,28,0.04)] p-[12px_16px] backdrop-blur-sm">
+          <div className="bg-card/50 rounded-[24px] border border-[rgba(0,0,0,0.05)] p-[12px_16px] backdrop-blur-sm">
             {activities!.slice(0, 5).map((a, idx) => (
-              <div key={a.id} className={`py-[12px] ${idx !== 0 ? 'border-t border-[rgba(23,24,28,0.04)]' : ''}`}>
+              <div key={a.id} className={`py-[12px] ${idx !== 0 ? 'border-t border-[rgba(0,0,0,0.05)]' : ''}`}>
                 <div className="text-[13px] text-[var(--ink)] leading-[1.4] font-medium">{a.body || a.kind}</div>
                 {a.createdAt && (
                   <div className="text-[11px] text-muted-foreground/60 mt-[4px] font-medium">

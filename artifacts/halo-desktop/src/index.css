@@ -45,28 +45,28 @@
 }
 
 :root {
-  --ink: #17181C;
-  --ink2: #3A3B40;
-  --muted: #6E6A61;
-  --faint: #96917F;
-  --paper: #F4F3EF;
+  --ink: #1C1C1E;
+  --ink2: #3A3A3C;
+  --muted: #8E8E93;
+  --faint: #C7C7CC;
+  --paper: #F2F2F7;
   --card: #FFFFFF;
-  --hairline: rgba(23,24,28,.08);
-  --hairline2: rgba(23,24,28,.14);
-  --gold: #B98A2F;
-  --gold-dark: #8F6A1F;
-  --gold-light: #E4C577;
-  --gold-tint: rgba(185,138,47,.10);
-  --red: #C0453A;
-  --orange: #CF7A2A;
-  --yellow: #B99420;
-  --green: #3D8B5F;
-  --blue: #3B6FB5;
-  --purple: #7B5CB8;
-  --app-backdrop: #E9E6E0;
-  --shadow: 0 1px 2px rgba(23,24,28,.06), 0 8px 24px rgba(23,24,28,.06);
+  --hairline: rgba(0, 0, 0, 0.06);
+  --hairline2: rgba(0, 0, 0, 0.12);
+  --gold: #007AFF;
+  --gold-dark: #0051A8;
+  --gold-light: #52A8FF;
+  --gold-tint: rgba(0, 122, 255, 0.12);
+  --red: #FF3B30;
+  --orange: #FF9500;
+  --yellow: #FFCC00;
+  --green: #34C759;
+  --blue: #5AC8FA;
+  --purple: #AF52DE;
+  --app-backdrop: #E5E5EA;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 12px 32px rgba(0, 0, 0, 0.05);
 
-  --radius: 16px;
+  --radius: 14px;
 }
 
 body {
@@ -78,19 +78,37 @@ body {
   line-height: 1.45;
 }
 
-.font-display { font-family: var(--font-display); }
+.font-display { font-family: var(--font-display); letter-spacing: -0.02em; }
 
 .btn-gold {
-  background: linear-gradient(135deg, var(--gold-light), var(--gold) 55%, var(--gold-dark));
-  color: #171410;
-  box-shadow: 0 1px 2px rgba(143,106,31,.4);
+  background: var(--gold);
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.btn-gold:hover {
+  background: var(--gold-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
 }
 .btn-ghost {
-  background: rgba(23,24,28,.06);
+  background: rgba(0, 0, 0, 0.05);
   color: var(--ink);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.btn-ghost:hover {
+  background: rgba(0, 0, 0, 0.08);
 }
 .btn-line {
   border: 1px solid var(--hairline2);
-  color: var(--ink2);
+  color: var(--ink);
   background: #fff;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.btn-line:hover {
+  border-color: var(--muted);
+  background: var(--paper);
 }

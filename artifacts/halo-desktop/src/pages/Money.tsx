@@ -75,10 +75,10 @@ const fmtDate = (s?: string | null) => {
 };
 
 const statusColor: Record<string, string> = {
-  paid: "#3c7a4e",
-  past_due: "#be3c3c",
-  sent: "#8f6a1f",
-  draft: "#8B8577",
+  paid: "var(--green)",
+  past_due: "var(--red)",
+  sent: "var(--gold)",
+  draft: "var(--muted)",
 };
 const statusLabel: Record<string, string> = {
   paid: "Paid",
@@ -523,7 +523,7 @@ function Expenses() {
           {sorted.length} expense{sorted.length === 1 ? "" : "s"} ·{" "}
           <span className="font-semibold text-[var(--ink)]">{money(total)}</span> total
           {pendingCount > 0 && (
-            <span className="ml-2 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--gold)]/15 text-[var(--gold-dark,#8f6a1f)]">
+            <span className="ml-2 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--gold)]/15 text-[var(--gold-dark)]">
               {pendingCount} awaiting approval
             </span>
           )}
@@ -563,7 +563,7 @@ function Expenses() {
                         target="_blank"
                         rel="noreferrer"
                         title="View receipt"
-                        className="text-[var(--gold-dark,#8f6a1f)] hover:opacity-70 shrink-0"
+                        className="text-[var(--gold-dark)] hover:opacity-70 shrink-0"
                         data-testid={`link-receipt-${e.id}`}
                       >
                         <Paperclip className="w-3.5 h-3.5" />
@@ -581,7 +581,7 @@ function Expenses() {
                   )}
                 </div>
                 {isPending && (
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--gold)]/15 text-[var(--gold-dark,#8f6a1f)] shrink-0">
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--gold)]/15 text-[var(--gold-dark)] shrink-0">
                     Needs approval
                   </span>
                 )}

@@ -45,27 +45,30 @@
 }
 
 :root {
-  --ink: #17181C;
-  --ink2: #3A3B40;
-  --muted: #6E6A61;
-  --faint: #96917F;
-  --paper: #F4F3EF;
+  --ink: #000000;
+  --ink2: #3C3C43;
+  --muted: #8E8E93;
+  --faint: #C7C7CC;
+  --paper: #F2F2F7;
   --card: #FFFFFF;
-  --hairline: rgba(23,24,28,.08);
-  --hairline2: rgba(23,24,28,.14);
-  --gold: #B98A2F;
-  --gold-dark: #8F6A1F;
-  --gold-light: #E4C577;
-  --gold-tint: rgba(185,138,47,.10);
-  --red: #C0453A;
-  --orange: #CF7A2A;
-  --yellow: #B99420;
-  --green: #3D8B5F;
-  --blue: #3B6FB5;
-  --purple: #7B5CB8;
-  --app-backdrop: #E9E6E0;
+  --hairline: rgba(0,0,0,.08);
+  --hairline2: rgba(0,0,0,.15);
   
-  --radius: 16px;
+  --gold: #007AFF;
+  --gold-dark: #0051C4;
+  --gold-light: #5AC8FA;
+  --gold-tint: rgba(0,122,255,.12);
+  
+  --red: #FF3B30;
+  --orange: #FF9500;
+  --yellow: #FFCC00;
+  --green: #34C759;
+  --blue: #5AC8FA;
+  --purple: #AF52DE;
+  
+  --app-backdrop: #E5E5EA;
+  
+  --radius: 20px;
 }
 
 body {
@@ -106,12 +109,12 @@ body {
 .font-display { font-family: var(--font-display); }
 
 .btn-gold {
-  background: linear-gradient(135deg, var(--gold-light), var(--gold) 55%, var(--gold-dark));
-  color: #171410;
-  box-shadow: 0 1px 2px rgba(143,106,31,.4);
+  background: linear-gradient(135deg, #47A1FF, var(--gold) 55%, var(--gold-dark));
+  color: #FFFFFF;
+  box-shadow: 0 2px 5px rgba(0, 122, 255, 0.3);
 }
 .btn-ghost {
-  background: rgba(23,24,28,.06);
+  background: rgba(0,0,0,.05);
   color: var(--ink);
 }
 .btn-line {
