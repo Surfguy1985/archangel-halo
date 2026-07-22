@@ -19,6 +19,7 @@ import {
 } from "@workspace/api-client-react";
 import { ScanLine, Sparkles, Landmark, X, FileImage } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { prepareScanImage } from "@/lib/scanImage";
 import {
   Dialog,
   DialogContent,
@@ -260,7 +261,7 @@ export function AddExpenseDialog({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (!RECEIPT_MEDIA_TYPES.includes(file.type)) {
+    if (!file.type.startsWith("image/")) {
       setError("Please choose a photo (JPG, PNG, WebP, or GIF).");
       return;
     }
@@ -270,11 +271,12 @@ export function AddExpenseDialog({
     setReceiptFile(file);
     setReceiptPreview(URL.createObjectURL(file));
     try {
-      const base64 = await fileToBase64(file);
+      const { base64, mediaType, blob } = await prepareScanImage(file);
+      setReceiptFile(new File([blob], file.name || "receipt.jpg", { type: mediaType }));
       const result = await extract.mutateAsync({
         data: {
           image: base64,
-          mediaType: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+          mediaType,
           filename: file.name,
           kind: isBill ? "bill" : "receipt",
         },

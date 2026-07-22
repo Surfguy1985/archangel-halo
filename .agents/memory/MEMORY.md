@@ -33,6 +33,7 @@
 - [HALO invoice quick-create](halo-invoice-quick-create.md) — tap-to-add price-book pills + dueTouched auto due date; mobile InvoiceEditor doubles as the edit form, don't break edit mode.
 - [HALO property hero images](halo-property-images.md) — runtime gpt-image-1 via OpenAI proxy, stored in object storage; keep the triple cost guard or paid regen loops happen.
 - [HALO autopilot & JARVIS entry](halo-autopilot-jarvis.md) — autopilot dedupe key must match raise() entityId; Vapi webhook secret optional via env; command-bar initialText parse needs cancel guard.
+- [HALO scan/OCR pipeline](halo-scan-ocr.md) — all scan entry points must use shared prepareScanImage prep; scanned PDFs fall back to page-render OCR; retries live in lib/ai.ts.
 - [HALO check scan](halo-check-scan.md) — check-photo OCR payments anchor to a picked invoice via recordPayment; server allows photo-less manual check payments by design; past_due is virtual (query "sent").
 - [HALO live job tracker](halo-live-tracker.md) — stable per-job trackerToken (atomic first-wins), public /track page lives in mobile app at root, photo phases pair by index, SHA-256 computed server-side.
 - [HALO portal guide](halo-portal-guide.md) — bilingual Guide tab; ?guide=en|es deep link must be respected by any portal auto-navigation (offer auto-switch skips it).

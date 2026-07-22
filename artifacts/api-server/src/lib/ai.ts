@@ -2,6 +2,24 @@ import { anthropic } from "@workspace/integrations-anthropic-ai";
 
 const MODEL = "claude-sonnet-4-6";
 
+/** Retry transient AI-provider failures (rate limits, overloads, 5xx). */
+async function withRetries<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const status = (err as { status?: number })?.status;
+      const transient =
+        status === 429 || (typeof status === "number" && status >= 500) || status === undefined;
+      if (!transient || i === attempts - 1) throw err;
+      await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 function textOf(message: {
   content: Array<{ type: string; text?: string }>;
 }): string {
@@ -17,12 +35,14 @@ export async function completeText(
   user: string,
   maxTokens = 8192,
 ): Promise<string> {
-  const message = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: maxTokens,
-    system,
-    messages: [{ role: "user", content: user }],
-  });
+  const message = await withRetries(() =>
+    anthropic.messages.create({
+      model: MODEL,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: "user", content: user }],
+    }),
+  );
   return textOf(message as never);
 }
 
@@ -57,22 +77,32 @@ export async function completeJsonWithImage<T = unknown>(
   mediaType: ImageMediaType,
   maxTokens = 8192,
 ): Promise<T> {
-  const message = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: maxTokens,
-    system: `${system}\n\nRespond with ONLY valid JSON. No prose, no markdown fences.`,
-    messages: [
-      {
-        role: "user",
-        content: [
+  const run = async (): Promise<T> => {
+    const message = await withRetries(() =>
+      anthropic.messages.create({
+        model: MODEL,
+        max_tokens: maxTokens,
+        system: `${system}\n\nRespond with ONLY valid JSON. No prose, no markdown fences.`,
+        messages: [
           {
-            type: "image",
-            source: { type: "base64", media_type: mediaType, data: imageBase64 },
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: { type: "base64", media_type: mediaType, data: imageBase64 },
+              },
+              { type: "text", text: user },
+            ],
           },
-          { type: "text", text: user },
         ],
-      },
-    ],
-  });
-  return extractJson(textOf(message as never)) as T;
+      }),
+    );
+    return extractJson(textOf(message as never)) as T;
+  };
+  try {
+    return await run();
+  } catch {
+    // One full retry — covers malformed/truncated JSON on the first pass.
+    return await run();
+  }
 }

@@ -712,10 +712,11 @@ router.post("/checks/scan", async (req, res): Promise<void> => {
   };
   try {
     extracted = await completeJsonWithImage(
-      `You read photos of paper checks (US bank checks) for a property-maintenance business.
+      `You are an expert reader of photographed paper checks (US bank checks) for a property-maintenance business.
+Read carefully even if the photo is rotated, skewed, dim, or blurry — mentally deskew it first. Transcribe names and numbers EXACTLY as printed; never guess a digit.
 Return STRICT JSON: {"found": boolean, "amount": number|null, "payerName": string|null, "checkNumber": string|null, "checkDate": "YYYY-MM-DD"|null, "memo": string|null, "bankName": string|null}.
 - found=false if the image is not a check or is unreadable.
-- amount: the numeric courtesy-box amount (prefer it; cross-check with the written amount line).
+- amount: the numeric courtesy-box amount — ALWAYS cross-check it against the written (legal) amount line; if they disagree, trust the written line. Use null if you cannot read it confidently.
 - payerName: the printed account holder / company name at the top left.
 - checkNumber: the check number (top right, also in the MICR line).
 - memo: the memo/for line if written.`,

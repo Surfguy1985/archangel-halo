@@ -18,7 +18,8 @@ import {
 } from "@workspace/api-client-react";
 import { ChevronLeft, FileUp, Camera, Sparkles, Check, FileText, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { extractFileText } from "@/lib/extractText";
+import { extractFileText, renderPdfPages } from "@/lib/extractText";
+import { prepareScanImage } from "@/lib/scanImage";
 
 const targetLabels: Record<string, string> = {
   properties: "Properties",
@@ -68,18 +69,46 @@ export default function Import() {
     setFileObj(file);
     setReading(true);
     try {
-      const { content, mimeType } = await extractFileText(file);
-      if (!content.trim()) {
+      const { content, mimeType, isPdf } = await extractFileText(file);
+      let result: { summary?: string | null; records: IngestRecord[] };
+      // Scanned/image-only PDFs have little or no selectable text — OCR the
+      // rendered pages instead of giving up.
+      if (isPdf && content.trim().length < 120) {
+        const pages = await renderPdfPages(file);
+        if (pages.length === 0) {
+          toast({
+            title: "Couldn't read that file",
+            description: "No readable content found in the PDF.",
+            variant: "destructive",
+          });
+          return;
+        }
+        const merged: IngestRecord[] = [];
+        const summaries: string[] = [];
+        for (let i = 0; i < pages.length; i++) {
+          const pageResult = await scan.mutateAsync({
+            data: {
+              image: pages[i],
+              mediaType: "image/jpeg",
+              filename: `${file.name} (page ${i + 1})`,
+            },
+          });
+          merged.push(...pageResult.records);
+          if (pageResult.summary) summaries.push(pageResult.summary);
+        }
+        result = { summary: summaries[0] ?? null, records: merged };
+      } else if (!content.trim()) {
         toast({
           title: "Couldn't read that file",
-          description: "No readable text found. Try a CSV or text-based PDF.",
+          description: "No readable text found. Try a CSV, PDF, or a photo.",
           variant: "destructive",
         });
         return;
+      } else {
+        result = await parse.mutateAsync({
+          data: { filename: file.name, content, mimeType, target: "auto" },
+        });
       }
-      const result = await parse.mutateAsync({
-        data: { filename: file.name, content, mimeType, target: "auto" },
-      });
       setSummary(result.summary ?? null);
       setRecords(result.records);
       setSelected(new Set(result.records.map((_, i) => i)));
@@ -100,42 +129,6 @@ export default function Import() {
     }
   };
 
-  const downscalePhoto = (file: File): Promise<{ blob: Blob; base64: string }> =>
-    new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        const maxEdge = 1800;
-        const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return reject(new Error("no canvas"));
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) return reject(new Error("no blob"));
-            const reader = new FileReader();
-            reader.onload = () => {
-              const dataUrl = String(reader.result);
-              resolve({ blob, base64: dataUrl.slice(dataUrl.indexOf(",") + 1) });
-            };
-            reader.onerror = () => reject(new Error("read failed"));
-            reader.readAsDataURL(blob);
-          },
-          "image/jpeg",
-          0.85,
-        );
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error("bad image"));
-      };
-      img.src = url;
-    });
-
   const onPhotoPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -145,10 +138,10 @@ export default function Import() {
     setFilename(photoName);
     setReading(true);
     try {
-      const { blob, base64 } = await downscalePhoto(file);
-      setFileObj(new File([blob], photoName, { type: "image/jpeg" }));
+      const { blob, base64, mediaType } = await prepareScanImage(file);
+      setFileObj(new File([blob], photoName, { type: mediaType }));
       const result = await scan.mutateAsync({
-        data: { image: base64, mediaType: "image/jpeg", filename: photoName },
+        data: { image: base64, mediaType, filename: photoName },
       });
       setSummary(result.summary ?? null);
       setRecords(result.records);

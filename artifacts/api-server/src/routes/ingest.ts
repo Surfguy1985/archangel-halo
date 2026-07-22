@@ -101,7 +101,7 @@ Return {"detectedTarget": "...", "summary": "one sentence", "records": [{ "targe
 
 const scanHits = new Map<string, number[]>();
 const SCAN_WINDOW_MS = 60_000;
-const SCAN_MAX_PER_WINDOW = 8;
+const SCAN_MAX_PER_WINDOW = 20;
 const SCAN_MAX_BASE64_CHARS = 14_000_000;
 
 router.post("/ingest/scan", async (req, res): Promise<void> => {
@@ -138,7 +138,12 @@ router.post("/ingest/scan", async (req, res): Promise<void> => {
       summary?: string;
       records: IngestRecord[];
     }>(
-      `You are HALO's receipt scanner. Read the photographed receipt, invoice, or document and extract structured records for a property-maintenance contractor.
+      `You are HALO's document scanner — an expert OCR reader for a property-maintenance contractor. Read the photographed receipt, invoice, or document and extract structured records.
+Reading rules:
+- Read every line of the document carefully, even if the photo is rotated, skewed, dim, blurry, wrinkled, or partially cut off. Mentally rotate/deskew before reading.
+- Transcribe names, numbers, and amounts EXACTLY as printed — never invent or round values.
+- For any amount, cross-check digits (e.g. subtotal + tax = total). Prefer the printed TOTAL.
+- If a specific field is truly unreadable, omit it rather than guessing.
 Valid targets: properties, jobs, invoices, expenses, inventory, price_items.
 Fields by target:
 - properties { name, pmcName?, city?, units? (number) }
@@ -154,7 +159,7 @@ Return {"detectedTarget": "...", "summary": "one sentence describing what was sc
       `Filename: ${body.filename ?? "receipt photo"}. Extract the records from this image.`,
       body.image,
       body.mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
-      4096,
+      8192,
     );
   } catch (err) {
     req.log.error({ err }, "ingest scan failed");
@@ -281,8 +286,9 @@ router.post("/ingest/receipt", async (req, res): Promise<void> => {
   };
   try {
     parsed = await completeJsonWithImage<typeof parsed>(
-      `You are HALO's receipt and bill reader for a property-maintenance contractor.
+      `You are HALO's receipt and bill reader — an expert OCR reader for a property-maintenance contractor.
 Read the photographed document and extract ONE expense.
+Reading rules: read carefully even if the photo is rotated, skewed, dim, blurry, or crumpled — mentally deskew it first. Transcribe the vendor name and amounts EXACTLY as printed; cross-check the total against subtotal + tax when both are visible. Never invent values — use null for anything unreadable.
 Rules:
 - vendor: the store/supplier/company name.
 - amount: the document TOTAL (after tax), as a number.

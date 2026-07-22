@@ -27,19 +27,7 @@ import { Camera, Sparkles, X } from "lucide-react";
 const selectCls =
   "w-full h-9 bg-background border border-input rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
-const CHECK_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const s = String(reader.result ?? "");
-      resolve(s.includes(",") ? s.slice(s.indexOf(",") + 1) : s);
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
+import { prepareScanImage } from "@/lib/scanImage";
 
 async function uploadCheckFile(file: File): Promise<string | null> {
   try {
@@ -121,7 +109,7 @@ export function ScanCheckDialog({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (!CHECK_MEDIA_TYPES.includes(file.type)) {
+    if (!file.type.startsWith("image/")) {
       setError("Please use a photo (JPG or PNG).");
       return;
     }
@@ -129,11 +117,12 @@ export function ScanCheckDialog({
     setCheckFile(file);
     setCheckPreview(URL.createObjectURL(file));
     try {
-      const base64 = await fileToBase64(file);
+      const { base64, mediaType, blob } = await prepareScanImage(file);
+      setCheckFile(new File([blob], file.name || "check.jpg", { type: mediaType }));
       const result = await scanCheck.mutateAsync({
         data: {
           image: base64,
-          mediaType: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+          mediaType,
         },
       });
       if (!result.found) {
