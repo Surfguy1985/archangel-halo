@@ -26,7 +26,20 @@ import Settings from "./pages/Settings";
 import Catalog from "./pages/Catalog";
 import NotFound from "@/pages/not-found";
 
-const queryClient = new QueryClient();
+// Live cross-device sync: every device polls the shared server every 15s,
+// refetches when the app regains focus or reconnects, so updates made on any
+// phone or desktop appear everywhere without a manual reload.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5_000,
+      refetchInterval: 15_000,
+      refetchIntervalInBackground: false,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    },
+  },
+});
 
 function AdminRouter() {
   return (
