@@ -136,7 +136,12 @@ function CheckinRow({ c, crewName }: { c: ShareCheckin; crewName: string }) {
 export default function PhotoShare() {
   const { token } = useParams<{ token: string }>();
   const { data, isLoading, isError } = useGetPhotoShare(token, {
-    query: { queryKey: getGetPhotoShareQueryKey(token) },
+    query: {
+      queryKey: getGetPhotoShareQueryKey(token),
+      refetchInterval: 15000,
+      refetchIntervalInBackground: false,
+      refetchOnWindowFocus: true,
+    },
   });
 
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -199,9 +204,18 @@ export default function PhotoShare() {
         <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[3px]">
           {data.crewName}
         </div>
-        <div className="text-[12.5px] text-white/60">
-          {data.trade ? `${data.trade} · ` : ""}
-          {formatDayLabel(data.day)}
+        <div className="text-[12.5px] text-white/60 flex items-center gap-[8px]">
+          <span>
+            {data.trade ? `${data.trade} · ` : ""}
+            {formatDayLabel(data.day)}
+          </span>
+          <span className="inline-flex items-center gap-[5px] rounded-full bg-emerald-500/15 px-[8px] py-[2px] text-[10px] font-display font-bold tracking-[0.1em] uppercase text-emerald-400">
+            <span className="relative flex w-[6px] h-[6px]">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex rounded-full w-[6px] h-[6px] bg-emerald-400" />
+            </span>
+            Live
+          </span>
         </div>
         <a
           href={`${base}/api/photo-shares/${token}/report`}
