@@ -84,6 +84,7 @@
     "@uppy/react": "^5.2.0",
     "jspdf": "^4.2.1",
     "pdfjs-dist": "^6.1.200",
-    "react-plaid-link": "^4.1.1"
+    "react-plaid-link": "^4.1.1",
+    "workbox-window": "^7.4.1"
   }
 }
