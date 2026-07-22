@@ -1,4 +1,4 @@
-import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey } from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, useCompleteJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey } from "@workspace/api-client-react";
 import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
@@ -66,6 +66,7 @@ export default function PropertyDetail() {
   const updateProperty = useUpdateProperty();
   const clearJob = useClearJob();
   const restartJob = useRestartJob();
+  const completeJob = useCompleteJob();
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
   if (isLoading) {
@@ -80,7 +81,8 @@ export default function PropertyDetail() {
   if (!data) return <div className="p-4 text-center text-muted-foreground">Property not found</div>;
 
   const { property, stats, jobs, priceItems, contacts, expenses, agreements, invoices, upcomingVisits, crewPhotos } = data;
-  const activeJobs = jobs.filter((j) => !j.clearedAt);
+  const activeJobs = jobs.filter((j) => !j.clearedAt && j.status !== "complete");
+  const completedJobs = jobs.filter((j) => !j.clearedAt && j.status === "complete");
   const historyJobs = jobs.filter((j) => !!j.clearedAt);
   const invoiceStatusRank: Record<string, number> = { paid: 0, past_due: 1, sent: 2, draft: 3 };
   const invoiceForJob = (jobId: string) => {
@@ -238,11 +240,18 @@ export default function PropertyDetail() {
         </div>
       )}
 
-      <div className="mb-[18px]">
-        <SectionHeader title="Active Jobs" onAdd={() => setJobOpen(true)} />
-        {activeJobs.length > 0 ? (
+      {([
+        ["Active Jobs", activeJobs],
+        ["Completed Jobs", completedJobs],
+      ] as const).map(([sectionTitle, sectionJobs]) => (
+      <div key={sectionTitle} className="mb-[18px]">
+        <SectionHeader
+          title={sectionJobs.length > 0 ? `${sectionTitle} · ${sectionJobs.length}` : sectionTitle}
+          onAdd={sectionTitle === "Active Jobs" ? () => setJobOpen(true) : undefined}
+        />
+        {sectionJobs.length > 0 ? (
           <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
-            {activeJobs.map((job, idx) => (
+            {sectionJobs.map((job, idx) => (
               <div key={job.id} className={`py-[10px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
                 <div className="flex items-center gap-[10px] text-[14px]">
                   <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
@@ -346,6 +355,15 @@ export default function PropertyDetail() {
                   >
                     <Plus className="w-[12px] h-[12px]" /> Expense
                   </button>
+                  {job.status !== "complete" && (
+                    <button
+                      disabled={completeJob.isPending}
+                      onClick={() => completeJob.mutate({ id: job.id }, { onSuccess: () => invalidateJobLists() })}
+                      className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 active:scale-[0.95] disabled:opacity-50"
+                    >
+                      <Check className="w-[12px] h-[12px]" /> Verified — complete
+                    </button>
+                  )}
                 </div>
                 {job.status === "complete" && (
                   <div className="flex items-center flex-wrap gap-[8px] mt-[8px]">
@@ -379,7 +397,7 @@ export default function PropertyDetail() {
                       onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
                       className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[rgba(143,106,31,0.1)] text-[var(--gold-dark)] active:scale-[0.95] disabled:opacity-50"
                     >
-                      <RotateCcw className="w-[12px] h-[12px]" /> Restart job
+                      <RotateCcw className="w-[12px] h-[12px]" /> Reopen for corrections
                     </button>
                   </div>
                 )}
@@ -387,9 +405,14 @@ export default function PropertyDetail() {
             ))}
           </div>
         ) : (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No jobs yet. Tap Add to create one.</div>
+          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">
+            {sectionTitle === "Active Jobs"
+              ? "No active jobs. Tap Add to create one."
+              : "Nothing completed yet — once a job is verified finished, mark it complete and it moves here."}
+          </div>
         )}
       </div>
+      ))}
 
       {historyJobs.length > 0 && (
         <div className="mb-[18px]">

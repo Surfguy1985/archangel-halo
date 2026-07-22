@@ -1,4 +1,4 @@
-import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey, getListExpensesQueryKey } from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, useCompleteJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey, getListExpensesQueryKey } from "@workspace/api-client-react";
 import { AddExpenseDialog } from "@/components/MoneyDialogs";
 import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
@@ -40,6 +40,7 @@ export default function PropertyDetail() {
   const setStatus = useSetInvoiceStatus();
   const clearJob = useClearJob();
   const restartJob = useRestartJob();
+  const completeJob = useCompleteJob();
   const updateProperty = useUpdateProperty();
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
 
@@ -50,7 +51,8 @@ export default function PropertyDetail() {
   if (!data) return <div className="p-8 text-center text-muted-foreground">Property not found</div>;
 
   const { property, stats, jobs, priceItems, contacts, expenses, invoices, upcomingVisits, crewPhotos } = data;
-  const activeJobs = jobs.filter((j) => !j.clearedAt);
+  const activeJobs = jobs.filter((j) => !j.clearedAt && j.status !== "complete");
+  const completedJobs = jobs.filter((j) => !j.clearedAt && j.status === "complete");
   const historyJobs = jobs.filter((j) => !!j.clearedAt);
   const invoiceStatusRank: Record<string, number> = { paid: 0, past_due: 1, sent: 2, draft: 3 };
   const invoiceForJob = (jobId: string) => {
@@ -249,18 +251,29 @@ export default function PropertyDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-6">
-          <section>
+          {([
+            ["Active Jobs", activeJobs],
+            ["Completed Jobs", completedJobs],
+          ] as const).map(([sectionTitle, sectionJobs]) => (
+          <section key={sectionTitle}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-display font-bold text-[var(--ink)]">Active Jobs</h2>
-              <button
-                onClick={() => setJobOpen(true)}
-                className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Add
-              </button>
+              <h2 className="text-xl font-display font-bold text-[var(--ink)]">
+                {sectionTitle}
+                {sectionJobs.length > 0 && (
+                  <span className="text-sm font-normal text-muted-foreground"> · {sectionJobs.length}</span>
+                )}
+              </h2>
+              {sectionTitle === "Active Jobs" && (
+                <button
+                  onClick={() => setJobOpen(true)}
+                  className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Add
+                </button>
+              )}
             </div>
             <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
-              {activeJobs.map(job => (
+              {sectionJobs.map(job => (
                 <div key={job.id} className="p-4 hover:bg-black/[0.02] transition-colors">
                   <div className="flex items-center gap-3">
                     <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
@@ -364,6 +377,15 @@ export default function PropertyDetail() {
                     >
                       <Plus className="w-3 h-3" /> Expense
                     </button>
+                    {job.status !== "complete" && (
+                      <button
+                        disabled={completeJob.isPending}
+                        onClick={() => completeJob.mutate({ id: job.id }, { onSuccess: () => invalidateJobLists() })}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                      >
+                        <Check className="w-3 h-3" /> Verified — complete
+                      </button>
+                    )}
                   </div>
                   {job.status === "complete" && (
                     <div className="flex items-center flex-wrap gap-2 mt-2">
@@ -397,15 +419,22 @@ export default function PropertyDetail() {
                         onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
                         className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[rgba(143,106,31,0.1)] text-[var(--gold-dark)] hover:bg-[rgba(143,106,31,0.16)] transition-colors disabled:opacity-50"
                       >
-                        <RotateCcw className="w-3 h-3" /> Restart job
+                        <RotateCcw className="w-3 h-3" /> Reopen for corrections
                       </button>
                     </div>
                   )}
                 </div>
               ))}
-              {!activeJobs.length && <div className="p-6 text-center text-sm text-muted-foreground">No active jobs.</div>}
+              {!sectionJobs.length && (
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  {sectionTitle === "Active Jobs"
+                    ? "No active jobs."
+                    : "Nothing completed yet — once a job is verified finished, mark it complete and it moves here."}
+                </div>
+              )}
             </div>
           </section>
+          ))}
 
           {historyJobs.length > 0 && (
             <section>
