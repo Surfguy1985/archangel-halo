@@ -46,6 +46,7 @@ export interface DayReportData {
   crewTrade: string | null;
   day: string;
   businessName: string;
+  notes: string | null;
   groups: DayReportJobGroup[];
   allPhotos: CrewPhoto[];
 }
@@ -138,6 +139,7 @@ export async function gatherDayReport(
     crewTrade: crew?.trade ?? null,
     day: share.day,
     businessName: settings?.companyName ?? "ArchAngel Contractors",
+    notes: share.notes,
     groups,
     allPhotos: photos,
   };
@@ -408,6 +410,11 @@ export async function buildDayReportPdf(data: DayReportData): Promise<Uint8Array
   );
   kv(ctx, "Site visits logged", String(totalCheckins));
   kv(ctx, "Photos captured", String(data.allPhotos.length));
+
+  if (data.notes?.trim()) {
+    sectionTitle(ctx, "Notes from the office");
+    para(ctx, data.notes.trim());
+  }
 
   for (const g of data.groups) {
     const job = g.job;

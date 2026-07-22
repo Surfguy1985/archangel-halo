@@ -3937,10 +3937,14 @@ export const GetPhotoShareResponse = zod.object({
  * @summary Office sets/updates the notes included in the daily report PDF
  */
 export const UpdatePhotoShareNotesParams = zod.object({
-  "token": zod.coerce.string()
+  "id": zod.coerce.string()
 })
 
+export const updatePhotoShareNotesBodyDayRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
 export const UpdatePhotoShareNotesBody = zod.object({
+  "day": zod.string().regex(updatePhotoShareNotesBodyDayRegExp),
   "notes": zod.string()
 })
 

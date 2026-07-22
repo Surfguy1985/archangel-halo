@@ -275,16 +275,18 @@ router.get("/photo-shares/:token", async (req, res): Promise<void> => {
   );
 });
 
-router.patch("/photo-shares/:token/notes", async (req, res): Promise<void> => {
-  const { token } = UpdatePhotoShareNotesParams.parse({ token: req.params.token });
+router.patch("/crews/:id/photo-share-notes", async (req, res): Promise<void> => {
+  const { id } = UpdatePhotoShareNotesParams.parse(req.params);
   const body = UpdatePhotoShareNotesBody.parse(req.body);
   const [row] = await db
     .update(photoSharesTable)
     .set({ notes: body.notes })
-    .where(eq(photoSharesTable.token, token))
+    .where(
+      and(eq(photoSharesTable.crewId, id), eq(photoSharesTable.day, body.day)),
+    )
     .returning();
   if (!row) {
-    res.status(404).json({ error: "Invalid share link" });
+    res.status(404).json({ error: "No share exists for that crew and day" });
     return;
   }
   res.json(

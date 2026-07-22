@@ -20,6 +20,7 @@ import {
   useListCrewPhotos,
   getListCrewPhotosQueryKey,
   useCreatePhotoShare,
+  useUpdatePhotoShareNotes,
   useListCrewInvoices,
   getListCrewInvoicesQueryKey,
   type CrewPhoto,
@@ -27,6 +28,7 @@ import {
 import { useUpload } from "@workspace/object-storage-web";
 import {
   ChevronLeft,
+  FileDown,
   Link2,
   Copy,
   Check,
@@ -783,7 +785,11 @@ function DailyActivitySection({
     },
   });
   const createShare = useCreatePhotoShare();
+  const updateNotes = useUpdatePhotoShareNotes();
   const [sharingDay, setSharingDay] = useState<string | null>(null);
+  const [reportDay, setReportDay] = useState<string | null>(null);
+  const [reportToken, setReportToken] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
 
   const sectionTitle =
     "font-display font-bold text-[11px] tracking-[0.14em] uppercase text-muted-foreground mb-[12px] flex items-center gap-[6px]";
@@ -842,6 +848,35 @@ function DailyActivitySection({
     }
   };
 
+  const onToggleReport = async (day: string) => {
+    if (reportDay === day) {
+      setReportDay(null);
+      setReportToken(null);
+      return;
+    }
+    try {
+      const res = await createShare.mutateAsync({ id: crewId, data: { day } });
+      setReportDay(day);
+      setReportToken(res.token);
+      setNotesDraft(res.notes ?? "");
+    } catch {
+      toast({ title: "Couldn't prepare the report", description: "Please try again." });
+    }
+  };
+
+  const onSaveNotes = async () => {
+    if (!reportDay) return;
+    try {
+      await updateNotes.mutateAsync({
+        id: crewId,
+        data: { day: reportDay, notes: notesDraft },
+      });
+      toast({ title: "Notes saved", description: "They'll appear in the report PDF." });
+    } catch {
+      toast({ title: "Couldn't save notes", description: "Please try again." });
+    }
+  };
+
   return (
     <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
       <div className={sectionTitle}>
@@ -869,15 +904,58 @@ function DailyActivitySection({
                       <div className="text-[12.5px] font-semibold min-w-0 text-muted-foreground">
                         {formatDayLabel(day)}
                       </div>
-                      <button
-                        onClick={() => onShare(day)}
-                        disabled={sharingDay === day}
-                        className="flex items-center gap-[5px] text-[11px] font-bold rounded-full border border-border px-[10px] py-[6px] shrink-0 transition-transform active:scale-[0.96] disabled:opacity-60"
-                      >
-                        <Share2 className="w-[12px] h-[12px]" />
-                        {sharingDay === day ? "Preparing…" : "Share link"}
-                      </button>
+                      <div className="flex items-center gap-[6px] shrink-0">
+                        <button
+                          onClick={() => onShare(day)}
+                          disabled={sharingDay === day}
+                          className="flex items-center gap-[5px] text-[11px] font-bold rounded-full border border-border px-[10px] py-[6px] transition-transform active:scale-[0.96] disabled:opacity-60"
+                        >
+                          <Share2 className="w-[12px] h-[12px]" />
+                          {sharingDay === day ? "Preparing…" : "Share link"}
+                        </button>
+                        <button
+                          onClick={() => onToggleReport(day)}
+                          disabled={createShare.isPending && reportDay !== day}
+                          className={`flex items-center gap-[5px] text-[11px] font-bold rounded-full px-[10px] py-[6px] transition-transform active:scale-[0.96] disabled:opacity-60 ${
+                            reportDay === day
+                              ? "bg-[var(--ink)] text-white"
+                              : "border border-border"
+                          }`}
+                        >
+                          <FileDown className="w-[12px] h-[12px]" />
+                          Full report
+                        </button>
+                      </div>
                     </div>
+                    {reportDay === day && reportToken && (
+                      <div className="mb-[10px] rounded-[12px] border border-border bg-[var(--paper)] p-[10px]">
+                        <div className="text-[11px] font-display font-bold tracking-[0.1em] uppercase text-muted-foreground mb-[6px]">
+                          Notes for the report
+                        </div>
+                        <textarea
+                          value={notesDraft}
+                          onChange={(e) => setNotesDraft(e.target.value)}
+                          rows={3}
+                          placeholder="Anything the property manager should know — scope notes, follow-ups, scheduling…"
+                          className="w-full rounded-[10px] border border-border bg-card px-[10px] py-[8px] text-[13px] resize-y outline-none focus:border-[var(--gold)]"
+                        />
+                        <div className="flex items-center gap-[8px] mt-[8px]">
+                          <button
+                            onClick={onSaveNotes}
+                            disabled={updateNotes.isPending}
+                            className="text-[11.5px] font-bold rounded-full border border-border px-[12px] py-[7px] transition-transform active:scale-[0.96] disabled:opacity-60"
+                          >
+                            {updateNotes.isPending ? "Saving…" : "Save notes"}
+                          </button>
+                          <a
+                            href={`${base}/api/photo-shares/${reportToken}/report`}
+                            className="flex items-center gap-[5px] text-[11.5px] font-bold rounded-full px-[12px] py-[7px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] transition-transform active:scale-[0.96]"
+                          >
+                            <FileDown className="w-[12px] h-[12px]" /> Download PDF
+                          </a>
+                        </div>
+                      </div>
+                    )}
                     <div className="grid grid-cols-3 gap-[6px]">
                       {dayPhotos.map((p) => (
                         <a

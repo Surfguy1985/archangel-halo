@@ -7,5 +7,7 @@
  */
 
 export interface PhotoShareNotesInput {
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  day: string;
   notes: string;
 }
