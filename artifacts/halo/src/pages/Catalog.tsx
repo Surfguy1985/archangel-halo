@@ -16,6 +16,22 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 const fieldCls =
   "w-full bg-card border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] shadow-[var(--shadow)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
 
+const SERVICE_CATEGORIES = [
+  "Make Ready",
+  "Paint",
+  "Resurfacing",
+  "Roof Repair/Replacement",
+  "Electrical",
+  "Plumbing",
+  "Landscaping",
+  "Cleaning",
+  "Firewatch",
+  "A/C Repairs",
+  "General Handyman",
+] as const;
+
+const OTHER_SERVICE = "__other__";
+
 function CatalogItemSheet({
   open,
   onOpenChange,
@@ -26,7 +42,19 @@ function CatalogItemSheet({
   item: CatalogItem | null;
 }) {
   const queryClient = useQueryClient();
-  const [service, setService] = useState(item?.service ?? "");
+  const [serviceChoice, setServiceChoice] = useState(
+    item?.service
+      ? (SERVICE_CATEGORIES as readonly string[]).includes(item.service)
+        ? item.service
+        : OTHER_SERVICE
+      : "",
+  );
+  const [customService, setCustomService] = useState(
+    item?.service && !(SERVICE_CATEGORIES as readonly string[]).includes(item.service)
+      ? item.service
+      : "",
+  );
+  const service = serviceChoice === OTHER_SERVICE ? customService : serviceChoice;
   const [detail, setDetail] = useState(item?.detail ?? "");
   const [unit, setUnit] = useState(item?.unit ?? "each");
   const [rate, setRate] = useState(item ? String(item.rate) : "");
@@ -92,7 +120,16 @@ function CatalogItemSheet({
             </div>
           </SheetHeader>
           <div className="flex flex-col gap-[10px]">
-            <input className={fieldCls} placeholder="Service (e.g. Full turn)" value={service} onChange={(e) => setService(e.target.value)} autoFocus={!item} />
+            <select className={fieldCls} value={serviceChoice} onChange={(e) => setServiceChoice(e.target.value)} autoFocus={!item}>
+              <option value="">Select a service…</option>
+              {SERVICE_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+              <option value={OTHER_SERVICE}>Other…</option>
+            </select>
+            {serviceChoice === OTHER_SERVICE && (
+              <input className={fieldCls} placeholder="Type the service name" value={customService} onChange={(e) => setCustomService(e.target.value)} />
+            )}
             <input className={fieldCls} placeholder="Detail (optional)" value={detail} onChange={(e) => setDetail(e.target.value)} />
             <div className="flex gap-[10px]">
               <input className={`${fieldCls} flex-1`} placeholder="Rate" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />

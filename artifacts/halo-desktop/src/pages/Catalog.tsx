@@ -21,6 +21,22 @@ import {
 const fieldCls =
   "w-full bg-background border border-border rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
 
+const SERVICE_CATEGORIES = [
+  "Make Ready",
+  "Paint",
+  "Resurfacing",
+  "Roof Repair/Replacement",
+  "Electrical",
+  "Plumbing",
+  "Landscaping",
+  "Cleaning",
+  "Firewatch",
+  "A/C Repairs",
+  "General Handyman",
+] as const;
+
+const OTHER_SERVICE = "__other__";
+
 function CatalogItemDialog({
   open,
   onOpenChange,
@@ -31,7 +47,19 @@ function CatalogItemDialog({
   item: CatalogItem | null;
 }) {
   const queryClient = useQueryClient();
-  const [service, setService] = useState(item?.service ?? "");
+  const [serviceChoice, setServiceChoice] = useState(
+    item?.service
+      ? (SERVICE_CATEGORIES as readonly string[]).includes(item.service)
+        ? item.service
+        : OTHER_SERVICE
+      : "",
+  );
+  const [customService, setCustomService] = useState(
+    item?.service && !(SERVICE_CATEGORIES as readonly string[]).includes(item.service)
+      ? item.service
+      : "",
+  );
+  const service = serviceChoice === OTHER_SERVICE ? customService : serviceChoice;
   const [detail, setDetail] = useState(item?.detail ?? "");
   const [unit, setUnit] = useState(item?.unit ?? "each");
   const [rate, setRate] = useState(item ? String(item.rate) : "");
@@ -88,8 +116,20 @@ function CatalogItemDialog({
         <div className="space-y-3">
           <div>
             <label className="text-xs font-semibold text-muted-foreground">Service</label>
-            <input className={fieldCls} placeholder="e.g. Full turn clean" value={service} onChange={(e) => setService(e.target.value)} autoFocus />
+            <select className={fieldCls} value={serviceChoice} onChange={(e) => setServiceChoice(e.target.value)} autoFocus>
+              <option value="">Select a service…</option>
+              {SERVICE_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+              <option value={OTHER_SERVICE}>Other…</option>
+            </select>
           </div>
+          {serviceChoice === OTHER_SERVICE && (
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Service name</label>
+              <input className={fieldCls} placeholder="Type the service name" value={customService} onChange={(e) => setCustomService(e.target.value)} />
+            </div>
+          )}
           <div>
             <label className="text-xs font-semibold text-muted-foreground">Detail (optional)</label>
             <input className={fieldCls} placeholder="What's included" value={detail} onChange={(e) => setDetail(e.target.value)} />
