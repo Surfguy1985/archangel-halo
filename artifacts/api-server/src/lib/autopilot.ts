@@ -1,4 +1,5 @@
 import { and, eq, lt, isNull, inArray } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 import {
   db,
   invoicesTable,
@@ -8,9 +9,30 @@ import {
   propertiesTable,
   notificationsTable,
   activitiesTable,
+  autopilotActionsTable,
+  type AutopilotAction,
 } from "@workspace/db";
+import { contactsTable } from "@workspace/db";
 import { getBusinessSettings } from "./businessSettings";
+import { sendInvoiceReminderEmail } from "./email";
 import { logger } from "./logger";
+
+/**
+ * Pick the billing email for a property: prefer a contact whose role mentions
+ * billing/AP/accounting, otherwise the first contact with any email.
+ */
+async function findBillingEmail(propertyId: string): Promise<string | null> {
+  const contacts = await db
+    .select()
+    .from(contactsTable)
+    .where(eq(contactsTable.propertyId, propertyId));
+  const withEmail = contacts.filter((c) => (c.email ?? "").trim().length > 0);
+  if (withEmail.length === 0) return null;
+  const billing = withEmail.find((c) =>
+    /bill|account|ap\b|payable/i.test(c.role ?? ""),
+  );
+  return (billing ?? withEmail[0]).email!.trim();
+}
 
 const STALE_OFFER_MS = 24 * 60 * 60 * 1000;
 const AGING_JOB_MS = 3 * 24 * 60 * 60 * 1000;
@@ -50,9 +72,201 @@ async function raise(opts: {
 }
 
 /**
+ * Propose an Autopilot action (one-shot per kind + entity — a dismissed or
+ * executed action never re-fires for the same entity). Returns the created
+ * row, or null when one already exists.
+ */
+async function propose(opts: {
+  kind: string;
+  entityType: string;
+  entityId: string;
+  title: string;
+  body: string;
+}): Promise<AutopilotAction | null> {
+  // Unique index on (kind, entityId) makes this one-shot even under
+  // concurrent runs — the loser of the race simply gets no row back.
+  const [created] = await db
+    .insert(autopilotActionsTable)
+    .values({
+      kind: opts.kind,
+      entityType: opts.entityType,
+      entityId: opts.entityId,
+      title: opts.title,
+      body: opts.body,
+    })
+    .onConflictDoNothing()
+    .returning();
+  return created ?? null;
+}
+
+async function markAction(
+  id: string,
+  status: "executed" | "failed" | "dismissed",
+  result: string,
+): Promise<void> {
+  await db
+    .update(autopilotActionsTable)
+    .set({ status, result, executedAt: new Date() })
+    .where(eq(autopilotActionsTable.id, id));
+}
+
+/** Send the overdue-invoice reminder email to the property billing contact. */
+async function executeInvoiceReminder(action: AutopilotAction): Promise<string> {
+  const [inv] = await db
+    .select()
+    .from(invoicesTable)
+    .where(eq(invoicesTable.id, action.entityId));
+  if (!inv) throw new Error("Invoice no longer exists");
+  if (inv.paidAt || inv.status === "paid") {
+    return `Invoice ${inv.invoiceNo} was already paid — no reminder needed.`;
+  }
+  const [prop] = await db
+    .select()
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, inv.propertyId));
+  const to = await findBillingEmail(inv.propertyId);
+  if (!to) {
+    throw new Error(
+      `No billing contact email on file for ${prop?.name ?? "this property"} — add a contact with an email on the property page, then approve again.`,
+    );
+  }
+  const now = Date.now();
+  const days = Math.max(
+    1,
+    Math.floor((now - (inv.dueAt?.getTime() ?? now)) / 86400000),
+  );
+  const sent = await sendInvoiceReminderEmail({
+    to,
+    billToName: inv.billToName ?? prop?.name ?? null,
+    invoiceNo: inv.invoiceNo,
+    amount: inv.amount,
+    daysOverdue: days,
+    propertyName: prop?.name ?? null,
+  });
+  if (!sent.ok) throw new Error(sent.error ?? "Email failed to send");
+  await db.insert(activitiesTable).values({
+    entityType: "invoice",
+    entityId: inv.id,
+    kind: "email_sent",
+    body: `Autopilot emailed a payment reminder for invoice ${inv.invoiceNo} to ${to}.`,
+  });
+  return `Reminder email sent to ${to} for invoice ${inv.invoiceNo}.`;
+}
+
+/** Rebroadcast a ghosted job: refresh stale offers and widen to matching crews. */
+async function executeRebroadcast(action: AutopilotAction): Promise<string> {
+  const [job] = await db
+    .select()
+    .from(jobsTable)
+    .where(eq(jobsTable.id, action.entityId));
+  if (!job) throw new Error("Job no longer exists");
+  if (job.status === "complete" || job.boardStatus === "completed") {
+    return `Job ${job.jobNo} is already completed — nothing to rebroadcast.`;
+  }
+  if (job.boardStatus === "filled") {
+    return `Job ${job.jobNo} was already accepted by a crew — nothing to rebroadcast.`;
+  }
+
+  const crews = await db.select().from(crewsTable).where(eq(crewsTable.active, true));
+  const wanted = (job.category ?? "").trim().toLowerCase();
+  const targets = wanted
+    ? crews.filter((c) => (c.trade ?? "").trim().toLowerCase() === wanted)
+    : crews;
+  if (targets.length === 0) throw new Error("No matching active crews to rebroadcast to");
+
+  const existing = await db
+    .select()
+    .from(jobBroadcastsTable)
+    .where(eq(jobBroadcastsTable.jobId, job.id));
+  const byCrew = new Map(existing.map((b) => [b.crewId, b]));
+
+  const now = new Date();
+  let refreshed = 0;
+  let added = 0;
+  for (const crew of targets) {
+    if (!crew.portalToken) {
+      const token = randomBytes(24).toString("base64url");
+      await db
+        .update(crewsTable)
+        .set({ portalToken: token })
+        .where(eq(crewsTable.id, crew.id));
+    }
+    const prior = byCrew.get(crew.id);
+    if (!prior) {
+      await db.insert(jobBroadcastsTable).values({
+        jobId: job.id,
+        crewId: crew.id,
+        status: "pending",
+        sentAt: now,
+      });
+      added += 1;
+    } else if (prior.status === "pending") {
+      // Refresh the stale offer so it counts as newly sent.
+      await db
+        .update(jobBroadcastsTable)
+        .set({ sentAt: now })
+        .where(eq(jobBroadcastsTable.id, prior.id));
+      refreshed += 1;
+    } else if (prior.status === "declined" || prior.status === "withdrawn") {
+      await db
+        .update(jobBroadcastsTable)
+        .set({ status: "pending", sentAt: now, respondedAt: null })
+        .where(eq(jobBroadcastsTable.id, prior.id));
+      added += 1;
+    }
+  }
+  await db.insert(activitiesTable).values({
+    entityType: "job",
+    entityId: job.id,
+    kind: "autopilot",
+    body: `Autopilot rebroadcast job ${job.jobNo}: ${added} new offer${added === 1 ? "" : "s"}, ${refreshed} refreshed.`,
+  });
+  return `Job ${job.jobNo} rebroadcast — ${added} new offer${added === 1 ? "" : "s"} sent, ${refreshed} refreshed.`;
+}
+
+/**
+ * Execute a pending Autopilot action. Atomically claims the row first
+ * (pending -> executing) so concurrent approvals can't double-fire the side
+ * effects. Returns null if someone else already claimed/resolved the action.
+ */
+export async function executeAutopilotAction(
+  action: AutopilotAction,
+): Promise<AutopilotAction | null> {
+  const [claimed] = await db
+    .update(autopilotActionsTable)
+    .set({ status: "executing" })
+    .where(
+      and(
+        eq(autopilotActionsTable.id, action.id),
+        eq(autopilotActionsTable.status, "pending"),
+      ),
+    )
+    .returning();
+  if (!claimed) return null;
+  try {
+    let result: string;
+    if (action.kind === "send_invoice_reminder") {
+      result = await executeInvoiceReminder(action);
+    } else if (action.kind === "rebroadcast_job") {
+      result = await executeRebroadcast(action);
+    } else {
+      throw new Error(`Unknown autopilot action kind: ${action.kind}`);
+    }
+    await markAction(action.id, "executed", result);
+    return { ...action, status: "executed", result, executedAt: new Date() };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn({ err, actionId: action.id }, "Autopilot action failed");
+    await markAction(action.id, "failed", msg);
+    return { ...action, status: "failed", result: msg, executedAt: new Date() };
+  }
+}
+
+/**
  * Autopilot background agent. Watches for problems the office would otherwise
- * catch manually and raises a notification + activity for each (deduped by
- * notification kind + entity id, so each issue fires exactly once).
+ * catch manually. For each issue it raises a notification AND proposes a
+ * concrete action (reminder email, rebroadcast). When auto-approve is on the
+ * action executes immediately; otherwise it waits for one-tap approval.
  * Never throws.
  */
 export async function runAutopilot(): Promise<string[]> {
@@ -60,6 +274,8 @@ export async function runAutopilot(): Promise<string[]> {
   try {
     const settings = await getBusinessSettings();
     if (settings.autopilotEnabled === false) return actions;
+    const autoApprove = settings.autopilotAutoApprove === true;
+    const pendingToExecute: AutopilotAction[] = [];
 
     const now = new Date();
 
@@ -74,21 +290,38 @@ export async function runAutopilot(): Promise<string[]> {
           lt(invoicesTable.dueAt, now),
         ),
       );
+    const overdueProps = overdue.length
+      ? await db
+          .select()
+          .from(propertiesTable)
+          .where(inArray(propertiesTable.id, [...new Set(overdue.map((i) => i.propertyId))]))
+      : [];
     for (const inv of overdue) {
-      if (await alreadyNotified("autopilot_overdue_invoice", inv.id)) continue;
       const days = Math.max(
         1,
         Math.floor((now.getTime() - (inv.dueAt?.getTime() ?? now.getTime())) / 86400000),
       );
-      const body = `Invoice ${inv.invoiceNo} ($${inv.amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}) is ${days} day${days === 1 ? "" : "s"} past due — time to follow up.`;
-      await raise({
-        kind: "autopilot_overdue_invoice",
+      const amount = `$${inv.amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+      if (!(await alreadyNotified("autopilot_overdue_invoice", inv.id))) {
+        const body = `Invoice ${inv.invoiceNo} (${amount}) is ${days} day${days === 1 ? "" : "s"} past due — time to follow up.`;
+        await raise({
+          kind: "autopilot_overdue_invoice",
+          entityType: "invoice",
+          entityId: inv.id,
+          title: `Invoice ${inv.invoiceNo} is overdue`,
+          body,
+        });
+        actions.push(body);
+      }
+      const prop = overdueProps.find((p) => p.id === inv.propertyId);
+      const proposed = await propose({
+        kind: "send_invoice_reminder",
         entityType: "invoice",
         entityId: inv.id,
-        title: `Invoice ${inv.invoiceNo} is overdue`,
-        body,
+        title: `Email payment reminder for invoice ${inv.invoiceNo}`,
+        body: `Send a branded payment reminder for invoice ${inv.invoiceNo} (${amount}, ${days} day${days === 1 ? "" : "s"} overdue)${prop?.name ? ` to the billing contact at ${prop.name}` : ""}.`,
       });
-      actions.push(body);
+      if (proposed) pendingToExecute.push(proposed);
     }
 
     // 2) Stale job offers — crews sitting on a pending offer for 24h+.
@@ -118,16 +351,25 @@ export async function runAutopilot(): Promise<string[]> {
         // Dedupe per job (matches the entityId stored on the notification).
         if (seenJobs.has(offer.jobId)) continue;
         seenJobs.add(offer.jobId);
-        if (await alreadyNotified("autopilot_stale_offer", offer.jobId)) continue;
-        const body = `${crewName(offer.crewId)} hasn't responded to the offer for job ${jobNo(offer.jobId)} in over a day — consider rebroadcasting or calling.`;
-        await raise({
-          kind: "autopilot_stale_offer",
+        if (!(await alreadyNotified("autopilot_stale_offer", offer.jobId))) {
+          const body = `${crewName(offer.crewId)} hasn't responded to the offer for job ${jobNo(offer.jobId)} in over a day — consider rebroadcasting or calling.`;
+          await raise({
+            kind: "autopilot_stale_offer",
+            entityType: "job",
+            entityId: offer.jobId,
+            title: `No response on job ${jobNo(offer.jobId)}`,
+            body,
+          });
+          actions.push(body);
+        }
+        const proposed = await propose({
+          kind: "rebroadcast_job",
           entityType: "job",
           entityId: offer.jobId,
-          title: `No response on job ${jobNo(offer.jobId)}`,
-          body,
+          title: `Rebroadcast job ${jobNo(offer.jobId)}`,
+          body: `${crewName(offer.crewId)} has ignored the offer for job ${jobNo(offer.jobId)} for over a day. Re-send the offer and widen it to all matching active crews.`,
         });
-        actions.push(body);
+        if (proposed) pendingToExecute.push(proposed);
       }
     }
 
@@ -165,6 +407,14 @@ export async function runAutopilot(): Promise<string[]> {
           body,
         });
         actions.push(body);
+      }
+    }
+
+    // Auto-approve mode: execute freshly proposed actions immediately.
+    if (autoApprove) {
+      for (const action of pendingToExecute) {
+        const done = await executeAutopilotAction(action);
+        if (done?.result) actions.push(done.result);
       }
     }
 

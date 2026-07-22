@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { AutopilotActions } from "@/components/AutopilotActions";
 
 function entityRoute(entityType?: string | null, entityId?: string | null): string | null {
   if (!entityType) return null;
@@ -180,6 +181,9 @@ export default function Today() {
 
         {/* Sidebar Widgets */}
         <div className="space-y-8">
+          {/* Autopilot proposals */}
+          <AutopilotActions />
+
           {/* Ask HALO */}
           <Card data-tour="ask-halo" className="border-[var(--hairline2)] bg-card shadow-sm">
             <CardHeader className="pb-3">

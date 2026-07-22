@@ -22,4 +22,6 @@ export interface BusinessSettings {
   autoSendRecapLinks?: boolean;
   /** Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs */
   autopilotEnabled?: boolean;
+  /** When true, Autopilot executes its proposed actions immediately instead of waiting for approval */
+  autopilotAutoApprove?: boolean;
 }

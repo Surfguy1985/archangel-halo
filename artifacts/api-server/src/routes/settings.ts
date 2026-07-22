@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import {
   db,
+  autopilotActionsTable,
   businessSettingsTable,
   crewInvoiceItemsTable,
   crewInvoicesTable,
@@ -47,7 +48,7 @@ import {
   ResetAllDataResponse,
 } from "@workspace/api-zod";
 import { getBusinessSettings } from "../lib/businessSettings";
-import { runAutopilot } from "../lib/autopilot";
+import { executeAutopilotAction, runAutopilot } from "../lib/autopilot";
 
 const router: IRouter = Router();
 
@@ -64,11 +65,13 @@ function serialize(row: {
   expenseApprovalThreshold?: number | null;
   autoSendRecapLinks?: boolean | null;
   autopilotEnabled?: boolean | null;
+  autopilotAutoApprove?: boolean | null;
 }) {
   return {
     expenseApprovalThreshold: row.expenseApprovalThreshold ?? 0,
     autoSendRecapLinks: row.autoSendRecapLinks ?? true,
     autopilotEnabled: row.autopilotEnabled ?? true,
+    autopilotAutoApprove: row.autopilotAutoApprove ?? false,
     companyName: row.companyName,
     tagline: row.tagline,
     street: row.street,
@@ -114,6 +117,9 @@ router.put("/settings/business", async (req, res): Promise<void> => {
       ...(body.autopilotEnabled != null
         ? { autopilotEnabled: body.autopilotEnabled }
         : {}),
+      ...(body.autopilotAutoApprove != null
+        ? { autopilotAutoApprove: body.autopilotAutoApprove }
+        : {}),
       updatedAt: new Date(),
     })
     .where(eq(businessSettingsTable.id, existing.id))
@@ -124,6 +130,103 @@ router.put("/settings/business", async (req, res): Promise<void> => {
 router.post("/autopilot/run", async (_req, res): Promise<void> => {
   const actions = await runAutopilot();
   res.json({ ok: true, actions });
+});
+
+function serializeAction(a: {
+  id: string;
+  kind: string;
+  entityType: string;
+  entityId: string;
+  title: string;
+  body: string;
+  status: string;
+  result: string | null;
+  executedAt: Date | null;
+  createdAt: Date;
+}) {
+  return {
+    id: a.id,
+    kind: a.kind,
+    entityType: a.entityType,
+    entityId: a.entityId,
+    title: a.title,
+    body: a.body,
+    status: a.status,
+    result: a.result,
+    executedAt: a.executedAt ? a.executedAt.toISOString() : null,
+    createdAt: a.createdAt.toISOString(),
+  };
+}
+
+router.get("/autopilot/actions", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select()
+    .from(autopilotActionsTable)
+    .orderBy(desc(autopilotActionsTable.createdAt))
+    .limit(50);
+  // Pending first, then most recent history.
+  const pending = rows.filter((r) => r.status === "pending");
+  const rest = rows.filter((r) => r.status !== "pending").slice(0, 15);
+  res.json([...pending, ...rest].map(serializeAction));
+});
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+router.post("/autopilot/actions/:id/approve", async (req, res): Promise<void> => {
+  if (!UUID_RE.test(req.params.id)) {
+    res.status(404).json({ error: "Action not found" });
+    return;
+  }
+  const [action] = await db
+    .select()
+    .from(autopilotActionsTable)
+    .where(eq(autopilotActionsTable.id, req.params.id));
+  if (!action) {
+    res.status(404).json({ error: "Action not found" });
+    return;
+  }
+  if (action.status !== "pending") {
+    res.status(409).json({ error: `Action is already ${action.status}` });
+    return;
+  }
+  const done = await executeAutopilotAction(action);
+  if (!done) {
+    res.status(409).json({ error: "Action was already handled" });
+    return;
+  }
+  res.json(serializeAction(done));
+});
+
+router.post("/autopilot/actions/:id/dismiss", async (req, res): Promise<void> => {
+  if (!UUID_RE.test(req.params.id)) {
+    res.status(404).json({ error: "Action not found" });
+    return;
+  }
+  // Atomic: only a still-pending action can be dismissed.
+  const [dismissed] = await db
+    .update(autopilotActionsTable)
+    .set({ status: "dismissed", result: "Dismissed by you." })
+    .where(
+      and(
+        eq(autopilotActionsTable.id, req.params.id),
+        eq(autopilotActionsTable.status, "pending"),
+      ),
+    )
+    .returning();
+  if (dismissed) {
+    res.json(serializeAction(dismissed));
+    return;
+  }
+  const [action] = await db
+    .select()
+    .from(autopilotActionsTable)
+    .where(eq(autopilotActionsTable.id, req.params.id));
+  if (!action) {
+    res.status(404).json({ error: "Action not found" });
+    return;
+  }
+  res.status(409).json({ error: `Action is already ${action.status}` });
 });
 
 router.post("/settings/reset", async (_req, res): Promise<void> => {
@@ -153,6 +256,7 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(leadsTable);
     await tx.delete(leadCampaignsTable);
     await tx.delete(notificationsTable);
+    await tx.delete(autopilotActionsTable);
     // Intentionally preserved: activitiesTable — the activity log is a
     // permanent history that survives data wipes.
     await tx.delete(voiceLogsTable);

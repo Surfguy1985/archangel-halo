@@ -4,6 +4,7 @@ import {
   text,
   jsonb,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const notificationsTable = pgTable("notifications", {
@@ -44,6 +45,29 @@ export const voiceLogsTable = pgTable("voice_logs", {
     .defaultNow(),
 });
 
+// Actions the Autopilot proposes (and, when auto-approve is on, executes).
+// status: pending -> executing -> executed | failed, or pending -> dismissed
+export const autopilotActionsTable = pgTable(
+  "autopilot_actions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    payload: jsonb("payload"),
+    status: text("status").notNull().default("pending"),
+    result: text("result"),
+    executedAt: timestamp("executed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("autopilot_actions_kind_entity_uq").on(t.kind, t.entityId)],
+);
+
+export type AutopilotAction = typeof autopilotActionsTable.$inferSelect;
 export type Notification = typeof notificationsTable.$inferSelect;
 export type Activity = typeof activitiesTable.$inferSelect;
 export type VoiceLog = typeof voiceLogsTable.$inferSelect;

@@ -2157,7 +2157,8 @@ export const GetBusinessSettingsResponse = zod.object({
   "taxRatePct": zod.number().optional(),
   "expenseApprovalThreshold": zod.number().optional().describe('Expenses at or above this amount need approval; 0 = off'),
   "autoSendRecapLinks": zod.boolean().optional().describe('Auto-email property contacts a live job link on schedule\/completion'),
-  "autopilotEnabled": zod.boolean().optional().describe('Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs')
+  "autopilotEnabled": zod.boolean().optional().describe('Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs'),
+  "autopilotAutoApprove": zod.boolean().optional().describe('When true, Autopilot executes its proposed actions immediately instead of waiting for approval')
 })
 
 
@@ -2176,7 +2177,8 @@ export const UpdateBusinessSettingsBody = zod.object({
   "taxRatePct": zod.number().optional(),
   "expenseApprovalThreshold": zod.number().optional(),
   "autoSendRecapLinks": zod.boolean().optional(),
-  "autopilotEnabled": zod.boolean().optional()
+  "autopilotEnabled": zod.boolean().optional(),
+  "autopilotAutoApprove": zod.boolean().optional()
 })
 
 export const UpdateBusinessSettingsResponse = zod.object({
@@ -2191,7 +2193,8 @@ export const UpdateBusinessSettingsResponse = zod.object({
   "taxRatePct": zod.number().optional(),
   "expenseApprovalThreshold": zod.number().optional().describe('Expenses at or above this amount need approval; 0 = off'),
   "autoSendRecapLinks": zod.boolean().optional().describe('Auto-email property contacts a live job link on schedule\/completion'),
-  "autopilotEnabled": zod.boolean().optional().describe('Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs')
+  "autopilotEnabled": zod.boolean().optional().describe('Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs'),
+  "autopilotAutoApprove": zod.boolean().optional().describe('When true, Autopilot executes its proposed actions immediately instead of waiting for approval')
 })
 
 
@@ -2209,6 +2212,66 @@ export const ResetAllDataResponse = zod.object({
 export const RunAutopilotNowResponse = zod.object({
   "ok": zod.boolean(),
   "actions": zod.array(zod.string())
+})
+
+
+/**
+ * @summary List Autopilot proposed actions (pending first, then recent history)
+ */
+export const ListAutopilotActionsResponseItem = zod.object({
+  "id": zod.string(),
+  "kind": zod.string().describe('send_invoice_reminder | rebroadcast_job'),
+  "entityType": zod.string(),
+  "entityId": zod.string(),
+  "title": zod.string(),
+  "body": zod.string(),
+  "status": zod.string().describe('pending | executed | dismissed | failed'),
+  "result": zod.string().nullish(),
+  "executedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListAutopilotActionsResponse = zod.array(ListAutopilotActionsResponseItem)
+
+
+/**
+ * @summary Approve and execute a pending Autopilot action
+ */
+export const ApproveAutopilotActionParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ApproveAutopilotActionResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.string().describe('send_invoice_reminder | rebroadcast_job'),
+  "entityType": zod.string(),
+  "entityId": zod.string(),
+  "title": zod.string(),
+  "body": zod.string(),
+  "status": zod.string().describe('pending | executed | dismissed | failed'),
+  "result": zod.string().nullish(),
+  "executedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Dismiss a pending Autopilot action without executing it
+ */
+export const DismissAutopilotActionParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DismissAutopilotActionResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.string().describe('send_invoice_reminder | rebroadcast_job'),
+  "entityType": zod.string(),
+  "entityId": zod.string(),
+  "title": zod.string(),
+  "body": zod.string(),
+  "status": zod.string().describe('pending | executed | dismissed | failed'),
+  "result": zod.string().nullish(),
+  "executedAt": zod.string().nullish(),
+  "createdAt": zod.string()
 })
 
 

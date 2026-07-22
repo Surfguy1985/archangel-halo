@@ -18,6 +18,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { BriefCard, FeedCard } from "@/components/FeedCard";
+import { AutopilotActions } from "@/components/AutopilotActions";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
 
 export default function Today() {
@@ -132,6 +133,8 @@ export default function Today() {
           <ChevronRight className="w-[16px] h-[16px] text-muted-foreground/30 absolute bottom-[16px] right-[16px] group-hover:translate-x-[2px] transition-transform" />
         </div>
       </div>
+
+      <AutopilotActions />
 
       {nowCards.length > 0 && (
         <div className="mb-[24px]">

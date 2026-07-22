@@ -22,6 +22,9 @@ export const businessSettingsTable = pgTable("business_settings", {
   // When true, the Autopilot background agent watches for overdue invoices,
   // stale crew offers, and aging unscheduled jobs and raises alerts.
   autopilotEnabled: boolean("autopilot_enabled").notNull().default(true),
+  // When true, Autopilot executes its proposed actions (reminder emails,
+  // rebroadcasts) immediately. When false, actions wait for one-tap approval.
+  autopilotAutoApprove: boolean("autopilot_auto_approve").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

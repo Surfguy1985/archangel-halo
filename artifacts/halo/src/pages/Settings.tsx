@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useResetAllData } from "@workspace/api-client-react";
+import {
+  useResetAllData,
+  useGetBusinessSettings,
+  useUpdateBusinessSettings,
+  getGetBusinessSettingsQueryKey,
+} from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -13,7 +18,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2, GraduationCap, Play, MapPin, Radar, Loader2 } from "lucide-react";
+import { Trash2, GraduationCap, Play, MapPin, Radar, Loader2, Sparkles } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { TrainingCenter } from "@/components/TrainingCenter";
 import { onsiteStorage, ArrivalSheet } from "@/components/ArrivalSheet";
 import {
@@ -32,6 +38,27 @@ export default function Settings() {
   const [testOpen, setTestOpen] = useState(false);
   const [testing, setTesting] = useState(false);
   const checkArrival = useCheckArrival();
+  const { data: bizSettings } = useGetBusinessSettings();
+  const updateSettings = useUpdateBusinessSettings();
+
+  const setAutoApprove = (on: boolean) => {
+    updateSettings.mutate(
+      { data: { autopilotAutoApprove: on } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetBusinessSettingsQueryKey() });
+          toast({
+            title: on ? "Auto-approve on" : "Auto-approve off",
+            description: on
+              ? "Autopilot will now act on its own — reminders and rebroadcasts go out immediately."
+              : "Autopilot will wait for your approval on the Today page.",
+          });
+        },
+        onError: (e) =>
+          toast({ title: "Couldn't save", description: e.message, variant: "destructive" }),
+      },
+    );
+  };
 
   const testDetection = () => {
     if (!("geolocation" in navigator)) {
@@ -213,6 +240,29 @@ export default function Settings() {
         </button>
         <p className="text-[11.5px] text-muted-foreground mt-[8px] text-center">
           Checks where you are right now and pops the arrival prompt if a property matches.
+        </p>
+      </div>
+
+      <div className="rounded-[16px] border border-border bg-card p-[16px] mb-[16px] shadow-[var(--shadow)]">
+        <div className="flex items-center gap-[10px]">
+          <div className="w-[36px] h-[36px] rounded-full grid place-items-center bg-[var(--ink)] shrink-0">
+            <Sparkles className="w-[19px] h-[19px] text-[var(--gold-light)]" strokeWidth={2} />
+          </div>
+          <div className="font-display font-bold text-[15px]">Autopilot auto-approve</div>
+          <div className="ml-auto">
+            <Switch
+              checked={bizSettings?.autopilotAutoApprove ?? false}
+              onCheckedChange={setAutoApprove}
+              disabled={updateSettings.isPending}
+              data-testid="switch-autopilot-auto-approve"
+            />
+          </div>
+        </div>
+        <p className="text-[12.5px] text-muted-foreground mt-[10px] leading-[1.5]">
+          Autopilot spots overdue invoices and ghosted job offers, then proposes a fix —
+          like emailing a payment reminder or re-sending the job to your crews. Leave this
+          off to approve each move from the Today page, or turn it on to let HALO act
+          immediately on its own.
         </p>
       </div>
 

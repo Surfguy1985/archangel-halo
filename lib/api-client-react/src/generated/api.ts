@@ -28,6 +28,7 @@ import type {
   ArrivalCheckResult,
   AskAnswer,
   AskInput,
+  AutopilotAction,
   AutopilotRunResult,
   BalanceSheetReport,
   BankAccount,
@@ -5293,6 +5294,225 @@ export const useRunAutopilotNow = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRunAutopilotNowMutationOptions(options));
+    }
+
+export const getListAutopilotActionsUrl = () => {
+
+
+
+
+  return `/api/autopilot/actions`
+}
+
+/**
+ * @summary List Autopilot proposed actions (pending first, then recent history)
+ */
+export const listAutopilotActions = async ( options?: RequestInit): Promise<AutopilotAction[]> => {
+
+  return customFetch<AutopilotAction[]>(getListAutopilotActionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAutopilotActionsQueryKey = () => {
+    return [
+    `/api/autopilot/actions`
+    ] as const;
+    }
+
+
+export const getListAutopilotActionsQueryOptions = <TData = Awaited<ReturnType<typeof listAutopilotActions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutopilotActions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAutopilotActionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAutopilotActions>>> = ({ signal }) => listAutopilotActions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAutopilotActions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAutopilotActionsQueryResult = NonNullable<Awaited<ReturnType<typeof listAutopilotActions>>>
+export type ListAutopilotActionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List Autopilot proposed actions (pending first, then recent history)
+ */
+
+export function useListAutopilotActions<TData = Awaited<ReturnType<typeof listAutopilotActions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAutopilotActions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAutopilotActionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getApproveAutopilotActionUrl = (id: string,) => {
+
+
+
+
+  return `/api/autopilot/actions/${id}/approve`
+}
+
+/**
+ * @summary Approve and execute a pending Autopilot action
+ */
+export const approveAutopilotAction = async (id: string, options?: RequestInit): Promise<AutopilotAction> => {
+
+  return customFetch<AutopilotAction>(getApproveAutopilotActionUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApproveAutopilotActionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveAutopilotAction>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveAutopilotAction>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['approveAutopilotAction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveAutopilotAction>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  approveAutopilotAction(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveAutopilotActionMutationResult = NonNullable<Awaited<ReturnType<typeof approveAutopilotAction>>>
+
+    export type ApproveAutopilotActionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Approve and execute a pending Autopilot action
+ */
+export const useApproveAutopilotAction = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveAutopilotAction>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveAutopilotAction>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getApproveAutopilotActionMutationOptions(options));
+    }
+
+export const getDismissAutopilotActionUrl = (id: string,) => {
+
+
+
+
+  return `/api/autopilot/actions/${id}/dismiss`
+}
+
+/**
+ * @summary Dismiss a pending Autopilot action without executing it
+ */
+export const dismissAutopilotAction = async (id: string, options?: RequestInit): Promise<AutopilotAction> => {
+
+  return customFetch<AutopilotAction>(getDismissAutopilotActionUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDismissAutopilotActionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dismissAutopilotAction>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof dismissAutopilotAction>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['dismissAutopilotAction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof dismissAutopilotAction>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  dismissAutopilotAction(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DismissAutopilotActionMutationResult = NonNullable<Awaited<ReturnType<typeof dismissAutopilotAction>>>
+
+    export type DismissAutopilotActionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Dismiss a pending Autopilot action without executing it
+ */
+export const useDismissAutopilotAction = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dismissAutopilotAction>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof dismissAutopilotAction>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDismissAutopilotActionMutationOptions(options));
     }
 
 export const getCreatePlaidLinkTokenUrl = () => {

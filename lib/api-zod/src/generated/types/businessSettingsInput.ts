@@ -19,4 +19,5 @@ export interface BusinessSettingsInput {
   expenseApprovalThreshold?: number;
   autoSendRecapLinks?: boolean;
   autopilotEnabled?: boolean;
+  autopilotAutoApprove?: boolean;
 }

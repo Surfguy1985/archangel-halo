@@ -73,6 +73,7 @@ export function BusinessInfoDialog({
   const [approvalThreshold, setApprovalThreshold] = useState("");
   const [autoSendLinks, setAutoSendLinks] = useState(true);
   const [autopilot, setAutopilot] = useState(true);
+  const [autoApprove, setAutoApprove] = useState(false);
 
   useEffect(() => {
     if (open && settings) {
@@ -90,6 +91,7 @@ export function BusinessInfoDialog({
       );
       setAutoSendLinks(settings.autoSendRecapLinks ?? true);
       setAutopilot(settings.autopilotEnabled ?? true);
+      setAutoApprove(settings.autopilotAutoApprove ?? false);
     }
   }, [open, settings]);
 
@@ -111,6 +113,7 @@ export function BusinessInfoDialog({
             : 0,
           autoSendRecapLinks: autoSendLinks,
           autopilotEnabled: autopilot,
+          autopilotAutoApprove: autoApprove,
         },
       },
       {
@@ -227,6 +230,21 @@ export function BusinessInfoDialog({
               checked={autopilot}
               onCheckedChange={setAutopilot}
               data-testid="switch-autopilot"
+            />
+          </div>
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-3">
+            <div>
+              <Label>Autopilot auto-approve</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Let Autopilot act on its own — payment reminder emails and job
+                rebroadcasts go out immediately, without waiting for your tap.
+                When off, everything waits for your approval on the Today page.
+              </p>
+            </div>
+            <Switch
+              checked={autoApprove}
+              onCheckedChange={setAutoApprove}
+              data-testid="switch-autopilot-auto-approve"
             />
           </div>
           <div className="space-y-1.5">

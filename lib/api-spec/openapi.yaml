@@ -1498,6 +1498,79 @@ paths:
               schema:
                 $ref: "#/components/schemas/AutopilotRunResult"
 
+  /autopilot/actions:
+    get:
+      operationId: listAutopilotActions
+      tags: [money]
+      summary: List Autopilot proposed actions (pending first, then recent history)
+      responses:
+        "200":
+          description: Autopilot actions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AutopilotAction"
+  /autopilot/actions/{id}/approve:
+    post:
+      operationId: approveAutopilotAction
+      tags: [money]
+      summary: Approve and execute a pending Autopilot action
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Executed (or failed) action
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutopilotAction"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Action is no longer pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /autopilot/actions/{id}/dismiss:
+    post:
+      operationId: dismissAutopilotAction
+      tags: [money]
+      summary: Dismiss a pending Autopilot action without executing it
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Dismissed action
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutopilotAction"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Action is no longer pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /plaid/link-token:
     post:
       operationId: createPlaidLinkToken
@@ -5191,6 +5264,7 @@ components:
         expenseApprovalThreshold: { type: number, description: "Expenses at or above this amount need approval; 0 = off" }
         autoSendRecapLinks: { type: boolean, description: "Auto-email property contacts a live job link on schedule/completion" }
         autopilotEnabled: { type: boolean, description: "Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs" }
+        autopilotAutoApprove: { type: boolean, description: "When true, Autopilot executes its proposed actions immediately instead of waiting for approval" }
     BusinessSettingsInput:
       type: object
       properties:
@@ -5206,6 +5280,21 @@ components:
         expenseApprovalThreshold: { type: number }
         autoSendRecapLinks: { type: boolean }
         autopilotEnabled: { type: boolean }
+        autopilotAutoApprove: { type: boolean }
+    AutopilotAction:
+      type: object
+      required: [id, kind, entityType, entityId, title, body, status, createdAt]
+      properties:
+        id: { type: string }
+        kind: { type: string, description: "send_invoice_reminder | rebroadcast_job" }
+        entityType: { type: string }
+        entityId: { type: string }
+        title: { type: string }
+        body: { type: string }
+        status: { type: string, description: "pending | executed | dismissed | failed" }
+        result: { type: string, nullable: true }
+        executedAt: { type: string, nullable: true }
+        createdAt: { type: string }
     AutopilotRunResult:
       type: object
       required: [ok, actions]

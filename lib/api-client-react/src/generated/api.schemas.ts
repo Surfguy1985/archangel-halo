@@ -1460,6 +1460,8 @@ export interface BusinessSettings {
   autoSendRecapLinks?: boolean;
   /** Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs */
   autopilotEnabled?: boolean;
+  /** When true, Autopilot executes its proposed actions immediately instead of waiting for approval */
+  autopilotAutoApprove?: boolean;
 }
 
 export interface BusinessSettingsInput {
@@ -1475,6 +1477,22 @@ export interface BusinessSettingsInput {
   expenseApprovalThreshold?: number;
   autoSendRecapLinks?: boolean;
   autopilotEnabled?: boolean;
+  autopilotAutoApprove?: boolean;
+}
+
+export interface AutopilotAction {
+  id: string;
+  /** send_invoice_reminder | rebroadcast_job */
+  kind: string;
+  entityType: string;
+  entityId: string;
+  title: string;
+  body: string;
+  /** pending | executed | dismissed | failed */
+  status: string;
+  result?: string | null;
+  executedAt?: string | null;
+  createdAt: string;
 }
 
 export interface AutopilotRunResult {
