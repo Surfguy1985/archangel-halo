@@ -6,6 +6,22 @@ import { useCreatePriceItem, getGetPropertyQueryKey } from "@workspace/api-clien
 const fieldCls =
   "w-full bg-card border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] shadow-[var(--shadow)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
 
+export const SERVICE_CATEGORIES = [
+  "Make Ready",
+  "Paint",
+  "Resurfacing",
+  "Roof Repair/Replacement",
+  "Electrical",
+  "Plumbing",
+  "Landscaping",
+  "Cleaning",
+  "Firewatch",
+  "A/C Repairs",
+  "General Handyman",
+] as const;
+
+const OTHER = "__other__";
+
 export function AddPriceItemSheet({
   open,
   onOpenChange,
@@ -16,14 +32,18 @@ export function AddPriceItemSheet({
   propertyId: string;
 }) {
   const queryClient = useQueryClient();
-  const [service, setService] = useState("");
+  const [category, setCategory] = useState("");
+  const [customService, setCustomService] = useState("");
   const [detail, setDetail] = useState("");
   const [unit, setUnit] = useState("each");
   const [rate, setRate] = useState("");
   const create = useCreatePriceItem();
 
+  const service = category === OTHER ? customService : category;
+
   const reset = () => {
-    setService("");
+    setCategory("");
+    setCustomService("");
     setDetail("");
     setUnit("each");
     setRate("");
@@ -65,7 +85,16 @@ export function AddPriceItemSheet({
             <div className="text-[13px] text-muted-foreground">The agreed rate — voice will use it automatically.</div>
           </SheetHeader>
           <div className="flex flex-col gap-[10px]">
-            <input className={fieldCls} placeholder="Service (e.g. Full turn)" value={service} onChange={(e) => setService(e.target.value)} autoFocus />
+            <select className={fieldCls} value={category} onChange={(e) => setCategory(e.target.value)} autoFocus>
+              <option value="">Select a service…</option>
+              {SERVICE_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+              <option value={OTHER}>Other…</option>
+            </select>
+            {category === OTHER && (
+              <input className={fieldCls} placeholder="Type the service name" value={customService} onChange={(e) => setCustomService(e.target.value)} autoFocus />
+            )}
             <input className={fieldCls} placeholder="Detail (optional)" value={detail} onChange={(e) => setDetail(e.target.value)} />
             <div className="flex gap-[10px]">
               <input className={`${fieldCls} flex-1`} placeholder="Rate" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />

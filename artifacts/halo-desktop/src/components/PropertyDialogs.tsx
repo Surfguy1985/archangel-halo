@@ -51,6 +51,22 @@ const primaryBtn =
 
 const errorCls = "text-xs text-destructive text-center mt-2";
 
+const SERVICE_CATEGORIES = [
+  "Make Ready",
+  "Paint",
+  "Resurfacing",
+  "Roof Repair/Replacement",
+  "Electrical",
+  "Plumbing",
+  "Landscaping",
+  "Cleaning",
+  "Firewatch",
+  "A/C Repairs",
+  "General Handyman",
+] as const;
+
+const OTHER_SERVICE = "__other__";
+
 function Field({
   label,
   children,
@@ -426,15 +442,19 @@ export function AddPriceItemDialog({
   propertyId: string;
 }) {
   const queryClient = useQueryClient();
-  const [service, setService] = useState("");
+  const [category, setCategory] = useState("");
+  const [customService, setCustomService] = useState("");
   const [detail, setDetail] = useState("");
   const [unit, setUnit] = useState("each");
   const [rate, setRate] = useState("");
   const create = useCreatePriceItem();
 
+  const service = category === OTHER_SERVICE ? customService : category;
+
   useEffect(() => {
     if (open) {
-      setService("");
+      setCategory("");
+      setCustomService("");
       setDetail("");
       setUnit("each");
       setRate("");
@@ -474,14 +494,30 @@ export function AddPriceItemDialog({
         </DialogHeader>
         <div className="flex flex-col gap-3 py-2">
           <Field label="Service">
-            <input
+            <select
               className={fieldCls}
-              placeholder="e.g. Full turn"
-              value={service}
-              onChange={(e) => setService(e.target.value)}
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
               autoFocus
-            />
+            >
+              <option value="">Select a service…</option>
+              {SERVICE_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+              <option value={OTHER_SERVICE}>Other…</option>
+            </select>
           </Field>
+          {category === OTHER_SERVICE && (
+            <Field label="Service name">
+              <input
+                className={fieldCls}
+                placeholder="Type the service name"
+                value={customService}
+                onChange={(e) => setCustomService(e.target.value)}
+                autoFocus
+              />
+            </Field>
+          )}
           <Field label="Detail">
             <input
               className={fieldCls}
