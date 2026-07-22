@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CrewPhoto } from './crewPhoto';
+import type { PhotoShareCheckin } from './photoShareCheckin';
 
 export interface PhotoShareView {
   crewName: string;
@@ -13,4 +14,5 @@ export interface PhotoShareView {
   trade?: string | null;
   day: string;
   photos: CrewPhoto[];
+  checkins: PhotoShareCheckin[];
 }

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, lt } from "drizzle-orm";
 import {
   db,
   crewsTable,
@@ -225,8 +225,24 @@ router.get("/photo-shares/:token", async (req, res): Promise<void> => {
       ),
     )
     .orderBy(crewPhotosTable.createdAt);
+  const [dy, dm, dd] = share.day.split("-").map(Number);
+  const dayStart = new Date(dy, dm - 1, dd);
+  const dayEnd = new Date(dy, dm - 1, dd + 1);
+  const checkins = await db
+    .select()
+    .from(crewCheckinsTable)
+    .where(
+      and(
+        eq(crewCheckinsTable.crewId, share.crewId),
+        gte(crewCheckinsTable.createdAt, dayStart),
+        lt(crewCheckinsTable.createdAt, dayEnd),
+      ),
+    )
+    .orderBy(crewCheckinsTable.createdAt);
   const labels = await jobLabelMap(
-    photos.map((p) => p.jobId).filter((v): v is string => !!v),
+    [...photos.map((p) => p.jobId), ...checkins.map((c) => c.jobId)].filter(
+      (v): v is string => !!v,
+    ),
   );
   res.json(
     GetPhotoShareResponse.parse({
@@ -236,6 +252,15 @@ router.get("/photo-shares/:token", async (req, res): Promise<void> => {
       photos: photos.map((p) => ({
         ...ser(p),
         jobLabel: p.jobId ? (labels.get(p.jobId) ?? null) : null,
+      })),
+      checkins: checkins.map((c) => ({
+        id: c.id,
+        jobId: c.jobId ?? null,
+        jobLabel: c.jobId ? (labels.get(c.jobId) ?? null) : null,
+        kind: c.kind,
+        label: c.label ?? null,
+        note: c.note ?? null,
+        createdAt: c.createdAt ? c.createdAt.toISOString() : null,
       })),
     }),
   );

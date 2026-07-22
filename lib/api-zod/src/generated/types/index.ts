@@ -184,6 +184,7 @@ export * from './payment';
 export * from './paymentInput';
 export * from './paymentMethodInput';
 export * from './photoShare';
+export * from './photoShareCheckin';
 export * from './photoShareInput';
 export * from './photoShareView';
 export * from './plaidExchangeInput';

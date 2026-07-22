@@ -2303,12 +2303,29 @@ export interface PhotoShare {
   day: string;
 }
 
+export interface PhotoShareCheckin {
+  id: string;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  jobLabel?: string | null;
+  /** checkin | checkout */
+  kind: string;
+  /** @nullable */
+  label?: string | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
+}
+
 export interface PhotoShareView {
   crewName: string;
   /** @nullable */
   trade?: string | null;
   day: string;
   photos: CrewPhoto[];
+  checkins: PhotoShareCheckin[];
 }
 
 export interface CrewPaymentInput {

@@ -6040,7 +6040,7 @@ components:
         day: { type: string }
     PhotoShareView:
       type: object
-      required: [crewName, day, photos]
+      required: [crewName, day, photos, checkins]
       properties:
         crewName: { type: string }
         trade: { type: ["string", "null"] }
@@ -6049,6 +6049,21 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CrewPhoto"
+        checkins:
+          type: array
+          items:
+            $ref: "#/components/schemas/PhotoShareCheckin"
+    PhotoShareCheckin:
+      type: object
+      required: [id, kind]
+      properties:
+        id: { type: string }
+        jobId: { type: ["string", "null"] }
+        jobLabel: { type: ["string", "null"] }
+        kind: { type: string, description: "checkin | checkout" }
+        label: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+        createdAt: { type: ["string", "null"] }
 
     CrewPaymentInput:
       type: object

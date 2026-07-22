@@ -3919,6 +3919,15 @@ export const GetPhotoShareResponse = zod.object({
   "accuracy": zod.number().nullish(),
   "capturedAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
+})),
+  "checkins": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string().nullish(),
+  "jobLabel": zod.string().nullish(),
+  "kind": zod.string().describe('checkin | checkout'),
+  "label": zod.string().nullish(),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
 }))
 })
 
