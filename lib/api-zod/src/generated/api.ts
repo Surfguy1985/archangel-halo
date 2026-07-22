@@ -452,7 +452,7 @@ export const ListCatalogItemsResponseItem = zod.object({
   "service": zod.string(),
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish(),
-  "rate": zod.number(),
+  "rate": zod.number().nullish(),
   "category": zod.string().nullish()
 })
 export const ListCatalogItemsResponse = zod.array(ListCatalogItemsResponseItem)
@@ -465,7 +465,7 @@ export const CreateCatalogItemBody = zod.object({
   "service": zod.string().min(1),
   "detail": zod.string().optional(),
   "unit": zod.string().optional(),
-  "rate": zod.number(),
+  "rate": zod.number().optional(),
   "category": zod.string().optional()
 })
 
@@ -474,7 +474,7 @@ export const CreateCatalogItemResponse = zod.object({
   "service": zod.string(),
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish(),
-  "rate": zod.number(),
+  "rate": zod.number().nullish(),
   "category": zod.string().nullish()
 })
 
@@ -490,7 +490,7 @@ export const UpdateCatalogItemBody = zod.object({
   "service": zod.string().min(1).optional(),
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish(),
-  "rate": zod.number().optional(),
+  "rate": zod.number().nullish(),
   "category": zod.string().nullish()
 })
 
@@ -499,7 +499,7 @@ export const UpdateCatalogItemResponse = zod.object({
   "service": zod.string(),
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish(),
-  "rate": zod.number(),
+  "rate": zod.number().nullish(),
   "category": zod.string().nullish()
 })
 

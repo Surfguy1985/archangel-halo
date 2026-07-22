@@ -37,7 +37,7 @@ export const catalogItemsTable = pgTable("catalog_items", {
   service: text("service").notNull(),
   detail: text("detail"),
   unit: text("unit"),
-  rate: doublePrecision("rate").notNull(),
+  rate: doublePrecision("rate"),
   category: text("category"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

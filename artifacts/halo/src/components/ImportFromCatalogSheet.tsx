@@ -130,7 +130,7 @@ export function ImportFromCatalogSheet({
                     </div>
                   </div>
                   <div className="font-mono font-bold text-[13.5px] shrink-0">
-                    ${item.rate}
+                    {item.rate != null ? `$${item.rate}` : "—"}
                     {item.unit && <span className="text-[11px] text-muted-foreground font-sans font-normal"> /{item.unit}</span>}
                   </div>
                 </button>

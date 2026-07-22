@@ -62,15 +62,15 @@ function CatalogItemDialog({
   const service = serviceChoice === OTHER_SERVICE ? customService : serviceChoice;
   const [detail, setDetail] = useState(item?.detail ?? "");
   const [unit, setUnit] = useState(item?.unit ?? "each");
-  const [rate, setRate] = useState(item ? String(item.rate) : "");
+  const [rate, setRate] = useState(item && item.rate != null ? String(item.rate) : "");
   const [category, setCategory] = useState(item?.category ?? "");
   const create = useCreateCatalogItem();
   const update = useUpdateCatalogItem();
   const pending = create.isPending || update.isPending;
 
   const submit = () => {
-    const rateNum = parseFloat(rate);
-    if (!service.trim() || isNaN(rateNum)) return;
+    const rateNum = rate.trim() === "" ? null : parseFloat(rate);
+    if (!service.trim() || (rateNum !== null && isNaN(rateNum))) return;
     const onSuccess = () => {
       queryClient.invalidateQueries({ queryKey: getListCatalogItemsQueryKey() });
       onOpenChange(false);
@@ -96,7 +96,7 @@ function CatalogItemDialog({
             service: service.trim(),
             detail: detail.trim() || undefined,
             unit: unit.trim() || undefined,
-            rate: rateNum,
+            rate: rateNum ?? undefined,
             category: category.trim() || undefined,
           },
         },
@@ -136,7 +136,7 @@ function CatalogItemDialog({
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Rate</label>
+              <label className="text-xs font-semibold text-muted-foreground">Rate (optional)</label>
               <input className={fieldCls} placeholder="0.00" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
             </div>
             <div>
@@ -155,7 +155,7 @@ function CatalogItemDialog({
         <DialogFooter>
           <button
             onClick={submit}
-            disabled={!service.trim() || !rate.trim() || pending}
+            disabled={!service.trim() || pending}
             className="bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50"
           >
             {pending ? "Saving…" : item ? "Save changes" : "Add service"}
@@ -231,7 +231,7 @@ export default function Catalog() {
                   </td>
                   <td className="px-6 py-4 text-muted-foreground">{item.category || "—"}</td>
                   <td className="px-6 py-4 text-right font-mono font-bold">
-                    ${item.rate}
+                    {item.rate != null ? `$${item.rate}` : "—"}
                     {item.unit && <span className="text-xs text-muted-foreground font-sans font-normal"> /{item.unit}</span>}
                   </td>
                   <td className="px-6 py-4">

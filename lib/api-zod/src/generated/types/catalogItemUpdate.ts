@@ -13,7 +13,8 @@ export interface CatalogItemUpdate {
   detail?: string | null;
   /** @nullable */
   unit?: string | null;
-  rate?: number;
+  /** @nullable */
+  rate?: number | null;
   /** @nullable */
   category?: string | null;
 }

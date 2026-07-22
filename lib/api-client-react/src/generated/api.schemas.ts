@@ -516,7 +516,8 @@ export interface CatalogItem {
   detail?: string | null;
   /** @nullable */
   unit?: string | null;
-  rate: number;
+  /** @nullable */
+  rate?: number | null;
   /** @nullable */
   category?: string | null;
 }
@@ -526,7 +527,7 @@ export interface CatalogItemInput {
   service: string;
   detail?: string;
   unit?: string;
-  rate: number;
+  rate?: number;
   category?: string;
 }
 
@@ -537,7 +538,8 @@ export interface CatalogItemUpdate {
   detail?: string | null;
   /** @nullable */
   unit?: string | null;
-  rate?: number;
+  /** @nullable */
+  rate?: number | null;
   /** @nullable */
   category?: string | null;
 }

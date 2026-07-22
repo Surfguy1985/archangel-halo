@@ -11,6 +11,6 @@ export interface CatalogItemInput {
   service: string;
   detail?: string;
   unit?: string;
-  rate: number;
+  rate?: number;
   category?: string;
 }

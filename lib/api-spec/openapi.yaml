@@ -4411,17 +4411,17 @@ components:
 
     CatalogItem:
       type: object
-      required: [id, service, rate]
+      required: [id, service]
       properties:
         id: { type: string }
         service: { type: string }
         detail: { type: ["string", "null"] }
         unit: { type: ["string", "null"] }
-        rate: { type: number }
+        rate: { type: ["number", "null"] }
         category: { type: ["string", "null"] }
     CatalogItemInput:
       type: object
-      required: [service, rate]
+      required: [service]
       properties:
         service: { type: string, minLength: 1 }
         detail: { type: string }
@@ -4434,7 +4434,7 @@ components:
         service: { type: string, minLength: 1 }
         detail: { type: ["string", "null"] }
         unit: { type: ["string", "null"] }
-        rate: { type: number }
+        rate: { type: ["number", "null"] }
         category: { type: ["string", "null"] }
     PriceItemImportInput:
       type: object

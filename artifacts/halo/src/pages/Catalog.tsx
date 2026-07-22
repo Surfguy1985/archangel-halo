@@ -57,7 +57,7 @@ function CatalogItemSheet({
   const service = serviceChoice === OTHER_SERVICE ? customService : serviceChoice;
   const [detail, setDetail] = useState(item?.detail ?? "");
   const [unit, setUnit] = useState(item?.unit ?? "each");
-  const [rate, setRate] = useState(item ? String(item.rate) : "");
+  const [rate, setRate] = useState(item && item.rate != null ? String(item.rate) : "");
   const [category, setCategory] = useState(item?.category ?? "");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const create = useCreateCatalogItem();
@@ -71,8 +71,8 @@ function CatalogItemSheet({
   };
 
   const submit = () => {
-    const rateNum = parseFloat(rate);
-    if (!service.trim() || isNaN(rateNum)) return;
+    const rateNum = rate.trim() === "" ? null : parseFloat(rate);
+    if (!service.trim() || (rateNum !== null && isNaN(rateNum))) return;
     if (item) {
       update.mutate(
         {
@@ -94,7 +94,7 @@ function CatalogItemSheet({
             service: service.trim(),
             detail: detail.trim() || undefined,
             unit: unit.trim() || undefined,
-            rate: rateNum,
+            rate: rateNum ?? undefined,
             category: category.trim() || undefined,
           },
         },
@@ -132,7 +132,7 @@ function CatalogItemSheet({
             )}
             <input className={fieldCls} placeholder="Detail (optional)" value={detail} onChange={(e) => setDetail(e.target.value)} />
             <div className="flex gap-[10px]">
-              <input className={`${fieldCls} flex-1`} placeholder="Rate" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+              <input className={`${fieldCls} flex-1`} placeholder="Rate (optional)" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
               <input className={`${fieldCls} w-[110px]`} placeholder="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
             </div>
             <input className={fieldCls} placeholder="Category (optional)" value={category} onChange={(e) => setCategory(e.target.value)} />
@@ -140,7 +140,7 @@ function CatalogItemSheet({
           <button
             className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)] disabled:opacity-50 transition-transform active:scale-[0.98]"
             onClick={submit}
-            disabled={!service.trim() || !rate.trim() || pending}
+            disabled={!service.trim() || pending}
           >
             {pending ? "Saving…" : item ? "Save changes" : "Add service"}
           </button>
@@ -225,7 +225,7 @@ export default function Catalog() {
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <div className="font-mono font-bold text-[14.5px]">${item.rate}</div>
+                <div className="font-mono font-bold text-[14.5px]">{item.rate != null ? `$${item.rate}` : "—"}</div>
                 {item.unit && <div className="text-[11px] text-muted-foreground">/{item.unit}</div>}
               </div>
               <button

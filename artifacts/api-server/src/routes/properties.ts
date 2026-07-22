@@ -603,7 +603,7 @@ router.post(
             service: c.service,
             detail: c.detail,
             unit: c.unit,
-            rate: c.rate,
+            rate: c.rate ?? 0,
           })),
         )
         .returning();

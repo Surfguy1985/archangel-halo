@@ -68,7 +68,7 @@ function tokenScore(a: string, b: string): number {
 }
 
 /** Best-effort service match against price book rows. */
-function matchPriceRow<T extends { service: string; detail: string | null; rate: number }>(
+function matchPriceRow<T extends { service: string; detail: string | null; rate: number | null }>(
   wanted: string,
   rows: T[],
 ): T | null {
@@ -177,7 +177,7 @@ ${(transcript ?? "").slice(0, 12000)}`,
       const catalog = propPrices.length
         ? []
         : await db.select().from(catalogItemsTable);
-      const book: Array<{ service: string; detail: string | null; rate: number }> =
+      const book: Array<{ service: string; detail: string | null; rate: number | null }> =
         propPrices.length ? propPrices : catalog;
 
       const lines: Array<{
