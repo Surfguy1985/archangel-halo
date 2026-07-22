@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useLocation } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetMoneySummary,
@@ -780,7 +780,17 @@ function CrewPay() {
   );
 }
 
+const MONEY_TABS = ["invoices", "expenses", "crew", "bank", "aging", "report", "books"];
+
 export default function Money() {
+  const search = useSearch();
+  const urlTab = new URLSearchParams(search).get("tab");
+  const [tab, setTab] = useState(
+    urlTab && MONEY_TABS.includes(urlTab) ? urlTab : "invoices",
+  );
+  useEffect(() => {
+    if (urlTab && MONEY_TABS.includes(urlTab)) setTab(urlTab);
+  }, [urlTab]);
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
       <header>
@@ -792,7 +802,7 @@ export default function Money() {
         <SummaryCards />
       </div>
 
-      <Tabs defaultValue="invoices" className="space-y-6">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
         <TabsList data-tour="money-tabs">
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>

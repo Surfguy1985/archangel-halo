@@ -79,6 +79,10 @@ export const trainingChapters: TrainingChapter[] = [
         body: "Each card has a button that does the work for you. See a finished job? Tap Create invoice. See a late payment? Tap Send reminder. You can handle most of your day without ever leaving this screen.",
       },
       {
+        title: "Autopilot has your back",
+        body: "HALO's Autopilot watches for problems on its own, like an overdue invoice or a job offer a crew never answered. It proposes the fix, such as sending a reminder or re-offering the job, and you approve it with one tap right on Today. In Settings you can even let Autopilot act on its own.",
+      },
+      {
         title: "The notifications bell",
         body: "The bell at the top shows anything new that needs you, like a crew checking in or a bid being approved. A red dot means there's something fresh to look at.",
       },
@@ -159,6 +163,10 @@ export const trainingChapters: TrainingChapter[] = [
         body: "Open More, then Job Board, to dispatch open work to your crews. You can broadcast a job to your team and let the right crew grab it.",
       },
       {
+        title: "Broadcast and let a crew claim it",
+        body: "When you broadcast a job, every matching crew sees the offer on their portal with the details and photos. The first crew to accept gets the work, and the job is assigned automatically. Changed the details? Edit the offer or rebroadcast it any time.",
+      },
+      {
         title: "Line items and pricing",
         body: "Open a job and add line items for the work being done. HALO pulls the agreed rates from that property's Price List, so your pricing stays consistent and your margin is calculated for you as you go.",
       },
@@ -215,8 +223,16 @@ export const trainingChapters: TrainingChapter[] = [
         body: "Draft an invoice for a completed job, then send it straight to your client by email, right from HALO. No separate accounting app needed.",
       },
       {
+        title: "Build an invoice in taps",
+        body: "When you create an invoice, HALO shows the property's agreed services as tap-to-add buttons. Tap the ones you did, adjust quantities, and the invoice builds itself with the right prices. The due date fills in from the client's payment terms automatically.",
+      },
+      {
         title: "Record a payment",
         body: "When a client pays, mark the invoice as paid. Your receivables update instantly, so you always know your true cash position.",
+      },
+      {
+        title: "Scan a check",
+        body: "Got paid by check? Snap a photo of it and HALO reads the amount and check number, matches it to the right invoice, and records the payment for you. No typing numbers off a check.",
       },
       {
         title: "Chase what's late",
@@ -233,6 +249,10 @@ export const trainingChapters: TrainingChapter[] = [
       {
         title: "Log an expense",
         body: "Record materials, fuel, or any cost against a property or job. You can type it, speak it, or even snap a receipt and let HALO read it.",
+      },
+      {
+        title: "Approve before it counts",
+        body: "Expenses can wait in a pending state until you approve them, so nothing hits your books without your say-so. Approve it and it counts toward the job's cost. Reject it and it stays off your numbers entirely.",
       },
       {
         title: "What you owe your crews",
@@ -293,6 +313,14 @@ export const trainingChapters: TrainingChapter[] = [
       {
         title: "Stay in the loop",
         body: "When a crew does something, like checking in or uploading a photo, you'll see a red badge so you know there's new activity to review.",
+      },
+      {
+        title: "The daily field report",
+        body: "Open a crew and scroll to Daily Activity to see their photos grouped by day. Share link gives your client a live web page that updates as new photos come in. Tap Full report to add your own notes from the office and download a branded PDF of the whole day, photos, check-ins, notes and all.",
+      },
+      {
+        title: "Welcome kits and paperwork",
+        body: "From a crew's page you can also send them a welcome packet, share documents, and collect their W-9 and payment details, so onboarding a new sub takes minutes, not days.",
       },
     ],
   },
@@ -401,6 +429,26 @@ export const trainingChapters: TrainingChapter[] = [
       {
         title: "Match transactions",
         body: "Once connected, you can match bank transactions to your invoices and expenses, so your books reconcile themselves with far less effort.",
+      },
+    ],
+  },
+  {
+    id: "books",
+    title: "Books & Taxes",
+    sub: "Real bookkeeping, built in",
+    icon: "BookOpen",
+    steps: [
+      {
+        title: "Your books, kept for you",
+        body: "In Money, open Books and Taxes. Every invoice, payment, and expense you record is posted into real double-entry books behind the scenes, so your profit and loss statement and balance sheet are always up to date, with zero bookkeeping work.",
+      },
+      {
+        title: "Bills and bank imports",
+        body: "Record vendor bills you owe, and import transactions straight from your connected bank. HALO keeps it all reconciled, so tax season stops being a shoebox of receipts.",
+      },
+      {
+        title: "The Tax Planner",
+        body: "The Tax Planner estimates what you'll owe for the year based on your real numbers, and shows how much to set aside. You can even compare how different business structures would change your tax bill.",
       },
     ],
   },
