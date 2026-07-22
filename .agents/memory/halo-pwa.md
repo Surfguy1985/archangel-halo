@@ -14,3 +14,5 @@ Rule: the mobile app (artifacts/halo, served at root `/`) is an installable PWA 
 - iOS needs the `apple-touch-icon` link + apple-mobile-web-app-* meta tags in index.html (not just the manifest) — keep them.
 - Workbox navigateFallbackDenylist excludes /api and /desktop so the SW never serves the SPA shell for those.
 - After changing icons/manifest you must rebuild (and republish) for changes to take effect; regenerate all four icon sizes together.
+- SW registration is manual in `src/main.tsx` via `registerSW({ immediate: true })` from `virtual:pwa-register` with a 60s `registration.update()` interval, and `injectRegister: null` in vite.config — keep these paired or you get double registration / stale installed shells.
+- All `/api` responses get `Cache-Control: no-store` from an app-level middleware in the api-server (routes like storage objects override it later); don't remove it or installed PWAs/proxies serve stale JSON ("not syncing" complaints).

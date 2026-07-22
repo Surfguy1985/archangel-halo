@@ -30,6 +30,10 @@ app.use("/api/ingest/scan", express.json({ limit: "15mb" }));
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+app.use("/api", (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  next();
+});
 app.use("/api", router);
 
 export default app;
