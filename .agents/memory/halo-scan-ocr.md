@@ -9,4 +9,6 @@ Scanned/image-only PDFs get no selectable text from pdfjs; the Import flow must 
 
 **Why:** camera photos are 10–20MB HEIC/JPEG; the scan endpoints cap base64 at 14M chars and vision models read a properly downscaled sharp JPEG better than an oversized original.
 
+Every image-scan endpoint needs the enlarged (15mb) JSON body limit in the server app setup — the default is 2mb, and a real photo payload gets rejected with 413 ("can't read") before OCR ever runs. Currently: /api/ingest/scan, /api/ingest/receipt, /api/checks/scan.
+
 **How to apply:** any new scan feature (client) imports the shared scanImage util in that app's `src/lib`; server-side AI calls go through `lib/ai.ts` which already retries transient provider failures and malformed JSON — don't add ad-hoc retry loops per route.
