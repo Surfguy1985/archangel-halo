@@ -16,4 +16,6 @@ export interface PortalCrew {
   /** @nullable */
   paymentDetails?: string | null;
   w9Submitted?: boolean;
+  /** @nullable */
+  agreementAcceptedAt?: string | null;
 }

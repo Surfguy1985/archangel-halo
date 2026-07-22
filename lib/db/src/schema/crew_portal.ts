@@ -21,6 +21,8 @@ export const crewMessagesTable = pgTable("crew_messages", {
 export const crewCheckinsTable = pgTable("crew_checkins", {
   id: uuid("id").primaryKey().defaultRandom(),
   crewId: uuid("crew_id").notNull(),
+  jobId: uuid("job_id"),
+  kind: text("kind").notNull().default("checkin"),
   lat: doublePrecision("lat"),
   lng: doublePrecision("lng"),
   accuracy: doublePrecision("accuracy"),
@@ -52,6 +54,13 @@ export const crewPhotosTable = pgTable("crew_photos", {
   storagePath: text("storage_path").notNull(),
   note: text("note"),
   takenOn: text("taken_on").notNull(),
+  phase: text("phase"),
+  sha256: text("sha256"),
+  sizeBytes: doublePrecision("size_bytes"),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  accuracy: doublePrecision("accuracy"),
+  capturedAt: timestamp("captured_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

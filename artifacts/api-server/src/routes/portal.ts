@@ -62,7 +62,15 @@ import {
   MarkPortalSeenParams,
   MarkPortalSeenBody,
   MarkPortalSeenResponse,
+  AcceptPortalAgreementParams,
+  AcceptPortalAgreementResponse,
+  GetJobTrackerParams,
+  GetJobTrackerResponse,
 } from "@workspace/api-zod";
+import { createHash } from "node:crypto";
+import { businessSettingsTable } from "@workspace/db";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { logger } from "../lib/logger";
 import { ser } from "../lib/serialize";
 import { buildJobLabel, jobLabelMap } from "../lib/jobLabels";
 
@@ -376,6 +384,9 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
         preferredPaymentMethod: crew.preferredPaymentMethod,
         paymentDetails: crew.paymentDetails,
         w9Submitted: crew.w9SubmittedAt != null,
+        agreementAcceptedAt: crew.agreementAcceptedAt
+          ? crew.agreementAcceptedAt.toISOString()
+          : null,
       },
       schedule,
       offers,
@@ -594,10 +605,20 @@ router.post("/portal/:token/checkins", async (req, res): Promise<void> => {
     return;
   }
   const body = CreatePortalCheckinBody.parse(req.body);
+  const kind = body.kind === "checkout" ? "checkout" : "checkin";
+  if (body.jobId) {
+    const owned = await jobBelongsToCrew(body.jobId, crew.id);
+    if (!owned) {
+      res.status(400).json({ error: "That job isn't assigned to this crew" });
+      return;
+    }
+  }
   const [row] = await db
     .insert(crewCheckinsTable)
     .values({
       crewId: crew.id,
+      jobId: body.jobId ?? null,
+      kind,
       lat: body.lat ?? null,
       lng: body.lng ?? null,
       accuracy: body.accuracy ?? null,
@@ -605,13 +626,22 @@ router.post("/portal/:token/checkins", async (req, res): Promise<void> => {
       note: body.note ?? null,
     })
     .returning();
+  const jobLabel = body.jobId
+    ? ((await jobLabelMap([body.jobId])).get(body.jobId) ?? null)
+    : null;
   await db.insert(notificationsTable).values({
     kind: "crew_checkin",
     priority: "normal",
     entityType: "crew",
     entityId: crew.id,
-    title: `${crew.name} checked in`,
-    body: body.label ?? (body.lat != null ? `${body.lat}, ${body.lng}` : null),
+    title:
+      kind === "checkout"
+        ? `${crew.name} checked out${jobLabel ? ` — ${jobLabel}` : ""}`
+        : `${crew.name} checked in${jobLabel ? ` — ${jobLabel}` : ""}`,
+    body:
+      body.note ??
+      body.label ??
+      (body.lat != null ? `${body.lat}, ${body.lng}` : null),
   });
   res.status(201).json(CreatePortalCheckinResponse.parse(ser(row)));
 });
@@ -771,6 +801,19 @@ router.post("/portal/:token/photos", async (req, res): Promise<void> => {
       return;
     }
   }
+  // Tamper-evidence: fingerprint the uploaded file server-side so the original
+  // bytes can always be verified later (SHA-256 + size at time of upload).
+  let sha256: string | null = null;
+  let sizeBytes: number | null = null;
+  try {
+    const storage = new ObjectStorageService();
+    const file = await storage.getObjectEntityFile(body.storagePath);
+    const [buf] = await file.download();
+    sha256 = createHash("sha256").update(buf).digest("hex");
+    sizeBytes = buf.length;
+  } catch (err) {
+    logger.warn({ err }, "Could not fingerprint crew photo");
+  }
   const [row] = await db
     .insert(crewPhotosTable)
     .values({
@@ -779,6 +822,13 @@ router.post("/portal/:token/photos", async (req, res): Promise<void> => {
       storagePath: body.storagePath,
       takenOn: body.takenOn,
       note: body.note ?? null,
+      phase: body.phase ?? null,
+      sha256,
+      sizeBytes,
+      lat: body.lat ?? null,
+      lng: body.lng ?? null,
+      accuracy: body.accuracy ?? null,
+      capturedAt: body.capturedAt ? new Date(body.capturedAt) : null,
     })
     .returning();
   await db.insert(notificationsTable).values({
@@ -834,6 +884,132 @@ router.put("/portal/:token/w9", async (req, res): Promise<void> => {
       submitted: true,
       submittedAt: now.toISOString(),
       data: body,
+    }),
+  );
+});
+
+router.post("/portal/:token/agreement", async (req, res): Promise<void> => {
+  const { token } = AcceptPortalAgreementParams.parse(req.params);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  // Idempotent: keep the original acceptance timestamp on repeat calls.
+  const acceptedAt = crew.agreementAcceptedAt ?? new Date();
+  if (!crew.agreementAcceptedAt) {
+    await db
+      .update(crewsTable)
+      .set({ agreementAcceptedAt: acceptedAt })
+      .where(eq(crewsTable.id, crew.id));
+    await db.insert(notificationsTable).values({
+      kind: "crew_agreement",
+      priority: "normal",
+      entityType: "crew",
+      entityId: crew.id,
+      title: `${crew.name} accepted the portal agreement`,
+      body: null,
+    });
+  }
+  res.json(
+    AcceptPortalAgreementResponse.parse({
+      accepted: true,
+      acceptedAt: acceptedAt.toISOString(),
+    }),
+  );
+});
+
+// Public, read-only live job tracker for property managers (accountability link).
+router.get("/track/:token", async (req, res): Promise<void> => {
+  const { token } = GetJobTrackerParams.parse(req.params);
+  const [job] = await db
+    .select()
+    .from(jobsTable)
+    .where(eq(jobsTable.trackerToken, token))
+    .limit(1);
+  if (!job) {
+    res.status(404).json({ error: "Invalid tracker link" });
+    return;
+  }
+  const [[property], [settings], schedules] = await Promise.all([
+    db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, job.propertyId))
+      .limit(1),
+    db.select().from(businessSettingsTable).limit(1),
+    db.select().from(schedulesTable).where(eq(schedulesTable.jobId, job.id)),
+  ]);
+  const crewIds = Array.from(
+    new Set(
+      [
+        job.crewLeaderId,
+        ...schedules.map((s) => s.crewLeaderId),
+      ].filter((v): v is string => !!v),
+    ),
+  );
+  const crews = crewIds.length
+    ? await db.select().from(crewsTable).where(inArray(crewsTable.id, crewIds))
+    : [];
+  const crewName = new Map(crews.map((c) => [c.id, c.name]));
+  const lead = job.crewLeaderId ? crews.find((c) => c.id === job.crewLeaderId) : null;
+
+  const [checkins, photos] = await Promise.all([
+    db
+      .select()
+      .from(crewCheckinsTable)
+      .where(eq(crewCheckinsTable.jobId, job.id))
+      .orderBy(crewCheckinsTable.createdAt),
+    db
+      .select()
+      .from(crewPhotosTable)
+      .where(eq(crewPhotosTable.jobId, job.id))
+      .orderBy(crewPhotosTable.createdAt),
+  ]);
+
+  res.json(
+    GetJobTrackerResponse.parse({
+      jobNo: job.jobNo,
+      description: job.description ?? null,
+      category: job.category ?? null,
+      status: job.status,
+      unitNo: job.unitNo ?? null,
+      propertyName: property?.name ?? null,
+      propertyAddress: property?.address ?? null,
+      crewName: lead?.name ?? null,
+      crewTrade: lead?.trade ?? null,
+      scheduledOn: job.scheduledOn ?? null,
+      completedAt: job.completedAt ? job.completedAt.toISOString() : null,
+      businessName: settings?.companyName ?? null,
+      checkins: checkins.map((c) => ({
+        id: c.id,
+        kind: c.kind,
+        crewName: crewName.get(c.crewId) ?? null,
+        lat: c.lat,
+        lng: c.lng,
+        accuracy: c.accuracy,
+        label: c.label,
+        note: c.note,
+        createdAt: c.createdAt ? c.createdAt.toISOString() : null,
+      })),
+      photos: photos.map((p) => ({
+        id: p.id,
+        url: `/api/storage${p.storagePath}`,
+        phase: p.phase,
+        note: p.note,
+        takenOn: p.takenOn,
+        capturedAt: p.capturedAt ? p.capturedAt.toISOString() : null,
+        createdAt: p.createdAt ? p.createdAt.toISOString() : null,
+        sha256: p.sha256,
+        crewName: crewName.get(p.crewId) ?? null,
+      })),
+      workNotes: checkins
+        .filter((c) => c.kind === "checkout" && c.note)
+        .map((c) => ({
+          note: c.note!,
+          crewName: crewName.get(c.crewId) ?? null,
+          createdAt: c.createdAt ? c.createdAt.toISOString() : null,
+        })),
     }),
   );
 });

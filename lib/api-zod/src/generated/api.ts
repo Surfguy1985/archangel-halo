@@ -1728,6 +1728,29 @@ export const CreateRecapShareResponse = zod.object({
 
 
 /**
+ * @summary Create (or reuse) the public live tracker link for a job
+ */
+export const CreateJobTrackerShareParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CreateJobTrackerShareResponse = zod.object({
+  "token": zod.string(),
+  "link": zod.string()
+})
+
+
+/**
+ * @summary Download the full evidence-grade job report PDF
+ */
+export const GetJobReportPdfParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetJobReportPdfResponse = zod.unknown()
+
+
+/**
  * @summary Public branded recap view with details and photos
  */
 export const GetRecapShareParams = zod.object({
@@ -3763,6 +3786,8 @@ export const ListCrewCheckinsParams = zod.object({
 export const ListCrewCheckinsResponseItem = zod.object({
   "id": zod.string(),
   "crewId": zod.string(),
+  "jobId": zod.string().nullish(),
+  "kind": zod.string().describe('checkin | checkout'),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "accuracy": zod.number().nullish(),
@@ -3835,6 +3860,13 @@ export const ListCrewPhotosResponseItem = zod.object({
   "storagePath": zod.string(),
   "note": zod.string().nullish(),
   "takenOn": zod.string(),
+  "phase": zod.string().nullish().describe('before | after'),
+  "sha256": zod.string().nullish().describe('Server-computed SHA-256 fingerprint of the photo file'),
+  "sizeBytes": zod.number().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "accuracy": zod.number().nullish(),
+  "capturedAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
 })
 export const ListCrewPhotosResponse = zod.array(ListCrewPhotosResponseItem)
@@ -3879,6 +3911,13 @@ export const GetPhotoShareResponse = zod.object({
   "storagePath": zod.string(),
   "note": zod.string().nullish(),
   "takenOn": zod.string(),
+  "phase": zod.string().nullish().describe('before | after'),
+  "sha256": zod.string().nullish().describe('Server-computed SHA-256 fingerprint of the photo file'),
+  "sizeBytes": zod.number().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "accuracy": zod.number().nullish(),
+  "capturedAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
 }))
 })
@@ -4031,7 +4070,8 @@ export const GetPortalResponse = zod.object({
   "trade": zod.string().nullish(),
   "preferredPaymentMethod": zod.string().nullish(),
   "paymentDetails": zod.string().nullish(),
-  "w9Submitted": zod.boolean().optional()
+  "w9Submitted": zod.boolean().optional(),
+  "agreementAcceptedAt": zod.string().nullish()
 }),
   "schedule": zod.array(zod.object({
   "id": zod.string(),
@@ -4126,6 +4166,8 @@ export const CreatePortalCheckinParams = zod.object({
 })
 
 export const CreatePortalCheckinBody = zod.object({
+  "jobId": zod.string().nullish(),
+  "kind": zod.union([zod.literal('checkin'),zod.literal('checkout'),zod.literal(null)]).nullish().describe('Defaults to checkin'),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "accuracy": zod.number().nullish(),
@@ -4136,6 +4178,8 @@ export const CreatePortalCheckinBody = zod.object({
 export const CreatePortalCheckinResponse = zod.object({
   "id": zod.string(),
   "crewId": zod.string(),
+  "jobId": zod.string().nullish(),
+  "kind": zod.string().describe('checkin | checkout'),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "accuracy": zod.number().nullish(),
@@ -4225,6 +4269,13 @@ export const ListPortalPhotosResponseItem = zod.object({
   "storagePath": zod.string(),
   "note": zod.string().nullish(),
   "takenOn": zod.string(),
+  "phase": zod.string().nullish().describe('before | after'),
+  "sha256": zod.string().nullish().describe('Server-computed SHA-256 fingerprint of the photo file'),
+  "sizeBytes": zod.number().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "accuracy": zod.number().nullish(),
+  "capturedAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
 })
 export const ListPortalPhotosResponse = zod.array(ListPortalPhotosResponseItem)
@@ -4245,7 +4296,12 @@ export const UploadPortalPhotoBody = zod.object({
   "storagePath": zod.string().min(1),
   "takenOn": zod.string().regex(uploadPortalPhotoBodyTakenOnRegExp).describe('Local date (YYYY-MM-DD) on the crew\'s device'),
   "note": zod.string().nullish(),
-  "jobId": zod.string().nullish()
+  "jobId": zod.string().nullish(),
+  "phase": zod.union([zod.literal('before'),zod.literal('after'),zod.literal(null)]).nullish().describe('Before\/after evidence phase'),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "accuracy": zod.number().nullish(),
+  "capturedAt": zod.string().nullish().describe('Device timestamp when the photo was captured (ISO)')
 })
 
 export const UploadPortalPhotoResponse = zod.object({
@@ -4256,7 +4312,77 @@ export const UploadPortalPhotoResponse = zod.object({
   "storagePath": zod.string(),
   "note": zod.string().nullish(),
   "takenOn": zod.string(),
+  "phase": zod.string().nullish().describe('before | after'),
+  "sha256": zod.string().nullish().describe('Server-computed SHA-256 fingerprint of the photo file'),
+  "sizeBytes": zod.number().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "accuracy": zod.number().nullish(),
+  "capturedAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Crew accepts the portal instructions & agreement (first visit)
+ */
+export const AcceptPortalAgreementParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const AcceptPortalAgreementResponse = zod.object({
+  "accepted": zod.boolean(),
+  "acceptedAt": zod.string()
+})
+
+
+/**
+ * @summary Public live job tracker view (property manager accountability link)
+ */
+export const GetJobTrackerParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetJobTrackerResponse = zod.object({
+  "jobNo": zod.string(),
+  "description": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "status": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "crewTrade": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "businessName": zod.string().nullish(),
+  "checkins": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.string().describe('checkin | checkout'),
+  "crewName": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "accuracy": zod.number().nullish(),
+  "label": zod.string().nullish(),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})),
+  "photos": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string(),
+  "phase": zod.string().nullish().describe('before | after'),
+  "note": zod.string().nullish(),
+  "takenOn": zod.string().nullish(),
+  "capturedAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish(),
+  "sha256": zod.string().nullish(),
+  "crewName": zod.string().nullish()
+})),
+  "workNotes": zod.array(zod.object({
+  "note": zod.string(),
+  "crewName": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+}))
 })
 
 

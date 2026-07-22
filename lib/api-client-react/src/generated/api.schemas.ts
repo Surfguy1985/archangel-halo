@@ -2121,7 +2121,26 @@ export interface CrewMessage {
   createdAt?: string | null;
 }
 
+/**
+ * Defaults to checkin
+ * @nullable
+ */
+export type CrewCheckinInputKind = typeof CrewCheckinInputKind[keyof typeof CrewCheckinInputKind] | null;
+
+
+export const CrewCheckinInputKind = {
+  checkin: 'checkin',
+  checkout: 'checkout',
+} as const;
+
 export interface CrewCheckinInput {
+  /** @nullable */
+  jobId?: string | null;
+  /**
+     * Defaults to checkin
+     * @nullable
+     */
+  kind?: CrewCheckinInputKind;
   /** @nullable */
   lat?: number | null;
   /** @nullable */
@@ -2137,6 +2156,10 @@ export interface CrewCheckinInput {
 export interface CrewCheckin {
   id: string;
   crewId: string;
+  /** @nullable */
+  jobId?: string | null;
+  /** checkin | checkout */
+  kind: string;
   /** @nullable */
   lat?: number | null;
   /** @nullable */
@@ -2181,6 +2204,18 @@ export interface CrewDocument {
   createdAt?: string | null;
 }
 
+/**
+ * Before/after evidence phase
+ * @nullable
+ */
+export type CrewPhotoInputPhase = typeof CrewPhotoInputPhase[keyof typeof CrewPhotoInputPhase] | null;
+
+
+export const CrewPhotoInputPhase = {
+  before: 'before',
+  after: 'after',
+} as const;
+
 export interface CrewPhotoInput {
   /** @minLength 1 */
   storagePath: string;
@@ -2193,6 +2228,22 @@ export interface CrewPhotoInput {
   note?: string | null;
   /** @nullable */
   jobId?: string | null;
+  /**
+     * Before/after evidence phase
+     * @nullable
+     */
+  phase?: CrewPhotoInputPhase;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** @nullable */
+  accuracy?: number | null;
+  /**
+     * Device timestamp when the photo was captured (ISO)
+     * @nullable
+     */
+  capturedAt?: string | null;
 }
 
 export interface PortalJob {
@@ -2218,6 +2269,26 @@ export interface CrewPhoto {
   /** @nullable */
   note?: string | null;
   takenOn: string;
+  /**
+     * before | after
+     * @nullable
+     */
+  phase?: string | null;
+  /**
+     * Server-computed SHA-256 fingerprint of the photo file
+     * @nullable
+     */
+  sha256?: string | null;
+  /** @nullable */
+  sizeBytes?: number | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** @nullable */
+  accuracy?: number | null;
+  /** @nullable */
+  capturedAt?: string | null;
   /** @nullable */
   createdAt?: string | null;
 }
@@ -2312,6 +2383,8 @@ export interface PortalCrew {
   /** @nullable */
   paymentDetails?: string | null;
   w9Submitted?: boolean;
+  /** @nullable */
+  agreementAcceptedAt?: string | null;
 }
 
 export interface PortalScheduleItem {
@@ -2409,6 +2482,94 @@ export interface PortalBundle {
   schedule: PortalScheduleItem[];
   offers: PortalOffer[];
   unseen: PortalUnseen;
+}
+
+export interface PortalAgreementResult {
+  accepted: boolean;
+  acceptedAt: string;
+}
+
+export interface TrackerShare {
+  token: string;
+  link: string;
+}
+
+export interface TrackerCheckin {
+  id: string;
+  /** checkin | checkout */
+  kind: string;
+  /** @nullable */
+  crewName?: string | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** @nullable */
+  accuracy?: number | null;
+  /** @nullable */
+  label?: string | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
+}
+
+export interface TrackerPhoto {
+  id: string;
+  url: string;
+  /**
+     * before | after
+     * @nullable
+     */
+  phase?: string | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  takenOn?: string | null;
+  /** @nullable */
+  capturedAt?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
+  /** @nullable */
+  sha256?: string | null;
+  /** @nullable */
+  crewName?: string | null;
+}
+
+export type JobTrackerViewWorkNotesItem = {
+  note: string;
+  /** @nullable */
+  crewName?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
+};
+
+export interface JobTrackerView {
+  jobNo: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  category?: string | null;
+  status: string;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  propertyAddress?: string | null;
+  /** @nullable */
+  crewName?: string | null;
+  /** @nullable */
+  crewTrade?: string | null;
+  /** @nullable */
+  scheduledOn?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  businessName?: string | null;
+  checkins: TrackerCheckin[];
+  photos: TrackerPhoto[];
+  workNotes: JobTrackerViewWorkNotesItem[];
 }
 
 export type PortalSeenInputSection = typeof PortalSeenInputSection[keyof typeof PortalSeenInputSection];

@@ -23,6 +23,7 @@ import {
   useListPortalInvoices,
   useSubmitPortalInvoice,
   useMarkPortalSeen,
+  useAcceptPortalAgreement,
   getListPortalInvoicesQueryKey,
   type W9Data,
   type PortalBundle,
@@ -54,6 +55,10 @@ import {
   Receipt,
   Plus,
   Trash2,
+  LogIn,
+  LogOut,
+  Link2,
+  Copy,
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 import WelcomeKitTab from "./WelcomeKitTab";
@@ -171,7 +176,7 @@ export default function CrewPortal() {
     { key: "invoice", label: "Invoice", icon: Receipt },
     { key: "packets", label: "Welcome Kit", icon: PackageCheck, alert: u?.packets },
     { key: "messages", label: "Messages", icon: MessageSquare, alert: u?.messages },
-    { key: "checkin", label: "Check-in", icon: MapPin },
+    { key: "checkin", label: "Job Tracker", icon: MapPin },
     { key: "photos", label: "Photos", icon: Camera },
     { key: "documents", label: "Docs", icon: FileText, alert: u?.documents },
     { key: "pay", label: "Pay", icon: Wallet },
@@ -223,6 +228,7 @@ export default function CrewPortal() {
       </div>
 
       <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto">
+        {tab === "schedule" && <SaveLinkCard />}
         {tab === "offers" && <OffersTab portal={portal} token={token} />}
         {tab === "schedule" && <ScheduleTab portal={portal} />}
         {tab === "invoice" && <InvoiceTab portal={portal} token={token} />}
@@ -240,6 +246,133 @@ export default function CrewPortal() {
         )}
         {tab === "w9" && <W9Tab token={token} />}
       </main>
+
+      {!portal.crew.agreementAcceptedAt && (
+        <AgreementModal token={token} crewName={portal.crew.name} />
+      )}
+    </div>
+  );
+}
+
+function AgreementModal({ token, crewName }: { token: string; crewName: string }) {
+  const queryClient = useQueryClient();
+  const accept = useAcceptPortalAgreement();
+  const [checked, setChecked] = useState(false);
+
+  const onAccept = () => {
+    accept.mutate(
+      { token },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetPortalQueryKey(token) });
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-[14px]">
+      <div className="bg-card rounded-[20px] w-full max-w-[480px] max-h-[86vh] overflow-y-auto p-[20px] shadow-2xl">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-[var(--gold)]">
+          Welcome, {crewName}
+        </div>
+        <div className="font-display font-bold text-[20px] mt-[4px] mb-[10px]">
+          How your crew portal works
+        </div>
+        <div className="text-[13.5px] leading-relaxed text-foreground/90 flex flex-col gap-[10px]">
+          <div className="flex gap-[10px]">
+            <Link2 className="w-[16px] h-[16px] text-[var(--gold)] shrink-0 mt-[2px]" />
+            <span><b>Save this link.</b> This page is your personal portal — the same link works for every job. Bookmark it or add it to your home screen (Share → "Add to Home Screen").</span>
+          </div>
+          <div className="flex gap-[10px]">
+            <MapPin className="w-[16px] h-[16px] text-[var(--gold)] shrink-0 mt-[2px]" />
+            <span><b>Check in and out of every job.</b> Use the Job Tracker tab when you arrive and when you finish. Your GPS location and time are recorded as proof you were on site.</span>
+          </div>
+          <div className="flex gap-[10px]">
+            <Camera className="w-[16px] h-[16px] text-[var(--gold)] shrink-0 mt-[2px]" />
+            <span><b>Take before &amp; after photos.</b> Photograph the work area before you start and after you finish. Photos are fingerprinted the moment they're uploaded, so they stand as tamper-proof evidence of your work.</span>
+          </div>
+          <div className="flex gap-[10px]">
+            <ShieldCheck className="w-[16px] h-[16px] text-[var(--gold)] shrink-0 mt-[2px]" />
+            <span><b>This protects you.</b> GPS check-ins and sealed photos prove the job was done right — they resolve disputes in your favor and get you paid faster.</span>
+          </div>
+        </div>
+        <label className="flex items-start gap-[10px] mt-[16px] mb-[14px] cursor-pointer">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(e) => setChecked(e.target.checked)}
+            className="mt-[3px] w-[16px] h-[16px] accent-[var(--gold)]"
+          />
+          <span className="text-[12.5px] text-muted-foreground">
+            I understand and agree to check in/out with GPS and document my work
+            with before &amp; after photos on every job.
+          </span>
+        </label>
+        <button
+          onClick={onAccept}
+          disabled={!checked || accept.isPending}
+          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+        >
+          {accept.isPending ? (
+            <Loader2 className="w-[18px] h-[18px] animate-spin" />
+          ) : (
+            <Check className="w-[18px] h-[18px]" />
+          )}
+          I agree — open my portal
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SaveLinkCard() {
+  const [copied, setCopied] = useState(false);
+  const [dismissed, setDismissed] = useState(
+    () => localStorage.getItem("halo-portal-savelink-dismissed") === "1",
+  );
+  if (dismissed) return null;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+  return (
+    <div className={`${card} mb-[12px] border border-[rgba(143,106,31,0.35)]`}>
+      <div className="flex items-start gap-[10px]">
+        <div className="w-[36px] h-[36px] rounded-full bg-[rgba(143,106,31,0.12)] grid place-items-center shrink-0">
+          <Link2 className="w-[17px] h-[17px] text-[var(--gold)]" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-display font-bold text-[14px]">Save this link — it's yours</div>
+          <p className="text-[12px] text-muted-foreground mt-[2px]">
+            This same link works for every job. On iPhone: Share → "Add to Home
+            Screen". On Android: menu (⋮) → "Add to Home screen".
+          </p>
+          <div className="flex gap-[8px] mt-[8px]">
+            <button
+              onClick={copy}
+              className="flex items-center gap-[6px] rounded-[10px] px-[12px] py-[7px] text-[12px] font-display font-bold bg-[var(--ink)] text-white active:scale-[0.97] transition-transform"
+            >
+              {copied ? <Check className="w-[13px] h-[13px]" /> : <Copy className="w-[13px] h-[13px]" />}
+              {copied ? "Copied!" : "Copy my link"}
+            </button>
+            <button
+              onClick={() => {
+                localStorage.setItem("halo-portal-savelink-dismissed", "1");
+                setDismissed(true);
+              }}
+              className="rounded-[10px] px-[12px] py-[7px] text-[12px] font-semibold text-muted-foreground bg-[var(--paper)] border border-border"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -673,89 +806,147 @@ function MessagesTab({ token }: { token: string }) {
   );
 }
 
+function getPosition(): Promise<GeolocationPosition | null> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
+  });
+}
+
 function CheckinTab({ token }: { token: string }) {
   const queryClient = useQueryClient();
   const checkin = useCreatePortalCheckin();
+  const { data: jobs } = useListPortalJobs(token);
+  const [selectedJobId, setSelectedJobId] = useState<string>("");
+  const [note, setNote] = useState("");
   const [status, setStatus] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState<"checkin" | "checkout" | null>(null);
 
-  const doCheckin = () => {
+  const doPunch = async (kind: "checkin" | "checkout") => {
     setStatus(null);
-    if (!navigator.geolocation) {
-      setStatus("Location isn't available on this device.");
+    setBusy(kind);
+    const pos = await getPosition();
+    if (!pos) {
+      setBusy(null);
+      setStatus("We couldn't get your location. Turn on location access and try again.");
       return;
     }
-    setBusy(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        checkin.mutate(
-          {
-            token,
-            data: {
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              accuracy: pos.coords.accuracy,
-              label: label.trim() || null,
-            },
-          },
-          {
-            onSuccess: () => {
-              setBusy(false);
-              setLabel("");
-              setStatus("Checked in! The office can see your location.");
-              queryClient.invalidateQueries({
-                queryKey: getGetPortalQueryKey(token),
-              });
-            },
-            onError: () => {
-              setBusy(false);
-              setStatus("Couldn't save your check-in. Try again.");
-            },
-          },
-        );
+    checkin.mutate(
+      {
+        token,
+        data: {
+          jobId: selectedJobId || null,
+          kind,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          note: kind === "checkout" ? note.trim() || null : null,
+        },
       },
-      () => {
-        setBusy(false);
-        setStatus("Location permission was denied.");
+      {
+        onSuccess: () => {
+          setBusy(null);
+          if (kind === "checkout") setNote("");
+          setStatus(
+            kind === "checkout"
+              ? "Checked out! Your time and work note were recorded."
+              : "Checked in! Your arrival time and location were recorded.",
+          );
+          queryClient.invalidateQueries({ queryKey: getGetPortalQueryKey(token) });
+        },
+        onError: () => {
+          setBusy(null);
+          setStatus("Couldn't save. Check your connection and try again.");
+        },
       },
-      { enableHighAccuracy: true, timeout: 15000 },
     );
   };
 
   return (
-    <div className="animate-in fade-in duration-200">
+    <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
       <div className={card}>
-        <div className="grid place-items-center py-[10px]">
-          <div className="w-[68px] h-[68px] rounded-full bg-[rgba(143,106,31,0.12)] grid place-items-center mb-[14px]">
-            <MapPin className="w-[30px] h-[30px] text-[var(--gold)]" />
+        <div className="text-[12px] font-display font-semibold tracking-[0.14em] uppercase text-muted-foreground mb-[8px]">
+          Which job are you working on?
+        </div>
+        <div className="flex flex-wrap gap-[7px]">
+          {(jobs ?? []).length === 0 && (
+            <div className="text-[12.5px] text-muted-foreground">
+              No jobs assigned right now — you can still check in below.
+            </div>
+          )}
+          {(jobs ?? []).map((j) => (
+            <button
+              key={j.id}
+              type="button"
+              onClick={() => setSelectedJobId((v) => (v === j.id ? "" : j.id))}
+              className={`px-[12px] py-[8px] rounded-full text-[12.5px] font-semibold border transition-colors ${
+                selectedJobId === j.id
+                  ? "bg-[var(--gold)] border-[var(--gold)] text-[var(--ink)]"
+                  : "bg-card border-border text-muted-foreground"
+              }`}
+            >
+              {j.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={card}>
+        <div className="grid place-items-center py-[6px]">
+          <div className="w-[60px] h-[60px] rounded-full bg-[rgba(143,106,31,0.12)] grid place-items-center mb-[10px]">
+            <MapPin className="w-[26px] h-[26px] text-[var(--gold)]" />
           </div>
-          <div className="font-display font-bold text-[17px]">Live GPS check-in</div>
-          <p className="text-[12.5px] text-muted-foreground text-center mt-[4px] mb-[16px] max-w-[300px]">
-            Tap below to share your current location with the office when you
-            arrive on site.
+          <div className="font-display font-bold text-[17px]">GPS job tracker</div>
+          <p className="text-[12.5px] text-muted-foreground text-center mt-[4px] mb-[14px] max-w-[320px]">
+            Check in when you arrive and check out when you finish. Your time
+            and location are recorded as proof you were on site.
           </p>
-          <input
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="Optional note (e.g. Arrived on site)"
-            className="w-full rounded-[12px] border border-border bg-background px-[13px] py-[11px] text-[14px] mb-[10px] focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40"
-          />
           <button
-            onClick={doCheckin}
-            disabled={busy}
+            onClick={() => doPunch("checkin")}
+            disabled={busy !== null}
             className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] disabled:opacity-60 transition-transform active:scale-[0.98]"
           >
-            {busy ? (
+            {busy === "checkin" ? (
               <>
                 <Loader2 className="w-[18px] h-[18px] animate-spin" /> Getting location…
               </>
             ) : (
               <>
-                <MapPin className="w-[18px] h-[18px]" /> Check in now
+                <LogIn className="w-[18px] h-[18px]" /> Check in — I've arrived
               </>
             )}
           </button>
+          <div className="w-full mt-[14px] pt-[14px] border-t border-border">
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              placeholder="What did you get done? (shown to the office & property manager)"
+              className="w-full rounded-[12px] border border-border bg-background px-[13px] py-[11px] text-[14px] mb-[10px] focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 resize-none"
+            />
+            <button
+              onClick={() => doPunch("checkout")}
+              disabled={busy !== null}
+              className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-white bg-[var(--ink)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+            >
+              {busy === "checkout" ? (
+                <>
+                  <Loader2 className="w-[18px] h-[18px] animate-spin" /> Getting location…
+                </>
+              ) : (
+                <>
+                  <LogOut className="w-[18px] h-[18px]" /> Check out — job done
+                </>
+              )}
+            </button>
+          </div>
           {status && (
             <div className="text-[12.5px] text-center mt-[12px] text-muted-foreground">
               {status}
@@ -777,6 +968,7 @@ function PhotosTab({ token }: { token: string }) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string>("");
+  const [phase, setPhase] = useState<"before" | "after" | "">("");
   const { uploadFile } = useUpload({
     onError: () =>
       setUploadError("Upload failed. Check your connection and try again."),
@@ -788,6 +980,7 @@ function PhotosTab({ token }: { token: string }) {
     if (files.length === 0) return;
     setSending(true);
     setUploadError(null);
+    const pos = await getPosition();
     try {
       for (const file of files) {
         const res = await uploadFile(file);
@@ -798,6 +991,11 @@ function PhotosTab({ token }: { token: string }) {
             storagePath: res.objectPath,
             takenOn: localToday(),
             jobId: selectedJobId || null,
+            phase: phase || null,
+            lat: pos?.coords.latitude ?? null,
+            lng: pos?.coords.longitude ?? null,
+            accuracy: pos?.coords.accuracy ?? null,
+            capturedAt: new Date().toISOString(),
           },
         });
       }
@@ -864,6 +1062,29 @@ function PhotosTab({ token }: { token: string }) {
             </button>
           ))}
         </div>
+        <div className="text-[12px] font-display font-semibold tracking-[0.14em] uppercase text-muted-foreground mt-[12px] mb-[8px]">
+          Is this before or after the work?
+        </div>
+        <div className="flex gap-[7px]">
+          {([
+            ["before", "Before"],
+            ["after", "After"],
+            ["", "Other"],
+          ] as const).map(([val, lbl]) => (
+            <button
+              key={lbl}
+              type="button"
+              onClick={() => setPhase(val)}
+              className={`flex-1 px-[12px] py-[9px] rounded-[11px] text-[13px] font-display font-bold border transition-colors ${
+                phase === val
+                  ? "bg-[var(--ink)] border-[var(--ink)] text-white"
+                  : "bg-card border-border text-muted-foreground"
+              }`}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
       </div>
       <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] cursor-pointer transition-transform active:scale-[0.98]">
         {sending ? (
@@ -902,24 +1123,74 @@ function PhotosTab({ token }: { token: string }) {
                   · {g.photos.length} photo{g.photos.length === 1 ? "" : "s"}
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-[6px]">
-                {g.photos.map((p) => (
-                  <a
-                    key={p.id}
-                    href={`${base}/api/storage${p.storagePath}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block aspect-square rounded-[10px] overflow-hidden bg-[var(--paper)] border border-border"
-                  >
-                    <img
-                      src={`${base}/api/storage${p.storagePath}`}
-                      alt={p.note || "Crew photo"}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  </a>
-                ))}
-              </div>
+              {(() => {
+                const befores = g.photos.filter((p) => p.phase === "before");
+                const afters = g.photos.filter((p) => p.phase === "after");
+                const rest = g.photos.filter(
+                  (p) => p.phase !== "before" && p.phase !== "after",
+                );
+                const pairs = Math.max(befores.length, afters.length);
+                const cell = (
+                  p: (typeof g.photos)[number] | undefined,
+                  label: string,
+                ) =>
+                  p ? (
+                    <a
+                      href={`${base}/api/storage${p.storagePath}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block relative aspect-square rounded-[10px] overflow-hidden bg-[var(--paper)] border border-border"
+                    >
+                      <img
+                        src={`${base}/api/storage${p.storagePath}`}
+                        alt={label}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                      <span className="absolute bottom-[5px] left-[5px] bg-black/65 text-white text-[9.5px] font-bold tracking-[0.08em] uppercase px-[6px] py-[2px] rounded-full">
+                        {label}
+                      </span>
+                    </a>
+                  ) : (
+                    <div className="aspect-square rounded-[10px] border border-dashed border-border grid place-items-center text-[10.5px] text-muted-foreground">
+                      No {label.toLowerCase()} yet
+                    </div>
+                  );
+                return (
+                  <>
+                    {pairs > 0 && (
+                      <div className="flex flex-col gap-[6px] mb-[6px]">
+                        {Array.from({ length: pairs }).map((_, i) => (
+                          <div key={i} className="grid grid-cols-2 gap-[6px]">
+                            {cell(befores[i], "Before")}
+                            {cell(afters[i], "After")}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {rest.length > 0 && (
+                      <div className="grid grid-cols-3 gap-[6px]">
+                        {rest.map((p) => (
+                          <a
+                            key={p.id}
+                            href={`${base}/api/storage${p.storagePath}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block aspect-square rounded-[10px] overflow-hidden bg-[var(--paper)] border border-border"
+                          >
+                            <img
+                              src={`${base}/api/storage${p.storagePath}`}
+                              alt={p.note || "Crew photo"}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           ))}
         </div>

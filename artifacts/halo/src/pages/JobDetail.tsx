@@ -12,12 +12,13 @@ import {
   getGetTodayQueryKey,
   getListJobsQueryKey,
   getGetCalendarQueryKey,
+  useCreateJobTrackerShare,
 } from "@workspace/api-client-react";
 import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, Pencil, Sparkles, Send, Check, CalendarDays, RotateCcw, Archive } from "lucide-react";
+import { ChevronLeft, Pencil, Sparkles, Send, Check, CalendarDays, RotateCcw, Archive, Radio, FileDown } from "lucide-react";
 import { useState } from "react";
 import { EditJobSheet } from "@/components/EditJobSheet";
 import { ScheduleJobSheet } from "@/components/ScheduleJobSheet";
@@ -38,6 +39,26 @@ export default function JobDetail() {
   const updateProperty = useUpdateProperty();
   const restartJob = useRestartJob();
   const clearJob = useClearJob();
+  const trackerShare = useCreateJobTrackerShare();
+  const [trackerCopied, setTrackerCopied] = useState(false);
+
+  const copyTrackerLink = () => {
+    trackerShare.mutate(
+      { id },
+      {
+        onSuccess: async (r) => {
+          const url = r.link || `${window.location.origin}/track/${r.token}`;
+          try {
+            await navigator.clipboard.writeText(url);
+            setTrackerCopied(true);
+            setTimeout(() => setTrackerCopied(false), 2500);
+          } catch {
+            window.prompt("Copy this live tracker link:", url);
+          }
+        },
+      },
+    );
+  };
   const propertyId = data?.job.propertyId ?? "";
 
   const invalidateJobLists = () => {
@@ -245,6 +266,39 @@ export default function JobDetail() {
       )}
 
       <CrewPhotosSection photos={crewPhotos ?? []} />
+
+      <div className="mb-[18px]">
+        <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-muted-foreground mb-[8px] mx-[2px]">Live tracker & evidence</div>
+        <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px_15px] flex flex-col gap-[10px]">
+          <p className="text-[12.5px] text-muted-foreground">
+            Share a live link with the property manager — it shows GPS check-ins,
+            before &amp; after photos, and work notes in real time. The PDF report
+            packages everything with tamper-proof photo fingerprints.
+          </p>
+          <button
+            onClick={copyTrackerLink}
+            disabled={trackerShare.isPending}
+            className="w-full flex items-center justify-center gap-[8px] py-[11px] rounded-[12px] bg-[var(--ink,#17181c)] text-white text-[14px] font-semibold disabled:opacity-60 transition-transform active:scale-[0.98]"
+          >
+            {trackerCopied ? (
+              <>
+                <Check className="w-[16px] h-[16px]" /> Link copied!
+              </>
+            ) : (
+              <>
+                <Radio className="w-[16px] h-[16px]" />
+                {trackerShare.isPending ? "Creating link…" : "Copy live tracker link"}
+              </>
+            )}
+          </button>
+          <a
+            href={`/api/jobs/${id}/report`}
+            className="w-full flex items-center justify-center gap-[8px] py-[11px] rounded-[12px] bg-card border border-border text-[14px] font-semibold transition-transform active:scale-[0.98]"
+          >
+            <FileDown className="w-[16px] h-[16px]" /> Download job report (PDF)
+          </a>
+        </div>
+      </div>
 
       {(job.status === "complete" || job.recapSentAt) && (
         <div className="mb-[18px]">

@@ -18,6 +18,9 @@ export const crewsTable = pgTable("crews", {
   isLeader: boolean("is_leader").default(false),
   active: boolean("active").default(true),
   portalToken: text("portal_token"),
+  agreementAcceptedAt: timestamp("agreement_accepted_at", {
+    withTimezone: true,
+  }),
   preferredPaymentMethod: text("preferred_payment_method"),
   paymentDetails: text("payment_details"),
   paymentTerms: text("payment_terms"),
@@ -53,6 +56,7 @@ export const jobsTable = pgTable("jobs", {
   marginPct: doublePrecision("margin_pct"),
   crewRate: doublePrecision("crew_rate"),
   boardStatus: text("board_status").notNull().default("active"),
+  trackerToken: text("tracker_token"),
   isRecurring: boolean("is_recurring").default(false),
   recurrence: text("recurrence"),
   createdAt: timestamp("created_at", { withTimezone: true })

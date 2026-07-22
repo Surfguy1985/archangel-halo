@@ -17,6 +17,26 @@ export interface CrewPhoto {
   /** @nullable */
   note?: string | null;
   takenOn: string;
+  /**
+     * before | after
+     * @nullable
+     */
+  phase?: string | null;
+  /**
+     * Server-computed SHA-256 fingerprint of the photo file
+     * @nullable
+     */
+  sha256?: string | null;
+  /** @nullable */
+  sizeBytes?: number | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** @nullable */
+  accuracy?: number | null;
+  /** @nullable */
+  capturedAt?: string | null;
   /** @nullable */
   createdAt?: string | null;
 }

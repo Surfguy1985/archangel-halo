@@ -119,6 +119,7 @@ import type {
   JobLineItem,
   JobLineItemInput,
   JobLineItemUpdate,
+  JobTrackerView,
   JobUpdate,
   JournalEntryFull,
   JournalEntryInput,
@@ -155,6 +156,7 @@ import type {
   PhotoShareView,
   PlaidExchangeInput,
   PnlReport,
+  PortalAgreementResult,
   PortalBundle,
   PortalJob,
   PortalOfferRespondInput,
@@ -196,6 +198,7 @@ import type {
   TaxPlannerState,
   TaxReport,
   TodayPayload,
+  TrackerShare,
   UploadUrlRequest,
   UploadUrlResponse,
   Vendor,
@@ -4060,6 +4063,154 @@ export const useCreateRecapShare = <TError = ErrorType<Error>,
       > => {
       return useMutation(getCreateRecapShareMutationOptions(options));
     }
+
+export const getCreateJobTrackerShareUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/tracker/share`
+}
+
+/**
+ * @summary Create (or reuse) the public live tracker link for a job
+ */
+export const createJobTrackerShare = async (id: string, options?: RequestInit): Promise<TrackerShare> => {
+
+  return customFetch<TrackerShare>(getCreateJobTrackerShareUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateJobTrackerShareMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createJobTrackerShare>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createJobTrackerShare>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['createJobTrackerShare'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createJobTrackerShare>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  createJobTrackerShare(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateJobTrackerShareMutationResult = NonNullable<Awaited<ReturnType<typeof createJobTrackerShare>>>
+
+    export type CreateJobTrackerShareMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create (or reuse) the public live tracker link for a job
+ */
+export const useCreateJobTrackerShare = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createJobTrackerShare>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createJobTrackerShare>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getCreateJobTrackerShareMutationOptions(options));
+    }
+
+export const getGetJobReportPdfUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/report`
+}
+
+/**
+ * @summary Download the full evidence-grade job report PDF
+ */
+export const getJobReportPdf = async (id: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetJobReportPdfUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetJobReportPdfQueryKey = (id: string,) => {
+    return [
+    `/api/jobs/${id}/report`
+    ] as const;
+    }
+
+
+export const getGetJobReportPdfQueryOptions = <TData = Awaited<ReturnType<typeof getJobReportPdf>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJobReportPdfQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJobReportPdf>>> = ({ signal }) => getJobReportPdf(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJobReportPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetJobReportPdfQueryResult = NonNullable<Awaited<ReturnType<typeof getJobReportPdf>>>
+export type GetJobReportPdfQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Download the full evidence-grade job report PDF
+ */
+
+export function useGetJobReportPdf<TData = Awaited<ReturnType<typeof getJobReportPdf>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetJobReportPdfQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetRecapShareUrl = (token: string,) => {
 
@@ -11172,6 +11323,154 @@ export const useUploadPortalPhoto = <TError = ErrorType<Error>,
       > => {
       return useMutation(getUploadPortalPhotoMutationOptions(options));
     }
+
+export const getAcceptPortalAgreementUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/agreement`
+}
+
+/**
+ * @summary Crew accepts the portal instructions & agreement (first visit)
+ */
+export const acceptPortalAgreement = async (token: string, options?: RequestInit): Promise<PortalAgreementResult> => {
+
+  return customFetch<PortalAgreementResult>(getAcceptPortalAgreementUrl(token),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAcceptPortalAgreementMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptPortalAgreement>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acceptPortalAgreement>>, TError,{token: string}, TContext> => {
+
+const mutationKey = ['acceptPortalAgreement'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acceptPortalAgreement>>, {token: string}> = (props) => {
+          const {token} = props ?? {};
+
+          return  acceptPortalAgreement(token,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcceptPortalAgreementMutationResult = NonNullable<Awaited<ReturnType<typeof acceptPortalAgreement>>>
+
+    export type AcceptPortalAgreementMutationError = ErrorType<Error>
+
+    /**
+ * @summary Crew accepts the portal instructions & agreement (first visit)
+ */
+export const useAcceptPortalAgreement = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptPortalAgreement>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acceptPortalAgreement>>,
+        TError,
+        {token: string},
+        TContext
+      > => {
+      return useMutation(getAcceptPortalAgreementMutationOptions(options));
+    }
+
+export const getGetJobTrackerUrl = (token: string,) => {
+
+
+
+
+  return `/api/track/${token}`
+}
+
+/**
+ * @summary Public live job tracker view (property manager accountability link)
+ */
+export const getJobTracker = async (token: string, options?: RequestInit): Promise<JobTrackerView> => {
+
+  return customFetch<JobTrackerView>(getGetJobTrackerUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetJobTrackerQueryKey = (token: string,) => {
+    return [
+    `/api/track/${token}`
+    ] as const;
+    }
+
+
+export const getGetJobTrackerQueryOptions = <TData = Awaited<ReturnType<typeof getJobTracker>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobTracker>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJobTrackerQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJobTracker>>> = ({ signal }) => getJobTracker(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJobTracker>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetJobTrackerQueryResult = NonNullable<Awaited<ReturnType<typeof getJobTracker>>>
+export type GetJobTrackerQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Public live job tracker view (property manager accountability link)
+ */
+
+export function useGetJobTracker<TData = Awaited<ReturnType<typeof getJobTracker>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobTracker>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetJobTrackerQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetPortalW9Url = (token: string,) => {
 

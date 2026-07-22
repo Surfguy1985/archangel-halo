@@ -10,6 +10,10 @@ export interface CrewCheckin {
   id: string;
   crewId: string;
   /** @nullable */
+  jobId?: string | null;
+  /** checkin | checkout */
+  kind: string;
+  /** @nullable */
   lat?: number | null;
   /** @nullable */
   lng?: number | null;

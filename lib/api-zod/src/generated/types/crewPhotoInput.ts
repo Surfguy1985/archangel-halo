@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { CrewPhotoInputPhase } from './crewPhotoInputPhase';
 
 export interface CrewPhotoInput {
   /** @minLength 1 */
@@ -18,4 +19,20 @@ export interface CrewPhotoInput {
   note?: string | null;
   /** @nullable */
   jobId?: string | null;
+  /**
+     * Before/after evidence phase
+     * @nullable
+     */
+  phase?: CrewPhotoInputPhase;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** @nullable */
+  accuracy?: number | null;
+  /**
+     * Device timestamp when the photo was captured (ISO)
+     * @nullable
+     */
+  capturedAt?: string | null;
 }

@@ -1142,6 +1142,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /jobs/{id}/tracker/share:
+    post:
+      operationId: createJobTrackerShare
+      tags: [jobs]
+      summary: Create (or reuse) the public live tracker link for a job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Tracker link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackerShare"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /jobs/{id}/report:
+    get:
+      operationId: getJobReportPdf
+      tags: [jobs]
+      summary: Download the full evidence-grade job report PDF
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: PDF job report
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /recap-shares/{token}:
     get:
       operationId: getRecapShare
@@ -3204,6 +3253,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CrewPhoto"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /portal/{token}/agreement:
+    post:
+      operationId: acceptPortalAgreement
+      tags: [portal]
+      summary: Crew accepts the portal instructions & agreement (first visit)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalAgreementResult"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /track/{token}:
+    get:
+      operationId: getJobTracker
+      tags: [portal]
+      summary: Public live job tracker view (property manager accountability link)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Tracker view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobTrackerView"
         "404":
           description: Invalid link
           content:
@@ -5830,6 +5925,11 @@ components:
     CrewCheckinInput:
       type: object
       properties:
+        jobId: { type: ["string", "null"] }
+        kind:
+          type: ["string", "null"]
+          enum: [checkin, checkout, null]
+          description: Defaults to checkin
         lat: { type: ["number", "null"] }
         lng: { type: ["number", "null"] }
         accuracy: { type: ["number", "null"] }
@@ -5837,10 +5937,12 @@ components:
         note: { type: ["string", "null"] }
     CrewCheckin:
       type: object
-      required: [id, crewId]
+      required: [id, crewId, kind]
       properties:
         id: { type: string }
         crewId: { type: string }
+        jobId: { type: ["string", "null"] }
+        kind: { type: string, description: "checkin | checkout" }
         lat: { type: ["number", "null"] }
         lng: { type: ["number", "null"] }
         accuracy: { type: ["number", "null"] }
@@ -5882,6 +5984,16 @@ components:
           description: Local date (YYYY-MM-DD) on the crew's device
         note: { type: ["string", "null"] }
         jobId: { type: ["string", "null"] }
+        phase:
+          type: ["string", "null"]
+          enum: [before, after, null]
+          description: Before/after evidence phase
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        accuracy: { type: ["number", "null"] }
+        capturedAt:
+          type: ["string", "null"]
+          description: Device timestamp when the photo was captured (ISO)
     PortalJob:
       type: object
       required: [id, jobNo, label]
@@ -5903,6 +6015,15 @@ components:
         storagePath: { type: string }
         note: { type: ["string", "null"] }
         takenOn: { type: string }
+        phase: { type: ["string", "null"], description: "before | after" }
+        sha256:
+          type: ["string", "null"]
+          description: Server-computed SHA-256 fingerprint of the photo file
+        sizeBytes: { type: ["number", "null"] }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        accuracy: { type: ["number", "null"] }
+        capturedAt: { type: ["string", "null"] }
         createdAt: { type: ["string", "null"] }
     PhotoShareInput:
       type: object
@@ -5981,6 +6102,7 @@ components:
         preferredPaymentMethod: { type: ["string", "null"] }
         paymentDetails: { type: ["string", "null"] }
         w9Submitted: { type: boolean }
+        agreementAcceptedAt: { type: ["string", "null"] }
     PortalScheduleItem:
       type: object
       required: [id]
@@ -6065,6 +6187,77 @@ components:
         messages: { type: number }
         packets: { type: number }
         documents: { type: number }
+    PortalAgreementResult:
+      type: object
+      required: [accepted, acceptedAt]
+      properties:
+        accepted: { type: boolean }
+        acceptedAt: { type: string }
+    TrackerShare:
+      type: object
+      required: [token, link]
+      properties:
+        token: { type: string }
+        link: { type: string }
+    TrackerCheckin:
+      type: object
+      required: [id, kind]
+      properties:
+        id: { type: string }
+        kind: { type: string, description: "checkin | checkout" }
+        crewName: { type: ["string", "null"] }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        accuracy: { type: ["number", "null"] }
+        label: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+        createdAt: { type: ["string", "null"] }
+    TrackerPhoto:
+      type: object
+      required: [id, url]
+      properties:
+        id: { type: string }
+        url: { type: string }
+        phase: { type: ["string", "null"], description: "before | after" }
+        note: { type: ["string", "null"] }
+        takenOn: { type: ["string", "null"] }
+        capturedAt: { type: ["string", "null"] }
+        createdAt: { type: ["string", "null"] }
+        sha256: { type: ["string", "null"] }
+        crewName: { type: ["string", "null"] }
+    JobTrackerView:
+      type: object
+      required: [jobNo, status, checkins, photos, workNotes]
+      properties:
+        jobNo: { type: string }
+        description: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        status: { type: string }
+        unitNo: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        propertyAddress: { type: ["string", "null"] }
+        crewName: { type: ["string", "null"] }
+        crewTrade: { type: ["string", "null"] }
+        scheduledOn: { type: ["string", "null"] }
+        completedAt: { type: ["string", "null"] }
+        businessName: { type: ["string", "null"] }
+        checkins:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackerCheckin"
+        photos:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackerPhoto"
+        workNotes:
+          type: array
+          items:
+            type: object
+            required: [note]
+            properties:
+              note: { type: string }
+              crewName: { type: ["string", "null"] }
+              createdAt: { type: ["string", "null"] }
     PortalSeenInput:
       type: object
       required: [section]

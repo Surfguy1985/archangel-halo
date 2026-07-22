@@ -16,6 +16,7 @@ import CrewDetail from "./pages/CrewDetail";
 import CrewPortal from "./pages/CrewPortal";
 import PhotoShare from "./pages/PhotoShare";
 import RecapShare from "./pages/RecapShare";
+import JobTracker from "./pages/JobTracker";
 import Pipeline from "./pages/Pipeline";
 import Supply from "./pages/Supply";
 import Vendors from "./pages/Vendors";
@@ -65,6 +66,7 @@ function App() {
             <Route path="/portal/:token" component={CrewPortal} />
             <Route path="/photos/:token" component={PhotoShare} />
             <Route path="/recap/:token" component={RecapShare} />
+            <Route path="/track/:token" component={JobTracker} />
             <Route component={AdminRouter} />
           </Switch>
         </WouterRouter>

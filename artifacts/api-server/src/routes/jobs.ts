@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "node:crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import {
   db,
   jobsTable,
@@ -50,6 +50,9 @@ import {
   CreateRecapShareResponse,
   GetRecapShareParams,
   GetRecapShareResponse,
+  CreateJobTrackerShareParams,
+  CreateJobTrackerShareResponse,
+  GetJobReportPdfParams,
   ListCrewsResponse,
   CreateCrewBody,
   CreateCrewResponse,
@@ -78,6 +81,7 @@ import { sendEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 import { ser, serList } from "../lib/serialize";
 import { crewPhotosForJobs, type CrewJobPhoto } from "../lib/jobPhotos";
+import { gatherJobReport, buildJobReportPdf } from "../lib/jobReportPdf";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import { syncJobLaborLedger, removeEntriesForRef } from "../lib/ledger";
 
@@ -219,6 +223,7 @@ router.delete("/jobs/:id", async (req, res): Promise<void> => {
       return { status: 404 as const, error: "Job not found" };
     }
     await tx.delete(schedulesTable).where(eq(schedulesTable.jobId, id));
+    await tx.delete(crewCheckinsTable).where(eq(crewCheckinsTable.jobId, id));
     await tx
       .delete(jobBroadcastsTable)
       .where(eq(jobBroadcastsTable.jobId, id));
@@ -744,6 +749,59 @@ router.post("/jobs/:id/recap/share", async (req, res): Promise<void> => {
     body: `Recap live link created: ${body.subject}`,
   });
   res.status(201).json(CreateRecapShareResponse.parse({ token: row.token }));
+});
+
+router.post("/jobs/:id/tracker/share", async (req, res): Promise<void> => {
+  const { id } = CreateJobTrackerShareParams.parse(req.params);
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  // One stable tracker link per job — reuse if it already exists.
+  let token = job.trackerToken;
+  if (!token) {
+    const candidate = randomBytes(18).toString("base64url");
+    // Atomic first-wins: only set the token if it's still null, then re-read.
+    const updated = await db
+      .update(jobsTable)
+      .set({ trackerToken: candidate })
+      .where(and(eq(jobsTable.id, id), isNull(jobsTable.trackerToken)))
+      .returning({ trackerToken: jobsTable.trackerToken });
+    if (updated.length > 0) {
+      token = candidate;
+      await db.insert(activitiesTable).values({
+        entityType: "job",
+        entityId: id,
+        kind: "note",
+        body: `Live tracker link created for job ${job.jobNo}.`,
+      });
+    } else {
+      const [fresh] = await db
+        .select({ trackerToken: jobsTable.trackerToken })
+        .from(jobsTable)
+        .where(eq(jobsTable.id, id));
+      token = fresh?.trackerToken ?? candidate;
+    }
+  }
+  const link = `${publicBaseUrl()}/track/${token}`;
+  res.status(201).json(CreateJobTrackerShareResponse.parse({ token, link }));
+});
+
+router.get("/jobs/:id/report", async (req, res): Promise<void> => {
+  const { id } = GetJobReportPdfParams.parse(req.params);
+  const data = await gatherJobReport(id);
+  if (!data) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  const pdf = await buildJobReportPdf(data);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="job-report-${data.job.jobNo.replace(/[^\w.-]+/g, "_")}.pdf"`,
+  );
+  res.send(Buffer.from(pdf));
 });
 
 router.get("/recap-shares/:token", async (req, res): Promise<void> => {

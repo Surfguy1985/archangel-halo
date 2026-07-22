@@ -5,16 +5,13 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
-import type { CrewCheckinInputKind } from './crewCheckinInputKind';
 
-export interface CrewCheckinInput {
+export interface TrackerCheckin {
+  id: string;
+  /** checkin | checkout */
+  kind: string;
   /** @nullable */
-  jobId?: string | null;
-  /**
-     * Defaults to checkin
-     * @nullable
-     */
-  kind?: CrewCheckinInputKind;
+  crewName?: string | null;
   /** @nullable */
   lat?: number | null;
   /** @nullable */
@@ -25,4 +22,6 @@ export interface CrewCheckinInput {
   label?: string | null;
   /** @nullable */
   note?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
 }
