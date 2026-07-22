@@ -59,9 +59,11 @@ import {
   LogOut,
   Link2,
   Copy,
+  BookOpen,
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 import WelcomeKitTab from "./WelcomeKitTab";
+import { portalGuide, type GuideLang } from "@/lib/portalGuideContent";
 
 type Tab =
   | "offers"
@@ -73,7 +75,8 @@ type Tab =
   | "checkin"
   | "pay"
   | "w9"
-  | "packets";
+  | "packets"
+  | "guide";
 
 const SEEN_SECTIONS: Partial<Record<Tab, PortalSeenInputSection>> = {
   offers: "offers",
@@ -111,9 +114,15 @@ function formatDay(iso?: string | null): string {
   });
 }
 
+function initialGuideLang(): GuideLang | null {
+  const g = new URLSearchParams(window.location.search).get("guide");
+  return g === "en" || g === "es" ? g : null;
+}
+
 export default function CrewPortal() {
   const { token } = useParams<{ token: string }>();
-  const [tab, setTab] = useState<Tab>("schedule");
+  const [guideLang, setGuideLang] = useState<GuideLang>(() => initialGuideLang() ?? "en");
+  const [tab, setTab] = useState<Tab>(() => (initialGuideLang() ? "guide" : "schedule"));
   const queryClient = useQueryClient();
 
   const { data: portal, isLoading, isError } = useGetPortal(token);
@@ -122,7 +131,7 @@ export default function CrewPortal() {
   const pendingOffersCount = portal?.offers?.filter(o => o.status === "pending" && !o.filledByOther).length || 0;
 
   useEffect(() => {
-    if (pendingOffersCount > 0 && tab !== "offers") {
+    if (pendingOffersCount > 0 && tab !== "offers" && tab !== "guide") {
       setTab("offers");
     }
   }, [pendingOffersCount]);
@@ -181,6 +190,7 @@ export default function CrewPortal() {
     { key: "documents", label: "Docs", icon: FileText, alert: u?.documents },
     { key: "pay", label: "Pay", icon: Wallet },
     { key: "w9", label: "W-9", icon: ClipboardCheck },
+    { key: "guide", label: guideLang === "es" ? "Guía" : "Guide", icon: BookOpen },
   ];
 
   return (
@@ -245,6 +255,7 @@ export default function CrewPortal() {
           />
         )}
         {tab === "w9" && <W9Tab token={token} />}
+        {tab === "guide" && <GuideTab lang={guideLang} onLangChange={setGuideLang} />}
       </main>
 
       {!portal.crew.agreementAcceptedAt && (
@@ -322,6 +333,74 @@ function AgreementModal({ token, crewName }: { token: string; crewName: string }
           I agree — open my portal
         </button>
       </div>
+    </div>
+  );
+}
+
+const GUIDE_ICONS: Record<string, any> = {
+  Briefcase,
+  Calendar,
+  MapPin,
+  Camera,
+  Receipt,
+  MessageSquare,
+  ClipboardCheck,
+};
+
+function GuideTab({
+  lang,
+  onLangChange,
+}: {
+  lang: GuideLang;
+  onLangChange: (l: GuideLang) => void;
+}) {
+  const g = portalGuide[lang];
+  return (
+    <div className="space-y-[12px]" data-testid="guide-tab">
+      <div className="flex items-center justify-between gap-[10px]">
+        <h2 className="font-display font-bold text-[19px] tracking-[-0.01em]">
+          {g.heading}
+        </h2>
+        <div className="flex rounded-[10px] overflow-hidden border border-border shrink-0">
+          {(["en", "es"] as GuideLang[]).map((l) => (
+            <button
+              key={l}
+              onClick={() => onLangChange(l)}
+              data-testid={`guide-lang-${l}`}
+              className={`px-[12px] py-[6px] text-[12px] font-display font-bold ${
+                lang === l
+                  ? "bg-[var(--ink)] text-white"
+                  : "bg-card text-muted-foreground"
+              }`}
+            >
+              {l === "en" ? "English" : "Español"}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="text-[13.5px] text-muted-foreground leading-relaxed">{g.intro}</p>
+      {g.sections.map((s) => {
+        const Icon = GUIDE_ICONS[s.icon] ?? BookOpen;
+        return (
+          <div
+            key={s.title}
+            className="bg-card rounded-[14px] border border-border p-[14px] flex gap-[12px]"
+          >
+            <div className="w-[36px] h-[36px] rounded-[10px] bg-[var(--ink)] text-[var(--gold-light)] grid place-items-center shrink-0">
+              <Icon className="w-[17px] h-[17px]" />
+            </div>
+            <div>
+              <div className="font-display font-bold text-[14px]">{s.title}</div>
+              <p className="text-[13px] text-muted-foreground leading-relaxed mt-[3px]">
+                {s.body}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+      <p className="text-[12.5px] text-muted-foreground leading-relaxed pt-[4px]">
+        {g.footer}
+      </p>
     </div>
   );
 }
