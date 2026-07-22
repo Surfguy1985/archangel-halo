@@ -25,6 +25,7 @@ const targetLabels: Record<string, string> = {
   invoices: "Invoices",
   expenses: "Expenses",
   inventory: "Inventory",
+  price_items: "Price list",
 };
 
 function fieldPreview(fields: Record<string, unknown>): string {

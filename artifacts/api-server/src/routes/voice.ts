@@ -15,6 +15,8 @@ import {
   invoiceLineItemsTable,
   inventoryItemsTable,
   vendorsTable,
+  priceItemsTable,
+  catalogItemsTable,
 } from "@workspace/db";
 import {
   ParseVoiceBody,
@@ -58,6 +60,7 @@ const TOOLS = `Available tools and their fields:
 - create_vendor { name, trade?, phone?, email? }
 - add_inventory_item { name, qty? (number), reorderAt? (number, restock threshold), unitCost? (number), preferredVendor? }
 - adjust_inventory { itemName, delta (number — positive when stock was bought/received, negative when materials were used) }
+- set_price { service, rate (number), propertyName? (omit to update the master price list), unit? (each, sqft, hour...), detail? } — add or update a service price on a property's price list or the master price book
 - mark_invoice_paid { invoiceNo (like INV-5001), or propertyName + amount when the number is unknown }
 - log_bill { vendor, amount (number), dueDate? (YYYY-MM-DD), category?, propertyName?, jobNo? } — an unpaid vendor bill (bought on account / net terms / "I owe them")
 - pay_bill { vendor, amount? (number) } — mark an open vendor bill as paid
@@ -83,6 +86,7 @@ Known crews: ${crews.map((c) => c.name).join(", ") || "none"}.
 Known inventory items: ${inventory.map((i) => i.name).join(", ") || "none"}.
 Known vendors: ${vendors.map((v) => v.name).join(", ") || "none"}.
 Use create_property when the user describes a new property/building not in the known list. Use create_crew when they mention adding a new crew member or subcontractor. Use schedule_job when they want to set a date for existing work. Use create_bid when they quoted or want to quote a price/proposal for work — the bid is saved as a draft for review, never sent automatically.
+Use set_price when they state, set, or change what they charge for a service ("make readys at Willow Creek are now 275", "paint is 3 dollars a square foot") — one set_price action per service mentioned; include propertyName when a property is named, omit it for their general/standard pricing. If the service matches one already on that list it will be updated, otherwise added.
 Use mark_invoice_paid when they say a check/payment came in for an invoice. Use log_bill (not log_expense) when they OWE a vendor and have not paid yet; use pay_bill when they pay a bill they logged earlier. Use create_journal_entry only for pure bookkeeping moves (owner put money in, owner draw, moving money between accounts) — regular purchases are log_expense, not journal entries. Use create_invoice when work is done and they want to bill for it — the invoice is saved as a draft for review, never sent automatically. Use create_vendor for a new supplier or subcontracting company. Use adjust_inventory when they mention using or buying materials that match a known inventory item (negative delta for materials used, positive for stock received); use add_inventory_item for a material they want tracked that is not in the known list. A purchase of materials can be both a log_expense and an inventory adjustment when it matches a tracked item.
 For each action include: tool, title (short), summary (one sentence of what will happen), confidence (0-1), needsReview (true if amounts/names are uncertain), and fields. Return {"actions": [...]}. If nothing actionable, return {"actions": []}.`,
       transcript,
@@ -515,6 +519,81 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
         messages.push(
           `Paid ${bill.vendor ?? "bill"} — $${bill.amount.toLocaleString()}`,
         );
+      } else if (a.tool === "set_price") {
+        const serviceName = String(f.service ?? "").trim();
+        const rate = Number(f.rate);
+        if (!serviceName || !Number.isFinite(rate) || rate < 0) {
+          messages.push("Skipped price — missing service name or a valid rate");
+          continue;
+        }
+        const norm = (s: string) =>
+          s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+        const detail = f.detail ? String(f.detail) : null;
+        const unit = f.unit ? String(f.unit) : null;
+        const prop = f.propertyName
+          ? propByName.get(String(f.propertyName).toLowerCase())
+          : undefined;
+        if (f.propertyName && !prop) {
+          messages.push(`Skipped price — unknown property "${f.propertyName}"`);
+          continue;
+        }
+        if (prop) {
+          const items = await db.select().from(priceItemsTable);
+          const existing = items.find(
+            (p) => p.propertyId === prop.id && norm(p.service) === norm(serviceName),
+          );
+          if (existing) {
+            await db
+              .update(priceItemsTable)
+              .set({
+                rate,
+                detail: detail ?? existing.detail,
+                unit: unit ?? existing.unit,
+              })
+              .where(eqId(priceItemsTable.id, existing.id));
+            messages.push(
+              `Updated ${existing.service} at ${prop.name} to $${rate.toLocaleString()}`,
+            );
+          } else {
+            await db.insert(priceItemsTable).values({
+              propertyId: prop.id,
+              service: serviceName,
+              detail,
+              unit,
+              rate,
+            });
+            messages.push(
+              `Added ${serviceName} at $${rate.toLocaleString()} to ${prop.name}'s price list`,
+            );
+          }
+        } else {
+          const items = await db.select().from(catalogItemsTable);
+          const existing = items.find((c) => norm(c.service) === norm(serviceName));
+          if (existing) {
+            await db
+              .update(catalogItemsTable)
+              .set({
+                rate,
+                detail: detail ?? existing.detail,
+                unit: unit ?? existing.unit,
+              })
+              .where(eqId(catalogItemsTable.id, existing.id));
+            messages.push(
+              `Updated ${existing.service} on the master price list to $${rate.toLocaleString()}`,
+            );
+          } else {
+            await db.insert(catalogItemsTable).values({
+              service: serviceName,
+              detail,
+              unit,
+              rate,
+            });
+            messages.push(
+              `Added ${serviceName} at $${rate.toLocaleString()} to the master price list`,
+            );
+          }
+        }
+        applied++;
       } else if (a.tool === "mark_invoice_paid") {
         const allInvoices = await db.select().from(invoicesTable);
         const no = String(f.invoiceNo ?? "").trim().toLowerCase();

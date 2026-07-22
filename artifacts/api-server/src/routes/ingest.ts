@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import {
   db,
   propertiesTable,
@@ -8,6 +8,8 @@ import {
   expensesTable,
   inventoryItemsTable,
   importUploadsTable,
+  priceItemsTable,
+  catalogItemsTable,
   type Property,
 } from "@workspace/db";
 import {
@@ -58,13 +60,16 @@ router.post("/ingest/parse", async (req, res): Promise<void> => {
       records: IngestRecord[];
     }>(
       `You are HALO's file intake. Read the uploaded file content and extract structured records for a property-maintenance contractor.
-Valid targets: properties, jobs, invoices, expenses, inventory.
+Valid targets: properties, jobs, invoices, expenses, inventory, price_items.
 Fields by target:
 - properties { name, pmcName?, city?, units? (number) }
 - jobs { description, propertyName?, unitNo?, category? }
 - invoices { invoiceNo?, propertyName?, amount (number), issuedOn? (YYYY-MM-DD), poNumber?, billToName?, notes? }
 - expenses { vendor?, category?, amount (number), propertyName? }
 - inventory { name, qty (number), reorderAt? (number), unitCost? (number), preferredVendor? }
+- price_items { service, rate (number), propertyName?, unit? (each, sqft, hour, unit...), detail? }
+A price list, rate sheet, price book, or bid sheet is target price_items — one record per service line, rate is the price as a number.
+For price_items include propertyName only when the document names a specific property/community the prices belong to; leave it out for a general/master price list.
 For invoices, "amount" is the invoice total. Put the billed customer/company in billToName and any work description in notes.
 Always include propertyName when the document mentions a property, building, community, or job-site name.
 ${body.target && body.target !== "auto" ? `The user says these are: ${body.target}.` : "Detect the best target."}
@@ -134,13 +139,14 @@ router.post("/ingest/scan", async (req, res): Promise<void> => {
       records: IngestRecord[];
     }>(
       `You are HALO's receipt scanner. Read the photographed receipt, invoice, or document and extract structured records for a property-maintenance contractor.
-Valid targets: properties, jobs, invoices, expenses, inventory.
+Valid targets: properties, jobs, invoices, expenses, inventory, price_items.
 Fields by target:
 - properties { name, pmcName?, city?, units? (number) }
 - jobs { description, propertyName?, unitNo?, category? }
 - invoices { invoiceNo?, propertyName?, amount (number), issuedOn? (YYYY-MM-DD), poNumber?, billToName?, notes? }
 - expenses { vendor?, category?, amount (number), propertyName? }
 - inventory { name, qty (number), reorderAt? (number), unitCost? (number), preferredVendor? }
+- price_items { service, rate (number), propertyName?, unit?, detail? } — use for a photographed price list / rate sheet, one record per service line.
 A store/supplier receipt is almost always ONE expense record: vendor = store name, amount = the receipt TOTAL (after tax), category = best fit (materials, fuel, tools, supplies, etc.). Do not create one expense per line item.
 If the receipt clearly lists stockable materials the contractor would track (e.g. filters, paint, parts with quantities), you may ALSO add inventory records for those items.
 Include propertyName only if a property/job-site name is written on the receipt.
@@ -481,6 +487,73 @@ router.post("/ingest/commit", async (req, res): Promise<void> => {
             propertyId: rawName ? await ensureProperty(rawName) : null,
             source: "import",
           });
+          committed++;
+        } else if (r.target === "price_items") {
+          const serviceName = f.service ? String(f.service).trim() : "";
+          const rate = Number(f.rate);
+          if (!serviceName || !Number.isFinite(rate) || rate < 0) {
+            messages.push(`Skipped price line "${serviceName || "?"}" — missing service or rate`);
+            skipped++;
+            continue;
+          }
+          const detail = f.detail ? String(f.detail) : null;
+          const unit = f.unit ? String(f.unit) : null;
+          const rawPropName = f.propertyName ? String(f.propertyName).trim() : "";
+          if (rawPropName) {
+            const pid = await ensureProperty(rawPropName);
+            const existing = (
+              await tx.select().from(priceItemsTable)
+            ).find(
+              (p) =>
+                p.propertyId === pid &&
+                normalizeName(p.service) === normalizeName(serviceName),
+            );
+            if (existing) {
+              await tx
+                .update(priceItemsTable)
+                .set({
+                  rate,
+                  detail: detail ?? existing.detail,
+                  unit: unit ?? existing.unit,
+                })
+                .where(eq(priceItemsTable.id, existing.id));
+              messages.push(
+                `Updated ${existing.service} to $${rate.toLocaleString()} on that property's price list`,
+              );
+            } else {
+              await tx.insert(priceItemsTable).values({
+                propertyId: pid,
+                service: serviceName,
+                detail,
+                unit,
+                rate,
+              });
+            }
+          } else {
+            const existing = (
+              await tx.select().from(catalogItemsTable)
+            ).find((c) => normalizeName(c.service) === normalizeName(serviceName));
+            if (existing) {
+              await tx
+                .update(catalogItemsTable)
+                .set({
+                  rate,
+                  detail: detail ?? existing.detail,
+                  unit: unit ?? existing.unit,
+                })
+                .where(eq(catalogItemsTable.id, existing.id));
+              messages.push(
+                `Updated ${existing.service} to $${rate.toLocaleString()} on the master price list`,
+              );
+            } else {
+              await tx.insert(catalogItemsTable).values({
+                service: serviceName,
+                detail,
+                unit,
+                rate,
+              });
+            }
+          }
           committed++;
         } else if (r.target === "inventory") {
           if (!f.name) {
