@@ -153,6 +153,7 @@ import type {
   PaymentMethodInput,
   PhotoShare,
   PhotoShareInput,
+  PhotoShareNotesInput,
   PhotoShareView,
   PlaidExchangeInput,
   PnlReport,
@@ -10388,6 +10389,78 @@ export function useGetPhotoShare<TData = Awaited<ReturnType<typeof getPhotoShare
 
 
 
+
+export const getUpdatePhotoShareNotesUrl = (token: string,) => {
+
+
+
+
+  return `/api/photo-shares/${token}/notes`
+}
+
+/**
+ * @summary Office sets/updates the notes included in the daily report PDF
+ */
+export const updatePhotoShareNotes = async (token: string,
+    photoShareNotesInput: PhotoShareNotesInput, options?: RequestInit): Promise<PhotoShare> => {
+
+  return customFetch<PhotoShare>(getUpdatePhotoShareNotesUrl(token),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(photoShareNotesInput)
+  }
+);}
+
+
+
+
+
+export const getUpdatePhotoShareNotesMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePhotoShareNotes>>, TError,{token: string;data: BodyType<PhotoShareNotesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePhotoShareNotes>>, TError,{token: string;data: BodyType<PhotoShareNotesInput>}, TContext> => {
+
+const mutationKey = ['updatePhotoShareNotes'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePhotoShareNotes>>, {token: string;data: BodyType<PhotoShareNotesInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  updatePhotoShareNotes(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePhotoShareNotesMutationResult = NonNullable<Awaited<ReturnType<typeof updatePhotoShareNotes>>>
+    export type UpdatePhotoShareNotesMutationBody = BodyType<PhotoShareNotesInput>
+    export type UpdatePhotoShareNotesMutationError = ErrorType<Error>
+
+    /**
+ * @summary Office sets/updates the notes included in the daily report PDF
+ */
+export const useUpdatePhotoShareNotes = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePhotoShareNotes>>, TError,{token: string;data: BodyType<PhotoShareNotesInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePhotoShareNotes>>,
+        TError,
+        {token: string;data: BodyType<PhotoShareNotesInput>},
+        TContext
+      > => {
+      return useMutation(getUpdatePhotoShareNotesMutationOptions(options));
+    }
 
 export const getGetPhotoShareReportPdfUrl = (token: string,) => {
 

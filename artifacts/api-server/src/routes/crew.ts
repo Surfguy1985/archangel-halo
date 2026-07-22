@@ -47,6 +47,9 @@ import {
   CreatePhotoShareResponse,
   GetPhotoShareParams,
   GetPhotoShareReportPdfParams,
+  UpdatePhotoShareNotesParams,
+  UpdatePhotoShareNotesBody,
+  UpdatePhotoShareNotesResponse,
   GetPhotoShareResponse,
   ListCrewInvoicesParams,
   ListCrewInvoicesResponse,
@@ -189,7 +192,11 @@ router.post("/crews/:id/photo-shares", async (req, res): Promise<void> => {
     );
   if (existing) {
     res.status(201).json(
-      CreatePhotoShareResponse.parse({ token: existing.token, day: existing.day }),
+      CreatePhotoShareResponse.parse({
+        token: existing.token,
+        day: existing.day,
+        notes: existing.notes,
+      }),
     );
     return;
   }
@@ -264,6 +271,27 @@ router.get("/photo-shares/:token", async (req, res): Promise<void> => {
         note: c.note ?? null,
         createdAt: c.createdAt ? c.createdAt.toISOString() : null,
       })),
+    }),
+  );
+});
+
+router.patch("/photo-shares/:token/notes", async (req, res): Promise<void> => {
+  const { token } = UpdatePhotoShareNotesParams.parse({ token: req.params.token });
+  const body = UpdatePhotoShareNotesBody.parse(req.body);
+  const [row] = await db
+    .update(photoSharesTable)
+    .set({ notes: body.notes })
+    .where(eq(photoSharesTable.token, token))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Invalid share link" });
+    return;
+  }
+  res.json(
+    UpdatePhotoShareNotesResponse.parse({
+      token: row.token,
+      day: row.day,
+      notes: row.notes,
     }),
   );
 });

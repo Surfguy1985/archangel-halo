@@ -186,6 +186,7 @@ export * from './paymentMethodInput';
 export * from './photoShare';
 export * from './photoShareCheckin';
 export * from './photoShareInput';
+export * from './photoShareNotesInput';
 export * from './photoShareView';
 export * from './plaidExchangeInput';
 export * from './pnlReport';

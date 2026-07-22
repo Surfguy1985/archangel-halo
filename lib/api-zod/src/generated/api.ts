@@ -3888,7 +3888,8 @@ export const CreatePhotoShareBody = zod.object({
 
 export const CreatePhotoShareResponse = zod.object({
   "token": zod.string(),
-  "day": zod.string()
+  "day": zod.string(),
+  "notes": zod.string().nullish()
 })
 
 
@@ -3929,6 +3930,24 @@ export const GetPhotoShareResponse = zod.object({
   "note": zod.string().nullish(),
   "createdAt": zod.string().nullish()
 }))
+})
+
+
+/**
+ * @summary Office sets/updates the notes included in the daily report PDF
+ */
+export const UpdatePhotoShareNotesParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const UpdatePhotoShareNotesBody = zod.object({
+  "notes": zod.string()
+})
+
+export const UpdatePhotoShareNotesResponse = zod.object({
+  "token": zod.string(),
+  "day": zod.string(),
+  "notes": zod.string().nullish()
 })
 
 

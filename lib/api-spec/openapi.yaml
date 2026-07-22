@@ -2943,6 +2943,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /photo-shares/{token}/notes:
+    patch:
+      operationId: updatePhotoShareNotes
+      tags: [crew-portal]
+      summary: Office sets/updates the notes included in the daily report PDF
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhotoShareNotesInput"
+      responses:
+        "200":
+          description: Updated share
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoShare"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /photo-shares/{token}/report:
     get:
       operationId: getPhotoShareReportPdf
@@ -6062,6 +6091,12 @@ components:
       properties:
         token: { type: string }
         day: { type: string }
+        notes: { type: ["string", "null"] }
+    PhotoShareNotesInput:
+      type: object
+      required: [notes]
+      properties:
+        notes: { type: string }
     PhotoShareView:
       type: object
       required: [crewName, day, photos, checkins]

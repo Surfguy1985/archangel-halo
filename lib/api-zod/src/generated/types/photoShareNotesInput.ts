@@ -6,9 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface PhotoShare {
-  token: string;
-  day: string;
-  /** @nullable */
-  notes?: string | null;
+export interface PhotoShareNotesInput {
+  notes: string;
 }

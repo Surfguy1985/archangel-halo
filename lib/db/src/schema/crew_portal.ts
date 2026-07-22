@@ -71,6 +71,7 @@ export const photoSharesTable = pgTable("photo_shares", {
   crewId: uuid("crew_id").notNull(),
   day: text("day").notNull(),
   token: text("token").notNull().unique(),
+  notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

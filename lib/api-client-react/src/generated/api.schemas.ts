@@ -2301,6 +2301,12 @@ export interface PhotoShareInput {
 export interface PhotoShare {
   token: string;
   day: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface PhotoShareNotesInput {
+  notes: string;
 }
 
 export interface PhotoShareCheckin {
