@@ -16,6 +16,7 @@ import {
   BarChart3,
   BookOpen,
   Landmark,
+  Link2,
   Settings as SettingsIcon,
   Play,
   Pause,
@@ -49,6 +50,7 @@ const ICONS: Record<string, LucideIcon> = {
   BarChart3,
   BookOpen,
   Landmark,
+  Link2,
   Settings: SettingsIcon,
 };
 

@@ -33,6 +33,7 @@ import {
   FileDown,
   Link2,
   Copy,
+  BookOpen,
   Check,
   Send,
   MapPin,
@@ -117,6 +118,7 @@ export default function CrewDetail() {
 
   const [draft, setDraft] = useState("");
   const [copied, setCopied] = useState(false);
+  const [copiedGuide, setCopiedGuide] = useState<"en" | "es" | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [, navigate] = useLocation();
   const [templateKey, setTemplateKey] = useState("");
@@ -173,6 +175,20 @@ export default function CrewDetail() {
     setCopied(true);
     toast({ title: "Live link copied", description: "Send it to the crew manually." });
     setTimeout(() => setCopied(false), 1800);
+  };
+
+  const copyGuideLink = async (lang: "en" | "es") => {
+    if (!portalUrl) return;
+    await navigator.clipboard.writeText(`${portalUrl}?guide=${lang}`);
+    setCopiedGuide(lang);
+    toast({
+      title: lang === "es" ? "Enlace de la guía copiado" : "Guide link copied",
+      description:
+        lang === "es"
+          ? "Abre el portal del equipo en la guía en español."
+          : "Opens the crew's portal on the English how-to guide.",
+    });
+    setTimeout(() => setCopiedGuide(null), 1800);
   };
 
   const handleSend = () => {
@@ -263,7 +279,23 @@ export default function CrewDetail() {
               <button onClick={handleCopy} className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-display font-semibold text-muted-foreground bg-black/5 hover:bg-black/10 transition-colors">
                 {copied ? <><Check className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy live link</>}
               </button>
-              <p className="text-xs text-muted-foreground mt-3 leading-relaxed">Anyone with this link can open the crew's onboarding portal.</p>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button
+                  onClick={() => copyGuideLink("en")}
+                  data-testid="button-copy-guide-en"
+                  className="flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-display font-semibold text-muted-foreground bg-black/5 hover:bg-black/10 transition-colors"
+                >
+                  {copiedGuide === "en" ? <><Check className="w-4 h-4" /> Copied</> : <><BookOpen className="w-4 h-4" /> Guide link (English)</>}
+                </button>
+                <button
+                  onClick={() => copyGuideLink("es")}
+                  data-testid="button-copy-guide-es"
+                  className="flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-display font-semibold text-muted-foreground bg-black/5 hover:bg-black/10 transition-colors"
+                >
+                  {copiedGuide === "es" ? <><Check className="w-4 h-4" /> Copiado</> : <><BookOpen className="w-4 h-4" /> Guía (Español)</>}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3 leading-relaxed">Anyone with this link can open the crew's onboarding portal. The guide links open the same portal on its how-to guide, in English or Spanish — send whichever your crew prefers.</p>
             </>
           ) : (
             <button onClick={handleGenerate} disabled={genLink.isPending} className={`w-full ${goldBtn}`}>

@@ -31,6 +31,7 @@ import {
   FileDown,
   Link2,
   Copy,
+  BookOpen,
   Check,
   Send,
   MapPin,
@@ -315,6 +316,26 @@ export default function CrewDetail() {
             >
               <MessageSquare className="w-[16px] h-[16px]" /> Text the link
             </a>
+            <div className="grid grid-cols-2 gap-[8px] mt-[8px]">
+              <a
+                href={`sms:${smsSeparator}body=${encodeURIComponent(
+                  `Hi ${crew.name}, here's a quick guide that explains how to use your ArchAngel portal — offers, schedule, check-ins, photos, and getting paid:\n${portalUrl}?guide=en`,
+                )}`}
+                data-testid="button-text-guide-en"
+                className="flex items-center justify-center gap-[6px] rounded-[11px] py-[9px] text-[12.5px] font-display font-bold text-[var(--ink)] bg-[rgba(23,24,28,0.05)] transition-transform active:scale-[0.98]"
+              >
+                <BookOpen className="w-[14px] h-[14px]" /> Guide (English)
+              </a>
+              <a
+                href={`sms:${smsSeparator}body=${encodeURIComponent(
+                  `Hola ${crew.name}, aquí tiene una guía que explica cómo usar su portal de ArchAngel — ofertas, horario, registro de entrada, fotos y pagos:\n${portalUrl}?guide=es`,
+                )}`}
+                data-testid="button-text-guide-es"
+                className="flex items-center justify-center gap-[6px] rounded-[11px] py-[9px] text-[12.5px] font-display font-bold text-[var(--ink)] bg-[rgba(23,24,28,0.05)] transition-transform active:scale-[0.98]"
+              >
+                <BookOpen className="w-[14px] h-[14px]" /> Guía (Español)
+              </a>
+            </div>
             <button
               onClick={handleCopy}
               className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[9px] mt-[8px] text-[13px] font-display font-semibold text-muted-foreground bg-[rgba(23,24,28,0.05)] transition-transform active:scale-[0.98]"

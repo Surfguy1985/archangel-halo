@@ -387,6 +387,42 @@ export const tourChapters: TourChapter[] = [
     ],
   },
   {
+    id: "crewlink",
+    title: "The crew link, explained",
+    sub: "Teach your crews their portal",
+    icon: "Link2",
+    steps: [
+      {
+        title: "What the crew sees",
+        body: "When a crew opens their link, they get a simple mobile page with your branding and their name at the top, and a row of tabs: Offers, Schedule, Invoice, Welcome Kit, Messages, Job Tracker, Photos, Docs, Pay, and W-9. No app store, no password — the link is their key.",
+        route: "/crews",
+        target: "page",
+        placement: "center",
+      },
+      {
+        title: "How a crew uses it day to day",
+        body: "Their routine is simple. Check the Schedule each morning to see where to be. Tap Check In on the Job Tracker when they arrive, and Check Out when they finish. Take before and after photos and upload them in Photos. And watch Offers for new work — the first crew to accept gets the job.",
+        route: "/crews",
+        target: "page",
+        placement: "center",
+      },
+      {
+        title: "First-time setup for a new crew",
+        body: "The first time they open the link, they accept your work agreement, then fill out their W-9 and how they want to be paid. Tell new crews to do this right away so their payments are never held up.",
+        route: "/crews",
+        target: "page",
+        placement: "center",
+      },
+      {
+        title: "A built-in guide, in English or Spanish",
+        body: "You don't have to explain all this yourself. The portal has a Guide tab that walks the crew through every tab in plain language. On any crew's page, next to the live link, you'll find guide link buttons — one in English, one in Spanish. Pick the language your crew prefers and send it. They can also switch languages themselves inside the guide.",
+        route: "/crews",
+        target: "page",
+        placement: "center",
+      },
+    ],
+  },
+  {
     id: "pipeline",
     title: "Pipeline — leads & bids",
     sub: "Turn opportunities into work",

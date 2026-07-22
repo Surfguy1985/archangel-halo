@@ -15,6 +15,7 @@ import {
   FileUp,
   Bell,
   BookOpen,
+  Link2,
   Settings as SettingsIcon,
   Play,
   Pause,
@@ -46,6 +47,7 @@ const ICONS: Record<string, LucideIcon> = {
   FileUp,
   Bell,
   BookOpen,
+  Link2,
   Settings: SettingsIcon,
 };
 
