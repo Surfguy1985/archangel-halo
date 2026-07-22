@@ -3933,6 +3933,16 @@ export const GetPhotoShareResponse = zod.object({
 
 
 /**
+ * @summary Download the branded daily crew report PDF for a share link
+ */
+export const GetPhotoShareReportPdfParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPhotoShareReportPdfResponse = zod.unknown()
+
+
+/**
  * @summary Admin updates the crew's preferred payment method
  */
 export const UpdateCrewPaymentMethodParams = zod.object({

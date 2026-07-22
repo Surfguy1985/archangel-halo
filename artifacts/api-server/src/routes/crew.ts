@@ -46,12 +46,14 @@ import {
   CreatePhotoShareBody,
   CreatePhotoShareResponse,
   GetPhotoShareParams,
+  GetPhotoShareReportPdfParams,
   GetPhotoShareResponse,
   ListCrewInvoicesParams,
   ListCrewInvoicesResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 import { jobLabelMap } from "../lib/jobLabels";
+import { gatherDayReport, buildDayReportPdf } from "../lib/dayReportPdf";
 
 const router: IRouter = Router();
 
@@ -264,6 +266,22 @@ router.get("/photo-shares/:token", async (req, res): Promise<void> => {
       })),
     }),
   );
+});
+
+router.get("/photo-shares/:token/report", async (req, res): Promise<void> => {
+  const { token } = GetPhotoShareReportPdfParams.parse({ token: req.params.token });
+  const data = await gatherDayReport(token);
+  if (!data) {
+    res.status(404).json({ error: "Invalid share link" });
+    return;
+  }
+  const pdf = await buildDayReportPdf(data);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="daily-report-${data.crewName.replace(/[^\w.-]+/g, "_")}-${data.day}.pdf"`,
+  );
+  res.send(Buffer.from(pdf));
 });
 
 router.get("/crews/:id/checkins", async (req, res): Promise<void> => {

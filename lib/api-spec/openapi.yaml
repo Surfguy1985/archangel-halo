@@ -2943,6 +2943,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /photo-shares/{token}/report:
+    get:
+      operationId: getPhotoShareReportPdf
+      tags: [crew-portal]
+      summary: Download the branded daily crew report PDF for a share link
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: PDF daily crew report
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /crews/{id}/payment-method:
     patch:
       operationId: updateCrewPaymentMethod

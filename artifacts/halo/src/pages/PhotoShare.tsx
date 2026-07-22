@@ -11,6 +11,7 @@ import {
   LogIn,
   LogOut,
   ClipboardList,
+  FileDown,
 } from "lucide-react";
 
 type SharePhoto = PhotoShareView["photos"][number];
@@ -202,6 +203,12 @@ export default function PhotoShare() {
           {data.trade ? `${data.trade} · ` : ""}
           {formatDayLabel(data.day)}
         </div>
+        <a
+          href={`${base}/api/photo-shares/${token}/report`}
+          className="mt-[12px] inline-flex items-center gap-[7px] rounded-[11px] px-[14px] py-[9px] font-display font-bold text-[13px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)] active:scale-[0.98] transition-transform"
+        >
+          <FileDown className="w-[15px] h-[15px]" /> Download full report (PDF)
+        </a>
       </header>
 
       <main className="px-[14px] py-[16px] pb-[40px] max-w-[720px] mx-auto">

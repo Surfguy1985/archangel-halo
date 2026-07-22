@@ -10389,6 +10389,83 @@ export function useGetPhotoShare<TData = Awaited<ReturnType<typeof getPhotoShare
 
 
 
+export const getGetPhotoShareReportPdfUrl = (token: string,) => {
+
+
+
+
+  return `/api/photo-shares/${token}/report`
+}
+
+/**
+ * @summary Download the branded daily crew report PDF for a share link
+ */
+export const getPhotoShareReportPdf = async (token: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetPhotoShareReportPdfUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPhotoShareReportPdfQueryKey = (token: string,) => {
+    return [
+    `/api/photo-shares/${token}/report`
+    ] as const;
+    }
+
+
+export const getGetPhotoShareReportPdfQueryOptions = <TData = Awaited<ReturnType<typeof getPhotoShareReportPdf>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPhotoShareReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPhotoShareReportPdfQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPhotoShareReportPdf>>> = ({ signal }) => getPhotoShareReportPdf(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPhotoShareReportPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPhotoShareReportPdfQueryResult = NonNullable<Awaited<ReturnType<typeof getPhotoShareReportPdf>>>
+export type GetPhotoShareReportPdfQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Download the branded daily crew report PDF for a share link
+ */
+
+export function useGetPhotoShareReportPdf<TData = Awaited<ReturnType<typeof getPhotoShareReportPdf>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPhotoShareReportPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPhotoShareReportPdfQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getUpdateCrewPaymentMethodUrl = (id: string,) => {
 
 
