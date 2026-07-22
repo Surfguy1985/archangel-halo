@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "./components/Layout";
+import { SplashScreen } from "./components/SplashScreen";
 import Today from "./pages/Today";
 import Properties from "./pages/Properties";
 import PropertyDetail from "./pages/PropertyDetail";
@@ -28,7 +29,9 @@ const queryClient = new QueryClient();
 
 function AdminRouter() {
   return (
-    <Layout>
+    <>
+      <SplashScreen />
+      <Layout>
       <Switch>
         <Route path="/" component={Today} />
         <Route path="/properties" component={Properties} />
@@ -48,7 +51,8 @@ function AdminRouter() {
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
-    </Layout>
+      </Layout>
+    </>
   );
 }
 

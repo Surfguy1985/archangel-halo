@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { DesktopLayout } from "@/components/DesktopLayout";
+import { SplashScreen } from "@/components/SplashScreen";
 import Today from "@/pages/Today";
 import Properties from "@/pages/Properties";
 import PropertyDetail from "@/pages/PropertyDetail";
@@ -32,6 +33,7 @@ function App() {
           <Switch>
             <Route path="/portal/:token" component={CrewPortal} />
             <Route>
+              <SplashScreen />
               <DesktopLayout>
                 <Switch>
                   <Route path="/" component={Today} />
