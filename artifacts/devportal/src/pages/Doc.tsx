@@ -81,7 +81,7 @@ export default function Doc() {
         <Terminal className="w-16 h-16 text-primary mb-6 relative z-10" strokeWidth={1} />
         <h2 className="font-display text-4xl font-bold tracking-widest uppercase mb-4 text-foreground relative z-10">404_NOT_FOUND</h2>
         <p className="text-muted-foreground font-mono mb-8 relative z-10 uppercase tracking-widest text-sm">Target documentation block inaccessible.</p>
-        <button onClick={() => window.history.back()} className="relative z-10 bg-primary text-black font-display font-bold uppercase tracking-widest px-8 py-4 hover:bg-primary/90 transition-colors">
+        <button onClick={() => window.history.back()} className="relative z-10 bg-primary text-primary-foreground font-display font-bold uppercase tracking-widest px-8 py-4 hover:bg-primary/90 transition-colors">
           Return to Hub
         </button>
       </div>
@@ -105,7 +105,7 @@ export default function Doc() {
       
       {/* Main Document Content */}
       <article className="flex-1 min-w-0">
-        <div className="flex items-center gap-3 font-mono text-xs tracking-widest uppercase text-muted-foreground mb-12 bg-black/5 px-4 py-2 w-fit border border-border">
+        <div className="flex items-center gap-3 font-mono text-xs tracking-widest uppercase text-muted-foreground mb-12 bg-muted px-4 py-2 w-fit border border-border">
           <span className="text-primary">{doc.category}</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
           <span className="text-foreground font-semibold">{doc.title}</span>
@@ -148,7 +148,7 @@ export default function Doc() {
                   href={`#${item.id}`}
                   className={`line-clamp-2 transition-all block border-l-2 py-1 pl-3 ${
                     activeId === item.id 
-                      ? "border-primary text-foreground font-bold bg-black/5" 
+                      ? "border-primary text-foreground font-bold bg-muted" 
                       : "border-border text-muted-foreground hover:text-foreground hover:border-border"
                   } ${item.level === 3 ? "ml-4 text-[10px]" : ""}`}
                 >

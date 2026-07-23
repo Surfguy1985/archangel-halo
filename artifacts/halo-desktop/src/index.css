@@ -1,5 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -36,7 +36,7 @@
   --color-destructive-foreground: var(--destructive-foreground);
 
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: "Space Grotesk", var(--font-sans);
+  --font-display: "Plus Jakarta Sans", var(--font-sans);
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -46,46 +46,46 @@
 }
 
 :root {
-  --background: #EEF2F6;
-  --foreground: #0F172A;
+  --background: #F1F5F9;
+  --foreground: #020617;
   --card: #FFFFFF;
-  --card-foreground: #0F172A;
+  --card-foreground: #020617;
   --popover: #FFFFFF;
-  --popover-foreground: #0F172A;
+  --popover-foreground: #020617;
   --primary: #B4FF44;
-  --primary-foreground: #0F172A;
-  --secondary: #CBD5E1;
-  --secondary-foreground: #0F172A;
+  --primary-foreground: #041029;
+  --secondary: #0A1930;
+  --secondary-foreground: #FFFFFF;
   --muted: #E2E8F0;
   --muted-foreground: #475569;
   --accent: #B4FF44;
-  --accent-foreground: #0F172A;
-  --destructive: #E11D2E;
+  --accent-foreground: #041029;
+  --destructive: #EF4444;
   --destructive-foreground: #FFFFFF;
   --border: #CBD5E1;
   --input: #CBD5E1;
-  --ring: #475569;
+  --ring: #0A1930;
   --radius: 0.5rem;
   
-  --ink: #0F172A;
-  --ink2: #475569;
-  --paper: #EEF2F6;
+  --ink: #041029;
+  --ink2: #334155;
+  --paper: #F1F5F9;
   --hairline: #CBD5E1;
-  --hairline2: #AAB8C9;
+  --hairline2: #94A3B8;
   
-  --gold: #6D9B12;
-  --gold-dark: #5A800F;
+  --gold: #0A1930;
+  --gold-dark: #020617;
   --gold-light: #B4FF44;
-  --gold-tint: rgba(180, 255, 68, 0.25);
+  --gold-tint: rgba(180, 255, 68, 0.15);
   
-  --red: #DC2626;
-  --orange: #EA580C;
-  --yellow: #CA8A04;
-  --green: #16A34A;
-  --blue: #2563EB;
-  --purple: #7C3AED;
+  --red: #EF4444;
+  --orange: #F97316;
+  --yellow: #EAB308;
+  --green: #22C55E;
+  --blue: #3B82F6;
+  --purple: #8B5CF6;
   
-  --shadow: 0 8px 30px rgba(15,23,42,0.08);
+  --shadow: 0 4px 24px -4px rgba(2, 6, 23, 0.08);
 }
 
 body {
@@ -99,48 +99,46 @@ body {
 
 .font-display { 
   font-family: var(--font-display); 
-  letter-spacing: -0.03em; 
+  letter-spacing: -0.02em; 
 }
 
 .btn-gold {
   background: var(--primary);
   color: var(--primary-foreground);
-  box-shadow: 0 0 15px rgba(180, 255, 68, 0.3);
-  font-weight: 600;
-  border-radius: 0;
+  font-weight: 700;
+  border-radius: var(--radius);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   font-family: var(--font-display);
+  border: 1px solid transparent;
 }
 .btn-gold:hover {
-  background: var(--gold-light);
-  transform: translateY(-2px);
-  box-shadow: 0 0 25px rgba(180, 255, 68, 0.5);
+  background: #A3E63D;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(180, 255, 68, 0.3);
 }
 .btn-ghost {
   background: transparent;
   color: var(--foreground);
   font-weight: 500;
   transition: all 0.2s ease;
-  border-radius: 0;
+  border-radius: var(--radius);
 }
 .btn-ghost:hover {
   background: var(--muted);
-  color: var(--primary);
+  color: var(--ink);
 }
 .btn-line {
   border: 1px solid var(--border);
   color: var(--foreground);
-  background: transparent;
+  background: var(--card);
   font-weight: 500;
   transition: all 0.2s ease;
-  border-radius: 0;
+  border-radius: var(--radius);
 }
 .btn-line:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-  box-shadow: inset 0 0 0 1px var(--primary);
+  border-color: var(--secondary);
+  color: var(--secondary);
 }
 
 /* Custom scrollbar for sleek look */
@@ -149,14 +147,15 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--muted);
+  background: var(--muted-foreground);
+  opacity: 0.5;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
+  background: var(--secondary);
 }
 
 /* Base custom icon container */
@@ -164,13 +163,12 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--muted);
-  color: var(--primary);
-  border-radius: 4px;
+  background: var(--secondary);
+  color: var(--card);
+  border-radius: 6px;
   padding: 6px;
   transition: all 0.2s ease;
 }
 .custom-icon:hover {
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--ink);
 }

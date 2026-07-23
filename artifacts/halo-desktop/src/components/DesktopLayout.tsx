@@ -39,10 +39,10 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex text-foreground">
       {/* Sidebar Navigation */}
-      <aside className="w-[240px] border-r border-border bg-card flex flex-col fixed inset-y-0 left-0 shadow-2xl z-40">
-        <div data-tour="brand" className="p-6 pb-5 border-b border-border flex flex-col gap-2">
-          <img src={haloLogo} alt="HALO" className="h-9 w-auto self-start filter brightness-0" />
-          <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground pl-0.5 font-display font-medium">Archangel Operations</span>
+      <aside className="w-[240px] border-r border-border bg-[var(--secondary)] text-[var(--secondary-foreground)] flex flex-col fixed inset-y-0 left-0 shadow-2xl z-40">
+        <div data-tour="brand" className="p-6 pb-5 border-b border-[var(--ink2)] flex flex-col gap-2">
+          <img src={haloLogo} alt="HALO" className="h-9 w-auto self-start filter brightness-0 invert" />
+          <span className="text-[10px] tracking-[0.2em] uppercase text-[var(--hairline2)] pl-0.5 font-display font-medium">Archangel Operations</span>
         </div>
 
         <nav data-tour="sidebar" className="flex-1 py-6 px-4 flex flex-col gap-2 overflow-y-auto">
@@ -59,12 +59,12 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
           <NavItem href="/import" icon={ImportIcon} label="Import" active={location.startsWith("/import")} tourId="nav-import" />
         </nav>
 
-        <div className="p-4 border-t border-border flex gap-2">
+        <div className="p-4 border-t border-[var(--ink2)] flex gap-2">
            <button
             data-tour="talk"
             onClick={() => setVoiceOpen(true)}
             title="Talk to HALO"
-            className="flex-1 h-10 rounded-none flex items-center justify-center bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(180,255,68,0.3)] transition-all font-display font-bold uppercase tracking-wider"
+            className="flex-1 h-10 rounded-md flex items-center justify-center bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(180,255,68,0.3)] transition-all font-display font-bold uppercase tracking-wider"
           >
             <Mic className="w-4 h-4 mr-2" />
             Talk
@@ -72,12 +72,12 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
           <NotificationsPopover>
             <button
               data-tour="notifications"
-              className="relative w-10 h-10 rounded-none flex items-center justify-center bg-card shadow-sm border border-border hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+              className="relative w-10 h-10 rounded-md flex items-center justify-center bg-[var(--ink2)] text-white shadow-sm border border-[var(--ink2)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
               {today?.unreadNotifications ? (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-none bg-[var(--primary)] text-black text-[10px] font-bold flex items-center justify-center shadow-[0_0_10px_rgba(180,255,68,0.5)]">
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] text-[10px] font-bold flex items-center justify-center shadow-[0_0_10px_rgba(180,255,68,0.5)]">
                   {today.unreadNotifications}
                 </span>
               ) : null}
@@ -87,24 +87,24 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
             <DropdownMenuTrigger asChild>
               <button
                 data-tour="more"
-                className="w-10 h-10 rounded-none flex items-center justify-center bg-card shadow-sm border border-border hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+                className="w-10 h-10 rounded-md flex items-center justify-center bg-[var(--ink2)] text-white shadow-sm border border-[var(--ink2)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
                 title="More"
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="end" className="w-60 rounded-none border-[var(--border)] bg-card text-foreground">
+            <DropdownMenuContent side="top" align="end" className="w-60 rounded-md border-[var(--border)] bg-card text-foreground">
               <DropdownMenuLabel className="font-display uppercase tracking-wider text-xs">Workspace</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-[var(--border)]" />
-              <DropdownMenuItem onSelect={() => setTourOpen(true)} className="rounded-none focus:bg-[var(--muted)] focus:text-[var(--primary)]">
+              <DropdownMenuItem onSelect={() => setTourOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]">
                 <GraduationCap className="w-4 h-4 mr-2" />
                 Guided tour
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setSettingsOpen(true)} className="rounded-none focus:bg-[var(--muted)] focus:text-[var(--primary)]">
+              <DropdownMenuItem onSelect={() => setSettingsOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]">
                 <Settings className="w-4 h-4 mr-2" />
                 Settings &amp; business info
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setVoiceOpen(true)} className="rounded-none focus:bg-[var(--muted)] focus:text-[var(--primary)]">
+              <DropdownMenuItem onSelect={() => setVoiceOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]">
                 <Mic className="w-4 h-4 mr-2" />
                 Talk to HALO
               </DropdownMenuItem>
@@ -125,14 +125,14 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
                 if (e.key === "Enter") submitCommand();
               }}
               placeholder="Ask HALO to do anything — “Invoice Maple Grove $950 for painting unit 5”…"
-              className="w-full h-12 rounded-none bg-card border border-border shadow-sm pl-11 pr-24 text-sm focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_15px_rgba(180,255,68,0.1)] placeholder:text-muted-foreground font-mono transition-all text-foreground"
+              className="w-full h-12 rounded-full bg-card border border-border shadow-sm pl-11 pr-24 text-sm focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_15px_rgba(180,255,68,0.1)] placeholder:text-muted-foreground font-mono transition-all text-foreground"
               data-testid="input-command-bar"
             />
             {cmdText.trim() && (
               <button
                 type="button"
                 onClick={submitCommand}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 px-6 rounded-none bg-[var(--primary)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(180,255,68,0.3)] text-black text-xs font-display font-bold uppercase tracking-wider transition-all"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 px-6 rounded-full bg-[var(--primary)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(180,255,68,0.3)] text-[var(--primary-foreground)] text-xs font-display font-bold uppercase tracking-wider transition-all"
                 data-testid="button-command-go"
               >
                 Do it

@@ -62,62 +62,70 @@
 }
 
 :root {
-  /* Official palette: #B4FF44 lime, #EEF2F6 light, #CBD5E1 medium grey, #475569 slate, #0F172A ink */
-  --background: 210 36% 95%; /* #EEF2F6 */
-  --foreground: 222 47% 11%; /* #0F172A */
+  /* Navy and Lime Light Theme */
+  --background: 210 20% 98%; /* Very light slate */
+  --foreground: 222 47% 11%; /* Navy text */
   
-  --border: 213 28% 84%; /* #CBD5E1 */
-  --input: 213 28% 84%;
-  --ring: 215 19% 35%; /* #475569 */
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 222 47% 11%; /* Navy ring */
   
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
-  --card-border: 213 28% 84%;
+  --card-border: 214 32% 91%;
   
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
-  --popover-border: 213 28% 84%;
+  --popover-border: 214 32% 91%;
   
-  --primary: 84 100% 63%; /* #B4FF44 lime */
-  --primary-foreground: 222 47% 11%; /* Dark ink text on lime */
+  --primary: 222 47% 11%; /* Navy background for primary elements */
+  --primary-foreground: 84 100% 63%; /* Lime text on primary elements */
   
-  --secondary: 213 28% 84%; /* #CBD5E1 */
-  --secondary-foreground: 222 47% 11%;
+  --secondary: 84 100% 63%; /* Lime */
+  --secondary-foreground: 222 47% 11%; /* Navy */
   
-  --muted: 214 32% 91%;
-  --muted-foreground: 215 19% 35%; /* #475569 */
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
   
   --accent: 84 100% 63%; /* Lime */
   --accent-foreground: 222 47% 11%;
   
-  --destructive: 0 84% 50%;
-  --destructive-foreground: 0 0% 100%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
   
   --sidebar: 0 0% 100%;
   --sidebar-foreground: 222 47% 11%;
-  --sidebar-border: 213 28% 84%;
-  --sidebar-primary: 84 100% 63%;
-  --sidebar-primary-foreground: 222 47% 11%;
+  --sidebar-border: 214 32% 91%;
+  --sidebar-primary: 222 47% 11%;
+  --sidebar-primary-foreground: 84 100% 63%;
   --sidebar-accent: 214 32% 91%;
   --sidebar-accent-foreground: 222 47% 11%;
-  --sidebar-ring: 215 19% 35%;
+  --sidebar-ring: 222 47% 11%;
+
+  /* Legacy arbitrary tokens just in case */
+  --ink: 222 47% 11%;
+  --gold: 84 100% 63%;
+  --gold-light: 84 100% 73%;
+  --gold-dark: 84 100% 43%;
+  --gold-tint: 84 100% 90%;
+  --shadow: 222 47% 11%;
   
   --app-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --app-font-display: "Space Grotesk", var(--app-font-sans);
   --app-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
-  --radius: 0rem; /* Sharp edges for a modern look */
+  --radius: 0.5rem; /* Slight radius for premium feel */
 
-  --shadow-2xs: 0px 1px 2px rgba(0,0,0,0.5);
-  --shadow-xs: 0px 2px 4px rgba(0,0,0,0.5);
-  --shadow-sm: 0px 4px 8px rgba(0,0,0,0.5);
-  --shadow: 0px 8px 16px rgba(0,0,0,0.5);
-  --shadow-md: 0px 12px 24px rgba(0,0,0,0.5);
-  --shadow-lg: 0px 24px 48px rgba(0,0,0,0.5);
+  --shadow-2xs: 0px 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-xs: 0px 2px 4px rgba(15, 23, 42, 0.05);
+  --shadow-sm: 0px 4px 8px rgba(15, 23, 42, 0.05);
+  --shadow: 0px 8px 16px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0px 12px 24px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0px 24px 48px rgba(15, 23, 42, 0.12);
 
   --opaque-button-border-intensity: 0;
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --elevate-1: rgba(0,0,0, .02);
+  --elevate-2: rgba(0,0,0, .04);
 
   --sidebar-primary-border: transparent;
   --sidebar-accent-border: transparent;
@@ -129,44 +137,52 @@
 }
 
 .dark {
-  --background: 0 0% 3%;
-  --foreground: 0 0% 100%;
+  /* Navy and Lime Dark Theme */
+  --background: 222 47% 7%; /* Deep navy background */
+  --foreground: 210 40% 98%; /* Crisp white text */
   
-  --border: 0 0% 15%;
-  --input: 0 0% 15%;
-  --ring: 72 90% 51%;
+  --border: 215 28% 17%;
+  --input: 215 28% 17%;
+  --ring: 84 100% 63%; /* Lime ring */
   
-  --card: 0 0% 5%;
-  --card-foreground: 0 0% 100%;
-  --card-border: 0 0% 12%;
+  --card: 222 47% 9%;
+  --card-foreground: 210 40% 98%;
+  --card-border: 215 28% 17%;
   
-  --popover: 0 0% 5%;
-  --popover-foreground: 0 0% 100%;
-  --popover-border: 0 0% 12%;
+  --popover: 222 47% 9%;
+  --popover-foreground: 210 40% 98%;
+  --popover-border: 215 28% 17%;
   
-  --primary: 72 90% 51%;
-  --primary-foreground: 0 0% 0%;
+  --primary: 84 100% 63%; /* Lime primary */
+  --primary-foreground: 222 47% 7%; /* Dark navy text on lime */
   
-  --secondary: 0 0% 15%;
-  --secondary-foreground: 0 0% 100%;
+  --secondary: 215 28% 17%;
+  --secondary-foreground: 210 40% 98%;
   
-  --muted: 0 0% 12%;
-  --muted-foreground: 0 0% 65%;
+  --muted: 215 28% 14%;
+  --muted-foreground: 215 20.2% 65.1%;
   
-  --accent: 72 90% 51%;
-  --accent-foreground: 0 0% 0%;
+  --accent: 84 100% 63%; /* Lime */
+  --accent-foreground: 222 47% 7%;
   
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 100%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
 
-  --sidebar: 0 0% 3%;
-  --sidebar-foreground: 0 0% 100%;
-  --sidebar-border: 0 0% 15%;
-  --sidebar-primary: 72 90% 51%;
-  --sidebar-primary-foreground: 0 0% 0%;
-  --sidebar-accent: 0 0% 15%;
-  --sidebar-accent-foreground: 0 0% 100%;
-  --sidebar-ring: 72 90% 51%;
+  --sidebar: 222 47% 7%;
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-border: 215 28% 17%;
+  --sidebar-primary: 84 100% 63%;
+  --sidebar-primary-foreground: 222 47% 7%;
+  --sidebar-accent: 215 28% 17%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-ring: 84 100% 63%;
+
+  --shadow-2xs: 0px 1px 2px rgba(0,0,0,0.5);
+  --shadow-xs: 0px 2px 4px rgba(0,0,0,0.5);
+  --shadow-sm: 0px 4px 8px rgba(0,0,0,0.5);
+  --shadow: 0px 8px 16px rgba(0,0,0,0.5);
+  --shadow-md: 0px 12px 24px rgba(0,0,0,0.5);
+  --shadow-lg: 0px 24px 48px rgba(0,0,0,0.5);
 
   --opaque-button-border-intensity: 0;
   --elevate-1: rgba(255,255,255, .04);
@@ -181,15 +197,18 @@
     @apply font-sans antialiased bg-background text-foreground selection:bg-primary selection:text-primary-foreground;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display tracking-tight uppercase;
+    @apply font-display tracking-tight uppercase font-semibold text-primary;
+  }
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+    @apply text-foreground; /* White in dark mode looks better, lime could be too intense for all headings */
   }
 }
 
 .prose pre {
-  @apply bg-black text-white border border-white/10 shadow-sm rounded-none;
+  @apply bg-black/90 text-white border border-white/10 shadow-sm rounded-lg;
 }
 .prose code {
-  @apply font-mono text-[0.875em] bg-black/5 text-foreground px-1.5 py-0.5 rounded-none;
+  @apply font-mono text-[0.875em] bg-primary/10 text-primary px-1.5 py-0.5 rounded-md;
 }
 .dark .prose code {
   @apply bg-white/10 text-white;
@@ -201,25 +220,31 @@
   @apply text-primary font-medium underline underline-offset-4 decoration-primary/30 hover:decoration-primary transition-colors;
 }
 .prose h1, .prose h2, .prose h3, .prose h4 {
-  @apply font-display scroll-m-20 text-foreground uppercase tracking-widest;
+  @apply font-display scroll-m-20 uppercase tracking-widest text-primary font-bold;
+}
+.dark .prose h1, .dark .prose h2, .dark .prose h3, .dark .prose h4 {
+  @apply text-foreground;
 }
 .prose strong {
   @apply font-semibold text-foreground;
 }
 .prose blockquote {
-  @apply border-l-2 border-primary bg-primary/5 rounded-none px-4 py-2 not-italic text-foreground/80;
+  @apply border-l-4 border-primary bg-primary/5 rounded-r-lg px-6 py-3 not-italic text-foreground/80 my-6;
 }
 .prose blockquote p {
   @apply my-0;
 }
 .prose table {
-  @apply w-full border-collapse text-left;
+  @apply w-full border-collapse text-left my-6;
 }
 .prose th {
-  @apply border-b border-border p-4 font-display font-semibold text-foreground bg-black/5 uppercase tracking-widest text-xs;
+  @apply border-b-2 border-border p-4 font-display font-semibold text-foreground bg-muted/50 uppercase tracking-widest text-xs;
 }
 .prose td {
-  @apply border-b border-border p-4 text-muted-foreground;
+  @apply border-b border-border p-4 text-muted-foreground align-top;
+}
+.prose tr:hover td {
+  @apply bg-muted/20;
 }
 .prose tr:last-child td {
   @apply border-b-0;
@@ -233,3 +258,4 @@
     pointer-events: none;
   }
 }
+

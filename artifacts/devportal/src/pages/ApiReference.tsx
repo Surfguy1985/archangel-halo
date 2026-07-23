@@ -7,7 +7,7 @@ import { FalkonBadge } from "@/components/FalkonBadge";
 
 export default function ApiReference() {
   return (
-    <div className="api-reference-wrapper bg-background min-h-screen flex flex-col font-sans selection:bg-primary selection:text-black">
+    <div className="api-reference-wrapper bg-background min-h-screen flex flex-col font-sans selection:bg-primary selection:text-primary-foreground">
       <div className="sticky top-0 z-50 h-16 flex items-center justify-between px-6 border-b border-border bg-background/95 backdrop-blur-xl">
         <div className="flex items-center gap-6">
           <Link href="/" className="group flex items-center gap-3 text-xs font-mono font-medium text-muted-foreground hover:text-foreground transition-colors uppercase tracking-widest">
@@ -31,11 +31,24 @@ export default function ApiReference() {
             --theme-color-1: hsl(222, 47%, 11%); /* Ink text */
             --theme-color-2: hsl(215, 19%, 35%); /* Slate */
             --theme-color-3: hsl(215, 16%, 47%); /* Muted */
-            --theme-color-accent: hsl(84, 60%, 32%); /* Dark lime accent for readable links */
+            --theme-color-accent: hsl(222, 47%, 11%); /* Navy links on light mode */
             --theme-background-1: hsl(0, 0%, 100%);
-            --theme-background-2: hsl(210, 36%, 95%);
-            --theme-background-3: hsl(213, 28%, 90%);
-            --theme-border-color: hsl(213, 28%, 84%);
+            --theme-background-2: hsl(210, 20%, 98%);
+            --theme-background-3: hsl(214, 32%, 91%);
+            --theme-border-color: hsl(214, 32%, 91%);
+            --sidebar-background-1: var(--theme-background-1);
+            --sidebar-color-1: var(--theme-color-2);
+            --sidebar-color-2: var(--theme-color-3);
+          }
+          .dark .api-reference-wrapper {
+            --theme-color-1: hsl(210, 40%, 98%); /* White text */
+            --theme-color-2: hsl(215, 20%, 65%); /* Slate */
+            --theme-color-3: hsl(215, 16%, 47%); /* Muted */
+            --theme-color-accent: hsl(84, 100%, 63%); /* Lime links on dark mode */
+            --theme-background-1: hsl(222, 47%, 7%);
+            --theme-background-2: hsl(222, 47%, 9%);
+            --theme-background-3: hsl(215, 28%, 14%);
+            --theme-border-color: hsl(215, 28%, 17%);
             --sidebar-background-1: var(--theme-background-1);
             --sidebar-color-1: var(--theme-color-2);
             --sidebar-color-2: var(--theme-color-3);
@@ -49,6 +62,9 @@ export default function ApiReference() {
             text-transform: uppercase;
             letter-spacing: 0.05em;
           }
+          .scalar-app .sidebar {
+            border-right: 1px solid var(--theme-border-color) !important;
+          }
         `}</style>
         <ApiReferenceReact
           configuration={{
@@ -58,7 +74,8 @@ export default function ApiReference() {
           }}
         />
       </div>
-      <footer className="border-t border-white/10 py-8 bg-black">
+      <footer className="border-t border-primary/20 py-12 bg-[#0a0f1a] relative overflow-hidden text-white">
+        <div className="absolute top-0 left-1/4 w-1/2 h-px bg-gradient-to-r from-transparent via-primary to-transparent" />
         <div className="container mx-auto px-6 flex justify-center">
           <FalkonBadge />
         </div>

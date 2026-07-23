@@ -19,13 +19,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, {} as Record<string, typeof docs>);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col font-sans selection:bg-primary selection:text-black">
+    <div className="min-h-screen bg-background flex flex-col font-sans selection:bg-primary selection:text-primary-foreground">
       {/* Top Navigation */}
       <header className="sticky top-0 z-40 w-full border-b border-border bg-background/90 backdrop-blur-xl">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-10">
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="bg-primary text-black p-2 relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+              <div className="bg-primary text-primary-foreground p-2 relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
                 <Terminal className="w-6 h-6 relative z-10" strokeWidth={1.5} />
                 <div className="absolute inset-0 bg-black/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </div>
@@ -33,8 +33,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </Link>
             
             <nav className="hidden md:flex items-center gap-8 text-sm font-medium tracking-widest uppercase">
-              <Link href="/" className={location === "/" ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>Home</Link>
-              <Link href={docs.length > 0 ? `/docs/${docs[0].slug}` : "/"} className={location.startsWith("/docs") ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>Docs</Link>
+              <Link href="/" className={location === "/" ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground transition-colors"}>Home</Link>
+              <Link href={docs.length > 0 ? `/docs/${docs[0].slug}` : "/"} className={location.startsWith("/docs") ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground transition-colors"}>Docs</Link>
               <Link href="/api-reference" className="text-muted-foreground hover:text-foreground transition-colors">API</Link>
             </nav>
           </div>
@@ -42,11 +42,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setSearchOpen(true)}
-              className="hidden md:flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground bg-black/5 border border-border hover:bg-black/10 hover:border-primary/50 transition-all w-72 group"
+              className="hidden md:flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground bg-muted border border-border hover:bg-muted/80 hover:border-primary/50 transition-all w-72 group"
             >
               <Search className="w-4 h-4 group-hover:text-primary transition-colors" />
               <span className="flex-1 text-left font-mono text-xs uppercase tracking-wider">Search...</span>
-              <kbd className="pointer-events-none inline-flex h-6 select-none items-center gap-1 bg-black/10 px-2 font-mono text-[10px] font-medium text-foreground">
+              <kbd className="pointer-events-none inline-flex h-6 select-none items-center gap-1 bg-background px-2 font-mono text-[10px] font-medium text-foreground border border-border">
                 <span>⌘</span>K
               </kbd>
             </button>
@@ -84,8 +84,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         href={`/docs/${doc.slug}`}
                         className={`pl-5 py-2 text-sm transition-all border-l-2 -ml-[1px] font-mono ${
                           isActive 
-                            ? "border-primary text-primary bg-primary/5" 
-                            : "border-transparent text-muted-foreground hover:text-foreground hover:border-border hover:bg-black/5"
+                            ? "border-primary text-primary bg-primary/5 font-bold" 
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted/50"
                         }`}
                       >
                         {doc.title}
@@ -105,10 +105,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 py-12 mt-24 bg-black relative overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-1/2 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+      <footer className="border-t border-primary/20 py-12 mt-24 bg-[#0a0f1a] relative overflow-hidden text-white">
+        <div className="absolute top-0 left-1/4 w-1/2 h-px bg-gradient-to-r from-transparent via-primary to-transparent" />
         <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3 text-white">
+          <div className="flex items-center gap-3">
             <Terminal className="w-5 h-5 text-primary" strokeWidth={1.5} />
             <span className="font-display font-bold tracking-widest uppercase text-sm">HALO DEV</span>
           </div>
@@ -169,9 +169,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         setSearchOpen(false);
                         setLocation(`/docs/${doc.slug}`);
                       }}
-                      className="flex items-center gap-4 cursor-pointer data-[selected=true]:bg-black/5 data-[selected=true]:text-foreground group transition-colors"
+                      className="flex items-center gap-4 cursor-pointer data-[selected=true]:bg-muted data-[selected=true]:text-foreground group transition-colors"
                     >
-                      <div className="w-8 h-8 flex items-center justify-center bg-secondary border border-border group-data-[selected=true]:border-primary group-data-[selected=true]:text-primary transition-colors">
+                      <div className="w-8 h-8 flex items-center justify-center bg-background border border-border group-data-[selected=true]:border-primary group-data-[selected=true]:text-primary transition-colors">
                         <BookOpen className="w-4 h-4" />
                       </div>
                       <div className="flex flex-col">

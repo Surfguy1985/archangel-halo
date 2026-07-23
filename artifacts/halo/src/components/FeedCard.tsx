@@ -32,7 +32,7 @@ export function BriefCard({ brief }: { brief: Brief }) {
       <div className="relative z-10 text-[16px] text-white/95 leading-[1.4] font-medium mb-[16px]" dangerouslySetInnerHTML={{ __html: brief.body }} />
       <div className="relative z-10 mt-[8px] flex items-center justify-between">
         <div className="flex gap-[8px]">
-          <span className="text-[11px] font-bold text-black bg-[var(--gold-light)] rounded-[20px] px-[10px] py-[4px] shadow-[0_4px_12px_rgba(0,122,255,0.3)] flex items-center gap-[4px]">
+          <span className="text-[11px] font-bold text-black bg-[var(--gold-light)] rounded-[20px] px-[10px] py-[4px] shadow-[0_4px_12px_rgba(180,255,68,0.35)] flex items-center gap-[4px]">
             <Sparkles className="w-[12px] h-[12px]" />
             HALO
           </span>
@@ -198,7 +198,7 @@ export function FeedCard({
                     e.stopPropagation();
                     runAction(a.action);
                   }}
-                  className={`rounded-[12px] px-[14px] py-[8px] text-[13px] font-bold tracking-wide transition-all active:scale-95 disabled:opacity-50 inline-flex items-center justify-center gap-[6px] shadow-sm ${a.kind === 'gold' ? 'bg-[linear-gradient(135deg,#47A1FF,var(--gold))] text-white shadow-[0_4px_12px_rgba(0,122,255,0.25)] border border-white/20' : a.kind === 'ghost' ? 'bg-[rgba(0,0,0,0.05)] text-[var(--ink)] hover:bg-[rgba(0,0,0,0.08)]' : 'bg-white border border-[rgba(0,0,0,0.1)] text-[var(--ink)] shadow-[0_2px_4px_rgba(0,0,0,0.04)]'}`}
+                  className={`rounded-[12px] px-[14px] py-[8px] text-[13px] font-bold tracking-wide transition-all active:scale-95 disabled:opacity-50 inline-flex items-center justify-center gap-[6px] shadow-sm ${a.kind === 'gold' ? 'bg-[var(--gold-light)] text-[#07101E] shadow-[0_4px_12px_rgba(180,255,68,0.35)]' : a.kind === 'ghost' ? 'bg-[rgba(0,0,0,0.05)] text-[var(--ink)] hover:bg-[rgba(0,0,0,0.08)]' : 'bg-white border border-[rgba(0,0,0,0.1)] text-[var(--ink)] shadow-[0_2px_4px_rgba(0,0,0,0.04)]'}`}
                 >
                   {actionPending && (a.action === "remindInvoice" || a.action === "nudgeBid") && (
                     <Loader2 className="w-[14px] h-[14px] animate-spin" />

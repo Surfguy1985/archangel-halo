@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -29,13 +29,13 @@
   --color-muted-foreground: var(--faint);
   
   --color-accent: var(--gold-tint);
-  --color-accent-foreground: var(--gold);
+  --color-accent-foreground: var(--gold-dark);
   
   --color-destructive: var(--red);
   --color-destructive-foreground: #ffffff;
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: "Bricolage Grotesque", var(--font-sans);
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Outfit", var(--font-sans);
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -45,30 +45,30 @@
 }
 
 :root {
-  --ink: #0F172A;
-  --ink2: #475569;
-  --muted: #64748B;
-  --faint: #94A3B8;
-  --paper: #EEF2F6;
+  --ink: #07101E;
+  --ink2: #13223A;
+  --muted: #435A7D;
+  --faint: #8CA0B9;
+  --paper: #F4F7F9;
   --card: #FFFFFF;
-  --hairline: rgba(71,85,105,0.18);
-  --hairline2: rgba(71,85,105,0.32);
+  --hairline: rgba(19, 34, 58, 0.12);
+  --hairline2: rgba(19, 34, 58, 0.22);
   
   --gold: #6D9B12;
-  --gold-dark: #5A800F;
+  --gold-dark: #557F0D;
   --gold-light: #B4FF44;
-  --gold-tint: rgba(180, 255, 68, 0.25);
+  --gold-tint: rgba(140, 202, 37, 0.14);
   
   --red: #E11D48;
   --orange: #EA580C;
   --yellow: #CA8A04;
-  --green: #65A30D;
+  --green: #15803D;
   --blue: #2563EB;
   --purple: #7C3AED;
   
-  --app-backdrop: #CBD5E1;
+  --app-backdrop: #07101E;
   
-  --radius: 12px;
+  --radius: 14px;
 }
 
 body {
@@ -77,7 +77,7 @@ body {
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   font-size: 15px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 /* Stage container */
@@ -89,14 +89,15 @@ body {
   justify-content: center;
   gap: 14px;
   padding: 28px 16px;
+  background: var(--app-backdrop);
 }
 .frame {
   width: min(430px, 100%);
   height: clamp(660px, 92dvh, 920px);
   background: var(--paper);
-  border-radius: 32px;
-  border: 1px solid var(--hairline);
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 80px rgba(0,0,0,0.5);
+  border-radius: 36px;
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 0 0 8px rgba(255,255,255,0.02), 0 30px 80px rgba(0,0,0,0.6);
   overflow: hidden;
   position: relative;
   display: flex;
@@ -110,21 +111,32 @@ body {
 .font-display { font-family: var(--font-display); }
 
 .btn-gold {
-  background: var(--gold);
-  color: #000000;
-  box-shadow: 0 0 20px rgba(180, 255, 68, 0.2);
-  transition: all 0.2s ease;
+  background: var(--gold-light);
+  color: #07101E;
+  font-weight: 600;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 14px rgba(180, 255, 68, 0.25);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .btn-gold:hover {
-  background: var(--gold-light);
-  box-shadow: 0 0 30px rgba(180, 255, 68, 0.4);
+  background: #C9FF7A;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(180, 255, 68, 0.4);
 }
 .btn-ghost {
-  background: rgba(255,255,255,.05);
+  background: rgba(19, 34, 58, 0.04);
   color: var(--ink);
+  transition: all 0.2s ease;
+}
+.btn-ghost:hover {
+  background: rgba(19, 34, 58, 0.08);
 }
 .btn-line {
   border: 1px solid var(--hairline2);
   color: var(--ink);
   background: transparent;
+  transition: all 0.2s ease;
+}
+.btn-line:hover {
+  background: rgba(19, 34, 58, 0.02);
 }
