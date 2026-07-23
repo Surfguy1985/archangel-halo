@@ -114,7 +114,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <main className="ml-[240px] flex-1 bg-[var(--paper)]">
         <div className="sticky top-0 z-30 bg-[var(--paper)]/95 backdrop-blur px-8 pt-4 pb-2">
-          <div className="relative max-w-2xl">
+          <div data-tour="ask-halo" className="relative max-w-2xl">
             <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--gold-dark)]" />
             <input
               value={cmdText}

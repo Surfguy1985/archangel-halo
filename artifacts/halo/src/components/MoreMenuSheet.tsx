@@ -2,15 +2,30 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Link } from "wouter";
 import { CalendarDays, GitBranch, Package, ShieldCheck, FileUp, BookOpen, ChevronRight, ClipboardList, Settings } from "lucide-react";
 
-const items = [
-  { href: "/jobboard", label: "Job Board", sub: "Dispatch and fill open jobs", Icon: ClipboardList },
-  { href: "/calendar", label: "Calendar", sub: "Day, week & month schedule", Icon: CalendarDays },
-  { href: "/pipeline", label: "Pipeline", sub: "Leads & bids", Icon: GitBranch },
-  { href: "/catalog", label: "Price Book", sub: "Master list of services & prices", Icon: BookOpen },
-  { href: "/supply", label: "Supply", sub: "Inventory & purchase orders", Icon: Package },
-  { href: "/vendors", label: "Vendors", sub: "COI compliance", Icon: ShieldCheck },
-  { href: "/import", label: "Import", sub: "Upload a file, we file it", Icon: FileUp },
-  { href: "/settings", label: "Settings", sub: "Start fresh & workspace options", Icon: Settings },
+const groups = [
+  {
+    label: "Work",
+    items: [
+      { href: "/jobboard", label: "Job Board", sub: "Dispatch and fill open jobs", Icon: ClipboardList },
+      { href: "/calendar", label: "Calendar", sub: "Day, week & month schedule", Icon: CalendarDays },
+      { href: "/pipeline", label: "Pipeline", sub: "Leads & bids", Icon: GitBranch },
+    ],
+  },
+  {
+    label: "Catalog",
+    items: [
+      { href: "/catalog", label: "Price Book", sub: "Master list of services & prices", Icon: BookOpen },
+      { href: "/supply", label: "Supply", sub: "Inventory & purchase orders", Icon: Package },
+      { href: "/vendors", label: "Vendors", sub: "COI compliance", Icon: ShieldCheck },
+    ],
+  },
+  {
+    label: "Setup",
+    items: [
+      { href: "/import", label: "Import", sub: "Upload a file, we file it", Icon: FileUp },
+      { href: "/settings", label: "Settings", sub: "Start fresh & workspace options", Icon: Settings },
+    ],
+  },
 ];
 
 export function MoreMenuSheet({
@@ -32,20 +47,29 @@ export function MoreMenuSheet({
             <SheetTitle className="font-display font-bold text-[19px] m-[6px_0_2px]">More</SheetTitle>
             <div className="text-[13px] text-muted-foreground">The back office — quiet until it matters.</div>
           </SheetHeader>
-          <div className="flex flex-col gap-[10px]">
-            {items.map(({ href, label, sub, Icon }) => (
-              <Link key={href} href={href} onClick={() => onOpenChange(false)}>
-                <div className="flex items-center gap-[13px] bg-card border border-border rounded-[14px] p-[13px_14px] shadow-[var(--shadow)] transition-transform active:scale-[0.98]">
-                  <div className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--paper)] border border-border shrink-0">
-                    <Icon className="w-[19px] h-[19px] text-[var(--gold-dark)]" strokeWidth={1.9} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-display font-bold text-[15px]">{label}</div>
-                    <div className="text-[12.5px] text-muted-foreground">{sub}</div>
-                  </div>
-                  <ChevronRight className="w-[18px] h-[18px] text-muted-foreground shrink-0" />
+          <div className="flex flex-col gap-[18px]">
+            {groups.map((group) => (
+              <div key={group.label}>
+                <div className="text-[11.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground/70 mb-[8px] px-[4px]">
+                  {group.label}
                 </div>
-              </Link>
+                <div className="flex flex-col gap-[10px]">
+                  {group.items.map(({ href, label, sub, Icon }) => (
+                    <Link key={href} href={href} onClick={() => onOpenChange(false)}>
+                      <div className="flex items-center gap-[13px] bg-card border border-border rounded-[14px] p-[13px_14px] shadow-[var(--shadow)] transition-transform active:scale-[0.98]">
+                        <div className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--paper)] border border-border shrink-0">
+                          <Icon className="w-[19px] h-[19px] text-[var(--gold-dark)]" strokeWidth={1.9} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-display font-bold text-[15px]">{label}</div>
+                          <div className="text-[12.5px] text-muted-foreground">{sub}</div>
+                        </div>
+                        <ChevronRight className="w-[18px] h-[18px] text-muted-foreground shrink-0" />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </div>

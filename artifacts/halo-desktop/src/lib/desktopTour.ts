@@ -73,7 +73,7 @@ export const tourChapters: TourChapter[] = [
         body: "See this Ask HALO box? Type a plain question like, how much am I owed, or, which jobs are open, and HALO answers instantly from your real data. No reports to dig through.",
         route: "/",
         target: "ask-halo",
-        placement: "left",
+        placement: "bottom",
       },
       {
         title: "Operations at a glance",

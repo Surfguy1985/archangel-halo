@@ -79,6 +79,18 @@ export default function Today() {
       
       <BriefCard brief={today.brief} />
 
+      <AutopilotActions />
+
+      {nowCards.length > 0 && (
+        <div className="mb-[24px]">
+          <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[13px] tracking-[0.1em] uppercase text-[#FF3B30]">
+            Requires Action
+            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[#FF3B30]/10 text-[#FF3B30] text-[11px] grid place-items-center tracking-normal font-sans">{nowCards.length}</span>
+          </div>
+          {nowCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
+        </div>
+      )}
+
       {/* Bento Grid */}
       <div className="grid grid-cols-2 gap-[12px] mb-[24px]">
         {/* Money */}
@@ -133,18 +145,6 @@ export default function Today() {
           <ChevronRight className="w-[16px] h-[16px] text-muted-foreground/30 absolute bottom-[16px] right-[16px] group-hover:translate-x-[2px] transition-transform" />
         </div>
       </div>
-
-      <AutopilotActions />
-
-      {nowCards.length > 0 && (
-        <div className="mb-[24px]">
-          <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[13px] tracking-[0.1em] uppercase text-[#FF3B30]">
-            Requires Action
-            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[#FF3B30]/10 text-[#FF3B30] text-[11px] grid place-items-center tracking-normal font-sans">{nowCards.length}</span>
-          </div>
-          {nowCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
-        </div>
-      )}
 
       {todayCards.length > 0 && (
         <div className="mb-[24px]">

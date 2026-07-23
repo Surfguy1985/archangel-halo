@@ -41,7 +41,14 @@ import {
   ThumbsUp,
   ThumbsDown,
   ScanLine,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { exportCsv } from "@/lib/exportCsv";
 import {
@@ -297,21 +304,6 @@ function Invoices() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setBusinessOpen(true)}
-          >
-            <Building2 className="w-4 h-4 mr-1.5" /> Business info
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onExport}
-            disabled={!sorted.length}
-          >
-            <Download className="w-4 h-4 mr-1.5" /> Export
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
             onClick={() => setScanOpen(true)}
             data-testid="button-open-scan-check"
           >
@@ -320,6 +312,27 @@ function Invoices() {
           <Button size="sm" onClick={() => navigate("/invoices/new")}>
             <Plus className="w-4 h-4 mr-1.5" /> New invoice
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="px-2"
+                aria-label="More actions"
+                data-testid="button-invoices-overflow"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onSelect={() => setBusinessOpen(true)}>
+                <Building2 className="w-4 h-4 mr-2" /> Business info
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onExport} disabled={!sorted.length}>
+                <Download className="w-4 h-4 mr-2" /> Export CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -529,15 +542,30 @@ function Expenses() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onExport} disabled={!sorted.length}>
-            <Download className="w-4 h-4 mr-1.5" /> Export
-          </Button>
           <Button variant="outline" size="sm" onClick={() => setBillOpen(true)} data-testid="button-upload-bill">
             <FileUp className="w-4 h-4 mr-1.5" /> Upload bill
           </Button>
           <Button size="sm" onClick={() => setAddOpen(true)}>
             <Plus className="w-4 h-4 mr-1.5" /> Log expense
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="px-2"
+                aria-label="More actions"
+                data-testid="button-expenses-overflow"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onSelect={onExport} disabled={!sorted.length}>
+                <Download className="w-4 h-4 mr-2" /> Export CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

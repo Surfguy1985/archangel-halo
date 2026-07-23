@@ -1,7 +1,7 @@
-import { useGetToday, useRefreshBrief, useGetQueues, useAskHalo, useListActivities, getGetTodayQueryKey, getListActivitiesQueryKey } from "@workspace/api-client-react";
+import { useGetToday, useRefreshBrief, useGetQueues, useListActivities, getGetTodayQueryKey, getListActivitiesQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, ArrowRight, RefreshCw, Send, Loader2, X, History } from "lucide-react";
+import { Sparkles, ArrowRight, RefreshCw, X, History, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -37,14 +37,12 @@ export default function Today() {
     { query: { queryKey: getListActivitiesQueryKey({ limit: 12 }), refetchInterval: 10_000 } },
   );
   const refreshBrief = useRefreshBrief();
-  const askHalo = useAskHalo();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<string | null>(null);
   const [queueFilter, setQueueFilter] = useState<string | null>(null);
+  const [activityOpen, setActivityOpen] = useState(false);
 
   const handleRefresh = async () => {
     try {
@@ -53,17 +51,6 @@ export default function Today() {
       toast({ title: "Brief updated" });
     } catch {
       toast({ title: "Failed to update brief", variant: "destructive" });
-    }
-  };
-
-  const handleAsk = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!question.trim()) return;
-    try {
-      const res = await askHalo.mutateAsync({ data: { question } });
-      setAnswer(res.answer);
-    } catch {
-      toast({ title: "Failed to get answer", variant: "destructive" });
     }
   };
 
@@ -184,36 +171,6 @@ export default function Today() {
           {/* Autopilot proposals */}
           <AutopilotActions />
 
-          {/* Ask HALO */}
-          <Card data-tour="ask-halo" className="border-[var(--hairline2)] bg-card shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-display">Ask HALO</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAsk} className="relative">
-                <input 
-                  type="text" 
-                  value={question}
-                  onChange={e => setQuestion(e.target.value)}
-                  placeholder="Ask about revenue, jobs..."
-                  className="w-full pl-3 pr-10 py-2.5 rounded-md border border-input bg-transparent text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-                <button 
-                  type="submit" 
-                  disabled={askHalo.isPending || !question.trim()}
-                  className="absolute right-1 top-1 w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-[var(--gold-dark)] hover:bg-[var(--gold-tint)] disabled:opacity-50 transition-colors"
-                >
-                  {askHalo.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                </button>
-              </form>
-              {answer && (
-                <div className="mt-4 p-3 rounded-md bg-[var(--paper)] text-sm text-[var(--ink)] leading-relaxed border border-border animate-in fade-in slide-in-from-top-2">
-                  {answer}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Queues */}
           <div data-tour="operations">
             <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Operations</h2>
@@ -233,11 +190,16 @@ export default function Today() {
 
           {/* Activity Log */}
           <Card className="border-[var(--hairline2)] bg-card shadow-sm">
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-3 cursor-pointer" onClick={() => setActivityOpen((o) => !o)}>
               <CardTitle className="text-base font-display flex items-center gap-2">
                 <History className="w-4 h-4 text-muted-foreground" /> Activity Log
+                <span className="ml-auto flex items-center gap-2 text-xs font-sans font-medium text-muted-foreground">
+                  {activities?.length ?? 0}
+                  <ChevronDown className={`w-4 h-4 transition-transform ${activityOpen ? "rotate-180" : ""}`} />
+                </span>
               </CardTitle>
             </CardHeader>
+            {activityOpen && (
             <CardContent>
               {(activities?.length ?? 0) > 0 ? (
                 <div className="space-y-3">
@@ -262,6 +224,7 @@ export default function Today() {
                 This log is permanent — it stays even after a data wipe.
               </p>
             </CardContent>
+            )}
           </Card>
         </div>
       </div>

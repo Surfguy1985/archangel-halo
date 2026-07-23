@@ -31,6 +31,7 @@ import {
   BookOpen,
   Wallet,
   ScanLine,
+  MoreHorizontal,
 } from "lucide-react";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
@@ -40,6 +41,12 @@ import { AddCrewPaymentSheet } from "@/components/AddCrewPaymentSheet";
 import { BankTab } from "@/components/BankTab";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { exportCsv } from "@/lib/exportCsv";
 import { BusinessReportTab } from "@/components/BusinessReportTab";
 import { BooksTab } from "@/components/BooksTab";
@@ -52,7 +59,7 @@ type HistoryRow = {
   badge?: { label: string; color: string };
 };
 
-function SecondaryActions({
+function OverflowActions({
   onHistory,
   onExport,
   disabled,
@@ -61,17 +68,27 @@ function SecondaryActions({
   onExport: () => void;
   disabled?: boolean;
 }) {
-  const cls =
-    "flex-1 flex items-center justify-center gap-[8px] rounded-[16px] py-[12px] text-[14px] font-display font-bold bg-card border border-border shadow-[0_2px_4px_rgba(0,0,0,0.02)] disabled:opacity-40 transition-transform active:scale-[0.98]";
   return (
-    <div className="flex gap-[10px] mb-[16px]">
-      <button onClick={onHistory} disabled={disabled} className={cls}>
-        <History className="w-[16px] h-[16px] text-muted-foreground" /> History
-      </button>
-      <button onClick={onExport} disabled={disabled} className={cls}>
-        <Download className="w-[16px] h-[16px] text-muted-foreground" /> Export
-      </button>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          disabled={disabled}
+          aria-label="More actions"
+          className="w-[52px] shrink-0 flex items-center justify-center rounded-[18px] bg-card border border-border shadow-[var(--shadow)] disabled:opacity-40 transition-transform active:scale-[0.95]"
+          data-testid="button-money-overflow"
+        >
+          <MoreHorizontal className="w-[20px] h-[20px] text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuItem onSelect={onHistory}>
+          <History className="w-4 h-4 mr-2" /> History
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onExport}>
+          <Download className="w-4 h-4 mr-2" /> Export CSV
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -308,12 +325,12 @@ function Invoices() {
         >
           <ScanLine className="w-[19px] h-[19px]" /> Scan check
         </button>
+        <OverflowActions
+          onHistory={() => setHistoryOpen(true)}
+          onExport={onExport}
+          disabled={!invoices || invoices.length === 0}
+        />
       </div>
-      <SecondaryActions
-        onHistory={() => setHistoryOpen(true)}
-        onExport={onExport}
-        disabled={!invoices || invoices.length === 0}
-      />
       {isLoading ? (
         <div className="animate-pulse h-32 bg-card rounded-[20px]" />
       ) : !invoices || invoices.length === 0 ? (
@@ -505,17 +522,19 @@ function Expenses() {
 
   return (
     <div className="animate-in fade-in duration-200">
-      <button
-        onClick={() => setAddOpen(true)}
-        className="w-full mb-[16px] flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[16px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
-      >
-        <Plus className="w-[20px] h-[20px]" /> Log expense
-      </button>
-      <SecondaryActions
-        onHistory={() => setHistoryOpen(true)}
-        onExport={onExport}
-        disabled={!expenses || expenses.length === 0}
-      />
+      <div className="flex gap-[10px] mb-[16px]">
+        <button
+          onClick={() => setAddOpen(true)}
+          className="flex-1 flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[16px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
+        >
+          <Plus className="w-[20px] h-[20px]" /> Log expense
+        </button>
+        <OverflowActions
+          onHistory={() => setHistoryOpen(true)}
+          onExport={onExport}
+          disabled={!expenses || expenses.length === 0}
+        />
+      </div>
       {isLoading ? (
         <div className="animate-pulse h-32 bg-card rounded-[20px]" />
       ) : !expenses || expenses.length === 0 ? (
