@@ -3,7 +3,7 @@ import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, ChevronDown, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History, Receipt } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronRight, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History, Receipt, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
 import { EditPropertySheet } from "@/components/EditPropertySheet";
@@ -60,6 +60,7 @@ export default function PropertyDetail() {
   const [expenseJobId, setExpenseJobId] = useState<string | null>(null);
   const [rateJobId, setRateJobId] = useState<string | null>(null);
   const [rateDraft, setRateDraft] = useState("");
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const setStatus = useSetInvoiceStatus();
   const updateJob = useUpdateJob();
@@ -253,10 +254,18 @@ export default function PropertyDetail() {
         {sectionJobs.length > 0 ? (
           <div className="space-y-[10px]">
             {sectionJobs.map((job) => (
-              <div key={job.id} className="bg-card rounded-[16px] shadow-[var(--shadow)] border border-border border-l-[4px] border-l-[var(--primary)] p-[12px_14px]">
-                <div className="flex items-center gap-[10px] text-[14px]">
-                  <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
-                    <div className="font-semibold truncate flex items-center gap-[7px]">
+              <div key={job.id} className="bg-card rounded-[16px] shadow-[var(--shadow)] border border-border border-l-[4px] border-l-[var(--primary)] overflow-hidden transition-all duration-200">
+                {/* Header / collapsed state */}
+                <div 
+                  className="p-[12px_14px] flex items-center gap-[10px] cursor-pointer active:bg-[rgba(23,24,28,0.02)]"
+                  onClick={() => {
+                    setExpandedJobId(expandedJobId === job.id ? null : job.id);
+                    setRateJobId(null);
+                    setOpenLineItemsJobId(null);
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-[15px] truncate flex items-center gap-[7px]">
                       <span className="truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</span>
                       {job.status === "complete" && (
                         <span className="shrink-0 inline-flex items-center gap-[4px] text-[10.5px] font-display font-bold uppercase tracking-[0.08em] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-[8px] py-[2px]">
@@ -264,9 +273,9 @@ export default function PropertyDetail() {
                         </span>
                       )}
                     </div>
-                    <div className="text-[12px] text-muted-foreground truncate">{job.description}</div>
+                    <div className="text-[13px] text-muted-foreground truncate mt-[2px]">{job.description}</div>
                     {job.isRecurring && (
-                      <div className="flex items-center gap-[5px] mt-[3px] text-[11.5px] font-semibold text-[var(--gold-dark)]">
+                      <div className="flex items-center gap-[5px] mt-[4px] text-[11.5px] font-semibold text-[var(--gold-dark)]">
                         <Repeat className="w-[12px] h-[12px]" />
                         {recurrenceLabels[job.recurrence ?? ""] ?? "Recurring"}
                         <span className="text-muted-foreground font-normal">
@@ -274,140 +283,188 @@ export default function PropertyDetail() {
                         </span>
                       </div>
                     )}
-                  </Link>
-                  <div className="text-right shrink-0">
+                  </div>
+                  <div className="text-right shrink-0 flex flex-col items-end gap-[4px]">
                     <div className="text-[12px] font-mono text-muted-foreground">{job.jobNo}</div>
                     {!job.isRecurring && job.crewLeaderName && (
-                      <div className="text-[11.5px] text-muted-foreground">{job.crewLeaderName}</div>
+                      <div className="text-[11.5px] text-[var(--ink)] font-medium bg-[rgba(23,24,28,0.05)] px-[6px] py-[2px] rounded-[4px]">{job.crewLeaderName}</div>
                     )}
                   </div>
-                  <button
-                    aria-label="Edit job"
-                    onClick={() => setEditJobId(job.id)}
-                    className="shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center bg-[rgba(23,24,28,0.05)] text-muted-foreground active:scale-[0.94]"
-                  >
-                    <Pencil className="w-[13px] h-[13px]" />
-                  </button>
+                  <ChevronDown className={`w-[16px] h-[16px] text-muted-foreground transition-transform duration-200 shrink-0 ${expandedJobId === job.id ? 'rotate-180' : ''}`} />
                 </div>
-                <button
-                  onClick={() => setOpenLineItemsJobId(openLineItemsJobId === job.id ? null : job.id)}
-                  className="flex items-center gap-[5px] mt-[6px] text-[12px] font-display font-bold text-[var(--gold-dark)] active:scale-[0.97]"
-                >
-                  <ChevronDown className={`w-[13px] h-[13px] transition-transform ${openLineItemsJobId === job.id ? 'rotate-180' : ''}`} />
-                  Line items
-                  {(job.lineItems?.length ?? 0) > 0 && (
-                    <span className="text-muted-foreground font-normal">
-                      · {job.lineItems!.length} · ${(job.lineTotal ?? 0).toLocaleString()}
-                    </span>
-                  )}
-                </button>
-                {openLineItemsJobId === job.id && (
-                  <JobLineItemsPanel
-                    jobId={job.id}
-                    propertyId={id}
-                    lineItems={job.lineItems ?? []}
-                    priceItems={priceItems}
-                  />
-                )}
-                <div className="flex items-center flex-wrap gap-x-[12px] gap-y-[6px] mt-[8px] text-[12px] text-muted-foreground">
-                  {rateJobId === job.id ? (
-                    <span className="inline-flex items-center gap-[5px]">
-                      Crew $
-                      <input
-                        autoFocus
-                        inputMode="decimal"
-                        value={rateDraft}
-                        onChange={(e) => setRateDraft(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") saveRate(job.id); if (e.key === "Escape") setRateJobId(null); }}
-                        className="w-[70px] px-[6px] py-[2px] rounded-[7px] border border-border bg-background text-[12px] tabular-nums"
-                      />
+
+                {/* Expanded state */}
+                {expandedJobId === job.id && (
+                  <div className="p-[0_14px_14px_14px] border-t border-border animate-in slide-in-from-top-2 fade-in duration-200">
+                    
+                    {/* Primary actions row */}
+                    <div className="flex items-center gap-[8px] mt-[14px]">
+                      <Link href={`/jobs/${job.id}`} className="flex-1 flex items-center justify-center gap-[6px] text-[13.5px] font-display font-bold px-[12px] py-[8px] rounded-[10px] bg-[var(--ink)] text-background active:scale-[0.98]">
+                        Open Job
+                        <ArrowRight className="w-[14px] h-[14px]" />
+                      </Link>
                       <button
-                        disabled={updateJob.isPending}
-                        onClick={() => saveRate(job.id)}
-                        className="font-display font-bold text-[var(--gold-dark)] disabled:opacity-50"
+                        onClick={() => setEditJobId(job.id)}
+                        className="w-[36px] h-[36px] flex items-center justify-center rounded-[10px] bg-[rgba(23,24,28,0.05)] text-[var(--ink)] active:scale-[0.96]"
+                        aria-label="Edit job"
                       >
-                        Save
+                        <Pencil className="w-[15px] h-[15px]" />
                       </button>
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => { setRateJobId(job.id); setRateDraft(job.crewRate != null ? String(job.crewRate) : ""); }}
-                      className="inline-flex items-center gap-[4px] font-semibold text-[var(--ink)] active:scale-[0.97]"
-                    >
-                      Crew {job.crewRate != null ? `$${job.crewRate.toLocaleString()}` : "rate —"}
-                      <Pencil className="w-[10px] h-[10px] text-muted-foreground" />
-                    </button>
-                  )}
-                  <span>Invoiced <b className="text-[var(--ink)] tabular-nums">${(job.invoicedTotal ?? 0).toLocaleString()}</b></span>
-                  <span>Paid <b className="text-emerald-700 tabular-nums">${(job.paidTotal ?? 0).toLocaleString()}</b></span>
-                  <span>Expenses <b className="text-[var(--ink)] tabular-nums">${(job.expensesTotal ?? 0).toLocaleString()}</b></span>
-                  {marginBadge(job.marginPct)}
-                </div>
-                <div className="flex items-center gap-[8px] mt-[8px]">
-                  <button
-                    onClick={() => setInvoiceJobId(job.id)}
-                    className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[rgba(23,24,28,0.05)] text-[var(--ink)] active:scale-[0.95]"
-                  >
-                    <Plus className="w-[12px] h-[12px]" /> Invoice
-                  </button>
-                  <button
-                    onClick={() => setExpenseJobId(job.id)}
-                    className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[rgba(23,24,28,0.05)] text-[var(--ink)] active:scale-[0.95]"
-                  >
-                    <Plus className="w-[12px] h-[12px]" /> Expense
-                  </button>
-                  {job.status !== "complete" && (
-                    <button
-                      disabled={completeJob.isPending}
-                      onClick={() => completeJob.mutate({ id: job.id }, { onSuccess: () => invalidateJobLists() })}
-                      className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 active:scale-[0.95] disabled:opacity-50"
-                    >
-                      <Check className="w-[12px] h-[12px]" /> Verified — complete
-                    </button>
-                  )}
-                </div>
-                {job.status === "complete" && (
-                  <div className="flex items-center flex-wrap gap-[8px] mt-[8px]">
-                    {(() => {
-                      const inv = invoiceForJob(job.id);
-                      return inv ? (
-                        <Link
-                          href={`/invoices/${inv.id}`}
-                          className={`flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full active:scale-[0.95] ${invoiceStatusCls[inv.status] ?? invoiceStatusCls.draft}`}
-                        >
-                          <Receipt className="w-[12px] h-[12px]" /> {invoiceStatusLabel[inv.status] ?? "Invoice"} · {inv.invoiceNo}
-                        </Link>
-                      ) : (
+                    </div>
+
+                    {/* Financials & Line Items */}
+                    <div className="mt-[16px] space-y-[12px]">
+                      {/* Financials summary grid */}
+                      <div className="grid grid-cols-3 gap-[8px]">
+                        <div className="bg-[rgba(23,24,28,0.03)] rounded-[8px] p-[8px_10px]">
+                          <div className="text-[11px] text-muted-foreground uppercase tracking-[0.05em] mb-[2px]">Invoiced</div>
+                          <div className="font-semibold text-[13px] tabular-nums">${(job.invoicedTotal ?? 0).toLocaleString()}</div>
+                        </div>
+                        <div className="bg-emerald-50/50 rounded-[8px] p-[8px_10px]">
+                          <div className="text-[11px] text-emerald-700/70 uppercase tracking-[0.05em] mb-[2px]">Paid</div>
+                          <div className="font-semibold text-emerald-700 text-[13px] tabular-nums">${(job.paidTotal ?? 0).toLocaleString()}</div>
+                        </div>
+                        <div className="bg-[rgba(23,24,28,0.03)] rounded-[8px] p-[8px_10px]">
+                          <div className="text-[11px] text-muted-foreground uppercase tracking-[0.05em] mb-[2px]">Expenses</div>
+                          <div className="font-semibold text-[13px] tabular-nums">${(job.expensesTotal ?? 0).toLocaleString()}</div>
+                        </div>
+                      </div>
+
+                      {/* Crew Rate & Margin */}
+                      <div className="flex items-center justify-between bg-[rgba(23,24,28,0.03)] rounded-[8px] p-[8px_10px]">
+                        {rateJobId === job.id ? (
+                          <div className="flex items-center gap-[6px]">
+                            <span className="text-[12px] text-muted-foreground">Crew rate</span>
+                            <span className="text-[13px] font-medium">$</span>
+                            <input
+                              autoFocus
+                              inputMode="decimal"
+                              value={rateDraft}
+                              onChange={(e) => setRateDraft(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter") saveRate(job.id); if (e.key === "Escape") setRateJobId(null); }}
+                              className="w-[60px] px-[6px] py-[2px] rounded-[6px] border border-border bg-background text-[13px] tabular-nums focus:outline-none focus:border-[var(--primary)]"
+                            />
+                            <button
+                              disabled={updateJob.isPending}
+                              onClick={() => saveRate(job.id)}
+                              className="text-[12.5px] font-display font-bold text-[var(--gold-dark)] disabled:opacity-50 ml-[2px]"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setRateJobId(job.id); setRateDraft(job.crewRate != null ? String(job.crewRate) : ""); }}
+                            className="flex items-center gap-[6px] active:opacity-70 transition-opacity"
+                          >
+                            <span className="text-[12px] text-muted-foreground">Crew rate</span>
+                            <span className="text-[13px] font-semibold tabular-nums text-[var(--ink)]">{job.crewRate != null ? `$${job.crewRate.toLocaleString()}` : "—"}</span>
+                            <Pencil className="w-[11px] h-[11px] text-muted-foreground/60" />
+                          </button>
+                        )}
+                        <div>{marginBadge(job.marginPct)}</div>
+                      </div>
+
+                      {/* Line items toggle */}
+                      <div>
                         <button
-                          onClick={() => setInvoiceJobId(job.id)}
-                          className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[var(--ink)] text-background active:scale-[0.95]"
+                          onClick={() => setOpenLineItemsJobId(openLineItemsJobId === job.id ? null : job.id)}
+                          className="flex items-center justify-between w-full py-[6px] active:opacity-70 transition-opacity"
                         >
-                          <Receipt className="w-[12px] h-[12px]" /> Create invoice
+                          <span className="text-[13px] font-semibold text-[var(--ink)]">Line Items</span>
+                          <div className="flex items-center gap-[6px] text-[12.5px] text-muted-foreground">
+                            {(job.lineItems?.length ?? 0) > 0 && (
+                              <span className="tabular-nums">{job.lineItems!.length} items · ${(job.lineTotal ?? 0).toLocaleString()}</span>
+                            )}
+                            <ChevronDown className={`w-[14px] h-[14px] transition-transform ${openLineItemsJobId === job.id ? 'rotate-180' : ''}`} />
+                          </div>
                         </button>
-                      );
-                    })()}
-                    <button
-                      disabled={clearJob.isPending}
-                      onClick={() => {
-                        setClearErrorJobId(job.id);
-                        clearJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists });
-                      }}
-                      className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[rgba(23,24,28,0.05)] text-muted-foreground active:scale-[0.95] disabled:opacity-50"
-                    >
-                      <Archive className="w-[12px] h-[12px]" /> Clear to history
-                    </button>
-                    <button
-                      disabled={restartJob.isPending}
-                      onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
-                      className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[rgba(143,106,31,0.1)] text-[var(--gold-dark)] active:scale-[0.95] disabled:opacity-50"
-                    >
-                      <RotateCcw className="w-[12px] h-[12px]" /> Reopen for corrections
-                    </button>
-                  </div>
-                )}
-                {clearJob.isError && clearErrorJobId === job.id && (
-                  <div className="mt-[8px] text-[12px] font-semibold text-red-600">
-                    {(clearJob.error as { data?: { error?: string } } | null)?.data?.error ?? clearJob.error?.message ?? "Couldn't clear this job."}
+                        {openLineItemsJobId === job.id && (
+                          <div className="mt-[8px] mb-[4px]">
+                            <JobLineItemsPanel
+                              jobId={job.id}
+                              propertyId={id}
+                              lineItems={job.lineItems ?? []}
+                              priceItems={priceItems}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action buttons section */}
+                    <div className="mt-[16px] pt-[14px] border-t border-border flex flex-col gap-[8px]">
+                      {job.status !== "complete" ? (
+                        <>
+                          <div className="flex gap-[8px]">
+                            <button
+                              onClick={() => setInvoiceJobId(job.id)}
+                              className="flex-1 flex justify-center items-center gap-[6px] text-[13px] font-semibold py-[9px] rounded-[8px] bg-[rgba(23,24,28,0.04)] text-[var(--ink)] active:scale-[0.98]"
+                            >
+                              <Plus className="w-[14px] h-[14px]" /> Invoice
+                            </button>
+                            <button
+                              onClick={() => setExpenseJobId(job.id)}
+                              className="flex-1 flex justify-center items-center gap-[6px] text-[13px] font-semibold py-[9px] rounded-[8px] bg-[rgba(23,24,28,0.04)] text-[var(--ink)] active:scale-[0.98]"
+                            >
+                              <Plus className="w-[14px] h-[14px]" /> Expense
+                            </button>
+                          </div>
+                          <button
+                            disabled={completeJob.isPending}
+                            onClick={() => completeJob.mutate({ id: job.id }, { onSuccess: () => invalidateJobLists() })}
+                            className="w-full flex justify-center items-center gap-[6px] text-[13px] font-semibold py-[10px] rounded-[8px] bg-emerald-50 text-emerald-700 border border-emerald-200 active:scale-[0.98] disabled:opacity-50 mt-[2px]"
+                          >
+                            <Check className="w-[15px] h-[15px]" /> Verify & Complete
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex flex-col gap-[8px]">
+                          {(() => {
+                            const inv = invoiceForJob(job.id);
+                            return inv ? (
+                              <Link
+                                href={`/invoices/${inv.id}`}
+                                className={`flex justify-center items-center gap-[6px] text-[13px] font-semibold py-[10px] rounded-[8px] active:scale-[0.98] ${invoiceStatusCls[inv.status] ?? invoiceStatusCls.draft}`}
+                              >
+                                <Receipt className="w-[15px] h-[15px]" /> {invoiceStatusLabel[inv.status] ?? "Invoice"} · {inv.invoiceNo}
+                              </Link>
+                            ) : (
+                              <button
+                                onClick={() => setInvoiceJobId(job.id)}
+                                className="flex justify-center items-center gap-[6px] text-[13px] font-semibold py-[10px] rounded-[8px] bg-[rgba(23,24,28,0.04)] text-[var(--ink)] active:scale-[0.98]"
+                              >
+                                <Plus className="w-[15px] h-[15px]" /> Create Invoice
+                              </button>
+                            );
+                          })()}
+                          <div className="flex gap-[8px]">
+                            <button
+                              disabled={restartJob.isPending}
+                              onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
+                              className="flex-1 flex justify-center items-center gap-[6px] text-[12.5px] font-semibold py-[9px] rounded-[8px] bg-[rgba(143,106,31,0.08)] text-[var(--gold-dark)] active:scale-[0.98] disabled:opacity-50"
+                            >
+                              <RotateCcw className="w-[14px] h-[14px]" /> Reopen
+                            </button>
+                            <button
+                              disabled={clearJob.isPending}
+                              onClick={() => {
+                                setClearErrorJobId(job.id);
+                                clearJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists });
+                              }}
+                              className="flex-1 flex justify-center items-center gap-[6px] text-[12.5px] font-semibold py-[9px] rounded-[8px] bg-[rgba(23,24,28,0.04)] text-muted-foreground active:scale-[0.98] disabled:opacity-50"
+                            >
+                              <Archive className="w-[14px] h-[14px]" /> Archive
+                            </button>
+                          </div>
+                          {clearJob.isError && clearErrorJobId === job.id && (
+                            <div className="text-[12px] font-medium text-red-600 text-center mt-[2px]">
+                              {(clearJob.error as { data?: { error?: string } } | null)?.data?.error ?? clearJob.error?.message ?? "Couldn't clear this job."}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
