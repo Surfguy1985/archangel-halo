@@ -57,6 +57,8 @@ export function MarginSection({
   saving = false,
   onSave,
   helperText,
+  headerExtra,
+  children,
 }: {
   title?: string;
   /** Current margin as a PERCENT number (e.g. 27.5) or null. */
@@ -73,6 +75,8 @@ export function MarginSection({
     currentFrac?: number | null;
   }) => void;
   helperText?: string;
+  headerExtra?: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const [minStr, setMinStr] = useState("");
@@ -133,14 +137,17 @@ export function MarginSection({
     <section>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-display font-bold text-[var(--ink)]">{title}</h2>
-        {!editing && (
-          <button
-            onClick={startEdit}
-            className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-          >
-            <Pencil className="w-3.5 h-3.5" /> Set thresholds
-          </button>
-        )}
+        <div className="flex items-center gap-4">
+          {!editing && (
+            <button
+              onClick={startEdit}
+              className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" /> Set thresholds
+            </button>
+          )}
+          {headerExtra}
+        </div>
       </div>
 
       <div className="bg-card rounded-xl shadow-sm border border-border p-5">
@@ -261,6 +268,8 @@ export function MarginSection({
             </div>
           </div>
         )}
+
+        {children}
       </div>
     </section>
   );

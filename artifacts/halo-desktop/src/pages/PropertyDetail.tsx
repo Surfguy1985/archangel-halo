@@ -4,7 +4,7 @@ import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, History, Pencil, Plus, Repeat, BookOpen, Receipt } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Repeat, BookOpen, Receipt } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
@@ -32,7 +32,7 @@ export default function PropertyDetail() {
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
   const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [jobTab, setJobTab] = useState<"active" | "completed" | "history">("active");
   const [expenseJobId, setExpenseJobId] = useState<string | null>(null);
   const [rateJobId, setRateJobId] = useState<string | null>(null);
   const [rateDraft, setRateDraft] = useState("");
@@ -150,7 +150,7 @@ export default function PropertyDetail() {
       <AddPriceItemDialog open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
       <ImportFromCatalogDialog open={importOpen} onOpenChange={setImportOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />
       <AddContactDialog open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
-      <AddJobDialog open={jobOpen} onOpenChange={setJobOpen} propertyId={id} />
+      <AddJobDialog open={jobOpen} onOpenChange={setJobOpen} propertyId={id} priceItems={priceItems} />
       {expenseJobId && (
         <AddExpenseDialog
           key={expenseJobId}
@@ -194,86 +194,57 @@ export default function PropertyDetail() {
         ) : null;
       })()}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Owed</div>
-          <div className="text-2xl font-mono font-bold text-[var(--ink)]">${stats.owed.toLocaleString()}</div>
-        </div>
-        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Collected</div>
-          <div className="text-2xl font-mono font-bold text-[var(--ink)]">${stats.collectedTotal.toLocaleString()}</div>
-        </div>
-        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Invoiced</div>
-          <div className="text-2xl font-mono font-bold text-[var(--ink)]">${stats.invoicedTotal.toLocaleString()}</div>
-        </div>
-        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Expenses</div>
-          <div className="text-2xl font-mono font-bold text-[var(--ink)]">${stats.expensesTotal.toLocaleString()}</div>
-        </div>
-        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Open Jobs</div>
-          <div className="text-2xl font-mono font-bold text-[var(--ink)]">{stats.openJobs}</div>
-        </div>
-        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Margin</div>
-          <div className="text-2xl font-mono font-bold text-[var(--ink)]">{stats.marginPct ?? 0}%</div>
-        </div>
-        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Active Margin</div>
-          <div className="text-2xl font-mono font-bold text-[var(--ink)]">{stats.activeMarginPct != null ? `${stats.activeMarginPct}%` : "—"}</div>
-        </div>
-        <div className="bg-card rounded-xl shadow-sm border border-border p-5">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Past Margin</div>
-          <div className="text-2xl font-mono font-bold text-[var(--ink)]">{stats.historicalMarginPct != null ? `${stats.historicalMarginPct}%` : "—"}</div>
-        </div>
+      <div className="bg-card rounded-xl shadow-sm border border-border grid grid-cols-2 md:grid-cols-5 divide-x divide-border mb-8">
+        {([
+          ["Owed", `$${stats.owed.toLocaleString()}`],
+          ["Collected", `$${stats.collectedTotal.toLocaleString()}`],
+          ["Invoiced", `$${stats.invoicedTotal.toLocaleString()}`],
+          ["Expenses", `$${stats.expensesTotal.toLocaleString()}`],
+          ["Open Jobs", String(stats.openJobs)],
+        ] as const).map(([label, value]) => (
+          <div key={label} className="p-4">
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">{label}</div>
+            <div className="text-xl font-mono font-bold text-[var(--ink)] tabular-nums">{value}</div>
+          </div>
+        ))}
       </div>
-
-      <MarginSection
-        currentPct={stats.marginPct ?? null}
-        minFrac={property.marginMin}
-        targetFrac={property.marginTarget}
-        saving={updateProperty.isPending}
-        helperText="Current is the average margin across this property's jobs. Jobs below the minimum get flagged in Today."
-        onSave={({ minFrac, targetFrac }) =>
-          updateProperty.mutate(
-            { id, data: { marginMin: minFrac, marginTarget: targetFrac } },
-            {
-              onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
-                queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
-                queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-              },
-            },
-          )
-        }
-      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-6">
-          {([
-            ["Active Jobs", activeJobs],
-            ["Completed Jobs", completedJobs],
-          ] as const).map(([sectionTitle, sectionJobs]) => (
-          <section key={sectionTitle}>
+          <section>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-display font-bold text-[var(--ink)]">
-                {sectionTitle}
-                {sectionJobs.length > 0 && (
-                  <span className="text-sm font-normal text-muted-foreground"> · {sectionJobs.length}</span>
-                )}
-              </h2>
-              {sectionTitle === "Active Jobs" && (
-                <button
-                  onClick={() => setJobOpen(true)}
-                  className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-                >
-                  <Plus className="w-4 h-4" /> Add
-                </button>
-              )}
+              <h2 className="text-xl font-display font-bold text-[var(--ink)]">Jobs</h2>
+              <button
+                onClick={() => setJobOpen(true)}
+                className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Add
+              </button>
             </div>
+            <div className="flex items-center gap-1 mb-3 bg-black/[0.04] rounded-full p-1 w-fit">
+              {([
+                ["active", "Active", activeJobs.length],
+                ["completed", "Completed", completedJobs.length],
+                ["history", "History", historyJobs.length],
+              ] as const).map(([key, label, count]) => (
+                <button
+                  key={key}
+                  onClick={() => setJobTab(key)}
+                  data-testid={`tab-jobs-${key}`}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                    jobTab === key
+                      ? "bg-card text-[var(--ink)] shadow-sm border border-border"
+                      : "text-muted-foreground hover:text-[var(--ink)]"
+                  }`}
+                >
+                  {label}
+                  {count > 0 && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{count}</span>}
+                </button>
+              ))}
+            </div>
+            {jobTab !== "history" && (
             <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
-              {sectionJobs.map(job => (
+              {(jobTab === "active" ? activeJobs : completedJobs).map(job => (
                 <div key={job.id} className="p-4 hover:bg-black/[0.02] transition-colors">
                   <div className="flex items-center gap-3">
                     <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
@@ -425,62 +396,53 @@ export default function PropertyDetail() {
                   )}
                 </div>
               ))}
-              {!sectionJobs.length && (
+              {!(jobTab === "active" ? activeJobs : completedJobs).length && (
                 <div className="p-6 text-center text-sm text-muted-foreground">
-                  {sectionTitle === "Active Jobs"
+                  {jobTab === "active"
                     ? "No active jobs."
                     : "Nothing completed yet — once a job is verified finished, mark it complete and it moves here."}
                 </div>
               )}
             </div>
+            )}
+            {jobTab === "history" && (
+              <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
+                {historyJobs.map((job) => (
+                  <div key={job.id} className="flex items-center gap-3 p-4">
+                    <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
+                      <div className="font-semibold text-muted-foreground truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
+                      <div className="text-sm text-muted-foreground truncate">
+                        {job.jobNo}{job.completedAt ? ` · Completed ${new Date(job.completedAt).toLocaleDateString()}` : ''}
+                      </div>
+                    </Link>
+                    {(() => {
+                      const inv = invoiceForJob(job.id);
+                      return inv ? (
+                        <Link
+                          href={`/invoices/${inv.id}`}
+                          className={`shrink-0 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full hover:opacity-80 transition-opacity ${invoiceStatusCls[inv.status] ?? invoiceStatusCls.draft}`}
+                        >
+                          <Receipt className="w-3 h-3" /> {invoiceStatusLabel[inv.status] ?? "Invoice"}
+                        </Link>
+                      ) : null;
+                    })()}
+                    <button
+                      disabled={restartJob.isPending}
+                      onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
+                      className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[rgba(143,106,31,0.1)] text-[var(--gold-dark)] hover:bg-[rgba(143,106,31,0.16)] transition-colors disabled:opacity-50"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Restart
+                    </button>
+                  </div>
+                ))}
+                {!historyJobs.length && (
+                  <div className="p-6 text-center text-sm text-muted-foreground">
+                    No cleared jobs yet — completed jobs you clear land here.
+                  </div>
+                )}
+              </div>
+            )}
           </section>
-          ))}
-
-          {historyJobs.length > 0 && (
-            <section>
-              <button
-                onClick={() => setHistoryOpen(!historyOpen)}
-                className="flex items-center gap-2 mb-4 text-xl font-display font-bold text-[var(--ink)] hover:opacity-80 transition-opacity"
-              >
-                <History className="w-5 h-5 text-muted-foreground" />
-                Job History
-                <span className="text-sm font-normal text-muted-foreground">· {historyJobs.length}</span>
-                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {historyOpen && (
-                <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
-                  {historyJobs.map((job) => (
-                    <div key={job.id} className="flex items-center gap-3 p-4">
-                      <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
-                        <div className="font-semibold text-muted-foreground truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
-                        <div className="text-sm text-muted-foreground truncate">
-                          {job.jobNo}{job.completedAt ? ` · Completed ${new Date(job.completedAt).toLocaleDateString()}` : ''}
-                        </div>
-                      </Link>
-                      {(() => {
-                        const inv = invoiceForJob(job.id);
-                        return inv ? (
-                          <Link
-                            href={`/invoices/${inv.id}`}
-                            className={`shrink-0 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full hover:opacity-80 transition-opacity ${invoiceStatusCls[inv.status] ?? invoiceStatusCls.draft}`}
-                          >
-                            <Receipt className="w-3 h-3" /> {invoiceStatusLabel[inv.status] ?? "Invoice"}
-                          </Link>
-                        ) : null;
-                      })()}
-                      <button
-                        disabled={restartJob.isPending}
-                        onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
-                        className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[rgba(143,106,31,0.1)] text-[var(--gold-dark)] hover:bg-[rgba(143,106,31,0.16)] transition-colors disabled:opacity-50"
-                      >
-                        <RotateCcw className="w-3 h-3" /> Restart
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
 
           <CrewPhotosSection photos={crewPhotos ?? []} showJob />
 
@@ -527,47 +489,71 @@ export default function PropertyDetail() {
             </div>
           )}
 
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-display font-bold text-[var(--ink)]">Price List</h2>
-              <div className="flex items-center gap-4">
-              <button
-                onClick={() => setImportOpen(true)}
-                className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-              >
-                <BookOpen className="w-4 h-4" /> From Price Book
-              </button>
-              <button
-                onClick={() => setPriceOpen(true)}
-                className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Add
-              </button>
-              </div>
-            </div>
-            <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
-              {priceItems.map(item => (
-                <div key={item.id} className="flex items-center gap-3 p-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold">{item.service}</div>
-                    <div className="text-sm text-muted-foreground">{item.detail}</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-mono font-bold">${item.rate}</div>
-                    {item.unit && <div className="text-xs text-muted-foreground">/{item.unit}</div>}
-                  </div>
+          <MarginSection
+            title="Margin & Price List"
+            currentPct={stats.marginPct ?? null}
+            minFrac={property.marginMin}
+            targetFrac={property.marginTarget}
+            saving={updateProperty.isPending}
+            onSave={({ minFrac, targetFrac }) =>
+              updateProperty.mutate(
+                { id, data: { marginMin: minFrac, marginTarget: targetFrac } },
+                {
+                  onSuccess: () => {
+                    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+                    queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
+                    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+                  },
+                },
+              )
+            }
+          >
+            <div className="mt-4 pt-4 border-t border-border">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Agreed rates{priceItems.length > 0 && <span className="font-normal"> · {priceItems.length}</span>}
+                </div>
+                <div className="flex items-center gap-4">
                   <button
-                    aria-label="Edit price item"
-                    onClick={() => setEditPriceId(item.id)}
-                    className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
+                    onClick={() => setImportOpen(true)}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
                   >
-                    <Pencil className="w-3.5 h-3.5" />
+                    <BookOpen className="w-3.5 h-3.5" /> From Price Book
+                  </button>
+                  <button
+                    onClick={() => setPriceOpen(true)}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add
                   </button>
                 </div>
-              ))}
-              {!priceItems.length && <div className="p-6 text-center text-sm text-muted-foreground">No agreed rates.</div>}
+              </div>
+              <div className="divide-y divide-border -mx-1">
+                {priceItems.map(item => (
+                  <div key={item.id} className="flex items-center gap-3 px-1 py-2.5">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold truncate">{item.service}</div>
+                      {item.detail && <div className="text-xs text-muted-foreground truncate">{item.detail}</div>}
+                    </div>
+                    <div className="text-right shrink-0 font-mono font-bold text-sm tabular-nums">
+                      ${item.rate}
+                      {item.unit && <span className="text-xs text-muted-foreground font-normal">/{item.unit}</span>}
+                    </div>
+                    <button
+                      aria-label="Edit price item"
+                      onClick={() => setEditPriceId(item.id)}
+                      className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                {!priceItems.length && (
+                  <div className="py-4 text-center text-sm text-muted-foreground">No agreed rates yet.</div>
+                )}
+              </div>
             </div>
-          </section>
+          </MarginSection>
 
           <section>
             <div className="flex items-center justify-between mb-4">
