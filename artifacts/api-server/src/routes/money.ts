@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import {
   db,
   invoicesTable,
@@ -733,12 +733,11 @@ Return STRICT JSON: {"found": boolean, "amount": number|null, "payerName": strin
     return;
   }
 
-  // Suggest the open invoice this check most likely pays: match on amount
+  // Suggest the invoice this check most likely pays: match on amount
   // first, then payer-name tokens against property / contact names.
-  const openInvoices = await db
-    .select()
-    .from(invoicesTable)
-    .where(inArray(invoicesTable.status, ["sent", "past_due"]));
+  // All statuses are candidates (draft/paid included) — unpaid ones get a
+  // small boost so open invoices win ties.
+  const openInvoices = await db.select().from(invoicesTable);
   const props = await db.select().from(propertiesTable);
   const contacts = await db.select().from(contactsTable);
   const propName = (id: string | null) => props.find((p) => p.id === id)?.name ?? "";
@@ -756,6 +755,8 @@ Return STRICT JSON: {"found": boolean, "amount": number|null, "payerName": strin
       [propName(inv.propertyId), ...propContacts.map((c) => c.name ?? "")].join(" "),
     );
     for (const t of payerTokens) if (nameTokens.includes(t)) score += 2;
+    // "past_due" is virtual (stored as "sent"), so "sent" alone covers all open invoices.
+    if (score > 0 && inv.status === "sent") score += 1;
     if (score > (best?.score ?? 0)) best = { inv, score };
   }
   const suggestion = best && best.score >= 2 ? best.inv : null;

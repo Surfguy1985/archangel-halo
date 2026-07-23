@@ -82,8 +82,6 @@ export function ScanCheckDialog({
 
   const openInvoices = (invoices ?? []).filter(
     (i) =>
-      i.status !== "paid" &&
-      i.status !== "draft" &&
       (!propertyId || i.propertyId === propertyId) &&
       (!jobId || i.jobId === jobId),
   );
@@ -309,13 +307,14 @@ export function ScanCheckDialog({
               {openInvoices.map((i) => (
                 <option key={i.id} value={i.id}>
                   {i.invoiceNo} — ${i.amount.toLocaleString()}
+                  {i.status === "paid" ? " (already paid)" : i.status === "draft" ? " (draft)" : ""}
                 </option>
               ))}
             </select>
           )}
           {propertyId && openInvoices.length === 0 && (
             <div className="text-xs text-muted-foreground">
-              No open invoices for this selection — send the invoice first, then apply the check.
+              No invoices for this selection — create the invoice first, then apply the check.
             </div>
           )}
           <Button
