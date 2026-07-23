@@ -71,13 +71,13 @@ export default function Today() {
   if (isLoading) {
     return (
       <div className="p-8 space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-10 w-64 bg-[var(--muted)]" />
+        <Skeleton className="h-48 w-full bg-[var(--muted)]" />
         <div className="grid grid-cols-4 gap-4">
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
+          <Skeleton className="h-32 bg-[var(--muted)]" />
+          <Skeleton className="h-32 bg-[var(--muted)]" />
+          <Skeleton className="h-32 bg-[var(--muted)]" />
+          <Skeleton className="h-32 bg-[var(--muted)]" />
         </div>
       </div>
     );
@@ -87,31 +87,31 @@ export default function Today() {
     <div className="p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">Today</h1>
-          <p className="text-muted-foreground">{today?.date}</p>
+          <h1 className="text-4xl font-display font-bold text-foreground tracking-tight uppercase">Today</h1>
+          <p className="text-muted-foreground font-mono mt-1 text-sm">{today?.date}</p>
         </div>
       </header>
 
       {/* Brief */}
       {today?.brief && (
-        <Card data-tour="morning-brief" className="bg-[linear-gradient(135deg,var(--gold-tint),rgba(255,255,255,0.8))] border-[var(--gold)]/20 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10">
-            <Sparkles className="w-24 h-24 text-[var(--gold-dark)]" />
+        <Card data-tour="morning-brief" className="bg-[var(--card)] border-[var(--primary)] border shadow-[0_0_20px_rgba(198,242,17,0.1)] relative overflow-hidden rounded-none">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <Sparkles className="w-48 h-48 text-[var(--primary)]" />
           </div>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-display flex items-center gap-2 text-[var(--gold-dark)]">
-              <Sparkles className="w-5 h-5" /> Morning Brief
+          <CardHeader className="pb-2 flex flex-row items-center justify-between border-b border-[var(--border)] bg-[var(--muted)]/30">
+            <CardTitle className="text-sm font-display font-bold uppercase tracking-widest flex items-center gap-2 text-[var(--primary)]">
+              <span className="custom-icon"><Sparkles className="w-4 h-4" /></span> Morning Brief
             </CardTitle>
             <button 
               onClick={handleRefresh}
               disabled={refreshBrief.isPending}
-              className="text-muted-foreground hover:text-[var(--gold-dark)] transition-colors"
+              className="text-muted-foreground hover:text-[var(--primary)] transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${refreshBrief.isPending ? "animate-spin" : ""}`} />
             </button>
           </CardHeader>
-          <CardContent>
-            <p className="text-[var(--ink)] leading-relaxed text-lg font-medium max-w-4xl">
+          <CardContent className="pt-6">
+            <p className="text-foreground leading-relaxed text-lg max-w-4xl font-light">
               {today.brief.body}
             </p>
           </CardContent>
@@ -121,12 +121,12 @@ export default function Today() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Feed */}
         <div data-tour="needs-attention" className="lg:col-span-2 space-y-6">
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-display font-bold text-[var(--ink)]">Needs Attention</h2>
+          <div className="flex items-center gap-3 border-b border-[var(--border)] pb-2">
+            <h2 className="text-xl font-display font-bold text-foreground uppercase tracking-wide">Needs Attention</h2>
             {queueFilter && (
               <button
                 onClick={() => setQueueFilter(null)}
-                className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-[var(--gold-dark)] px-2.5 py-1 rounded-full bg-[var(--gold-tint)] hover:bg-[var(--gold)]/20 transition-colors"
+                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-black px-2 py-1 bg-[var(--primary)] hover:bg-[var(--gold-light)] transition-colors rounded-none"
               >
                 {queues?.find(q => q.key === queueFilter)?.label ?? queueFilter}
                 <X className="w-3 h-3" />
@@ -141,27 +141,27 @@ export default function Today() {
               <Card
                 key={item.id}
                 onClick={route ? () => navigate(route) : undefined}
-                className={`hover:border-[var(--gold)]/50 transition-colors group ${route ? "cursor-pointer" : ""}`}
+                className={`hover:border-[var(--primary)] transition-all group ${route ? "cursor-pointer" : ""} rounded-none border-[var(--border)] bg-[var(--card)] hover:shadow-[0_0_15px_rgba(198,242,17,0.1)]`}
               >
                 <CardContent className="p-5 flex items-start gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)]">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--primary)] border border-[var(--primary)] px-2 py-0.5">
                         {item.queue}
                       </span>
                       {item.amount != null && (
-                        <span className="text-sm font-mono font-medium text-muted-foreground">
+                        <span className="text-sm font-mono font-medium text-foreground">
                           ${item.amount.toLocaleString()}
                         </span>
                       )}
                     </div>
-                    <h3 className="font-semibold text-[var(--ink)] text-lg mb-1">{item.title}</h3>
-                    <p className="text-muted-foreground text-sm">{item.sub}</p>
+                    <h3 className="font-semibold text-foreground text-lg mb-1">{item.title}</h3>
+                    <p className="text-muted-foreground text-sm font-light">{item.sub}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {route && (
-                      <div className="w-8 h-8 rounded-full border border-border flex items-center justify-center group-hover:bg-[var(--gold-tint)] group-hover:border-[var(--gold)]/30 transition-colors">
-                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-[var(--gold-dark)]" />
+                      <div className="w-8 h-8 border border-[var(--border)] flex items-center justify-center group-hover:bg-[var(--primary)] transition-colors rounded-none">
+                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-black" />
                       </div>
                     )}
                     <button
@@ -170,7 +170,7 @@ export default function Today() {
                       aria-label="Clear"
                       title="Clear from feed"
                       data-testid={`button-dismiss-${item.id}`}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground/50 hover:text-[var(--ink)] hover:bg-black/5 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-black hover:bg-[var(--primary)] transition-colors rounded-none"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -180,12 +180,12 @@ export default function Today() {
               );
             })}
             {today?.feed.length === 0 && (
-              <div className="p-8 text-center border border-dashed border-border rounded-xl text-muted-foreground">
+              <div className="p-8 text-center border border-dashed border-[var(--border)] text-muted-foreground font-mono text-sm uppercase tracking-widest">
                 All caught up for now.
               </div>
             )}
             {(today?.feed.length ?? 0) > 0 && queueFilter && today?.feed.every(item => item.queue !== queueFilter) && (
-              <div className="p-8 text-center border border-dashed border-border rounded-xl text-muted-foreground">
+              <div className="p-8 text-center border border-dashed border-[var(--border)] text-muted-foreground font-mono text-sm uppercase tracking-widest">
                 Nothing needs attention in this queue.
               </div>
             )}
@@ -199,43 +199,43 @@ export default function Today() {
 
           {/* Queues */}
           <div data-tour="operations">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Operations</h2>
+            <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4 border-b border-[var(--border)] pb-2">Operations</h2>
             <div className="grid grid-cols-2 gap-3">
               {queues?.map(q => (
                 <button
                   key={q.key}
                   onClick={() => setQueueFilter(prev => (prev === q.key ? null : q.key))}
-                  className={`p-4 rounded-xl bg-card border shadow-sm flex flex-col justify-between aspect-square text-left transition-colors cursor-pointer group ${queueFilter === q.key ? "border-[var(--gold)] bg-[var(--gold-tint)]" : "border-border hover:border-[var(--gold)]/30"}`}
+                  className={`p-4 bg-card border flex flex-col justify-between aspect-square text-left transition-all cursor-pointer group rounded-none ${queueFilter === q.key ? "border-[var(--primary)] shadow-[inset_0_0_20px_rgba(198,242,17,0.15)]" : "border-[var(--border)] hover:border-[var(--primary)]/50"}`}
                 >
-                  <span className={`text-3xl font-display font-bold transition-colors ${queueFilter === q.key ? "text-[var(--gold-dark)]" : "text-[var(--ink)] group-hover:text-[var(--gold-dark)]"}`}>{q.count}</span>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{q.label}</span>
+                  <span className={`text-4xl font-display font-bold transition-colors ${queueFilter === q.key ? "text-[var(--primary)]" : "text-foreground group-hover:text-[var(--primary)]"}`}>{q.count}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{q.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Activity Log */}
-          <Card className="border-[var(--hairline2)] bg-card shadow-sm">
-            <CardHeader className="pb-3 cursor-pointer" onClick={() => setActivityOpen((o) => !o)}>
-              <CardTitle className="text-base font-display flex items-center gap-2">
-                <History className="w-4 h-4 text-muted-foreground" /> Activity Log
-                <span className="ml-auto flex items-center gap-2 text-xs font-sans font-medium text-muted-foreground">
+          <Card className="border-[var(--border)] bg-card rounded-none">
+            <CardHeader className="pb-3 cursor-pointer hover:bg-[var(--muted)]/50 transition-colors" onClick={() => setActivityOpen((o) => !o)}>
+              <CardTitle className="text-xs font-display font-bold uppercase tracking-widest flex items-center gap-2 text-foreground">
+                <span className="custom-icon py-1 px-1"><History className="w-3 h-3" /></span> Activity Log
+                <span className="ml-auto flex items-center gap-2 text-xs font-mono font-medium text-muted-foreground">
                   {activities?.length ?? 0}
                   <ChevronDown className={`w-4 h-4 transition-transform ${activityOpen ? "rotate-180" : ""}`} />
                 </span>
               </CardTitle>
             </CardHeader>
             {activityOpen && (
-            <CardContent>
+            <CardContent className="pt-2 border-t border-[var(--border)]">
               {(activities?.length ?? 0) > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-4 pt-2">
                   {activities!.slice(0, 12).map((a) => (
-                    <div key={a.id} className="flex items-start gap-2 text-sm">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--gold)] mt-1.5 shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-[var(--ink)] leading-snug">{a.body || a.kind}</div>
+                    <div key={a.id} className="flex items-start gap-3 text-sm">
+                      <div className="w-1 h-full min-h-[20px] bg-[var(--primary)] shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-foreground leading-snug text-sm font-light">{a.body || a.kind}</div>
                         {a.createdAt && (
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-[10px] font-mono text-muted-foreground mt-1 uppercase">
                             {new Date(a.createdAt).toLocaleDateString()} · {new Date(a.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                           </div>
                         )}
@@ -244,9 +244,9 @@ export default function Today() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+                <p className="text-sm text-muted-foreground font-light">No activity recorded yet.</p>
               )}
-              <p className="mt-3 text-[11px] text-muted-foreground">
+              <p className="mt-4 pt-4 border-t border-[var(--border)] text-[10px] uppercase tracking-wider text-muted-foreground">
                 This log is permanent — it stays even after a data wipe.
               </p>
             </CardContent>

@@ -44,14 +44,14 @@ export default function Today() {
   if (isLoading || !today) {
     return (
       <div className="animate-pulse space-y-4 pt-4 px-2">
-        <div className="h-[240px] bg-card rounded-[28px]"></div>
+        <div className="h-[240px] bg-card rounded-[28px] border border-[var(--hairline)]"></div>
         <div className="grid grid-cols-2 gap-3">
-          <div className="h-[100px] bg-card rounded-[22px]"></div>
-          <div className="h-[100px] bg-card rounded-[22px]"></div>
-          <div className="h-[100px] bg-card rounded-[22px]"></div>
-          <div className="h-[100px] bg-card rounded-[22px]"></div>
+          <div className="h-[100px] bg-card rounded-[22px] border border-[var(--hairline)]"></div>
+          <div className="h-[100px] bg-card rounded-[22px] border border-[var(--hairline)]"></div>
+          <div className="h-[100px] bg-card rounded-[22px] border border-[var(--hairline)]"></div>
+          <div className="h-[100px] bg-card rounded-[22px] border border-[var(--hairline)]"></div>
         </div>
-        <div className="h-[140px] bg-card rounded-[22px]"></div>
+        <div className="h-[140px] bg-card rounded-[22px] border border-[var(--hairline)]"></div>
       </div>
     );
   }
@@ -70,7 +70,8 @@ export default function Today() {
 
   return (
     <div className="pt-[6px] animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both pb-6">
-      <div className="text-[13px] font-bold text-muted-foreground/60 mb-[14px] px-[6px] uppercase tracking-[0.15em]">
+      <div className="text-[13px] font-bold text-[var(--gold)] mb-[14px] px-[6px] uppercase tracking-[0.15em] flex items-center gap-[8px]">
+        <div className="w-[6px] h-[6px] rounded-full bg-[var(--gold)] shadow-[0_0_8px_var(--gold)] animate-pulse" />
         {(() => {
           const [y, m, d] = today.date.split("-").map(Number);
           return new Date(y, m - 1, d).toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
@@ -83,9 +84,9 @@ export default function Today() {
 
       {nowCards.length > 0 && (
         <div className="mb-[24px]">
-          <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[13px] tracking-[0.1em] uppercase text-[#FF3B30]">
+          <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[13px] tracking-[0.15em] uppercase text-destructive">
             Requires Action
-            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[#FF3B30]/10 text-[#FF3B30] text-[11px] grid place-items-center tracking-normal font-sans">{nowCards.length}</span>
+            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-destructive/10 text-destructive text-[11px] grid place-items-center tracking-normal font-sans font-bold border border-destructive/20">{nowCards.length}</span>
           </div>
           {nowCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
         </div>
@@ -96,61 +97,61 @@ export default function Today() {
         {/* Money */}
         <div 
           onClick={() => setLocation('/money')}
-          className="bg-white p-[16px] rounded-[24px] shadow-[0_4px_14px_rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.05)] cursor-pointer active:scale-95 transition-transform relative overflow-hidden group"
+          className="bg-card p-[16px] rounded-[24px] border border-[var(--hairline)] hover:border-[var(--gold)] hover:shadow-[0_0_20px_rgba(198,242,17,0.1)] cursor-pointer active:scale-95 transition-all relative overflow-hidden group"
         >
-          <div className="w-[36px] h-[36px] rounded-[14px] bg-[var(--gold-tint)] flex items-center justify-center mb-[12px]">
-            <Wallet className="w-[18px] h-[18px] text-[var(--gold)]" />
+          <div className="w-[40px] h-[40px] rounded-[14px] bg-[var(--gold-tint)] border border-[var(--gold)]/20 flex items-center justify-center mb-[16px] shadow-[inset_0_0_15px_rgba(198,242,17,0.1)]">
+            <Wallet className="w-[20px] h-[20px] text-[var(--gold)]" />
           </div>
-          <div className="font-display font-bold text-[24px] leading-none text-[var(--ink)] tracking-tight mb-[4px]">{mtdStr}</div>
-          <div className="text-[12px] font-medium text-muted-foreground">MTD Revenue</div>
-          <ChevronRight className="w-[16px] h-[16px] text-muted-foreground/30 absolute bottom-[16px] right-[16px] group-hover:translate-x-[2px] transition-transform" />
+          <div className="font-display font-bold text-[28px] leading-none text-white tracking-tight mb-[6px]">{mtdStr}</div>
+          <div className="text-[12px] font-bold tracking-wider text-muted-foreground uppercase">MTD Revenue</div>
+          <ChevronRight className="w-[16px] h-[16px] text-[var(--gold)] absolute bottom-[16px] right-[16px] opacity-0 translate-x-[-10px] group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
         </div>
 
         {/* Calendar */}
         <div 
           onClick={() => setLocation('/calendar')}
-          className="bg-white p-[16px] rounded-[24px] shadow-[0_4px_14px_rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.05)] cursor-pointer active:scale-95 transition-transform relative overflow-hidden group"
+          className="bg-card p-[16px] rounded-[24px] border border-[var(--hairline)] hover:border-[var(--gold)] hover:shadow-[0_0_20px_rgba(198,242,17,0.1)] cursor-pointer active:scale-95 transition-all relative overflow-hidden group"
         >
-          <div className="w-[36px] h-[36px] rounded-[14px] bg-[#E5F1FF] flex items-center justify-center mb-[12px]">
-            <CalendarIcon className="w-[18px] h-[18px] text-[#007AFF]" />
+          <div className="w-[40px] h-[40px] rounded-[14px] bg-[rgba(255,255,255,0.05)] border border-[var(--hairline)] flex items-center justify-center mb-[16px]">
+            <CalendarIcon className="w-[20px] h-[20px] text-white" />
           </div>
-          <div className="font-display font-bold text-[24px] leading-none text-[var(--ink)] tracking-tight mb-[4px]">{eventsCount}</div>
-          <div className="text-[12px] font-medium text-muted-foreground">Events Today</div>
-          <ChevronRight className="w-[16px] h-[16px] text-muted-foreground/30 absolute bottom-[16px] right-[16px] group-hover:translate-x-[2px] transition-transform" />
+          <div className="font-display font-bold text-[28px] leading-none text-white tracking-tight mb-[6px]">{eventsCount}</div>
+          <div className="text-[12px] font-bold tracking-wider text-muted-foreground uppercase">Events Today</div>
+          <ChevronRight className="w-[16px] h-[16px] text-[var(--gold)] absolute bottom-[16px] right-[16px] opacity-0 translate-x-[-10px] group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
         </div>
 
         {/* Jobs */}
         <div 
           onClick={() => setLocation('/properties')}
-          className="bg-white p-[16px] rounded-[24px] shadow-[0_4px_14px_rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.05)] cursor-pointer active:scale-95 transition-transform relative overflow-hidden group"
+          className="bg-card p-[16px] rounded-[24px] border border-[var(--hairline)] hover:border-[var(--gold)] hover:shadow-[0_0_20px_rgba(198,242,17,0.1)] cursor-pointer active:scale-95 transition-all relative overflow-hidden group"
         >
-          <div className="w-[36px] h-[36px] rounded-[14px] bg-[#EFEFFC] flex items-center justify-center mb-[12px]">
-            <Briefcase className="w-[18px] h-[18px] text-[#5856D6]" />
+          <div className="w-[40px] h-[40px] rounded-[14px] bg-[rgba(255,255,255,0.05)] border border-[var(--hairline)] flex items-center justify-center mb-[16px]">
+            <Briefcase className="w-[20px] h-[20px] text-white" />
           </div>
-          <div className="font-display font-bold text-[24px] leading-none text-[var(--ink)] tracking-tight mb-[4px]">{activeJobsCount}</div>
-          <div className="text-[12px] font-medium text-muted-foreground">Active Jobs</div>
-          <ChevronRight className="w-[16px] h-[16px] text-muted-foreground/30 absolute bottom-[16px] right-[16px] group-hover:translate-x-[2px] transition-transform" />
+          <div className="font-display font-bold text-[28px] leading-none text-white tracking-tight mb-[6px]">{activeJobsCount}</div>
+          <div className="text-[12px] font-bold tracking-wider text-muted-foreground uppercase">Active Jobs</div>
+          <ChevronRight className="w-[16px] h-[16px] text-[var(--gold)] absolute bottom-[16px] right-[16px] opacity-0 translate-x-[-10px] group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
         </div>
 
         {/* Crews */}
         <div 
           onClick={() => setLocation('/crews')}
-          className="bg-white p-[16px] rounded-[24px] shadow-[0_4px_14px_rgba(0,0,0,0.04)] border border-[rgba(0,0,0,0.05)] cursor-pointer active:scale-95 transition-transform relative overflow-hidden group"
+          className="bg-card p-[16px] rounded-[24px] border border-[var(--hairline)] hover:border-[var(--gold)] hover:shadow-[0_0_20px_rgba(198,242,17,0.1)] cursor-pointer active:scale-95 transition-all relative overflow-hidden group"
         >
-          <div className="w-[36px] h-[36px] rounded-[14px] bg-[#EAF9EE] flex items-center justify-center mb-[12px]">
-            <Users className="w-[18px] h-[18px] text-[#34C759]" />
+          <div className="w-[40px] h-[40px] rounded-[14px] bg-[rgba(255,255,255,0.05)] border border-[var(--hairline)] flex items-center justify-center mb-[16px]">
+            <Users className="w-[20px] h-[20px] text-white" />
           </div>
-          <div className="font-display font-bold text-[24px] leading-none text-[var(--ink)] tracking-tight mb-[4px]">{activeCrewsCount}</div>
-          <div className="text-[12px] font-medium text-muted-foreground">Active Crews</div>
-          <ChevronRight className="w-[16px] h-[16px] text-muted-foreground/30 absolute bottom-[16px] right-[16px] group-hover:translate-x-[2px] transition-transform" />
+          <div className="font-display font-bold text-[28px] leading-none text-white tracking-tight mb-[6px]">{activeCrewsCount}</div>
+          <div className="text-[12px] font-bold tracking-wider text-muted-foreground uppercase">Active Crews</div>
+          <ChevronRight className="w-[16px] h-[16px] text-[var(--gold)] absolute bottom-[16px] right-[16px] opacity-0 translate-x-[-10px] group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
         </div>
       </div>
 
       {todayCards.length > 0 && (
         <div className="mb-[24px]">
-          <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[13px] tracking-[0.1em] uppercase text-[var(--ink)]">
+          <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[13px] tracking-[0.15em] uppercase text-white">
             Up Next
-            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[rgba(0,0,0,0.05)] text-[var(--ink2)] text-[11px] grid place-items-center tracking-normal font-sans">{todayCards.length}</span>
+            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[rgba(255,255,255,0.1)] text-white text-[11px] grid place-items-center tracking-normal font-sans font-bold">{todayCards.length}</span>
           </div>
           {todayCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
         </div>
@@ -158,9 +159,9 @@ export default function Today() {
 
       {weekCards.length > 0 && (
         <div className="mb-[24px]">
-          <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[13px] tracking-[0.1em] uppercase text-muted-foreground">
+          <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[13px] tracking-[0.15em] uppercase text-muted-foreground">
             Later This Week
-            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[rgba(0,0,0,0.05)] text-muted-foreground text-[11px] grid place-items-center tracking-normal font-sans">{weekCards.length}</span>
+            <span className="min-w-[20px] h-[20px] px-[6px] rounded-[10px] bg-[rgba(255,255,255,0.05)] text-muted-foreground text-[11px] grid place-items-center tracking-normal font-sans font-bold border border-[var(--hairline)]">{weekCards.length}</span>
           </div>
           {weekCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
         </div>
@@ -168,15 +169,15 @@ export default function Today() {
 
       {(activities?.length ?? 0) > 0 && (
         <div className="mt-[32px]">
-          <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[12px] tracking-[0.15em] uppercase text-muted-foreground/60">
+          <div className="flex items-center gap-[8px] mx-[6px] mb-[12px] font-display font-bold text-[12px] tracking-[0.2em] uppercase text-muted-foreground">
             <History className="w-[14px] h-[14px]" /> System Activity
           </div>
-          <div className="bg-card/50 rounded-[24px] border border-[rgba(0,0,0,0.05)] p-[12px_16px] backdrop-blur-sm">
+          <div className="bg-card rounded-[24px] border border-[var(--hairline)] p-[12px_20px]">
             {activities!.slice(0, 5).map((a, idx) => (
-              <div key={a.id} className={`py-[12px] ${idx !== 0 ? 'border-t border-[rgba(0,0,0,0.05)]' : ''}`}>
-                <div className="text-[13px] text-[var(--ink)] leading-[1.4] font-medium">{a.body || a.kind}</div>
+              <div key={a.id} className={`py-[16px] ${idx !== 0 ? 'border-t border-[var(--hairline)]' : ''}`}>
+                <div className="text-[14px] text-white leading-[1.5] font-medium">{a.body || a.kind}</div>
                 {a.createdAt && (
-                  <div className="text-[11px] text-muted-foreground/60 mt-[4px] font-medium">
+                  <div className="text-[11px] text-muted-foreground/80 mt-[6px] font-bold tracking-wider uppercase">
                     {new Date(a.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                   </div>
                 )}

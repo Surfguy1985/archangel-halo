@@ -7,6 +7,7 @@ import { NotificationsPopover } from "./NotificationsPopover";
 import { VoiceCaptureDialog } from "./VoiceCaptureDialog";
 import { BusinessInfoDialog } from "./BusinessInfoDialog";
 import { GuidedTour } from "./GuidedTour";
+import { FalkonBadge } from "./FalkonBadge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,12 +37,12 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
   });
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex text-foreground">
       {/* Sidebar Navigation */}
-      <aside className="w-[240px] border-r border-border bg-card flex flex-col fixed inset-y-0 left-0">
+      <aside className="w-[240px] border-r border-border bg-card flex flex-col fixed inset-y-0 left-0 shadow-2xl z-40">
         <div data-tour="brand" className="p-6 pb-5 border-b border-border flex flex-col gap-2">
-          <img src={haloLogo} alt="HALO" className="h-9 w-auto self-start" />
-          <span className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground pl-0.5">Archangel Operations</span>
+          <img src={haloLogo} alt="HALO" className="h-9 w-auto self-start filter invert brightness-0" />
+          <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground pl-0.5 font-display font-medium">Archangel Operations</span>
         </div>
 
         <nav data-tour="sidebar" className="flex-1 py-6 px-4 flex flex-col gap-2 overflow-y-auto">
@@ -63,19 +64,20 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
             data-tour="talk"
             onClick={() => setVoiceOpen(true)}
             title="Talk to HALO"
-            className="flex-1 h-10 rounded-full flex items-center justify-center bg-[var(--gold-tint)] text-[var(--gold-dark)] hover:bg-[var(--gold)] hover:text-white transition-colors"
+            className="flex-1 h-10 rounded-none flex items-center justify-center bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(198,242,17,0.3)] transition-all font-display font-bold uppercase tracking-wider"
           >
-            <Mic className="w-5 h-5" />
+            <Mic className="w-4 h-4 mr-2" />
+            Talk
           </button>
           <NotificationsPopover>
             <button
               data-tour="notifications"
-              className="relative w-10 h-10 rounded-full flex items-center justify-center bg-card shadow-sm border border-border hover:bg-black/5 transition-colors"
+              className="relative w-10 h-10 rounded-none flex items-center justify-center bg-card shadow-sm border border-border hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
               title="Notifications"
             >
-              <Bell className="w-5 h-5" />
+              <Bell className="w-4 h-4" />
               {today?.unreadNotifications ? (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-none bg-[var(--primary)] text-black text-[10px] font-bold flex items-center justify-center shadow-[0_0_10px_rgba(198,242,17,0.5)]">
                   {today.unreadNotifications}
                 </span>
               ) : null}
@@ -85,24 +87,24 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
             <DropdownMenuTrigger asChild>
               <button
                 data-tour="more"
-                className="w-10 h-10 rounded-full flex items-center justify-center bg-card shadow-sm border border-border hover:bg-black/5 transition-colors"
+                className="w-10 h-10 rounded-none flex items-center justify-center bg-card shadow-sm border border-border hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
                 title="More"
               >
-                <LayoutGrid className="w-5 h-5" />
+                <LayoutGrid className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="end" className="w-60">
-              <DropdownMenuLabel>Workspace</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setTourOpen(true)}>
+            <DropdownMenuContent side="top" align="end" className="w-60 rounded-none border-[var(--border)] bg-card text-foreground">
+              <DropdownMenuLabel className="font-display uppercase tracking-wider text-xs">Workspace</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-[var(--border)]" />
+              <DropdownMenuItem onSelect={() => setTourOpen(true)} className="rounded-none focus:bg-[var(--muted)] focus:text-[var(--primary)]">
                 <GraduationCap className="w-4 h-4 mr-2" />
                 Guided tour
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+              <DropdownMenuItem onSelect={() => setSettingsOpen(true)} className="rounded-none focus:bg-[var(--muted)] focus:text-[var(--primary)]">
                 <Settings className="w-4 h-4 mr-2" />
                 Settings &amp; business info
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setVoiceOpen(true)}>
+              <DropdownMenuItem onSelect={() => setVoiceOpen(true)} className="rounded-none focus:bg-[var(--muted)] focus:text-[var(--primary)]">
                 <Mic className="w-4 h-4 mr-2" />
                 Talk to HALO
               </DropdownMenuItem>
@@ -112,25 +114,25 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content */}
-      <main className="ml-[240px] flex-1 bg-[var(--paper)]">
-        <div className="sticky top-0 z-30 bg-[var(--paper)]/95 backdrop-blur px-8 pt-4 pb-2">
+      <main className="ml-[240px] flex-1 bg-background flex flex-col min-h-screen">
+        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md px-8 pt-6 pb-4 border-b border-border/50">
           <div data-tour="ask-halo" className="relative max-w-2xl">
-            <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--gold-dark)]" />
+            <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--primary)]" />
             <input
               value={cmdText}
               onChange={(e) => setCmdText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") submitCommand();
               }}
-              placeholder="Ask HALO to do anything — “Invoice Maple Grove $950 for painting unit 5”, “Schedule J-2001 tomorrow with Ray”…"
-              className="w-full h-11 rounded-full bg-card border border-border shadow-sm pl-11 pr-24 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gold)] placeholder:text-muted-foreground/70"
+              placeholder="Ask HALO to do anything — “Invoice Maple Grove $950 for painting unit 5”…"
+              className="w-full h-12 rounded-none bg-card border border-border shadow-sm pl-11 pr-24 text-sm focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_15px_rgba(198,242,17,0.1)] placeholder:text-muted-foreground font-mono transition-all text-foreground"
               data-testid="input-command-bar"
             />
             {cmdText.trim() && (
               <button
                 type="button"
                 onClick={submitCommand}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 px-4 rounded-full bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white text-xs font-bold transition-colors"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 px-6 rounded-none bg-[var(--primary)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(198,242,17,0.3)] text-black text-xs font-display font-bold uppercase tracking-wider transition-all"
                 data-testid="button-command-go"
               >
                 Do it
@@ -138,7 +140,10 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
             )}
           </div>
         </div>
-        {children}
+        <div className="flex-1">
+          {children}
+        </div>
+        <FalkonBadge />
       </main>
 
       <VoiceCaptureDialog
@@ -157,9 +162,11 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
 
 function NavItem({ href, icon: Icon, label, active, tourId }: { href: string, icon: any, label: string, active: boolean, tourId?: string }) {
   return (
-    <Link href={href} data-tour={tourId} className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${active ? "bg-[var(--ink)] text-white" : "text-muted-foreground hover:bg-black/5 hover:text-foreground"}`}>
-      <Icon className="w-5 h-5" />
-      <span className="font-medium text-sm">{label}</span>
+    <Link href={href} data-tour={tourId} className={`group flex items-center gap-3 px-3 py-2.5 rounded-none transition-all border-l-2 ${active ? "border-[var(--primary)] bg-[var(--muted)] text-foreground" : "border-transparent text-muted-foreground hover:bg-[var(--muted)]/50 hover:text-foreground hover:border-[var(--border)]"}`}>
+      <span className={`custom-icon ${active ? "bg-[var(--primary)] text-black" : "bg-[var(--border)] text-muted-foreground group-hover:text-[var(--primary)] group-hover:bg-[var(--muted)]"}`}>
+        <Icon className="w-4 h-4" />
+      </span>
+      <span className="font-medium text-sm font-display tracking-wide">{label}</span>
     </Link>
   );
 }

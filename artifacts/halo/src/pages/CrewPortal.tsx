@@ -63,6 +63,7 @@ import {
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 import WelcomeKitTab from "./WelcomeKitTab";
+import { FalkonBadge } from "@/components/FalkonBadge";
 import { portalGuide, type GuideLang } from "@/lib/portalGuideContent";
 
 type Tab =
@@ -158,18 +159,18 @@ export default function CrewPortal() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[var(--bg,#f4f2ee)] grid place-items-center">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--gold)]" />
+      <div className="min-h-screen bg-background grid place-items-center">
+        <Loader2 className="w-6 h-6 animate-spin text-primary drop-shadow-[0_0_10px_rgba(198,242,17,0.5)]" />
       </div>
     );
   }
 
   if (isError || !portal) {
     return (
-      <div className="min-h-screen bg-[var(--bg,#f4f2ee)] grid place-items-center px-6">
+      <div className="min-h-screen bg-background grid place-items-center px-6">
         <div className="text-center">
-          <ShieldCheck className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-          <div className="font-display font-bold text-[18px]">Invalid link</div>
+          <ShieldCheck className="w-10 h-10 text-primary drop-shadow-[0_0_10px_rgba(198,242,17,0.5)] mx-auto mb-3" />
+          <div className="font-display font-bold text-[18px] text-foreground">Invalid link</div>
           <p className="text-[13px] text-muted-foreground mt-1">
             This portal link isn't valid. Ask ArchAngel for a new one.
           </p>
@@ -194,40 +195,40 @@ export default function CrewPortal() {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--bg,#f4f2ee)]">
-      <header className="bg-[var(--ink)] text-white px-[18px] pt-[20px] pb-[16px]">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-[var(--gold-light)]">
+    <div className="min-h-screen bg-background flex flex-col">
+      <header className="bg-card border-b border-border px-[18px] pt-[20px] pb-[16px]">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(198,242,17,0.4)]">
           ArchAngel · HALO
         </div>
-        <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[3px]">
+        <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[3px] text-foreground">
           {portal.crew.name}
         </div>
-        <div className="text-[12.5px] text-white/60">
+        <div className="text-[12.5px] text-muted-foreground">
           {portal.crew.trade || "Crew portal"}
         </div>
       </header>
 
-      <div className="sticky top-0 z-10 bg-[var(--bg,#f4f2ee)] px-[12px] pt-[10px] pb-[8px] border-b border-border">
-        <div className="flex gap-[4px] overflow-x-auto no-scrollbar">
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md px-[12px] pt-[10px] pb-[8px] border-b border-border shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+        <div className="flex gap-[4px] overflow-x-auto no-scrollbar pb-[2px]">
           {tabs.map((t) => {
             const Icon = t.icon;
             return (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex items-center gap-[5px] whitespace-nowrap rounded-[10px] px-[12px] py-[8px] text-[12.5px] font-display font-bold transition-colors ${
+                className={`flex items-center gap-[5px] whitespace-nowrap rounded-[10px] px-[12px] py-[8px] text-[12.5px] font-display font-bold transition-all ${
                   tab === t.key
-                    ? "bg-[var(--ink)] text-white"
-                    : "bg-card text-muted-foreground"
+                    ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(198,242,17,0.4)]"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                 }`}
               >
                 <Icon className="w-[14px] h-[14px]" /> {t.label}
                 {t.alert ? (
-                  <span className="ml-[2px] bg-red-600 text-white px-[5px] py-[1px] rounded-full text-[10px] font-bold min-w-[16px] text-center">
+                  <span className="ml-[2px] bg-red-500 text-white px-[5px] py-[1px] rounded-full text-[10px] font-bold min-w-[16px] text-center shadow-[0_0_8px_rgba(239,68,68,0.6)]">
                     {t.alert}
                   </span>
                 ) : t.badge ? (
-                  <span className="ml-[2px] bg-[var(--gold)] text-[var(--ink)] px-[5px] py-[1px] rounded-full text-[10px] font-bold">
+                  <span className="ml-[2px] bg-background text-foreground px-[5px] py-[1px] rounded-full text-[10px] font-bold border border-border">
                     {t.badge}
                   </span>
                 ) : null}
@@ -237,7 +238,7 @@ export default function CrewPortal() {
         </div>
       </div>
 
-      <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto">
+      <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto w-full flex-1">
         {tab === "schedule" && <SaveLinkCard />}
         {tab === "offers" && <OffersTab portal={portal} token={token} />}
         {tab === "schedule" && <ScheduleTab portal={portal} />}
@@ -261,6 +262,10 @@ export default function CrewPortal() {
       {!portal.crew.agreementAcceptedAt && (
         <AgreementModal token={token} crewName={portal.crew.name} />
       )}
+      
+      <div className="pb-8 pt-4">
+        <FalkonBadge />
+      </div>
     </div>
   );
 }
@@ -282,40 +287,40 @@ function AgreementModal({ token, crewName }: { token: string; crewName: string }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-[14px]">
-      <div className="bg-card rounded-[20px] w-full max-w-[480px] max-h-[86vh] overflow-y-auto p-[20px] shadow-2xl">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-[var(--gold)]">
+    <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-end sm:items-center justify-center p-[14px]">
+      <div className="bg-card border border-border rounded-[20px] w-full max-w-[480px] max-h-[86vh] overflow-y-auto p-[20px] shadow-[0_0_40px_rgba(0,0,0,0.6)]">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_5px_rgba(198,242,17,0.3)]">
           Welcome, {crewName}
         </div>
-        <div className="font-display font-bold text-[20px] mt-[4px] mb-[10px]">
+        <div className="font-display font-bold text-[20px] mt-[4px] mb-[10px] text-foreground">
           How your crew portal works
         </div>
-        <div className="text-[13.5px] leading-relaxed text-foreground/90 flex flex-col gap-[10px]">
+        <div className="text-[13.5px] leading-relaxed text-muted-foreground flex flex-col gap-[10px]">
           <div className="flex gap-[10px]">
-            <Link2 className="w-[16px] h-[16px] text-[var(--gold)] shrink-0 mt-[2px]" />
-            <span><b>Save this link.</b> This page is your personal portal — the same link works for every job. Bookmark it or add it to your home screen (Share → "Add to Home Screen").</span>
+            <Link2 className="w-[16px] h-[16px] text-primary shrink-0 mt-[2px]" />
+            <span><b className="text-foreground">Save this link.</b> This page is your personal portal — the same link works for every job. Bookmark it or add it to your home screen (Share → "Add to Home Screen").</span>
           </div>
           <div className="flex gap-[10px]">
-            <MapPin className="w-[16px] h-[16px] text-[var(--gold)] shrink-0 mt-[2px]" />
-            <span><b>Check in and out of every job.</b> Use the Job Tracker tab when you arrive and when you finish. Your GPS location and time are recorded as proof you were on site.</span>
+            <MapPin className="w-[16px] h-[16px] text-primary shrink-0 mt-[2px]" />
+            <span><b className="text-foreground">Check in and out of every job.</b> Use the Job Tracker tab when you arrive and when you finish. Your GPS location and time are recorded as proof you were on site.</span>
           </div>
           <div className="flex gap-[10px]">
-            <Camera className="w-[16px] h-[16px] text-[var(--gold)] shrink-0 mt-[2px]" />
-            <span><b>Take before &amp; after photos.</b> Photograph the work area before you start and after you finish. Photos are fingerprinted the moment they're uploaded, so they stand as tamper-proof evidence of your work.</span>
+            <Camera className="w-[16px] h-[16px] text-primary shrink-0 mt-[2px]" />
+            <span><b className="text-foreground">Take before &amp; after photos.</b> Photograph the work area before you start and after you finish. Photos are fingerprinted the moment they're uploaded, so they stand as tamper-proof evidence of your work.</span>
           </div>
           <div className="flex gap-[10px]">
-            <ShieldCheck className="w-[16px] h-[16px] text-[var(--gold)] shrink-0 mt-[2px]" />
-            <span><b>This protects you.</b> GPS check-ins and sealed photos prove the job was done right — they resolve disputes in your favor and get you paid faster.</span>
+            <ShieldCheck className="w-[16px] h-[16px] text-primary shrink-0 mt-[2px]" />
+            <span><b className="text-foreground">This protects you.</b> GPS check-ins and sealed photos prove the job was done right — they resolve disputes in your favor and get you paid faster.</span>
           </div>
         </div>
-        <label className="flex items-start gap-[10px] mt-[16px] mb-[14px] cursor-pointer">
+        <label className="flex items-start gap-[10px] mt-[20px] mb-[18px] cursor-pointer group">
           <input
             type="checkbox"
             checked={checked}
             onChange={(e) => setChecked(e.target.checked)}
-            className="mt-[3px] w-[16px] h-[16px] accent-[var(--gold)]"
+            className="mt-[3px] w-[16px] h-[16px] accent-primary shrink-0"
           />
-          <span className="text-[12.5px] text-muted-foreground">
+          <span className="text-[12.5px] text-muted-foreground group-hover:text-foreground transition-colors">
             I understand and agree to check in/out with GPS and document my work
             with before &amp; after photos on every job.
           </span>
@@ -323,7 +328,7 @@ function AgreementModal({ token, crewName }: { token: string; crewName: string }
         <button
           onClick={onAccept}
           disabled={!checked || accept.isPending}
-          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-primary-foreground bg-primary shadow-[0_0_15px_rgba(198,242,17,0.3)] disabled:opacity-50 disabled:shadow-none hover:brightness-110 transition-all active:scale-[0.98]"
         >
           {accept.isPending ? (
             <Loader2 className="w-[18px] h-[18px] animate-spin" />

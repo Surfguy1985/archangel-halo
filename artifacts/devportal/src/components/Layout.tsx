@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, Menu, Command, Code2, BookOpen, ChevronRight, X } from "lucide-react";
+import { Search, Menu, Command, Code2, BookOpen, ChevronRight, X, Terminal } from "lucide-react";
 import { docs } from "@/content/registry";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Command as CommandPrimitive, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { FalkonBadge } from "./FalkonBadge";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
@@ -18,70 +19,73 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, {} as Record<string, typeof docs>);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col font-sans selection:bg-primary selection:text-black">
       {/* Top Navigation */}
-      <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur-md">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="bg-primary text-primary-foreground p-1.5 rounded-md group-hover:bg-primary/90 transition-colors">
-                <Code2 className="w-5 h-5" />
+      <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-background/90 backdrop-blur-xl">
+        <div className="container mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-10">
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="bg-primary text-black p-2 relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                <Terminal className="w-6 h-6 relative z-10" strokeWidth={1.5} />
+                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </div>
-              <span className="font-display font-semibold text-lg tracking-tight">HALO Developer</span>
+              <span className="font-display font-bold text-xl tracking-[0.2em] uppercase text-white group-hover:text-primary transition-colors">HALO</span>
             </Link>
             
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
-              <Link href="/" className={location === "/" ? "text-foreground" : "hover:text-foreground transition-colors"}>Home</Link>
-              <Link href={docs.length > 0 ? `/docs/${docs[0].slug}` : "/"} className={location.startsWith("/docs") ? "text-foreground" : "hover:text-foreground transition-colors"}>Documentation</Link>
-              <Link href="/api-reference" className="hover:text-foreground transition-colors">API Reference</Link>
+            <nav className="hidden md:flex items-center gap-8 text-sm font-medium tracking-widest uppercase">
+              <Link href="/" className={location === "/" ? "text-primary" : "text-muted-foreground hover:text-white transition-colors"}>Home</Link>
+              <Link href={docs.length > 0 ? `/docs/${docs[0].slug}` : "/"} className={location.startsWith("/docs") ? "text-primary" : "text-muted-foreground hover:text-white transition-colors"}>Docs</Link>
+              <Link href="/api-reference" className="text-muted-foreground hover:text-white transition-colors">API</Link>
             </nav>
           </div>
 
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setSearchOpen(true)}
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground bg-muted/30 border rounded-full hover:bg-muted/50 transition-colors w-64"
+              className="hidden md:flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/50 transition-all w-72 group"
             >
-              <Search className="w-4 h-4" />
-              <span className="flex-1 text-left">Search documentation...</span>
-              <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100">
-                <span className="text-xs">⌘</span>K
+              <Search className="w-4 h-4 group-hover:text-primary transition-colors" />
+              <span className="flex-1 text-left font-mono text-xs uppercase tracking-wider">Search...</span>
+              <kbd className="pointer-events-none inline-flex h-6 select-none items-center gap-1 bg-white/10 px-2 font-mono text-[10px] font-medium text-white">
+                <span>⌘</span>K
               </kbd>
             </button>
             <button 
-              className="md:hidden p-2 text-muted-foreground hover:text-foreground"
+              className="md:hidden p-2 text-muted-foreground hover:text-white"
               onClick={() => setSearchOpen(true)}
             >
-              <Search className="w-5 h-5" />
+              <Search className="w-6 h-6" />
             </button>
             <button 
-              className="md:hidden p-2 text-muted-foreground hover:text-foreground"
+              className="md:hidden p-2 text-muted-foreground hover:text-white"
               onClick={() => setMobileMenuOpen(true)}
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-6 h-6" />
             </button>
           </div>
         </div>
+        {/* Neon accent line */}
+        <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-primary to-transparent opacity-30" />
       </header>
 
-      <div className="flex-1 flex container mx-auto px-4">
+      <div className="flex-1 flex container mx-auto px-6">
         {/* Sidebar Navigation */}
-        <aside className="hidden md:block w-64 shrink-0 py-8 pr-6 border-r">
-          <div className="sticky top-24 space-y-8">
+        <aside className="hidden md:block w-72 shrink-0 py-12 pr-8 border-r border-white/10 relative">
+          <div className="sticky top-32 space-y-12">
             {Object.entries(groupedDocs).map(([category, items]) => (
               <div key={category}>
-                <h4 className="font-display font-medium text-sm text-foreground mb-3">{category}</h4>
-                <div className="flex flex-col gap-1 border-l ml-2">
+                <h4 className="font-display font-semibold text-xs tracking-[0.2em] uppercase text-white/40 mb-6">{category}</h4>
+                <div className="flex flex-col gap-1 border-l border-white/10 ml-2">
                   {items.map(doc => {
                     const isActive = location === `/docs/${doc.slug}`;
                     return (
                       <Link 
                         key={doc.slug} 
                         href={`/docs/${doc.slug}`}
-                        className={`pl-4 py-1.5 text-sm transition-colors border-l -ml-[1px] ${
+                        className={`pl-5 py-2 text-sm transition-all border-l-2 -ml-[1px] font-mono ${
                           isActive 
-                            ? "border-primary text-primary font-medium" 
-                            : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground"
+                            ? "border-primary text-primary bg-primary/5" 
+                            : "border-transparent text-muted-foreground hover:text-white hover:border-white/30 hover:bg-white/5"
                         }`}
                       >
                         {doc.title}
@@ -95,45 +99,47 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0 py-8 md:pl-8">
+        <main className="flex-1 min-w-0 py-12 md:pl-16">
           {children}
         </main>
       </div>
 
       {/* Footer */}
-      <footer className="border-t py-12 mt-12 bg-muted/10">
-        <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Code2 className="w-4 h-4" />
-            <span className="text-sm">HALO Developer Portal</span>
+      <footer className="border-t border-white/10 py-12 mt-24 bg-black relative overflow-hidden">
+        <div className="absolute top-0 left-1/4 w-1/2 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+        <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3 text-white">
+            <Terminal className="w-5 h-5 text-primary" strokeWidth={1.5} />
+            <span className="font-display font-bold tracking-widest uppercase text-sm">HALO DEV</span>
           </div>
-          <span className="text-sm text-muted-foreground">Archangel Operations Platform</span>
+          <FalkonBadge />
         </div>
       </footer>
 
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-background md:hidden flex flex-col">
-          <div className="h-16 flex items-center justify-between px-4 border-b">
-            <span className="font-display font-semibold">Menu</span>
-            <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-muted-foreground">
-              <X className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl md:hidden flex flex-col border-b border-primary">
+          <div className="h-20 flex items-center justify-between px-6 border-b border-white/10">
+            <span className="font-display font-bold tracking-widest uppercase text-primary">Menu</span>
+            <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-white hover:text-primary transition-colors">
+              <X className="w-6 h-6" />
             </button>
           </div>
-          <div className="flex-1 overflow-auto p-4 space-y-6">
-            <nav className="flex flex-col gap-4 text-lg font-medium">
-              <Link href="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
+          <div className="flex-1 overflow-auto p-6 space-y-10">
+            <nav className="flex flex-col gap-6 text-xl font-display uppercase tracking-widest font-semibold">
+              <Link href="/" onClick={() => setMobileMenuOpen(false)} className="hover:text-primary transition-colors">Home</Link>
+              <Link href="/api-reference" onClick={() => setMobileMenuOpen(false)} className="hover:text-primary transition-colors">API Reference</Link>
             </nav>
             {Object.entries(groupedDocs).map(([category, items]) => (
               <div key={category}>
-                <h4 className="font-display font-medium text-sm text-muted-foreground mb-3">{category}</h4>
-                <div className="flex flex-col gap-3">
+                <h4 className="font-display font-bold text-xs text-white/40 mb-4 tracking-[0.2em] uppercase">{category}</h4>
+                <div className="flex flex-col gap-4 font-mono text-sm">
                   {items.map(doc => (
                     <Link 
                       key={doc.slug} 
                       href={`/docs/${doc.slug}`}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="text-foreground"
+                      className="text-muted-foreground hover:text-primary transition-colors"
                     >
                       {doc.title}
                     </Link>
@@ -147,12 +153,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Search Dialog */}
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className="p-0 overflow-hidden max-w-2xl sm:rounded-xl">
+        <DialogContent className="p-0 overflow-hidden max-w-2xl bg-zinc-950 border-white/10 sm:rounded-none shadow-2xl shadow-primary/10">
           <DialogTitle className="sr-only">Search Documentation</DialogTitle>
-          <CommandPrimitive className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
-            <CommandInput placeholder="Search documentation..." />
-            <CommandList>
-              <CommandEmpty>No results found.</CommandEmpty>
+          <CommandPrimitive className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:text-primary/70 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input-wrapper]_svg]:text-primary [&_[cmdk-input]]:h-14 [&_[cmdk-input]]:font-mono [&_[cmdk-item]]:px-4 [&_[cmdk-item]]:py-4 [&_[cmdk-item]]:rounded-none [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+            <CommandInput placeholder="SEARCH DIRECTORY..." className="border-b border-white/10" />
+            <CommandList className="max-h-[60vh]">
+              <CommandEmpty className="py-12 text-center font-mono text-sm text-muted-foreground uppercase tracking-widest">No matching records found.</CommandEmpty>
               {Object.entries(groupedDocs).map(([category, items]) => (
                 <CommandGroup key={category} heading={category}>
                   {items.map(doc => (
@@ -163,12 +169,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         setSearchOpen(false);
                         setLocation(`/docs/${doc.slug}`);
                       }}
-                      className="flex items-center gap-3 cursor-pointer"
+                      className="flex items-center gap-4 cursor-pointer data-[selected=true]:bg-white/5 data-[selected=true]:text-white group transition-colors"
                     >
-                      <BookOpen className="w-4 h-4 text-muted-foreground" />
+                      <div className="w-8 h-8 flex items-center justify-center bg-black border border-white/10 group-data-[selected=true]:border-primary group-data-[selected=true]:text-primary transition-colors">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
                       <div className="flex flex-col">
-                        <span className="font-medium">{doc.title}</span>
-                        <span className="text-xs text-muted-foreground line-clamp-1">{doc.description}</span>
+                        <span className="font-mono text-sm font-semibold tracking-wide">{doc.title}</span>
+                        <span className="text-xs text-muted-foreground line-clamp-1 mt-1 font-sans">{doc.description}</span>
                       </div>
                     </CommandItem>
                   ))}

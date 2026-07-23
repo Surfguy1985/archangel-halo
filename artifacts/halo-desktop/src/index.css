@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -6,36 +7,36 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-background: var(--paper);
-  --color-foreground: var(--ink);
-  --color-border: var(--hairline);
-  --color-input: var(--hairline);
-  --color-ring: var(--gold);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 
   --color-card: var(--card);
-  --color-card-foreground: var(--ink);
-  --color-card-border: var(--hairline);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-border: var(--border);
 
-  --color-popover: var(--card);
-  --color-popover-foreground: var(--ink);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
 
-  --color-primary: var(--gold);
-  --color-primary-foreground: #171410;
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
 
-  --color-secondary: var(--ink2);
-  --color-secondary-foreground: #ffffff;
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
 
   --color-muted: var(--muted);
-  --color-muted-foreground: var(--faint);
+  --color-muted-foreground: var(--muted-foreground);
 
-  --color-accent: var(--gold-tint);
-  --color-accent-foreground: var(--gold-dark);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
 
-  --color-destructive: var(--red);
-  --color-destructive-foreground: #ffffff;
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: "Bricolage Grotesque", var(--font-sans);
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Space Grotesk", var(--font-sans);
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -45,70 +46,124 @@
 }
 
 :root {
-  --ink: #1C1C1E;
-  --ink2: #3A3A3C;
-  --muted: #8E8E93;
-  --faint: #C7C7CC;
-  --paper: #F2F2F7;
-  --card: #FFFFFF;
-  --hairline: rgba(0, 0, 0, 0.06);
-  --hairline2: rgba(0, 0, 0, 0.12);
-  --gold: #007AFF;
-  --gold-dark: #0051A8;
-  --gold-light: #52A8FF;
-  --gold-tint: rgba(0, 122, 255, 0.12);
-  --red: #FF3B30;
-  --orange: #FF9500;
-  --yellow: #FFCC00;
-  --green: #34C759;
-  --blue: #5AC8FA;
-  --purple: #AF52DE;
-  --app-backdrop: #E5E5EA;
-  --shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 12px 32px rgba(0, 0, 0, 0.05);
-
-  --radius: 14px;
+  --background: #050505;
+  --foreground: #FFFFFF;
+  --card: #0A0A0A;
+  --card-foreground: #FFFFFF;
+  --popover: #0A0A0A;
+  --popover-foreground: #FFFFFF;
+  --primary: #C6F211;
+  --primary-foreground: #000000;
+  --secondary: #171717;
+  --secondary-foreground: #FFFFFF;
+  --muted: #262626;
+  --muted-foreground: #A3A3A3;
+  --accent: #C6F211;
+  --accent-foreground: #000000;
+  --destructive: #FF3333;
+  --destructive-foreground: #FFFFFF;
+  --border: #262626;
+  --input: #262626;
+  --ring: #C6F211;
+  --radius: 0.5rem;
+  
+  --ink: #FFFFFF;
+  --ink2: #A3A3A3;
+  --paper: #050505;
+  --hairline: #262626;
+  --hairline2: #404040;
+  
+  --gold: #C6F211;
+  --gold-dark: #A5CC0E;
+  --gold-light: #D4F547;
+  --gold-tint: rgba(198, 242, 17, 0.15);
+  
+  --shadow: 0 8px 30px rgba(0,0,0,0.5);
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--paper);
-  color: var(--ink);
+  background-color: var(--background);
+  color: var(--foreground);
   -webkit-font-smoothing: antialiased;
-  font-size: 15px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
-.font-display { font-family: var(--font-display); letter-spacing: -0.02em; }
+.font-display { 
+  font-family: var(--font-display); 
+  letter-spacing: -0.03em; 
+}
 
 .btn-gold {
-  background: var(--gold);
-  color: #FFFFFF;
-  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 0 15px rgba(198, 242, 17, 0.3);
   font-weight: 600;
-  transition: all 0.2s ease;
+  border-radius: 0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-display);
 }
 .btn-gold:hover {
-  background: var(--gold-dark);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+  background: var(--gold-light);
+  transform: translateY(-2px);
+  box-shadow: 0 0 25px rgba(198, 242, 17, 0.5);
 }
 .btn-ghost {
-  background: rgba(0, 0, 0, 0.05);
-  color: var(--ink);
+  background: transparent;
+  color: var(--foreground);
   font-weight: 500;
   transition: all 0.2s ease;
+  border-radius: 0;
 }
 .btn-ghost:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--muted);
+  color: var(--primary);
 }
 .btn-line {
-  border: 1px solid var(--hairline2);
-  color: var(--ink);
-  background: #fff;
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  background: transparent;
   font-weight: 500;
   transition: all 0.2s ease;
+  border-radius: 0;
 }
 .btn-line:hover {
-  border-color: var(--muted);
-  background: var(--paper);
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+/* Custom scrollbar for sleek look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Base custom icon container */
+.custom-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--muted);
+  color: var(--primary);
+  border-radius: 4px;
+  padding: 6px;
+  transition: all 0.2s ease;
+}
+.custom-icon:hover {
+  background: var(--primary);
+  color: var(--primary-foreground);
 }

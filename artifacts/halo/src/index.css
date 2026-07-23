@@ -20,7 +20,7 @@
   --color-popover-foreground: var(--ink);
 
   --color-primary: var(--gold);
-  --color-primary-foreground: #171410;
+  --color-primary-foreground: #000000;
   
   --color-secondary: var(--ink2);
   --color-secondary-foreground: #ffffff;
@@ -29,12 +29,12 @@
   --color-muted-foreground: var(--faint);
   
   --color-accent: var(--gold-tint);
-  --color-accent-foreground: var(--gold-dark);
+  --color-accent-foreground: var(--gold);
   
   --color-destructive: var(--red);
   --color-destructive-foreground: #ffffff;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-display: "Bricolage Grotesque", var(--font-sans);
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
@@ -45,30 +45,30 @@
 }
 
 :root {
-  --ink: #000000;
-  --ink2: #3C3C43;
-  --muted: #8E8E93;
-  --faint: #C7C7CC;
-  --paper: #F2F2F7;
-  --card: #FFFFFF;
-  --hairline: rgba(0,0,0,.08);
-  --hairline2: rgba(0,0,0,.15);
+  --ink: #FFFFFF;
+  --ink2: #A1A1AA;
+  --muted: #71717A;
+  --faint: #3F3F46;
+  --paper: #09090B;
+  --card: #18181B;
+  --hairline: rgba(255,255,255,0.1);
+  --hairline2: rgba(255,255,255,0.2);
   
-  --gold: #007AFF;
-  --gold-dark: #0051C4;
-  --gold-light: #5AC8FA;
-  --gold-tint: rgba(0,122,255,.12);
+  --gold: #C6F211;
+  --gold-dark: #A8D308;
+  --gold-light: #D4F542;
+  --gold-tint: rgba(198, 242, 17, 0.15);
   
-  --red: #FF3B30;
-  --orange: #FF9500;
+  --red: #FF3366;
+  --orange: #FF6600;
   --yellow: #FFCC00;
-  --green: #34C759;
-  --blue: #5AC8FA;
+  --green: #C6F211;
+  --blue: #3388FF;
   --purple: #AF52DE;
   
-  --app-backdrop: #E5E5EA;
+  --app-backdrop: #000000;
   
-  --radius: 20px;
+  --radius: 12px;
 }
 
 body {
@@ -94,8 +94,9 @@ body {
   width: min(430px, 100%);
   height: clamp(660px, 92dvh, 920px);
   background: var(--paper);
-  border-radius: 42px;
-  box-shadow: 0 2px 3px rgba(0,0,0,.06), 0 30px 80px rgba(23,24,28,.22);
+  border-radius: 32px;
+  border: 1px solid var(--hairline);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 30px 80px rgba(0,0,0,0.5);
   overflow: hidden;
   position: relative;
   display: flex;
@@ -103,22 +104,27 @@ body {
 }
 @media (max-width: 520px) {
   .stage { padding: 0; gap: 0; }
-  .frame { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
+  .frame { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; border: none; }
 }
 
 .font-display { font-family: var(--font-display); }
 
 .btn-gold {
-  background: linear-gradient(135deg, #47A1FF, var(--gold) 55%, var(--gold-dark));
-  color: #FFFFFF;
-  box-shadow: 0 2px 5px rgba(0, 122, 255, 0.3);
+  background: var(--gold);
+  color: #000000;
+  box-shadow: 0 0 20px rgba(198, 242, 17, 0.2);
+  transition: all 0.2s ease;
+}
+.btn-gold:hover {
+  background: var(--gold-light);
+  box-shadow: 0 0 30px rgba(198, 242, 17, 0.4);
 }
 .btn-ghost {
-  background: rgba(0,0,0,.05);
+  background: rgba(255,255,255,.05);
   color: var(--ink);
 }
 .btn-line {
   border: 1px solid var(--hairline2);
-  color: var(--ink2);
-  background: #fff;
+  color: var(--ink);
+  background: transparent;
 }

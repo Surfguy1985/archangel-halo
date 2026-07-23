@@ -53,18 +53,18 @@ export default function JobBoard() {
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 h-screen flex flex-col">
       <header className="flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">Job Board</h1>
-          <p className="text-muted-foreground">Available jobs and broadcast status</p>
+          <h1 className="text-4xl font-display font-bold text-foreground tracking-tight uppercase">Job Board</h1>
+          <p className="text-muted-foreground font-mono mt-1 text-sm">Available jobs and broadcast status</p>
         </div>
         
-        <div className="flex bg-card p-1 rounded-lg border border-border shadow-sm">
+        <div className="flex bg-card p-1 rounded-none border border-border shadow-sm">
           {["active", "filled", "reopened", "completed", "all"].map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md capitalize transition-colors ${
+              className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-none transition-colors ${
                 filter === status 
-                  ? "bg-[var(--gold-tint)] text-[var(--gold-dark)] shadow-sm" 
+                  ? "bg-[var(--primary)] text-black shadow-sm" 
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >

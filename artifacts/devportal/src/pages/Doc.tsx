@@ -3,7 +3,7 @@ import { useParams } from "wouter";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { docs } from "@/content/registry";
-import { ChevronRight, FileText } from "lucide-react";
+import { ChevronRight, Terminal } from "lucide-react";
 
 function slugify(text: string): string {
   return text.toLowerCase().replace(/[^\w]+/g, '-').replace(/(^-|-$)/g, '');
@@ -76,12 +76,13 @@ export default function Doc() {
 
   if (!doc) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-center">
-        <FileText className="w-12 h-12 text-muted-foreground/30 mb-4" />
-        <h2 className="font-display text-2xl font-semibold mb-2">Document not found</h2>
-        <p className="text-muted-foreground mb-6">The documentation you're looking for doesn't exist or has been moved.</p>
-        <button onClick={() => window.history.back()} className="text-sm font-medium text-primary hover:underline">
-          Go back
+      <div className="flex flex-col items-center justify-center py-32 text-center border border-white/10 bg-zinc-950 relative overflow-hidden mt-8">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+        <Terminal className="w-16 h-16 text-primary mb-6 relative z-10" strokeWidth={1} />
+        <h2 className="font-display text-4xl font-bold tracking-widest uppercase mb-4 text-white relative z-10">404_NOT_FOUND</h2>
+        <p className="text-zinc-400 font-mono mb-8 relative z-10 uppercase tracking-widest text-sm">Target documentation block inaccessible.</p>
+        <button onClick={() => window.history.back()} className="relative z-10 bg-primary text-black font-display font-bold uppercase tracking-widest px-8 py-4 hover:bg-white transition-colors">
+          Return to Hub
         </button>
       </div>
     );
@@ -91,26 +92,34 @@ export default function Doc() {
   const components = {
     h2: ({ node, children, ...props }: any) => {
       const id = slugify(extractText(children));
-      return <h2 id={id} className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight first:mt-0 mt-10 mb-5" {...props}>{children}</h2>;
+      return <h2 id={id} className="scroll-m-20 border-b border-white/10 pb-4 text-4xl font-display font-bold tracking-tight first:mt-0 mt-16 mb-8 uppercase text-white" {...props}>{children}</h2>;
     },
     h3: ({ node, children, ...props }: any) => {
       const id = slugify(extractText(children));
-      return <h3 id={id} className="scroll-m-20 text-2xl font-semibold tracking-tight mt-8 mb-4" {...props}>{children}</h3>;
+      return <h3 id={id} className="scroll-m-20 text-2xl font-display font-semibold tracking-wide mt-12 mb-6 uppercase text-white/90" {...props}>{children}</h3>;
     }
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-12 max-w-[1200px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="flex flex-col xl:flex-row gap-16 max-w-[1400px] animate-in fade-in duration-700">
       
       {/* Main Document Content */}
       <article className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-8">
-          <span>{doc.category}</span>
-          <ChevronRight className="w-4 h-4" />
-          <span className="text-foreground font-medium">{doc.title}</span>
+        <div className="flex items-center gap-3 font-mono text-xs tracking-widest uppercase text-muted-foreground mb-12 bg-white/5 px-4 py-2 w-fit border border-white/10">
+          <span className="text-primary">{doc.category}</span>
+          <ChevronRight className="w-3 h-3 text-white/30" />
+          <span className="text-white font-semibold">{doc.title}</span>
         </div>
         
-        <div className="prose prose-zinc dark:prose-invert max-w-none prose-headings:font-display prose-a:text-primary">
+        <div className="prose prose-zinc dark:prose-invert max-w-none 
+          prose-headings:font-display prose-headings:font-bold prose-headings:uppercase 
+          prose-a:text-primary prose-a:no-underline hover:prose-a:underline hover:prose-a:decoration-primary 
+          prose-p:font-sans prose-p:leading-loose prose-p:text-zinc-300
+          prose-strong:text-white prose-strong:font-semibold
+          prose-ul:text-zinc-300 prose-ul:font-sans prose-li:leading-loose
+          prose-ol:text-zinc-300 prose-ol:font-sans
+          prose-hr:border-white/10
+          ">
           <ReactMarkdown 
             remarkPlugins={[remarkGfm]}
             components={components}
@@ -119,27 +128,29 @@ export default function Doc() {
           </ReactMarkdown>
         </div>
         
-        <div className="mt-16 pt-8 border-t flex justify-between items-center text-sm text-muted-foreground">
-          <span>Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
-          <button className="hover:text-foreground transition-colors">Provide feedback</button>
+        <div className="mt-24 pt-8 border-t border-white/10 flex justify-between items-center text-xs font-mono tracking-widest uppercase text-muted-foreground">
+          <span>Sys_Update: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+          <button className="hover:text-primary transition-colors border border-transparent hover:border-primary px-3 py-1">Submit Report</button>
         </div>
       </article>
 
       {/* Right Sidebar - TOC */}
       {toc.length > 0 && (
-        <aside className="hidden lg:block w-64 shrink-0">
-          <div className="sticky top-24">
-            <h4 className="font-display font-medium text-sm text-foreground mb-4">On this page</h4>
-            <nav className="flex flex-col gap-2.5 text-sm">
+        <aside className="hidden xl:block w-72 shrink-0">
+          <div className="sticky top-32 p-6 border border-white/10 bg-zinc-950">
+            <h4 className="font-display font-bold text-xs tracking-[0.2em] text-primary uppercase mb-6 flex items-center gap-3">
+              <div className="w-1.5 h-1.5 bg-primary" /> Index
+            </h4>
+            <nav className="flex flex-col gap-3 font-mono text-xs">
               {toc.map((item) => (
                 <a 
                   key={item.id}
                   href={`#${item.id}`}
-                  className={`line-clamp-2 transition-colors hover:text-foreground ${
+                  className={`line-clamp-2 transition-all block border-l-2 py-1 pl-3 ${
                     activeId === item.id 
-                      ? "text-primary font-medium" 
-                      : "text-muted-foreground"
-                  } ${item.level === 3 ? "pl-4" : ""}`}
+                      ? "border-primary text-white font-bold bg-white/5" 
+                      : "border-white/10 text-muted-foreground hover:text-white hover:border-white/30"
+                  } ${item.level === 3 ? "ml-4 text-[10px]" : ""}`}
                 >
                   {item.text}
                 </a>
