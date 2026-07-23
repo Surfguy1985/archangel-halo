@@ -76,7 +76,7 @@ export async function candidatesForJob(jobId: string): Promise<CandidateResult[]
 
     const result = evaluateEligibility(
       {
-        status: "ACTIVE",
+        status: member.membershipStatus === "ACTIVE" ? "ACTIVE" : "SUSPENDED",
         founderStatus: member.founderStatus as never,
         haloScore: member.haloScore,
         tier: member.tier as never,

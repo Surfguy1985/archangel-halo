@@ -301,6 +301,8 @@ export * from './wingsIncident';
 export * from './wingsIncidentInput';
 export * from './wingsIncidentInputType';
 export * from './wingsMember';
+export * from './wingsMemberReadiness';
+export * from './wingsMembershipDecisionInput';
 export * from './wingsMemberUpdateInput';
 export * from './wingsOverride';
 export * from './wingsOverview';

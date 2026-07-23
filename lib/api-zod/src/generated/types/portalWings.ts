@@ -12,6 +12,7 @@ import type { WingsOverride } from './wingsOverride';
 export interface PortalWings {
   haloScore: number;
   tier: string;
+  membershipStatus?: string;
   founderStatus: string;
   founderNumber?: number | null;
   scoreConfidence: number;

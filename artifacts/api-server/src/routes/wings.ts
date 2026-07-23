@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import {
   db,
@@ -7,6 +7,7 @@ import {
   jobsTable,
   propertiesTable,
   wingMembersTable,
+  wingAssignmentsTable,
   wingScoreSnapshotsTable,
   wingIncidentsTable,
   wingQualitySubmissionsTable,
@@ -55,6 +56,9 @@ function serializeMember(
     sponsorCrewId: m.sponsorCrewId,
     sponsorName: m.sponsorCrewId ? (names.get(m.sponsorCrewId) ?? null) : null,
     sponsorSince: iso(m.sponsorSince),
+    membershipStatus: m.membershipStatus,
+    approvedAt: iso(m.approvedAt),
+    approvedBy: m.approvedBy,
     founderStatus: m.founderStatus,
     founderNumber: m.founderNumber,
     tradeSkills: (m.tradeSkills as string[] | null) ?? [],
@@ -96,6 +100,9 @@ router.get("/wings/overview", async (_req, res): Promise<void> => {
     : null;
   res.json({
     members: members.length,
+    pendingMembers: members.filter(
+      (m) => m.membershipStatus === "PENDING_APPROVAL",
+    ).length,
     pendingReviews: submissions.filter((s) => s.reviewStatus === "PENDING")
       .length,
     needsHumanReview: submissions.filter(
@@ -114,10 +121,30 @@ router.get("/wings/overview", async (_req, res): Promise<void> => {
 
 router.get("/wings/members", async (_req, res): Promise<void> => {
   await ensureWingMembers().catch(() => {});
-  const [members, names] = await Promise.all([
+  const [members, names, crews, assignments, incidents] = await Promise.all([
     db.select().from(wingMembersTable),
     crewNameMap(),
+    db
+      .select({ id: crewsTable.id, w9SubmittedAt: crewsTable.w9SubmittedAt })
+      .from(crewsTable),
+    db
+      .select({ crewId: wingAssignmentsTable.crewId })
+      .from(wingAssignmentsTable)
+      .where(isNotNull(wingAssignmentsTable.completedAt)),
+    db.select().from(wingIncidentsTable),
   ]);
+  const w9Map = new Map(crews.map((c) => [c.id, !!c.w9SubmittedAt]));
+  const jobCounts = new Map<string, number>();
+  for (const a of assignments)
+    jobCounts.set(a.crewId, (jobCounts.get(a.crewId) ?? 0) + 1);
+  const openIncidentCounts = new Map<string, number>();
+  for (const i of incidents) {
+    if (!i.resolvedAt && i.crewId)
+      openIncidentCounts.set(
+        i.crewId,
+        (openIncidentCounts.get(i.crewId) ?? 0) + 1,
+      );
+  }
   const snapshots = members.length
     ? await db
         .select()
@@ -138,10 +165,72 @@ router.get("/wings/members", async (_req, res): Promise<void> => {
   }
   res.json(
     members
-      .map((m) => serializeMember(m, names, latestReasons.get(m.crewId)))
+      .map((m) => ({
+        ...serializeMember(m, names, latestReasons.get(m.crewId)),
+        readiness: {
+          completedJobs: jobCounts.get(m.crewId) ?? 0,
+          w9OnFile: w9Map.get(m.crewId) ?? false,
+          openIncidents: openIncidentCounts.get(m.crewId) ?? 0,
+        },
+      }))
       .sort((a, b) => b.haloScore - a.haloScore),
   );
 });
+
+const memberApprovalSchema = z.object({
+  approve: z.boolean(),
+  reason: z.string().max(2000).optional(),
+});
+
+router.post(
+  "/wings/members/:crewId/approval",
+  async (req, res): Promise<void> => {
+    if (!UUID_RE.test(req.params.crewId)) {
+      res.status(404).json({ error: "Member not found" });
+      return;
+    }
+    const parsed = memberApprovalSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: parsed.error.issues[0]?.message ?? "Invalid body" });
+      return;
+    }
+    const [member] = await db
+      .select()
+      .from(wingMembersTable)
+      .where(eq(wingMembersTable.crewId, req.params.crewId));
+    if (!member) {
+      res.status(404).json({ error: "Member not found" });
+      return;
+    }
+    const nextStatus = parsed.data.approve ? "ACTIVE" : "SUSPENDED";
+    const [updated] = await db
+      .update(wingMembersTable)
+      .set({
+        membershipStatus: nextStatus,
+        approvedAt: parsed.data.approve ? new Date() : null,
+        approvedBy: parsed.data.approve ? "ADMIN" : null,
+      })
+      .where(eq(wingMembersTable.crewId, req.params.crewId))
+      .returning();
+    await logWingAudit({
+      actorType: "ADMIN",
+      action: parsed.data.approve ? "MEMBER_APPROVED" : "MEMBER_SUSPENDED",
+      entityType: "crew",
+      entityId: req.params.crewId,
+      before: { membershipStatus: member.membershipStatus },
+      after: { membershipStatus: nextStatus },
+      reason:
+        parsed.data.reason ??
+        (parsed.data.approve
+          ? "Approved for the Founding Wings program."
+          : "Suspended from the Founding Wings program."),
+    });
+    const names = await crewNameMap();
+    res.json(serializeMember(updated, names));
+  },
+);
 
 const memberUpdateSchema = z.object({
   sponsorCrewId: z.string().uuid().nullable().optional(),

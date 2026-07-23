@@ -83,6 +83,13 @@ export async function createJobOverrideAccruals(jobId: string) {
   for (const assignment of assignments) {
     const recruit = members.find((m) => m.crewId === assignment.crewId);
     if (!recruit?.sponsorCrewId) continue;
+    // Approval gate: both recruit and sponsor must be approved members.
+    if (recruit.membershipStatus !== "ACTIVE") continue;
+    const sponsorMember = await db
+      .select({ membershipStatus: wingMembersTable.membershipStatus })
+      .from(wingMembersTable)
+      .where(eq(wingMembersTable.crewId, recruit.sponsorCrewId));
+    if (sponsorMember[0]?.membershipStatus !== "ACTIVE") continue;
     const sponsorCrewId = recruit.sponsorCrewId;
 
     const allocatedCents = Math.round(

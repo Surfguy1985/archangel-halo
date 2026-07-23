@@ -4,6 +4,7 @@ import {
   useGetWingsOverview,
   useListWingsMembers,
   useUpdateWingsMember,
+  useDecideWingsMembership,
   useRecalculateWingsScore,
   useListWingsQuality,
   useRunWingsQualityReview,
@@ -190,15 +191,60 @@ export default function Wings() {
   );
 }
 
-function StatCard({ label, value, Icon }: { label: string; value: string; Icon: any }) {
+function StatCard({
+  label,
+  value,
+  Icon,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  Icon: any;
+  highlight?: boolean;
+}) {
   return (
-    <div className="bg-card rounded-[16px] border border-border shadow-[var(--shadow)] p-[14px]">
-      <div className="flex items-center gap-[6px] text-muted-foreground mb-[6px]">
+    <div
+      className={`rounded-[16px] border shadow-[var(--shadow)] p-[14px] ${
+        highlight ? "bg-amber-50 border-amber-300" : "bg-card border-border"
+      }`}
+    >
+      <div
+        className={`flex items-center gap-[6px] mb-[6px] ${
+          highlight ? "text-amber-700" : "text-muted-foreground"
+        }`}
+      >
         <Icon className="w-[14px] h-[14px]" />
         <span className="text-[11.5px] font-bold uppercase tracking-[0.08em]">{label}</span>
       </div>
-      <div className="font-display font-bold text-[24px] text-[var(--ink)] leading-none">{value}</div>
+      <div
+        className={`font-display font-bold text-[24px] leading-none ${
+          highlight ? "text-amber-700" : "text-[var(--ink)]"
+        }`}
+      >
+        {value}
+      </div>
     </div>
+  );
+}
+
+function MembershipBadge({ status }: { status?: string }) {
+  if (!status) return null;
+  const map: Record<string, { label: string; cls: string }> = {
+    PENDING_APPROVAL: {
+      label: "Pending approval",
+      cls: "bg-amber-100 text-amber-700 border-amber-300",
+    },
+    ACTIVE: { label: "Active", cls: "bg-green-100 text-green-700 border-green-300" },
+    SUSPENDED: { label: "Suspended", cls: "bg-red-100 text-red-600 border-red-300" },
+  };
+  const entry = map[status];
+  if (!entry) return null;
+  return (
+    <span
+      className={`inline-flex items-center px-[8px] py-[2px] rounded-full border text-[10px] font-bold uppercase tracking-[0.06em] ${entry.cls}`}
+    >
+      {entry.label}
+    </span>
   );
 }
 
@@ -227,6 +273,12 @@ function OverviewPill() {
     <div className="space-y-[12px]">
       <div className="grid grid-cols-2 gap-[10px]">
         <StatCard label="Members" value={String(overview?.members ?? 0)} Icon={Users} />
+        <StatCard
+          label="Pending approval"
+          value={String(overview?.pendingMembers ?? 0)}
+          Icon={UserCog}
+          highlight={(overview?.pendingMembers ?? 0) > 0}
+        />
         <StatCard label="Pending reviews" value={String(overview?.pendingReviews ?? 0)} Icon={Camera} />
         <StatCard label="Needs human" value={String(overview?.needsHumanReview ?? 0)} Icon={AlertTriangle} />
         <StatCard label="Held reserve" value={money(overview?.heldReserve)} Icon={ShieldCheck} />
@@ -328,10 +380,36 @@ function CrewsPill() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const update = useUpdateWingsMember();
+  const decide = useDecideWingsMembership();
   const recalc = useRecalculateWingsScore();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [decidingId, setDecidingId] = useState<string | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries();
+
+  const handleDecision = (m: WingsMember, approve: boolean) => {
+    setDecidingId(m.crewId);
+    decide.mutate(
+      { crewId: m.crewId, data: { approve } },
+      {
+        onSuccess: () => {
+          invalidate();
+          setDecidingId(null);
+          toast({
+            title: approve ? "Member approved" : "Member suspended",
+            description: m.crewName,
+          });
+        },
+        onError: (err: any) => {
+          setDecidingId(null);
+          toast({
+            title: approve ? "Approval failed" : "Suspend failed",
+            description: err?.data?.message ?? "Try again in a moment.",
+          });
+        },
+      },
+    );
+  };
 
   const toggleAvailable = (m: WingsMember) => {
     update.mutate(
@@ -374,6 +452,7 @@ function CrewsPill() {
               </div>
               <div className="flex items-center gap-[6px] mt-[4px] flex-wrap">
                 <TierBadge tier={m.tier} />
+                <MembershipBadge status={m.membershipStatus} />
                 {m.founderStatus && m.founderStatus !== "NONE" && (
                   <span className="inline-flex items-center gap-[3px] px-[8px] py-[2px] rounded-full bg-[var(--ink)] text-[var(--gold-light)] text-[10px] font-bold uppercase tracking-[0.06em]">
                     <Award className="w-[10px] h-[10px]" />
@@ -393,7 +472,92 @@ function CrewsPill() {
             </div>
           </div>
 
+          {m.membershipStatus === "PENDING_APPROVAL" && (
+            <div className="mt-[12px] bg-amber-50 rounded-[12px] border border-amber-200 p-[12px]">
+              <div className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-amber-700 mb-[8px]">
+                Approval readiness
+              </div>
+              <div className="grid grid-cols-3 gap-[8px] mb-[12px]">
+                <div>
+                  <div className="font-display font-bold text-[18px] text-[var(--ink)] leading-none">
+                    {m.readiness?.completedJobs ?? 0}
+                  </div>
+                  <div className="text-[10.5px] text-muted-foreground mt-[3px]">Completed jobs</div>
+                </div>
+                <div>
+                  <div
+                    className={`font-display font-bold text-[18px] leading-none ${
+                      m.readiness?.w9OnFile ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {m.readiness?.w9OnFile ? "Yes" : "No"}
+                  </div>
+                  <div className="text-[10.5px] text-muted-foreground mt-[3px]">W-9 on file</div>
+                </div>
+                <div>
+                  <div
+                    className={`font-display font-bold text-[18px] leading-none ${
+                      (m.readiness?.openIncidents ?? 0) > 0 ? "text-red-600" : "text-[var(--ink)]"
+                    }`}
+                  >
+                    {m.readiness?.openIncidents ?? 0}
+                  </div>
+                  <div className="text-[10.5px] text-muted-foreground mt-[3px]">Open incidents</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-[8px]">
+                <button
+                  onClick={() => handleDecision(m, true)}
+                  disabled={decidingId === m.crewId}
+                  data-testid={`approve-member-${m.crewId}`}
+                  className="flex-1 flex items-center justify-center gap-[6px] rounded-[10px] px-[12px] py-[8px] text-[12.5px] font-display font-bold bg-green-600 text-white disabled:opacity-60 active:scale-[0.97] transition-transform"
+                >
+                  {decidingId === m.crewId ? (
+                    <Loader2 className="w-[13px] h-[13px] animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-[13px] h-[13px]" />
+                  )}
+                  Approve
+                </button>
+                <button
+                  onClick={() => handleDecision(m, false)}
+                  disabled={decidingId === m.crewId}
+                  data-testid={`decline-member-${m.crewId}`}
+                  className="rounded-[10px] px-[12px] py-[8px] text-[12px] font-display font-bold bg-red-50 text-red-600 border border-red-200 disabled:opacity-60 active:scale-[0.97] transition-transform"
+                >
+                  Decline
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="mt-[12px] space-y-[10px]">
+            {m.membershipStatus === "ACTIVE" && (
+              <div className="flex items-center justify-between">
+                <span className="text-[12.5px] text-muted-foreground">Membership</span>
+                <button
+                  onClick={() => handleDecision(m, false)}
+                  disabled={decidingId === m.crewId}
+                  data-testid={`suspend-member-${m.crewId}`}
+                  className="rounded-[10px] px-[10px] py-[6px] text-[11.5px] font-display font-bold bg-red-50 text-red-600 border border-red-200 disabled:opacity-60 active:scale-[0.97] transition-transform"
+                >
+                  Suspend
+                </button>
+              </div>
+            )}
+            {m.membershipStatus === "SUSPENDED" && (
+              <div className="flex items-center justify-between">
+                <span className="text-[12.5px] text-muted-foreground">Membership</span>
+                <button
+                  onClick={() => handleDecision(m, true)}
+                  disabled={decidingId === m.crewId}
+                  data-testid={`reinstate-member-${m.crewId}`}
+                  className="rounded-[10px] px-[10px] py-[6px] text-[11.5px] font-display font-bold bg-green-50 text-green-700 border border-green-200 disabled:opacity-60 active:scale-[0.97] transition-transform"
+                >
+                  Reinstate
+                </button>
+              </div>
+            )}
             <label className="flex items-center justify-between">
               <span className="text-[12.5px] text-muted-foreground">Available for work</span>
               <button

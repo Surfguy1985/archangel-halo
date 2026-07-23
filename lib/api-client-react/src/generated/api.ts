@@ -229,6 +229,7 @@ import type {
   WingsIncidentInput,
   WingsMember,
   WingsMemberUpdateInput,
+  WingsMembershipDecisionInput,
   WingsOverride,
   WingsOverview,
   WingsQualityDecisionInput,
@@ -14669,6 +14670,78 @@ export const useUpdateWingsMember = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getUpdateWingsMemberMutationOptions(options));
+    }
+
+export const getDecideWingsMembershipUrl = (crewId: string,) => {
+
+
+
+
+  return `/api/wings/members/${crewId}/approval`
+}
+
+/**
+ * @summary Approve or suspend a crew's Wings membership
+ */
+export const decideWingsMembership = async (crewId: string,
+    wingsMembershipDecisionInput: WingsMembershipDecisionInput, options?: RequestInit): Promise<WingsMember> => {
+
+  return customFetch<WingsMember>(getDecideWingsMembershipUrl(crewId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(wingsMembershipDecisionInput)
+  }
+);}
+
+
+
+
+
+export const getDecideWingsMembershipMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideWingsMembership>>, TError,{crewId: string;data: BodyType<WingsMembershipDecisionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof decideWingsMembership>>, TError,{crewId: string;data: BodyType<WingsMembershipDecisionInput>}, TContext> => {
+
+const mutationKey = ['decideWingsMembership'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideWingsMembership>>, {crewId: string;data: BodyType<WingsMembershipDecisionInput>}> = (props) => {
+          const {crewId,data} = props ?? {};
+
+          return  decideWingsMembership(crewId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DecideWingsMembershipMutationResult = NonNullable<Awaited<ReturnType<typeof decideWingsMembership>>>
+    export type DecideWingsMembershipMutationBody = BodyType<WingsMembershipDecisionInput>
+    export type DecideWingsMembershipMutationError = ErrorType<Error>
+
+    /**
+ * @summary Approve or suspend a crew's Wings membership
+ */
+export const useDecideWingsMembership = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideWingsMembership>>, TError,{crewId: string;data: BodyType<WingsMembershipDecisionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof decideWingsMembership>>,
+        TError,
+        {crewId: string;data: BodyType<WingsMembershipDecisionInput>},
+        TContext
+      > => {
+      return useMutation(getDecideWingsMembershipMutationOptions(options));
     }
 
 export const getRecalculateWingsScoreUrl = (crewId: string,) => {

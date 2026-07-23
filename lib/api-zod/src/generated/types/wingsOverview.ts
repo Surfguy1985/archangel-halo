@@ -10,6 +10,7 @@ import type { WingsOverviewTierCounts } from './wingsOverviewTierCounts';
 
 export interface WingsOverview {
   members: number;
+  pendingMembers?: number;
   pendingReviews: number;
   needsHumanReview: number;
   heldReserve: number;

@@ -3190,6 +3190,12 @@ export interface BankImportInput {
   category?: string;
 }
 
+export type WingsMemberReadiness = {
+  completedJobs: number;
+  w9OnFile: boolean;
+  openIncidents: number;
+} | null;
+
 export interface WingsMember {
   id: string;
   crewId: string;
@@ -3197,8 +3203,12 @@ export interface WingsMember {
   sponsorCrewId?: string | null;
   sponsorName?: string | null;
   sponsorSince?: string | null;
+  membershipStatus?: string;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
   founderStatus: string;
   founderNumber?: number | null;
+  readiness?: WingsMemberReadiness;
   tradeSkills?: string[];
   draftTokens: number;
   maxConcurrentJobs: number;
@@ -3208,6 +3218,11 @@ export interface WingsMember {
   scoreConfidence: number;
   scoreUpdatedAt?: string | null;
   scoreReasons?: string[] | null;
+}
+
+export interface WingsMembershipDecisionInput {
+  approve: boolean;
+  reason?: string;
 }
 
 export interface WingsMemberUpdateInput {
@@ -3400,6 +3415,7 @@ export type WingsOverviewTierCounts = {[key: string]: number};
 
 export interface WingsOverview {
   members: number;
+  pendingMembers?: number;
   pendingReviews: number;
   needsHumanReview: number;
   heldReserve: number;
@@ -3426,6 +3442,7 @@ export type PortalWingsReserve = {
 export interface PortalWings {
   haloScore: number;
   tier: string;
+  membershipStatus?: string;
   founderStatus: string;
   founderNumber?: number | null;
   scoreConfidence: number;

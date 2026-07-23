@@ -17,6 +17,11 @@ export const wingMembersTable = pgTable(
     crewId: uuid("crew_id").notNull(),
     sponsorCrewId: uuid("sponsor_crew_id"),
     sponsorSince: timestamp("sponsor_since", { withTimezone: true }),
+    membershipStatus: text("membership_status")
+      .notNull()
+      .default("PENDING_APPROVAL"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedBy: text("approved_by"),
     founderStatus: text("founder_status").notNull().default("NONE"),
     founderNumber: integer("founder_number"),
     tradeSkills: jsonb("trade_skills"),

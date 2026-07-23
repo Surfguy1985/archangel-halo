@@ -5691,6 +5691,7 @@ export const ImportBankTransactionResponse = zod.object({
  */
 export const GetWingsOverviewResponse = zod.object({
   "members": zod.number(),
+  "pendingMembers": zod.number().optional(),
   "pendingReviews": zod.number(),
   "needsHumanReview": zod.number(),
   "heldReserve": zod.number(),
@@ -5722,8 +5723,16 @@ export const ListWingsMembersResponseItem = zod.object({
   "sponsorCrewId": zod.string().nullish(),
   "sponsorName": zod.string().nullish(),
   "sponsorSince": zod.string().nullish(),
+  "membershipStatus": zod.string().optional(),
+  "approvedAt": zod.string().nullish(),
+  "approvedBy": zod.string().nullish(),
   "founderStatus": zod.string(),
   "founderNumber": zod.number().nullish(),
+  "readiness": zod.object({
+  "completedJobs": zod.number(),
+  "w9OnFile": zod.boolean(),
+  "openIncidents": zod.number()
+}).nullish(),
   "tradeSkills": zod.array(zod.string()).optional(),
   "draftTokens": zod.number(),
   "maxConcurrentJobs": zod.number(),
@@ -5760,8 +5769,57 @@ export const UpdateWingsMemberResponse = zod.object({
   "sponsorCrewId": zod.string().nullish(),
   "sponsorName": zod.string().nullish(),
   "sponsorSince": zod.string().nullish(),
+  "membershipStatus": zod.string().optional(),
+  "approvedAt": zod.string().nullish(),
+  "approvedBy": zod.string().nullish(),
   "founderStatus": zod.string(),
   "founderNumber": zod.number().nullish(),
+  "readiness": zod.object({
+  "completedJobs": zod.number(),
+  "w9OnFile": zod.boolean(),
+  "openIncidents": zod.number()
+}).nullish(),
+  "tradeSkills": zod.array(zod.string()).optional(),
+  "draftTokens": zod.number(),
+  "maxConcurrentJobs": zod.number(),
+  "isAvailable": zod.boolean(),
+  "haloScore": zod.number(),
+  "tier": zod.string(),
+  "scoreConfidence": zod.number(),
+  "scoreUpdatedAt": zod.string().nullish(),
+  "scoreReasons": zod.array(zod.string()).nullish()
+})
+
+
+/**
+ * @summary Approve or suspend a crew's Wings membership
+ */
+export const DecideWingsMembershipParams = zod.object({
+  "crewId": zod.coerce.string()
+})
+
+export const DecideWingsMembershipBody = zod.object({
+  "approve": zod.boolean(),
+  "reason": zod.string().optional()
+})
+
+export const DecideWingsMembershipResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "sponsorCrewId": zod.string().nullish(),
+  "sponsorName": zod.string().nullish(),
+  "sponsorSince": zod.string().nullish(),
+  "membershipStatus": zod.string().optional(),
+  "approvedAt": zod.string().nullish(),
+  "approvedBy": zod.string().nullish(),
+  "founderStatus": zod.string(),
+  "founderNumber": zod.number().nullish(),
+  "readiness": zod.object({
+  "completedJobs": zod.number(),
+  "w9OnFile": zod.boolean(),
+  "openIncidents": zod.number()
+}).nullish(),
   "tradeSkills": zod.array(zod.string()).optional(),
   "draftTokens": zod.number(),
   "maxConcurrentJobs": zod.number(),
@@ -5788,8 +5846,16 @@ export const RecalculateWingsScoreResponse = zod.object({
   "sponsorCrewId": zod.string().nullish(),
   "sponsorName": zod.string().nullish(),
   "sponsorSince": zod.string().nullish(),
+  "membershipStatus": zod.string().optional(),
+  "approvedAt": zod.string().nullish(),
+  "approvedBy": zod.string().nullish(),
   "founderStatus": zod.string(),
   "founderNumber": zod.number().nullish(),
+  "readiness": zod.object({
+  "completedJobs": zod.number(),
+  "w9OnFile": zod.boolean(),
+  "openIncidents": zod.number()
+}).nullish(),
   "tradeSkills": zod.array(zod.string()).optional(),
   "draftTokens": zod.number(),
   "maxConcurrentJobs": zod.number(),
@@ -6131,6 +6197,7 @@ export const GetPortalWingsParams = zod.object({
 export const GetPortalWingsResponse = zod.object({
   "haloScore": zod.number(),
   "tier": zod.string(),
+  "membershipStatus": zod.string().optional(),
   "founderStatus": zod.string(),
   "founderNumber": zod.number().nullish(),
   "scoreConfidence": zod.number(),

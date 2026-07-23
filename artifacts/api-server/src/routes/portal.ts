@@ -1322,6 +1322,7 @@ router.get("/portal/:token/wings", async (req, res): Promise<void> => {
   res.json({
     haloScore: member?.haloScore ?? 85,
     tier: member?.tier ?? "TRAINING",
+    membershipStatus: member?.membershipStatus ?? "PENDING_APPROVAL",
     founderStatus: member?.founderStatus ?? "NONE",
     founderNumber: member?.founderNumber ?? null,
     scoreConfidence: member?.scoreConfidence ?? 0,

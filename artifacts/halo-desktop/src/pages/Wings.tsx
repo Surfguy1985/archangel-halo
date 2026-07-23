@@ -4,6 +4,7 @@ import {
   useGetWingsOverview,
   useListWingsMembers,
   useUpdateWingsMember,
+  useDecideWingsMembership,
   useRecalculateWingsScore,
   useListWingsQuality,
   useRunWingsQualityReview,
@@ -36,6 +37,7 @@ import {
   ChevronDown,
   Plus,
   Wallet,
+  UserCheck,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -100,6 +102,21 @@ function TierBadge({ tier }: { tier: string }) {
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${cls}`}>
       {tier}
+    </span>
+  );
+}
+
+const MEMBERSHIP_STYLES: Record<string, { cls: string; label: string }> = {
+  PENDING_APPROVAL: { cls: "bg-amber-100 text-amber-800 border-amber-300", label: "Pending approval" },
+  ACTIVE: { cls: "bg-green-100 text-green-700 border-green-300", label: "Active" },
+  SUSPENDED: { cls: "bg-red-100 text-red-700 border-red-300", label: "Suspended" },
+};
+
+function MembershipBadge({ status }: { status?: string }) {
+  const s = MEMBERSHIP_STYLES[status ?? ""] || { cls: "bg-muted text-muted-foreground border-border", label: status || "—" };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${s.cls}`}>
+      {s.label}
     </span>
   );
 }
@@ -195,13 +212,13 @@ export default function Wings() {
   );
 }
 
-function StatCard({ label, value, icon: Icon }: { label: string; value: React.ReactNode; icon: any }) {
+function StatCard({ label, value, icon: Icon, highlight }: { label: string; value: React.ReactNode; icon: any; highlight?: boolean }) {
   return (
-    <div className={`${card} p-4`}>
-      <div className="flex items-center gap-2 text-muted-foreground text-xs font-display font-bold uppercase tracking-wider">
+    <div className={`${highlight ? "bg-amber-50 border border-amber-300 rounded-md shadow-sm" : card} p-4`}>
+      <div className={`flex items-center gap-2 text-xs font-display font-bold uppercase tracking-wider ${highlight ? "text-amber-700" : "text-muted-foreground"}`}>
         <Icon className="w-4 h-4" /> {label}
       </div>
-      <div className="text-2xl font-display font-bold text-[var(--ink)] mt-1.5">{value}</div>
+      <div className={`text-2xl font-display font-bold mt-1.5 ${highlight ? "text-amber-800" : "text-[var(--ink)]"}`}>{value}</div>
     </div>
   );
 }
@@ -225,6 +242,7 @@ function OverviewTab() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <StatCard label="Members" value={overview?.members ?? 0} icon={Users} />
+        <StatCard label="Pending approval" value={overview?.pendingMembers ?? 0} icon={UserCheck} highlight={(overview?.pendingMembers ?? 0) > 0} />
         <StatCard label="Pending reviews" value={overview?.pendingReviews ?? 0} icon={Sparkles} />
         <StatCard label="Needs human review" value={overview?.needsHumanReview ?? 0} icon={AlertTriangle} />
         <StatCard label="Held reserve" value={money(overview?.heldReserve ?? 0)} icon={ShieldCheck} />
@@ -302,12 +320,28 @@ function OverviewTab() {
 function CrewsTab() {
   const { data: members, isLoading } = useListWingsMembers();
   const update = useUpdateWingsMember();
+  const decideMembership = useDecideWingsMembership();
   const recalc = useRecalculateWingsScore();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries();
+  const errMsg = (e: any) => e?.data?.message ?? e?.data?.error ?? e?.message;
+
+  const decide = (m: WingsMember, approve: boolean) => {
+    decideMembership.mutate(
+      { crewId: m.crewId, data: { approve } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["/api/wings/members"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/wings/overview"] });
+          toast({ title: approve ? "Member approved" : "Member suspended", description: m.crewName });
+        },
+        onError: (e: any) => toast({ title: approve ? "Approval failed" : "Suspend failed", description: errMsg(e), variant: "destructive" }),
+      }
+    );
+  };
 
   const toggleAvailable = (m: WingsMember) => {
     update.mutate(
@@ -342,6 +376,7 @@ function CrewsTab() {
         <thead>
           <tr className="border-b border-border text-left text-xs font-display font-bold uppercase tracking-wider text-muted-foreground">
             <th className="px-4 py-3">Crew</th>
+            <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3">Halo</th>
             <th className="px-4 py-3">Tier</th>
             <th className="px-4 py-3">Founder</th>
@@ -361,6 +396,7 @@ function CrewsTab() {
                     {m.crewName}
                   </button>
                 </td>
+                <td className="px-4 py-3"><MembershipBadge status={m.membershipStatus} /></td>
                 <td className="px-4 py-3">
                   <span className="text-2xl font-display font-bold text-[var(--ink)]">{Math.round(m.haloScore)}</span>
                 </td>
@@ -394,14 +430,58 @@ function CrewsTab() {
                   </button>
                 </td>
               </tr>
+              {m.membershipStatus === "PENDING_APPROVAL" && (
+                <tr className="border-b border-border/60 bg-amber-50/60">
+                  <td colSpan={9} className="px-4 py-3">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div className="flex items-center gap-4 text-xs">
+                        <span className="font-bold uppercase tracking-wider text-amber-700">Readiness</span>
+                        <span className="text-muted-foreground">Completed jobs: <span className="font-semibold text-[var(--ink)]">{m.readiness?.completedJobs ?? 0}</span></span>
+                        <span className="text-muted-foreground">W-9 on file: <span className={`font-semibold ${m.readiness?.w9OnFile ? "text-green-700" : "text-red-600"}`}>{m.readiness?.w9OnFile ? "Yes" : "No"}</span></span>
+                        <span className="text-muted-foreground">Open incidents: <span className={`font-semibold ${(m.readiness?.openIncidents ?? 0) > 0 ? "text-red-600" : "text-[var(--ink)]"}`}>{m.readiness?.openIncidents ?? 0}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => decide(m, true)}
+                          disabled={decideMembership.isPending}
+                          data-testid={`button-approve-member-${m.crewId}`}
+                          className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider bg-green-600 text-white rounded-md px-3 py-1.5 hover:bg-green-700 disabled:opacity-50"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                        </button>
+                        <button
+                          onClick={() => decide(m, false)}
+                          disabled={decideMembership.isPending}
+                          data-testid={`button-decline-member-${m.crewId}`}
+                          className="flex items-center gap-1.5 text-xs font-medium border border-red-300 text-red-700 rounded-md px-2.5 py-1.5 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <XCircle className="w-3.5 h-3.5" /> Decline
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
               {expanded === m.crewId && (
                 <tr className="border-b border-border/60 bg-[var(--muted)]/30">
-                  <td colSpan={8} className="px-4 py-3">
+                  <td colSpan={9} className="px-4 py-3">
                     <div className="text-xs text-muted-foreground">
                       <span className="font-bold uppercase tracking-wider">Score reasons: </span>
                       {m.scoreReasons && m.scoreReasons.length > 0 ? m.scoreReasons.join(" · ") : "No reasons recorded yet."}
                       {m.scoreUpdatedAt ? <span className="ml-2">Updated {relTime(m.scoreUpdatedAt)}</span> : null}
                     </div>
+                    {m.membershipStatus === "ACTIVE" && (
+                      <div className="mt-3">
+                        <button
+                          onClick={() => decide(m, false)}
+                          disabled={decideMembership.isPending}
+                          data-testid={`button-suspend-member-${m.crewId}`}
+                          className="flex items-center gap-1.5 text-xs font-medium border border-red-300 text-red-700 rounded-md px-2.5 py-1.5 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <XCircle className="w-3.5 h-3.5" /> Suspend member
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               )}

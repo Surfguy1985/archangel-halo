@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { WingsMemberReadiness } from './wingsMemberReadiness';
 
 export interface WingsMember {
   id: string;
@@ -13,8 +14,12 @@ export interface WingsMember {
   sponsorCrewId?: string | null;
   sponsorName?: string | null;
   sponsorSince?: string | null;
+  membershipStatus?: string;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
   founderStatus: string;
   founderNumber?: number | null;
+  readiness?: WingsMemberReadiness;
   tradeSkills?: string[];
   draftTokens: number;
   maxConcurrentJobs: number;
