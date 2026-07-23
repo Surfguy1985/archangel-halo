@@ -22,4 +22,8 @@ export interface BankAccount {
   currentBalance?: number | null;
   /** @nullable */
   currency?: string | null;
+  /** @nullable */
+  institutionName?: string | null;
+  /** @nullable */
+  bankId?: string | null;
 }

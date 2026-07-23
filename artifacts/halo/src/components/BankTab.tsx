@@ -12,7 +12,8 @@ import {
   getListBankAccountsQueryKey,
   getListBankTransactionsQueryKey,
 } from "@workspace/api-client-react";
-import { Landmark, RefreshCw, Unlink, Wallet } from "lucide-react";
+import { Landmark, Plus, RefreshCw, Unlink, Wallet } from "lucide-react";
+import type { ConnectedBank } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { BankAnalysisSection } from "./BankAnalysisSection";
 
@@ -121,66 +122,130 @@ function ConnectCard() {
   );
 }
 
-function ConnectedView({ institutionName }: { institutionName: string | null }) {
+function ConnectedView({ banks }: { banks: ConnectedBank[] }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const accounts = useListBankAccounts();
   const transactions = useListBankTransactions({ days: 30 });
   const disconnect = useDisconnectBank();
+  const createToken = useCreatePlaidLinkToken();
+  const exchange = useExchangePlaidPublicToken();
+  const [linkToken, setLinkToken] = useState<string | null>(null);
 
   const busy = accounts.isFetching || transactions.isFetching;
+  const multiBank = banks.length > 1;
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: getGetBankStatusQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListBankAccountsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListBankTransactionsQueryKey() });
+  };
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: getListBankAccountsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListBankTransactionsQueryKey() });
   };
 
-  const onDisconnect = () => {
-    if (!window.confirm("Disconnect this bank? You can reconnect at any time.")) return;
-    disconnect.mutate(undefined, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetBankStatusQueryKey() });
-        queryClient.removeQueries({ queryKey: getListBankAccountsQueryKey() });
-        queryClient.removeQueries({ queryKey: getListBankTransactionsQueryKey() });
-        toast({ title: "Bank disconnected" });
-      },
+  const addBank = () => {
+    createToken.mutate(undefined, {
+      onSuccess: (data) => setLinkToken(data.linkToken),
       onError: (err) =>
         toast({
-          title: "Couldn't disconnect",
+          title: "Couldn't start bank connection",
           description: errMessage(err),
           variant: "destructive",
         }),
     });
   };
 
+  const onAddDone = (publicToken: string, institutionName: string | null) => {
+    setLinkToken(null);
+    exchange.mutate(
+      { data: { publicToken, institutionName } },
+      {
+        onSuccess: () => {
+          invalidateAll();
+          toast({ title: "Bank connected" });
+        },
+        onError: (err) =>
+          toast({
+            title: "Bank connection failed",
+            description: errMessage(err),
+            variant: "destructive",
+          }),
+      },
+    );
+  };
+
+  const onDisconnect = (bank: ConnectedBank) => {
+    const label = bank.institutionName || "this bank";
+    if (!window.confirm(`Disconnect ${label}? You can reconnect at any time.`)) return;
+    disconnect.mutate(
+      { params: { bankId: bank.id } },
+      {
+        onSuccess: () => {
+          invalidateAll();
+          toast({ title: "Bank disconnected" });
+        },
+        onError: (err) =>
+          toast({
+            title: "Couldn't disconnect",
+            description: errMessage(err),
+            variant: "destructive",
+          }),
+      },
+    );
+  };
+
   return (
     <div className="flex flex-col gap-[12px]">
-      <div className="flex items-center gap-[8px]">
-        <div className="flex-1 min-w-0 flex items-center gap-[6px] text-[12.5px] text-muted-foreground">
-          <Landmark className="w-[14px] h-[14px] shrink-0" />
-          <span className="truncate">
-            Connected to{" "}
-            <span className="font-semibold text-[var(--ink)]">
-              {institutionName || "your bank"}
+      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+        {banks.map((b, idx) => (
+          <div
+            key={b.id}
+            className={`flex items-center gap-[8px] py-[10px] ${idx !== 0 ? "border-t border-border" : ""}`}
+          >
+            <Landmark className="w-[14px] h-[14px] shrink-0 text-muted-foreground" />
+            <span className="flex-1 min-w-0 truncate text-[13.5px] font-semibold text-[var(--ink)]">
+              {b.institutionName || "Bank"}
             </span>
-          </span>
-        </div>
+            <button
+              onClick={() => onDisconnect(b)}
+              disabled={disconnect.isPending}
+              aria-label={`Disconnect ${b.institutionName || "bank"}`}
+              className="shrink-0 inline-flex items-center gap-[5px] rounded-[10px] px-[9px] py-[6px] text-[12px] font-display font-bold bg-background border border-border disabled:opacity-40 transition-transform active:scale-[0.98]"
+            >
+              <Unlink className="w-[13px] h-[13px]" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-[8px]">
+        <button
+          onClick={addBank}
+          disabled={createToken.isPending || exchange.isPending}
+          className="flex-1 inline-flex items-center justify-center gap-[6px] rounded-[12px] py-[10px] text-[13px] font-display font-bold text-black bg-[var(--gold-light)] shadow-[var(--shadow)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+        >
+          <Plus className="w-[14px] h-[14px]" />
+          {createToken.isPending
+            ? "Starting…"
+            : exchange.isPending
+              ? "Finishing…"
+              : "Add another bank"}
+        </button>
         <button
           onClick={refresh}
           disabled={busy}
-          className="shrink-0 inline-flex items-center gap-[5px] rounded-[10px] px-[10px] py-[7px] text-[12px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] disabled:opacity-40 transition-transform active:scale-[0.98]"
+          className="shrink-0 inline-flex items-center gap-[5px] rounded-[12px] px-[12px] py-[10px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] disabled:opacity-40 transition-transform active:scale-[0.98]"
         >
           <RefreshCw className={`w-[13px] h-[13px] ${busy ? "animate-spin" : ""}`} />
           Refresh
         </button>
-        <button
-          onClick={onDisconnect}
-          disabled={disconnect.isPending}
-          className="shrink-0 inline-flex items-center gap-[5px] rounded-[10px] px-[10px] py-[7px] text-[12px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] disabled:opacity-40 transition-transform active:scale-[0.98]"
-        >
-          <Unlink className="w-[13px] h-[13px]" />
-        </button>
       </div>
+      {linkToken && (
+        <PlaidLauncher token={linkToken} onDone={onAddDone} onExit={() => setLinkToken(null)} />
+      )}
 
       {accounts.isLoading ? (
         <div className="animate-pulse h-[92px] bg-card rounded-[16px]" />
@@ -198,6 +263,11 @@ function ConnectedView({ institutionName }: { institutionName: string | null }) 
                   {a.name}
                   {a.mask ? ` ••${a.mask}` : ""}
                 </span>
+                {multiBank && a.institutionName && (
+                  <span className="ml-auto shrink-0 text-[10.5px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full bg-[var(--gold-tint)] text-[var(--gold-dark)]">
+                    {a.institutionName}
+                  </span>
+                )}
               </div>
               <div className="font-display font-bold text-[26px] tracking-[-0.02em] tabular-nums leading-none">
                 {a.availableBalance != null
@@ -253,7 +323,13 @@ function ConnectedView({ institutionName }: { institutionName: string | null }) 
                     )}
                   </div>
                   <div className="text-[12px] text-muted-foreground truncate mt-[2px]">
-                    {[fmtDate(t.date), t.category?.toLowerCase()].filter(Boolean).join(" · ")}
+                    {[
+                      fmtDate(t.date),
+                      t.category?.toLowerCase(),
+                      multiBank ? t.institutionName : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </div>
                 </div>
                 <div
@@ -277,5 +353,5 @@ export function BankTab() {
 
   if (isLoading) return <div className="animate-pulse h-48 bg-card rounded-[16px]" />;
   if (!status?.connected) return <ConnectCard />;
-  return <ConnectedView institutionName={status.institutionName ?? null} />;
+  return <ConnectedView banks={status.banks ?? []} />;
 }

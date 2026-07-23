@@ -88,6 +88,7 @@ import type {
   CrewUpdate,
   DeleteCalendarEvent200,
   DeleteVendor200,
+  DisconnectBankParams,
   Error,
   Expense,
   ExpenseInput,
@@ -6653,20 +6654,27 @@ export const useCategorizeBankTransaction = <TError = ErrorType<Error>,
       return useMutation(getCategorizeBankTransactionMutationOptions(options));
     }
 
-export const getDisconnectBankUrl = () => {
+export const getDisconnectBankUrl = (params?: DisconnectBankParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/plaid/item`
+  return stringifiedParams.length > 0 ? `/api/plaid/item?${stringifiedParams}` : `/api/plaid/item`
 }
 
 /**
- * @summary Disconnect the bank connection
+ * @summary Disconnect one bank connection (or all when no bankId is given)
  */
-export const disconnectBank = async ( options?: RequestInit): Promise<void> => {
+export const disconnectBank = async (params?: DisconnectBankParams, options?: RequestInit): Promise<void> => {
 
-  return customFetch<void>(getDisconnectBankUrl(),
+  return customFetch<void>(getDisconnectBankUrl(params),
   {
     ...options,
     method: 'DELETE'
@@ -6680,8 +6688,8 @@ export const disconnectBank = async ( options?: RequestInit): Promise<void> => {
 
 
 export const getDisconnectBankMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectBank>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof disconnectBank>>, TError,void, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectBank>>, TError,{params?: DisconnectBankParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof disconnectBank>>, TError,{params?: DisconnectBankParams}, TContext> => {
 
 const mutationKey = ['disconnectBank'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -6693,10 +6701,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof disconnectBank>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof disconnectBank>>, {params?: DisconnectBankParams}> = (props) => {
+          const {params} = props ?? {};
 
-
-          return  disconnectBank(requestOptions)
+          return  disconnectBank(params,requestOptions)
         }
 
 
@@ -6711,14 +6719,14 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DisconnectBankMutationError = ErrorType<unknown>
 
     /**
- * @summary Disconnect the bank connection
+ * @summary Disconnect one bank connection (or all when no bankId is given)
  */
 export const useDisconnectBank = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectBank>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectBank>>, TError,{params?: DisconnectBankParams}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof disconnectBank>>,
         TError,
-        void,
+        {params?: DisconnectBankParams},
         TContext
       > => {
       return useMutation(getDisconnectBankMutationOptions(options));

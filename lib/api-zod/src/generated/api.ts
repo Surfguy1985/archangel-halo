@@ -2389,7 +2389,12 @@ export const ExchangePlaidPublicTokenBody = zod.object({
 export const ExchangePlaidPublicTokenResponse = zod.object({
   "connected": zod.boolean(),
   "institutionName": zod.string().nullish(),
+  "connectedAt": zod.coerce.date().nullish(),
+  "banks": zod.array(zod.object({
+  "id": zod.string(),
+  "institutionName": zod.string().nullish(),
   "connectedAt": zod.coerce.date().nullish()
+}))
 })
 
 
@@ -2446,7 +2451,12 @@ export const CheckArrivalResponse = zod.object({
 export const GetBankStatusResponse = zod.object({
   "connected": zod.boolean(),
   "institutionName": zod.string().nullish(),
+  "connectedAt": zod.coerce.date().nullish(),
+  "banks": zod.array(zod.object({
+  "id": zod.string(),
+  "institutionName": zod.string().nullish(),
   "connectedAt": zod.coerce.date().nullish()
+}))
 })
 
 
@@ -2462,7 +2472,9 @@ export const ListBankAccountsResponseItem = zod.object({
   "subtype": zod.string().nullish(),
   "availableBalance": zod.number().nullish(),
   "currentBalance": zod.number().nullish(),
-  "currency": zod.string().nullish()
+  "currency": zod.string().nullish(),
+  "institutionName": zod.string().nullish(),
+  "bankId": zod.string().nullish()
 })
 export const ListBankAccountsResponse = zod.array(ListBankAccountsResponseItem)
 
@@ -2487,7 +2499,8 @@ export const ListBankTransactionsResponseItem = zod.object({
   "name": zod.string(),
   "merchantName": zod.string().nullish(),
   "category": zod.string().nullish(),
-  "pending": zod.boolean()
+  "pending": zod.boolean(),
+  "institutionName": zod.string().nullish()
 })
 export const ListBankTransactionsResponse = zod.array(ListBankTransactionsResponseItem)
 
@@ -2684,8 +2697,12 @@ export const CategorizeBankTransactionResponse = zod.object({
 
 
 /**
- * @summary Disconnect the bank connection
+ * @summary Disconnect one bank connection (or all when no bankId is given)
  */
+export const DisconnectBankQueryParams = zod.object({
+  "bankId": zod.coerce.string().optional()
+})
+
 export const DisconnectBankResponse = zod.void()
 
 

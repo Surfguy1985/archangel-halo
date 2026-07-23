@@ -2,7 +2,7 @@ import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
 
 export const plaidItemsTable = pgTable("plaid_items", {
   id: uuid("id").primaryKey().defaultRandom(),
-  itemId: text("item_id").notNull(),
+  itemId: text("item_id").notNull().unique(),
   accessToken: text("access_token").notNull(),
   institutionName: text("institution_name"),
   createdAt: timestamp("created_at", { withTimezone: true })

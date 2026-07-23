@@ -13,7 +13,7 @@ import {
 import {
   plaidPost,
   plaidErrorMessage,
-  getPlaidItem as getItem,
+  getPlaidItems,
   invalidateBankCashflowCache,
 } from "../lib/plaidClient";
 import {
@@ -65,69 +65,83 @@ router.post("/plaid/exchange", async (req, res): Promise<void> => {
     res.status(502).json({ error: plaidErrorMessage(result.data) });
     return;
   }
-  // Single-org: replace any previous connection.
-  await db.transaction(async (tx) => {
-    await tx.delete(plaidItemsTable);
-    await tx.insert(plaidItemsTable).values({
+  // Multi-bank: keep existing connections; upsert a re-linked item (idempotent).
+  await db
+    .insert(plaidItemsTable)
+    .values({
       itemId: result.data.item_id,
       accessToken: result.data.access_token,
       institutionName: body.institutionName ?? null,
+    })
+    .onConflictDoUpdate({
+      target: plaidItemsTable.itemId,
+      set: {
+        accessToken: result.data.access_token,
+        institutionName: body.institutionName ?? null,
+      },
     });
-  });
   invalidateBankCashflowCache();
   invalidateBankAnalysisCache();
-  const item = await getItem();
-  res.json(
-    ExchangePlaidPublicTokenResponse.parse({
-      connected: true,
-      institutionName: item?.institutionName ?? null,
-      connectedAt: item?.createdAt?.toISOString() ?? null,
-    }),
-  );
+  res.json(ExchangePlaidPublicTokenResponse.parse(await bankStatusPayload()));
 });
 
+async function bankStatusPayload() {
+  const items = await getPlaidItems();
+  const first = items[0] ?? null;
+  return {
+    connected: items.length > 0,
+    institutionName: first?.institutionName ?? null,
+    connectedAt: first?.createdAt?.toISOString() ?? null,
+    banks: items.map((i) => ({
+      id: i.id,
+      institutionName: i.institutionName ?? null,
+      connectedAt: i.createdAt?.toISOString() ?? null,
+    })),
+  };
+}
+
 router.get("/plaid/status", async (_req, res): Promise<void> => {
-  const item = await getItem();
-  res.json(
-    GetBankStatusResponse.parse({
-      connected: !!item,
-      institutionName: item?.institutionName ?? null,
-      connectedAt: item?.createdAt?.toISOString() ?? null,
-    }),
-  );
+  res.json(GetBankStatusResponse.parse(await bankStatusPayload()));
 });
 
 router.get("/plaid/accounts", async (_req, res): Promise<void> => {
-  const item = await getItem();
-  if (!item) {
+  const items = await getPlaidItems();
+  if (items.length === 0) {
     res.status(409).json({ error: "No bank connected" });
     return;
   }
-  const result = await plaidPost("/accounts/balance/get", {
-    access_token: item.accessToken,
-  });
-  if (!result.ok) {
-    logger.warn({ data: result.data }, "Plaid balance fetch failed");
-    res.status(502).json({ error: plaidErrorMessage(result.data) });
-    return;
+  const accounts: any[] = [];
+  for (const item of items) {
+    const result = await plaidPost("/accounts/balance/get", {
+      access_token: item.accessToken,
+    });
+    if (!result.ok) {
+      logger.warn({ data: result.data }, "Plaid balance fetch failed");
+      res.status(502).json({ error: plaidErrorMessage(result.data) });
+      return;
+    }
+    for (const a of result.data.accounts ?? []) {
+      accounts.push({
+        accountId: a.account_id,
+        name: a.name,
+        officialName: a.official_name ?? null,
+        mask: a.mask ?? null,
+        type: a.type,
+        subtype: a.subtype ?? null,
+        availableBalance: a.balances?.available ?? null,
+        currentBalance: a.balances?.current ?? null,
+        currency: a.balances?.iso_currency_code ?? null,
+        institutionName: item.institutionName ?? null,
+        bankId: item.id,
+      });
+    }
   }
-  const accounts = (result.data.accounts ?? []).map((a: any) => ({
-    accountId: a.account_id,
-    name: a.name,
-    officialName: a.official_name ?? null,
-    mask: a.mask ?? null,
-    type: a.type,
-    subtype: a.subtype ?? null,
-    availableBalance: a.balances?.available ?? null,
-    currentBalance: a.balances?.current ?? null,
-    currency: a.balances?.iso_currency_code ?? null,
-  }));
   res.json(ListBankAccountsResponse.parse(accounts));
 });
 
 router.get("/plaid/transactions", async (req, res): Promise<void> => {
-  const item = await getItem();
-  if (!item) {
+  const items = await getPlaidItems();
+  if (items.length === 0) {
     res.status(409).json({ error: "No bank connected" });
     return;
   }
@@ -143,41 +157,48 @@ router.get("/plaid/transactions", async (req, res): Promise<void> => {
   const start = new Date();
   start.setDate(start.getDate() - days);
   const MAX_ROWS = 500;
-  const all: any[] = [];
-  let offset = 0;
-  for (;;) {
-    const result = await plaidPost("/transactions/get", {
-      access_token: item.accessToken,
-      start_date: fmt(start),
-      end_date: fmt(end),
-      options: { count: 100, offset, include_personal_finance_category: true },
-    });
-    if (!result.ok) {
-      logger.warn({ data: result.data }, "Plaid transactions fetch failed");
-      res.status(502).json({ error: plaidErrorMessage(result.data) });
-      return;
+  const txns: any[] = [];
+  for (const item of items) {
+    const all: any[] = [];
+    let offset = 0;
+    for (;;) {
+      const result = await plaidPost("/transactions/get", {
+        access_token: item.accessToken,
+        start_date: fmt(start),
+        end_date: fmt(end),
+        options: { count: 100, offset, include_personal_finance_category: true },
+      });
+      if (!result.ok) {
+        logger.warn({ data: result.data }, "Plaid transactions fetch failed");
+        res.status(502).json({ error: plaidErrorMessage(result.data) });
+        return;
+      }
+      const page = result.data.transactions ?? [];
+      all.push(...page);
+      const total = result.data.total_transactions ?? all.length;
+      offset = all.length;
+      if (all.length >= total || page.length === 0 || all.length >= MAX_ROWS) {
+        break;
+      }
     }
-    const page = result.data.transactions ?? [];
-    all.push(...page);
-    const total = result.data.total_transactions ?? all.length;
-    offset = all.length;
-    if (all.length >= total || page.length === 0 || all.length >= MAX_ROWS) {
-      break;
+    for (const t of all) {
+      txns.push({
+        transactionId: t.transaction_id,
+        accountId: t.account_id,
+        amount: t.amount,
+        date: t.date,
+        name: t.name,
+        merchantName: t.merchant_name ?? null,
+        category:
+          t.personal_finance_category?.primary?.replaceAll("_", " ") ??
+          t.category?.[0] ??
+          null,
+        pending: !!t.pending,
+        institutionName: item.institutionName ?? null,
+      });
     }
   }
-  const txns = all.map((t: any) => ({
-    transactionId: t.transaction_id,
-    accountId: t.account_id,
-    amount: t.amount,
-    date: t.date,
-    name: t.name,
-    merchantName: t.merchant_name ?? null,
-    category:
-      t.personal_finance_category?.primary?.replaceAll("_", " ") ??
-      t.category?.[0] ??
-      null,
-    pending: !!t.pending,
-  }));
+  txns.sort((a, b) => String(b.date).localeCompare(String(a.date)));
   res.json(ListBankTransactionsResponse.parse(txns));
 });
 
@@ -316,9 +337,22 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-async function buildAnalysis(accessToken: string, days: number): Promise<AnalysisData> {
-  const txns = await fetchTxns(accessToken, days);
-  if (!txns) throw Object.assign(new Error("Plaid fetch failed"), { plaid: true });
+interface PlaidItemRow {
+  id: string;
+  accessToken: string;
+}
+
+function analysisCacheKey(items: PlaidItemRow[], days: number): string {
+  return `${items.map((i) => i.id).sort().join(",")}:${days}`;
+}
+
+async function buildAnalysis(items: PlaidItemRow[], days: number): Promise<AnalysisData> {
+  const txns: RawTxn[] = [];
+  for (const item of items) {
+    const part = await fetchTxns(item.accessToken, days);
+    if (!part) throw Object.assign(new Error("Plaid fetch failed"), { plaid: true });
+    txns.push(...part);
+  }
 
   const [crews, invoiceRows] = await Promise.all([
     db.select().from(crewsTable),
@@ -490,8 +524,8 @@ Return {"items":[{"id","section","category","personName"}]} covering EVERY id gi
 }
 
 router.get("/plaid/analysis", async (req, res): Promise<void> => {
-  const item = await getItem();
-  if (!item) {
+  const items = await getPlaidItems();
+  if (items.length === 0) {
     res.status(409).json({ error: "No bank connected" });
     return;
   }
@@ -499,7 +533,7 @@ router.get("/plaid/analysis", async (req, res): Promise<void> => {
   const days = q.days ?? 30;
   // Explicit parse: zod boolean coercion would treat "false" as true.
   const refresh = String(req.query.refresh) === "true";
-  const cacheKey = `${item.id}:${days}`;
+  const cacheKey = analysisCacheKey(items, days);
 
   const cached = analysisCache.get(cacheKey);
   if (!refresh && cached && Date.now() - cached.at < ANALYSIS_TTL_MS) {
@@ -510,7 +544,7 @@ router.get("/plaid/analysis", async (req, res): Promise<void> => {
   try {
     let inFlight = analysisInFlight.get(cacheKey);
     if (!inFlight) {
-      inFlight = buildAnalysis(item.accessToken, days).finally(() => {
+      inFlight = buildAnalysis(items, days).finally(() => {
         analysisInFlight.delete(cacheKey);
       });
       analysisInFlight.set(cacheKey, inFlight);
@@ -528,15 +562,15 @@ router.get("/plaid/analysis", async (req, res): Promise<void> => {
 });
 
 async function loadAnalysis(
-  plaidItem: { id: string; accessToken: string },
+  items: PlaidItemRow[],
   days: number,
 ): Promise<AnalysisData> {
-  const cacheKey = `${plaidItem.id}:${days}`;
+  const cacheKey = analysisCacheKey(items, days);
   const cached = analysisCache.get(cacheKey);
   if (cached && Date.now() - cached.at < ANALYSIS_TTL_MS) return cached.data;
   let inFlight = analysisInFlight.get(cacheKey);
   if (!inFlight) {
-    inFlight = buildAnalysis(plaidItem.accessToken, days).finally(() => {
+    inFlight = buildAnalysis(items, days).finally(() => {
       analysisInFlight.delete(cacheKey);
     });
     analysisInFlight.set(cacheKey, inFlight);
@@ -649,8 +683,8 @@ async function handleCategorize(
   req: import("express").Request,
   res: import("express").Response,
 ): Promise<void> {
-  const item = await getItem();
-  if (!item) {
+  const items = await getPlaidItems();
+  if (items.length === 0) {
     res.status(409).json({ error: "No bank connected" });
     return;
   }
@@ -660,7 +694,7 @@ async function handleCategorize(
 
   let data: AnalysisData;
   try {
-    data = await loadAnalysis(item, days);
+    data = await loadAnalysis(items, days);
   } catch (err: any) {
     if (err?.plaid) {
       res.status(502).json({ error: "Couldn't fetch transactions from your bank" });
@@ -774,7 +808,7 @@ async function handleCategorize(
     paidInvoices: sum(data.paidInvoices),
     other: sum(data.other),
   };
-  analysisCache.set(`${item.id}:${days}`, { at: Date.now(), data });
+  analysisCache.set(analysisCacheKey(items, days), { at: Date.now(), data });
 
   res.json(GetBankAnalysisResponse.parse(data));
 }
@@ -783,8 +817,8 @@ async function handleApply(
   req: import("express").Request,
   res: import("express").Response,
 ): Promise<void> {
-  const item = await getItem();
-  if (!item) {
+  const items = await getPlaidItems();
+  if (items.length === 0) {
     res.status(409).json({ error: "No bank connected" });
     return;
   }
@@ -793,7 +827,7 @@ async function handleApply(
 
   let data: AnalysisData;
   try {
-    data = await loadAnalysis(item, days);
+    data = await loadAnalysis(items, days);
   } catch (err: any) {
     if (err?.plaid) {
       res.status(502).json({ error: "Couldn't fetch transactions from your bank" });
@@ -840,9 +874,12 @@ async function handleApply(
   );
 }
 
-router.delete("/plaid/item", async (_req, res): Promise<void> => {
-  const item = await getItem();
-  if (item) {
+router.delete("/plaid/item", async (req, res): Promise<void> => {
+  const bankId = typeof req.query.bankId === "string" ? req.query.bankId : null;
+  const items = await getPlaidItems();
+  // With bankId: disconnect that one bank. Without: disconnect all (legacy).
+  const targets = bankId ? items.filter((i) => i.id === bankId) : items;
+  for (const item of targets) {
     const result = await plaidPost("/item/remove", {
       access_token: item.accessToken,
     });
@@ -850,6 +887,8 @@ router.delete("/plaid/item", async (_req, res): Promise<void> => {
       logger.warn({ data: result.data }, "Plaid item remove failed (deleting locally anyway)");
     }
     await db.delete(plaidItemsTable).where(eq(plaidItemsTable.id, item.id));
+  }
+  if (targets.length > 0) {
     invalidateBankCashflowCache();
     invalidateBankAnalysisCache();
   }

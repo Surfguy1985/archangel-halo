@@ -48,6 +48,10 @@ export async function getPlaidItem() {
   return item ?? null;
 }
 
+export async function getPlaidItems() {
+  return db.select().from(plaidItemsTable).orderBy(plaidItemsTable.createdAt);
+}
+
 export interface BankMtdCashflow {
   inflows: number;
   outflows: number;
@@ -80,8 +84,8 @@ export function invalidateBankCashflowCache(): void {
  * Plaid convention: positive amount = money leaving the account.
  */
 export async function getBankMtdCashflow(): Promise<BankMtdCashflow | null> {
-  const item = await getPlaidItem();
-  if (!item) return null;
+  const items = await getPlaidItems();
+  if (items.length === 0) return null;
 
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
@@ -96,25 +100,29 @@ export async function getBankMtdCashflow(): Promise<BankMtdCashflow | null> {
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const MAX_ROWS = 500;
   const all: any[] = [];
-  let offset = 0;
-  for (;;) {
-    const result = await plaidPost("/transactions/get", {
-      access_token: item.accessToken,
-      start_date: localDateStr(start),
-      end_date: localDateStr(now),
-      options: { count: 100, offset },
-    });
-    if (!result.ok) {
-      logger.warn({ data: result.data }, "Plaid MTD cashflow fetch failed");
-      return null;
+  for (const item of items) {
+    let offset = 0;
+    const perItem: any[] = [];
+    for (;;) {
+      const result = await plaidPost("/transactions/get", {
+        access_token: item.accessToken,
+        start_date: localDateStr(start),
+        end_date: localDateStr(now),
+        options: { count: 100, offset },
+      });
+      if (!result.ok) {
+        logger.warn({ data: result.data }, "Plaid MTD cashflow fetch failed");
+        return null;
+      }
+      const page = result.data.transactions ?? [];
+      perItem.push(...page);
+      const total = result.data.total_transactions ?? perItem.length;
+      offset = perItem.length;
+      if (perItem.length >= total || page.length === 0 || perItem.length >= MAX_ROWS) {
+        break;
+      }
     }
-    const page = result.data.transactions ?? [];
-    all.push(...page);
-    const total = result.data.total_transactions ?? all.length;
-    offset = all.length;
-    if (all.length >= total || page.length === 0 || all.length >= MAX_ROWS) {
-      break;
-    }
+    all.push(...perItem);
   }
 
   let inflows = 0;

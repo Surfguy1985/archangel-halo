@@ -15,7 +15,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Landmark, RefreshCw, Unlink, Wallet } from "lucide-react";
+import { Landmark, Plus, RefreshCw, Unlink, Wallet } from "lucide-react";
+import type { ConnectedBank } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { BankAnalysisSection } from "./BankAnalysisSection";
 
@@ -124,49 +125,118 @@ function ConnectCard() {
   );
 }
 
-function ConnectedView({ institutionName }: { institutionName: string | null }) {
+function ConnectedView({ banks }: { banks: ConnectedBank[] }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const accounts = useListBankAccounts();
   const transactions = useListBankTransactions({ days: 30 });
   const disconnect = useDisconnectBank();
+  const createToken = useCreatePlaidLinkToken();
+  const exchange = useExchangePlaidPublicToken();
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+
+  const multiBank = banks.length > 1;
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: getGetBankStatusQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListBankAccountsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListBankTransactionsQueryKey() });
+  };
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: getListBankAccountsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListBankTransactionsQueryKey() });
   };
 
-  const onDisconnect = () => {
-    if (!window.confirm("Disconnect this bank? You can reconnect at any time.")) return;
-    disconnect.mutate(undefined, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetBankStatusQueryKey() });
-        queryClient.removeQueries({ queryKey: getListBankAccountsQueryKey() });
-        queryClient.removeQueries({ queryKey: getListBankTransactionsQueryKey() });
-        toast({ title: "Bank disconnected" });
-      },
+  const addBank = () => {
+    createToken.mutate(undefined, {
+      onSuccess: (data) => setLinkToken(data.linkToken),
       onError: (err) =>
         toast({
-          title: "Couldn't disconnect",
+          title: "Couldn't start bank connection",
           description: errMessage(err),
           variant: "destructive",
         }),
     });
   };
 
+  const onAddDone = (publicToken: string, institutionName: string | null) => {
+    setLinkToken(null);
+    exchange.mutate(
+      { data: { publicToken, institutionName } },
+      {
+        onSuccess: () => {
+          invalidateAll();
+          toast({ title: "Bank connected" });
+        },
+        onError: (err) =>
+          toast({
+            title: "Bank connection failed",
+            description: errMessage(err),
+            variant: "destructive",
+          }),
+      },
+    );
+  };
+
+  const onDisconnect = (bank: ConnectedBank) => {
+    const label = bank.institutionName || "this bank";
+    if (!window.confirm(`Disconnect ${label}? You can reconnect at any time.`)) return;
+    disconnect.mutate(
+      { params: { bankId: bank.id } },
+      {
+        onSuccess: () => {
+          invalidateAll();
+          toast({ title: "Bank disconnected" });
+        },
+        onError: (err) =>
+          toast({
+            title: "Couldn't disconnect",
+            description: errMessage(err),
+            variant: "destructive",
+          }),
+      },
+    );
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Landmark className="w-4 h-4" />
-          <span>
-            Connected to{" "}
-            <span className="font-semibold text-[var(--ink)]">
-              {institutionName || "your bank"}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {banks.map((b) => (
+            <span
+              key={b.id}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card pl-3 pr-1.5 py-1 text-sm"
+            >
+              <Landmark className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="font-semibold text-[var(--ink)]">
+                {b.institutionName || "Bank"}
+              </span>
+              <button
+                onClick={() => onDisconnect(b)}
+                disabled={disconnect.isPending}
+                aria-label={`Disconnect ${b.institutionName || "bank"}`}
+                title="Disconnect"
+                className="rounded-full p-1 hover:bg-muted disabled:opacity-40"
+              >
+                <Unlink className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
             </span>
-          </span>
+          ))}
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={addBank}
+            disabled={createToken.isPending || exchange.isPending}
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            {createToken.isPending
+              ? "Starting…"
+              : exchange.isPending
+                ? "Finishing…"
+                : "Add bank"}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -178,11 +248,11 @@ function ConnectedView({ institutionName }: { institutionName: string | null }) 
             />
             Refresh
           </Button>
-          <Button variant="outline" size="sm" onClick={onDisconnect} disabled={disconnect.isPending}>
-            <Unlink className="w-4 h-4 mr-1.5" /> Disconnect
-          </Button>
         </div>
       </div>
+      {linkToken && (
+        <PlaidLauncher token={linkToken} onDone={onAddDone} onExit={() => setLinkToken(null)} />
+      )}
 
       {accounts.isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -204,6 +274,11 @@ function ConnectedView({ institutionName }: { institutionName: string | null }) 
                   {a.name}
                   {a.mask ? ` ••${a.mask}` : ""}
                 </span>
+                {multiBank && a.institutionName && (
+                  <Badge variant="secondary" className="ml-auto shrink-0 text-[10px] uppercase">
+                    {a.institutionName}
+                  </Badge>
+                )}
               </div>
               <div className="text-2xl font-mono font-bold tracking-tight text-[var(--ink)]">
                 {a.availableBalance != null
@@ -256,7 +331,13 @@ function ConnectedView({ institutionName }: { institutionName: string | null }) 
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground truncate mt-0.5">
-                    {[fmtDate(t.date), t.category?.toLowerCase()].filter(Boolean).join(" · ")}
+                    {[
+                      fmtDate(t.date),
+                      t.category?.toLowerCase(),
+                      multiBank ? t.institutionName : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </div>
                 </div>
                 <div
@@ -280,5 +361,5 @@ export function BankTab() {
 
   if (isLoading) return <Skeleton className="h-64 w-full" />;
   if (!status?.connected) return <ConnectCard />;
-  return <ConnectedView institutionName={status.institutionName ?? null} />;
+  return <ConnectedView banks={status.banks ?? []} />;
 }

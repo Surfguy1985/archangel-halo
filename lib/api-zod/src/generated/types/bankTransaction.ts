@@ -17,4 +17,6 @@ export interface BankTransaction {
   /** @nullable */
   category?: string | null;
   pending: boolean;
+  /** @nullable */
+  institutionName?: string | null;
 }

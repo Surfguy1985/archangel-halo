@@ -1377,12 +1377,21 @@ export interface PlaidExchangeInput {
   institutionName?: string | null;
 }
 
+export interface ConnectedBank {
+  id: string;
+  /** @nullable */
+  institutionName?: string | null;
+  /** @nullable */
+  connectedAt?: string | null;
+}
+
 export interface BankStatus {
   connected: boolean;
   /** @nullable */
   institutionName?: string | null;
   /** @nullable */
   connectedAt?: string | null;
+  banks: ConnectedBank[];
 }
 
 export interface BankAccount {
@@ -1401,6 +1410,10 @@ export interface BankAccount {
   currentBalance?: number | null;
   /** @nullable */
   currency?: string | null;
+  /** @nullable */
+  institutionName?: string | null;
+  /** @nullable */
+  bankId?: string | null;
 }
 
 export interface BankTransaction {
@@ -1414,6 +1427,8 @@ export interface BankTransaction {
   /** @nullable */
   category?: string | null;
   pending: boolean;
+  /** @nullable */
+  institutionName?: string | null;
 }
 
 export interface BankAnalysisItem {
@@ -3131,6 +3146,10 @@ export type CategorizeBankTransactionParams = {
  * @maximum 90
  */
 days?: number;
+};
+
+export type DisconnectBankParams = {
+bankId?: string;
 };
 
 export type ListInvoicesParams = {

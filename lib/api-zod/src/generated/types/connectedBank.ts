@@ -5,13 +5,11 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
-import type { ConnectedBank } from './connectedBank';
 
-export interface BankStatus {
-  connected: boolean;
+export interface ConnectedBank {
+  id: string;
   /** @nullable */
   institutionName?: string | null;
   /** @nullable */
   connectedAt?: Date | null;
-  banks: ConnectedBank[];
 }

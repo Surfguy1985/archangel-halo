@@ -1948,7 +1948,11 @@ paths:
     delete:
       operationId: disconnectBank
       tags: [money]
-      summary: Disconnect the bank connection
+      summary: Disconnect one bank connection (or all when no bankId is given)
+      parameters:
+        - name: bankId
+          in: query
+          schema: { type: string }
       responses:
         "204":
           description: Disconnected
@@ -5380,13 +5384,24 @@ components:
         publicToken: { type: string }
         institutionName: { type: ["string", "null"] }
 
+    ConnectedBank:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+        institutionName: { type: ["string", "null"] }
+        connectedAt: { type: ["string", "null"], format: date-time }
+
     BankStatus:
       type: object
-      required: [connected]
+      required: [connected, banks]
       properties:
         connected: { type: boolean }
         institutionName: { type: ["string", "null"] }
         connectedAt: { type: ["string", "null"], format: date-time }
+        banks:
+          type: array
+          items: { $ref: "#/components/schemas/ConnectedBank" }
 
     BankAccount:
       type: object
@@ -5401,6 +5416,8 @@ components:
         availableBalance: { type: ["number", "null"] }
         currentBalance: { type: ["number", "null"] }
         currency: { type: ["string", "null"] }
+        institutionName: { type: ["string", "null"] }
+        bankId: { type: ["string", "null"] }
 
     BankTransaction:
       type: object
@@ -5414,6 +5431,7 @@ components:
         merchantName: { type: ["string", "null"] }
         category: { type: ["string", "null"] }
         pending: { type: boolean }
+        institutionName: { type: ["string", "null"] }
 
     BankAnalysisItem:
       type: object
