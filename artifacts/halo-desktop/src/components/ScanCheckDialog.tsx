@@ -69,7 +69,7 @@ export function ScanCheckDialog({
   const { data: jobs } = useListJobs(propertyId ? { propertyId } : undefined);
   const [jobId, setJobId] = useState("");
   const { data: invoices } = useListInvoices();
-  const [invoiceId, setInvoiceId] = useState("");
+  const [invoiceIds, setInvoiceIds] = useState<string[]>([]);
   const [amount, setAmount] = useState("");
   const [scan, setScan] = useState<CheckScanResult | null>(null);
   const [checkFile, setCheckFile] = useState<File | null>(null);
@@ -86,10 +86,20 @@ export function ScanCheckDialog({
       (!jobId || i.jobId === jobId),
   );
 
+  const selectedInvoices = openInvoices.filter((i) => invoiceIds.includes(i.id));
+  const selectedTotal =
+    Math.round(selectedInvoices.reduce((s, i) => s + i.amount, 0) * 100) / 100;
+  const checkAmountNum = parseFloat(amount);
+
+  const toggleInvoice = (id: string) =>
+    setInvoiceIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+
   const reset = () => {
     setPropertyId("");
     setJobId("");
-    setInvoiceId("");
+    setInvoiceIds([]);
     setAmount("");
     setScan(null);
     setCheckFile(null);
@@ -131,7 +141,7 @@ export function ScanCheckDialog({
       if (result.amount != null) setAmount(String(result.amount));
       if (result.suggestedPropertyId) setPropertyId(result.suggestedPropertyId);
       if (result.suggestedJobId) setJobId(result.suggestedJobId);
-      if (result.suggestedInvoiceId) setInvoiceId(result.suggestedInvoiceId);
+      if (result.suggestedInvoiceId) setInvoiceIds([result.suggestedInvoiceId]);
     } catch {
       setError("Couldn't read that photo — try again.");
     }
@@ -139,7 +149,7 @@ export function ScanCheckDialog({
 
   const submit = async () => {
     const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || !invoiceId) return;
+    if (isNaN(amountNum) || selectedInvoices.length === 0) return;
     setSaving(true);
     let checkImagePath: string | undefined;
     if (checkFile) {
@@ -151,32 +161,42 @@ export function ScanCheckDialog({
       }
       checkImagePath = uploaded;
     }
-    record.mutate(
-      {
-        data: {
-          invoiceId,
-          amount: amountNum,
-          method: "check",
-          payerName: scan?.payerName ?? undefined,
-          checkNumber: scan?.checkNumber ?? undefined,
-          checkImagePath,
-        },
-      },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoiceId) });
-          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-          if (propertyId) {
-            queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
-          }
-          close(false);
-        },
-        onError: () => setError("Couldn't apply the payment. Try again."),
-        onSettled: () => setSaving(false),
-      },
-    );
+    // One invoice selected: the entered check amount goes to it (allows partial
+    // payments). Multiple selected: each invoice is paid its own full amount.
+    const applied: string[] = [];
+    try {
+      for (const inv of selectedInvoices) {
+        await record.mutateAsync({
+          data: {
+            invoiceId: inv.id,
+            amount: selectedInvoices.length === 1 ? amountNum : inv.amount,
+            method: "check",
+            payerName: scan?.payerName ?? undefined,
+            checkNumber: scan?.checkNumber ?? undefined,
+            checkImagePath,
+          },
+        });
+        applied.push(inv.id);
+      }
+    } catch {
+      setError(
+        applied.length > 0
+          ? `Applied ${applied.length} of ${selectedInvoices.length} payments — one failed. Check the Money page and try the rest again.`
+          : "Couldn't apply the payment. Try again.",
+      );
+    } finally {
+      queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+      for (const id of applied) {
+        queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(id) });
+      }
+      queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+      if (propertyId) {
+        queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+      }
+      setSaving(false);
+      if (applied.length === selectedInvoices.length) close(false);
+    }
   };
 
   return (
@@ -267,7 +287,7 @@ export function ScanCheckDialog({
             onChange={(e) => {
               setPropertyId(e.target.value);
               setJobId("");
-              setInvoiceId("");
+              setInvoiceIds([]);
             }}
             data-testid="select-check-property"
           >
@@ -284,7 +304,7 @@ export function ScanCheckDialog({
               value={jobId}
               onChange={(e) => {
                 setJobId(e.target.value);
-                setInvoiceId("");
+                setInvoiceIds([]);
               }}
               data-testid="select-check-job"
             >
@@ -296,21 +316,44 @@ export function ScanCheckDialog({
               ))}
             </select>
           )}
-          {propertyId && (
-            <select
-              className={selectCls}
-              value={invoiceId}
-              onChange={(e) => setInvoiceId(e.target.value)}
-              data-testid="select-check-invoice"
-            >
-              <option value="">Which invoice does it pay?</option>
-              {openInvoices.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.invoiceNo} — ${i.amount.toLocaleString()}
-                  {i.status === "paid" ? " (already paid)" : i.status === "draft" ? " (draft)" : ""}
-                </option>
-              ))}
-            </select>
+          {propertyId && openInvoices.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium text-muted-foreground">
+                Which invoice(s) does it pay? Select all that apply.
+              </div>
+              <div className="max-h-[180px] overflow-y-auto space-y-1.5">
+                {openInvoices.map((i) => {
+                  const checked = invoiceIds.includes(i.id);
+                  return (
+                    <button
+                      key={i.id}
+                      type="button"
+                      onClick={() => toggleInvoice(i.id)}
+                      className={`w-full flex items-center gap-2.5 rounded-md border py-2 px-3 text-left text-sm transition-colors ${checked ? "border-primary bg-primary/10" : "border-input bg-background"}`}
+                      data-testid={`option-check-invoice-${i.id}`}
+                    >
+                      <span
+                        className={`w-4 h-4 rounded-sm border flex items-center justify-center shrink-0 text-[11px] ${checked ? "bg-primary border-primary text-primary-foreground" : "border-input"}`}
+                      >
+                        {checked ? "✓" : ""}
+                      </span>
+                      <span className="flex-1">
+                        {i.invoiceNo} — ${i.amount.toLocaleString()}
+                        {i.status === "paid" ? " (already paid)" : i.status === "draft" ? " (draft)" : ""}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedInvoices.length > 1 && (
+                <div className="text-xs text-muted-foreground" data-testid="text-check-split-summary">
+                  {selectedInvoices.length} invoices selected — ${selectedTotal.toLocaleString()} total
+                  {!isNaN(checkAmountNum) && Math.abs(selectedTotal - checkAmountNum) > 0.005
+                    ? ` (check is $${checkAmountNum.toLocaleString()} — each invoice will be marked paid in full)`
+                    : ""}
+                </div>
+              )}
+            </div>
           )}
           {propertyId && openInvoices.length === 0 && (
             <div className="text-xs text-muted-foreground">
@@ -320,10 +363,14 @@ export function ScanCheckDialog({
           <Button
             className="w-full"
             onClick={submit}
-            disabled={!checkFile || !scan || !amount.trim() || !propertyId || !invoiceId || saving || record.isPending}
+            disabled={!checkFile || !scan || !amount.trim() || !propertyId || invoiceIds.length === 0 || saving || record.isPending}
             data-testid="button-apply-check"
           >
-            {saving || record.isPending ? "Applying…" : "Apply payment to books"}
+            {saving || record.isPending
+              ? "Applying…"
+              : invoiceIds.length > 1
+                ? `Apply payment to ${invoiceIds.length} invoices`
+                : "Apply payment to books"}
           </Button>
           {error && <div className="text-xs text-destructive text-center">{error}</div>}
         </div>

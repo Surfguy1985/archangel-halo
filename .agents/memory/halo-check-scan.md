@@ -8,4 +8,5 @@ description: Check-photo OCR payment flow — design decisions and constraints
 - The scan UIs require a successfully scanned photo before submit, but the server intentionally does NOT reject photo-less check payments — the manual "Record payment" flow legitimately records checks without images.
 - Invoice "past_due" status is computed virtually from sent+dueAt; in DB only "sent" exists (past_due rows don't exist in DB).
 - Invoice pickers in the check-scan UIs show ALL invoices regardless of status (paid/draft included, labeled), and /payments accepts payments on already-paid invoices — ledger sync is idempotent (one invoice_payment journal per invoice).
+- Bulk checks: picker is multi-select; ONE invoice selected → entered check amount applied (partial payments allowed); MULTIPLE selected → each invoice paid its own full amount via sequential recordPayment calls sharing the same check photo/number. Keep this split rule if reworking the flow.
 - Scan suggestion considers all invoices: amount match (+5), payer-name tokens vs property/contact names (+2 each), +1 boost for status "sent" so open invoices win ties; suggest only when score ≥2.
