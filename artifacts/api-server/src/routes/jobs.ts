@@ -230,6 +230,27 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
           eq(jobBroadcastsTable.status, "pending"),
         ),
       );
+    // Revoke the previous crew's access artifacts so the old crew's portal
+    // no longer shows (or can act on) this job after a manual reassignment.
+    await tx
+      .update(jobBroadcastsTable)
+      .set({ status: "withdrawn", respondedAt: new Date() })
+      .where(
+        and(
+          eq(jobBroadcastsTable.jobId, id),
+          eq(jobBroadcastsTable.status, "approved"),
+          ne(jobBroadcastsTable.crewId, body.crewLeaderId),
+        ),
+      );
+    await tx
+      .update(schedulesTable)
+      .set({ crewLeaderId: body.crewLeaderId })
+      .where(
+        and(
+          eq(schedulesTable.jobId, id),
+          ne(schedulesTable.crewLeaderId, body.crewLeaderId),
+        ),
+      );
     return fresh;
   });
   if (!row) {
@@ -414,6 +435,45 @@ router.post("/jobs/:id/complete", async (req, res): Promise<void> => {
   res.json(CompleteJobResponse.parse(decorateJob(row, propName, crewName)));
 });
 
+async function computeCloseOutMissing(
+  job: typeof jobsTable.$inferSelect,
+): Promise<string[]> {
+  const missing: string[] = [];
+  if (job.status !== "complete") {
+    missing.push("Mark the work as verified complete first.");
+  }
+  const jobInvoices = await db
+    .select()
+    .from(invoicesTable)
+    .where(eq(invoicesTable.jobId, job.id));
+  if (jobInvoices.length === 0) {
+    missing.push("Add an invoice for this job.");
+  } else if (!jobInvoices.every((i) => i.status === "paid")) {
+    missing.push(
+      jobInvoices.length > 1
+        ? "Mark every invoice on this job as payment received."
+        : "Mark the invoice as payment received.",
+    );
+  }
+  if (!job.crewLeaderId) {
+    missing.push("Assign a crew to this job first.");
+  } else {
+    const payments = await db
+      .select()
+      .from(crewPaymentsTable)
+      .where(
+        and(
+          eq(crewPaymentsTable.jobId, job.id),
+          eq(crewPaymentsTable.crewId, job.crewLeaderId),
+        ),
+      );
+    if (!payments.some((p) => p.status === "completed")) {
+      missing.push("Mark the crew member as paid for this job.");
+    }
+  }
+  return missing;
+}
+
 router.post("/jobs/:id/clear", async (req, res): Promise<void> => {
   const { id } = ClearJobParams.parse(req.params);
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
@@ -424,6 +484,13 @@ router.post("/jobs/:id/clear", async (req, res): Promise<void> => {
   if (job.status !== "complete") {
     res.status(409).json({
       error: "Only completed jobs can be cleared to job history.",
+    });
+    return;
+  }
+  const missing = await computeCloseOutMissing(job);
+  if (missing.length > 0) {
+    res.status(409).json({
+      error: `Finish the close-out checklist first: ${missing.join(" ")}`,
     });
     return;
   }
@@ -457,35 +524,7 @@ router.post("/jobs/:id/close-out", async (req, res): Promise<void> => {
     return;
   }
 
-  const missing: string[] = [];
-  if (job.status !== "complete") {
-    missing.push("Mark the work as verified complete first.");
-  }
-  const jobInvoices = await db
-    .select()
-    .from(invoicesTable)
-    .where(eq(invoicesTable.jobId, id));
-  if (jobInvoices.length === 0) {
-    missing.push("Add an invoice for this job.");
-  } else if (!jobInvoices.some((i) => i.status === "paid")) {
-    missing.push("Mark the invoice as payment received.");
-  }
-  if (!job.crewLeaderId) {
-    missing.push("Assign a crew to this job first.");
-  } else {
-    const payments = await db
-      .select()
-      .from(crewPaymentsTable)
-      .where(
-        and(
-          eq(crewPaymentsTable.jobId, id),
-          eq(crewPaymentsTable.crewId, job.crewLeaderId),
-        ),
-      );
-    if (!payments.some((p) => p.status === "completed")) {
-      missing.push("Mark the crew member as paid for this job.");
-    }
-  }
+  const missing = await computeCloseOutMissing(job);
   if (missing.length > 0) {
     res.status(409).json({
       error: "A few funnel steps still need to be finished.",

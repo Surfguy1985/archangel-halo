@@ -178,7 +178,7 @@ export function CalendarEventSheet({
                         href={`sms:?&body=${encodeURIComponent(
                           `Here's your ArchAngel crew portal link — tap to open:\n${portalUrl}`,
                         )}`}
-                        className="flex-1 rounded-[12px] py-[11px] font-display font-bold text-[13.5px] text-[var(--ink)] flex items-center justify-center gap-[7px] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_5px_16px_rgba(143,106,31,0.3)] transition-transform active:scale-[0.98]"
+                        className="flex-1 rounded-[12px] py-[11px] font-display font-bold text-[13.5px] text-[var(--ink)] flex items-center justify-center gap-[7px] bg-[var(--primary)] shadow-[0_5px_16px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
                       >
                         Send link
                       </a>
@@ -191,14 +191,14 @@ export function CalendarEventSheet({
 
           {event.kind === "job" && event.jobId ? (
             <Link href={`/jobs/${event.jobId}`} onClick={() => onOpenChange(false)}>
-              <button className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)] flex items-center justify-center gap-[8px] transition-transform active:scale-[0.98]">
+              <button className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] flex items-center justify-center gap-[8px] transition-transform active:scale-[0.98]">
                 <Briefcase className="w-[16px] h-[16px]" /> View job
               </button>
             </Link>
           ) : (
             <button
               onClick={() => onEdit(event)}
-              className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)] flex items-center justify-center gap-[8px] transition-transform active:scale-[0.98]"
+              className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] flex items-center justify-center gap-[8px] transition-transform active:scale-[0.98]"
             >
               <Pencil className="w-[16px] h-[16px]" /> Edit event
             </button>

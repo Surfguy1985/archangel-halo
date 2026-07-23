@@ -1117,7 +1117,7 @@ function CheckinTab({ token }: { token: string }) {
           <button
             onClick={() => doPunch("checkin")}
             disabled={busy !== null}
-            className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
           >
             {busy === "checkin" ? (
               <>
@@ -1292,7 +1292,7 @@ function PhotosTab({ token }: { token: string }) {
           ))}
         </div>
       </div>
-      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] cursor-pointer transition-transform active:scale-[0.98]">
+      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] cursor-pointer transition-transform active:scale-[0.98]">
         {sending ? (
           <Loader2 className="w-[18px] h-[18px] animate-spin" />
         ) : (
@@ -1436,7 +1436,7 @@ function DocumentsTab({ token }: { token: string }) {
 
   return (
     <div className="animate-in fade-in duration-200">
-      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] cursor-pointer transition-transform active:scale-[0.98]">
+      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] cursor-pointer transition-transform active:scale-[0.98]">
         <FileUp className="w-[18px] h-[18px]" />
         {isUploading ? "Uploading…" : "Upload a document"}
         <input
@@ -1564,7 +1564,7 @@ function PaymentTab({
         <button
           onClick={handleSave}
           disabled={save.isPending}
-          className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
         >
           {saved ? (
             <>
@@ -1896,7 +1896,7 @@ function W9Tab({ token }: { token: string }) {
       <button
         onClick={handleSubmit}
         disabled={submit.isPending}
-        className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+        className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
       >
         {saved ? (
           <>
@@ -2265,7 +2265,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
         <button
           onClick={handleSend}
           disabled={submit.isPending}
-          className="mt-[12px] w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+          className="mt-[12px] w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
         >
           {submit.isPending ? (
             <>

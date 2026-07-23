@@ -8,7 +8,6 @@ import {
   useCreateRecapShare,
   useScheduleJob,
   useCompleteJob,
-  useClearJob,
   useRestartJob,
   useDeleteJob,
   useListCrews,
@@ -92,7 +91,6 @@ export default function JobDetail() {
   const createShare = useCreateRecapShare();
   const schedule = useScheduleJob();
   const complete = useCompleteJob();
-  const clearJob = useClearJob();
   const restartJob = useRestartJob();
   const del = useDeleteJob();
   const updateJob = useUpdateJob();
@@ -132,19 +130,6 @@ export default function JobDetail() {
     queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey() });
     if (propertyId) queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
   };
-
-  const onClear = () =>
-    clearJob.mutate(
-      { id },
-      {
-        onSuccess: () => {
-          invalidateJob();
-          toast({ title: "Job cleared to history" });
-        },
-        onError: (e) =>
-          toast({ title: "Couldn't clear", description: e.message, variant: "destructive" }),
-      },
-    );
 
   const onRestart = () =>
     restartJob.mutate(
@@ -293,13 +278,9 @@ export default function JobDetail() {
             </button>
           )}
           {job.status === "complete" && !job.clearedAt && (
-            <button
-              onClick={onClear}
-              disabled={clearJob.isPending}
-              className="flex items-center gap-2 bg-card border border-border px-4 py-2 rounded-md font-medium hover:bg-black/[0.03] transition-colors shadow-sm text-sm disabled:opacity-50"
-            >
-              <Archive className="w-4 h-4" /> {clearJob.isPending ? "Clearing…" : "Clear to history"}
-            </button>
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground px-3 py-2">
+              <Archive className="w-3.5 h-3.5" /> Close out from the property's job funnel
+            </span>
           )}
           {job.status === "complete" && (
             <button

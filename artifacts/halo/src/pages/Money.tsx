@@ -314,7 +314,7 @@ function Invoices() {
       <div className="flex gap-[10px] mb-[16px]">
         <button
           onClick={() => setAddOpen(true)}
-          className="flex-1 flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
+          className="flex-1 flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
         >
           <Plus className="w-[19px] h-[19px]" /> New invoice
         </button>
@@ -375,7 +375,7 @@ function Invoices() {
               <div className="flex gap-[10px] mt-[16px]">
                 {inv.status === "draft" && (
                   <button
-                    className="flex-1 rounded-[14px] py-[12px] text-[14px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_2px_8px_rgba(143,106,31,0.2)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+                    className="flex-1 rounded-[14px] py-[12px] text-[14px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(143,106,31,0.2)] disabled:opacity-50 transition-transform active:scale-[0.98]"
                     onClick={(e) => {
                       e.stopPropagation();
                       send.mutate(
@@ -433,7 +433,7 @@ function Invoices() {
                 )}
                 {inv.status !== "paid" && inv.status !== "draft" && (
                   <button
-                    className="flex-1 rounded-[14px] py-[12px] text-[14px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_2px_8px_rgba(143,106,31,0.2)] transition-transform active:scale-[0.98]"
+                    className="flex-1 rounded-[14px] py-[12px] text-[14px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(143,106,31,0.2)] transition-transform active:scale-[0.98]"
                     onClick={(e) => {
                       e.stopPropagation();
                       setPayInvoice(inv);
@@ -525,7 +525,7 @@ function Expenses() {
       <div className="flex gap-[10px] mb-[16px]">
         <button
           onClick={() => setAddOpen(true)}
-          className="flex-1 flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[16px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
+          className="flex-1 flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[16px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
         >
           <Plus className="w-[20px] h-[20px]" /> Log expense
         </button>
@@ -683,7 +683,7 @@ function CrewPay() {
     <div className="animate-in fade-in duration-200">
       <button
         onClick={() => setAddOpen(true)}
-        className="w-full mb-[24px] flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[16px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
+        className="w-full mb-[24px] flex items-center justify-center gap-[8px] rounded-[18px] py-[16px] font-display font-bold text-[16px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98]"
       >
         <Plus className="w-[20px] h-[20px]" /> Record crew payout
       </button>

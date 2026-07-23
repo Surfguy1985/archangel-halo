@@ -880,7 +880,7 @@ function DailyActivitySection({
                           </button>
                           <a
                             href={`/api/photo-shares/${reportToken}/report`}
-                            className="flex items-center gap-1.5 text-xs font-bold rounded-full px-3.5 py-1.5 text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] hover:opacity-90 transition-opacity"
+                            className="flex items-center gap-1.5 text-xs font-bold rounded-full px-3.5 py-1.5 text-[var(--ink)] bg-[var(--primary)] hover:opacity-90 transition-opacity"
                           >
                             <FileDown className="w-3.5 h-3.5" /> Download PDF
                           </a>

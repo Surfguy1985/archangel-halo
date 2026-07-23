@@ -392,7 +392,7 @@ export function VoiceCaptureSheet({
 
               <div className="flex flex-col items-center justify-center my-[18px]">
                 <button
-                  className={`w-[66px] h-[66px] rounded-full relative grid place-items-center shadow-[0_6px_20px_rgba(143,106,31,0.38)] before:content-[''] before:absolute before:inset-0 before:rounded-full before:bg-[conic-gradient(from_210deg,var(--gold-dark),var(--gold-light),var(--gold),var(--gold-dark))] after:content-[''] after:absolute after:inset-[3.5px] after:rounded-full after:bg-[var(--ink)] ${listening ? "animate-pulse" : ""}`}
+                  className={`w-[66px] h-[66px] rounded-full relative grid place-items-center shadow-[0_6px_20px_rgba(180,255,68,0.35)] before:content-[''] before:absolute before:inset-0 before:rounded-full before:bg-[var(--primary)] after:content-[''] after:absolute after:inset-[3.5px] after:rounded-full after:bg-[var(--ink)] ${listening ? "animate-pulse" : ""}`}
                   onClick={toggleListen}
                 >
                   <Mic className="relative z-10 w-[24px] h-[24px] text-[var(--gold-light)]" />
@@ -593,7 +593,7 @@ export function VoiceCaptureSheet({
           {phase === "done" && (
             <>
               <div className="flex flex-col items-center text-center my-[14px]">
-                <span className="w-[54px] h-[54px] rounded-full bg-[var(--gold-light)] grid place-items-center shadow-[0_6px_20px_rgba(143,106,31,0.38)]">
+                <span className="w-[54px] h-[54px] rounded-full bg-[var(--gold-light)] grid place-items-center shadow-[0_6px_20px_rgba(180,255,68,0.35)]">
                   <Check className="w-[26px] h-[26px] text-black" />
                 </span>
                 <SheetTitle className="font-display font-bold text-[19px] mt-[12px]">

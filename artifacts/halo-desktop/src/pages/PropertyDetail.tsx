@@ -573,7 +573,7 @@ export default function PropertyDetail() {
                     <button
                       disabled={setStatus.isPending}
                       onClick={() => toggleInvoice(inv.id, "paid")}
-                      className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] hover:brightness-105 transition-all disabled:opacity-50"
+                      className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full text-[var(--ink)] bg-[var(--primary)] hover:brightness-105 transition-all disabled:opacity-50"
                     >
                       Mark paid
                     </button>

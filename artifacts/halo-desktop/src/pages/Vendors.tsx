@@ -226,7 +226,7 @@ export default function Vendors() {
           </button>
           <button
             onClick={openAdd}
-            className="inline-flex items-center gap-1.5 px-4 h-9 text-sm font-semibold rounded-md text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_2px_10px_rgba(143,106,31,0.3)] hover:opacity-90 transition-opacity"
+            className="inline-flex items-center gap-1.5 px-4 h-9 text-sm font-semibold rounded-md text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_10px_rgba(180,255,68,0.35)] hover:opacity-90 transition-opacity"
           >
             <Plus className="w-4 h-4" strokeWidth={2.4} /> Add vendor
           </button>
@@ -313,7 +313,7 @@ export default function Vendors() {
           </p>
           <button
             onClick={openAdd}
-            className="inline-flex items-center gap-1.5 px-4 h-9 text-sm font-semibold rounded-md text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_2px_10px_rgba(143,106,31,0.3)] hover:opacity-90 transition-opacity"
+            className="inline-flex items-center gap-1.5 px-4 h-9 text-sm font-semibold rounded-md text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_10px_rgba(180,255,68,0.35)] hover:opacity-90 transition-opacity"
           >
             <Plus className="w-4 h-4" strokeWidth={2.4} /> Add vendor
           </button>

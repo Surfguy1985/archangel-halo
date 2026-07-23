@@ -34,7 +34,7 @@ const STATUS_META: Record<
   between: {
     label: "Above minimum",
     color: "text-[var(--gold-dark)]",
-    bar: "linear-gradient(90deg,var(--gold-light),var(--gold-dark))",
+    bar: "var(--primary)",
   },
   target: {
     label: "Hitting target",
@@ -255,7 +255,7 @@ export function MarginSection({
               <button
                 onClick={save}
                 disabled={invalid || saving}
-                className="px-4 py-2 rounded-md font-semibold text-sm text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-sm disabled:opacity-50"
+                className="px-4 py-2 rounded-md font-semibold text-sm text-[var(--ink)] bg-[var(--primary)] shadow-sm disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save"}
               </button>

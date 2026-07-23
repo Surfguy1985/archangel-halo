@@ -240,7 +240,7 @@ export default function Calendar() {
       {/* FAB */}
       <button
         onClick={() => setChooserOpen(true)}
-        className="fixed sm:absolute right-[18px] bottom-[102px] w-[54px] h-[54px] rounded-full grid place-items-center text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_8px_24px_rgba(143,106,31,0.42)] z-20 transition-transform active:scale-[0.94]"
+        className="fixed sm:absolute right-[18px] bottom-[102px] w-[54px] h-[54px] rounded-full grid place-items-center text-[var(--ink)] bg-[var(--primary)] shadow-[0_8px_24px_rgba(143,106,31,0.42)] z-20 transition-transform active:scale-[0.94]"
         aria-label="Add to calendar"
       >
         <Plus className="w-[26px] h-[26px]" strokeWidth={2.2} />
@@ -265,7 +265,7 @@ export default function Calendar() {
               }}
               className="w-full flex items-center gap-[13px] rounded-[15px] p-[14px] bg-card border border-border shadow-[var(--shadow)] text-left transition-transform active:scale-[0.98]"
             >
-              <div className="w-[40px] h-[40px] shrink-0 rounded-[11px] grid place-items-center text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))]">
+              <div className="w-[40px] h-[40px] shrink-0 rounded-[11px] grid place-items-center text-[var(--ink)] bg-[var(--primary)]">
                 <Briefcase className="w-[19px] h-[19px]" />
               </div>
               <div>

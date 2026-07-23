@@ -320,7 +320,7 @@ export default function CrewDetail() {
             </div>
             <a
               href={smsHref}
-              className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] transition-transform active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
             >
               <MessageSquare className="w-[16px] h-[16px]" /> Text the link
             </a>
@@ -367,7 +367,7 @@ export default function CrewDetail() {
           <button
             onClick={handleGenerate}
             disabled={genLink.isPending}
-            className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
           >
             <Link2 className="w-[16px] h-[16px]" /> Generate live link
           </button>
@@ -395,7 +395,7 @@ export default function CrewDetail() {
           <button
             onClick={handleSendPacket}
             disabled={!templateKey || sendPacket.isPending}
-            className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
           >
             <SendIcon className="w-[16px] h-[16px]" />
             {sendPacket.isPending ? "Sending…" : "Send packet to crew"}
@@ -978,7 +978,7 @@ function DailyActivitySection({
                           </button>
                           <a
                             href={`${base}/api/photo-shares/${reportToken}/report`}
-                            className="flex items-center gap-[5px] text-[11.5px] font-bold rounded-full px-[12px] py-[7px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] transition-transform active:scale-[0.96]"
+                            className="flex items-center gap-[5px] text-[11.5px] font-bold rounded-full px-[12px] py-[7px] text-[var(--ink)] bg-[var(--primary)] transition-transform active:scale-[0.96]"
                           >
                             <FileDown className="w-[12px] h-[12px]" /> Download PDF
                           </a>

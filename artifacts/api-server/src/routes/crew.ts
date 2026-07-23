@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
-import { and, desc, eq, gte, lt } from "drizzle-orm";
+import { and, desc, eq, gte, lt, ne } from "drizzle-orm";
 import {
   db,
   crewsTable,
@@ -425,6 +425,46 @@ router.get("/crew-payments", async (_req, res): Promise<void> => {
 router.post("/crew-payments", async (req, res): Promise<void> => {
   const body = CreateCrewPaymentBody.parse(req.body);
   const status = body.status ?? "pending";
+  // Idempotency guard: one payment per (job, crew). A double-click or retry
+  // should never record the crew as paid twice for the same job.
+  if (body.jobId) {
+    const existing = await db
+      .select()
+      .from(crewPaymentsTable)
+      .where(
+        and(
+          eq(crewPaymentsTable.jobId, body.jobId),
+          eq(crewPaymentsTable.crewId, body.crewId),
+          ne(crewPaymentsTable.status, "cancelled"),
+        ),
+      );
+    const prior =
+      existing.find((p) => p.status === "completed") ?? existing[0];
+    if (prior) {
+      let row = prior;
+      if (status === "completed" && prior.status !== "completed") {
+        const [updated] = await db
+          .update(crewPaymentsTable)
+          .set({ status: "completed", paidAt: new Date() })
+          .where(eq(crewPaymentsTable.id, prior.id))
+          .returning();
+        if (updated) row = updated;
+      }
+      const [crew] = await db
+        .select()
+        .from(crewsTable)
+        .where(eq(crewsTable.id, row.crewId));
+      res
+        .status(201)
+        .json(
+          CreateCrewPaymentResponse.parse({
+            ...ser(row),
+            crewName: crew?.name ?? null,
+          }),
+        );
+      return;
+    }
+  }
   const [row] = await db
     .insert(crewPaymentsTable)
     .values({

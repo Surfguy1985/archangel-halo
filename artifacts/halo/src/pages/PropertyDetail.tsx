@@ -65,6 +65,7 @@ export default function PropertyDetail() {
   const updateJob = useUpdateJob();
   const updateProperty = useUpdateProperty();
   const clearJob = useClearJob();
+  const [clearErrorJobId, setClearErrorJobId] = useState<string | null>(null);
   const restartJob = useRestartJob();
   const completeJob = useCompleteJob();
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
@@ -387,7 +388,10 @@ export default function PropertyDetail() {
                     })()}
                     <button
                       disabled={clearJob.isPending}
-                      onClick={() => clearJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
+                      onClick={() => {
+                        setClearErrorJobId(job.id);
+                        clearJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists });
+                      }}
                       className="flex items-center gap-[5px] text-[12px] font-display font-bold px-[11px] py-[6px] rounded-full bg-[rgba(23,24,28,0.05)] text-muted-foreground active:scale-[0.95] disabled:opacity-50"
                     >
                       <Archive className="w-[12px] h-[12px]" /> Clear to history
@@ -399,6 +403,11 @@ export default function PropertyDetail() {
                     >
                       <RotateCcw className="w-[12px] h-[12px]" /> Reopen for corrections
                     </button>
+                  </div>
+                )}
+                {clearJob.isError && clearErrorJobId === job.id && (
+                  <div className="mt-[8px] text-[12px] font-semibold text-red-600">
+                    {(clearJob.error as { data?: { error?: string } } | null)?.data?.error ?? clearJob.error?.message ?? "Couldn't clear this job."}
                   </div>
                 )}
               </div>
@@ -521,7 +530,7 @@ export default function PropertyDetail() {
                   <button
                     disabled={setStatus.isPending}
                     onClick={() => toggleInvoice(inv.id, "paid")}
-                    className="shrink-0 text-[12px] font-display font-bold px-[10px] py-[6px] rounded-full text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] active:scale-[0.95] disabled:opacity-50"
+                    className="shrink-0 text-[12px] font-display font-bold px-[10px] py-[6px] rounded-full text-[var(--ink)] bg-[var(--primary)] active:scale-[0.95] disabled:opacity-50"
                   >
                     Mark paid
                   </button>

@@ -220,7 +220,7 @@ export default function Settings() {
           className={`mt-[12px] w-full flex items-center justify-center gap-[8px] rounded-[12px] font-display font-bold text-[14px] py-[12px] transition-transform active:scale-[0.98] ${
             onsiteEnabled
               ? "bg-card border border-border text-muted-foreground shadow-[var(--shadow)]"
-              : "text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)]"
+              : "text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)]"
           }`}
         >
           <MapPin className="w-[16px] h-[16px]" strokeWidth={2} />

@@ -81,7 +81,7 @@ export function BidDetailSheet({
   };
 
   const btnGold =
-    "flex-1 rounded-[11px] py-[10px] text-[13px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] disabled:opacity-50 transition-transform active:scale-[0.98]";
+    "flex-1 rounded-[11px] py-[10px] text-[13px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]";
   const btnCard =
     "flex-1 rounded-[11px] py-[10px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] disabled:opacity-50 transition-transform active:scale-[0.98]";
 

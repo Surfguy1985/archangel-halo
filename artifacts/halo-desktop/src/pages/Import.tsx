@@ -277,7 +277,7 @@ export default function Import() {
           <button
             onClick={onCommit}
             disabled={commit.isPending || selected.size === 0}
-            className="w-full py-4 rounded-xl font-display font-bold text-lg text-black bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-md disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full py-4 rounded-xl font-display font-bold text-lg text-black bg-[var(--primary)] shadow-md disabled:opacity-50 transition-transform active:scale-[0.98]"
           >
             {commit.isPending
               ? "Importing…"

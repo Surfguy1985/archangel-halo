@@ -479,6 +479,31 @@ export function JobFunnel({
         )}
       </div>
 
+      {/* Pre-close checklist — always visible so nothing surprises at close-out */}
+      {!closeDone && (
+        <div className="mt-3 flex items-center flex-wrap gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Before close-out:</span>
+          {([
+            ["Crew assigned", crewDone],
+            ["Work verified", workDone],
+            ["Invoice paid", invoiceDone],
+            ["Crew paid", payDone],
+          ] as const).map(([label, done]) => (
+            <span
+              key={label}
+              className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                done
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-black/[0.03] text-muted-foreground border-border"
+              }`}
+            >
+              {done ? <Check className="w-3 h-3" /> : <X className="w-3 h-3 opacity-60" />}
+              {label}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Crew picker */}
       {pickingCrew && !closeDone && (
         <div className="mt-2 flex items-center flex-wrap gap-2">

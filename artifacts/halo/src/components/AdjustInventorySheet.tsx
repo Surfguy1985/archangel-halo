@@ -63,7 +63,7 @@ export function AdjustInventorySheet({
               − Remove
             </button>
             <button
-              className="flex-1 rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+              className="flex-1 rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
               onClick={() => apply(1)}
               disabled={!delta.trim() || adjust.isPending}
             >

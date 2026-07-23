@@ -403,7 +403,7 @@ function PacketRunner({
         <button
           onClick={doSubmit}
           disabled={submitPacket.isPending}
-          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
         >
           {submitPacket.isPending ? (
             <>
@@ -419,7 +419,7 @@ function PacketRunner({
         <button
           onClick={goNext}
           disabled={save.isPending}
-          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
         >
           {save.isPending ? (
             <Loader2 className="w-[18px] h-[18px] animate-spin" />

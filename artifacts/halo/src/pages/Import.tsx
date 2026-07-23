@@ -266,7 +266,7 @@ export default function Import() {
         reads it and files each record where it belongs.
       </div>
 
-      <label className="w-full mb-[10px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] cursor-pointer transition-transform active:scale-[0.98]">
+      <label className="w-full mb-[10px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] cursor-pointer transition-transform active:scale-[0.98]">
         <Camera className="w-[18px] h-[18px]" />
         {busy ? "Working…" : "Scan a receipt"}
         <input
@@ -352,7 +352,7 @@ export default function Import() {
           <button
             onClick={onCommit}
             disabled={commit.isPending || selected.size === 0}
-            className="w-full mt-[14px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_16px_rgba(143,106,31,0.34)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full mt-[14px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
           >
             {commit.isPending
               ? "Importing…"

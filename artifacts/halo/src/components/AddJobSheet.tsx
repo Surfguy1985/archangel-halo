@@ -122,7 +122,7 @@ export function AddJobSheet({
               onClick={() => setIsRecurring((v) => !v)}
               className={`w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] text-[14px] font-display font-bold border transition-transform active:scale-[0.98] ${
                 isRecurring
-                  ? "text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] border-transparent shadow-[0_4px_14px_rgba(143,106,31,0.3)]"
+                  ? "text-[var(--ink)] bg-[var(--primary)] border-transparent shadow-[0_4px_14px_rgba(180,255,68,0.35)]"
                   : "bg-card border-border text-muted-foreground shadow-[var(--shadow)]"
               }`}
             >
@@ -139,7 +139,7 @@ export function AddJobSheet({
                     onClick={() => setRecurrence(f.value)}
                     className={`px-[13px] py-[8px] rounded-full text-[13px] font-display font-bold border transition-transform active:scale-[0.95] ${
                       recurrence === f.value
-                        ? "text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] border-transparent"
+                        ? "text-[var(--ink)] bg-[var(--primary)] border-transparent"
                         : "bg-card border-border text-muted-foreground"
                     }`}
                   >
@@ -150,7 +150,7 @@ export function AddJobSheet({
             )}
           </div>
           <button
-            className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
             onClick={submit}
             disabled={!description.trim() || create.isPending}
           >

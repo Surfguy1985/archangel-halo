@@ -138,7 +138,7 @@ function CatalogItemSheet({
             <input className={fieldCls} placeholder="Category (optional)" value={category} onChange={(e) => setCategory(e.target.value)} />
           </div>
           <button
-            className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
             onClick={submit}
             disabled={!service.trim() || pending}
           >
@@ -196,7 +196,7 @@ export default function Catalog() {
         <button
           onClick={() => setAddOpen(true)}
           aria-label="Add service"
-          className="w-[36px] h-[36px] rounded-full grid place-items-center text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] active:scale-[0.95] transition-transform"
+          className="w-[36px] h-[36px] rounded-full grid place-items-center text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] active:scale-[0.95] transition-transform"
         >
           <Plus className="w-[19px] h-[19px]" />
         </button>

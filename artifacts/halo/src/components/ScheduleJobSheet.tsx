@@ -197,7 +197,7 @@ export function ScheduleJobSheet({
           <button
             onClick={submit}
             disabled={schedule.isPending || !scheduledOn || !effectiveJobId}
-            className="w-full mt-[4px] flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full mt-[4px] flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
           >
             <CalendarDays className="w-[17px] h-[17px]" />
             {schedule.isPending ? "Scheduling…" : "Schedule job"}

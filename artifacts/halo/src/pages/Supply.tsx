@@ -116,7 +116,7 @@ function PurchaseOrders() {
               </div>
               {po.status !== "received" && po.status !== "cancelled" && (
                 <button
-                  className="w-full mt-[12px] rounded-[11px] py-[9px] text-[13px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_4px_14px_rgba(143,106,31,0.3)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+                  className="w-full mt-[12px] rounded-[11px] py-[9px] text-[13px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
                   onClick={() => receive.mutate({ id: po.id }, { onSuccess: invalidate })}
                   disabled={receive.isPending}
                 >

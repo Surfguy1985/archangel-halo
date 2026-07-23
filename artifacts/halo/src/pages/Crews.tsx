@@ -75,7 +75,7 @@ export default function Crews() {
           <button
             onClick={() => setAddOpen(true)}
             aria-label="Add crew member"
-            className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] text-[var(--ink)] shadow-[0_6px_16px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.9]"
+            className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--primary)] text-[var(--ink)] shadow-[0_6px_16px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.9]"
           >
             <Plus className="w-[20px] h-[20px]" strokeWidth={2.5} />
           </button>

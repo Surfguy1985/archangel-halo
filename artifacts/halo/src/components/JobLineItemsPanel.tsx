@@ -125,7 +125,7 @@ export function JobLineItemsPanel({
                 },
               )
             }
-            className="shrink-0 rounded-[10px] px-[12px] py-[8px] text-[13px] font-display font-bold text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] disabled:opacity-50 active:scale-[0.96]"
+            className="shrink-0 rounded-[10px] px-[12px] py-[8px] text-[13px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] disabled:opacity-50 active:scale-[0.96]"
           >
             Add
           </button>

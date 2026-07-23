@@ -277,7 +277,7 @@ export function ArrivalSheet({
               )}
 
               <button
-                className="w-full rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)] transition-transform active:scale-[0.98]"
+                className="w-full rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
                 onClick={() => setStep("form")}
               >
                 Start a job here
@@ -324,7 +324,7 @@ export function ArrivalSheet({
                 </div>
               </div>
               <button
-                className="w-full mt-[16px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+                className="w-full mt-[16px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
                 onClick={submit}
                 disabled={!description.trim() || create.isPending}
               >
@@ -352,7 +352,7 @@ export function ArrivalSheet({
                 It's on the board at {result.propertyName}.
               </div>
               <button
-                className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-[0_6px_20px_rgba(143,106,31,0.34)] transition-transform active:scale-[0.98]"
+                className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
                 onClick={() => {
                   onOpenChange(false);
                   if (createdJobId) navigate(`/jobs/${createdJobId}`);

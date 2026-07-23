@@ -184,6 +184,11 @@ export default function JobDetail() {
             </button>
           </div>
         )}
+        {clearJob.isError && (
+          <div className="mt-[8px] text-[12px] font-semibold text-red-600">
+            {(clearJob.error as { data?: { error?: string } } | null)?.data?.error ?? clearJob.error?.message ?? "Couldn't clear this job."}
+          </div>
+        )}
       </div>
 
       <div className="px-[6px]">
