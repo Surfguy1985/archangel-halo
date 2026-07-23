@@ -251,9 +251,9 @@ export default function PropertyDetail() {
           onAdd={sectionTitle === "Active Jobs" ? () => setJobOpen(true) : undefined}
         />
         {sectionJobs.length > 0 ? (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
-            {sectionJobs.map((job, idx) => (
-              <div key={job.id} className={`py-[10px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
+          <div className="space-y-[10px]">
+            {sectionJobs.map((job) => (
+              <div key={job.id} className="bg-card rounded-[16px] shadow-[var(--shadow)] border border-border border-l-[4px] border-l-[var(--primary)] p-[12px_14px]">
                 <div className="flex items-center gap-[10px] text-[14px]">
                   <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
                     <div className="font-semibold truncate flex items-center gap-[7px]">
@@ -434,9 +434,9 @@ export default function PropertyDetail() {
             <ChevronDown className={`w-[13px] h-[13px] transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
           </button>
           {historyOpen && (
-            <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
-              {historyJobs.map((job, idx) => (
-                <div key={job.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
+            <div className="space-y-[10px]">
+              {historyJobs.map((job) => (
+                <div key={job.id} className="bg-card rounded-[16px] shadow-[var(--shadow)] border border-border border-l-[4px] border-l-[rgba(180,255,68,0.45)] flex items-center gap-[10px] p-[12px_14px] text-[14px]">
                   <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
                     <div className="font-semibold truncate text-muted-foreground">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
                     <div className="text-[12px] text-muted-foreground truncate">

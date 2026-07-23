@@ -242,9 +242,9 @@ export default function PropertyDetail() {
               ))}
             </div>
             {jobTab !== "history" && (
-            <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
+            <div className="space-y-3">
               {activeJobs.map(job => (
-                <div key={job.id} className="p-4 hover:bg-black/[0.02] transition-colors">
+                <div key={job.id} className="bg-card rounded-xl shadow-sm border border-border border-l-4 border-l-[var(--primary)] p-4 hover:bg-black/[0.02] transition-colors">
                   <div className="flex items-center gap-3">
                     <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
                       <div className="font-semibold flex items-center gap-2">
@@ -361,16 +361,16 @@ export default function PropertyDetail() {
                 </div>
               ))}
               {!activeJobs.length && (
-                <div className="p-6 text-center text-sm text-muted-foreground">
+                <div className="bg-card rounded-xl shadow-sm border border-border p-6 text-center text-sm text-muted-foreground">
                   No active jobs — closed-out jobs live in History.
                 </div>
               )}
             </div>
             )}
             {jobTab === "history" && (
-              <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
+              <div className="space-y-3">
                 {historyJobs.map((job) => (
-                  <div key={job.id} className="flex items-center gap-3 p-4">
+                  <div key={job.id} className="bg-card rounded-xl shadow-sm border border-border border-l-4 border-l-[rgba(180,255,68,0.45)] flex items-center gap-3 p-4">
                     <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
                       <div className="font-semibold text-muted-foreground truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
                       <div className="text-sm text-muted-foreground truncate">
@@ -398,7 +398,7 @@ export default function PropertyDetail() {
                   </div>
                 ))}
                 {!historyJobs.length && (
-                  <div className="p-6 text-center text-sm text-muted-foreground">
+                  <div className="bg-card rounded-xl shadow-sm border border-border p-6 text-center text-sm text-muted-foreground">
                     No cleared jobs yet — completed jobs you clear land here.
                   </div>
                 )}
