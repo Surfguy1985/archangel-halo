@@ -1,6 +1,6 @@
 ---
 name: HALO job timeline (JobFunnel)
-description: Desktop job pipeline stepper — crew assignment sync, live events feed, OCR invoice, recap close-out
+description: Desktop job pipeline stepper — crew assignment sync, live events feed, OCR invoice, verify-summary close-out
 ---
 
 - Desktop JobFunnel (property detail) drives the 5-stage pipeline: crew → work → invoice → crew pay → close out, with an always-visible pre-close checklist chip row (crew/work/invoice/crew-pay).
@@ -9,4 +9,4 @@ description: Desktop job pipeline stepper — crew assignment sync, live events 
 - **Why:** job board and manual assignment must never disagree; the portal accept flow treats boardStatus "filled" as taken.
 - JobFunnel polls getJob every 5s while unfilled using a refetchInterval callback gated on the FRESH polled data (not the prop), so polling stops immediately on accept.
 - Invoice OCR reuses /ingest/scan (base64 image) just to prefill the amount; the file itself is uploaded via uploadReceiptFile as attachmentPath.
-- Close-out "send photo report" chains draftJobRecap → sendJobRecap → closeOutJob; sendJobRecap 422s when the property has no contact email — always keep the "close without report" fallback.
+- Close-out stage is a verify-summary panel (checklist + close button + PDF download link to absolute /api/jobs/:id/report). The old "send photo report & close" recap chain was removed per user instruction (July 2026) — the PDF is download-only, never emailed. Recap endpoints still exist server-side.

@@ -11,8 +11,6 @@ import {
   useBroadcastJob,
   useGetJob,
   useListJobEvents,
-  useDraftJobRecap,
-  useSendJobRecap,
   useScanIngest,
   getGetPropertyQueryKey,
   getListInvoicesQueryKey,
@@ -45,6 +43,7 @@ import {
   LogOut,
   StickyNote,
   Mail,
+  FileDown,
 } from "lucide-react";
 import { uploadReceiptFile } from "@/components/MoneyDialogs";
 
@@ -154,8 +153,6 @@ export function JobFunnel({
   const closeOut = useCloseOutJob();
   const updateJob = useUpdateJob();
   const broadcast = useBroadcastJob();
-  const draftRecap = useDraftJobRecap();
-  const sendRecap = useSendJobRecap();
   const scanIngest = useScanIngest();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -164,7 +161,7 @@ export function JobFunnel({
   const [scanNote, setScanNote] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [missing, setMissing] = useState<string[] | null>(null);
-  const [closedOut, setClosedOut] = useState<{ emailSent: boolean; reportSent: boolean } | null>(null);
+  const [closedOut, setClosedOut] = useState<{ emailSent: boolean } | null>(null);
   const [broadcasted, setBroadcasted] = useState(false);
   const [pickingCrew, setPickingCrew] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -359,13 +356,14 @@ export function JobFunnel({
     }
   };
 
-  const doCloseOut = (reportSent = false) => {
+  const doCloseOut = () => {
     setMissing(null);
+    setClosing(true);
     closeOut.mutate(
       { id: job.id },
       {
         onSuccess: (res) => {
-          setClosedOut({ emailSent: !!res.emailSent, reportSent });
+          setClosedOut({ emailSent: !!res.emailSent });
           setClosing(false);
           invalidateAll();
         },
@@ -376,26 +374,6 @@ export function JobFunnel({
         },
       },
     );
-  };
-
-  const doSendReportAndClose = async () => {
-    setMissing(null);
-    setClosing(true);
-    try {
-      const draft = await draftRecap.mutateAsync({ id: job.id });
-      await sendRecap.mutateAsync({
-        id: job.id,
-        data: { subject: draft.subject, body: draft.body },
-      });
-      doCloseOut(true);
-    } catch (err: unknown) {
-      setClosing(false);
-      const data = (err as { data?: { error?: string } })?.data;
-      setMissing([
-        data?.error ?? "Couldn't send the photo report — check the property's contact email.",
-        "You can still close the job without sending the report.",
-      ]);
-    }
   };
 
   const pillBtn =
@@ -588,12 +566,20 @@ export function JobFunnel({
       {/* Action row for current stage */}
       <div className="mt-3">
         {closeDone ? (
-          <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+          <div className="flex items-center flex-wrap gap-2 text-sm font-semibold text-emerald-700">
             <Sparkles className="w-4 h-4" />
             Job closed out
             {closedOut
-              ? `${closedOut.reportSent ? " — photo report sent to the client" : ""}${closedOut.emailSent ? " — thank-you email sent to the crew." : " — no crew email on file, so no crew email was sent."}`
+              ? closedOut.emailSent
+                ? " — thank-you email sent to the crew."
+                : " — no crew email on file, so no crew email was sent."
               : "."}
+            <a
+              href={`/api/jobs/${job.id}/report`}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 underline underline-offset-2 hover:text-emerald-900"
+            >
+              <FileDown className="w-3 h-3" /> Download PDF summary
+            </a>
           </div>
         ) : current === "crew" ? (
           <div className="flex items-center flex-wrap gap-2">
@@ -732,30 +718,60 @@ export function JobFunnel({
             )}
           </div>
         ) : (
-          <div className="flex items-center flex-wrap gap-2">
-            <button
-              disabled={closing || closeOut.isPending}
-              onClick={doSendReportAndClose}
-              className={`${pillBtn} bg-[var(--gold-dark)] text-black hover:opacity-90`}
-            >
-              {closing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
-              Send client photo report &amp; close job
-            </button>
-            <button
-              disabled={closing || closeOut.isPending}
-              onClick={() => doCloseOut(false)}
-              className={`${pillBtn} bg-black/[0.05] text-[var(--ink)] hover:bg-black/[0.08]`}
-            >
-              {closeOut.isPending && !closing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-              Close without report
-            </button>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+              Final check — verify, then close out
+            </div>
+            <ul className="mt-2 space-y-1">
+              {([
+                ["Crew assigned", crewDone, job.crewLeaderName ?? undefined],
+                ["Work verified complete", workDone, undefined],
+                [
+                  "Invoice paid",
+                  invoiceDone,
+                  invoice ? `${invoice.invoiceNo} · $${invoice.amount.toLocaleString()}` : undefined,
+                ],
+                [
+                  "Crew paid",
+                  payDone,
+                  job.crewRate != null ? `$${job.crewRate.toLocaleString()}` : undefined,
+                ],
+              ] as const).map(([label, done, detail]) => (
+                <li key={label} className="flex items-center gap-2 text-sm">
+                  {done ? (
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <X className="w-4 h-4 text-red-500 shrink-0" />
+                  )}
+                  <span className={`font-semibold ${done ? "text-[var(--ink)]" : "text-red-700"}`}>{label}</span>
+                  {detail && <span className="text-xs text-muted-foreground">{detail}</span>}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-3 flex items-center flex-wrap gap-2">
+              <button
+                disabled={closing || closeOut.isPending}
+                onClick={doCloseOut}
+                className={`${pillBtn} bg-[var(--primary)] text-black hover:opacity-90 shadow-[0_2px_10px_rgba(180,255,68,0.35)]`}
+              >
+                {closing || closeOut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                Looks right — close out job
+              </button>
+              <a
+                href={`/api/jobs/${job.id}/report`}
+                className={`${pillBtn} bg-black/[0.05] text-[var(--ink)] hover:bg-black/[0.08]`}
+              >
+                <FileDown className="w-3 h-3" /> Download PDF summary
+              </a>
+              <span className="text-[11px] text-muted-foreground">The PDF is a keeper copy for your records — nothing is sent to anyone.</span>
+            </div>
           </div>
         )}
         {!closeDone && current !== "close" && (
           <div className="mt-2">
             <button
               disabled={closeOut.isPending}
-              onClick={() => doCloseOut(false)}
+              onClick={doCloseOut}
               className="text-[11px] font-semibold text-muted-foreground hover:text-[var(--ink)] underline underline-offset-2"
             >
               Try to close out now

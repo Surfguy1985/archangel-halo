@@ -16,9 +16,13 @@ import {
   crewCheckinsTable,
   crewPhotosTable,
   businessSettingsTable,
+  invoicesTable,
+  expensesTable,
+  crewPaymentsTable,
   type Job,
   type CrewCheckin,
   type CrewPhoto,
+  type Invoice,
 } from "@workspace/db";
 import { ObjectStorageService } from "./objectStorage";
 import { logger } from "./logger";
@@ -42,6 +46,10 @@ export interface JobReportData {
   businessName: string;
   checkins: (CrewCheckin & { crewName: string | null })[];
   photos: (CrewPhoto & { crewName: string | null })[];
+  invoices: Invoice[];
+  expensesTotal: number;
+  crewPaidTotal: number;
+  crewPayDone: boolean;
 }
 
 export async function gatherJobReport(
@@ -69,6 +77,30 @@ export async function gatherJobReport(
         .orderBy(crewPhotosTable.createdAt),
       db.select().from(schedulesTable).where(eq(schedulesTable.jobId, jobId)),
     ]);
+  const [invoices, expenses, crewPayments] = await Promise.all([
+    db
+      .select()
+      .from(invoicesTable)
+      .where(eq(invoicesTable.jobId, jobId))
+      .orderBy(invoicesTable.createdAt),
+    db.select().from(expensesTable).where(eq(expensesTable.jobId, jobId)),
+    db
+      .select()
+      .from(crewPaymentsTable)
+      .where(eq(crewPaymentsTable.jobId, jobId)),
+  ]);
+  const expensesTotal = expenses
+    .filter((e) => e.approvalStatus === "approved")
+    .reduce((s, e) => s + e.amount, 0);
+  // Mirror the /jobs/:id/close-out gate exactly: a completed payment to the
+  // currently assigned crew leader is what counts as "crew paid".
+  const paidCrewPayments = crewPayments.filter(
+    (p) =>
+      p.status === "completed" &&
+      !!job.crewLeaderId &&
+      p.crewId === job.crewLeaderId,
+  );
+  const crewPaidTotal = paidCrewPayments.reduce((s, p) => s + p.amount, 0);
   const crewIds = Array.from(
     new Set(
       [
@@ -101,6 +133,10 @@ export async function gatherJobReport(
       ...p,
       crewName: nameOf.get(p.crewId) ?? null,
     })),
+    invoices,
+    expensesTotal,
+    crewPaidTotal,
+    crewPayDone: paidCrewPayments.length > 0,
   };
 }
 
@@ -353,6 +389,74 @@ export async function buildJobReportPdf(data: JobReportData): Promise<Uint8Array
   kv(ctx, "Status", job.status + (job.completedAt ? ` (completed ${fmtWhen(job.completedAt)})` : ""));
   kv(ctx, "Scheduled for", job.scheduledOn ?? "—");
   kv(ctx, "Crew", [data.crewName, data.crewTrade].filter(Boolean).join(" · ") || "—");
+
+  // Close-out summary — checklist + money, so the PDF stands alone as a
+  // close-out record.
+  const money = (n: number) =>
+    `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Mirror the /jobs/:id/close-out gate exactly: every invoice on the job
+  // must be paid.
+  const billable = data.invoices;
+  const invoicedTotal = billable.reduce((s, i) => s + i.amount, 0);
+  const unpaid = billable.filter((i) => i.status !== "paid");
+  const allInvoicesPaid = billable.length > 0 && unpaid.length === 0;
+
+  sectionTitle(ctx, "Close-out checklist");
+  const checkRow = (label: string, ok: boolean, detail: string) => {
+    ensure(ctx, 16);
+    ctx.page.drawText(ok ? "[x]" : "[ ]", {
+      x: MARGIN,
+      y: ctx.y,
+      size: 10,
+      font: ctx.bold,
+      color: ok ? rgb(0.05, 0.5, 0.24) : rgb(0.75, 0.2, 0.2),
+    });
+    ctx.page.drawText(label, { x: MARGIN + 28, y: ctx.y, size: 10, font: ctx.bold, color: INK });
+    ctx.page.drawText(detail, { x: MARGIN + 190, y: ctx.y, size: 9.5, font: ctx.font, color: SLATE });
+    ctx.y -= 17;
+  };
+  checkRow("Crew assigned", !!job.crewLeaderId, data.crewName ?? "No crew on record");
+  checkRow(
+    "Work verified",
+    job.status === "complete" || !!job.completedAt,
+    job.completedAt ? `Completed ${fmtWhen(job.completedAt)}` : "Not marked complete",
+  );
+  checkRow(
+    "Invoices paid",
+    allInvoicesPaid,
+    billable.length === 0
+      ? "No invoices on this job"
+      : allInvoicesPaid
+        ? `${billable.length} invoice${billable.length === 1 ? "" : "s"} — all paid`
+        : `${unpaid.length} of ${billable.length} still unpaid`,
+  );
+  checkRow(
+    "Crew paid",
+    data.crewPayDone,
+    data.crewPayDone ? `${money(data.crewPaidTotal)} paid out` : "No crew payment recorded",
+  );
+
+  sectionTitle(ctx, "Money summary");
+  for (const inv of billable) {
+    kv(
+      ctx,
+      `Invoice ${inv.invoiceNo}`,
+      `${money(inv.amount)} — ${inv.status === "paid" ? `paid${inv.paidAt ? ` ${fmtWhen(inv.paidAt)}` : ""}` : inv.status.replace(/_/g, " ")}`,
+    );
+  }
+  kv(ctx, "Total invoiced", billable.length ? money(invoicedTotal) : "—");
+  kv(
+    ctx,
+    "Crew pay",
+    data.crewPayDone
+      ? money(data.crewPaidTotal)
+      : job.crewRate != null
+        ? `${money(job.crewRate)} (rate, unpaid)`
+        : "—",
+  );
+  kv(ctx, "Approved expenses", data.expensesTotal > 0 ? money(data.expensesTotal) : "—");
+  if (job.grossProfit != null) kv(ctx, "Gross profit", money(job.grossProfit));
+  if (job.marginPct != null) kv(ctx, "Margin", `${Math.round(job.marginPct * 1000) / 10}%`);
 
   sectionTitle(ctx, "Job description (as assigned)");
   para(ctx, job.description?.trim() || "No description recorded.");

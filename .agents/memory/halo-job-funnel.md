@@ -15,3 +15,4 @@ Desktop PropertyDetail renders a 5-stage per-job funnel (Crew → Work → Invoi
 - Invoices support `attachmentPath` (object storage path, uploaded via /storage/uploads/request-url; view at `/api/storage${path}`).
 
 **Why:** close-out is the single place that guarantees books/margins are final before a job leaves the board; scattering clears elsewhere breaks that guarantee.
+- The job report PDF (`GET /jobs/:id/report`, jobReportPdf.ts) doubles as the close-out summary: its checklist section must mirror `computeCloseOutMissing` semantics exactly (all invoices paid; completed crew_payment for the CURRENT crewLeaderId), or the "verify before closing" report lies after crew reassignment.
