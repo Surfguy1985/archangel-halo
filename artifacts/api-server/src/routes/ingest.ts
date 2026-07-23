@@ -158,7 +158,7 @@ Include propertyName only if a property/job-site name is written on the receipt.
 Return {"detectedTarget": "...", "summary": "one sentence describing what was scanned", "records": [{ "target", "label" (human readable), "confidence" (0-1), "fields" {...} }]}.`,
       `Filename: ${body.filename ?? "receipt photo"}. Extract the records from this image.`,
       body.image,
-      body.mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+      body.mediaType as "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "application/pdf",
       8192,
     );
   } catch (err) {

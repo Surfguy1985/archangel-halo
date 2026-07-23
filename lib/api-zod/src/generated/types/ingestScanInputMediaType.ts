@@ -14,4 +14,5 @@ export const IngestScanInputMediaType = {
   'image/png': 'image/png',
   'image/webp': 'image/webp',
   'image/gif': 'image/gif',
+  'application/pdf': 'application/pdf',
 } as const;

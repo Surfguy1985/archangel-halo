@@ -3678,7 +3678,7 @@ export const CommitIngestResponse = zod.object({
  */
 export const ScanIngestBody = zod.object({
   "image": zod.string().describe('Base64-encoded image data (no data: prefix)'),
-  "mediaType": zod.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+  "mediaType": zod.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']),
   "filename": zod.string().nullish()
 })
 

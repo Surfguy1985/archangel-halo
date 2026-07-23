@@ -105,6 +105,35 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+const SCAN_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
+type ScanMediaType = (typeof SCAN_TYPES)[number] | "application/pdf";
+
+/**
+ * Normalize any browser-decodable image (HEIC on Safari, TIFF, BMP, oversized
+ * photos…) to a reasonably-sized JPEG so the scan endpoint can always read it.
+ * Returns null when the browser cannot decode the file.
+ */
+async function imageToJpegBase64(file: File): Promise<string | null> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxDim = 2200;
+    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close();
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
+    return dataUrl.slice(dataUrl.indexOf(",") + 1);
+  } catch {
+    return null;
+  }
+}
+
 export function JobFunnel({
   job: jobProp,
   invoice,
@@ -133,6 +162,7 @@ export function JobFunnel({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [amountDraft, setAmountDraft] = useState("");
   const [scanNote, setScanNote] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
   const [missing, setMissing] = useState<string[] | null>(null);
   const [closedOut, setClosedOut] = useState<{ emailSent: boolean; reportSent: boolean } | null>(null);
   const [broadcasted, setBroadcasted] = useState(false);
@@ -239,8 +269,12 @@ export function JobFunnel({
 
   const createFromFile = async (file: File, amount: number) => {
     setUploading(true);
-    const path = await uploadReceiptFile(file);
-    setUploading(false);
+    let path: string | null = null;
+    try {
+      path = await uploadReceiptFile(file);
+    } finally {
+      setUploading(false);
+    }
     createInvoice.mutate(
       { data: { propertyId, jobId: job.id, amount, ...(path ? { attachmentPath: path } : {}) } },
       {
@@ -248,7 +282,12 @@ export function JobFunnel({
           setPendingFile(null);
           setAmountDraft("");
           setScanNote(null);
+          setScanError(null);
           invalidateAll();
+        },
+        onError: (err: unknown) => {
+          const data = (err as { data?: { error?: string } })?.data;
+          setScanError(data?.error ?? "Couldn't save the invoice. Please try again.");
         },
       },
     );
@@ -257,42 +296,67 @@ export function JobFunnel({
   const onPickInvoiceFile = async (file: File | null) => {
     setPendingFile(file);
     setScanNote(null);
+    setScanError(null);
     if (!file) return;
-    const okTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (okTypes.includes(file.type)) {
+
+    // Get the file into a form the scanner can read.
+    let image: string | null = null;
+    let mediaType: ScanMediaType = "image/jpeg";
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    if (isPdf) {
       try {
-        const image = await fileToBase64(file);
-        const res = await scanIngest.mutateAsync({
-          data: {
-            image,
-            mediaType: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
-            filename: file.name,
-          },
-        });
-        for (const rec of res.records) {
-          const f = rec.fields as Record<string, unknown>;
-          const amt = Number(f.amount ?? f.total ?? f.totalAmount);
-          if (Number.isFinite(amt) && amt > 0) {
-            await createFromFile(file, amt);
-            return;
-          }
-        }
+        image = await fileToBase64(file);
+        mediaType = "application/pdf";
       } catch {
-        // fall through to manual amount
+        image = null;
+      }
+    } else {
+      image = await imageToJpegBase64(file);
+      if (!image && (SCAN_TYPES as readonly string[]).includes(file.type)) {
+        try {
+          image = await fileToBase64(file);
+          mediaType = file.type as ScanMediaType;
+        } catch {
+          image = null;
+        }
       }
     }
-    if (defaultAmount > 0) {
-      await createFromFile(file, defaultAmount);
+
+    if (!image) {
+      setScanError(
+        `Couldn't open "${file.name}" — that file type isn't readable here. Use a photo (JPG/PNG) or a PDF, or type the amount below.`,
+      );
       return;
     }
-    setScanNote("Couldn't read an amount from the file — type it in and it's done.");
+
+    try {
+      const res = await scanIngest.mutateAsync({
+        data: { image, mediaType, filename: file.name },
+      });
+      for (const rec of res.records) {
+        const f = rec.fields as Record<string, unknown>;
+        const amt = Number(f.amount ?? f.total ?? f.totalAmount);
+        if (Number.isFinite(amt) && amt > 0) {
+          await createFromFile(file, amt);
+          return;
+        }
+      }
+      setScanNote("HALO read the file but couldn't find a total — type the amount and it's done.");
+    } catch (err: unknown) {
+      const data = (err as { data?: { error?: string } })?.data;
+      setScanError(data?.error ?? "Couldn't read the file. Check your connection and try again, or type the amount below.");
+    }
   };
 
   const doCreateInvoice = async () => {
     if (!pendingFile) return;
     const amount = Number(amountDraft);
     if (!amount || Number.isNaN(amount) || amount <= 0) return;
-    await createFromFile(pendingFile, amount);
+    try {
+      await createFromFile(pendingFile, amount);
+    } catch {
+      setScanError("Couldn't save the invoice. Please try again.");
+    }
   };
 
   const doCloseOut = (reportSent = false) => {
@@ -581,9 +645,12 @@ export function JobFunnel({
                 </button>
                 <span className="text-xs text-muted-foreground">Snap or upload it — HALO reads the amount and files it.</span>
               </div>
-              {scanNote && pendingFile && (
+              {scanError && (
+                <div className="mt-2 text-[11px] font-semibold text-red-600">{scanError}</div>
+              )}
+              {(scanNote || scanError) && pendingFile && (
                 <div className="mt-2 flex items-center flex-wrap gap-2">
-                  <span className="text-[11px] font-semibold text-violet-700">{scanNote}</span>
+                  {scanNote && <span className="text-[11px] font-semibold text-violet-700">{scanNote}</span>}
                   <span className="inline-flex items-center gap-1 text-xs">
                     $
                     <input
@@ -603,7 +670,7 @@ export function JobFunnel({
                   >
                     <Receipt className="w-3 h-3" /> Save
                   </button>
-                  <button aria-label="Cancel upload" onClick={() => { setPendingFile(null); setScanNote(null); }} className="text-muted-foreground hover:text-[var(--ink)]"><X className="w-3.5 h-3.5" /></button>
+                  <button aria-label="Cancel upload" onClick={() => { setPendingFile(null); setScanNote(null); setScanError(null); }} className="text-muted-foreground hover:text-[var(--ink)]"><X className="w-3.5 h-3.5" /></button>
                 </div>
               )}
             </div>

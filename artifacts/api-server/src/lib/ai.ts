@@ -68,7 +68,7 @@ export async function completeJson<T = unknown>(
   return extractJson(raw) as T;
 }
 
-type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "application/pdf";
 
 export async function completeJsonWithImage<T = unknown>(
   system: string,
@@ -87,10 +87,15 @@ export async function completeJsonWithImage<T = unknown>(
           {
             role: "user",
             content: [
-              {
-                type: "image",
-                source: { type: "base64", media_type: mediaType, data: imageBase64 },
-              },
+              mediaType === "application/pdf"
+                ? {
+                    type: "document" as const,
+                    source: { type: "base64" as const, media_type: "application/pdf" as const, data: imageBase64 },
+                  }
+                : {
+                    type: "image" as const,
+                    source: { type: "base64" as const, media_type: mediaType, data: imageBase64 },
+                  },
               { type: "text", text: user },
             ],
           },

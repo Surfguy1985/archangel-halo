@@ -5958,7 +5958,7 @@ components:
       required: [image, mediaType]
       properties:
         image: { type: string, description: "Base64-encoded image data (no data: prefix)" }
-        mediaType: { type: string, enum: ["image/jpeg", "image/png", "image/webp", "image/gif"] }
+        mediaType: { type: string, enum: ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"] }
         filename: { type: ["string", "null"] }
     IngestCommitInput:
       type: object
