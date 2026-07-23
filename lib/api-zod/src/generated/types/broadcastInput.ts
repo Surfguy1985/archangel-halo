@@ -11,4 +11,10 @@ export interface BroadcastInput {
   mode: string;
   trade?: string;
   crewIds?: string[];
+  /** scheduled | flex (defaults to scheduled) */
+  scheduleType?: string;
+  /** Flex timeframe in days from broadcast (default 7); sets flexDueBy */
+  flexDays?: number;
+  /** Number of crew members needed (default 1) */
+  crewsNeeded?: number;
 }

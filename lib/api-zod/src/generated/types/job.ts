@@ -74,6 +74,26 @@ export interface Job {
      */
   boardStatus?: string | null;
   /**
+     * scheduled (crew commits to set days/hours) | flex (crew works on own time before flexDueBy)
+     * @nullable
+     */
+  scheduleType?: string | null;
+  /**
+     * YYYY-MM-DD deadline for flex jobs, set at broadcast time
+     * @nullable
+     */
+  flexDueBy?: string | null;
+  /**
+     * Crew slots for this broadcasted job
+     * @nullable
+     */
+  crewsNeeded?: number | null;
+  /**
+     * Approved crew count so far
+     * @nullable
+     */
+  crewsFilled?: number | null;
+  /**
      * Next scheduled visit date (YYYY-MM-DD, property detail only)
      * @nullable
      */

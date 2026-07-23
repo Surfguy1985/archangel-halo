@@ -39,6 +39,20 @@ export interface PortalOffer {
   contactName?: string | null;
   /** @nullable */
   contactPhone?: string | null;
+  /**
+     * scheduled | flex
+     * @nullable
+     */
+  scheduleType?: string | null;
+  /**
+     * YYYY-MM-DD deadline for flex jobs
+     * @nullable
+     */
+  flexDueBy?: string | null;
+  /** @nullable */
+  crewsNeeded?: number | null;
+  /** @nullable */
+  crewsFilled?: number | null;
   filledByOther?: boolean;
   tasks?: string[];
   photos: JobPhoto[];

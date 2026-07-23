@@ -60,6 +60,9 @@ function BroadcastSheet({
   const [mode, setMode] = useState<"all" | "trade" | "crews">("all");
   const [selectedTrade, setSelectedTrade] = useState<string>("");
   const [selectedCrews, setSelectedCrews] = useState<string[]>([]);
+  const [scheduleType, setScheduleType] = useState<"scheduled" | "flex">("scheduled");
+  const [flexDays, setFlexDays] = useState("7");
+  const [crewsNeeded, setCrewsNeeded] = useState("1");
 
   const trades = useMemo(() => {
     if (!crews) return [];
@@ -72,6 +75,9 @@ function BroadcastSheet({
       mode,
       ...(mode === "trade" && selectedTrade ? { trade: selectedTrade } : {}),
       ...(mode === "crews" && selectedCrews.length > 0 ? { crewIds: selectedCrews } : {}),
+      scheduleType,
+      ...(scheduleType === "flex" ? { flexDays: Math.max(1, parseInt(flexDays) || 7) } : {}),
+      crewsNeeded: Math.max(1, parseInt(crewsNeeded) || 1),
     };
 
     broadcast.mutate(
@@ -169,6 +175,56 @@ function BroadcastSheet({
               </div>
             )}
 
+            <div className="bg-background border border-border rounded-[14px] p-[12px] shadow-sm space-y-[12px]">
+              <div>
+                <div className="text-[13px] font-semibold mb-[8px] text-foreground">Schedule Type</div>
+                <div className="flex gap-[8px]">
+                  <button
+                    type="button"
+                    onClick={() => setScheduleType("scheduled")}
+                    className={`flex-1 rounded-[10px] border p-[10px] text-left transition-colors ${scheduleType === "scheduled" ? "border-primary bg-primary/10" : "border-border"}`}
+                  >
+                    <div className="text-[13px] font-display font-bold text-foreground">Set Schedule</div>
+                    <div className="text-[11px] text-muted-foreground mt-[2px]">Crew commits to set days & hours</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScheduleType("flex")}
+                    className={`flex-1 rounded-[10px] border p-[10px] text-left transition-colors ${scheduleType === "flex" ? "border-emerald-400 bg-emerald-400/10" : "border-border"}`}
+                  >
+                    <div className="text-[13px] font-display font-bold text-foreground">Flex</div>
+                    <div className="text-[11px] text-muted-foreground mt-[2px]">Work anytime within a timeframe</div>
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-[10px]">
+                {scheduleType === "flex" && (
+                  <div className="flex-1">
+                    <div className="text-[13px] font-semibold mb-[6px] text-foreground">Finish within (days)</div>
+                    <input
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      value={flexDays}
+                      onChange={(e) => setFlexDays(e.target.value)}
+                      className="w-full rounded-[10px] border border-border bg-card px-[12px] py-[9px] text-[14px] text-foreground"
+                    />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <div className="text-[13px] font-semibold mb-[6px] text-foreground">Crews needed</div>
+                  <input
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    value={crewsNeeded}
+                    onChange={(e) => setCrewsNeeded(e.target.value)}
+                    className="w-full rounded-[10px] border border-border bg-card px-[12px] py-[9px] text-[14px] text-foreground"
+                  />
+                </div>
+              </div>
+            </div>
+
             <button
               onClick={handleSend}
               disabled={broadcast.isPending || (mode === "trade" && !selectedTrade) || (mode === "crews" && selectedCrews.length === 0)}
@@ -221,6 +277,25 @@ function JobCard({ data, onBroadcast, onReopen, onEdit, onDelete }: { data: JobB
             {job.description}
           </div>
         )}
+
+        <div className="flex flex-wrap items-center gap-[6px] mt-[10px]">
+          {job.scheduleType === "flex" ? (
+            <span className="text-[10.5px] font-bold uppercase tracking-[0.05em] px-[8px] py-[3px] rounded-full border border-emerald-400/40 bg-emerald-400/10 text-emerald-400">
+              Flex{job.flexDueBy ? ` · due ${new Date(job.flexDueBy + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
+            </span>
+          ) : (
+            <span className="text-[10.5px] font-bold uppercase tracking-[0.05em] px-[8px] py-[3px] rounded-full border border-primary/40 bg-primary/10 text-primary">
+              Set Schedule
+            </span>
+          )}
+          <span className={`text-[10.5px] font-bold uppercase tracking-[0.05em] px-[8px] py-[3px] rounded-full border ${
+            (job.crewsFilled ?? 0) >= (job.crewsNeeded ?? 1)
+              ? "border-[rgba(60,122,78,0.4)] bg-[rgba(60,122,78,0.15)] text-[#4ade80]"
+              : "border-border bg-muted text-muted-foreground"
+          }`}>
+            {job.crewsFilled ?? 0} of {job.crewsNeeded ?? 1} crew{(job.crewsNeeded ?? 1) > 1 ? "s" : ""} filled
+          </span>
+        </div>
 
         <div className="flex items-center gap-[14px] mt-[12px] text-[12.5px] text-muted-foreground">
           {job.scheduledOn && (
@@ -332,7 +407,9 @@ function JobCard({ data, onBroadcast, onReopen, onEdit, onDelete }: { data: JobB
 }
 
 export default function JobBoard() {
-  const { data: boardData, isLoading } = useListJobBoard();
+  const { data: boardData, isLoading } = useListJobBoard({
+    query: { queryKey: getListJobBoardQueryKey(), refetchInterval: 5000 },
+  });
   const reopen = useReopenJob();
   const queryClient = useQueryClient();
   const { toast } = useToast();

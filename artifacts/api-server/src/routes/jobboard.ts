@@ -136,6 +136,21 @@ router.post("/jobs/:id/broadcast", async (req, res): Promise<void> => {
     return;
   }
 
+  // Posting terms: schedule type, flex deadline, and crew slots — set at broadcast time.
+  const scheduleType = body.scheduleType === "flex" ? "flex" : "scheduled";
+  const crewsNeeded = Math.max(1, Math.round(body.crewsNeeded ?? job.crewsNeeded ?? 1));
+  let flexDueBy: string | null = null;
+  if (scheduleType === "flex") {
+    const days = Math.max(1, Math.round(body.flexDays ?? 7));
+    const due = new Date();
+    due.setDate(due.getDate() + days);
+    flexDueBy = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+  }
+  await db
+    .update(jobsTable)
+    .set({ scheduleType, flexDueBy, crewsNeeded })
+    .where(eq(jobsTable.id, id));
+
   const existing = await db
     .select()
     .from(jobBroadcastsTable)
@@ -243,9 +258,16 @@ router.post("/jobs/:id/unlist", async (req, res): Promise<void> => {
       .delete(jobBroadcastsTable)
       .where(eq(jobBroadcastsTable.jobId, id));
 
+    const hadApproved = rows.some((b) => b.status === "approved");
     await tx
       .update(jobsTable)
-      .set({ boardStatus: "removed" })
+      .set({
+        boardStatus: "removed",
+        crewsFilled: 0,
+        crewLeaderId: hadApproved ? null : job.crewLeaderId,
+        status:
+          hadApproved && job.status === "scheduled" ? "open" : job.status,
+      })
       .where(eq(jobsTable.id, id));
     return { status: 200 as const };
   });
@@ -296,6 +318,7 @@ router.post("/jobs/:id/reopen", async (req, res): Promise<void> => {
         crewLeaderId: approved.length > 0 ? null : job.crewLeaderId,
         status: job.status === "scheduled" ? "open" : job.status,
         completedAt: null,
+        crewsFilled: 0,
       })
       .where(eq(jobsTable.id, id))
       .returning();

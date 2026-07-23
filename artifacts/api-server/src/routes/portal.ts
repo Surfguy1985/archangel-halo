@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, count, desc, eq, gt, gte, inArray, lte, ne } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, lt, lte, ne, sql } from "drizzle-orm";
 import {
   db,
   crewsTable,
@@ -363,6 +363,10 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
         unitNo: job.unitNo,
         scheduledOn: job.scheduledOn,
         ...propFields(job.propertyId),
+        scheduleType: job.scheduleType ?? "scheduled",
+        flexDueBy: job.flexDueBy,
+        crewsNeeded: job.crewsNeeded ?? 1,
+        crewsFilled: job.crewsFilled ?? 0,
         filledByOther: job.boardStatus === "filled" && o.status !== "approved",
         tasks: taskify(job.description),
         photos: offerPhotos
@@ -1168,30 +1172,39 @@ router.post(
         };
       }
 
-      // Guarded update: only fills the job if nobody else filled it first.
-      // The affected-row check makes first-approver-wins atomic under
+      // Guarded slot claim: atomically takes one of the crewsNeeded slots.
+      // crews_filled only increments while slots remain (crews_filled <
+      // crews_needed), and the job flips to "filled" exactly when the last
+      // slot is taken. The affected-row check keeps this race-safe under
       // concurrency. If the claim fails we THROW so the whole transaction
       // (including the offer approval above) rolls back atomically.
       const claimed = await tx
         .update(jobsTable)
         .set({
-          boardStatus: "filled",
-          crewLeaderId: crew.id,
+          crewsFilled: sql`${jobsTable.crewsFilled} + 1`,
+          boardStatus: sql`CASE WHEN ${jobsTable.crewsFilled} + 1 >= ${jobsTable.crewsNeeded} THEN 'filled' ELSE ${jobsTable.boardStatus} END`,
+          crewLeaderId: sql`COALESCE(${jobsTable.crewLeaderId}, ${crew.id})`,
           status: "scheduled",
           scheduledOn,
         })
         .where(
           and(
             eq(jobsTable.id, job.id),
+            lt(jobsTable.crewsFilled, jobsTable.crewsNeeded),
             ne(jobsTable.boardStatus, "filled"),
             ne(jobsTable.boardStatus, "removed"),
             ne(jobsTable.status, "complete"),
           ),
         )
-        .returning({ id: jobsTable.id });
+        .returning({
+          id: jobsTable.id,
+          crewsFilled: jobsTable.crewsFilled,
+          crewsNeeded: jobsTable.crewsNeeded,
+        });
       if (claimed.length === 0) {
         throw new OfferConflictError("This job is no longer available.");
       }
+      const slots = claimed[0]!;
 
       await tx.insert(schedulesTable).values({
         jobId: job.id,
@@ -1204,6 +1217,8 @@ router.post(
         job,
         status: "approved" as const,
         scheduledOn,
+        crewsFilled: slots.crewsFilled,
+        crewsNeeded: slots.crewsNeeded,
       };
       });
     } catch (err) {
@@ -1233,7 +1248,11 @@ router.post(
           : `${crew.name} declined ${jobLabel}`,
       body:
         result.status === "approved"
-          ? `Scheduled for ${result.scheduledOn}. Job is now filled.`
+          ? result.crewsFilled != null &&
+            result.crewsNeeded != null &&
+            result.crewsFilled < result.crewsNeeded
+            ? `Scheduled for ${result.scheduledOn}. ${result.crewsFilled} of ${result.crewsNeeded} crew spots filled.`
+            : `Scheduled for ${result.scheduledOn}. Job is now filled.`
           : "You can re-broadcast this job from the job board.",
     });
 

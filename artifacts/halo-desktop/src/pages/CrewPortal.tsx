@@ -305,12 +305,26 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
             <div className="p-[16px]">
               <div className="flex flex-col gap-[12px]">
                 {/* Date & Location */}
+                <div className={`rounded-[10px] px-[10px] py-[8px] border text-[12px] ${
+                  o.scheduleType === "flex"
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                    : "bg-[var(--gold-tint)] border-[rgba(185,138,47,0.28)] text-[var(--gold-dark)]"
+                }`}>
+                  {o.scheduleType === "flex" ? (
+                    <><b>Flex job</b> — work on your own time{o.flexDueBy ? <>, finish by <b>{formatDay(o.flexDueBy)}</b></> : " within the set timeframe"}.</>
+                  ) : (
+                    <><b>Set schedule</b> — you commit to the days and hours set by the property.</>
+                  )}
+                  {(o.crewsNeeded ?? 1) > 1 && (
+                    <> {o.crewsFilled ?? 0} of {o.crewsNeeded} crew spots filled.</>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-[12px]">
                   <div className="flex items-start gap-[8px]">
                     <Calendar className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
                     <div>
                       <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">When needed</div>
-                      <div className="text-[13px] font-semibold">{o.scheduledOn ? formatDay(o.scheduledOn) : "TBD"}</div>
+                      <div className="text-[13px] font-semibold">{o.scheduleType === "flex" && o.flexDueBy ? `By ${formatDay(o.flexDueBy)}` : o.scheduledOn ? formatDay(o.scheduledOn) : "TBD"}</div>
                     </div>
                   </div>
                   <div className="flex items-start gap-[8px]">

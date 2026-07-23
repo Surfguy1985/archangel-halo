@@ -247,6 +247,26 @@ export interface Job {
      */
   boardStatus?: string | null;
   /**
+     * scheduled (crew commits to set days/hours) | flex (crew works on own time before flexDueBy)
+     * @nullable
+     */
+  scheduleType?: string | null;
+  /**
+     * YYYY-MM-DD deadline for flex jobs, set at broadcast time
+     * @nullable
+     */
+  flexDueBy?: string | null;
+  /**
+     * Crew slots for this broadcasted job
+     * @nullable
+     */
+  crewsNeeded?: number | null;
+  /**
+     * Approved crew count so far
+     * @nullable
+     */
+  crewsFilled?: number | null;
+  /**
      * Next scheduled visit date (YYYY-MM-DD, property detail only)
      * @nullable
      */
@@ -917,6 +937,12 @@ export interface BroadcastInput {
   mode: string;
   trade?: string;
   crewIds?: string[];
+  /** scheduled | flex (defaults to scheduled) */
+  scheduleType?: string;
+  /** Flex timeframe in days from broadcast (default 7); sets flexDueBy */
+  flexDays?: number;
+  /** Number of crew members needed (default 1) */
+  crewsNeeded?: number;
 }
 
 export interface BroadcastResult {
@@ -2562,6 +2588,20 @@ export interface PortalOffer {
   contactName?: string | null;
   /** @nullable */
   contactPhone?: string | null;
+  /**
+     * scheduled | flex
+     * @nullable
+     */
+  scheduleType?: string | null;
+  /**
+     * YYYY-MM-DD deadline for flex jobs
+     * @nullable
+     */
+  flexDueBy?: string | null;
+  /** @nullable */
+  crewsNeeded?: number | null;
+  /** @nullable */
+  crewsFilled?: number | null;
   filledByOther?: boolean;
   tasks?: string[];
   photos: JobPhoto[];

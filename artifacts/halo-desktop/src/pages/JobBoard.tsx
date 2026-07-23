@@ -41,7 +41,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useEffect } from "react";
 
 export default function JobBoard() {
-  const { data: jobBoard, isLoading } = useListJobBoard();
+  const { data: jobBoard, isLoading } = useListJobBoard({
+    query: { queryKey: getListJobBoardQueryKey(), refetchInterval: 5000 },
+  });
   const [filter, setFilter] = useState<string>("active");
 
   const filteredJobs = jobBoard?.filter(card => {
@@ -149,9 +151,28 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
           {job.scheduledOn && (
             <div className="flex items-center gap-1.5">
               <CalendarIcon className="w-4 h-4" />
-              <span>Needed: <span className="font-medium text-[var(--ink)]">{format(new Date(job.scheduledOn), "MMM d, yyyy")}</span></span>
+              <span>Needed: <span className="font-medium text-[var(--ink)]">{format(new Date(job.scheduledOn + "T00:00:00"), "MMM d, yyyy")}</span></span>
             </div>
           )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {job.scheduleType === "flex" ? (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+              Flex{job.flexDueBy ? ` · due ${format(new Date(job.flexDueBy + "T00:00:00"), "MMM d")}` : ""}
+            </span>
+          ) : (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-[var(--gold-tint)] text-[var(--gold-dark)] border-[var(--gold)]/30">
+              Set Schedule
+            </span>
+          )}
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+            (job.crewsFilled ?? 0) >= (job.crewsNeeded ?? 1)
+              ? "bg-[var(--green)]/10 text-[var(--green)] border-[var(--green)]/20"
+              : "bg-black/5 text-muted-foreground border-border"
+          }`}>
+            {job.crewsFilled ?? 0} of {job.crewsNeeded ?? 1} crew{(job.crewsNeeded ?? 1) > 1 ? "s" : ""} filled
+          </span>
         </div>
       </div>
 
@@ -273,6 +294,9 @@ function BroadcastDialog({ open, onOpenChange, job }: { open: boolean, onOpenCha
   const [mode, setMode] = useState<"all" | "trade" | "crews">("all");
   const [selectedTrade, setSelectedTrade] = useState<string>("");
   const [selectedCrews, setSelectedCrews] = useState<string[]>([]);
+  const [scheduleType, setScheduleType] = useState<"scheduled" | "flex">("scheduled");
+  const [flexDays, setFlexDays] = useState("7");
+  const [crewsNeeded, setCrewsNeeded] = useState("1");
   const { data: crews } = useListCrews({ query: { enabled: open, queryKey: getListCrewsQueryKey() } });
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -287,7 +311,10 @@ function BroadcastDialog({ open, onOpenChange, job }: { open: boolean, onOpenCha
       data: {
         mode,
         trade: mode === 'trade' ? selectedTrade : undefined,
-        crewIds: mode === 'crews' ? selectedCrews : undefined
+        crewIds: mode === 'crews' ? selectedCrews : undefined,
+        scheduleType,
+        flexDays: scheduleType === 'flex' ? Math.max(1, parseInt(flexDays) || 7) : undefined,
+        crewsNeeded: Math.max(1, parseInt(crewsNeeded) || 1),
       }
     }, {
       onSuccess: (result) => {
@@ -354,6 +381,42 @@ function BroadcastDialog({ open, onOpenChange, job }: { open: boolean, onOpenCha
               </Select>
             </div>
           )}
+
+          <div className="border-t border-border pt-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Schedule Type</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setScheduleType("scheduled")}
+                  className={`flex-1 rounded-md border px-3 py-2 text-left transition-colors ${scheduleType === "scheduled" ? "border-[var(--gold)] bg-[var(--gold-tint)]" : "border-border hover:bg-black/5"}`}
+                >
+                  <div className="text-sm font-semibold">Set Schedule</div>
+                  <div className="text-xs text-muted-foreground">Crew commits to set days & hours</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScheduleType("flex")}
+                  className={`flex-1 rounded-md border px-3 py-2 text-left transition-colors ${scheduleType === "flex" ? "border-emerald-400 bg-emerald-50" : "border-border hover:bg-black/5"}`}
+                >
+                  <div className="text-sm font-semibold">Flex</div>
+                  <div className="text-xs text-muted-foreground">Work anytime within a timeframe</div>
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {scheduleType === "flex" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="bc-flexdays">Finish within (days)</Label>
+                  <Input id="bc-flexdays" type="number" min={1} value={flexDays} onChange={(e) => setFlexDays(e.target.value)} />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="bc-crews">Crews needed</Label>
+                <Input id="bc-crews" type="number" min={1} value={crewsNeeded} onChange={(e) => setCrewsNeeded(e.target.value)} />
+              </div>
+            </div>
+          </div>
 
           {mode === 'crews' && (
             <div className="pl-6 max-h-[200px] overflow-y-auto space-y-2 animate-in fade-in slide-in-from-top-2">

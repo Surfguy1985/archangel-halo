@@ -9,4 +9,6 @@ Rule: The offer lifecycle keeps exactly one job_broadcasts row per (job, crew). 
 
 **How to apply:** Any new mutation that claims/fills a job (or similar single-winner resource) must use the guarded-update + row-count pattern, not a pre-check. Board status is derived: `completed` if job.status==='complete', else job.boardStatus.
 
+Multi-slot broadcasts: jobs carry crewsNeeded/crewsFilled; the slot claim is a guarded UPDATE with `WHERE crewsFilled < crewsNeeded`, SQL increment, and a CASE that flips boardStatus to 'filled' only on the last slot; crewLeaderId is COALESCEd to the first accepter. Every path that resets crewsFilled to 0 (unlist AND reopen) must also null crewLeaderId when any approval existed and revert status scheduled→open — otherwise a stale leader survives a partial fill. Flex broadcasts store scheduleType='flex' + flexDueBy computed with LOCAL date math from flexDays.
+
 Also: job photo storagePath already starts with `/objects/`, so display URLs are `/api/storage${storagePath}` — prefixing `/api/storage/objects/` doubles the segment and 404s.
