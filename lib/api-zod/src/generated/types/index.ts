@@ -205,6 +205,8 @@ export * from './portalOfferRespondResult';
 export * from './portalScheduleItem';
 export * from './portalSeenInput';
 export * from './portalSeenInputSection';
+export * from './portalSelfieInput';
+export * from './portalSelfieResult';
 export * from './portalUnseen';
 export * from './priceItem';
 export * from './priceItemImportInput';

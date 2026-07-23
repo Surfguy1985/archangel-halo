@@ -26,6 +26,8 @@ export interface CrewToday {
   paymentTerms?: string | null;
   /** @nullable */
   services?: CrewService[] | null;
+  /** @nullable */
+  selfiePath?: string | null;
   /**
      * route | site | done | idle
      * @nullable

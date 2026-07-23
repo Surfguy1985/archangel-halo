@@ -239,8 +239,16 @@ export default function CrewDetail() {
       </Link>
 
       <header className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-full bg-[var(--ink)] text-[var(--gold-light)] font-display font-bold text-2xl grid place-items-center shrink-0">
-          {crew.name.substring(0, 1)}
+        <div className="w-14 h-14 rounded-full bg-[var(--ink)] text-[var(--gold-light)] font-display font-bold text-2xl grid place-items-center shrink-0 overflow-hidden">
+          {crew.selfiePath ? (
+            <img
+              src={`/api/storage${crew.selfiePath}`}
+              alt={crew.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            crew.name.substring(0, 1)
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <h1 className="font-display font-bold text-3xl tracking-tight text-[var(--ink)] truncate">{crew.name}</h1>

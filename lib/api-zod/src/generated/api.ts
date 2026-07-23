@@ -2141,6 +2141,7 @@ export const ListCrewsResponseItem = zod.object({
   "name": zod.string().min(1),
   "rate": zod.number().nullish()
 })).nullish(),
+  "selfiePath": zod.string().nullish(),
   "todayStatus": zod.string().nullish().describe('route | site | done | idle'),
   "todayJob": zod.string().nullish(),
   "todayProperty": zod.string().nullish()
@@ -2177,6 +2178,7 @@ export const CreateCrewResponse = zod.object({
   "isLeader": zod.boolean().nullish(),
   "active": zod.boolean().nullish(),
   "paymentTerms": zod.string().nullish().describe('due_on_receipt | net15 | net30 | net45'),
+  "selfiePath": zod.string().nullish(),
   "services": zod.array(zod.object({
   "name": zod.string().min(1),
   "rate": zod.number().nullish()
@@ -2218,6 +2220,7 @@ export const UpdateCrewResponse = zod.object({
   "isLeader": zod.boolean().nullish(),
   "active": zod.boolean().nullish(),
   "paymentTerms": zod.string().nullish().describe('due_on_receipt | net15 | net30 | net45'),
+  "selfiePath": zod.string().nullish(),
   "services": zod.array(zod.object({
   "name": zod.string().min(1),
   "rate": zod.number().nullish()
@@ -3798,6 +3801,7 @@ export const GetCrewDetailResponse = zod.object({
   "name": zod.string().min(1),
   "rate": zod.number().nullish()
 })).nullish(),
+  "selfiePath": zod.string().nullish(),
   "paidTotal": zod.number().nullish(),
   "outstandingTotal": zod.number().nullish(),
   "w9Submitted": zod.boolean().optional(),
@@ -4094,6 +4098,7 @@ export const UpdateCrewPaymentMethodResponse = zod.object({
   "name": zod.string().min(1),
   "rate": zod.number().nullish()
 })).nullish(),
+  "selfiePath": zod.string().nullish(),
   "paidTotal": zod.number().nullish(),
   "outstandingTotal": zod.number().nullish(),
   "w9Submitted": zod.boolean().optional(),
@@ -4211,7 +4216,8 @@ export const GetPortalResponse = zod.object({
   "preferredPaymentMethod": zod.string().nullish(),
   "paymentDetails": zod.string().nullish(),
   "w9Submitted": zod.boolean().optional(),
-  "agreementAcceptedAt": zod.string().nullish()
+  "agreementAcceptedAt": zod.string().nullish(),
+  "selfiePath": zod.string().nullish()
 }),
   "schedule": zod.array(zod.object({
   "id": zod.string(),
@@ -4473,6 +4479,22 @@ export const AcceptPortalAgreementParams = zod.object({
 export const AcceptPortalAgreementResponse = zod.object({
   "accepted": zod.boolean(),
   "acceptedAt": zod.string()
+})
+
+
+/**
+ * @summary Crew uploads a profile selfie (initial setup)
+ */
+export const SetPortalSelfieParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const SetPortalSelfieBody = zod.object({
+  "storagePath": zod.string()
+})
+
+export const SetPortalSelfieResponse = zod.object({
+  "selfiePath": zod.string()
 })
 
 

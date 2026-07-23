@@ -1081,6 +1081,8 @@ export interface Crew {
      */
   paymentTerms?: string | null;
   /** @nullable */
+  selfiePath?: string | null;
+  /** @nullable */
   services?: CrewService[] | null;
 }
 
@@ -1103,6 +1105,8 @@ export interface CrewToday {
   paymentTerms?: string | null;
   /** @nullable */
   services?: CrewService[] | null;
+  /** @nullable */
+  selfiePath?: string | null;
   /**
      * route | site | done | idle
      * @nullable
@@ -2065,6 +2069,8 @@ export interface CrewDetail {
   /** @nullable */
   services?: CrewService[] | null;
   /** @nullable */
+  selfiePath?: string | null;
+  /** @nullable */
   paidTotal?: number | null;
   /** @nullable */
   outstandingTotal?: number | null;
@@ -2470,6 +2476,16 @@ export interface PortalCrew {
   w9Submitted?: boolean;
   /** @nullable */
   agreementAcceptedAt?: string | null;
+  /** @nullable */
+  selfiePath?: string | null;
+}
+
+export interface PortalSelfieInput {
+  storagePath: string;
+}
+
+export interface PortalSelfieResult {
+  selfiePath: string;
 }
 
 export interface PortalScheduleItem {

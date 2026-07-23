@@ -64,6 +64,9 @@ import {
   MarkPortalSeenResponse,
   AcceptPortalAgreementParams,
   AcceptPortalAgreementResponse,
+  SetPortalSelfieParams,
+  SetPortalSelfieBody,
+  SetPortalSelfieResponse,
   GetJobTrackerParams,
   GetJobTrackerResponse,
 } from "@workspace/api-zod";
@@ -387,6 +390,7 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
         agreementAcceptedAt: crew.agreementAcceptedAt
           ? crew.agreementAcceptedAt.toISOString()
           : null,
+        selfiePath: crew.selfiePath ?? null,
       },
       schedule,
       offers,
@@ -917,6 +921,30 @@ router.post("/portal/:token/agreement", async (req, res): Promise<void> => {
       acceptedAt: acceptedAt.toISOString(),
     }),
   );
+});
+
+router.post("/portal/:token/selfie", async (req, res): Promise<void> => {
+  const { token } = SetPortalSelfieParams.parse(req.params);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const body = SetPortalSelfieBody.parse(req.body);
+  // Verify the uploaded object actually exists before pointing the profile at it.
+  try {
+    const storage = new ObjectStorageService();
+    await storage.getObjectEntityFile(body.storagePath);
+  } catch (err) {
+    logger.warn({ err }, "Portal selfie object not found");
+    res.status(400).json({ error: "Uploaded photo not found — try again" });
+    return;
+  }
+  await db
+    .update(crewsTable)
+    .set({ selfiePath: body.storagePath })
+    .where(eq(crewsTable.id, crew.id));
+  res.json(SetPortalSelfieResponse.parse({ selfiePath: body.storagePath }));
 });
 
 // Public, read-only live job tracker for property managers (accountability link).

@@ -167,6 +167,8 @@ import type {
   PortalOfferRespondInput,
   PortalOfferRespondResult,
   PortalSeenInput,
+  PortalSelfieInput,
+  PortalSelfieResult,
   PortalUnseen,
   PriceItem,
   PriceItemImportInput,
@@ -11761,6 +11763,78 @@ export const useAcceptPortalAgreement = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getAcceptPortalAgreementMutationOptions(options));
+    }
+
+export const getSetPortalSelfieUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/selfie`
+}
+
+/**
+ * @summary Crew uploads a profile selfie (initial setup)
+ */
+export const setPortalSelfie = async (token: string,
+    portalSelfieInput: PortalSelfieInput, options?: RequestInit): Promise<PortalSelfieResult> => {
+
+  return customFetch<PortalSelfieResult>(getSetPortalSelfieUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(portalSelfieInput)
+  }
+);}
+
+
+
+
+
+export const getSetPortalSelfieMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPortalSelfie>>, TError,{token: string;data: BodyType<PortalSelfieInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setPortalSelfie>>, TError,{token: string;data: BodyType<PortalSelfieInput>}, TContext> => {
+
+const mutationKey = ['setPortalSelfie'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setPortalSelfie>>, {token: string;data: BodyType<PortalSelfieInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  setPortalSelfie(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetPortalSelfieMutationResult = NonNullable<Awaited<ReturnType<typeof setPortalSelfie>>>
+    export type SetPortalSelfieMutationBody = BodyType<PortalSelfieInput>
+    export type SetPortalSelfieMutationError = ErrorType<Error>
+
+    /**
+ * @summary Crew uploads a profile selfie (initial setup)
+ */
+export const useSetPortalSelfie = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPortalSelfie>>, TError,{token: string;data: BodyType<PortalSelfieInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setPortalSelfie>>,
+        TError,
+        {token: string;data: BodyType<PortalSelfieInput>},
+        TContext
+      > => {
+      return useMutation(getSetPortalSelfieMutationOptions(options));
     }
 
 export const getGetJobTrackerUrl = (token: string,) => {

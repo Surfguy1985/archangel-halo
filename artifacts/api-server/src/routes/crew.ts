@@ -78,6 +78,7 @@ function crewDetail(row: CrewRow) {
     services:
       (row.services as { name: string; rate?: number | null }[] | null) ??
       null,
+    selfiePath: row.selfiePath ?? null,
     w9Submitted: row.w9SubmittedAt != null,
     w9SubmittedAt: row.w9SubmittedAt ? row.w9SubmittedAt.toISOString() : null,
     w9: (row.w9 as Record<string, unknown> | null) ?? null,

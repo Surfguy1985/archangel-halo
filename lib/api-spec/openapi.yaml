@@ -3402,6 +3402,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /portal/{token}/selfie:
+    post:
+      operationId: setPortalSelfie
+      tags: [portal]
+      summary: Crew uploads a profile selfie (initial setup)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortalSelfieInput"
+      responses:
+        "200":
+          description: Selfie saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalSelfieResult"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /track/{token}:
     get:
       operationId: getJobTracker
@@ -5037,6 +5066,7 @@ components:
         isLeader: { type: ["boolean", "null"] }
         active: { type: ["boolean", "null"] }
         paymentTerms: { type: ["string", "null"], description: "due_on_receipt | net15 | net30 | net45" }
+        selfiePath: { type: ["string", "null"] }
         services:
           type: ["array", "null"]
           items:
@@ -5058,6 +5088,7 @@ components:
           type: ["array", "null"]
           items:
             $ref: "#/components/schemas/CrewService"
+        selfiePath: { type: ["string", "null"] }
         todayStatus: { type: ["string", "null"], description: "route | site | done | idle" }
         todayJob: { type: ["string", "null"] }
         todayProperty: { type: ["string", "null"] }
@@ -6004,6 +6035,7 @@ components:
           type: ["array", "null"]
           items:
             $ref: "#/components/schemas/CrewService"
+        selfiePath: { type: ["string", "null"] }
         paidTotal: { type: ["number", "null"] }
         outstandingTotal: { type: ["number", "null"] }
         w9Submitted: { type: boolean }
@@ -6287,6 +6319,17 @@ components:
         paymentDetails: { type: ["string", "null"] }
         w9Submitted: { type: boolean }
         agreementAcceptedAt: { type: ["string", "null"] }
+        selfiePath: { type: ["string", "null"] }
+    PortalSelfieInput:
+      type: object
+      required: [storagePath]
+      properties:
+        storagePath: { type: string }
+    PortalSelfieResult:
+      type: object
+      required: [selfiePath]
+      properties:
+        selfiePath: { type: string }
     PortalScheduleItem:
       type: object
       required: [id]

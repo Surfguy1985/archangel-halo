@@ -55,8 +55,16 @@ export default function Crews() {
               <div className="bg-card rounded-xl border border-border shadow-sm p-5 hover:border-[var(--gold)]/50 transition-colors group h-full flex flex-col">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[var(--gold-tint)] flex items-center justify-center text-[var(--gold-dark)] group-hover:bg-[var(--gold-light)] group-hover:text-black transition-colors">
-                      <Users className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-full bg-[var(--gold-tint)] flex items-center justify-center text-[var(--gold-dark)] group-hover:bg-[var(--gold-light)] group-hover:text-black transition-colors overflow-hidden">
+                      {crew.selfiePath ? (
+                        <img
+                          src={`/api/storage${crew.selfiePath}`}
+                          alt={crew.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Users className="w-5 h-5" />
+                      )}
                     </div>
                     <div>
                       <h3 className="font-semibold text-[var(--ink)] text-lg leading-tight group-hover:text-[var(--gold-dark)] transition-colors">{crew.name}</h3>

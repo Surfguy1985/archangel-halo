@@ -24,6 +24,7 @@ import {
   useSubmitPortalInvoice,
   useMarkPortalSeen,
   useAcceptPortalAgreement,
+  useSetPortalSelfie,
   getListPortalInvoicesQueryKey,
   type W9Data,
   type PortalBundle,
@@ -262,6 +263,9 @@ export default function CrewPortal() {
       {!portal.crew.agreementAcceptedAt && (
         <AgreementModal token={token} crewName={portal.crew.name} />
       )}
+      {portal.crew.agreementAcceptedAt && !portal.crew.selfiePath && (
+        <SelfieModal token={token} crewName={portal.crew.name} />
+      )}
       
       <div className="pb-8 pt-4">
         <FalkonBadge />
@@ -336,6 +340,124 @@ function AgreementModal({ token, crewName }: { token: string; crewName: string }
             <Check className="w-[18px] h-[18px]" />
           )}
           I agree — open my portal
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SelfieModal({ token, crewName }: { token: string; crewName: string }) {
+  const queryClient = useQueryClient();
+  const setSelfie = useSetPortalSelfie();
+  const [preview, setPreview] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [skipped, setSkipped] = useState(
+    () => sessionStorage.getItem(`selfieSkip:${token}`) === "1",
+  );
+  const { uploadFile } = useUpload({
+    onError: () => {
+      setSaving(false);
+      setError("Upload failed. Check your connection and try again.");
+    },
+  });
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
+
+  if (skipped) return null;
+
+  const onPick = (f: File | undefined) => {
+    if (!f) return;
+    setError(null);
+    setFile(f);
+    setPreview((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return URL.createObjectURL(f);
+    });
+  };
+
+  const onSave = async () => {
+    if (!file) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await uploadFile(file);
+      if (!res) return;
+      await setSelfie.mutateAsync({ token, data: { storagePath: res.objectPath } });
+      queryClient.invalidateQueries({ queryKey: getGetPortalQueryKey(token) });
+    } catch {
+      setError("Couldn't save your photo. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onSkip = () => {
+    sessionStorage.setItem(`selfieSkip:${token}`, "1");
+    setSkipped(true);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-end sm:items-center justify-center p-[14px]">
+      <div className="bg-card border border-border rounded-[20px] w-full max-w-[480px] max-h-[86vh] overflow-y-auto p-[20px] shadow-[0_0_40px_rgba(0,0,0,0.6)] text-center">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary">
+          One last step, {crewName}
+        </div>
+        <div className="font-display font-bold text-[20px] mt-[4px] mb-[8px] text-foreground">
+          Add your profile photo
+        </div>
+        <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-[18px]">
+          Take a quick selfie so the office knows who's on site. It shows up
+          next to your name across HALO.
+        </p>
+
+        <label className="mx-auto w-[128px] h-[128px] rounded-full border-2 border-dashed border-border bg-background overflow-hidden grid place-items-center cursor-pointer hover:border-primary transition-colors">
+          {preview ? (
+            <img src={preview} alt="Your selfie" className="w-full h-full object-cover" />
+          ) : (
+            <div className="flex flex-col items-center gap-[6px] text-muted-foreground">
+              <Camera className="w-[28px] h-[28px]" />
+              <span className="text-[11px] font-bold uppercase tracking-wide">Tap to snap</span>
+            </div>
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            capture="user"
+            className="hidden"
+            onChange={(e) => onPick(e.target.files?.[0])}
+          />
+        </label>
+
+        {error && (
+          <div className="mt-[12px] text-[12.5px] text-destructive flex items-center justify-center gap-[6px]">
+            <AlertCircle className="w-[14px] h-[14px]" /> {error}
+          </div>
+        )}
+
+        <button
+          onClick={onSave}
+          disabled={!file || saving}
+          className="mt-[18px] w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-primary-foreground bg-[var(--gold-light)] shadow-[0_0_15px_rgba(180,255,68,0.3)] disabled:opacity-50 disabled:shadow-none hover:brightness-110 transition-all active:scale-[0.98]"
+        >
+          {saving ? (
+            <Loader2 className="w-[18px] h-[18px] animate-spin" />
+          ) : (
+            <Check className="w-[18px] h-[18px]" />
+          )}
+          {preview ? "Save my photo" : "Take a selfie first"}
+        </button>
+        <button
+          onClick={onSkip}
+          disabled={saving}
+          className="mt-[10px] w-full text-[13px] text-muted-foreground hover:text-foreground transition-colors py-[6px]"
+        >
+          Skip for now
         </button>
       </div>
     </div>

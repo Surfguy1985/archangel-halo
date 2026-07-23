@@ -14,6 +14,7 @@
 - [HALO portal ownership checks](halo-portal-ownership-checks.md) — portal write endpoints must verify referenced entities (e.g. jobId) belong to the crew; no FKs/auth means unchecked refs corrupt data.
 - [HALO activity log persistence](halo-activity-log.md) — activities survive the Settings wipe by design; render as plain text (no entity links) and always pass a limit.
 - [HALO desktop tour narration](halo-tour-narration.md) — tour steps voiced by pre-rendered ElevenLabs (Jessica) MP3s keyed chapterId-stepIndex; keep clip/speech/timer fallback chain + genRef nonce guard.
+- [HALO crew selfies](halo-crew-selfies.md) — portal prompts selfie after agreement (skippable/session); any crew name+icon UI must prefer selfiePath image over initials.
 - [HALO portal badges](halo-portal-badges.md) — red unseen badges from crews.portal_seen jsonb; new office→crew content types must update computeUnseen + schema enum + SEEN_SECTIONS.
 - [HALO business report](halo-business-report.md) — one shared server compute for report/insights/PDF; crew invoices link to properties via scored token match, ambiguous → Unassigned.
 - [HALO data reset](halo-data-reset.md) — POST /settings/reset wipes all operational tables but preserves business_settings + plaid_items; new schema tables must be added to its delete list.

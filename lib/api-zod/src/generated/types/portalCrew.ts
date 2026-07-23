@@ -18,4 +18,6 @@ export interface PortalCrew {
   w9Submitted?: boolean;
   /** @nullable */
   agreementAcceptedAt?: string | null;
+  /** @nullable */
+  selfiePath?: string | null;
 }

@@ -106,12 +106,20 @@ export default function Crews() {
                 <div className="flex justify-between items-start mb-[16px] relative z-10">
                   <div className="flex items-center gap-[12px]">
                     <div className="relative">
-                      <div className={`w-[44px] h-[44px] rounded-[14px] grid place-items-center font-display font-bold text-[18px] shrink-0 shadow-inner ${
+                      <div className={`w-[44px] h-[44px] rounded-[14px] grid place-items-center font-display font-bold text-[18px] shrink-0 shadow-inner overflow-hidden ${
                         isOnSite 
                           ? 'bg-[linear-gradient(135deg,#E8F2FF,#D1E4FF)] text-blue-700 border border-blue-200/50' 
                           : 'bg-[var(--ink)] text-[var(--gold-light)]'
                       }`}>
-                        {crew.name.substring(0, 1)}
+                        {crew.selfiePath ? (
+                          <img
+                            src={`/api/storage${crew.selfiePath}`}
+                            alt={crew.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          crew.name.substring(0, 1)
+                        )}
                       </div>
                       {isOnSite && (
                         <div className="absolute -bottom-[2px] -right-[2px] w-[14px] h-[14px] rounded-full bg-blue-500 border-2 border-card flex items-center justify-center">

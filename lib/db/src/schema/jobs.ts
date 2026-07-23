@@ -28,6 +28,7 @@ export const crewsTable = pgTable("crews", {
   w9: jsonb("w9"),
   w9SubmittedAt: timestamp("w9_submitted_at", { withTimezone: true }),
   portalSeen: jsonb("portal_seen"),
+  selfiePath: text("selfie_path"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

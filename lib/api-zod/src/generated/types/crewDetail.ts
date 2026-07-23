@@ -32,6 +32,8 @@ export interface CrewDetail {
   /** @nullable */
   services?: CrewService[] | null;
   /** @nullable */
+  selfiePath?: string | null;
+  /** @nullable */
   paidTotal?: number | null;
   /** @nullable */
   outstandingTotal?: number | null;

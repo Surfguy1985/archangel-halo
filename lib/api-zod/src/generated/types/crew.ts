@@ -26,5 +26,7 @@ export interface Crew {
      */
   paymentTerms?: string | null;
   /** @nullable */
+  selfiePath?: string | null;
+  /** @nullable */
   services?: CrewService[] | null;
 }
