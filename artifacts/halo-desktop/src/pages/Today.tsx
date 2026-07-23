@@ -27,6 +27,33 @@ function entityRoute(entityType?: string | null, entityId?: string | null): stri
   }
 }
 
+type QueueColor = { text: string; border: string; bar: string; bg: string; hoverBorder: string; groupHoverText: string };
+
+const QUEUE_COLORS: Record<string, QueueColor> = {
+  money:      { text: "text-emerald-600",  border: "border-emerald-500",  bar: "bg-emerald-500",  bg: "bg-emerald-50",  hoverBorder: "hover:border-emerald-500",  groupHoverText: "group-hover:text-emerald-600" },
+  invoice:    { text: "text-violet-600",   border: "border-violet-500",   bar: "bg-violet-500",   bg: "bg-violet-50",   hoverBorder: "hover:border-violet-500",   groupHoverText: "group-hover:text-violet-600" },
+  schedule:   { text: "text-sky-600",      border: "border-sky-500",      bar: "bg-sky-500",      bg: "bg-sky-50",      hoverBorder: "hover:border-sky-500",      groupHoverText: "group-hover:text-sky-600" },
+  bids:       { text: "text-amber-600",    border: "border-amber-500",    bar: "bg-amber-500",    bg: "bg-amber-50",    hoverBorder: "hover:border-amber-500",    groupHoverText: "group-hover:text-amber-600" },
+  margin:     { text: "text-rose-600",     border: "border-rose-500",     bar: "bg-rose-500",     bg: "bg-rose-50",     hoverBorder: "hover:border-rose-500",     groupHoverText: "group-hover:text-rose-600" },
+  supply:     { text: "text-orange-600",   border: "border-orange-500",   bar: "bg-orange-500",   bg: "bg-orange-50",   hoverBorder: "hover:border-orange-500",   groupHoverText: "group-hover:text-orange-600" },
+  compliance: { text: "text-red-600",      border: "border-red-500",      bar: "bg-red-500",      bg: "bg-red-50",      hoverBorder: "hover:border-red-500",      groupHoverText: "group-hover:text-red-600" },
+  leads:      { text: "text-cyan-600",     border: "border-cyan-500",     bar: "bg-cyan-500",     bg: "bg-cyan-50",     hoverBorder: "hover:border-cyan-500",     groupHoverText: "group-hover:text-cyan-600" },
+  followup:   { text: "text-fuchsia-600",  border: "border-fuchsia-500",  bar: "bg-fuchsia-500",  bg: "bg-fuchsia-50",  hoverBorder: "hover:border-fuchsia-500",  groupHoverText: "group-hover:text-fuchsia-600" },
+};
+
+const DEFAULT_QUEUE_COLOR: QueueColor = {
+  text: "text-[var(--primary)]",
+  border: "border-[var(--primary)]",
+  bar: "bg-[var(--primary)]",
+  bg: "bg-[var(--gold-tint)]",
+  hoverBorder: "hover:border-[var(--primary)]",
+  groupHoverText: "group-hover:text-[var(--primary)]",
+};
+
+function queueColor(queue: string) {
+  return QUEUE_COLORS[queue] ?? DEFAULT_QUEUE_COLOR;
+}
+
 export default function Today() {
   const { data: today, isLoading } = useGetToday({
     query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000 },
@@ -137,20 +164,22 @@ export default function Today() {
           <div className="space-y-4">
             {(today?.feed.filter(item => !queueFilter || item.queue === queueFilter) ?? []).map(item => {
               const route = entityRoute(item.entityType, item.entityId);
+              const qc = queueColor(item.queue);
               return (
               <Card
                 key={item.id}
                 onClick={route ? () => navigate(route) : undefined}
-                className={`hover:border-[var(--primary)] transition-all group ${route ? "cursor-pointer" : ""} rounded-none border-[var(--border)] bg-[var(--card)] hover:shadow-[0_0_15px_rgba(180,255,68,0.1)]`}
+                className={`relative overflow-hidden hover:border-[var(--primary)] transition-all group ${route ? "cursor-pointer" : ""} rounded-none border-[var(--border)] bg-[var(--card)] hover:shadow-[0_0_15px_rgba(180,255,68,0.1)]`}
               >
-                <CardContent className="p-5 flex items-start gap-4">
+                <div className={`absolute left-0 top-0 bottom-0 w-1 ${qc.bar}`} />
+                <CardContent className="p-5 pl-6 flex items-start gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--primary)] border border-[var(--primary)] px-2 py-0.5">
+                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 border ${qc.text} ${qc.border} ${qc.bg}`}>
                         {item.queue}
                       </span>
                       {item.amount != null && (
-                        <span className="text-sm font-mono font-medium text-foreground">
+                        <span className={`text-sm font-mono font-medium ${qc.text}`}>
                           ${item.amount.toLocaleString()}
                         </span>
                       )}
@@ -201,16 +230,21 @@ export default function Today() {
           <div data-tour="operations">
             <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4 border-b border-[var(--border)] pb-2">Operations</h2>
             <div className="grid grid-cols-2 gap-3">
-              {queues?.map(q => (
+              {queues?.map(q => {
+                const qc = queueColor(q.key);
+                const active = queueFilter === q.key;
+                return (
                 <button
                   key={q.key}
                   onClick={() => setQueueFilter(prev => (prev === q.key ? null : q.key))}
-                  className={`p-4 bg-card border flex flex-col justify-between aspect-square text-left transition-all cursor-pointer group rounded-none ${queueFilter === q.key ? "border-[var(--primary)] shadow-[inset_0_0_20px_rgba(180,255,68,0.15)]" : "border-[var(--border)] hover:border-[var(--primary)]/50"}`}
+                  className={`relative overflow-hidden p-4 border flex flex-col justify-between aspect-square text-left transition-all cursor-pointer group rounded-none ${active ? `${qc.border} ${qc.bg}` : `bg-card border-[var(--border)] ${qc.hoverBorder}`}`}
                 >
-                  <span className={`text-4xl font-display font-bold transition-colors ${queueFilter === q.key ? "text-[var(--primary)]" : "text-foreground group-hover:text-[var(--primary)]"}`}>{q.count}</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{q.label}</span>
+                  <div className={`absolute left-0 top-0 right-0 h-1 ${qc.bar} ${active ? "" : "opacity-60 group-hover:opacity-100"} transition-opacity`} />
+                  <span className={`text-4xl font-display font-bold transition-colors ${active ? qc.text : `text-foreground ${qc.groupHoverText}`}`}>{q.count}</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${active ? qc.text : "text-muted-foreground"}`}>{q.label}</span>
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
 
