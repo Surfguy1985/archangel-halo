@@ -45,6 +45,7 @@ import type {
   BidSendInput,
   BidSendResult,
   BidUpdate,
+  BoardSettingsInput,
   Brief,
   BroadcastInput,
   BroadcastResult,
@@ -4728,6 +4729,78 @@ export const useBroadcastJob = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getBroadcastJobMutationOptions(options));
+    }
+
+export const getUpdateBoardSettingsUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/board-settings`
+}
+
+/**
+ * @summary Edit posting terms on an existing board job (schedule type, flex days, crew slots)
+ */
+export const updateBoardSettings = async (id: string,
+    boardSettingsInput: BoardSettingsInput, options?: RequestInit): Promise<Job> => {
+
+  return customFetch<Job>(getUpdateBoardSettingsUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(boardSettingsInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateBoardSettingsMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBoardSettings>>, TError,{id: string;data: BodyType<BoardSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateBoardSettings>>, TError,{id: string;data: BodyType<BoardSettingsInput>}, TContext> => {
+
+const mutationKey = ['updateBoardSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateBoardSettings>>, {id: string;data: BodyType<BoardSettingsInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateBoardSettings(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateBoardSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateBoardSettings>>>
+    export type UpdateBoardSettingsMutationBody = BodyType<BoardSettingsInput>
+    export type UpdateBoardSettingsMutationError = ErrorType<Error>
+
+    /**
+ * @summary Edit posting terms on an existing board job (schedule type, flex days, crew slots)
+ */
+export const useUpdateBoardSettings = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateBoardSettings>>, TError,{id: string;data: BodyType<BoardSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateBoardSettings>>,
+        TError,
+        {id: string;data: BodyType<BoardSettingsInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateBoardSettingsMutationOptions(options));
     }
 
 export const getReopenJobUrl = (id: string,) => {

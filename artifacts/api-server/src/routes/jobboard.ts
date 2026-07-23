@@ -20,6 +20,9 @@ import {
   ReopenJobResponse,
   UnlistJobParams,
   UnlistJobResponse,
+  UpdateBoardSettingsParams,
+  UpdateBoardSettingsBody,
+  UpdateBoardSettingsResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 
@@ -219,6 +222,95 @@ router.post("/jobs/:id/broadcast", async (req, res): Promise<void> => {
       sent: toSend.length,
       alreadySent: targets.length - toSend.length,
       crewNames: sentNames,
+    }),
+  );
+});
+
+router.post("/jobs/:id/board-settings", async (req, res): Promise<void> => {
+  const { id } = UpdateBoardSettingsParams.parse(req.params);
+  const body = UpdateBoardSettingsBody.parse(req.body);
+
+  const result = await db.transaction(async (tx) => {
+    // Row-lock the job so a concurrent portal slot-claim can't change
+    // crewsFilled/boardStatus between our read and write.
+    const [job] = await tx
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, id))
+      .for("update");
+    if (!job) return { status: 404 as const, error: "Job not found" };
+    if (job.status === "complete" || job.boardStatus === "completed") {
+      return { status: 409 as const, error: "Job is already completed" };
+    }
+
+    const scheduleType = body.scheduleType === "flex" ? "flex" : "scheduled";
+    let flexDueBy: string | null = null;
+    if (scheduleType === "flex") {
+      if (body.flexDays != null) {
+        const days = Math.max(1, Math.round(body.flexDays));
+        const due = new Date();
+        due.setDate(due.getDate() + days);
+        flexDueBy = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+      } else {
+        flexDueBy = job.flexDueBy ?? null;
+        if (!flexDueBy) {
+          const due = new Date();
+          due.setDate(due.getDate() + 7);
+          flexDueBy = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+        }
+      }
+    }
+
+    const filled = job.crewsFilled ?? 0;
+    let crewsNeeded = job.crewsNeeded ?? 1;
+    if (body.crewsNeeded != null) {
+      const wanted = Math.max(1, Math.round(body.crewsNeeded));
+      if (wanted < filled) {
+        return {
+          status: 409 as const,
+          error: `${filled} crew${filled === 1 ? " has" : "s have"} already accepted — crew slots can't go below ${filled}.`,
+        };
+      }
+      crewsNeeded = wanted;
+    }
+
+    // Adding slots to a filled posting reopens it for more crews; shrinking
+    // slots down to the filled count marks it filled.
+    let boardStatus = job.boardStatus;
+    if (boardStatus === "filled" && filled < crewsNeeded) {
+      boardStatus = "active";
+    } else if (
+      (boardStatus === "active" || boardStatus === "reopened") &&
+      filled >= crewsNeeded &&
+      filled > 0
+    ) {
+      boardStatus = "filled";
+    }
+
+    const [row] = await tx
+      .update(jobsTable)
+      .set({ scheduleType, flexDueBy, crewsNeeded, boardStatus })
+      .where(eq(jobsTable.id, id))
+      .returning();
+    return { status: 200 as const, job: row! };
+  });
+
+  if (result.status !== 200) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  const [props, crews] = await Promise.all([
+    db.select().from(propertiesTable),
+    db.select().from(crewsTable),
+  ]);
+  const prop = props.find((p) => p.id === result.job.propertyId);
+  res.json(
+    UpdateBoardSettingsResponse.parse({
+      ...ser(result.job),
+      propertyName: prop?.name ?? null,
+      crewLeaderName: result.job.crewLeaderId
+        ? (crews.find((c) => c.id === result.job.crewLeaderId)?.name ?? null)
+        : null,
     }),
   );
 });

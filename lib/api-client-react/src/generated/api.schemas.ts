@@ -945,6 +945,15 @@ export interface BroadcastInput {
   crewsNeeded?: number;
 }
 
+export interface BoardSettingsInput {
+  /** scheduled | flex */
+  scheduleType: string;
+  /** Flex timeframe in days from now; recomputes flexDueBy (flex only) */
+  flexDays?: number;
+  /** Crew slots; cannot go below crews already filled */
+  crewsNeeded?: number;
+}
+
 export interface BroadcastResult {
   sent: number;
   alreadySent: number;

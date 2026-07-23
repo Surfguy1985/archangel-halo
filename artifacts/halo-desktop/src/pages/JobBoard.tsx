@@ -6,6 +6,7 @@ import {
   useReopenJob, 
   useUnlistJob,
   useUpdateJob,
+  useUpdateBoardSettings,
   useListCrews,
   getListCrewsQueryKey,
   type JobBoardCard,
@@ -106,6 +107,7 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
   const [reopenConfirmOpen, setReopenConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [postingOpen, setPostingOpen] = useState(false);
   
   const statusColors: Record<string, string> = {
     active: "bg-[var(--blue)]/10 text-[var(--blue)] border-[var(--blue)]/20",
@@ -173,6 +175,14 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
           }`}>
             {job.crewsFilled ?? 0} of {job.crewsNeeded ?? 1} crew{(job.crewsNeeded ?? 1) > 1 ? "s" : ""} filled
           </span>
+          {boardStatus !== "completed" && (
+            <button
+              onClick={() => setPostingOpen(true)}
+              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors inline-flex items-center gap-1"
+            >
+              <Pencil className="w-3 h-3" /> Edit Posting
+            </button>
+          )}
         </div>
       </div>
 
@@ -286,6 +296,7 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
       <ReopenConfirmDialog open={reopenConfirmOpen} onOpenChange={setReopenConfirmOpen} job={job} />
       <DeleteConfirmDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen} job={job} />
       <EditJobDialog open={editOpen} onOpenChange={setEditOpen} job={job} />
+      <EditPostingDialog open={postingOpen} onOpenChange={setPostingOpen} job={job} />
     </Card>
   );
 }
@@ -446,6 +457,118 @@ function BroadcastDialog({ open, onOpenChange, job }: { open: boolean, onOpenCha
             className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
           >
             {broadcastJob.isPending ? "Sending..." : "Send Broadcast"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditPostingDialog({ open, onOpenChange, job }: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job'] }) {
+  const [scheduleType, setScheduleType] = useState<"scheduled" | "flex">(job.scheduleType === "flex" ? "flex" : "scheduled");
+  const [flexDays, setFlexDays] = useState("7");
+  const [crewsNeeded, setCrewsNeeded] = useState(String(job.crewsNeeded ?? 1));
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const updateSettings = useUpdateBoardSettings();
+
+  useEffect(() => {
+    if (open) {
+      setScheduleType(job.scheduleType === "flex" ? "flex" : "scheduled");
+      setCrewsNeeded(String(job.crewsNeeded ?? 1));
+      if (job.flexDueBy) {
+        const due = new Date(job.flexDueBy + "T00:00:00");
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const days = Math.round((due.getTime() - today.getTime()) / 86400000);
+        setFlexDays(String(Math.max(1, days)));
+      } else {
+        setFlexDays("7");
+      }
+    }
+  }, [open, job.scheduleType, job.crewsNeeded, job.flexDueBy]);
+
+  const handleSave = () => {
+    updateSettings.mutate({
+      id: job.id,
+      data: {
+        scheduleType,
+        flexDays: scheduleType === "flex" ? Math.max(1, parseInt(flexDays) || 7) : undefined,
+        crewsNeeded: Math.max(1, parseInt(crewsNeeded) || 1),
+      },
+    }, {
+      onSuccess: () => {
+        toast({ title: "Posting updated", description: "Crews will see the new terms in their portals." });
+        queryClient.invalidateQueries();
+        onOpenChange(false);
+      },
+      onError: (err) => {
+        toast({
+          title: "Couldn't update posting",
+          description: (err as any)?.data?.error ?? "Something went wrong",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Edit Posting</DialogTitle>
+          <DialogDescription>
+            Change the schedule type or crew slots for {job.jobNo} at {job.propertyName}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4 space-y-4">
+          <div className="space-y-2">
+            <Label>Schedule Type</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setScheduleType("scheduled")}
+                className={`flex-1 rounded-md border px-3 py-2 text-left transition-colors ${scheduleType === "scheduled" ? "border-[var(--gold)] bg-[var(--gold-tint)]" : "border-border hover:bg-black/5"}`}
+              >
+                <div className="text-sm font-semibold">Set Schedule</div>
+                <div className="text-xs text-muted-foreground">Crew commits to set days & hours</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setScheduleType("flex")}
+                className={`flex-1 rounded-md border px-3 py-2 text-left transition-colors ${scheduleType === "flex" ? "border-emerald-400 bg-emerald-50" : "border-border hover:bg-black/5"}`}
+              >
+                <div className="text-sm font-semibold">Flex</div>
+                <div className="text-xs text-muted-foreground">Work anytime within a timeframe</div>
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {scheduleType === "flex" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="ep-flexdays">Finish within (days)</Label>
+                <Input id="ep-flexdays" type="number" min={1} value={flexDays} onChange={(e) => setFlexDays(e.target.value)} />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="ep-crews">Crews needed</Label>
+              <Input id="ep-crews" type="number" min={Math.max(1, job.crewsFilled ?? 0)} value={crewsNeeded} onChange={(e) => setCrewsNeeded(e.target.value)} />
+            </div>
+          </div>
+          {(job.crewsFilled ?? 0) > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {job.crewsFilled} crew{(job.crewsFilled ?? 0) > 1 ? "s have" : " has"} already accepted — slots can't go below that.
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button
+            onClick={handleSave}
+            disabled={updateSettings.isPending}
+            className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
+          >
+            {updateSettings.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

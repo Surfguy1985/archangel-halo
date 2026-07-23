@@ -44,6 +44,7 @@ export * from './bidLineItemInput';
 export * from './bidSendInput';
 export * from './bidSendResult';
 export * from './bidUpdate';
+export * from './boardSettingsInput';
 export * from './brief';
 export * from './broadcastInput';
 export * from './broadcastResult';

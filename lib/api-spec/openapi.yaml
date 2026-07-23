@@ -1349,6 +1349,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /jobs/{id}/board-settings:
+    post:
+      operationId: updateBoardSettings
+      tags: [jobs]
+      summary: Edit posting terms on an existing board job (schedule type, flex days, crew slots)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BoardSettingsInput"
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Conflict (e.g. job completed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /jobs/{id}/reopen:
     post:
       operationId: reopenJob
@@ -4949,6 +4985,13 @@ components:
         scheduleType: { type: string, description: "scheduled | flex (defaults to scheduled)" }
         flexDays: { type: number, description: "Flex timeframe in days from broadcast (default 7); sets flexDueBy" }
         crewsNeeded: { type: number, description: "Number of crew members needed (default 1)" }
+    BoardSettingsInput:
+      type: object
+      required: [scheduleType]
+      properties:
+        scheduleType: { type: string, description: "scheduled | flex" }
+        flexDays: { type: number, description: "Flex timeframe in days from now; recomputes flexDueBy (flex only)" }
+        crewsNeeded: { type: number, description: "Crew slots; cannot go below crews already filled" }
     BroadcastResult:
       type: object
       required: [sent, alreadySent]

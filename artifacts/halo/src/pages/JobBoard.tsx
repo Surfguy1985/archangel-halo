@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   useListJobBoard,
   useBroadcastJob,
   useReopenJob,
   useUnlistJob,
+  useUpdateBoardSettings,
   useListCrews,
   getListJobBoardQueryKey,
 } from "@workspace/api-client-react";
@@ -240,7 +241,152 @@ function BroadcastSheet({
 }
 
 
-function JobCard({ data, onBroadcast, onReopen, onEdit, onDelete }: { data: JobBoardCard; onBroadcast: () => void; onReopen: () => void; onEdit: () => void; onDelete: () => void }) {
+function EditPostingSheet({
+  open,
+  onOpenChange,
+  job,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  job: JobBoardCard["job"] | null;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const updateSettings = useUpdateBoardSettings();
+
+  const [scheduleType, setScheduleType] = useState<"scheduled" | "flex">("scheduled");
+  const [flexDays, setFlexDays] = useState("7");
+  const [crewsNeeded, setCrewsNeeded] = useState("1");
+
+  useEffect(() => {
+    if (open && job) {
+      setScheduleType(job.scheduleType === "flex" ? "flex" : "scheduled");
+      setCrewsNeeded(String(job.crewsNeeded ?? 1));
+      if (job.flexDueBy) {
+        const due = new Date(job.flexDueBy + "T00:00:00");
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        setFlexDays(String(Math.max(1, Math.round((due.getTime() - today.getTime()) / 86400000))));
+      } else {
+        setFlexDays("7");
+      }
+    }
+  }, [open, job]);
+
+  const handleSave = () => {
+    if (!job) return;
+    updateSettings.mutate(
+      {
+        id: job.id,
+        data: {
+          scheduleType,
+          ...(scheduleType === "flex" ? { flexDays: Math.max(1, parseInt(flexDays) || 7) } : {}),
+          crewsNeeded: Math.max(1, parseInt(crewsNeeded) || 1),
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries();
+          toast({ title: "Posting Updated", description: "Crews will see the new terms in their portals." });
+          onOpenChange(false);
+        },
+        onError: (err: any) => {
+          toast({
+            title: "Couldn't update posting",
+            description: err?.data?.error ?? "Something went wrong",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="rounded-t-[26px] bg-card p-0 flex flex-col max-h-[86vh] border-none shadow-[0_-10px_40px_rgba(0,0,0,0.8)]"
+      >
+        <div className="w-[40px] h-[4.5px] rounded-[3px] bg-border mx-auto mt-[10px] mb-[4px] shrink-0" />
+        <div className="p-[8px_20px_26px] overflow-y-auto">
+          <SheetHeader className="text-left mb-[16px]">
+            <SheetTitle className="font-display font-bold text-[19px] m-[6px_0_2px] text-foreground drop-shadow-[0_0_8px_rgba(255,255,255,0.1)]">
+              Edit Posting
+            </SheetTitle>
+            <div className="text-[13px] text-muted-foreground">
+              Change the schedule type or crew slots{job ? ` for ${job.jobNo}` : ""}.
+            </div>
+          </SheetHeader>
+
+          <div className="space-y-[16px]">
+            <div>
+              <div className="text-[12px] font-display font-bold uppercase tracking-[0.08em] text-primary mb-[8px]">Schedule Type</div>
+              <div className="flex gap-[8px]">
+                <button
+                  type="button"
+                  onClick={() => setScheduleType("scheduled")}
+                  className={`flex-1 rounded-[10px] border p-[10px] text-left transition-colors ${scheduleType === "scheduled" ? "border-primary bg-primary/10" : "border-border"}`}
+                >
+                  <div className="text-[13px] font-display font-bold text-foreground">Set Schedule</div>
+                  <div className="text-[11px] text-muted-foreground mt-[2px]">Set days & hours</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScheduleType("flex")}
+                  className={`flex-1 rounded-[10px] border p-[10px] text-left transition-colors ${scheduleType === "flex" ? "border-emerald-400 bg-emerald-400/10" : "border-border"}`}
+                >
+                  <div className="text-[13px] font-display font-bold text-foreground">Flex</div>
+                  <div className="text-[11px] text-muted-foreground mt-[2px]">Anytime within timeframe</div>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-[10px]">
+              {scheduleType === "flex" && (
+                <div className="flex-1">
+                  <div className="text-[12px] font-display font-bold uppercase tracking-[0.08em] text-primary mb-[6px]">Finish within (days)</div>
+                  <input
+                    type="number"
+                    min={1}
+                    value={flexDays}
+                    onChange={(e) => setFlexDays(e.target.value)}
+                    className="w-full rounded-[10px] bg-background border border-border px-[12px] py-[10px] text-[14px] text-foreground"
+                  />
+                </div>
+              )}
+              <div className="flex-1">
+                <div className="text-[12px] font-display font-bold uppercase tracking-[0.08em] text-primary mb-[6px]">Crews needed</div>
+                <input
+                  type="number"
+                  min={Math.max(1, job?.crewsFilled ?? 0)}
+                  value={crewsNeeded}
+                  onChange={(e) => setCrewsNeeded(e.target.value)}
+                  className="w-full rounded-[10px] bg-background border border-border px-[12px] py-[10px] text-[14px] text-foreground"
+                />
+              </div>
+            </div>
+
+            {(job?.crewsFilled ?? 0) > 0 && (
+              <div className="text-[12px] text-muted-foreground">
+                {job?.crewsFilled} crew{(job?.crewsFilled ?? 0) > 1 ? "s have" : " has"} already accepted — slots can't go below that.
+              </div>
+            )}
+
+            <button
+              onClick={handleSave}
+              disabled={updateSettings.isPending}
+              className="w-full rounded-[13px] py-[13px] text-[14.5px] font-display font-bold text-primary-foreground bg-[var(--gold-light)] shadow-[0_0_15px_rgba(180,255,68,0.3)] transition-all active:scale-[0.98] hover:brightness-110 disabled:opacity-60"
+            >
+              {updateSettings.isPending ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function JobCard({ data, onBroadcast, onReopen, onEdit, onEditPosting, onDelete }: { data: JobBoardCard; onBroadcast: () => void; onReopen: () => void; onEdit: () => void; onEditPosting: () => void; onDelete: () => void }) {
   const { job, priceItems, photos, broadcasts } = data;
   const status = job.boardStatus || "active";
   const stConfig = boardStatusColors[status] || boardStatusColors.active;
@@ -295,6 +441,14 @@ function JobCard({ data, onBroadcast, onReopen, onEdit, onDelete }: { data: JobB
           }`}>
             {job.crewsFilled ?? 0} of {job.crewsNeeded ?? 1} crew{(job.crewsNeeded ?? 1) > 1 ? "s" : ""} filled
           </span>
+          {status !== "completed" && (
+            <button
+              onClick={onEditPosting}
+              className="text-[10.5px] font-bold uppercase tracking-[0.05em] px-[8px] py-[3px] rounded-full border border-border text-muted-foreground active:scale-[0.97] transition-all inline-flex items-center gap-[4px]"
+            >
+              <Pencil className="w-[11px] h-[11px]" /> Edit Posting
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-[14px] mt-[12px] text-[12.5px] text-muted-foreground">
@@ -416,6 +570,7 @@ export default function JobBoard() {
 
   const [broadcastJobId, setBroadcastJobId] = useState<string | null>(null);
   const [editJob, setEditJob] = useState<JobBoardCard["job"] | null>(null);
+  const [postingJob, setPostingJob] = useState<JobBoardCard["job"] | null>(null);
   const [filter, setFilter] = useState<"active" | "filled" | "completed">("active");
   const unlist = useUnlistJob();
 
@@ -507,6 +662,7 @@ export default function JobBoard() {
                 onBroadcast={() => setBroadcastJobId(d.job.id)}
                 onReopen={() => handleReopen(d.job.id, d.job.jobNo)}
                 onEdit={() => setEditJob(d.job)}
+                onEditPosting={() => setPostingJob(d.job)}
                 onDelete={() => handleDelete(d.job.id, d.job.jobNo)}
               />
             ))}
@@ -517,6 +673,12 @@ export default function JobBoard() {
           open={!!broadcastJobId}
           onOpenChange={(o) => !o && setBroadcastJobId(null)}
           jobId={broadcastJobId}
+        />
+
+        <EditPostingSheet
+          open={!!postingJob}
+          onOpenChange={(o) => !o && setPostingJob(null)}
+          job={postingJob}
         />
 
         {editJob && (
