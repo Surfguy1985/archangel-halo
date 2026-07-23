@@ -237,55 +237,12 @@ export function JobFunnel({
     );
   };
 
-  const onPickInvoiceFile = async (file: File | null) => {
-    setPendingFile(file);
-    setScanNote(null);
-    if (!file || !file.type.startsWith("image/")) return;
-    const okTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (!okTypes.includes(file.type)) return;
-    try {
-      const image = await fileToBase64(file);
-      scanIngest.mutate(
-        {
-          data: {
-            image,
-            mediaType: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
-            filename: file.name,
-          },
-        },
-        {
-          onSuccess: (res) => {
-            for (const rec of res.records) {
-              const f = rec.fields as Record<string, unknown>;
-              const amt = Number(f.amount ?? f.total ?? f.totalAmount);
-              if (Number.isFinite(amt) && amt > 0) {
-                setAmountDraft(String(amt));
-                setScanNote(`Read $${amt.toLocaleString()} from the uploaded invoice — double-check before creating.`);
-                return;
-              }
-            }
-            setScanNote("Couldn't read an amount from the file — enter it manually.");
-          },
-          onError: () => setScanNote("Couldn't read the file — enter the amount manually."),
-        },
-      );
-    } catch {
-      setScanNote("Couldn't read the file — enter the amount manually.");
-    }
-  };
-
-  const doCreateInvoice = async () => {
-    const amount = amountDraft.trim() === "" ? defaultAmount : Number(amountDraft);
-    if (!amount || Number.isNaN(amount) || amount <= 0) return;
-    let attachmentPath: string | undefined;
-    if (pendingFile) {
-      setUploading(true);
-      const path = await uploadReceiptFile(pendingFile);
-      setUploading(false);
-      if (path) attachmentPath = path;
-    }
+  const createFromFile = async (file: File, amount: number) => {
+    setUploading(true);
+    const path = await uploadReceiptFile(file);
+    setUploading(false);
     createInvoice.mutate(
-      { data: { propertyId, jobId: job.id, amount, ...(attachmentPath ? { attachmentPath } : {}) } },
+      { data: { propertyId, jobId: job.id, amount, ...(path ? { attachmentPath: path } : {}) } },
       {
         onSuccess: () => {
           setPendingFile(null);
@@ -295,6 +252,47 @@ export function JobFunnel({
         },
       },
     );
+  };
+
+  const onPickInvoiceFile = async (file: File | null) => {
+    setPendingFile(file);
+    setScanNote(null);
+    if (!file) return;
+    const okTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (okTypes.includes(file.type)) {
+      try {
+        const image = await fileToBase64(file);
+        const res = await scanIngest.mutateAsync({
+          data: {
+            image,
+            mediaType: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+            filename: file.name,
+          },
+        });
+        for (const rec of res.records) {
+          const f = rec.fields as Record<string, unknown>;
+          const amt = Number(f.amount ?? f.total ?? f.totalAmount);
+          if (Number.isFinite(amt) && amt > 0) {
+            await createFromFile(file, amt);
+            return;
+          }
+        }
+      } catch {
+        // fall through to manual amount
+      }
+    }
+    if (defaultAmount > 0) {
+      await createFromFile(file, defaultAmount);
+      return;
+    }
+    setScanNote("Couldn't read an amount from the file — type it in and it's done.");
+  };
+
+  const doCreateInvoice = async () => {
+    if (!pendingFile) return;
+    const amount = Number(amountDraft);
+    if (!amount || Number.isNaN(amount) || amount <= 0) return;
+    await createFromFile(pendingFile, amount);
   };
 
   const doCloseOut = (reportSent = false) => {
@@ -404,10 +402,16 @@ export function JobFunnel({
             Next visit <b>{fmtDate(job.nextVisitOn)}</b>
           </span>
         )}
-        {payDone && (
-          <span className="inline-flex items-center gap-1.5 text-teal-700 font-semibold">
-            <Banknote className="w-3.5 h-3.5" /> Crew paid
-          </span>
+        {crewDone && !closeDone && (
+          payDone ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">
+              <Banknote className="w-3 h-3" /> Crew paid
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+              <Banknote className="w-3 h-3" /> Crew pay pending
+            </span>
+          )
         )}
       </div>
 
@@ -563,44 +567,45 @@ export function JobFunnel({
                   className="hidden"
                   onChange={(e) => void onPickInvoiceFile(e.target.files?.[0] ?? null)}
                 />
-                <button onClick={() => fileRef.current?.click()} className={`${pillBtn} bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100`}>
-                  <Upload className="w-3 h-3" /> {pendingFile ? "Change file" : "Upload invoice — auto-read amount"}
-                </button>
-                {pendingFile && (
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground max-w-[180px]">
-                    <Paperclip className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{pendingFile.name}</span>
-                    <button aria-label="Remove file" onClick={() => { setPendingFile(null); setScanNote(null); }} className="hover:text-[var(--ink)]"><X className="w-3 h-3" /></button>
-                  </span>
-                )}
-                {scanIngest.isPending && (
-                  <span className="inline-flex items-center gap-1 text-xs text-violet-700 font-semibold">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Reading the invoice…
-                  </span>
-                )}
-                <span className="inline-flex items-center gap-1 text-xs">
-                  $
-                  <input
-                    inputMode="decimal"
-                    placeholder={defaultAmount > 0 ? String(defaultAmount) : "Amount"}
-                    value={amountDraft}
-                    onChange={(e) => setAmountDraft(e.target.value)}
-                    className="w-24 px-2 py-1 rounded-md border border-border bg-background text-xs tabular-nums"
-                  />
-                </span>
                 <button
-                  disabled={createInvoice.isPending || uploading || (amountDraft.trim() === "" && defaultAmount <= 0)}
-                  onClick={doCreateInvoice}
+                  disabled={scanIngest.isPending || uploading || createInvoice.isPending}
+                  onClick={() => fileRef.current?.click()}
                   className={`${pillBtn} bg-violet-500 text-white hover:bg-violet-600`}
                 >
-                  {createInvoice.isPending || uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Receipt className="w-3 h-3" />}
-                  Create digital invoice
+                  {scanIngest.isPending || uploading || createInvoice.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                  {scanIngest.isPending
+                    ? "Reading the invoice…"
+                    : uploading || createInvoice.isPending
+                      ? "Saving invoice…"
+                      : "Upload invoice"}
                 </button>
-                <Link href={`/invoices/new?jobId=${job.id}&propertyId=${propertyId}`} className="text-xs font-semibold text-muted-foreground hover:text-[var(--ink)]">
-                  Full editor
-                </Link>
+                <span className="text-xs text-muted-foreground">Snap or upload it — HALO reads the amount and files it.</span>
               </div>
-              {scanNote && <div className="mt-1.5 text-[11px] font-semibold text-violet-700">{scanNote}</div>}
+              {scanNote && pendingFile && (
+                <div className="mt-2 flex items-center flex-wrap gap-2">
+                  <span className="text-[11px] font-semibold text-violet-700">{scanNote}</span>
+                  <span className="inline-flex items-center gap-1 text-xs">
+                    $
+                    <input
+                      inputMode="decimal"
+                      autoFocus
+                      placeholder="Amount"
+                      value={amountDraft}
+                      onChange={(e) => setAmountDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") void doCreateInvoice(); }}
+                      className="w-24 px-2 py-1 rounded-md border border-border bg-background text-xs tabular-nums"
+                    />
+                  </span>
+                  <button
+                    disabled={createInvoice.isPending || uploading || amountDraft.trim() === ""}
+                    onClick={() => void doCreateInvoice()}
+                    className={`${pillBtn} bg-violet-500 text-white hover:bg-violet-600`}
+                  >
+                    <Receipt className="w-3 h-3" /> Save
+                  </button>
+                  <button aria-label="Cancel upload" onClick={() => { setPendingFile(null); setScanNote(null); }} className="text-muted-foreground hover:text-[var(--ink)]"><X className="w-3.5 h-3.5" /></button>
+                </div>
+              )}
             </div>
           )
         ) : current === "pay" ? (

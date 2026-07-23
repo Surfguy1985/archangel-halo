@@ -33,7 +33,7 @@ export default function PropertyDetail() {
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
   const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const [jobTab, setJobTab] = useState<"active" | "completed" | "history">("active");
+  const [jobTab, setJobTab] = useState<"active" | "history">("active");
   const [expenseJobId, setExpenseJobId] = useState<string | null>(null);
   const [rateJobId, setRateJobId] = useState<string | null>(null);
   const [rateDraft, setRateDraft] = useState("");
@@ -52,8 +52,7 @@ export default function PropertyDetail() {
   if (!data) return <div className="p-8 text-center text-muted-foreground">Property not found</div>;
 
   const { property, stats, jobs, priceItems, contacts, expenses, invoices, upcomingVisits, crewPhotos } = data;
-  const activeJobs = jobs.filter((j) => !j.clearedAt && j.status !== "complete");
-  const completedJobs = jobs.filter((j) => !j.clearedAt && j.status === "complete");
+  const activeJobs = jobs.filter((j) => !j.clearedAt);
   const historyJobs = jobs.filter((j) => !!j.clearedAt);
   const invoiceStatusRank: Record<string, number> = { paid: 0, past_due: 1, sent: 2, draft: 3 };
   const invoiceForJob = (jobId: string) => {
@@ -225,7 +224,6 @@ export default function PropertyDetail() {
             <div className="flex items-center gap-1 mb-3 bg-black/[0.04] rounded-full p-1 w-fit">
               {([
                 ["active", "Active", activeJobs.length],
-                ["completed", "Completed", completedJobs.length],
                 ["history", "History", historyJobs.length],
               ] as const).map(([key, label, count]) => (
                 <button
@@ -245,7 +243,7 @@ export default function PropertyDetail() {
             </div>
             {jobTab !== "history" && (
             <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
-              {(jobTab === "active" ? activeJobs : completedJobs).map(job => (
+              {activeJobs.map(job => (
                 <div key={job.id} className="p-4 hover:bg-black/[0.02] transition-colors">
                   <div className="flex items-center gap-3">
                     <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
@@ -362,11 +360,9 @@ export default function PropertyDetail() {
                   </div>
                 </div>
               ))}
-              {!(jobTab === "active" ? activeJobs : completedJobs).length && (
+              {!activeJobs.length && (
                 <div className="p-6 text-center text-sm text-muted-foreground">
-                  {jobTab === "active"
-                    ? "No active jobs."
-                    : "Nothing completed yet — once a job is verified finished, mark it complete and it moves here."}
+                  No active jobs — closed-out jobs live in History.
                 </div>
               )}
             </div>
