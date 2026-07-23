@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, ne } from "drizzle-orm";
 import {
   db,
   jobsTable,
@@ -41,6 +41,8 @@ import {
   ScheduleJobResponse,
   CompleteJobParams,
   CompleteJobResponse,
+  ListJobEventsParams,
+  ListJobEventsResponse,
   DraftJobRecapParams,
   DraftJobRecapResponse,
   SendJobRecapParams,
@@ -192,11 +194,44 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
     return;
   }
   if (body.isRecurring === false) body.recurrence = null;
-  const [row] = await db
-    .update(jobsTable)
-    .set(body)
-    .where(eq(jobsTable.id, id))
-    .returning();
+  const row = await db.transaction(async (tx) => {
+    const [updated] = await tx
+      .update(jobsTable)
+      .set(body)
+      .where(eq(jobsTable.id, id))
+      .returning();
+    if (!updated) return undefined;
+    if (typeof body.crewLeaderId !== "string" || !body.crewLeaderId) {
+      return updated;
+    }
+    // Manual crew assignment — keep the job board in sync atomically: mark
+    // the job filled (unless removed) and withdraw any still-pending offers.
+    let fresh = updated;
+    if (updated.boardStatus !== "removed" && updated.boardStatus !== "filled") {
+      const [synced] = await tx
+        .update(jobsTable)
+        .set({ boardStatus: "filled" })
+        .where(
+          and(
+            eq(jobsTable.id, id),
+            ne(jobsTable.boardStatus, "removed"),
+            ne(jobsTable.boardStatus, "filled"),
+          ),
+        )
+        .returning();
+      if (synced) fresh = synced;
+    }
+    await tx
+      .update(jobBroadcastsTable)
+      .set({ status: "withdrawn", respondedAt: new Date() })
+      .where(
+        and(
+          eq(jobBroadcastsTable.jobId, id),
+          eq(jobBroadcastsTable.status, "pending"),
+        ),
+      );
+    return fresh;
+  });
   if (!row) {
     res.status(404).json({ error: "Job not found" });
     return;
@@ -570,6 +605,109 @@ async function gatherRecapContext(jobId: string) {
   const crewPhotos = await crewPhotosForJobs([job]);
   return { job, prop, notes, beforeCount, afterCount, lineItems, crewPhotos };
 }
+
+router.get("/jobs/:id/events", async (req, res): Promise<void> => {
+  const { id } = ListJobEventsParams.parse(req.params);
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+
+  const crews = await db.select().from(crewsTable);
+  const crewName = (crewId: string | null) =>
+    crews.find((c) => c.id === crewId)?.name ?? null;
+
+  const events: {
+    kind: string;
+    label: string;
+    at: string;
+    crewName: string | null;
+  }[] = [];
+
+  const broadcasts = await db
+    .select()
+    .from(jobBroadcastsTable)
+    .where(eq(jobBroadcastsTable.jobId, id));
+  for (const b of broadcasts) {
+    if (b.status === "approved" && b.respondedAt) {
+      events.push({
+        kind: "accepted",
+        label: "Crew accepted the job offer",
+        at: b.respondedAt.toISOString(),
+        crewName: crewName(b.crewId),
+      });
+    }
+  }
+
+  const checkins = await db
+    .select()
+    .from(crewCheckinsTable)
+    .where(eq(crewCheckinsTable.jobId, id));
+  for (const c of checkins) {
+    events.push({
+      kind: c.kind === "checkout" ? "checkout" : "checkin",
+      label:
+        c.kind === "checkout"
+          ? "Crew checked out of the site"
+          : "Crew checked in to the site",
+      at: c.createdAt.toISOString(),
+      crewName: crewName(c.crewId),
+    });
+  }
+
+  const photos = await db
+    .select()
+    .from(crewPhotosTable)
+    .where(eq(crewPhotosTable.jobId, id));
+  for (const p of photos) {
+    const phase =
+      p.phase === "before" ? "before" : p.phase === "after" ? "after" : "progress";
+    events.push({
+      kind: `photo_${phase}`,
+      label:
+        phase === "before"
+          ? "Crew uploaded before photos"
+          : phase === "after"
+            ? "Crew uploaded after photos"
+            : "Crew uploaded progress photos",
+      at: (p.capturedAt ?? p.createdAt).toISOString(),
+      crewName: crewName(p.crewId),
+    });
+  }
+
+  const acts = await db
+    .select()
+    .from(activitiesTable)
+    .where(
+      and(
+        eq(activitiesTable.entityType, "job"),
+        eq(activitiesTable.entityId, id),
+      ),
+    );
+  for (const a of acts) {
+    if (a.kind === "note" && a.body?.startsWith("Crew note")) {
+      events.push({
+        kind: "note",
+        label: a.body,
+        at: a.createdAt.toISOString(),
+        crewName: null,
+      });
+    }
+  }
+
+  if (job.completedAt) {
+    events.push({
+      kind: "completed",
+      label: "Crew has completed the job — ready for verification",
+      at: job.completedAt.toISOString(),
+      crewName: crewName(job.crewLeaderId),
+    });
+  }
+
+  events.sort((x, y) => (x.at < y.at ? 1 : -1));
+  res.json(ListJobEventsResponse.parse(events));
+});
 
 router.post("/jobs/:id/recap", async (req, res): Promise<void> => {
   const { id } = DraftJobRecapParams.parse(req.params);

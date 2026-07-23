@@ -6,6 +6,14 @@ import {
   useSetInvoiceStatus,
   useCreateCrewPayment,
   useCloseOutJob,
+  useListCrews,
+  useUpdateJob,
+  useBroadcastJob,
+  useGetJob,
+  useListJobEvents,
+  useDraftJobRecap,
+  useSendJobRecap,
+  useScanIngest,
   getGetPropertyQueryKey,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
@@ -13,6 +21,7 @@ import {
   getListJobsQueryKey,
   getGetJobQueryKey,
   getGetCalendarQueryKey,
+  getListJobEventsQueryKey,
 } from "@workspace/api-client-react";
 import type { Job, Invoice } from "@workspace/api-client-react";
 import {
@@ -30,6 +39,12 @@ import {
   Send,
   CircleDollarSign,
   X,
+  Radio,
+  Camera,
+  LogIn,
+  LogOut,
+  StickyNote,
+  Mail,
 } from "lucide-react";
 import { uploadReceiptFile } from "@/components/MoneyDialogs";
 
@@ -59,8 +74,39 @@ function fmtDate(d: string) {
   });
 }
 
+function fmtWhen(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+    " · " +
+    d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+const EVENT_ICONS: Record<string, typeof Users> = {
+  accepted: Check,
+  checkin: LogIn,
+  checkout: LogOut,
+  photo_before: Camera,
+  photo_after: Camera,
+  photo_progress: Camera,
+  note: StickyNote,
+  completed: Sparkles,
+  email: Mail,
+};
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const s = String(reader.result ?? "");
+      resolve(s.slice(s.indexOf(",") + 1));
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 export function JobFunnel({
-  job,
+  job: jobProp,
   invoice,
   propertyId,
   onCompleteWork,
@@ -77,12 +123,43 @@ export function JobFunnel({
   const setStatus = useSetInvoiceStatus();
   const createCrewPayment = useCreateCrewPayment();
   const closeOut = useCloseOutJob();
+  const updateJob = useUpdateJob();
+  const broadcast = useBroadcastJob();
+  const draftRecap = useDraftJobRecap();
+  const sendRecap = useSendJobRecap();
+  const scanIngest = useScanIngest();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [amountDraft, setAmountDraft] = useState("");
+  const [scanNote, setScanNote] = useState<string | null>(null);
   const [missing, setMissing] = useState<string[] | null>(null);
-  const [closedOut, setClosedOut] = useState<{ emailSent: boolean } | null>(null);
+  const [closedOut, setClosedOut] = useState<{ emailSent: boolean; reportSent: boolean } | null>(null);
+  const [broadcasted, setBroadcasted] = useState(false);
+  const [pickingCrew, setPickingCrew] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [closing, setClosing] = useState(false);
+
+  const crewsQuery = useListCrews();
+  const crews = crewsQuery.data ?? [];
+
+  // Live-poll the job while we're waiting for a crew to accept an offer.
+  // Gate on the freshest data we have (live poll result, falling back to the
+  // prop) so polling stops immediately once a crew accepts.
+  const liveJobQuery = useGetJob(jobProp.id, {
+    query: {
+      queryKey: getGetJobQueryKey(jobProp.id),
+      enabled: !jobProp.crewLeaderId && !jobProp.clearedAt,
+      refetchInterval: (q) => {
+        const fresh = q.state.data?.job;
+        const waiting = fresh
+          ? !fresh.crewLeaderId && !fresh.clearedAt
+          : !jobProp.crewLeaderId && !jobProp.clearedAt;
+        return waiting ? 5000 : false;
+      },
+    },
+  });
+  const job = liveJobQuery.data?.job ?? jobProp;
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
@@ -92,6 +169,7 @@ export function JobFunnel({
     queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(job.id) });
+    queryClient.invalidateQueries({ queryKey: getListJobEventsQueryKey(job.id) });
   };
 
   const crewDone = !!job.crewLeaderId;
@@ -118,7 +196,83 @@ export function JobFunnel({
           ? "pay"
           : "close";
 
+  // Live work history — only fetched when the panel is open or work is underway.
+  const eventsQuery = useListJobEvents(job.id, {
+    query: {
+      queryKey: getListJobEventsQueryKey(job.id),
+      enabled: showHistory,
+      refetchInterval: showHistory && !workDone ? 10000 : false,
+    },
+  });
+  const events = eventsQuery.data ?? [];
+
   const defaultAmount = job.lineTotal && job.lineTotal > 0 ? job.lineTotal : 0;
+
+  const assignCrew = (crewId: string) => {
+    if (!crewId || crewId === job.crewLeaderId) {
+      setPickingCrew(false);
+      return;
+    }
+    updateJob.mutate(
+      { id: job.id, data: { crewLeaderId: crewId } },
+      {
+        onSuccess: () => {
+          setPickingCrew(false);
+          setBroadcasted(false);
+          invalidateAll();
+        },
+      },
+    );
+  };
+
+  const doQuickBroadcast = () => {
+    broadcast.mutate(
+      { id: job.id, data: { mode: "all" } },
+      {
+        onSuccess: () => {
+          setBroadcasted(true);
+          invalidateAll();
+        },
+      },
+    );
+  };
+
+  const onPickInvoiceFile = async (file: File | null) => {
+    setPendingFile(file);
+    setScanNote(null);
+    if (!file || !file.type.startsWith("image/")) return;
+    const okTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!okTypes.includes(file.type)) return;
+    try {
+      const image = await fileToBase64(file);
+      scanIngest.mutate(
+        {
+          data: {
+            image,
+            mediaType: file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+            filename: file.name,
+          },
+        },
+        {
+          onSuccess: (res) => {
+            for (const rec of res.records) {
+              const f = rec.fields as Record<string, unknown>;
+              const amt = Number(f.amount ?? f.total ?? f.totalAmount);
+              if (Number.isFinite(amt) && amt > 0) {
+                setAmountDraft(String(amt));
+                setScanNote(`Read $${amt.toLocaleString()} from the uploaded invoice — double-check before creating.`);
+                return;
+              }
+            }
+            setScanNote("Couldn't read an amount from the file — enter it manually.");
+          },
+          onError: () => setScanNote("Couldn't read the file — enter the amount manually."),
+        },
+      );
+    } catch {
+      setScanNote("Couldn't read the file — enter the amount manually.");
+    }
+  };
 
   const doCreateInvoice = async () => {
     const amount = amountDraft.trim() === "" ? defaultAmount : Number(amountDraft);
@@ -136,27 +290,50 @@ export function JobFunnel({
         onSuccess: () => {
           setPendingFile(null);
           setAmountDraft("");
+          setScanNote(null);
           invalidateAll();
         },
       },
     );
   };
 
-  const doCloseOut = () => {
+  const doCloseOut = (reportSent = false) => {
     setMissing(null);
     closeOut.mutate(
       { id: job.id },
       {
         onSuccess: (res) => {
-          setClosedOut({ emailSent: !!res.emailSent });
+          setClosedOut({ emailSent: !!res.emailSent, reportSent });
+          setClosing(false);
           invalidateAll();
         },
         onError: (err: unknown) => {
           const data = (err as { data?: { missing?: string[]; error?: string } })?.data;
           setMissing(data?.missing?.length ? data.missing : [data?.error ?? "Close-out failed — please try again."]);
+          setClosing(false);
         },
       },
     );
+  };
+
+  const doSendReportAndClose = async () => {
+    setMissing(null);
+    setClosing(true);
+    try {
+      const draft = await draftRecap.mutateAsync({ id: job.id });
+      await sendRecap.mutateAsync({
+        id: job.id,
+        data: { subject: draft.subject, body: draft.body },
+      });
+      doCloseOut(true);
+    } catch (err: unknown) {
+      setClosing(false);
+      const data = (err as { data?: { error?: string } })?.data;
+      setMissing([
+        data?.error ?? "Couldn't send the photo report — check the property's contact email.",
+        "You can still close the job without sending the report.",
+      ]);
+    }
   };
 
   const pillBtn =
@@ -196,11 +373,30 @@ export function JobFunnel({
         {crewDone ? (
           <span className="inline-flex items-center gap-1.5 text-sky-700 font-semibold">
             <Users className="w-3.5 h-3.5" /> {job.crewLeaderName ?? "Crew assigned"}
+            <Check className="w-3.5 h-3.5 text-emerald-600" />
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-muted-foreground">
             <Users className="w-3.5 h-3.5" /> No crew yet
+            {broadcasted && (
+              <span className="inline-flex items-center gap-1 text-sky-700 font-semibold">
+                <Loader2 className="w-3 h-3 animate-spin" /> Broadcast live — watching for a crew…
+              </span>
+            )}
           </span>
+        )}
+        {!closeDone && (
+          <button
+            onClick={() => setPickingCrew((v) => !v)}
+            className="text-[11px] font-semibold text-sky-700 hover:text-sky-900 underline underline-offset-2"
+          >
+            {crewDone ? "Change crew" : "Assign a crew"}
+          </button>
+        )}
+        {crewDone && (
+          <Link href="/calendar" className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-[var(--ink)] underline underline-offset-2">
+            <CalendarDays className="w-3 h-3" /> Schedule
+          </Link>
         )}
         {job.nextVisitOn && (
           <span className="inline-flex items-center gap-1.5 text-[var(--ink)]">
@@ -215,19 +411,111 @@ export function JobFunnel({
         )}
       </div>
 
+      {/* Crew picker */}
+      {pickingCrew && !closeDone && (
+        <div className="mt-2 flex items-center flex-wrap gap-2">
+          <select
+            defaultValue={job.crewLeaderId ?? ""}
+            disabled={updateJob.isPending}
+            onChange={(e) => assignCrew(e.target.value)}
+            className="text-xs px-2 py-1.5 rounded-md border border-border bg-background font-semibold"
+          >
+            <option value="">Pick a crew…</option>
+            {crews.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          {updateJob.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+          <span className="text-[11px] text-muted-foreground">Assigning manually also marks the job filled on the job board.</span>
+        </div>
+      )}
+
+      {/* Live work history link + panel */}
+      {crewDone && (
+        <div className="mt-2">
+          <button
+            onClick={() => setShowHistory((v) => !v)}
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-800 underline underline-offset-2"
+          >
+            <Radio className="w-3 h-3" /> {showHistory ? "Hide live work updates" : "Live work updates"}
+          </button>
+          {showHistory && (
+            <div className="mt-2 rounded-lg border border-red-200 bg-red-50/60 p-2.5 max-h-56 overflow-y-auto">
+              {eventsQuery.isLoading ? (
+                <div className="flex items-center gap-2 text-xs text-red-700">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading work history…
+                </div>
+              ) : events.length === 0 ? (
+                <div className="text-xs text-red-700">No field activity yet — updates appear here the moment the crew checks in, uploads photos, or completes the job.</div>
+              ) : (
+                <ul className="space-y-1.5">
+                  {events.map((ev, i) => {
+                    const Icon = EVENT_ICONS[ev.kind] ?? StickyNote;
+                    return (
+                      <li key={`${ev.kind}-${ev.at}-${i}`} className="flex items-start gap-2 text-xs text-red-700">
+                        <Icon className="w-3.5 h-3.5 mt-[1px] shrink-0" />
+                        <span>
+                          <b>{ev.label}</b>
+                          {ev.crewName ? ` — ${ev.crewName}` : ""}
+                          <span className="text-red-500"> · {fmtWhen(ev.at)}</span>
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Invoice status badges */}
+      {invoiceStarted && (
+        <div className="mt-2 flex items-center flex-wrap gap-1.5">
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+            <Receipt className="w-3 h-3" /> {invoice!.invoiceNo}
+          </span>
+          {invoice!.status === "paid" ? (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Paid</span>
+          ) : invoice!.status === "sent" || invoice!.status === "past_due" ? (
+            <>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">Sent</span>
+              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${invoice!.status === "past_due" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                {invoice!.status === "past_due" ? "Past due" : "Pending payment"}
+              </span>
+            </>
+          ) : (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/[0.06] text-muted-foreground">Draft — not sent</span>
+          )}
+        </div>
+      )}
+
       {/* Action row for current stage */}
       <div className="mt-3">
         {closeDone ? (
           <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
             <Sparkles className="w-4 h-4" />
-            Job closed out{closedOut ? (closedOut.emailSent ? " — thank-you email sent to the crew." : " — no crew email on file, so no email was sent.") : "."}
+            Job closed out
+            {closedOut
+              ? `${closedOut.reportSent ? " — photo report sent to the client" : ""}${closedOut.emailSent ? " — thank-you email sent to the crew." : " — no crew email on file, so no crew email was sent."}`
+              : "."}
           </div>
         ) : current === "crew" ? (
           <div className="flex items-center flex-wrap gap-2">
+            <button
+              disabled={broadcast.isPending}
+              onClick={doQuickBroadcast}
+              className={`${pillBtn} bg-sky-500 text-white hover:bg-sky-600`}
+            >
+              {broadcast.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Radio className="w-3 h-3" />}
+              {broadcasted ? "Re-broadcast to all crews" : "Broadcast to all crews"}
+            </button>
             <Link href="/job-board" className={`${pillBtn} bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100`}>
-              <Send className="w-3 h-3" /> Broadcast on job board
+              <Send className="w-3 h-3" /> Open job board
             </Link>
-            <span className="text-xs text-muted-foreground">A crew accepts the offer and appears here automatically.</span>
+            <span className="text-xs text-muted-foreground">The first crew to accept appears here automatically with a green check.</span>
           </div>
         ) : current === "work" ? (
           <button
@@ -241,7 +529,7 @@ export function JobFunnel({
           invoiceStarted ? (
             <div className="flex items-center flex-wrap gap-2">
               <Link href={`/invoices/${invoice!.id}`} className={`${pillBtn} bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100`}>
-                <Receipt className="w-3 h-3" /> {invoice!.invoiceNo} · {invoice!.status === "sent" ? "Sent" : invoice!.status === "past_due" ? "Past due" : "Draft"}
+                <Receipt className="w-3 h-3" /> Open invoice
               </Link>
               {invoice!.attachmentPath && (
                 <a href={`/api/storage${invoice!.attachmentPath}`} target="_blank" rel="noreferrer" className={`${pillBtn} bg-black/[0.05] text-[var(--ink)] hover:bg-black/[0.08]`}>
@@ -266,89 +554,111 @@ export function JobFunnel({
               </button>
             </div>
           ) : (
-            <div className="flex items-center flex-wrap gap-2">
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*,.pdf"
-                className="hidden"
-                onChange={(e) => setPendingFile(e.target.files?.[0] ?? null)}
-              />
-              <button onClick={() => fileRef.current?.click()} className={`${pillBtn} bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100`}>
-                <Upload className="w-3 h-3" /> {pendingFile ? "Change file" : "Upload invoice image"}
-              </button>
-              {pendingFile && (
-                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground max-w-[180px]">
-                  <Paperclip className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{pendingFile.name}</span>
-                  <button aria-label="Remove file" onClick={() => setPendingFile(null)} className="hover:text-[var(--ink)]"><X className="w-3 h-3" /></button>
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1 text-xs">
-                $
+            <div>
+              <div className="flex items-center flex-wrap gap-2">
                 <input
-                  inputMode="decimal"
-                  placeholder={defaultAmount > 0 ? String(defaultAmount) : "Amount"}
-                  value={amountDraft}
-                  onChange={(e) => setAmountDraft(e.target.value)}
-                  className="w-24 px-2 py-1 rounded-md border border-border bg-background text-xs tabular-nums"
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  className="hidden"
+                  onChange={(e) => void onPickInvoiceFile(e.target.files?.[0] ?? null)}
                 />
-              </span>
-              <button
-                disabled={createInvoice.isPending || uploading || (amountDraft.trim() === "" && defaultAmount <= 0)}
-                onClick={doCreateInvoice}
-                className={`${pillBtn} bg-violet-500 text-white hover:bg-violet-600`}
-              >
-                {createInvoice.isPending || uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Receipt className="w-3 h-3" />}
-                Create invoice
-              </button>
-              <Link href={`/invoices/new?jobId=${job.id}&propertyId=${propertyId}`} className="text-xs font-semibold text-muted-foreground hover:text-[var(--ink)]">
-                Full editor
-              </Link>
+                <button onClick={() => fileRef.current?.click()} className={`${pillBtn} bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100`}>
+                  <Upload className="w-3 h-3" /> {pendingFile ? "Change file" : "Upload invoice — auto-read amount"}
+                </button>
+                {pendingFile && (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground max-w-[180px]">
+                    <Paperclip className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{pendingFile.name}</span>
+                    <button aria-label="Remove file" onClick={() => { setPendingFile(null); setScanNote(null); }} className="hover:text-[var(--ink)]"><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+                {scanIngest.isPending && (
+                  <span className="inline-flex items-center gap-1 text-xs text-violet-700 font-semibold">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Reading the invoice…
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1 text-xs">
+                  $
+                  <input
+                    inputMode="decimal"
+                    placeholder={defaultAmount > 0 ? String(defaultAmount) : "Amount"}
+                    value={amountDraft}
+                    onChange={(e) => setAmountDraft(e.target.value)}
+                    className="w-24 px-2 py-1 rounded-md border border-border bg-background text-xs tabular-nums"
+                  />
+                </span>
+                <button
+                  disabled={createInvoice.isPending || uploading || (amountDraft.trim() === "" && defaultAmount <= 0)}
+                  onClick={doCreateInvoice}
+                  className={`${pillBtn} bg-violet-500 text-white hover:bg-violet-600`}
+                >
+                  {createInvoice.isPending || uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Receipt className="w-3 h-3" />}
+                  Create digital invoice
+                </button>
+                <Link href={`/invoices/new?jobId=${job.id}&propertyId=${propertyId}`} className="text-xs font-semibold text-muted-foreground hover:text-[var(--ink)]">
+                  Full editor
+                </Link>
+              </div>
+              {scanNote && <div className="mt-1.5 text-[11px] font-semibold text-violet-700">{scanNote}</div>}
             </div>
           )
         ) : current === "pay" ? (
-          <div className="flex items-center flex-wrap gap-2">
-            <button
-              disabled={createCrewPayment.isPending || !job.crewLeaderId}
-              onClick={() =>
-                createCrewPayment.mutate(
-                  {
-                    data: {
-                      crewId: job.crewLeaderId!,
-                      amount: job.crewRate ?? 0,
-                      status: "completed",
-                      jobId: job.id,
-                      note: `Job ${job.jobNo} close-out`,
+          <div className="flex items-center flex-wrap gap-3">
+            <label className={`flex items-center gap-2 text-sm font-semibold ${createCrewPayment.isPending ? "opacity-60" : "cursor-pointer"} text-teal-700`}>
+              <input
+                type="checkbox"
+                checked={false}
+                disabled={createCrewPayment.isPending || !job.crewLeaderId}
+                onChange={() =>
+                  createCrewPayment.mutate(
+                    {
+                      data: {
+                        crewId: job.crewLeaderId!,
+                        amount: job.crewRate ?? 0,
+                        status: "completed",
+                        jobId: job.id,
+                        note: `Job ${job.jobNo} close-out`,
+                      },
                     },
-                  },
-                  { onSuccess: invalidateAll },
-                )
-              }
-              className={`${pillBtn} bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100`}
-            >
-              {createCrewPayment.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Banknote className="w-3 h-3" />}
-              Mark crew paid{job.crewRate != null ? ` · $${job.crewRate.toLocaleString()}` : ""}
-            </button>
+                    { onSuccess: invalidateAll },
+                  )
+                }
+                className="w-4 h-4 accent-teal-600"
+              />
+              Crew paid{job.crewRate != null ? ` · $${job.crewRate.toLocaleString()}` : ""}
+              {createCrewPayment.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            </label>
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Payment pending</span>
             {job.crewRate == null && (
               <span className="text-xs text-amber-700">Tip: set the crew rate above so the payout amount is right.</span>
             )}
           </div>
         ) : (
-          <button
-            disabled={closeOut.isPending}
-            onClick={doCloseOut}
-            className={`${pillBtn} bg-[var(--gold-dark)] text-black hover:opacity-90`}
-          >
-            {closeOut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-            Close out job — clear &amp; thank the crew
-          </button>
+          <div className="flex items-center flex-wrap gap-2">
+            <button
+              disabled={closing || closeOut.isPending}
+              onClick={doSendReportAndClose}
+              className={`${pillBtn} bg-[var(--gold-dark)] text-black hover:opacity-90`}
+            >
+              {closing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
+              Send client photo report &amp; close job
+            </button>
+            <button
+              disabled={closing || closeOut.isPending}
+              onClick={() => doCloseOut(false)}
+              className={`${pillBtn} bg-black/[0.05] text-[var(--ink)] hover:bg-black/[0.08]`}
+            >
+              {closeOut.isPending && !closing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+              Close without report
+            </button>
+          </div>
         )}
         {!closeDone && current !== "close" && (
           <div className="mt-2">
             <button
               disabled={closeOut.isPending}
-              onClick={doCloseOut}
+              onClick={() => doCloseOut(false)}
               className="text-[11px] font-semibold text-muted-foreground hover:text-[var(--ink)] underline underline-offset-2"
             >
               Try to close out now
@@ -361,7 +671,7 @@ export function JobFunnel({
       {missing && (
         <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-700">
-            <AlertTriangle className="w-3.5 h-3.5" /> Not ready to close out
+            <AlertTriangle className="w-3.5 h-3.5" /> Heads up
           </div>
           <ul className="mt-1.5 space-y-1">
             {missing.map((m) => (

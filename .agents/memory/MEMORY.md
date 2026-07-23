@@ -41,3 +41,4 @@
 - [HALO portal guide](halo-portal-guide.md) — bilingual Guide tab; ?guide=en|es deep link must be respected by any portal auto-navigation (offer auto-switch skips it).
 - [HALO job funnel close-out](halo-job-funnel.md) — /jobs/:id/close-out enforces crew+complete+paid invoice+crew paid (409 missing[]); legacy /clear stays as manual override.
 - [HALO double-entry ledger](halo-ledger.md) — Books engine: every money mutation (REST and voice) must call syncXLedger; rebuild+syncs serialized by in-process mutex; JE numbering via advisory lock.
+- [HALO job timeline](halo-job-timeline.md) — JobFunnel 5-stage pipeline: /jobs/:id/events feed, manual-assign board sync is server-side + transactional, recap-then-close needs no-email fallback.

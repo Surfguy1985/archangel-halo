@@ -119,6 +119,7 @@ import type {
   Job,
   JobBoardCard,
   JobDetail,
+  JobEvent,
   JobInput,
   JobLineItem,
   JobLineItemInput,
@@ -4134,6 +4135,83 @@ export const useSendJobRecap = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getSendJobRecapMutationOptions(options));
     }
+
+export const getListJobEventsUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/events`
+}
+
+/**
+ * @summary Live work history for a job — check-ins, photos, notes, completion, offer acceptance
+ */
+export const listJobEvents = async (id: string, options?: RequestInit): Promise<JobEvent[]> => {
+
+  return customFetch<JobEvent[]>(getListJobEventsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListJobEventsQueryKey = (id: string,) => {
+    return [
+    `/api/jobs/${id}/events`
+    ] as const;
+    }
+
+
+export const getListJobEventsQueryOptions = <TData = Awaited<ReturnType<typeof listJobEvents>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listJobEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListJobEventsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listJobEvents>>> = ({ signal }) => listJobEvents(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listJobEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListJobEventsQueryResult = NonNullable<Awaited<ReturnType<typeof listJobEvents>>>
+export type ListJobEventsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Live work history for a job — check-ins, photos, notes, completion, offer acceptance
+ */
+
+export function useListJobEvents<TData = Awaited<ReturnType<typeof listJobEvents>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listJobEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListJobEventsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getCreateRecapShareUrl = (id: string,) => {
 

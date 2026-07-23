@@ -1764,6 +1764,22 @@ export const SendJobRecapResponse = zod.object({
 
 
 /**
+ * @summary Live work history for a job — check-ins, photos, notes, completion, offer acceptance
+ */
+export const ListJobEventsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ListJobEventsResponseItem = zod.object({
+  "kind": zod.string().describe('accepted | checkin | checkout | photo_before | photo_after | photo_progress | note | completed | email'),
+  "label": zod.string(),
+  "at": zod.string(),
+  "crewName": zod.string().nullish()
+})
+export const ListJobEventsResponse = zod.array(ListJobEventsResponseItem)
+
+
+/**
  * @summary Create a public live-link recap page for a job and stamp recapSentAt
  */
 export const CreateRecapShareParams = zod.object({

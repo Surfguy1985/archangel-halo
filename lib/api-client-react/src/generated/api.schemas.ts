@@ -931,6 +931,15 @@ export interface ScheduleInput {
   crewLeaderId?: string;
 }
 
+export interface JobEvent {
+  /** accepted | checkin | checkout | photo_before | photo_after | photo_progress | note | completed | email */
+  kind: string;
+  label: string;
+  at: string;
+  /** @nullable */
+  crewName?: string | null;
+}
+
 export interface RecapDraft {
   subject: string;
   body: string;

@@ -143,6 +143,7 @@ export * from './job';
 export * from './jobBoardCard';
 export * from './jobBroadcastInfo';
 export * from './jobDetail';
+export * from './jobEvent';
 export * from './jobInput';
 export * from './jobInputRecurrence';
 export * from './jobLineItem';

@@ -1149,6 +1149,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Job"
+  /jobs/{id}/events:
+    get:
+      operationId: listJobEvents
+      tags: [jobs]
+      summary: Live work history for a job — check-ins, photos, notes, completion, offer acceptance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Chronological job events (newest first)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobEvent"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /jobs/{id}/recap/share:
     post:
       operationId: createRecapShare
@@ -4944,6 +4970,16 @@ components:
         windowStart: { type: string }
         crewLeaderId: { type: string }
 
+    JobEvent:
+      type: object
+      required: [kind, label, at]
+      properties:
+        kind:
+          type: string
+          description: "accepted | checkin | checkout | photo_before | photo_after | photo_progress | note | completed | email"
+        label: { type: string }
+        at: { type: string }
+        crewName: { type: ["string", "null"] }
     RecapDraft:
       type: object
       required: [subject, body]
