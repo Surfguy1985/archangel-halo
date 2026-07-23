@@ -10,6 +10,7 @@ import {
 } from "./notifications";
 import { campaignByKind } from "./leadTemplates";
 import { runAutopilot } from "./autopilot";
+import { runWingsAutomation } from "../wings/services/automation";
 import { sendCampaignStepEmail } from "../routes/pipeline";
 import { logger } from "./logger";
 
@@ -30,6 +31,9 @@ let lastWeeklyDate: string | null = null;
 let lastUrgentSignature = "";
 let lastUrgentCheck = 0;
 let lastAutopilotCheck = 0;
+const WINGS_CHECK_MS = 15 * 60 * 1000;
+let lastWingsCheck = 0;
+let lastWingsBriefDate: string | null = null;
 
 function nowInEastern(): {
   date: string;
@@ -247,6 +251,19 @@ async function tick(): Promise<void> {
     lastAutopilotCheck = stamp;
     // runAutopilot never throws; it checks the settings toggle itself.
     await runAutopilot();
+  }
+
+  if (stamp - lastWingsCheck >= WINGS_CHECK_MS) {
+    lastWingsCheck = stamp;
+    try {
+      // Daily brief once a day at/after 07:15 ET; plain sweep otherwise.
+      const withBrief =
+        (hour > 7 || (hour === 7 && minute >= 15)) && lastWingsBriefDate !== date;
+      await runWingsAutomation({ withBrief });
+      if (withBrief) lastWingsBriefDate = date;
+    } catch (err) {
+      logger.warn({ err }, "Founding Wings automation failed");
+    }
   }
 
   if (stamp - lastUrgentCheck >= URGENT_CHECK_MS) {

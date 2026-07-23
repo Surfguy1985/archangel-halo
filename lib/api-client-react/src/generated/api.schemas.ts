@@ -3190,6 +3190,253 @@ export interface BankImportInput {
   category?: string;
 }
 
+export interface WingsMember {
+  id: string;
+  crewId: string;
+  crewName: string;
+  sponsorCrewId?: string | null;
+  sponsorName?: string | null;
+  sponsorSince?: string | null;
+  founderStatus: string;
+  founderNumber?: number | null;
+  tradeSkills?: string[];
+  draftTokens: number;
+  maxConcurrentJobs: number;
+  isAvailable: boolean;
+  haloScore: number;
+  tier: string;
+  scoreConfidence: number;
+  scoreUpdatedAt?: string | null;
+  scoreReasons?: string[] | null;
+}
+
+export interface WingsMemberUpdateInput {
+  sponsorCrewId?: string | null;
+  founderStatus?: string;
+  founderNumber?: number | null;
+  isAvailable?: boolean;
+  maxConcurrentJobs?: number;
+  draftTokens?: number;
+}
+
+export interface WingsQualityReview {
+  status: string;
+  finalScore: number;
+  completenessScore?: number;
+  craftsmanshipScore?: number;
+  propertyProtectionScore?: number;
+  safetyScore?: number;
+  anomalyRisk?: number;
+  confidence: number;
+  criticalConcern: boolean;
+  summary: string;
+  concerns?: string[];
+  decidedBy: string;
+  reviewedAt?: string | null;
+}
+
+export interface WingsQualityItem {
+  id: string;
+  jobId: string;
+  jobNo?: string | null;
+  jobCategory?: string | null;
+  propertyName?: string | null;
+  crewId?: string | null;
+  crewName?: string | null;
+  reviewStatus: string;
+  notes?: string | null;
+  beforeCount: number;
+  afterCount: number;
+  submittedAt: string;
+  review?: WingsQualityReview | null;
+}
+
+export type WingsQualityDecisionInputStatus = typeof WingsQualityDecisionInputStatus[keyof typeof WingsQualityDecisionInputStatus];
+
+
+export const WingsQualityDecisionInputStatus = {
+  PASS: 'PASS',
+  FAIL: 'FAIL',
+  NEEDS_REVIEW: 'NEEDS_REVIEW',
+} as const;
+
+export interface WingsQualityDecisionInput {
+  status: WingsQualityDecisionInputStatus;
+  reason: string;
+  finalScore?: number;
+}
+
+export interface WingsOverride {
+  id: string;
+  jobId: string;
+  jobNo?: string | null;
+  sponsorCrewId: string;
+  sponsorName?: string | null;
+  recruitCrewId: string;
+  recruitName?: string | null;
+  allocatedGrossProfit?: number;
+  baseRate?: number;
+  qualityMultiplier?: number;
+  grossOverride: number;
+  immediateAmount: number;
+  reserveAmount: number;
+  reserveBonus?: number | null;
+  reserveDebit?: number | null;
+  status: string;
+  immediateStatus: string;
+  qualityWindowEndsAt?: string | null;
+  reserveReleasedAt?: string | null;
+  createdAt: string;
+}
+
+export interface WingsReserveAccount {
+  id: string;
+  crewId: string;
+  crewName?: string | null;
+  heldBalance: number;
+  releasedBalance: number;
+  debitedBalance: number;
+}
+
+export interface WingsReserveTxn {
+  id: string;
+  crewId: string;
+  crewName?: string | null;
+  overrideId?: string | null;
+  type: string;
+  amount: number;
+  note?: string | null;
+  createdAt: string;
+}
+
+export type WingsReserveSummaryTotals = {
+  held: number;
+  released: number;
+  debited: number;
+};
+
+export interface WingsReserveSummary {
+  accounts: WingsReserveAccount[];
+  transactions: WingsReserveTxn[];
+  totals: WingsReserveSummaryTotals;
+}
+
+export interface WingsCandidate {
+  crewId: string;
+  crewName: string;
+  eligible: boolean;
+  rankScore: number;
+  haloScore: number;
+  tier: string;
+  founderStatus: string;
+  reasons: string[];
+}
+
+export interface WingsIncident {
+  id: string;
+  jobId?: string | null;
+  jobNo?: string | null;
+  crewId?: string | null;
+  crewName?: string | null;
+  type: string;
+  severity: number;
+  description: string;
+  cost?: number | null;
+  occurredAt: string;
+  resolvedAt?: string | null;
+}
+
+export type WingsIncidentInputType = typeof WingsIncidentInputType[keyof typeof WingsIncidentInputType];
+
+
+export const WingsIncidentInputType = {
+  CALLBACK: 'CALLBACK',
+  REWORK: 'REWORK',
+  DAMAGE: 'DAMAGE',
+  CUSTOMER_COMPLAINT: 'CUSTOMER_COMPLAINT',
+  SAFETY: 'SAFETY',
+  OTHER: 'OTHER',
+} as const;
+
+export interface WingsIncidentInput {
+  jobId?: string | null;
+  crewId?: string | null;
+  type: WingsIncidentInputType;
+  severity?: number;
+  description: string;
+  cost?: number | null;
+}
+
+export type WingsAutomationRunResult = { [key: string]: unknown } | null;
+
+export interface WingsAutomationRun {
+  id: string;
+  kind: string;
+  status: string;
+  actionsRun: number;
+  result?: WingsAutomationRunResult;
+  error?: string | null;
+  startedAt: string;
+  completedAt?: string | null;
+}
+
+export type WingsAuditEntryBefore = { [key: string]: unknown } | null;
+
+export type WingsAuditEntryAfter = { [key: string]: unknown } | null;
+
+export interface WingsAuditEntry {
+  id: string;
+  actorType: string;
+  action: string;
+  entityType: string;
+  entityId?: string | null;
+  before?: WingsAuditEntryBefore;
+  after?: WingsAuditEntryAfter;
+  reason?: string | null;
+  createdAt: string;
+}
+
+export type WingsOverviewTierCounts = {[key: string]: number};
+
+export interface WingsOverview {
+  members: number;
+  pendingReviews: number;
+  needsHumanReview: number;
+  heldReserve: number;
+  releasedReserve: number;
+  readyOverrides: number;
+  overrideTotal: number;
+  openIncidents?: number;
+  lastRun: WingsAutomationRun | null;
+  tierCounts: WingsOverviewTierCounts;
+}
+
+export type PortalWingsRecruitsItem = {
+  crewName: string;
+  tier: string;
+  haloScore: number;
+};
+
+export type PortalWingsReserve = {
+  held: number;
+  released: number;
+  debited: number;
+};
+
+export interface PortalWings {
+  haloScore: number;
+  tier: string;
+  founderStatus: string;
+  founderNumber?: number | null;
+  scoreConfidence: number;
+  scoreUpdatedAt?: string | null;
+  scoreReasons?: string[] | null;
+  sponsorName?: string | null;
+  recruits: PortalWingsRecruitsItem[];
+  overrides: WingsOverride[];
+  reserve: PortalWingsReserve;
+}
+
 export type ListPropertiesParams = {
 search?: string;
 };
@@ -3333,5 +3580,13 @@ days?: number;
 export type ImportBankTransaction200 = {
   ok: boolean;
   message?: string;
+};
+
+export type ListWingsQualityParams = {
+status?: string;
+};
+
+export type ListWingsAuditParams = {
+limit?: number;
 };
 

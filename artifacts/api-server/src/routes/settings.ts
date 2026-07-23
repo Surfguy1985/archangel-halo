@@ -41,6 +41,18 @@ import {
   propertiesTable,
   journalLinesTable,
   journalEntriesTable,
+  wingMembersTable,
+  wingScoreSnapshotsTable,
+  wingAssignmentsTable,
+  wingIncidentsTable,
+  wingQualitySubmissionsTable,
+  wingQualityReviewsTable,
+  wingOverridesTable,
+  wingReserveAccountsTable,
+  wingReserveTxnsTable,
+  wingEventsTable,
+  wingAutomationRunsTable,
+  wingAuditTable,
 } from "@workspace/db";
 import {
   GetBusinessSettingsResponse,
@@ -272,6 +284,18 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(jobsTable);
     await tx.delete(crewsTable);
     await tx.delete(propertiesTable);
+    await tx.delete(wingMembersTable);
+    await tx.delete(wingScoreSnapshotsTable);
+    await tx.delete(wingAssignmentsTable);
+    await tx.delete(wingIncidentsTable);
+    await tx.delete(wingQualitySubmissionsTable);
+    await tx.delete(wingQualityReviewsTable);
+    await tx.delete(wingOverridesTable);
+    await tx.delete(wingReserveAccountsTable);
+    await tx.delete(wingReserveTxnsTable);
+    await tx.delete(wingEventsTable);
+    await tx.delete(wingAutomationRunsTable);
+    await tx.delete(wingAuditTable);
     // Intentionally preserved: businessSettingsTable (company info),
     // plaidItemsTable (real bank connection).
     await tx.insert(activitiesTable).values({

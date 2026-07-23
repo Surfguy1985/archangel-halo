@@ -5686,3 +5686,489 @@ export const ImportBankTransactionResponse = zod.object({
 })
 
 
+/**
+ * @summary Founding Wings program overview
+ */
+export const GetWingsOverviewResponse = zod.object({
+  "members": zod.number(),
+  "pendingReviews": zod.number(),
+  "needsHumanReview": zod.number(),
+  "heldReserve": zod.number(),
+  "releasedReserve": zod.number(),
+  "readyOverrides": zod.number(),
+  "overrideTotal": zod.number(),
+  "openIncidents": zod.number().optional(),
+  "lastRun": zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "status": zod.string(),
+  "actionsRun": zod.number(),
+  "result": zod.record(zod.string(), zod.unknown()).nullish(),
+  "error": zod.string().nullish(),
+  "startedAt": zod.string(),
+  "completedAt": zod.string().nullish()
+}).nullable(),
+  "tierCounts": zod.record(zod.string(), zod.number())
+})
+
+
+/**
+ * @summary All wing members with crew names
+ */
+export const ListWingsMembersResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "sponsorCrewId": zod.string().nullish(),
+  "sponsorName": zod.string().nullish(),
+  "sponsorSince": zod.string().nullish(),
+  "founderStatus": zod.string(),
+  "founderNumber": zod.number().nullish(),
+  "tradeSkills": zod.array(zod.string()).optional(),
+  "draftTokens": zod.number(),
+  "maxConcurrentJobs": zod.number(),
+  "isAvailable": zod.boolean(),
+  "haloScore": zod.number(),
+  "tier": zod.string(),
+  "scoreConfidence": zod.number(),
+  "scoreUpdatedAt": zod.string().nullish(),
+  "scoreReasons": zod.array(zod.string()).nullish()
+})
+export const ListWingsMembersResponse = zod.array(ListWingsMembersResponseItem)
+
+
+/**
+ * @summary Update sponsor, availability, or founder status for a member
+ */
+export const UpdateWingsMemberParams = zod.object({
+  "crewId": zod.coerce.string()
+})
+
+export const UpdateWingsMemberBody = zod.object({
+  "sponsorCrewId": zod.string().nullish(),
+  "founderStatus": zod.string().optional(),
+  "founderNumber": zod.number().nullish(),
+  "isAvailable": zod.boolean().optional(),
+  "maxConcurrentJobs": zod.number().optional(),
+  "draftTokens": zod.number().optional()
+})
+
+export const UpdateWingsMemberResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "sponsorCrewId": zod.string().nullish(),
+  "sponsorName": zod.string().nullish(),
+  "sponsorSince": zod.string().nullish(),
+  "founderStatus": zod.string(),
+  "founderNumber": zod.number().nullish(),
+  "tradeSkills": zod.array(zod.string()).optional(),
+  "draftTokens": zod.number(),
+  "maxConcurrentJobs": zod.number(),
+  "isAvailable": zod.boolean(),
+  "haloScore": zod.number(),
+  "tier": zod.string(),
+  "scoreConfidence": zod.number(),
+  "scoreUpdatedAt": zod.string().nullish(),
+  "scoreReasons": zod.array(zod.string()).nullish()
+})
+
+
+/**
+ * @summary Recalculate a crew's Halo Score now
+ */
+export const RecalculateWingsScoreParams = zod.object({
+  "crewId": zod.coerce.string()
+})
+
+export const RecalculateWingsScoreResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "sponsorCrewId": zod.string().nullish(),
+  "sponsorName": zod.string().nullish(),
+  "sponsorSince": zod.string().nullish(),
+  "founderStatus": zod.string(),
+  "founderNumber": zod.number().nullish(),
+  "tradeSkills": zod.array(zod.string()).optional(),
+  "draftTokens": zod.number(),
+  "maxConcurrentJobs": zod.number(),
+  "isAvailable": zod.boolean(),
+  "haloScore": zod.number(),
+  "tier": zod.string(),
+  "scoreConfidence": zod.number(),
+  "scoreUpdatedAt": zod.string().nullish(),
+  "scoreReasons": zod.array(zod.string()).nullish()
+})
+
+
+/**
+ * @summary Quality submissions with AI reviews
+ */
+export const ListWingsQualityQueryParams = zod.object({
+  "status": zod.coerce.string().optional()
+})
+
+export const ListWingsQualityResponseItem = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "jobCategory": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "reviewStatus": zod.string(),
+  "notes": zod.string().nullish(),
+  "beforeCount": zod.number(),
+  "afterCount": zod.number(),
+  "submittedAt": zod.string(),
+  "review": zod.object({
+  "status": zod.string(),
+  "finalScore": zod.number(),
+  "completenessScore": zod.number().optional(),
+  "craftsmanshipScore": zod.number().optional(),
+  "propertyProtectionScore": zod.number().optional(),
+  "safetyScore": zod.number().optional(),
+  "anomalyRisk": zod.number().optional(),
+  "confidence": zod.number(),
+  "criticalConcern": zod.boolean(),
+  "summary": zod.string(),
+  "concerns": zod.array(zod.string()).optional(),
+  "decidedBy": zod.string(),
+  "reviewedAt": zod.string().nullish()
+}).nullish()
+})
+export const ListWingsQualityResponse = zod.array(ListWingsQualityResponseItem)
+
+
+/**
+ * @summary Run the AI quality review for a submission now
+ */
+export const RunWingsQualityReviewParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RunWingsQualityReviewResponse = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "jobCategory": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "reviewStatus": zod.string(),
+  "notes": zod.string().nullish(),
+  "beforeCount": zod.number(),
+  "afterCount": zod.number(),
+  "submittedAt": zod.string(),
+  "review": zod.object({
+  "status": zod.string(),
+  "finalScore": zod.number(),
+  "completenessScore": zod.number().optional(),
+  "craftsmanshipScore": zod.number().optional(),
+  "propertyProtectionScore": zod.number().optional(),
+  "safetyScore": zod.number().optional(),
+  "anomalyRisk": zod.number().optional(),
+  "confidence": zod.number(),
+  "criticalConcern": zod.boolean(),
+  "summary": zod.string(),
+  "concerns": zod.array(zod.string()).optional(),
+  "decidedBy": zod.string(),
+  "reviewedAt": zod.string().nullish()
+}).nullish()
+})
+
+
+/**
+ * @summary Record a human quality decision (overrides AI)
+ */
+export const DecideWingsQualityParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DecideWingsQualityBody = zod.object({
+  "status": zod.enum(['PASS', 'FAIL', 'NEEDS_REVIEW']),
+  "reason": zod.string(),
+  "finalScore": zod.number().optional()
+})
+
+export const DecideWingsQualityResponse = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "jobCategory": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "reviewStatus": zod.string(),
+  "notes": zod.string().nullish(),
+  "beforeCount": zod.number(),
+  "afterCount": zod.number(),
+  "submittedAt": zod.string(),
+  "review": zod.object({
+  "status": zod.string(),
+  "finalScore": zod.number(),
+  "completenessScore": zod.number().optional(),
+  "craftsmanshipScore": zod.number().optional(),
+  "propertyProtectionScore": zod.number().optional(),
+  "safetyScore": zod.number().optional(),
+  "anomalyRisk": zod.number().optional(),
+  "confidence": zod.number(),
+  "criticalConcern": zod.boolean(),
+  "summary": zod.string(),
+  "concerns": zod.array(zod.string()).optional(),
+  "decidedBy": zod.string(),
+  "reviewedAt": zod.string().nullish()
+}).nullish()
+})
+
+
+/**
+ * @summary Wingline override accruals
+ */
+export const ListWingsOverridesResponseItem = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "sponsorCrewId": zod.string(),
+  "sponsorName": zod.string().nullish(),
+  "recruitCrewId": zod.string(),
+  "recruitName": zod.string().nullish(),
+  "allocatedGrossProfit": zod.number().optional(),
+  "baseRate": zod.number().optional(),
+  "qualityMultiplier": zod.number().optional(),
+  "grossOverride": zod.number(),
+  "immediateAmount": zod.number(),
+  "reserveAmount": zod.number(),
+  "reserveBonus": zod.number().nullish(),
+  "reserveDebit": zod.number().nullish(),
+  "status": zod.string(),
+  "immediateStatus": zod.string(),
+  "qualityWindowEndsAt": zod.string().nullish(),
+  "reserveReleasedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListWingsOverridesResponse = zod.array(ListWingsOverridesResponseItem)
+
+
+/**
+ * @summary Guardian Reserve accounts and recent transactions
+ */
+export const GetWingsReserveResponse = zod.object({
+  "accounts": zod.array(zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string().nullish(),
+  "heldBalance": zod.number(),
+  "releasedBalance": zod.number(),
+  "debitedBalance": zod.number()
+})),
+  "transactions": zod.array(zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string().nullish(),
+  "overrideId": zod.string().nullish(),
+  "type": zod.string(),
+  "amount": zod.number(),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string()
+})),
+  "totals": zod.object({
+  "held": zod.number(),
+  "released": zod.number(),
+  "debited": zod.number()
+})
+})
+
+
+/**
+ * @summary Live First Flight eligibility ranking for a job
+ */
+export const GetWingsEligibilityParams = zod.object({
+  "jobId": zod.coerce.string()
+})
+
+export const GetWingsEligibilityResponseItem = zod.object({
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "eligible": zod.boolean(),
+  "rankScore": zod.number(),
+  "haloScore": zod.number(),
+  "tier": zod.string(),
+  "founderStatus": zod.string(),
+  "reasons": zod.array(zod.string())
+})
+export const GetWingsEligibilityResponse = zod.array(GetWingsEligibilityResponseItem)
+
+
+/**
+ * @summary Quality/safety incidents
+ */
+export const ListWingsIncidentsResponseItem = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "type": zod.string(),
+  "severity": zod.number(),
+  "description": zod.string(),
+  "cost": zod.number().nullish(),
+  "occurredAt": zod.string(),
+  "resolvedAt": zod.string().nullish()
+})
+export const ListWingsIncidentsResponse = zod.array(ListWingsIncidentsResponseItem)
+
+
+/**
+ * @summary Log an incident (callback, rework, damage, complaint, safety)
+ */
+export const CreateWingsIncidentBody = zod.object({
+  "jobId": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "type": zod.enum(['CALLBACK', 'REWORK', 'DAMAGE', 'CUSTOMER_COMPLAINT', 'SAFETY', 'OTHER']),
+  "severity": zod.number().optional(),
+  "description": zod.string(),
+  "cost": zod.number().nullish()
+})
+
+export const CreateWingsIncidentResponse = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "type": zod.string(),
+  "severity": zod.number(),
+  "description": zod.string(),
+  "cost": zod.number().nullish(),
+  "occurredAt": zod.string(),
+  "resolvedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Mark an incident resolved
+ */
+export const ResolveWingsIncidentParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ResolveWingsIncidentResponse = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "type": zod.string(),
+  "severity": zod.number(),
+  "description": zod.string(),
+  "cost": zod.number().nullish(),
+  "occurredAt": zod.string(),
+  "resolvedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Run the full Founding Wings automation sweep now
+ */
+export const RunWingsAutomationNowResponse = zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "status": zod.string(),
+  "actionsRun": zod.number(),
+  "result": zod.record(zod.string(), zod.unknown()).nullish(),
+  "error": zod.string().nullish(),
+  "startedAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Recent automation runs with results and the daily AI brief
+ */
+export const ListWingsAutomationRunsResponseItem = zod.object({
+  "id": zod.string(),
+  "kind": zod.string(),
+  "status": zod.string(),
+  "actionsRun": zod.number(),
+  "result": zod.record(zod.string(), zod.unknown()).nullish(),
+  "error": zod.string().nullish(),
+  "startedAt": zod.string(),
+  "completedAt": zod.string().nullish()
+})
+export const ListWingsAutomationRunsResponse = zod.array(ListWingsAutomationRunsResponseItem)
+
+
+/**
+ * @summary Founding Wings audit log
+ */
+export const ListWingsAuditQueryParams = zod.object({
+  "limit": zod.coerce.number().optional()
+})
+
+export const ListWingsAuditResponseItem = zod.object({
+  "id": zod.string(),
+  "actorType": zod.string(),
+  "action": zod.string(),
+  "entityType": zod.string(),
+  "entityId": zod.string().nullish(),
+  "before": zod.record(zod.string(), zod.unknown()).nullish(),
+  "after": zod.record(zod.string(), zod.unknown()).nullish(),
+  "reason": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListWingsAuditResponse = zod.array(ListWingsAuditResponseItem)
+
+
+/**
+ * @summary Founding Wings status for a crew portal
+ */
+export const GetPortalWingsParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPortalWingsResponse = zod.object({
+  "haloScore": zod.number(),
+  "tier": zod.string(),
+  "founderStatus": zod.string(),
+  "founderNumber": zod.number().nullish(),
+  "scoreConfidence": zod.number(),
+  "scoreUpdatedAt": zod.string().nullish(),
+  "scoreReasons": zod.array(zod.string()).nullish(),
+  "sponsorName": zod.string().nullish(),
+  "recruits": zod.array(zod.object({
+  "crewName": zod.string(),
+  "tier": zod.string(),
+  "haloScore": zod.number()
+})),
+  "overrides": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "sponsorCrewId": zod.string(),
+  "sponsorName": zod.string().nullish(),
+  "recruitCrewId": zod.string(),
+  "recruitName": zod.string().nullish(),
+  "allocatedGrossProfit": zod.number().optional(),
+  "baseRate": zod.number().optional(),
+  "qualityMultiplier": zod.number().optional(),
+  "grossOverride": zod.number(),
+  "immediateAmount": zod.number(),
+  "reserveAmount": zod.number(),
+  "reserveBonus": zod.number().nullish(),
+  "reserveDebit": zod.number().nullish(),
+  "status": zod.string(),
+  "immediateStatus": zod.string(),
+  "qualityWindowEndsAt": zod.string().nullish(),
+  "reserveReleasedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})),
+  "reserve": zod.object({
+  "held": zod.number(),
+  "released": zod.number(),
+  "debited": zod.number()
+})
+})
+
+

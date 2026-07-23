@@ -11,3 +11,4 @@ export * from "./settings";
 export * from "./bank";
 export * from "./ledger";
 export * from "./imports";
+export * from "./wings";

@@ -19,10 +19,12 @@ import {
   getListPortalDocumentsQueryKey,
   getGetPortalW9QueryKey,
   useRespondPortalOffer,
+  useGetPortalWings,
   type W9Data,
   type PortalBundle,
   type PortalOffer,
 } from "@workspace/api-client-react";
+import { WingsGuideContent, LangToggle, type GuideLang } from "@/components/WingsGuideDialog";
 import { useUpload } from "@workspace/object-storage-web";
 import {
   Calendar,
@@ -45,6 +47,8 @@ import {
   AlertCircle,
   X,
   Home,
+  Feather,
+  ShieldCheck as ShieldIcon,
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 import WelcomeKitTab from "./WelcomeKitTab";
@@ -58,6 +62,7 @@ type Tab =
   | "checkin"
   | "pay"
   | "w9"
+  | "wings"
   | "packets";
 
 function localToday(): string {
@@ -133,6 +138,7 @@ export default function CrewPortal() {
     { key: "documents", label: "Docs", icon: FileText },
     { key: "pay", label: "Pay", icon: Wallet },
     { key: "w9", label: "W-9", icon: ClipboardCheck },
+    { key: "wings", label: "Wings", icon: Feather },
   ];
 
   return (
@@ -191,12 +197,161 @@ export default function CrewPortal() {
           />
         )}
         {tab === "w9" && <W9Tab token={token} />}
+        {tab === "wings" && <WingsTab token={token} />}
       </main>
     </div>
   );
 }
 
 const card = "bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px]";
+
+const wingsMoney = (n: number) =>
+  (n ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+
+const WINGS_TIER_STYLES: Record<string, string> = {
+  TRAINING: "bg-slate-100 text-slate-700",
+  BRONZE: "bg-orange-100 text-orange-800",
+  SILVER: "bg-zinc-100 text-zinc-700",
+  GOLD: "bg-amber-100 text-amber-800",
+  PLATINUM: "bg-violet-100 text-violet-800",
+};
+
+function WingsTab({ token }: { token: string }) {
+  const { data: wings, isLoading, isError } = useGetPortalWings(token);
+  const [lang, setLang] = useState<GuideLang>("en");
+
+  if (isLoading) {
+    return (
+      <div className="animate-in fade-in duration-200 grid place-items-center py-[40px]">
+        <Loader2 className="w-6 h-6 animate-spin text-[var(--gold)]" />
+      </div>
+    );
+  }
+
+  if (isError || !wings) {
+    return (
+      <div className="animate-in fade-in duration-200">
+        <div className={`${card} text-center py-[40px]`}>
+          <Feather className="w-[32px] h-[32px] text-muted-foreground mx-auto mb-[12px]" />
+          <div className="font-display font-bold text-[17px]">Not in Founding Wings yet</div>
+          <p className="text-[13px] text-muted-foreground mt-[4px]">
+            When you're enrolled in the program, your Halo Score and earnings will show up here.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const tierCls = WINGS_TIER_STYLES[wings.tier] || "bg-muted text-muted-foreground";
+
+  return (
+    <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
+      {/* Score hero */}
+      <div className={`${card} text-center`}>
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Your Halo Score</div>
+        <div className="text-[56px] leading-none font-display font-bold text-[var(--ink)] mt-[6px]">{Math.round(wings.haloScore)}</div>
+        <div className="mt-[8px] flex items-center justify-center gap-[8px]">
+          <span className={`px-[10px] py-[3px] rounded-full text-[11px] font-bold uppercase tracking-wider ${tierCls}`}>{wings.tier}</span>
+          <span className="text-[12px] text-muted-foreground">Confidence {Math.round((wings.scoreConfidence ?? 0) * 100)}%</span>
+        </div>
+        {wings.scoreReasons && wings.scoreReasons.length > 0 && (
+          <p className="text-[12px] text-muted-foreground mt-[10px]">{wings.scoreReasons.join(" · ")}</p>
+        )}
+      </div>
+
+      {/* Founder banner */}
+      {wings.founderStatus && wings.founderStatus !== "NONE" && (
+        <div className="bg-[var(--gold-tint)] border border-[rgba(185,138,47,0.28)] text-[var(--gold-dark)] rounded-[16px] px-[16px] py-[12px] flex items-center gap-[10px]">
+          <ShieldIcon className="w-[20px] h-[20px] shrink-0" />
+          <div className="text-[13.5px] font-semibold">
+            Founding member — {wings.founderStatus}{wings.founderNumber ? ` #${wings.founderNumber}` : ""}
+          </div>
+        </div>
+      )}
+
+      {/* Sponsor */}
+      {wings.sponsorName && (
+        <div className={`${card}`}>
+          <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Your sponsor</div>
+          <div className="text-[15px] font-semibold mt-[2px]">{wings.sponsorName}</div>
+        </div>
+      )}
+
+      {/* Recruits */}
+      <div className={`${card}`}>
+        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[8px]">Your recruits</div>
+        {wings.recruits.length === 0 ? (
+          <p className="text-[13px] text-muted-foreground">No recruits yet. Sponsor a crew to earn overrides on their jobs.</p>
+        ) : (
+          <div className="flex flex-col gap-[8px]">
+            {wings.recruits.map((r, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <span className="text-[14px] font-medium">{r.crewName}</span>
+                <span className="flex items-center gap-[6px]">
+                  <span className={`px-[8px] py-[2px] rounded-full text-[10px] font-bold uppercase ${WINGS_TIER_STYLES[r.tier] || "bg-muted text-muted-foreground"}`}>{r.tier}</span>
+                  <span className="text-[13px] font-semibold">{Math.round(r.haloScore)}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Override earnings */}
+      <div className={`${card}`}>
+        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[8px]">Your override earnings</div>
+        {wings.overrides.length === 0 ? (
+          <p className="text-[13px] text-muted-foreground">No overrides yet.</p>
+        ) : (
+          <div className="flex flex-col gap-[10px]">
+            {wings.overrides.map((o) => (
+              <div key={o.id} className="border-b border-border/50 pb-[8px] last:border-0 last:pb-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-[13.5px] font-semibold">{o.jobNo || "Job"}</span>
+                  <span className="text-[10px] font-bold uppercase px-[8px] py-[2px] rounded-full bg-[var(--paper)] text-muted-foreground">{o.status}</span>
+                </div>
+                <div className="flex gap-[16px] text-[12px] text-muted-foreground mt-[3px]">
+                  <span>Immediate <b className="text-foreground">{wingsMoney(o.immediateAmount)}</b></span>
+                  <span>Reserve <b className="text-foreground">{wingsMoney(o.reserveAmount)}</b></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Reserve totals */}
+      <div className={`${card}`}>
+        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[8px]">Guardian Reserve</div>
+        <div className="grid grid-cols-3 gap-[8px] text-center">
+          <div>
+            <div className="text-[18px] font-display font-bold text-[var(--ink)]">{wingsMoney(wings.reserve.held)}</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Held</div>
+          </div>
+          <div>
+            <div className="text-[18px] font-display font-bold text-[var(--green,#2e7d32)]">{wingsMoney(wings.reserve.released)}</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Released</div>
+          </div>
+          <div>
+            <div className="text-[18px] font-display font-bold text-muted-foreground">{wingsMoney(wings.reserve.debited)}</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Debited</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Inline program guide */}
+      <div className={`${card}`}>
+        <div className="flex items-center justify-between mb-[10px]">
+          <div className="flex items-center gap-[6px] font-display font-bold text-[15px]">
+            <Feather className="w-[16px] h-[16px] text-[var(--gold)]" /> Program guide
+          </div>
+          <LangToggle lang={lang} onChange={setLang} />
+        </div>
+        <WingsGuideContent lang={lang} />
+      </div>
+    </div>
+  );
+}
 
 function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
   const queryClient = useQueryClient();

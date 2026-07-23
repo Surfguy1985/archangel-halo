@@ -19,6 +19,10 @@ import {
   contactsTable,
   calendarEventsTable,
   notificationsTable,
+  wingMembersTable,
+  wingOverridesTable,
+  wingScoreSnapshotsTable,
+  wingReserveAccountsTable,
 } from "@workspace/db";
 import {
   GetPortalParams,
@@ -1270,5 +1274,101 @@ router.post(
     );
   },
 );
+
+router.get("/portal/:token/wings", async (req, res): Promise<void> => {
+  const crew = await crewByToken(req.params.token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const [member] = await db
+    .select()
+    .from(wingMembersTable)
+    .where(eq(wingMembersTable.crewId, crew.id));
+  const crews = await db
+    .select({ id: crewsTable.id, name: crewsTable.name })
+    .from(crewsTable);
+  const nameOf = new Map(crews.map((c) => [c.id, c.name]));
+  const [recruits, overrides, snapshots, accounts] = await Promise.all([
+    db
+      .select()
+      .from(wingMembersTable)
+      .where(eq(wingMembersTable.sponsorCrewId, crew.id)),
+    db
+      .select()
+      .from(wingOverridesTable)
+      .where(eq(wingOverridesTable.sponsorCrewId, crew.id))
+      .orderBy(desc(wingOverridesTable.createdAt)),
+    db
+      .select()
+      .from(wingScoreSnapshotsTable)
+      .where(eq(wingScoreSnapshotsTable.crewId, crew.id))
+      .orderBy(desc(wingScoreSnapshotsTable.createdAt))
+      .limit(1),
+    db
+      .select()
+      .from(wingReserveAccountsTable)
+      .where(eq(wingReserveAccountsTable.crewId, crew.id)),
+  ]);
+  const jobIds = [...new Set(overrides.map((o) => o.jobId))];
+  const overrideJobs = jobIds.length
+    ? await db
+        .select({ id: jobsTable.id, jobNo: jobsTable.jobNo })
+        .from(jobsTable)
+        .where(inArray(jobsTable.id, jobIds))
+    : [];
+  const jobNo = new Map(overrideJobs.map((j) => [j.id, j.jobNo]));
+  const account = accounts[0];
+  res.json({
+    haloScore: member?.haloScore ?? 85,
+    tier: member?.tier ?? "TRAINING",
+    founderStatus: member?.founderStatus ?? "NONE",
+    founderNumber: member?.founderNumber ?? null,
+    scoreConfidence: member?.scoreConfidence ?? 0,
+    scoreUpdatedAt: member?.scoreUpdatedAt
+      ? member.scoreUpdatedAt.toISOString()
+      : null,
+    scoreReasons: (snapshots[0]?.reasons as string[] | null) ?? null,
+    sponsorName: member?.sponsorCrewId
+      ? (nameOf.get(member.sponsorCrewId) ?? null)
+      : null,
+    recruits: recruits.map((r) => ({
+      crewName: nameOf.get(r.crewId) ?? "Crew",
+      tier: r.tier,
+      haloScore: r.haloScore,
+    })),
+    overrides: overrides.map((o) => ({
+      id: o.id,
+      jobId: o.jobId,
+      jobNo: jobNo.get(o.jobId) ?? null,
+      sponsorCrewId: o.sponsorCrewId,
+      sponsorName: nameOf.get(o.sponsorCrewId) ?? null,
+      recruitCrewId: o.recruitCrewId,
+      recruitName: nameOf.get(o.recruitCrewId) ?? null,
+      allocatedGrossProfit: o.allocatedGrossProfit,
+      baseRate: o.baseRate,
+      qualityMultiplier: o.qualityMultiplier,
+      grossOverride: o.grossOverride,
+      immediateAmount: o.immediateAmount,
+      reserveAmount: o.reserveAmount,
+      reserveBonus: o.reserveBonus,
+      reserveDebit: o.reserveDebit,
+      status: o.status,
+      immediateStatus: o.immediateStatus,
+      qualityWindowEndsAt: o.qualityWindowEndsAt
+        ? o.qualityWindowEndsAt.toISOString()
+        : null,
+      reserveReleasedAt: o.reserveReleasedAt
+        ? o.reserveReleasedAt.toISOString()
+        : null,
+      createdAt: o.createdAt.toISOString(),
+    })),
+    reserve: {
+      held: account?.heldBalance ?? 0,
+      released: account?.releasedBalance ?? 0,
+      debited: account?.debitedBalance ?? 0,
+    },
+  });
+});
 
 export default router;

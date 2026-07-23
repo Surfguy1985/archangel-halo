@@ -22,6 +22,7 @@ import CrewDetail from "@/pages/CrewDetail";
 import CrewPortal from "@/pages/CrewPortal";
 import JobBoard from "@/pages/JobBoard";
 import Catalog from "@/pages/Catalog";
+import Wings from "@/pages/Wings";
 
 // Live cross-device sync: every device polls the shared server every 15s,
 // refetches when the app regains focus or reconnects, so updates made on any
@@ -59,6 +60,7 @@ function App() {
                   <Route path="/calendar" component={Calendar} />
                   <Route path="/crews" component={Crews} />
                   <Route path="/crews/:id" component={CrewDetail} />
+                  <Route path="/wings" component={Wings} />
                   <Route path="/pipeline" component={Pipeline} />
                   <Route path="/catalog" component={Catalog} />
                   <Route path="/supply" component={Supply} />

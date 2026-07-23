@@ -1,6 +1,6 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Link } from "wouter";
-import { CalendarDays, GitBranch, Package, ShieldCheck, FileUp, BookOpen, ChevronRight, ClipboardList, Settings } from "lucide-react";
+import { CalendarDays, GitBranch, Package, ShieldCheck, FileUp, BookOpen, ChevronRight, ClipboardList, Settings, Feather } from "lucide-react";
 
 const groups = [
   {
@@ -9,6 +9,8 @@ const groups = [
       { href: "/jobboard", label: "Job Board", sub: "Dispatch and fill open jobs", Icon: ClipboardList },
       { href: "/calendar", label: "Calendar", sub: "Day, week & month schedule", Icon: CalendarDays },
       { href: "/pipeline", label: "Pipeline", sub: "Leads & bids", Icon: GitBranch },
+      { href: "/wings", label: "Founding Wings", sub: "Crew scores, overrides & AI reviews", Icon: Feather },
+      { href: "/wings?guide=1", label: "Wings Program Guide", sub: "How scores, overrides & the reserve work", Icon: BookOpen },
     ],
   },
   {

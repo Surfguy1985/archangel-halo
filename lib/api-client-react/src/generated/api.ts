@@ -148,6 +148,8 @@ import type {
   ListLedgerAccounts200,
   ListPropertiesParams,
   ListPurchaseOrdersParams,
+  ListWingsAuditParams,
+  ListWingsQualityParams,
   MessageInput,
   MoneySummary,
   NewCalendarEvent,
@@ -172,6 +174,7 @@ import type {
   PortalSelfieInput,
   PortalSelfieResult,
   PortalUnseen,
+  PortalWings,
   PriceItem,
   PriceItemImportInput,
   PriceItemImportResult,
@@ -218,7 +221,19 @@ import type {
   VoiceParseInput,
   VoiceParseResult,
   W9Data,
-  W9Response
+  W9Response,
+  WingsAuditEntry,
+  WingsAutomationRun,
+  WingsCandidate,
+  WingsIncident,
+  WingsIncidentInput,
+  WingsMember,
+  WingsMemberUpdateInput,
+  WingsOverride,
+  WingsOverview,
+  WingsQualityDecisionInput,
+  WingsQualityItem,
+  WingsReserveSummary
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -14429,4 +14444,1287 @@ export const useImportBankTransaction = <TError = ErrorType<Error>,
       > => {
       return useMutation(getImportBankTransactionMutationOptions(options));
     }
+
+export const getGetWingsOverviewUrl = () => {
+
+
+
+
+  return `/api/wings/overview`
+}
+
+/**
+ * @summary Founding Wings program overview
+ */
+export const getWingsOverview = async ( options?: RequestInit): Promise<WingsOverview> => {
+
+  return customFetch<WingsOverview>(getGetWingsOverviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWingsOverviewQueryKey = () => {
+    return [
+    `/api/wings/overview`
+    ] as const;
+    }
+
+
+export const getGetWingsOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getWingsOverview>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWingsOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWingsOverviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWingsOverview>>> = ({ signal }) => getWingsOverview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWingsOverview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWingsOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getWingsOverview>>>
+export type GetWingsOverviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Founding Wings program overview
+ */
+
+export function useGetWingsOverview<TData = Awaited<ReturnType<typeof getWingsOverview>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWingsOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWingsOverviewQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListWingsMembersUrl = () => {
+
+
+
+
+  return `/api/wings/members`
+}
+
+/**
+ * @summary All wing members with crew names
+ */
+export const listWingsMembers = async ( options?: RequestInit): Promise<WingsMember[]> => {
+
+  return customFetch<WingsMember[]>(getListWingsMembersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWingsMembersQueryKey = () => {
+    return [
+    `/api/wings/members`
+    ] as const;
+    }
+
+
+export const getListWingsMembersQueryOptions = <TData = Awaited<ReturnType<typeof listWingsMembers>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWingsMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWingsMembersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWingsMembers>>> = ({ signal }) => listWingsMembers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWingsMembers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWingsMembersQueryResult = NonNullable<Awaited<ReturnType<typeof listWingsMembers>>>
+export type ListWingsMembersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary All wing members with crew names
+ */
+
+export function useListWingsMembers<TData = Awaited<ReturnType<typeof listWingsMembers>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWingsMembers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWingsMembersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateWingsMemberUrl = (crewId: string,) => {
+
+
+
+
+  return `/api/wings/members/${crewId}`
+}
+
+/**
+ * @summary Update sponsor, availability, or founder status for a member
+ */
+export const updateWingsMember = async (crewId: string,
+    wingsMemberUpdateInput: WingsMemberUpdateInput, options?: RequestInit): Promise<WingsMember> => {
+
+  return customFetch<WingsMember>(getUpdateWingsMemberUrl(crewId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(wingsMemberUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateWingsMemberMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWingsMember>>, TError,{crewId: string;data: BodyType<WingsMemberUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWingsMember>>, TError,{crewId: string;data: BodyType<WingsMemberUpdateInput>}, TContext> => {
+
+const mutationKey = ['updateWingsMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWingsMember>>, {crewId: string;data: BodyType<WingsMemberUpdateInput>}> = (props) => {
+          const {crewId,data} = props ?? {};
+
+          return  updateWingsMember(crewId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateWingsMemberMutationResult = NonNullable<Awaited<ReturnType<typeof updateWingsMember>>>
+    export type UpdateWingsMemberMutationBody = BodyType<WingsMemberUpdateInput>
+    export type UpdateWingsMemberMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update sponsor, availability, or founder status for a member
+ */
+export const useUpdateWingsMember = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWingsMember>>, TError,{crewId: string;data: BodyType<WingsMemberUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateWingsMember>>,
+        TError,
+        {crewId: string;data: BodyType<WingsMemberUpdateInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateWingsMemberMutationOptions(options));
+    }
+
+export const getRecalculateWingsScoreUrl = (crewId: string,) => {
+
+
+
+
+  return `/api/wings/members/${crewId}/recalculate`
+}
+
+/**
+ * @summary Recalculate a crew's Halo Score now
+ */
+export const recalculateWingsScore = async (crewId: string, options?: RequestInit): Promise<WingsMember> => {
+
+  return customFetch<WingsMember>(getRecalculateWingsScoreUrl(crewId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRecalculateWingsScoreMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recalculateWingsScore>>, TError,{crewId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recalculateWingsScore>>, TError,{crewId: string}, TContext> => {
+
+const mutationKey = ['recalculateWingsScore'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recalculateWingsScore>>, {crewId: string}> = (props) => {
+          const {crewId} = props ?? {};
+
+          return  recalculateWingsScore(crewId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecalculateWingsScoreMutationResult = NonNullable<Awaited<ReturnType<typeof recalculateWingsScore>>>
+
+    export type RecalculateWingsScoreMutationError = ErrorType<Error>
+
+    /**
+ * @summary Recalculate a crew's Halo Score now
+ */
+export const useRecalculateWingsScore = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recalculateWingsScore>>, TError,{crewId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recalculateWingsScore>>,
+        TError,
+        {crewId: string},
+        TContext
+      > => {
+      return useMutation(getRecalculateWingsScoreMutationOptions(options));
+    }
+
+export const getListWingsQualityUrl = (params?: ListWingsQualityParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wings/quality?${stringifiedParams}` : `/api/wings/quality`
+}
+
+/**
+ * @summary Quality submissions with AI reviews
+ */
+export const listWingsQuality = async (params?: ListWingsQualityParams, options?: RequestInit): Promise<WingsQualityItem[]> => {
+
+  return customFetch<WingsQualityItem[]>(getListWingsQualityUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWingsQualityQueryKey = (params?: ListWingsQualityParams,) => {
+    return [
+    `/api/wings/quality`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListWingsQualityQueryOptions = <TData = Awaited<ReturnType<typeof listWingsQuality>>, TError = ErrorType<unknown>>(params?: ListWingsQualityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWingsQuality>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWingsQualityQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWingsQuality>>> = ({ signal }) => listWingsQuality(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWingsQuality>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWingsQualityQueryResult = NonNullable<Awaited<ReturnType<typeof listWingsQuality>>>
+export type ListWingsQualityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Quality submissions with AI reviews
+ */
+
+export function useListWingsQuality<TData = Awaited<ReturnType<typeof listWingsQuality>>, TError = ErrorType<unknown>>(
+ params?: ListWingsQualityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWingsQuality>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWingsQualityQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRunWingsQualityReviewUrl = (id: string,) => {
+
+
+
+
+  return `/api/wings/quality/${id}/review`
+}
+
+/**
+ * @summary Run the AI quality review for a submission now
+ */
+export const runWingsQualityReview = async (id: string, options?: RequestInit): Promise<WingsQualityItem> => {
+
+  return customFetch<WingsQualityItem>(getRunWingsQualityReviewUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRunWingsQualityReviewMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runWingsQualityReview>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runWingsQualityReview>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['runWingsQualityReview'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runWingsQualityReview>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  runWingsQualityReview(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunWingsQualityReviewMutationResult = NonNullable<Awaited<ReturnType<typeof runWingsQualityReview>>>
+
+    export type RunWingsQualityReviewMutationError = ErrorType<Error>
+
+    /**
+ * @summary Run the AI quality review for a submission now
+ */
+export const useRunWingsQualityReview = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runWingsQualityReview>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runWingsQualityReview>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getRunWingsQualityReviewMutationOptions(options));
+    }
+
+export const getDecideWingsQualityUrl = (id: string,) => {
+
+
+
+
+  return `/api/wings/quality/${id}/decision`
+}
+
+/**
+ * @summary Record a human quality decision (overrides AI)
+ */
+export const decideWingsQuality = async (id: string,
+    wingsQualityDecisionInput: WingsQualityDecisionInput, options?: RequestInit): Promise<WingsQualityItem> => {
+
+  return customFetch<WingsQualityItem>(getDecideWingsQualityUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(wingsQualityDecisionInput)
+  }
+);}
+
+
+
+
+
+export const getDecideWingsQualityMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideWingsQuality>>, TError,{id: string;data: BodyType<WingsQualityDecisionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof decideWingsQuality>>, TError,{id: string;data: BodyType<WingsQualityDecisionInput>}, TContext> => {
+
+const mutationKey = ['decideWingsQuality'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideWingsQuality>>, {id: string;data: BodyType<WingsQualityDecisionInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  decideWingsQuality(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DecideWingsQualityMutationResult = NonNullable<Awaited<ReturnType<typeof decideWingsQuality>>>
+    export type DecideWingsQualityMutationBody = BodyType<WingsQualityDecisionInput>
+    export type DecideWingsQualityMutationError = ErrorType<Error>
+
+    /**
+ * @summary Record a human quality decision (overrides AI)
+ */
+export const useDecideWingsQuality = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideWingsQuality>>, TError,{id: string;data: BodyType<WingsQualityDecisionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof decideWingsQuality>>,
+        TError,
+        {id: string;data: BodyType<WingsQualityDecisionInput>},
+        TContext
+      > => {
+      return useMutation(getDecideWingsQualityMutationOptions(options));
+    }
+
+export const getListWingsOverridesUrl = () => {
+
+
+
+
+  return `/api/wings/overrides`
+}
+
+/**
+ * @summary Wingline override accruals
+ */
+export const listWingsOverrides = async ( options?: RequestInit): Promise<WingsOverride[]> => {
+
+  return customFetch<WingsOverride[]>(getListWingsOverridesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWingsOverridesQueryKey = () => {
+    return [
+    `/api/wings/overrides`
+    ] as const;
+    }
+
+
+export const getListWingsOverridesQueryOptions = <TData = Awaited<ReturnType<typeof listWingsOverrides>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWingsOverrides>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWingsOverridesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWingsOverrides>>> = ({ signal }) => listWingsOverrides({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWingsOverrides>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWingsOverridesQueryResult = NonNullable<Awaited<ReturnType<typeof listWingsOverrides>>>
+export type ListWingsOverridesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Wingline override accruals
+ */
+
+export function useListWingsOverrides<TData = Awaited<ReturnType<typeof listWingsOverrides>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWingsOverrides>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWingsOverridesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetWingsReserveUrl = () => {
+
+
+
+
+  return `/api/wings/reserve`
+}
+
+/**
+ * @summary Guardian Reserve accounts and recent transactions
+ */
+export const getWingsReserve = async ( options?: RequestInit): Promise<WingsReserveSummary> => {
+
+  return customFetch<WingsReserveSummary>(getGetWingsReserveUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWingsReserveQueryKey = () => {
+    return [
+    `/api/wings/reserve`
+    ] as const;
+    }
+
+
+export const getGetWingsReserveQueryOptions = <TData = Awaited<ReturnType<typeof getWingsReserve>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWingsReserve>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWingsReserveQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWingsReserve>>> = ({ signal }) => getWingsReserve({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWingsReserve>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWingsReserveQueryResult = NonNullable<Awaited<ReturnType<typeof getWingsReserve>>>
+export type GetWingsReserveQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Guardian Reserve accounts and recent transactions
+ */
+
+export function useGetWingsReserve<TData = Awaited<ReturnType<typeof getWingsReserve>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWingsReserve>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWingsReserveQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetWingsEligibilityUrl = (jobId: string,) => {
+
+
+
+
+  return `/api/wings/eligibility/${jobId}`
+}
+
+/**
+ * @summary Live First Flight eligibility ranking for a job
+ */
+export const getWingsEligibility = async (jobId: string, options?: RequestInit): Promise<WingsCandidate[]> => {
+
+  return customFetch<WingsCandidate[]>(getGetWingsEligibilityUrl(jobId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWingsEligibilityQueryKey = (jobId: string,) => {
+    return [
+    `/api/wings/eligibility/${jobId}`
+    ] as const;
+    }
+
+
+export const getGetWingsEligibilityQueryOptions = <TData = Awaited<ReturnType<typeof getWingsEligibility>>, TError = ErrorType<Error>>(jobId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWingsEligibility>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWingsEligibilityQueryKey(jobId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWingsEligibility>>> = ({ signal }) => getWingsEligibility(jobId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: jobId !== null && jobId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWingsEligibility>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWingsEligibilityQueryResult = NonNullable<Awaited<ReturnType<typeof getWingsEligibility>>>
+export type GetWingsEligibilityQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Live First Flight eligibility ranking for a job
+ */
+
+export function useGetWingsEligibility<TData = Awaited<ReturnType<typeof getWingsEligibility>>, TError = ErrorType<Error>>(
+ jobId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWingsEligibility>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWingsEligibilityQueryOptions(jobId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListWingsIncidentsUrl = () => {
+
+
+
+
+  return `/api/wings/incidents`
+}
+
+/**
+ * @summary Quality/safety incidents
+ */
+export const listWingsIncidents = async ( options?: RequestInit): Promise<WingsIncident[]> => {
+
+  return customFetch<WingsIncident[]>(getListWingsIncidentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWingsIncidentsQueryKey = () => {
+    return [
+    `/api/wings/incidents`
+    ] as const;
+    }
+
+
+export const getListWingsIncidentsQueryOptions = <TData = Awaited<ReturnType<typeof listWingsIncidents>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWingsIncidents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWingsIncidentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWingsIncidents>>> = ({ signal }) => listWingsIncidents({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWingsIncidents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWingsIncidentsQueryResult = NonNullable<Awaited<ReturnType<typeof listWingsIncidents>>>
+export type ListWingsIncidentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Quality/safety incidents
+ */
+
+export function useListWingsIncidents<TData = Awaited<ReturnType<typeof listWingsIncidents>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWingsIncidents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWingsIncidentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateWingsIncidentUrl = () => {
+
+
+
+
+  return `/api/wings/incidents`
+}
+
+/**
+ * @summary Log an incident (callback, rework, damage, complaint, safety)
+ */
+export const createWingsIncident = async (wingsIncidentInput: WingsIncidentInput, options?: RequestInit): Promise<WingsIncident> => {
+
+  return customFetch<WingsIncident>(getCreateWingsIncidentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(wingsIncidentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateWingsIncidentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWingsIncident>>, TError,{data: BodyType<WingsIncidentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createWingsIncident>>, TError,{data: BodyType<WingsIncidentInput>}, TContext> => {
+
+const mutationKey = ['createWingsIncident'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWingsIncident>>, {data: BodyType<WingsIncidentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createWingsIncident(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateWingsIncidentMutationResult = NonNullable<Awaited<ReturnType<typeof createWingsIncident>>>
+    export type CreateWingsIncidentMutationBody = BodyType<WingsIncidentInput>
+    export type CreateWingsIncidentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Log an incident (callback, rework, damage, complaint, safety)
+ */
+export const useCreateWingsIncident = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWingsIncident>>, TError,{data: BodyType<WingsIncidentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createWingsIncident>>,
+        TError,
+        {data: BodyType<WingsIncidentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateWingsIncidentMutationOptions(options));
+    }
+
+export const getResolveWingsIncidentUrl = (id: string,) => {
+
+
+
+
+  return `/api/wings/incidents/${id}/resolve`
+}
+
+/**
+ * @summary Mark an incident resolved
+ */
+export const resolveWingsIncident = async (id: string, options?: RequestInit): Promise<WingsIncident> => {
+
+  return customFetch<WingsIncident>(getResolveWingsIncidentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResolveWingsIncidentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveWingsIncident>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolveWingsIncident>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['resolveWingsIncident'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveWingsIncident>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  resolveWingsIncident(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolveWingsIncidentMutationResult = NonNullable<Awaited<ReturnType<typeof resolveWingsIncident>>>
+
+    export type ResolveWingsIncidentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Mark an incident resolved
+ */
+export const useResolveWingsIncident = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveWingsIncident>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resolveWingsIncident>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getResolveWingsIncidentMutationOptions(options));
+    }
+
+export const getRunWingsAutomationNowUrl = () => {
+
+
+
+
+  return `/api/wings/automation/run`
+}
+
+/**
+ * @summary Run the full Founding Wings automation sweep now
+ */
+export const runWingsAutomationNow = async ( options?: RequestInit): Promise<WingsAutomationRun> => {
+
+  return customFetch<WingsAutomationRun>(getRunWingsAutomationNowUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRunWingsAutomationNowMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runWingsAutomationNow>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runWingsAutomationNow>>, TError,void, TContext> => {
+
+const mutationKey = ['runWingsAutomationNow'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runWingsAutomationNow>>, void> = () => {
+
+
+          return  runWingsAutomationNow(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunWingsAutomationNowMutationResult = NonNullable<Awaited<ReturnType<typeof runWingsAutomationNow>>>
+
+    export type RunWingsAutomationNowMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Run the full Founding Wings automation sweep now
+ */
+export const useRunWingsAutomationNow = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runWingsAutomationNow>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runWingsAutomationNow>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRunWingsAutomationNowMutationOptions(options));
+    }
+
+export const getListWingsAutomationRunsUrl = () => {
+
+
+
+
+  return `/api/wings/automation/runs`
+}
+
+/**
+ * @summary Recent automation runs with results and the daily AI brief
+ */
+export const listWingsAutomationRuns = async ( options?: RequestInit): Promise<WingsAutomationRun[]> => {
+
+  return customFetch<WingsAutomationRun[]>(getListWingsAutomationRunsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWingsAutomationRunsQueryKey = () => {
+    return [
+    `/api/wings/automation/runs`
+    ] as const;
+    }
+
+
+export const getListWingsAutomationRunsQueryOptions = <TData = Awaited<ReturnType<typeof listWingsAutomationRuns>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWingsAutomationRuns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWingsAutomationRunsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWingsAutomationRuns>>> = ({ signal }) => listWingsAutomationRuns({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWingsAutomationRuns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWingsAutomationRunsQueryResult = NonNullable<Awaited<ReturnType<typeof listWingsAutomationRuns>>>
+export type ListWingsAutomationRunsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Recent automation runs with results and the daily AI brief
+ */
+
+export function useListWingsAutomationRuns<TData = Awaited<ReturnType<typeof listWingsAutomationRuns>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWingsAutomationRuns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWingsAutomationRunsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListWingsAuditUrl = (params?: ListWingsAuditParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wings/audit?${stringifiedParams}` : `/api/wings/audit`
+}
+
+/**
+ * @summary Founding Wings audit log
+ */
+export const listWingsAudit = async (params?: ListWingsAuditParams, options?: RequestInit): Promise<WingsAuditEntry[]> => {
+
+  return customFetch<WingsAuditEntry[]>(getListWingsAuditUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWingsAuditQueryKey = (params?: ListWingsAuditParams,) => {
+    return [
+    `/api/wings/audit`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListWingsAuditQueryOptions = <TData = Awaited<ReturnType<typeof listWingsAudit>>, TError = ErrorType<unknown>>(params?: ListWingsAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWingsAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWingsAuditQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWingsAudit>>> = ({ signal }) => listWingsAudit(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWingsAudit>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWingsAuditQueryResult = NonNullable<Awaited<ReturnType<typeof listWingsAudit>>>
+export type ListWingsAuditQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Founding Wings audit log
+ */
+
+export function useListWingsAudit<TData = Awaited<ReturnType<typeof listWingsAudit>>, TError = ErrorType<unknown>>(
+ params?: ListWingsAuditParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWingsAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWingsAuditQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPortalWingsUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/wings`
+}
+
+/**
+ * @summary Founding Wings status for a crew portal
+ */
+export const getPortalWings = async (token: string, options?: RequestInit): Promise<PortalWings> => {
+
+  return customFetch<PortalWings>(getGetPortalWingsUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalWingsQueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}/wings`
+    ] as const;
+    }
+
+
+export const getGetPortalWingsQueryOptions = <TData = Awaited<ReturnType<typeof getPortalWings>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalWings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalWingsQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalWings>>> = ({ signal }) => getPortalWings(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalWings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalWingsQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalWings>>>
+export type GetPortalWingsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Founding Wings status for a crew portal
+ */
+
+export function useGetPortalWings<TData = Awaited<ReturnType<typeof getPortalWings>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalWings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalWingsQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

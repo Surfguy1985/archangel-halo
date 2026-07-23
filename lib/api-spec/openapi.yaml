@@ -4275,6 +4275,339 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /wings/overview:
+    get:
+      operationId: getWingsOverview
+      tags: [wings]
+      summary: Founding Wings program overview
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WingsOverview"
+
+  /wings/members:
+    get:
+      operationId: listWingsMembers
+      tags: [wings]
+      summary: All wing members with crew names
+      responses:
+        "200":
+          description: Members
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WingsMember" }
+
+  /wings/members/{crewId}:
+    patch:
+      operationId: updateWingsMember
+      tags: [wings]
+      summary: Update sponsor, availability, or founder status for a member
+      parameters:
+        - name: crewId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WingsMemberUpdateInput"
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WingsMember"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /wings/members/{crewId}/recalculate:
+    post:
+      operationId: recalculateWingsScore
+      tags: [wings]
+      summary: Recalculate a crew's Halo Score now
+      parameters:
+        - name: crewId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WingsMember"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /wings/quality:
+    get:
+      operationId: listWingsQuality
+      tags: [wings]
+      summary: Quality submissions with AI reviews
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Submissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WingsQualityItem" }
+
+  /wings/quality/{id}/review:
+    post:
+      operationId: runWingsQualityReview
+      tags: [wings]
+      summary: Run the AI quality review for a submission now
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Reviewed submission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WingsQualityItem"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /wings/quality/{id}/decision:
+    post:
+      operationId: decideWingsQuality
+      tags: [wings]
+      summary: Record a human quality decision (overrides AI)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WingsQualityDecisionInput"
+      responses:
+        "200":
+          description: Updated submission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WingsQualityItem"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /wings/overrides:
+    get:
+      operationId: listWingsOverrides
+      tags: [wings]
+      summary: Wingline override accruals
+      responses:
+        "200":
+          description: Overrides
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WingsOverride" }
+
+  /wings/reserve:
+    get:
+      operationId: getWingsReserve
+      tags: [wings]
+      summary: Guardian Reserve accounts and recent transactions
+      responses:
+        "200":
+          description: Reserve summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WingsReserveSummary"
+
+  /wings/eligibility/{jobId}:
+    get:
+      operationId: getWingsEligibility
+      tags: [wings]
+      summary: Live First Flight eligibility ranking for a job
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Ranked candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WingsCandidate" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /wings/incidents:
+    get:
+      operationId: listWingsIncidents
+      tags: [wings]
+      summary: Quality/safety incidents
+      responses:
+        "200":
+          description: Incidents
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WingsIncident" }
+    post:
+      operationId: createWingsIncident
+      tags: [wings]
+      summary: Log an incident (callback, rework, damage, complaint, safety)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WingsIncidentInput"
+      responses:
+        "201":
+          description: Created incident
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WingsIncident"
+
+  /wings/incidents/{id}/resolve:
+    post:
+      operationId: resolveWingsIncident
+      tags: [wings]
+      summary: Mark an incident resolved
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Resolved incident
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WingsIncident"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /wings/automation/run:
+    post:
+      operationId: runWingsAutomationNow
+      tags: [wings]
+      summary: Run the full Founding Wings automation sweep now
+      responses:
+        "200":
+          description: Run result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WingsAutomationRun"
+
+  /wings/automation/runs:
+    get:
+      operationId: listWingsAutomationRuns
+      tags: [wings]
+      summary: Recent automation runs with results and the daily AI brief
+      responses:
+        "200":
+          description: Runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WingsAutomationRun" }
+
+  /wings/audit:
+    get:
+      operationId: listWingsAudit
+      tags: [wings]
+      summary: Founding Wings audit log
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WingsAuditEntry" }
+
+
+  /portal/{token}/wings:
+    get:
+      operationId: getPortalWings
+      tags: [wings]
+      summary: Founding Wings status for a crew portal
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Wings status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalWings"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+
 components:
   schemas:
     HealthStatus:
@@ -7028,3 +7361,273 @@ components:
         amount: { type: number }
         direction: { type: string, enum: [in, out] }
         category: { type: string }
+
+    WingsMember:
+      type: object
+      required: [id, crewId, crewName, founderStatus, haloScore, tier, scoreConfidence, draftTokens, maxConcurrentJobs, isAvailable]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        crewName: { type: string }
+        sponsorCrewId: { type: string, nullable: true }
+        sponsorName: { type: string, nullable: true }
+        sponsorSince: { type: string, nullable: true }
+        founderStatus: { type: string }
+        founderNumber: { type: number, nullable: true }
+        tradeSkills:
+          type: array
+          items: { type: string }
+        draftTokens: { type: number }
+        maxConcurrentJobs: { type: number }
+        isAvailable: { type: boolean }
+        haloScore: { type: number }
+        tier: { type: string }
+        scoreConfidence: { type: number }
+        scoreUpdatedAt: { type: string, nullable: true }
+        scoreReasons:
+          type: array
+          items: { type: string }
+          nullable: true
+    WingsMemberUpdateInput:
+      type: object
+      properties:
+        sponsorCrewId: { type: string, nullable: true }
+        founderStatus: { type: string }
+        founderNumber: { type: number, nullable: true }
+        isAvailable: { type: boolean }
+        maxConcurrentJobs: { type: number }
+        draftTokens: { type: number }
+    WingsQualityReview:
+      type: object
+      required: [status, finalScore, confidence, criticalConcern, summary, decidedBy]
+      properties:
+        status: { type: string }
+        finalScore: { type: number }
+        completenessScore: { type: number }
+        craftsmanshipScore: { type: number }
+        propertyProtectionScore: { type: number }
+        safetyScore: { type: number }
+        anomalyRisk: { type: number }
+        confidence: { type: number }
+        criticalConcern: { type: boolean }
+        summary: { type: string }
+        concerns:
+          type: array
+          items: { type: string }
+        decidedBy: { type: string }
+        reviewedAt: { type: string, nullable: true }
+    WingsQualityItem:
+      type: object
+      required: [id, jobId, reviewStatus, submittedAt, beforeCount, afterCount]
+      properties:
+        id: { type: string }
+        jobId: { type: string }
+        jobNo: { type: string, nullable: true }
+        jobCategory: { type: string, nullable: true }
+        propertyName: { type: string, nullable: true }
+        crewId: { type: string, nullable: true }
+        crewName: { type: string, nullable: true }
+        reviewStatus: { type: string }
+        notes: { type: string, nullable: true }
+        beforeCount: { type: number }
+        afterCount: { type: number }
+        submittedAt: { type: string }
+        review:
+          $ref: "#/components/schemas/WingsQualityReview"
+          nullable: true
+    WingsQualityDecisionInput:
+      type: object
+      required: [status, reason]
+      properties:
+        status: { type: string, enum: [PASS, FAIL, NEEDS_REVIEW] }
+        reason: { type: string }
+        finalScore: { type: number }
+    WingsOverride:
+      type: object
+      required: [id, jobId, sponsorCrewId, recruitCrewId, grossOverride, immediateAmount, reserveAmount, status, immediateStatus, createdAt]
+      properties:
+        id: { type: string }
+        jobId: { type: string }
+        jobNo: { type: string, nullable: true }
+        sponsorCrewId: { type: string }
+        sponsorName: { type: string, nullable: true }
+        recruitCrewId: { type: string }
+        recruitName: { type: string, nullable: true }
+        allocatedGrossProfit: { type: number }
+        baseRate: { type: number }
+        qualityMultiplier: { type: number }
+        grossOverride: { type: number }
+        immediateAmount: { type: number }
+        reserveAmount: { type: number }
+        reserveBonus: { type: number, nullable: true }
+        reserveDebit: { type: number, nullable: true }
+        status: { type: string }
+        immediateStatus: { type: string }
+        qualityWindowEndsAt: { type: string, nullable: true }
+        reserveReleasedAt: { type: string, nullable: true }
+        createdAt: { type: string }
+    WingsReserveAccount:
+      type: object
+      required: [id, crewId, heldBalance, releasedBalance, debitedBalance]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        crewName: { type: string, nullable: true }
+        heldBalance: { type: number }
+        releasedBalance: { type: number }
+        debitedBalance: { type: number }
+    WingsReserveTxn:
+      type: object
+      required: [id, crewId, type, amount, createdAt]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        crewName: { type: string, nullable: true }
+        overrideId: { type: string, nullable: true }
+        type: { type: string }
+        amount: { type: number }
+        note: { type: string, nullable: true }
+        createdAt: { type: string }
+    WingsReserveSummary:
+      type: object
+      required: [accounts, transactions, totals]
+      properties:
+        accounts:
+          type: array
+          items: { $ref: "#/components/schemas/WingsReserveAccount" }
+        transactions:
+          type: array
+          items: { $ref: "#/components/schemas/WingsReserveTxn" }
+        totals:
+          type: object
+          required: [held, released, debited]
+          properties:
+            held: { type: number }
+            released: { type: number }
+            debited: { type: number }
+    WingsCandidate:
+      type: object
+      required: [crewId, crewName, eligible, rankScore, haloScore, tier, founderStatus, reasons]
+      properties:
+        crewId: { type: string }
+        crewName: { type: string }
+        eligible: { type: boolean }
+        rankScore: { type: number }
+        haloScore: { type: number }
+        tier: { type: string }
+        founderStatus: { type: string }
+        reasons:
+          type: array
+          items: { type: string }
+    WingsIncident:
+      type: object
+      required: [id, type, severity, description, occurredAt]
+      properties:
+        id: { type: string }
+        jobId: { type: string, nullable: true }
+        jobNo: { type: string, nullable: true }
+        crewId: { type: string, nullable: true }
+        crewName: { type: string, nullable: true }
+        type: { type: string }
+        severity: { type: number }
+        description: { type: string }
+        cost: { type: number, nullable: true }
+        occurredAt: { type: string }
+        resolvedAt: { type: string, nullable: true }
+    WingsIncidentInput:
+      type: object
+      required: [type, description]
+      properties:
+        jobId: { type: string, nullable: true }
+        crewId: { type: string, nullable: true }
+        type: { type: string, enum: [CALLBACK, REWORK, DAMAGE, CUSTOMER_COMPLAINT, SAFETY, OTHER] }
+        severity: { type: number }
+        description: { type: string }
+        cost: { type: number, nullable: true }
+    WingsAutomationRun:
+      type: object
+      required: [id, kind, status, actionsRun, startedAt]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        status: { type: string }
+        actionsRun: { type: number }
+        result:
+          type: object
+          additionalProperties: true
+          nullable: true
+        error: { type: string, nullable: true }
+        startedAt: { type: string }
+        completedAt: { type: string, nullable: true }
+    WingsAuditEntry:
+      type: object
+      required: [id, actorType, action, entityType, createdAt]
+      properties:
+        id: { type: string }
+        actorType: { type: string }
+        action: { type: string }
+        entityType: { type: string }
+        entityId: { type: string, nullable: true }
+        before:
+          type: object
+          additionalProperties: true
+          nullable: true
+        after:
+          type: object
+          additionalProperties: true
+          nullable: true
+        reason: { type: string, nullable: true }
+        createdAt: { type: string }
+    WingsOverview:
+      type: object
+      required: [members, pendingReviews, needsHumanReview, heldReserve, releasedReserve, readyOverrides, overrideTotal, lastRun, tierCounts]
+      properties:
+        members: { type: number }
+        pendingReviews: { type: number }
+        needsHumanReview: { type: number }
+        heldReserve: { type: number }
+        releasedReserve: { type: number }
+        readyOverrides: { type: number }
+        overrideTotal: { type: number }
+        openIncidents: { type: number }
+        lastRun:
+          $ref: "#/components/schemas/WingsAutomationRun"
+          nullable: true
+        tierCounts:
+          type: object
+          additionalProperties: { type: number }
+
+    PortalWings:
+      type: object
+      required: [haloScore, tier, founderStatus, scoreConfidence, recruits, overrides, reserve]
+      properties:
+        haloScore: { type: number }
+        tier: { type: string }
+        founderStatus: { type: string }
+        founderNumber: { type: number, nullable: true }
+        scoreConfidence: { type: number }
+        scoreUpdatedAt: { type: string, nullable: true }
+        scoreReasons:
+          type: array
+          items: { type: string }
+          nullable: true
+        sponsorName: { type: string, nullable: true }
+        recruits:
+          type: array
+          items:
+            type: object
+            required: [crewName, tier, haloScore]
+            properties:
+              crewName: { type: string }
+              tier: { type: string }
+              haloScore: { type: number }
+        overrides:
+          type: array
+          items: { $ref: "#/components/schemas/WingsOverride" }
+        reserve:
+          type: object
+          required: [held, released, debited]
+          properties:
+            held: { type: number }
+            released: { type: number }
+            debited: { type: number }

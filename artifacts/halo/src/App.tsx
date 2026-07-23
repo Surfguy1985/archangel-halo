@@ -24,6 +24,7 @@ import Import from "./pages/Import";
 import JobBoard from "./pages/JobBoard";
 import Settings from "./pages/Settings";
 import Catalog from "./pages/Catalog";
+import Wings from "./pages/Wings";
 import NotFound from "@/pages/not-found";
 
 // Live cross-device sync: every device polls the shared server every 15s,
@@ -59,6 +60,7 @@ function AdminRouter() {
         <Route path="/pipeline" component={Pipeline} />
         <Route path="/jobboard" component={JobBoard} />
         <Route path="/catalog" component={Catalog} />
+        <Route path="/wings" component={Wings} />
         <Route path="/supply" component={Supply} />
         <Route path="/vendors" component={Vendors} />
         <Route path="/import" component={Import} />

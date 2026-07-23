@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles } from "lucide-react";
+import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather } from "lucide-react";
 import { useGetToday, getGetTodayQueryKey } from "@workspace/api-client-react";
 import haloLogo from "../assets/halo-logo.png";
 import { NotificationsPopover } from "./NotificationsPopover";
 import { VoiceCaptureDialog } from "./VoiceCaptureDialog";
 import { BusinessInfoDialog } from "./BusinessInfoDialog";
 import { GuidedTour } from "./GuidedTour";
+import { WingsGuideDialog } from "./WingsGuideDialog";
 import { FalkonBadge } from "./FalkonBadge";
 import {
   DropdownMenu,
@@ -32,6 +33,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
   };
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [wingsGuideOpen, setWingsGuideOpen] = useState(false);
   const { data: today } = useGetToday({
     query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000 },
   });
@@ -51,6 +53,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
           <NavItem href="/properties" icon={Building} label="Properties" active={location.startsWith("/properties")} tourId="nav-properties" />
           <NavItem href="/money" icon={DollarSign} label="Money" active={location.startsWith("/money") || location.startsWith("/invoices")} tourId="nav-money" />
           <NavItem href="/crews" icon={Users} label="Crews" active={location.startsWith("/crews")} tourId="nav-crews" />
+          <NavItem href="/wings" icon={Feather} label="Wings" active={location.startsWith("/wings")} tourId="nav-wings" />
           <NavItem href="/pipeline" icon={Target} label="Pipeline" active={location.startsWith("/pipeline")} tourId="nav-pipeline" />
           <NavItem href="/catalog" icon={BookOpen} label="Price Book" active={location.startsWith("/catalog")} tourId="nav-catalog" />
           <NavItem href="/supply" icon={Package} label="Supply" active={location.startsWith("/supply")} tourId="nav-supply" />
@@ -99,6 +102,10 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuItem onSelect={() => setTourOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]">
                 <GraduationCap className="w-4 h-4 mr-2" />
                 Guided tour
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setWingsGuideOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]">
+                <BookOpen className="w-4 h-4 mr-2" />
+                Wings Program Guide
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setSettingsOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]">
                 <Settings className="w-4 h-4 mr-2" />
@@ -156,6 +163,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
       />
       <BusinessInfoDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <GuidedTour open={tourOpen} onOpenChange={setTourOpen} />
+      <WingsGuideDialog open={wingsGuideOpen} onOpenChange={setWingsGuideOpen} />
     </div>
   );
 }
