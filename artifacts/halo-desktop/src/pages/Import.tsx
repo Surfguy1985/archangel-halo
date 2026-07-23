@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useParseIngest,
   useCommitIngest,
+  useScanIngest,
   useListImportHistory,
   getListImportHistoryQueryKey,
   getListPropertiesQueryKey,
@@ -17,7 +18,8 @@ import {
 } from "@workspace/api-client-react";
 import { FileUp, Sparkles, Check, FileText, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { extractFileText } from "@/lib/extractText";
+import { extractFileText, renderPdfPages } from "@/lib/extractText";
+import { prepareScanImage } from "@/lib/scanImage";
 
 const targetLabels: Record<string, string> = {
   properties: "Properties",
@@ -39,6 +41,7 @@ export default function Import() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const parse = useParseIngest();
+  const scan = useScanIngest();
   const commit = useCommitIngest();
   const history = useListImportHistory();
 
@@ -57,6 +60,37 @@ export default function Import() {
     setDone(null);
   };
 
+  const isImageFile = (file: File): boolean => {
+    if (file.type.startsWith("image/")) return true;
+    return /\.(heic|heif|jpg|jpeg|png|webp|gif|bmp|tiff)$/i.test(file.name);
+  };
+
+  const looksReadable = (text: string): boolean => {
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    const sample = trimmed.slice(0, 4000);
+    let printable = 0;
+    for (let i = 0; i < sample.length; i++) {
+      const code = sample.charCodeAt(i);
+      if (code === 9 || code === 10 || code === 13 || (code >= 32 && code !== 127)) {
+        printable++;
+      }
+    }
+    return printable / sample.length >= 0.85;
+  };
+
+  const finishParse = (result: { summary?: string | null; records: IngestRecord[] }) => {
+    setSummary(result.summary ?? null);
+    setRecords(result.records);
+    setSelected(new Set(result.records.map((_, i) => i)));
+    if (result.records.length === 0) {
+      toast({
+        title: "Nothing to import",
+        description: "The file was read but no records were detected.",
+      });
+    }
+  };
+
   const onFilePicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -66,27 +100,122 @@ export default function Import() {
     setFileObj(file);
     setReading(true);
     try {
-      const { content, mimeType } = await extractFileText(file);
-      if (!content.trim()) {
+      const lowerName = file.name.toLowerCase();
+
+      // Images (incl. HEIC) → prepare + vision OCR scan
+      if (isImageFile(file)) {
+        let prepared;
+        try {
+          prepared = await prepareScanImage(file);
+        } catch {
+          toast({
+            title: "Couldn't read that photo format",
+            description:
+              "Couldn't read that photo format — try taking the photo again or export it as JPEG.",
+            variant: "destructive",
+          });
+          return;
+        }
+        const { blob, base64, mediaType } = prepared;
+        setFileObj(new File([blob], file.name, { type: mediaType }));
+        const result = await scan.mutateAsync({
+          data: { image: base64, mediaType, filename: file.name },
+        });
+        finishParse(result);
+        return;
+      }
+
+      // Excel spreadsheets → CSV per sheet
+      if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
+        const XLSX = await import("xlsx");
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const parts: string[] = [];
+        for (const sheetName of wb.SheetNames) {
+          const csv = XLSX.utils.sheet_to_csv(wb.Sheets[sheetName]);
+          if (csv.trim()) parts.push(`# ${sheetName}\n${csv}`);
+        }
+        const content = parts.join("\n\n");
+        if (!content.trim()) {
+          toast({
+            title: "Couldn't read that file",
+            description: "No readable content found in the spreadsheet.",
+            variant: "destructive",
+          });
+          return;
+        }
+        const result = await parse.mutateAsync({
+          data: { filename: file.name, content, mimeType: "text/plain", target: "auto" },
+        });
+        finishParse(result);
+        return;
+      }
+
+      // Word documents → raw text
+      if (lowerName.endsWith(".docx")) {
+        const mammoth = await import("mammoth");
+        const arrayBuffer = await file.arrayBuffer();
+        const { value } = await mammoth.extractRawText({ arrayBuffer });
+        if (!value.trim()) {
+          toast({
+            title: "Couldn't read that file",
+            description: "No readable text found in the document.",
+            variant: "destructive",
+          });
+          return;
+        }
+        const result = await parse.mutateAsync({
+          data: { filename: file.name, content: value, mimeType: "text/plain", target: "auto" },
+        });
+        finishParse(result);
+        return;
+      }
+
+      const { content, mimeType, isPdf } = await extractFileText(file);
+
+      // Scanned/image-only PDFs have little or no selectable text — OCR the
+      // rendered pages instead of giving up.
+      if (isPdf && content.trim().length < 120) {
+        const pages = await renderPdfPages(file);
+        if (pages.length === 0) {
+          toast({
+            title: "Couldn't read that file",
+            description: "No readable content found in the PDF.",
+            variant: "destructive",
+          });
+          return;
+        }
+        const merged: IngestRecord[] = [];
+        const summaries: string[] = [];
+        for (let i = 0; i < pages.length; i++) {
+          const pageResult = await scan.mutateAsync({
+            data: {
+              image: pages[i],
+              mediaType: "image/jpeg",
+              filename: `${file.name} (page ${i + 1})`,
+            },
+          });
+          merged.push(...pageResult.records);
+          if (pageResult.summary) summaries.push(pageResult.summary);
+        }
+        finishParse({ summary: summaries[0] ?? null, records: merged });
+        return;
+      }
+
+      if (!content.trim() || (!isPdf && !looksReadable(content))) {
         toast({
           title: "Couldn't read that file",
-          description: "No readable text found. Try a CSV or text-based PDF.",
+          description:
+            "That file format isn't readable. Try a photo, PDF, CSV, text, Excel (.xlsx/.xls), or Word (.docx) file.",
           variant: "destructive",
         });
         return;
       }
+
       const result = await parse.mutateAsync({
         data: { filename: file.name, content, mimeType, target: "auto" },
       });
-      setSummary(result.summary ?? null);
-      setRecords(result.records);
-      setSelected(new Set(result.records.map((_, i) => i)));
-      if (result.records.length === 0) {
-        toast({
-          title: "Nothing to import",
-          description: "The file was read but no records were detected.",
-        });
-      }
+      finishParse(result);
     } catch {
       toast({
         title: "Import failed",
@@ -182,7 +311,7 @@ export default function Import() {
     }
   };
 
-  const busy = reading || parse.isPending;
+  const busy = reading || parse.isPending || scan.isPending;
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -190,8 +319,9 @@ export default function Import() {
         <div>
           <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">Import Data</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Drop in a CSV, PDF, or any document. HALO reads it and files each record
-            where it belongs. Works best with CSV, text, and text-based PDFs.
+            Drop in almost anything — a photo of handwritten field notes or a receipt,
+            an Excel or CSV spreadsheet, a Word doc, a PDF, or plain text. HALO reads
+            it and files each record where it belongs.
           </p>
         </div>
       </header>
@@ -201,6 +331,7 @@ export default function Import() {
         {busy ? "Reading file…" : "Choose a file to import"}
         <input
           type="file"
+          accept="image/*,.heic,.heif,.pdf,.csv,.txt,.tsv,.xlsx,.xls,.docx,.json"
           className="hidden"
           onChange={onFilePicked}
           disabled={busy}

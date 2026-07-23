@@ -82,7 +82,9 @@
     "@uppy/dashboard": "^5.1.1",
     "@uppy/react": "^5.2.0",
     "jspdf": "^4.2.1",
+    "mammoth": "^1.12.0",
     "pdfjs-dist": "^6.1.200",
-    "react-plaid-link": "^4.1.1"
+    "react-plaid-link": "^4.1.1",
+    "xlsx": "^0.18.5"
   }
 }

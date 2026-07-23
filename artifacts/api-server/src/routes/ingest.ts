@@ -138,9 +138,10 @@ router.post("/ingest/scan", async (req, res): Promise<void> => {
       summary?: string;
       records: IngestRecord[];
     }>(
-      `You are HALO's document scanner — an expert OCR reader for a property-maintenance contractor. Read the photographed receipt, invoice, or document and extract structured records.
+      `You are HALO's document scanner — an expert OCR reader for a property-maintenance contractor. Read the photographed document and extract structured records. It may be a receipt, invoice, price sheet, OR handwritten field notes: a notebook page, whiteboard, sticky note, clipboard job list, work order, timesheet, or scribbled to-do list from the field.
 Reading rules:
 - Read every line of the document carefully, even if the photo is rotated, skewed, dim, blurry, wrinkled, or partially cut off. Mentally rotate/deskew before reading.
+- Handwriting: read cursive and messy print carefully; use context to resolve ambiguous letters/digits (e.g. property names, unit numbers, dollar amounts). Shorthand like "u205 leak fix" means unit 205, plumbing job.
 - Transcribe names, numbers, and amounts EXACTLY as printed — never invent or round values.
 - For any amount, cross-check digits (e.g. subtotal + tax = total). Prefer the printed TOTAL.
 - If a specific field is truly unreadable, omit it rather than guessing.
@@ -153,6 +154,7 @@ Fields by target:
 - inventory { name, qty (number), reorderAt? (number), unitCost? (number), preferredVendor? }
 - price_items { service, rate (number), propertyName?, unit?, detail? } — use for a photographed price list / rate sheet, one record per service line.
 A store/supplier receipt is almost always ONE expense record: vendor = store name, amount = the receipt TOTAL (after tax), category = best fit (materials, fuel, tools, supplies, etc.). Do not create one expense per line item.
+Handwritten field notes usually list JOBS/tasks: one jobs record per task line, with description, propertyName and unitNo when written. Dollar amounts next to a customer/property name are usually invoices (money owed to us); amounts next to a store/supplier name are expenses.
 If the receipt clearly lists stockable materials the contractor would track (e.g. filters, paint, parts with quantities), you may ALSO add inventory records for those items.
 Include propertyName only if a property/job-site name is written on the receipt.
 Return {"detectedTarget": "...", "summary": "one sentence describing what was scanned", "records": [{ "target", "label" (human readable), "confidence" (0-1), "fields" {...} }]}.`,
