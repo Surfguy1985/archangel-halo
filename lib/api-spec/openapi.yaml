@@ -4829,6 +4829,7 @@ components:
         recapSentAt: { type: ["string", "null"] }
         warrantyUntil: { type: ["string", "null"] }
         scheduledOn: { type: ["string", "null"] }
+        scheduledTime: { type: ["string", "null"], description: "HH:MM start time for fixed-schedule jobs" }
         grossProfit: { type: ["number", "null"] }
         marginPct: { type: ["number", "null"] }
         crewRate: { type: ["number", "null"], description: "Payout rate the crew must accept for this job" }
@@ -4923,6 +4924,10 @@ components:
         inspectionRequired: { type: boolean }
         isRecurring: { type: boolean }
         recurrence: { type: string, enum: [daily, weekly, biweekly, monthly, quarterly] }
+        scheduleType: { type: string, enum: [scheduled, flex], description: "scheduled = fixed date/time; flex = complete within flexDays" }
+        scheduledOn: { type: string, description: "YYYY-MM-DD fixed date (scheduled jobs)" }
+        scheduledTime: { type: string, description: "HH:MM start time (scheduled jobs)" }
+        flexDays: { type: number, minimum: 1, description: "Days from today to complete (flex jobs); sets flexDueBy" }
     JobUpdate:
       type: object
       properties:

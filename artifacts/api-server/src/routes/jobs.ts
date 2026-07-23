@@ -143,9 +143,31 @@ router.post("/jobs", async (req, res): Promise<void> => {
     return;
   }
   if (!body.isRecurring) body.recurrence = undefined;
+  const { flexDays, ...rest } = body;
+  const scheduleType = body.scheduleType === "flex" ? "flex" : "scheduled";
+  let flexDueBy: string | null = null;
+  let scheduledOn = rest.scheduledOn ?? undefined;
+  let scheduledTime = rest.scheduledTime ?? undefined;
+  if (scheduleType === "flex") {
+    // Flex: crew works on their own time before a deadline computed from
+    // "days from today" using LOCAL date parts (never UTC).
+    const days = Math.max(1, Math.round(flexDays ?? 7));
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    flexDueBy = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    scheduledOn = undefined;
+    scheduledTime = undefined;
+  }
   const [row] = await db
     .insert(jobsTable)
-    .values({ ...body, jobNo: await nextJobNo() })
+    .values({
+      ...rest,
+      scheduleType,
+      scheduledOn,
+      scheduledTime,
+      flexDueBy,
+      jobNo: await nextJobNo(),
+    })
     .returning();
   const { propName, crewName } = await lookups();
   res

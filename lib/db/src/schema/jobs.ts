@@ -54,6 +54,7 @@ export const jobsTable = pgTable("jobs", {
   recapSentAt: timestamp("recap_sent_at", { withTimezone: true }),
   warrantyUntil: date("warranty_until", { mode: "string" }),
   scheduledOn: date("scheduled_on", { mode: "string" }),
+  scheduledTime: text("scheduled_time"),
   grossProfit: doublePrecision("gross_profit"),
   marginPct: doublePrecision("margin_pct"),
   crewRate: doublePrecision("crew_rate"),

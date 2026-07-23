@@ -44,6 +44,11 @@ export interface Job {
   warrantyUntil?: string | null;
   /** @nullable */
   scheduledOn?: string | null;
+  /**
+     * HH:MM start time for fixed-schedule jobs
+     * @nullable
+     */
+  scheduledTime?: string | null;
   /** @nullable */
   grossProfit?: number | null;
   /** @nullable */

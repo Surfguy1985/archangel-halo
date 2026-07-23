@@ -717,6 +717,10 @@ export function AddJobDialog({
   const [inspectionRequired, setInspectionRequired] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrence, setRecurrence] = useState("weekly");
+  const [scheduleType, setScheduleType] = useState<"scheduled" | "flex">("scheduled");
+  const [scheduledOn, setScheduledOn] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [flexDays, setFlexDays] = useState("7");
   const [error, setError] = useState<string | null>(null);
   const create = useCreateJob();
 
@@ -731,6 +735,10 @@ export function AddJobDialog({
       setInspectionRequired(false);
       setIsRecurring(false);
       setRecurrence("weekly");
+      setScheduleType("scheduled");
+      setScheduledOn("");
+      setScheduledTime("");
+      setFlexDays("7");
       setError(null);
     }
   }, [open]);
@@ -754,6 +762,10 @@ export function AddJobDialog({
           recurrence: isRecurring
             ? (recurrence as "daily" | "weekly" | "biweekly" | "monthly" | "quarterly")
             : undefined,
+          scheduleType,
+          scheduledOn: scheduleType === "scheduled" && scheduledOn ? scheduledOn : undefined,
+          scheduledTime: scheduleType === "scheduled" && scheduledTime ? scheduledTime : undefined,
+          flexDays: scheduleType === "flex" ? Math.max(1, Number(flexDays) || 7) : undefined,
         },
       },
       {
@@ -871,6 +883,66 @@ export function AddJobDialog({
               </select>
             </Field>
           </div>
+          <Field label="Schedule">
+            <div className="flex gap-2">
+              {(
+                [
+                  ["scheduled", "Fixed schedule"],
+                  ["flex", "Flex — own time"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setScheduleType(value)}
+                  className={`flex-1 rounded-[10px] py-2 text-[13px] font-display font-bold border transition-colors ${
+                    scheduleType === value
+                      ? "bg-[var(--primary)] text-[var(--ink)] border-transparent"
+                      : "bg-card border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                  data-testid={`button-schedule-${value}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </Field>
+          {scheduleType === "scheduled" ? (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Date">
+                <input
+                  type="date"
+                  className={fieldCls}
+                  value={scheduledOn}
+                  onChange={(e) => setScheduledOn(e.target.value)}
+                  data-testid="input-scheduled-date"
+                />
+              </Field>
+              <Field label="Start time">
+                <input
+                  type="time"
+                  className={fieldCls}
+                  value={scheduledTime}
+                  onChange={(e) => setScheduledTime(e.target.value)}
+                  data-testid="input-scheduled-time"
+                />
+              </Field>
+            </div>
+          ) : (
+            <Field label="Must be completed within">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  className={`${fieldCls} !w-[110px]`}
+                  value={flexDays}
+                  onChange={(e) => setFlexDays(e.target.value)}
+                  data-testid="input-flex-days"
+                />
+                <span className="text-sm text-muted-foreground">days from today</span>
+              </div>
+            </Field>
+          )}
           <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
             <input
               type="checkbox"

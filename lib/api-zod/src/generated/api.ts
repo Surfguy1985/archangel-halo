@@ -248,6 +248,7 @@ export const GetPropertyResponse = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
@@ -1124,6 +1125,7 @@ export const ListJobsResponseItem = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
@@ -1159,6 +1161,7 @@ export const ListJobsResponse = zod.array(ListJobsResponseItem)
 
 
 
+
 export const CreateJobBody = zod.object({
   "propertyId": zod.string(),
   "woNo": zod.string().optional(),
@@ -1169,7 +1172,11 @@ export const CreateJobBody = zod.object({
   "contactId": zod.string().optional(),
   "inspectionRequired": zod.boolean().optional(),
   "isRecurring": zod.boolean().optional(),
-  "recurrence": zod.enum(['daily', 'weekly', 'biweekly', 'monthly', 'quarterly']).optional()
+  "recurrence": zod.enum(['daily', 'weekly', 'biweekly', 'monthly', 'quarterly']).optional(),
+  "scheduleType": zod.enum(['scheduled', 'flex']).optional().describe('scheduled = fixed date\/time; flex = complete within flexDays'),
+  "scheduledOn": zod.string().optional().describe('YYYY-MM-DD fixed date (scheduled jobs)'),
+  "scheduledTime": zod.string().optional().describe('HH:MM start time (scheduled jobs)'),
+  "flexDays": zod.number().min(1).optional().describe('Days from today to complete (flex jobs); sets flexDueBy')
 })
 
 export const CreateJobResponse = zod.object({
@@ -1193,6 +1200,7 @@ export const CreateJobResponse = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
@@ -1250,6 +1258,7 @@ export const GetJobResponse = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
@@ -1373,6 +1382,7 @@ export const UpdateJobResponse = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
@@ -1444,6 +1454,7 @@ export const CompleteJobResponse = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
@@ -1503,6 +1514,7 @@ export const ClearJobResponse = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
@@ -1562,6 +1574,7 @@ export const RestartJobResponse = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
@@ -1627,6 +1640,7 @@ export const ScheduleJobResponse = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
@@ -1772,6 +1786,7 @@ export const SendJobRecapResponse = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
@@ -1908,6 +1923,7 @@ export const ListJobBoardResponseItem = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
@@ -2033,6 +2049,7 @@ export const UpdateBoardSettingsResponse = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
@@ -2092,6 +2109,7 @@ export const ReopenJobResponse = zod.object({
   "recapSentAt": zod.string().nullish(),
   "warrantyUntil": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
   "grossProfit": zod.number().nullish(),
   "marginPct": zod.number().nullish(),
   "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),

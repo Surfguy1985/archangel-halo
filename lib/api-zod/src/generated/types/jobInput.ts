@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { JobInputRecurrence } from './jobInputRecurrence';
+import type { JobInputScheduleType } from './jobInputScheduleType';
 
 export interface JobInput {
   propertyId: string;
@@ -19,4 +20,15 @@ export interface JobInput {
   inspectionRequired?: boolean;
   isRecurring?: boolean;
   recurrence?: JobInputRecurrence;
+  /** scheduled = fixed date/time; flex = complete within flexDays */
+  scheduleType?: JobInputScheduleType;
+  /** YYYY-MM-DD fixed date (scheduled jobs) */
+  scheduledOn?: string;
+  /** HH:MM start time (scheduled jobs) */
+  scheduledTime?: string;
+  /**
+     * Days from today to complete (flex jobs); sets flexDueBy
+     * @minimum 1
+     */
+  flexDays?: number;
 }

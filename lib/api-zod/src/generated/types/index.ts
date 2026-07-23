@@ -147,6 +147,7 @@ export * from './jobDetail';
 export * from './jobEvent';
 export * from './jobInput';
 export * from './jobInputRecurrence';
+export * from './jobInputScheduleType';
 export * from './jobLineItem';
 export * from './jobLineItemInput';
 export * from './jobLineItemUpdate';

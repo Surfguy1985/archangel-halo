@@ -217,6 +217,11 @@ export interface Job {
   warrantyUntil?: string | null;
   /** @nullable */
   scheduledOn?: string | null;
+  /**
+     * HH:MM start time for fixed-schedule jobs
+     * @nullable
+     */
+  scheduledTime?: string | null;
   /** @nullable */
   grossProfit?: number | null;
   /** @nullable */
@@ -850,6 +855,17 @@ export const JobInputRecurrence = {
   quarterly: 'quarterly',
 } as const;
 
+/**
+ * scheduled = fixed date/time; flex = complete within flexDays
+ */
+export type JobInputScheduleType = typeof JobInputScheduleType[keyof typeof JobInputScheduleType];
+
+
+export const JobInputScheduleType = {
+  scheduled: 'scheduled',
+  flex: 'flex',
+} as const;
+
 export interface JobInput {
   propertyId: string;
   woNo?: string;
@@ -862,6 +878,17 @@ export interface JobInput {
   inspectionRequired?: boolean;
   isRecurring?: boolean;
   recurrence?: JobInputRecurrence;
+  /** scheduled = fixed date/time; flex = complete within flexDays */
+  scheduleType?: JobInputScheduleType;
+  /** YYYY-MM-DD fixed date (scheduled jobs) */
+  scheduledOn?: string;
+  /** HH:MM start time (scheduled jobs) */
+  scheduledTime?: string;
+  /**
+     * Days from today to complete (flex jobs); sets flexDueBy
+     * @minimum 1
+     */
+  flexDays?: number;
 }
 
 /**

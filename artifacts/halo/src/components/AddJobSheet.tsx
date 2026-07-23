@@ -38,6 +38,10 @@ export function AddJobSheet({
   const [crewLeaderId, setCrewLeaderId] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrence, setRecurrence] = useState<string>("weekly");
+  const [scheduleType, setScheduleType] = useState<"scheduled" | "flex">("scheduled");
+  const [scheduledOn, setScheduledOn] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [flexDays, setFlexDays] = useState("7");
   const create = useCreateJob();
 
   const reset = () => {
@@ -47,6 +51,10 @@ export function AddJobSheet({
     setCrewLeaderId("");
     setIsRecurring(false);
     setRecurrence("weekly");
+    setScheduleType("scheduled");
+    setScheduledOn("");
+    setScheduledTime("");
+    setFlexDays("7");
   };
 
   const submit = () => {
@@ -63,6 +71,10 @@ export function AddJobSheet({
           recurrence: isRecurring
             ? (recurrence as "daily" | "weekly" | "biweekly" | "monthly" | "quarterly")
             : undefined,
+          scheduleType,
+          scheduledOn: scheduleType === "scheduled" && scheduledOn ? scheduledOn : undefined,
+          scheduledTime: scheduleType === "scheduled" && scheduledTime ? scheduledTime : undefined,
+          flexDays: scheduleType === "flex" ? Math.max(1, Number(flexDays) || 7) : undefined,
         },
       },
       {
@@ -116,6 +128,67 @@ export function AddJobSheet({
                 <option key={c.id} value={c.id}>{c.name}{c.trade ? ` · ${c.trade}` : ""}</option>
               ))}
             </select>
+
+            <div className="flex gap-[8px]">
+              {(
+                [
+                  ["scheduled", "Fixed schedule"],
+                  ["flex", "Flex — own time"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setScheduleType(value)}
+                  className={`flex-1 rounded-[13px] py-[11px] text-[13.5px] font-display font-bold border transition-transform active:scale-[0.97] ${
+                    scheduleType === value
+                      ? "text-[var(--ink)] bg-[var(--primary)] border-transparent shadow-[0_4px_14px_rgba(180,255,68,0.35)]"
+                      : "bg-card border-border text-muted-foreground shadow-[var(--shadow)]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {scheduleType === "scheduled" ? (
+              <div className="flex gap-[10px]">
+                <div className="flex-1">
+                  <div className="text-[12px] font-display font-bold text-muted-foreground mb-[4px] ml-[2px]">Date</div>
+                  <input
+                    type="date"
+                    className={fieldCls}
+                    value={scheduledOn}
+                    onChange={(e) => setScheduledOn(e.target.value)}
+                  />
+                </div>
+                <div className="flex-1">
+                  <div className="text-[12px] font-display font-bold text-muted-foreground mb-[4px] ml-[2px]">Start time</div>
+                  <input
+                    type="time"
+                    className={fieldCls}
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="text-[12px] font-display font-bold text-muted-foreground mb-[4px] ml-[2px]">
+                  Must be completed within
+                </div>
+                <div className="flex items-center gap-[10px]">
+                  <input
+                    type="number"
+                    min={1}
+                    className={`${fieldCls} !w-[110px]`}
+                    value={flexDays}
+                    onChange={(e) => setFlexDays(e.target.value)}
+                  />
+                  <span className="text-[13.5px] text-muted-foreground">days from today</span>
+                </div>
+              </div>
+            )}
 
             <button
               type="button"
