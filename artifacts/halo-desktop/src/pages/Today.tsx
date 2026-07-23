@@ -1,4 +1,4 @@
-import { useGetToday, useRefreshBrief, useGetQueues, useListActivities, getGetTodayQueryKey, getListActivitiesQueryKey } from "@workspace/api-client-react";
+import { useGetToday, useRefreshBrief, useGetQueues, useListActivities, useDismissFeedItem, getGetTodayQueryKey, getGetQueuesQueryKey, getListActivitiesQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, ArrowRight, RefreshCw, X, History, ChevronDown } from "lucide-react";
@@ -37,6 +37,7 @@ export default function Today() {
     { query: { queryKey: getListActivitiesQueryKey({ limit: 12 }), refetchInterval: 10_000 } },
   );
   const refreshBrief = useRefreshBrief();
+  const dismissItem = useDismissFeedItem();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -51,6 +52,19 @@ export default function Today() {
       toast({ title: "Brief updated" });
     } catch {
       toast({ title: "Failed to update brief", variant: "destructive" });
+    }
+  };
+
+  const handleDismiss = async (e: React.MouseEvent, itemId: string) => {
+    e.stopPropagation();
+    if (dismissItem.isPending) return;
+    try {
+      await dismissItem.mutateAsync({ data: { itemId } });
+      queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetQueuesQueryKey() });
+      toast({ title: "Cleared" });
+    } catch {
+      toast({ title: "Failed to clear", variant: "destructive" });
     }
   };
 
@@ -144,11 +158,23 @@ export default function Today() {
                     <h3 className="font-semibold text-[var(--ink)] text-lg mb-1">{item.title}</h3>
                     <p className="text-muted-foreground text-sm">{item.sub}</p>
                   </div>
-                  {route && (
-                    <div className="w-8 h-8 rounded-full border border-border flex items-center justify-center group-hover:bg-[var(--gold-tint)] group-hover:border-[var(--gold)]/30 transition-colors">
-                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-[var(--gold-dark)]" />
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {route && (
+                      <div className="w-8 h-8 rounded-full border border-border flex items-center justify-center group-hover:bg-[var(--gold-tint)] group-hover:border-[var(--gold)]/30 transition-colors">
+                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-[var(--gold-dark)]" />
+                      </div>
+                    )}
+                    <button
+                      onClick={(e) => handleDismiss(e, item.id)}
+                      disabled={dismissItem.isPending}
+                      aria-label="Clear"
+                      title="Clear from feed"
+                      data-testid={`button-dismiss-${item.id}`}
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground/50 hover:text-[var(--ink)] hover:bg-black/5 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </CardContent>
               </Card>
               );

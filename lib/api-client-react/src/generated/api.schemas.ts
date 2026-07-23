@@ -70,6 +70,11 @@ export interface TodayPayload {
   unreadNotifications: number;
 }
 
+export interface FeedDismissInput {
+  /** @minLength 1 */
+  itemId: string;
+}
+
 export interface AskInput {
   /** @minLength 1 */
   question: string;

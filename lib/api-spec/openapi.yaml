@@ -92,6 +92,25 @@ paths:
                 items:
                   $ref: "#/components/schemas/Queue"
 
+  /feed/dismiss:
+    post:
+      operationId: dismissFeedItem
+      tags: [today]
+      summary: Clear a Today feed item so it no longer appears
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedDismissInput"
+      responses:
+        "200":
+          description: Dismissed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
   /ask:
     post:
       operationId: askHalo
@@ -531,6 +550,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Lead"
+    delete:
+      operationId: deleteLead
+      tags: [pipeline]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /leads/{id}/templates:
     get:
       operationId: listLeadEmailTemplates
@@ -4201,6 +4238,12 @@ components:
         label: { type: string }
         count: { type: integer }
         color: { type: ["string", "null"] }
+
+    FeedDismissInput:
+      type: object
+      required: [itemId]
+      properties:
+        itemId: { type: string, minLength: 1 }
 
     AskInput:
       type: object

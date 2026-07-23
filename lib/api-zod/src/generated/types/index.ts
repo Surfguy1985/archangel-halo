@@ -104,6 +104,7 @@ export * from './expense';
 export * from './expenseInput';
 export * from './expenseInputPaymentStatus';
 export * from './feedCard';
+export * from './feedDismissInput';
 export * from './getAccountLedgerParams';
 export * from './getBalanceSheetReportParams';
 export * from './getBankAnalysisParams';

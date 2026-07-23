@@ -3,6 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import {
   db,
   autopilotActionsTable,
+  feedDismissalsTable,
   businessSettingsTable,
   crewInvoiceItemsTable,
   crewInvoicesTable,
@@ -257,6 +258,7 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(leadCampaignsTable);
     await tx.delete(notificationsTable);
     await tx.delete(autopilotActionsTable);
+    await tx.delete(feedDismissalsTable);
     // Intentionally preserved: activitiesTable — the activity log is a
     // permanent history that survives data wipes.
     await tx.delete(voiceLogsTable);

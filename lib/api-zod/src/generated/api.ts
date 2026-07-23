@@ -83,6 +83,21 @@ export const GetQueuesResponse = zod.array(GetQueuesResponseItem)
 
 
 /**
+ * @summary Clear a Today feed item so it no longer appears
+ */
+
+
+
+export const DismissFeedItemBody = zod.object({
+  "itemId": zod.string().min(1)
+})
+
+export const DismissFeedItemResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
  * @summary Ask HALO a natural-language question about the business
  */
 
@@ -744,6 +759,13 @@ export const UpdateLeadResponse = zod.object({
   "campaignNextSendAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
 })
+
+
+export const DeleteLeadParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteLeadResponse = zod.void()
 
 
 /**

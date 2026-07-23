@@ -6,6 +6,7 @@ import {
   invoicesTable,
   jobsTable,
   propertiesTable,
+  feedDismissalsTable,
 } from "@workspace/db";
 import {
   GetTodayResponse,
@@ -13,6 +14,8 @@ import {
   GetQueuesResponse,
   AskHaloBody,
   AskHaloResponse,
+  DismissFeedItemBody,
+  DismissFeedItemResponse,
 } from "@workspace/api-zod";
 import { computeQueues } from "../lib/queues";
 import { completeText } from "../lib/ai";
@@ -34,8 +37,26 @@ async function unreadCount(): Promise<number> {
   return Number(row?.c ?? 0);
 }
 
+async function visibleQueues() {
+  const [{ feed, queues }, dismissals] = await Promise.all([
+    computeQueues(),
+    db.select().from(feedDismissalsTable),
+  ]);
+  const dismissed = new Set(dismissals.map((d) => d.itemId));
+  const visibleFeed = feed.filter((f) => !dismissed.has(f.id));
+  const visible = new Map<string, number>();
+  for (const f of visibleFeed) {
+    visible.set(f.queue, (visible.get(f.queue) ?? 0) + 1);
+  }
+  const adjustedQueues = queues.map((q) => ({
+    ...q,
+    count: visible.get(q.key) ?? 0,
+  }));
+  return { feed: visibleFeed, queues: adjustedQueues };
+}
+
 async function briefContext() {
-  const { feed, queues } = await computeQueues();
+  const { feed, queues } = await visibleQueues();
   const needsYou = feed.filter((f) => f.tier === "now" || f.tier === "today").length;
   const invoices = await db.select().from(invoicesTable);
   const atRisk = invoices
@@ -118,8 +139,17 @@ router.post("/brief/refresh", async (_req, res): Promise<void> => {
 });
 
 router.get("/queues", async (_req, res): Promise<void> => {
-  const { queues } = await computeQueues();
+  const { queues } = await visibleQueues();
   res.json(GetQueuesResponse.parse(queues));
+});
+
+router.post("/feed/dismiss", async (req, res): Promise<void> => {
+  const { itemId } = DismissFeedItemBody.parse(req.body);
+  await db
+    .insert(feedDismissalsTable)
+    .values({ itemId })
+    .onConflictDoNothing();
+  res.json(DismissFeedItemResponse.parse({ ok: true }));
 });
 
 router.post("/ask", async (req, res): Promise<void> => {

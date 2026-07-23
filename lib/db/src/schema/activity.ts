@@ -67,6 +67,21 @@ export const autopilotActionsTable = pgTable(
   (t) => [uniqueIndex("autopilot_actions_kind_entity_uq").on(t.kind, t.entityId)],
 );
 
+// Feed items the owner has manually cleared from the Today feed.
+// itemId matches the deterministic FeedItem id (e.g. "inv-<uuid>").
+export const feedDismissalsTable = pgTable(
+  "feed_dismissals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    itemId: text("item_id").notNull(),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("feed_dismissals_item_uq").on(t.itemId)],
+);
+
+export type FeedDismissal = typeof feedDismissalsTable.$inferSelect;
 export type AutopilotAction = typeof autopilotActionsTable.$inferSelect;
 export type Notification = typeof notificationsTable.$inferSelect;
 export type Activity = typeof activitiesTable.$inferSelect;

@@ -13,6 +13,7 @@ import {
   useGetBid,
   useUpdateBid,
   useDeleteBid,
+  useDeleteLead,
   useSendBid,
   getListLeadsQueryKey,
   getListBidsQueryKey,
@@ -235,9 +236,28 @@ export function LeadDetailDialog({
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const updateLead = useUpdateLead();
+  const deleteLead = useDeleteLead();
   const sendEmail = useSendLeadEmail();
   const startCampaign = useStartLeadCampaign();
   const stopCampaign = useStopLeadCampaign();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const doDeleteLead = () => {
+    if (!lead) return;
+    deleteLead.mutate(
+      { id: lead.id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListLeadsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+          toast({ title: "Lead deleted" });
+          onOpenChange(false);
+        },
+        onError: (e) =>
+          toast({ title: "Couldn't delete", description: e.message, variant: "destructive" }),
+      },
+    );
+  };
   const { data: templates } = useListLeadEmailTemplates(lead?.id ?? "", {
     query: {
       queryKey: ["leadTemplates", lead?.id ?? ""],
@@ -261,6 +281,7 @@ export function LeadDetailDialog({
       setContactPhone(lead.contactPhone ?? "");
       setSelectedTemplate(null);
       setShowTranscript(false);
+      setConfirmDelete(false);
     }
   }, [open, lead]);
 
@@ -549,6 +570,30 @@ export function LeadDetailDialog({
                   <p className="text-xs text-muted-foreground">Previous campaign was stopped.</p>
                 )}
               </div>
+            )}
+          </div>
+
+          <div className="flex justify-end pt-1">
+            {confirmDelete ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={doDeleteLead}
+                disabled={deleteLead.isPending}
+                data-testid="button-confirm-delete-lead"
+              >
+                {deleteLead.isPending ? "Deleting…" : "Confirm delete"}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive"
+                onClick={() => setConfirmDelete(true)}
+                data-testid="button-delete-lead"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete lead
+              </Button>
             )}
           </div>
         </div>

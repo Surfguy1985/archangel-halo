@@ -1,9 +1,11 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Mail, Phone, Send, StopCircle, Zap } from "lucide-react";
+import { Mail, Phone, Send, StopCircle, Trash2, Zap } from "lucide-react";
 import {
   useUpdateLead,
+  useDeleteLead,
+  getGetTodayQueryKey,
   useListLeadEmailTemplates,
   useSendLeadEmail,
   useListLeadCampaignDefs,
@@ -45,6 +47,8 @@ export function LeadDetailSheet({
 }) {
   const queryClient = useQueryClient();
   const update = useUpdateLead();
+  const deleteLead = useDeleteLead();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const sendEmail = useSendLeadEmail();
   const startCampaign = useStartLeadCampaign();
   const stopCampaign = useStopLeadCampaign();
@@ -73,6 +77,7 @@ export function LeadDetailSheet({
       setSelectedTemplate(null);
       setFeedback(null);
       setShowTranscript(false);
+      setConfirmDelete(false);
     }
   }, [open, lead?.id]);
 
@@ -310,6 +315,39 @@ export function LeadDetailSheet({
           {feedback && (
             <div className="text-[12.5px] text-center mt-[12px] text-muted-foreground">{feedback}</div>
           )}
+
+          <div className="mt-[16px] flex justify-center">
+            {confirmDelete ? (
+              <button
+                className="text-[13px] font-bold px-[16px] py-[9px] rounded-[11px] bg-[#FF3B30] text-white disabled:opacity-50"
+                disabled={deleteLead.isPending}
+                data-testid="button-confirm-delete-lead"
+                onClick={() =>
+                  deleteLead.mutate(
+                    { id: lead.id },
+                    {
+                      onSuccess: () => {
+                        queryClient.invalidateQueries({ queryKey: getListLeadsQueryKey() });
+                        queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+                        onOpenChange(false);
+                      },
+                      onError: () => setFeedback("Couldn't delete lead."),
+                    },
+                  )
+                }
+              >
+                {deleteLead.isPending ? "Deleting…" : "Confirm delete"}
+              </button>
+            ) : (
+              <button
+                className="flex items-center gap-[6px] text-[13px] font-bold text-[#FF3B30] px-[12px] py-[8px]"
+                data-testid="button-delete-lead"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="w-[14px] h-[14px]" /> Delete lead
+              </button>
+            )}
+          </div>
         </div>
       </SheetContent>
     </Sheet>

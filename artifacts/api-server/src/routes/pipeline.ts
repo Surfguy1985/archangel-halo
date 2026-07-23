@@ -41,6 +41,7 @@ import {
   UpdateBidParams,
   UpdateBidResponse,
   DeleteBidParams,
+  DeleteLeadParams,
   SendBidParams,
   SendBidBody,
   SendBidResponse,
@@ -659,6 +660,25 @@ router.patch("/bids/:id", async (req, res): Promise<void> => {
     return updated;
   });
   res.json(UpdateBidResponse.parse(await bidDetailJson(row)));
+});
+
+router.delete("/leads/:id", async (req, res): Promise<void> => {
+  const { id } = DeleteLeadParams.parse(req.params);
+  const [existing] = await db
+    .select()
+    .from(leadsTable)
+    .where(eq(leadsTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Lead not found" });
+    return;
+  }
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(leadCampaignsTable)
+      .where(eq(leadCampaignsTable.leadId, id));
+    await tx.delete(leadsTable).where(eq(leadsTable.id, id));
+  });
+  res.status(204).end();
 });
 
 router.delete("/bids/:id", async (req, res): Promise<void> => {

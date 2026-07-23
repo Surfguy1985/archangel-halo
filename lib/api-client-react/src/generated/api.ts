@@ -89,6 +89,7 @@ import type {
   Error,
   Expense,
   ExpenseInput,
+  FeedDismissInput,
   GetAccountLedgerParams,
   GetBalanceSheetReportParams,
   GetBankAnalysisParams,
@@ -542,6 +543,77 @@ export function useGetQueues<TData = Awaited<ReturnType<typeof getQueues>>, TErr
 
 
 
+
+export const getDismissFeedItemUrl = () => {
+
+
+
+
+  return `/api/feed/dismiss`
+}
+
+/**
+ * @summary Clear a Today feed item so it no longer appears
+ */
+export const dismissFeedItem = async (feedDismissInput: FeedDismissInput, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getDismissFeedItemUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(feedDismissInput)
+  }
+);}
+
+
+
+
+
+export const getDismissFeedItemMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dismissFeedItem>>, TError,{data: BodyType<FeedDismissInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof dismissFeedItem>>, TError,{data: BodyType<FeedDismissInput>}, TContext> => {
+
+const mutationKey = ['dismissFeedItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof dismissFeedItem>>, {data: BodyType<FeedDismissInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  dismissFeedItem(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DismissFeedItemMutationResult = NonNullable<Awaited<ReturnType<typeof dismissFeedItem>>>
+    export type DismissFeedItemMutationBody = BodyType<FeedDismissInput>
+    export type DismissFeedItemMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Clear a Today feed item so it no longer appears
+ */
+export const useDismissFeedItem = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dismissFeedItem>>, TError,{data: BodyType<FeedDismissInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof dismissFeedItem>>,
+        TError,
+        {data: BodyType<FeedDismissInput>},
+        TContext
+      > => {
+      return useMutation(getDismissFeedItemMutationOptions(options));
+    }
 
 export const getAskHaloUrl = () => {
 
@@ -2063,6 +2135,71 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getUpdateLeadMutationOptions(options));
+    }
+
+export const getDeleteLeadUrl = (id: string,) => {
+
+
+
+
+  return `/api/leads/${id}`
+}
+
+export const deleteLead = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteLeadUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteLeadMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLead>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteLead>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteLead'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteLead>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteLead(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteLeadMutationResult = NonNullable<Awaited<ReturnType<typeof deleteLead>>>
+
+    export type DeleteLeadMutationError = ErrorType<Error>
+
+    export const useDeleteLead = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLead>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteLead>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteLeadMutationOptions(options));
     }
 
 export const getListLeadEmailTemplatesUrl = (id: string,) => {

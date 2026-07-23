@@ -3,6 +3,7 @@ import {
   FeedCard as FeedCardType,
   useRemindInvoice,
   useNudgeBid,
+  useDismissFeedItem,
   getGetTodayQueryKey,
   getListInvoicesQueryKey,
   getListBidsQueryKey,
@@ -10,7 +11,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Sparkles, ChevronRight } from "lucide-react";
+import { Loader2, Sparkles, ChevronRight, X } from "lucide-react";
 import { HaloRing } from "./HaloRing";
 
 export function BriefCard({ brief }: { brief: Brief }) {
@@ -78,6 +79,19 @@ export function FeedCard({
   const queryClient = useQueryClient();
   const remindInvoice = useRemindInvoice();
   const nudgeBid = useNudgeBid();
+  const dismissItem = useDismissFeedItem();
+
+  const handleDismiss = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (dismissItem.isPending) return;
+    try {
+      await dismissItem.mutateAsync({ data: { itemId: card.id } });
+      queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+      toast({ title: "Cleared" });
+    } catch {
+      toast({ title: "Failed to clear", variant: "destructive" });
+    }
+  };
 
   const route = entityRoute(card.entityType, card.entityId);
   const actionPending = remindInvoice.isPending || nudgeBid.isPending;
@@ -144,7 +158,22 @@ export function FeedCard({
             <div className="font-display font-bold text-[16px] leading-[1.2] text-[var(--ink)] tracking-[-0.01em] pr-[8px]">
               {card.title}
             </div>
-            {route && <ChevronRight className="w-[16px] h-[16px] text-muted-foreground/50 shrink-0 mt-[2px]" />}
+            <div className="flex items-center gap-[6px] shrink-0 mt-[2px]">
+              {route && <ChevronRight className="w-[16px] h-[16px] text-muted-foreground/50" />}
+              <button
+                onClick={handleDismiss}
+                disabled={dismissItem.isPending}
+                aria-label="Clear"
+                data-testid={`button-dismiss-${card.id}`}
+                className="w-[26px] h-[26px] -mr-[4px] -mt-[4px] grid place-items-center rounded-full text-muted-foreground/60 hover:text-[var(--ink)] hover:bg-[rgba(0,0,0,0.06)] transition-colors"
+              >
+                {dismissItem.isPending ? (
+                  <Loader2 className="w-[14px] h-[14px] animate-spin" />
+                ) : (
+                  <X className="w-[14px] h-[14px]" />
+                )}
+              </button>
+            </div>
           </div>
           
           {card.sub && <div className="text-[13.5px] text-muted-foreground mt-[4px] leading-[1.3] pr-[20px]">{card.sub}</div>}
