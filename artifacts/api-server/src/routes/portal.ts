@@ -243,15 +243,15 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
   const jobsById = new Map(jobs.map((j) => [j.id, j]));
   const propsById = new Map(props.map((p) => [p.id, p]));
 
-  // Best phone contact per property: prefer on-site roles, then any with a phone.
+  // Best contact per property: prefer on-site roles with a phone, then any
+  // with a phone, then any contact at all (so name/email still show).
   const contactForProp = (propertyId: string | null | undefined) => {
     if (!propertyId) return null;
-    const forProp = contacts.filter(
-      (c) => c.propertyId === propertyId && c.phone,
-    );
+    const forProp = contacts.filter((c) => c.propertyId === propertyId);
     if (forProp.length === 0) return null;
-    const onSite = forProp.find((c) => /on.?site|maint/i.test(c.role ?? ""));
-    return onSite ?? forProp[0]!;
+    const withPhone = forProp.filter((c) => c.phone);
+    const onSite = withPhone.find((c) => /on.?site|maint/i.test(c.role ?? ""));
+    return onSite ?? withPhone[0] ?? forProp[0]!;
   };
 
   const propFields = (propertyId: string | null | undefined) => {
@@ -262,7 +262,9 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       propertyAddress: prop?.address ?? null,
       propertyCity: prop?.city ?? null,
       contactName: contact?.name ?? null,
+      contactRole: contact?.role ?? null,
       contactPhone: contact?.phone ?? null,
+      contactEmail: contact?.email ?? null,
     };
   };
 

@@ -44,6 +44,7 @@ import {
   Briefcase,
   AlertCircle,
   X,
+  Home,
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 import WelcomeKitTab from "./WelcomeKitTab";
@@ -332,9 +333,28 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
                     <div>
                       <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Location</div>
                       <div className="text-[13px] font-semibold leading-tight">
-                        {o.propertyAddress || o.propertyCity || "No address provided"}
+                        {[o.propertyAddress, o.propertyCity].filter(Boolean).join(", ") || "No address provided"}
                       </div>
+                      {(o.propertyAddress || o.propertyCity) && (
+                        <a
+                          href={`https://maps.google.com/?q=${encodeURIComponent([o.propertyAddress, o.propertyCity].filter(Boolean).join(", "))}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[12px] font-semibold text-[var(--blue)]"
+                        >
+                          Open in Maps
+                        </a>
+                      )}
                     </div>
+                  </div>
+                </div>
+
+                {/* Units */}
+                <div className="flex items-start gap-[8px]">
+                  <Home className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Unit(s) to work</div>
+                    <div className="text-[13px] font-semibold">{o.unitNo ? `Unit ${o.unitNo}` : "See scope of work — ask the site contact if unsure"}</div>
                   </div>
                 </div>
 
@@ -377,10 +397,23 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
                 )}
                 
                 {/* Contact */}
-                {o.contactPhone && (
+                {(o.contactName || o.contactPhone || o.contactEmail) && (
                   <div className="mt-[4px] pt-[12px] border-t border-border">
                      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[2px]">Site Contact</div>
-                     <div className="text-[13px] font-semibold">{o.contactName || "Contact"} · <a href={`tel:${o.contactPhone.replace(/[^\d+]/g, '')}`} className="text-[var(--blue)]">{o.contactPhone}</a></div>
+                     <div className="text-[13px] font-semibold">
+                       {o.contactName || "Contact"}
+                       {o.contactRole ? <span className="text-muted-foreground font-normal"> ({o.contactRole})</span> : null}
+                     </div>
+                     {o.contactPhone && (
+                       <div className="text-[13px]">
+                         <a href={`tel:${o.contactPhone.replace(/[^\d+]/g, '')}`} className="text-[var(--blue)] font-semibold">{o.contactPhone}</a>
+                       </div>
+                     )}
+                     {o.contactEmail && (
+                       <div className="text-[13px]">
+                         <a href={`mailto:${o.contactEmail}`} className="text-[var(--blue)] font-semibold">{o.contactEmail}</a>
+                       </div>
+                     )}
                   </div>
                 )}
 

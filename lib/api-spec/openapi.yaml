@@ -6459,7 +6459,9 @@ components:
         propertyAddress: { type: ["string", "null"] }
         propertyCity: { type: ["string", "null"] }
         contactName: { type: ["string", "null"] }
+        contactRole: { type: ["string", "null"] }
         contactPhone: { type: ["string", "null"] }
+        contactEmail: { type: ["string", "null"] }
         scheduleType: { type: ["string", "null"], description: "scheduled | flex" }
         flexDueBy: { type: ["string", "null"], description: "YYYY-MM-DD deadline for flex jobs" }
         crewsNeeded: { type: ["number", "null"] }

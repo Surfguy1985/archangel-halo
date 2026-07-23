@@ -38,7 +38,11 @@ export interface PortalOffer {
   /** @nullable */
   contactName?: string | null;
   /** @nullable */
+  contactRole?: string | null;
+  /** @nullable */
   contactPhone?: string | null;
+  /** @nullable */
+  contactEmail?: string | null;
   /**
      * scheduled | flex
      * @nullable
