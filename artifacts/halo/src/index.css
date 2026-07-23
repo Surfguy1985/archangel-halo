@@ -45,28 +45,28 @@
 }
 
 :root {
-  --ink: #FFFFFF;
-  --ink2: #A1A1AA;
-  --muted: #71717A;
-  --faint: #3F3F46;
-  --paper: #09090B;
-  --card: #18181B;
-  --hairline: rgba(255,255,255,0.1);
-  --hairline2: rgba(255,255,255,0.2);
+  --ink: #0F172A;
+  --ink2: #475569;
+  --muted: #64748B;
+  --faint: #94A3B8;
+  --paper: #EEF2F6;
+  --card: #FFFFFF;
+  --hairline: rgba(71,85,105,0.18);
+  --hairline2: rgba(71,85,105,0.32);
   
-  --gold: #C6F211;
-  --gold-dark: #A8D308;
-  --gold-light: #D4F542;
-  --gold-tint: rgba(198, 242, 17, 0.15);
+  --gold: #6D9B12;
+  --gold-dark: #5A800F;
+  --gold-light: #B4FF44;
+  --gold-tint: rgba(180, 255, 68, 0.25);
   
-  --red: #FF3366;
-  --orange: #FF6600;
-  --yellow: #FFCC00;
-  --green: #C6F211;
-  --blue: #3388FF;
-  --purple: #AF52DE;
+  --red: #E11D48;
+  --orange: #EA580C;
+  --yellow: #CA8A04;
+  --green: #65A30D;
+  --blue: #2563EB;
+  --purple: #7C3AED;
   
-  --app-backdrop: #000000;
+  --app-backdrop: #CBD5E1;
   
   --radius: 12px;
 }
@@ -112,12 +112,12 @@ body {
 .btn-gold {
   background: var(--gold);
   color: #000000;
-  box-shadow: 0 0 20px rgba(198, 242, 17, 0.2);
+  box-shadow: 0 0 20px rgba(180, 255, 68, 0.2);
   transition: all 0.2s ease;
 }
 .btn-gold:hover {
   background: var(--gold-light);
-  box-shadow: 0 0 30px rgba(198, 242, 17, 0.4);
+  box-shadow: 0 0 30px rgba(180, 255, 68, 0.4);
 }
 .btn-ghost {
   background: rgba(255,255,255,.05);

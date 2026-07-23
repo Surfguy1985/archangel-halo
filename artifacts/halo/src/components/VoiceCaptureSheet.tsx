@@ -533,7 +533,7 @@ export function VoiceCaptureSheet({
                           <span
                             className={`w-[22px] h-[22px] rounded-full grid place-items-center shrink-0 ${
                               on
-                                ? "bg-[var(--gold)] text-white"
+                                ? "bg-[var(--gold-light)] text-black"
                                 : "bg-[rgba(23,24,28,0.10)] text-transparent"
                             }`}
                           >
@@ -593,8 +593,8 @@ export function VoiceCaptureSheet({
           {phase === "done" && (
             <>
               <div className="flex flex-col items-center text-center my-[14px]">
-                <span className="w-[54px] h-[54px] rounded-full bg-[var(--gold)] grid place-items-center shadow-[0_6px_20px_rgba(143,106,31,0.38)]">
-                  <Check className="w-[26px] h-[26px] text-white" />
+                <span className="w-[54px] h-[54px] rounded-full bg-[var(--gold-light)] grid place-items-center shadow-[0_6px_20px_rgba(143,106,31,0.38)]">
+                  <Check className="w-[26px] h-[26px] text-black" />
                 </span>
                 <SheetTitle className="font-display font-bold text-[19px] mt-[12px]">
                   {appliedCount > 0

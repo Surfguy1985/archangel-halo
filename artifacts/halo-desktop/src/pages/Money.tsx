@@ -117,7 +117,7 @@ function SummaryCards() {
   }
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-      <Card className="bg-[var(--gold)] text-white border-none shadow-md">
+      <Card className="bg-[var(--gold-light)] text-black border-none shadow-md">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4 opacity-90">
             <ArrowDownRight className="w-5 h-5" />
@@ -536,7 +536,7 @@ function Expenses() {
           {sorted.length} expense{sorted.length === 1 ? "" : "s"} ·{" "}
           <span className="font-semibold text-[var(--ink)]">{money(total)}</span> total
           {pendingCount > 0 && (
-            <span className="ml-2 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--gold)]/15 text-[var(--gold-dark)]">
+            <span className="ml-2 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark)]">
               {pendingCount} awaiting approval
             </span>
           )}
@@ -609,7 +609,7 @@ function Expenses() {
                   )}
                 </div>
                 {isPending && (
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--gold)]/15 text-[var(--gold-dark)] shrink-0">
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark)] shrink-0">
                     Needs approval
                   </span>
                 )}

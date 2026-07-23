@@ -135,7 +135,7 @@ export default function JobDetail() {
         <button
           onClick={() => setEditOpen(true)}
           aria-label="Edit job"
-          className="w-[36px] h-[36px] shrink-0 rounded-full grid place-items-center bg-card border border-border shadow-[0_0_10px_rgba(198,242,17,0.1)] text-primary hover:text-primary-foreground hover:bg-primary transition-all active:scale-[0.9]"
+          className="w-[36px] h-[36px] shrink-0 rounded-full grid place-items-center bg-card border border-border shadow-[0_0_10px_rgba(180,255,68,0.1)] text-primary hover:text-primary-foreground hover:bg-[var(--gold-light)] transition-all active:scale-[0.9]"
         >
           <Pencil className="w-[16px] h-[16px]" />
         </button>
@@ -146,7 +146,7 @@ export default function JobDetail() {
           <div>
             <div className="text-[12px] text-primary uppercase tracking-[0.1em] font-display font-bold mb-[4px]">Status</div>
             {job.status === "complete" ? (
-              <span className="inline-flex items-center gap-[5px] text-[12px] font-display font-bold uppercase tracking-[0.08em] text-primary bg-primary/10 border border-primary/30 rounded-full px-[10px] py-[4px] shadow-[0_0_10px_rgba(198,242,17,0.2)]">
+              <span className="inline-flex items-center gap-[5px] text-[12px] font-display font-bold uppercase tracking-[0.08em] text-primary bg-primary/10 border border-primary/30 rounded-full px-[10px] py-[4px] shadow-[0_0_10px_rgba(180,255,68,0.2)]">
                 <Check className="w-[12px] h-[12px]" /> Completed
               </span>
             ) : (
@@ -225,7 +225,7 @@ export default function JobDetail() {
       <div className="px-[6px]">
         <button
           onClick={() => setScheduleOpen(true)}
-          className="w-full mb-[18px] flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border shadow-[0_0_15px_rgba(198,242,17,0.05)] text-primary hover:border-primary/50 transition-all active:scale-[0.98]"
+          className="w-full mb-[18px] flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border shadow-[0_0_15px_rgba(180,255,68,0.05)] text-primary hover:border-primary/50 transition-all active:scale-[0.98]"
         >
           <CalendarDays className="w-[17px] h-[17px]" />
           {schedules.length > 0 ? "Reschedule / add date" : "Schedule job"}
@@ -233,7 +233,7 @@ export default function JobDetail() {
 
         {schedules.length > 0 && (
           <div className="mb-[18px]">
-            <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-primary mb-[8px] mx-[2px] drop-shadow-[0_0_5px_rgba(198,242,17,0.3)]">Schedule</div>
+            <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-primary mb-[8px] mx-[2px] drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">Schedule</div>
             <div className="bg-card border border-border rounded-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] p-[6px_14px]">
               {schedules.map((schedule, idx) => (
                 <div key={schedule.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
@@ -252,7 +252,7 @@ export default function JobDetail() {
 
         {expenses.length > 0 && (
           <div className="mb-[18px]">
-            <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-primary mb-[8px] mx-[2px] drop-shadow-[0_0_5px_rgba(198,242,17,0.3)]">Expenses</div>
+            <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-primary mb-[8px] mx-[2px] drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">Expenses</div>
             <div className="bg-card border border-border rounded-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] p-[6px_14px]">
               {expenses.map((expense, idx) => (
                 <div key={expense.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
@@ -272,7 +272,7 @@ export default function JobDetail() {
         <CrewPhotosSection photos={crewPhotos ?? []} />
 
         <div className="mb-[18px]">
-          <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-primary mb-[8px] mx-[2px] drop-shadow-[0_0_5px_rgba(198,242,17,0.3)]">Live tracker & evidence</div>
+          <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-primary mb-[8px] mx-[2px] drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">Live tracker & evidence</div>
           <div className="bg-card border border-border rounded-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] p-[14px_15px] flex flex-col gap-[10px]">
             <p className="text-[12.5px] text-muted-foreground">
               Share a live link with the property manager — it shows GPS check-ins,
@@ -282,7 +282,7 @@ export default function JobDetail() {
             <button
               onClick={copyTrackerLink}
               disabled={trackerShare.isPending}
-              className="w-full flex items-center justify-center gap-[8px] py-[11px] rounded-[12px] bg-primary text-primary-foreground text-[14px] font-bold disabled:opacity-60 transition-all hover:brightness-110 active:scale-[0.98] shadow-[0_0_15px_rgba(198,242,17,0.3)]"
+              className="w-full flex items-center justify-center gap-[8px] py-[11px] rounded-[12px] bg-[var(--gold-light)] text-primary-foreground text-[14px] font-bold disabled:opacity-60 transition-all hover:brightness-110 active:scale-[0.98] shadow-[0_0_15px_rgba(180,255,68,0.3)]"
             >
               {trackerCopied ? (
                 <>
@@ -306,11 +306,11 @@ export default function JobDetail() {
 
         {(job.status === "complete" || job.recapSentAt) && (
           <div className="mb-[18px]">
-            <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-primary mb-[8px] mx-[2px] drop-shadow-[0_0_5px_rgba(198,242,17,0.3)]">Client recap</div>
+            <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-primary mb-[8px] mx-[2px] drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">Client recap</div>
             <div className="bg-card border border-border rounded-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] p-[14px_15px]">
               {job.recapSentAt && !recapOpen ? (
                 <div className="flex items-center gap-[8px] text-[14px] text-muted-foreground">
-                  <Check className="w-[16px] h-[16px] text-primary drop-shadow-[0_0_8px_rgba(198,242,17,0.5)]" />
+                  <Check className="w-[16px] h-[16px] text-primary drop-shadow-[0_0_8px_rgba(180,255,68,0.5)]" />
                   <span className="text-foreground">Recap sent</span> {new Date(job.recapSentAt).toLocaleDateString()}
                   <button
                     onClick={generateRecap}
@@ -366,7 +366,7 @@ export default function JobDetail() {
                         <button
                           onClick={send}
                           disabled={createShare.isPending || !subject || !recapBody}
-                          className="ml-auto flex items-center gap-[7px] px-[16px] py-[9px] rounded-[12px] bg-primary text-primary-foreground text-[14px] font-bold disabled:opacity-50 transition-all hover:brightness-110 active:scale-[0.98] shadow-[0_0_15px_rgba(198,242,17,0.3)] disabled:shadow-none"
+                          className="ml-auto flex items-center gap-[7px] px-[16px] py-[9px] rounded-[12px] bg-[var(--gold-light)] text-primary-foreground text-[14px] font-bold disabled:opacity-50 transition-all hover:brightness-110 active:scale-[0.98] shadow-[0_0_15px_rgba(180,255,68,0.3)] disabled:shadow-none"
                         >
                           <Send className="w-[15px] h-[15px]" />
                           {createShare.isPending ? "Preparing…" : "Send recap"}

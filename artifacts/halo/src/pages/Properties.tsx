@@ -49,7 +49,7 @@ export default function Properties() {
           <button
             onClick={() => setAddOpen(true)}
             aria-label="Add property"
-            className="w-[38px] h-[38px] rounded-full grid place-items-center bg-primary text-primary-foreground shadow-[0_0_20px_rgba(198,242,17,0.4)] transition-all hover:brightness-110 hover:scale-105 active:scale-[0.9]"
+            className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--gold-light)] text-primary-foreground shadow-[0_0_20px_rgba(180,255,68,0.4)] transition-all hover:brightness-110 hover:scale-105 active:scale-[0.9]"
           >
             <Plus className="w-[20px] h-[20px]" strokeWidth={3} />
           </button>
@@ -59,7 +59,7 @@ export default function Properties() {
         {!search && properties && properties.length > 0 && (
           <div className="grid grid-cols-2 gap-[12px] mb-[20px]">
             <div className="bg-card rounded-[20px] p-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] border border-border flex flex-col justify-between hover:border-primary/30 transition-colors">
-              <div className="text-[11px] font-display font-bold text-primary uppercase tracking-[0.1em] mb-[8px] drop-shadow-[0_0_5px_rgba(198,242,17,0.3)]">
+              <div className="text-[11px] font-display font-bold text-primary uppercase tracking-[0.1em] mb-[8px] drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">
                 Total Owed
               </div>
               <div className="font-display font-bold text-[24px] text-foreground tracking-tight tabular-nums">
@@ -67,7 +67,7 @@ export default function Properties() {
               </div>
             </div>
             <div className="bg-card rounded-[20px] p-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] border border-border flex flex-col justify-between hover:border-primary/30 transition-colors">
-              <div className="text-[11px] font-display font-bold text-primary uppercase tracking-[0.1em] mb-[8px] drop-shadow-[0_0_5px_rgba(198,242,17,0.3)]">
+              <div className="text-[11px] font-display font-bold text-primary uppercase tracking-[0.1em] mb-[8px] drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">
                 Active Jobs
               </div>
               <div className="font-display font-bold text-[24px] text-foreground tracking-tight tabular-nums">
@@ -135,7 +135,7 @@ export default function Properties() {
                   {/* Top-right badges */}
                   <div className="absolute top-[14px] right-[14px] flex flex-col items-end gap-[6px]">
                     {hasOwed && (
-                      <span className="px-[12px] py-[5px] rounded-full bg-background/80 backdrop-blur-md border border-primary/30 text-primary text-[13px] font-display font-bold tabular-nums shadow-[0_0_10px_rgba(198,242,17,0.2)]">
+                      <span className="px-[12px] py-[5px] rounded-full bg-background/80 backdrop-blur-md border border-primary/30 text-primary text-[13px] font-display font-bold tabular-nums shadow-[0_0_10px_rgba(180,255,68,0.2)]">
                         ${p.owed.toLocaleString()} owed
                       </span>
                     )}
@@ -171,7 +171,7 @@ export default function Properties() {
           
           {properties?.length === 0 && (
             <div className="flex flex-col items-center justify-center py-[60px] text-center bg-card rounded-[28px] border border-border shadow-[0_0_20px_rgba(0,0,0,0.3)]">
-              <div className="w-[64px] h-[64px] rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-[16px] shadow-[0_0_15px_rgba(198,242,17,0.1)]">
+              <div className="w-[64px] h-[64px] rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-[16px] shadow-[0_0_15px_rgba(180,255,68,0.1)]">
                 <Building2 className="w-[28px] h-[28px] text-primary" />
               </div>
               <div className="font-display font-bold text-[18px] text-foreground mb-[6px]">

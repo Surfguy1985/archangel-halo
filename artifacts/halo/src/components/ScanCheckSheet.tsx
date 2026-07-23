@@ -218,10 +218,10 @@ export function ScanCheckSheet({
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="w-full mb-[12px] rounded-[15px] border-2 border-dashed border-[var(--gold)]/45 bg-[var(--gold)]/[0.07] active:bg-[var(--gold)]/[0.14] p-[14px] flex items-center gap-[12px] text-left"
+              className="w-full mb-[12px] rounded-[15px] border-2 border-dashed border-[var(--gold)]/45 bg-[var(--gold-light)]/[0.07] active:bg-[var(--gold-light)]/[0.14] p-[14px] flex items-center gap-[12px] text-left"
               data-testid="button-scan-check"
             >
-              <div className="w-[42px] h-[42px] rounded-[12px] bg-[var(--gold)]/15 flex items-center justify-center shrink-0">
+              <div className="w-[42px] h-[42px] rounded-[12px] bg-[var(--gold-light)]/15 flex items-center justify-center shrink-0">
                 <Camera className="w-[22px] h-[22px] text-[var(--gold-dark)]" />
               </div>
               <div>
@@ -332,7 +332,7 @@ export function ScanCheckSheet({
                         data-testid={`option-check-invoice-${i.id}`}
                       >
                         <span
-                          className={`w-[18px] h-[18px] rounded-[5px] border flex items-center justify-center shrink-0 ${checked ? "bg-[var(--gold)] border-[var(--gold)] text-white" : "border-border"}`}
+                          className={`w-[18px] h-[18px] rounded-[5px] border flex items-center justify-center shrink-0 ${checked ? "bg-[var(--gold-light)] border-[var(--gold)] text-black" : "border-border"}`}
                         >
                           {checked ? "✓" : ""}
                         </span>

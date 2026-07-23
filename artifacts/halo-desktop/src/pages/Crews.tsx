@@ -25,7 +25,7 @@ export default function Crews() {
         </div>
         <button
           onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm"
+          className="flex items-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm"
         >
           <Plus className="w-4 h-4" /> Add Crew
         </button>
@@ -55,7 +55,7 @@ export default function Crews() {
               <div className="bg-card rounded-xl border border-border shadow-sm p-5 hover:border-[var(--gold)]/50 transition-colors group h-full flex flex-col">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[var(--gold-tint)] flex items-center justify-center text-[var(--gold-dark)] group-hover:bg-[var(--gold)] group-hover:text-white transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-[var(--gold-tint)] flex items-center justify-center text-[var(--gold-dark)] group-hover:bg-[var(--gold-light)] group-hover:text-black transition-colors">
                       <Users className="w-5 h-5" />
                     </div>
                     <div>

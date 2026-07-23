@@ -280,7 +280,7 @@ export default function CreateInvoice() {
           <Button
             disabled={!canSave}
             onClick={() => save(true)}
-            className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white"
+            className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
           >
             <Send className="w-4 h-4 mr-1.5" /> {create.isPending ? "Saving…" : "Save & send"}
           </Button>

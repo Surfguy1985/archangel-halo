@@ -275,7 +275,7 @@ export function TrainingCenter({
               onClick={startTour}
               className="w-full flex items-center gap-[13px] rounded-[16px] bg-[var(--ink)] text-white p-[16px] shadow-[0_10px_30px_rgba(23,24,28,0.22)] transition-transform active:scale-[0.99] mb-[8px]"
             >
-              <div className="w-[42px] h-[42px] rounded-full grid place-items-center bg-[var(--gold)] shrink-0">
+              <div className="w-[42px] h-[42px] rounded-full grid place-items-center bg-[var(--gold-light)] shrink-0">
                 <Play className="w-[19px] h-[19px] text-[var(--ink)] ml-[2px]" fill="currentColor" strokeWidth={0} />
               </div>
               <div className="flex-1 text-left">
@@ -317,7 +317,7 @@ export function TrainingCenter({
                     <div className="relative w-[40px] h-[40px] rounded-full grid place-items-center bg-[var(--paper)] border border-border shrink-0">
                       <Icon className="w-[19px] h-[19px] text-[var(--gold-dark)]" strokeWidth={1.9} />
                       {isDone && (
-                        <div className="absolute -bottom-[3px] -right-[3px] w-[17px] h-[17px] rounded-full grid place-items-center bg-[var(--gold)] border-2 border-[var(--paper)]">
+                        <div className="absolute -bottom-[3px] -right-[3px] w-[17px] h-[17px] rounded-full grid place-items-center bg-[var(--gold-light)] border-2 border-[var(--paper)]">
                           <Check className="w-[9px] h-[9px] text-[var(--ink)]" strokeWidth={3.5} />
                         </div>
                       )}
@@ -390,7 +390,7 @@ export function TrainingCenter({
                 key={idx}
                 className={`h-[3.5px] flex-1 rounded-full transition-colors ${
                   idx < si
-                    ? "bg-[var(--gold)]"
+                    ? "bg-[var(--gold-light)]"
                     : idx === si
                       ? "bg-[var(--ink)]"
                       : "bg-[rgba(23,24,28,0.12)]"
@@ -405,8 +405,8 @@ export function TrainingCenter({
             <div className="relative w-[112px] h-[112px] grid place-items-center mb-[22px] shrink-0">
               {speaking && !muted && (
                 <>
-                  <span className="absolute inset-0 rounded-full bg-[var(--gold)] opacity-20 animate-ping" />
-                  <span className="absolute inset-[10px] rounded-full bg-[var(--gold)] opacity-25 animate-pulse" />
+                  <span className="absolute inset-0 rounded-full bg-[var(--gold-light)] opacity-20 animate-ping" />
+                  <span className="absolute inset-[10px] rounded-full bg-[var(--gold-light)] opacity-25 animate-pulse" />
                 </>
               )}
               <div className="relative w-[86px] h-[86px] rounded-full grid place-items-center bg-[var(--ink)] shadow-[0_10px_30px_rgba(23,24,28,0.25)]">
@@ -443,7 +443,7 @@ export function TrainingCenter({
               <button
                 onClick={togglePlay}
                 aria-label={playing ? "Pause" : "Play"}
-                className="w-[68px] h-[68px] rounded-full grid place-items-center bg-[var(--gold)] shadow-[0_8px_24px_rgba(185,138,47,0.4)] transition-transform active:scale-95"
+                className="w-[68px] h-[68px] rounded-full grid place-items-center bg-[var(--gold-light)] shadow-[0_8px_24px_rgba(185,138,47,0.4)] transition-transform active:scale-95"
               >
                 {playing ? (
                   <Pause className="w-[26px] h-[26px] text-[var(--ink)]" strokeWidth={0} fill="currentColor" />

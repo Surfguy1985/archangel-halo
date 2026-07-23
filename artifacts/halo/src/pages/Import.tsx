@@ -327,7 +327,7 @@ export default function Import() {
                     <span
                       className={`w-[18px] h-[18px] rounded-[6px] grid place-items-center shrink-0 border ${
                         isSel
-                          ? "bg-[var(--gold)] border-[var(--gold)]"
+                          ? "bg-[var(--gold-light)] border-[var(--gold)]"
                           : "border-border"
                       }`}
                     >

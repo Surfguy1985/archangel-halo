@@ -47,7 +47,7 @@ const STAGES: {
   { key: "work", label: "Work", Icon: Hammer, active: "bg-amber-500 text-white", done: "bg-amber-100 text-amber-700", ring: "ring-amber-200" },
   { key: "invoice", label: "Invoice", Icon: Receipt, active: "bg-violet-500 text-white", done: "bg-violet-100 text-violet-700", ring: "ring-violet-200" },
   { key: "pay", label: "Crew pay", Icon: Banknote, active: "bg-teal-500 text-white", done: "bg-teal-100 text-teal-700", ring: "ring-teal-200" },
-  { key: "close", label: "Close out", Icon: Sparkles, active: "bg-[var(--gold-dark)] text-white", done: "bg-emerald-100 text-emerald-700", ring: "ring-[rgba(143,106,31,0.25)]" },
+  { key: "close", label: "Close out", Icon: Sparkles, active: "bg-[var(--gold-dark)] text-black", done: "bg-emerald-100 text-emerald-700", ring: "ring-[rgba(143,106,31,0.25)]" },
 ];
 
 function fmtDate(d: string) {
@@ -338,7 +338,7 @@ export function JobFunnel({
           <button
             disabled={closeOut.isPending}
             onClick={doCloseOut}
-            className={`${pillBtn} bg-[var(--gold-dark)] text-white hover:opacity-90`}
+            className={`${pillBtn} bg-[var(--gold-dark)] text-black hover:opacity-90`}
           >
             {closeOut.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
             Close out job — clear &amp; thank the crew

@@ -94,7 +94,7 @@ export default function Today() {
 
       {/* Brief */}
       {today?.brief && (
-        <Card data-tour="morning-brief" className="bg-[var(--card)] border-[var(--primary)] border shadow-[0_0_20px_rgba(198,242,17,0.1)] relative overflow-hidden rounded-none">
+        <Card data-tour="morning-brief" className="bg-[var(--card)] border-[var(--primary)] border shadow-[0_0_20px_rgba(180,255,68,0.1)] relative overflow-hidden rounded-none">
           <div className="absolute top-0 right-0 p-4 opacity-5">
             <Sparkles className="w-48 h-48 text-[var(--primary)]" />
           </div>
@@ -141,7 +141,7 @@ export default function Today() {
               <Card
                 key={item.id}
                 onClick={route ? () => navigate(route) : undefined}
-                className={`hover:border-[var(--primary)] transition-all group ${route ? "cursor-pointer" : ""} rounded-none border-[var(--border)] bg-[var(--card)] hover:shadow-[0_0_15px_rgba(198,242,17,0.1)]`}
+                className={`hover:border-[var(--primary)] transition-all group ${route ? "cursor-pointer" : ""} rounded-none border-[var(--border)] bg-[var(--card)] hover:shadow-[0_0_15px_rgba(180,255,68,0.1)]`}
               >
                 <CardContent className="p-5 flex items-start gap-4">
                   <div className="flex-1">
@@ -205,7 +205,7 @@ export default function Today() {
                 <button
                   key={q.key}
                   onClick={() => setQueueFilter(prev => (prev === q.key ? null : q.key))}
-                  className={`p-4 bg-card border flex flex-col justify-between aspect-square text-left transition-all cursor-pointer group rounded-none ${queueFilter === q.key ? "border-[var(--primary)] shadow-[inset_0_0_20px_rgba(198,242,17,0.15)]" : "border-[var(--border)] hover:border-[var(--primary)]/50"}`}
+                  className={`p-4 bg-card border flex flex-col justify-between aspect-square text-left transition-all cursor-pointer group rounded-none ${queueFilter === q.key ? "border-[var(--primary)] shadow-[inset_0_0_20px_rgba(180,255,68,0.15)]" : "border-[var(--border)] hover:border-[var(--primary)]/50"}`}
                 >
                   <span className={`text-4xl font-display font-bold transition-colors ${queueFilter === q.key ? "text-[var(--primary)]" : "text-foreground group-hover:text-[var(--primary)]"}`}>{q.count}</span>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{q.label}</span>

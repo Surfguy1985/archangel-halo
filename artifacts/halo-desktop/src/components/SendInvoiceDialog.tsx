@@ -139,7 +139,7 @@ export function SendInvoiceDialog({
           <Button
             onClick={submit}
             disabled={send.isPending}
-            className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white"
+            className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
           >
             <Send className="w-4 h-4 mr-1.5" /> {send.isPending ? "Sending…" : "Send invoice"}
           </Button>

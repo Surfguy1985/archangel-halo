@@ -186,7 +186,7 @@ export function BusinessReportTab() {
         </button>
         <a
           href="/api/money/report/pdf"
-          className="flex-1 flex items-center justify-center gap-[6px] bg-[var(--gold)] text-white rounded-[13px] py-[12px] text-[13px] font-display font-bold"
+          className="flex-1 flex items-center justify-center gap-[6px] bg-[var(--gold-light)] text-black rounded-[13px] py-[12px] text-[13px] font-display font-bold"
           data-testid="button-download-report"
         >
           <Download className="w-[15px] h-[15px]" />

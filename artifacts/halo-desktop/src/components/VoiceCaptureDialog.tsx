@@ -529,7 +529,7 @@ export function VoiceCaptureDialog({
                         <span
                           className={`w-5 h-5 rounded-full grid place-items-center shrink-0 ${
                             on
-                              ? "bg-[var(--gold)] text-white"
+                              ? "bg-[var(--gold-light)] text-black"
                               : "bg-black/10 text-transparent"
                           }`}
                         >
@@ -584,8 +584,8 @@ export function VoiceCaptureDialog({
         {phase === "done" && (
           <>
             <div className="flex flex-col items-center text-center my-2">
-              <span className="w-12 h-12 rounded-full bg-[var(--gold)] grid place-items-center shadow-[0_6px_20px_rgba(143,106,31,0.38)]">
-                <Check className="w-6 h-6 text-white" />
+              <span className="w-12 h-12 rounded-full bg-[var(--gold-light)] grid place-items-center shadow-[0_6px_20px_rgba(143,106,31,0.38)]">
+                <Check className="w-6 h-6 text-black" />
               </span>
               <DialogTitle className="font-display font-bold text-xl mt-3">
                 {appliedCount > 0

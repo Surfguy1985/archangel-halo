@@ -295,7 +295,7 @@ export default function InvoiceDetail() {
             {status === "draft" && (
               <button
                 onClick={openSend}
-                className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 font-display font-bold text-sm text-white bg-[var(--gold)] hover:bg-[var(--gold-dark)] transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 font-display font-bold text-sm text-black bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] transition-colors"
               >
                 <Send className="w-4 h-4" /> Send invoice
               </button>
@@ -312,7 +312,7 @@ export default function InvoiceDetail() {
             {status !== "paid" && status !== "draft" && (
               <button
                 onClick={openPay}
-                className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 font-display font-bold text-sm text-white bg-[var(--gold)] hover:bg-[var(--gold-dark)] transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 font-display font-bold text-sm text-black bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] transition-colors"
               >
                 <CreditCard className="w-4 h-4" /> Record payment
               </button>
@@ -367,7 +367,7 @@ export default function InvoiceDetail() {
             <button
               onClick={onRecord}
               disabled={!amount.trim() || record.isPending}
-              className="flex items-center gap-2 rounded-md py-2 px-4 text-sm font-semibold text-white bg-[var(--gold)] hover:bg-[var(--gold-dark)] transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 rounded-md py-2 px-4 text-sm font-semibold text-black bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] transition-colors disabled:opacity-50"
             >
               {record.isPending ? "Recording…" : "Record payment"}
             </button>

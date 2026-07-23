@@ -41,7 +41,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar Navigation */}
       <aside className="w-[240px] border-r border-border bg-card flex flex-col fixed inset-y-0 left-0 shadow-2xl z-40">
         <div data-tour="brand" className="p-6 pb-5 border-b border-border flex flex-col gap-2">
-          <img src={haloLogo} alt="HALO" className="h-9 w-auto self-start filter invert brightness-0" />
+          <img src={haloLogo} alt="HALO" className="h-9 w-auto self-start filter brightness-0" />
           <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground pl-0.5 font-display font-medium">Archangel Operations</span>
         </div>
 
@@ -64,7 +64,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
             data-tour="talk"
             onClick={() => setVoiceOpen(true)}
             title="Talk to HALO"
-            className="flex-1 h-10 rounded-none flex items-center justify-center bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(198,242,17,0.3)] transition-all font-display font-bold uppercase tracking-wider"
+            className="flex-1 h-10 rounded-none flex items-center justify-center bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(180,255,68,0.3)] transition-all font-display font-bold uppercase tracking-wider"
           >
             <Mic className="w-4 h-4 mr-2" />
             Talk
@@ -77,7 +77,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
             >
               <Bell className="w-4 h-4" />
               {today?.unreadNotifications ? (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-none bg-[var(--primary)] text-black text-[10px] font-bold flex items-center justify-center shadow-[0_0_10px_rgba(198,242,17,0.5)]">
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-none bg-[var(--primary)] text-black text-[10px] font-bold flex items-center justify-center shadow-[0_0_10px_rgba(180,255,68,0.5)]">
                   {today.unreadNotifications}
                 </span>
               ) : null}
@@ -125,14 +125,14 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
                 if (e.key === "Enter") submitCommand();
               }}
               placeholder="Ask HALO to do anything — “Invoice Maple Grove $950 for painting unit 5”…"
-              className="w-full h-12 rounded-none bg-card border border-border shadow-sm pl-11 pr-24 text-sm focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_15px_rgba(198,242,17,0.1)] placeholder:text-muted-foreground font-mono transition-all text-foreground"
+              className="w-full h-12 rounded-none bg-card border border-border shadow-sm pl-11 pr-24 text-sm focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_15px_rgba(180,255,68,0.1)] placeholder:text-muted-foreground font-mono transition-all text-foreground"
               data-testid="input-command-bar"
             />
             {cmdText.trim() && (
               <button
                 type="button"
                 onClick={submitCommand}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 px-6 rounded-none bg-[var(--primary)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(198,242,17,0.3)] text-black text-xs font-display font-bold uppercase tracking-wider transition-all"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 px-6 rounded-none bg-[var(--primary)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(180,255,68,0.3)] text-black text-xs font-display font-bold uppercase tracking-wider transition-all"
                 data-testid="button-command-go"
               >
                 Do it

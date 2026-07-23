@@ -37,7 +37,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="w-full sm:w-[430px] h-[100dvh] sm:h-[850px] bg-background sm:rounded-[32px] sm:shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_30px_80px_rgba(0,0,0,0.5)] overflow-hidden relative flex flex-col">
         {/* App Bar */}
         <header className="flex items-center gap-[10px] px-[18px] pt-[16px] pb-[12px] shrink-0 border-b border-[var(--hairline)]">
-          <img src={haloLogo} alt="HALO — Archangel Operations" className="h-[30px] w-auto shrink-0 invert brightness-0" style={{ filter: 'brightness(0) invert(1)' }} />
+          <img src={haloLogo} alt="HALO — Archangel Operations" className="h-[30px] w-auto shrink-0" style={{ filter: 'brightness(0)' }} />
           <Link href="/calendar">
             <button
               className={`ml-auto w-[40px] h-[40px] rounded-full grid place-items-center bg-card border border-[var(--hairline)] ${location.startsWith("/calendar") ? "text-[var(--gold)]" : ""}`}
@@ -59,7 +59,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           >
             <Bell className="w-[19px] h-[19px]" strokeWidth={1.9} />
             {today?.unreadNotifications ? (
-              <span className="absolute -top-[2px] -right-[2px] min-w-[18px] h-[18px] px-[5px] rounded-[9px] bg-[var(--gold)] text-black text-[11px] font-bold grid place-items-center font-display shadow-[0_0_10px_rgba(198,242,17,0.5)]">
+              <span className="absolute -top-[2px] -right-[2px] min-w-[18px] h-[18px] px-[5px] rounded-[9px] bg-[var(--gold-light)] text-black text-[11px] font-bold grid place-items-center font-display shadow-[0_0_10px_rgba(180,255,68,0.5)]">
                 {today.unreadNotifications}
               </span>
             ) : null}
@@ -77,14 +77,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 if (e.key === "Enter") submitCommand();
               }}
               placeholder="Tell HALO what to do…"
-              className="w-full h-[46px] rounded-full bg-[#121212] border border-[var(--hairline)] shadow-inner pl-[40px] pr-[84px] text-[14px] focus:outline-none focus:border-[var(--gold)] focus:ring-1 focus:ring-[var(--gold)] placeholder:text-muted-foreground/50 transition-all text-white"
+              className="w-full h-[46px] rounded-full bg-card border border-[var(--hairline)] shadow-inner pl-[40px] pr-[84px] text-[14px] focus:outline-none focus:border-[var(--gold)] focus:ring-1 focus:ring-[var(--gold)] placeholder:text-muted-foreground/50 transition-all text-foreground"
               data-testid="input-command-bar"
             />
             {cmdText.trim() && (
               <button
                 type="button"
                 onClick={submitCommand}
-                className="absolute right-[6px] top-1/2 -translate-y-1/2 h-[34px] px-[16px] rounded-full bg-[var(--gold)] text-black text-[12px] font-bold shadow-[0_0_15px_rgba(198,242,17,0.3)] hover:scale-105 transition-transform"
+                className="absolute right-[6px] top-1/2 -translate-y-1/2 h-[34px] px-[16px] rounded-full bg-[var(--gold-light)] text-black text-[12px] font-bold shadow-[0_0_15px_rgba(180,255,68,0.3)] hover:scale-105 transition-transform"
                 data-testid="button-command-go"
               >
                 EXECUTE
@@ -120,7 +120,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Link>
           <div className="w-[74px] relative -top-[26px]">
             <button 
-              className="w-[66px] h-[66px] rounded-full relative grid place-items-center shadow-[0_0_30px_rgba(198,242,17,0.3)] mx-auto bg-[var(--gold)] text-black hover:scale-105 active:scale-95 transition-transform"
+              className="w-[66px] h-[66px] rounded-full relative grid place-items-center shadow-[0_0_30px_rgba(180,255,68,0.3)] mx-auto bg-[var(--gold-light)] text-black hover:scale-105 active:scale-95 transition-transform"
               onClick={() => setVoiceOpen(true)}
             >
               <Mic className="relative z-10 w-[26px] h-[26px]" strokeWidth={2.5} />

@@ -108,7 +108,7 @@ export default function JobTracker() {
         </div>
       </a>
     ) : (
-      <div className="rounded-[16px] border border-dashed border-[var(--hairline)] grid place-items-center aspect-square text-[11px] text-muted-foreground bg-[rgba(255,255,255,0.02)]">
+      <div className="rounded-[16px] border border-dashed border-[var(--hairline)] grid place-items-center aspect-square text-[11px] text-muted-foreground bg-black/[0.02]">
         No {label.toLowerCase()} photo yet
       </div>
     );
@@ -119,25 +119,25 @@ export default function JobTracker() {
         <div className="text-[11px] font-display font-bold tracking-[0.2em] uppercase text-[var(--gold)]">
           {data.businessName || "ArchAngel Contractors"} · Live job tracker
         </div>
-        <div className="font-display font-bold text-[28px] tracking-tight mt-[8px] leading-tight text-white">
+        <div className="font-display font-bold text-[28px] tracking-tight mt-[8px] leading-tight text-foreground">
           {data.description || `Job ${data.jobNo}`}
         </div>
         <div className="text-[13px] text-muted-foreground mt-[6px]">
           {where}
           {where ? " · " : ""}
-          <span className="text-white/80">{data.jobNo}</span>
+          <span className="text-foreground/80">{data.jobNo}</span>
         </div>
         <div
           className={`inline-flex items-center gap-[8px] mt-[16px] rounded-full px-[14px] py-[6px] text-[12px] font-bold border ${
             isDone
-              ? "bg-[rgba(198,242,17,0.1)] text-[var(--gold)] border-[var(--gold)] shadow-[0_0_15px_rgba(198,242,17,0.2)]"
-              : "bg-[rgba(255,255,255,0.05)] text-white border-[rgba(255,255,255,0.1)]"
+              ? "bg-[rgba(180,255,68,0.1)] text-[var(--gold)] border-[var(--gold)] shadow-[0_0_15px_rgba(180,255,68,0.2)]"
+              : "bg-black/5 text-foreground border-black/10"
           }`}
         >
           {isDone ? (
             <CheckCircle2 className="w-[14px] h-[14px]" />
           ) : (
-            <span className="w-[8px] h-[8px] rounded-full bg-[var(--gold)] shadow-[0_0_10px_var(--gold)] animate-pulse" />
+            <span className="w-[8px] h-[8px] rounded-full bg-[var(--gold-light)] shadow-[0_0_10px_var(--gold)] animate-pulse" />
           )}
           {STATUS_LABEL[data.status] ?? data.status}
           {isDone && data.completedAt ? ` · ${fmtWhen(data.completedAt)}` : ""}
@@ -151,17 +151,17 @@ export default function JobTracker() {
           </div>
           <div className="grid grid-cols-2 gap-y-[12px] text-[14px]">
             <div className="text-muted-foreground">Job number</div>
-            <div className="font-medium text-right text-white">{data.jobNo}</div>
+            <div className="font-medium text-right text-foreground">{data.jobNo}</div>
             {data.category && (
               <>
                 <div className="text-muted-foreground">Service</div>
-                <div className="font-medium text-right text-white capitalize">{data.category}</div>
+                <div className="font-medium text-right text-foreground capitalize">{data.category}</div>
               </>
             )}
             {data.crewName && (
               <>
                 <div className="text-muted-foreground">Crew</div>
-                <div className="font-medium text-right text-white">
+                <div className="font-medium text-right text-foreground">
                   {data.crewName}
                   {data.crewTrade ? ` · ${data.crewTrade}` : ""}
                 </div>
@@ -170,12 +170,12 @@ export default function JobTracker() {
             {data.scheduledOn && (
               <>
                 <div className="text-muted-foreground">Scheduled</div>
-                <div className="font-medium text-right text-white">{data.scheduledOn}</div>
+                <div className="font-medium text-right text-foreground">{data.scheduledOn}</div>
               </>
             )}
           </div>
           {data.description && (
-            <div className="mt-[16px] pt-[16px] border-t border-[var(--hairline)] text-[14px] leading-relaxed whitespace-pre-wrap text-white/90">
+            <div className="mt-[16px] pt-[16px] border-t border-[var(--hairline)] text-[14px] leading-relaxed whitespace-pre-wrap text-foreground/90">
               {data.description}
             </div>
           )}
@@ -186,7 +186,7 @@ export default function JobTracker() {
             <MapPin className="w-[14px] h-[14px]" /> GPS time on site
           </div>
           {data.checkins.length === 0 ? (
-            <div className="text-[14px] text-muted-foreground bg-[rgba(255,255,255,0.02)] p-[16px] rounded-[16px] border border-[var(--hairline)] text-center">
+            <div className="text-[14px] text-muted-foreground bg-black/[0.02] p-[16px] rounded-[16px] border border-[var(--hairline)] text-center">
               The crew hasn't checked in yet. This page updates automatically.
             </div>
           ) : (
@@ -196,8 +196,8 @@ export default function JobTracker() {
                   <div
                     className={`w-[36px] h-[36px] rounded-full grid place-items-center shrink-0 border ${
                       c.kind === "checkout"
-                        ? "bg-[rgba(255,255,255,0.05)] text-white border-[rgba(255,255,255,0.1)]"
-                        : "bg-[var(--gold-tint)] text-[var(--gold)] border-[var(--gold)] shadow-[0_0_15px_rgba(198,242,17,0.15)]"
+                        ? "bg-black/5 text-foreground border-black/10"
+                        : "bg-[var(--gold-tint)] text-[var(--gold)] border-[var(--gold)] shadow-[0_0_15px_rgba(180,255,68,0.15)]"
                     }`}
                   >
                     {c.kind === "checkout" ? (
@@ -207,9 +207,9 @@ export default function JobTracker() {
                     )}
                   </div>
                   <div className="min-w-0 pt-[2px]">
-                    <div className="text-[14px] font-bold text-white mb-[2px]">
+                    <div className="text-[14px] font-bold text-foreground mb-[2px]">
                       {c.kind === "checkout" ? "Checked out" : "Checked in"} ·{" "}
-                      <span className="font-medium text-white/80">{fmtWhen(c.createdAt)}</span>
+                      <span className="font-medium text-foreground/80">{fmtWhen(c.createdAt)}</span>
                     </div>
                     <div className="text-[12px] text-muted-foreground leading-relaxed">
                       {c.crewName ?? "Crew"}
@@ -225,13 +225,13 @@ export default function JobTracker() {
         </div>
 
         {data.workNotes.length > 0 && (
-          <div className="bg-card rounded-[24px] border border-[var(--gold)] shadow-[0_0_20px_rgba(198,242,17,0.05)] p-[20px] mb-[16px]">
+          <div className="bg-card rounded-[24px] border border-[var(--gold)] shadow-[0_0_20px_rgba(180,255,68,0.05)] p-[20px] mb-[16px]">
             <div className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--gold)] mb-[16px] flex items-center gap-[8px]">
               <FileText className="w-[14px] h-[14px]" /> Work completed
             </div>
             {data.workNotes.map((n, i) => (
-              <div key={i} className={i > 0 ? "mt-[16px] pt-[16px] border-t border-[rgba(198,242,17,0.2)]" : ""}>
-                <div className="text-[15px] leading-relaxed whitespace-pre-wrap text-white font-medium">"{n.note}"</div>
+              <div key={i} className={i > 0 ? "mt-[16px] pt-[16px] border-t border-[rgba(180,255,68,0.2)]" : ""}>
+                <div className="text-[15px] leading-relaxed whitespace-pre-wrap text-foreground font-medium">"{n.note}"</div>
                 <div className="text-[12px] text-[var(--gold)]/70 mt-[6px]">
                   — {n.crewName ?? "Crew"}, {fmtWhen(n.createdAt)}
                 </div>
@@ -284,7 +284,7 @@ export default function JobTracker() {
         <div className="bg-card rounded-[24px] border border-[var(--hairline)] p-[20px] mb-[24px] flex items-start gap-[12px]">
           <ShieldCheck className="w-[20px] h-[20px] text-[var(--gold)] shrink-0 mt-[2px]" />
           <div className="text-[13px] text-muted-foreground leading-relaxed">
-            <b className="text-white">Tamper-evident record.</b> Every photo
+            <b className="text-foreground">Tamper-evident record.</b> Every photo
             is digitally fingerprinted (SHA-256) the moment it's uploaded from
             the crew's phone, and GPS check-ins are recorded with time and
             location. These records can't be edited after the fact.

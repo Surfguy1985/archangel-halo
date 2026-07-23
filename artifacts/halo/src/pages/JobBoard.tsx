@@ -120,7 +120,7 @@ function BroadcastSheet({
                   key={m}
                   onClick={() => setMode(m as any)}
                   className={`flex-1 rounded-[10px] py-[8px] text-[13px] font-display font-bold capitalize transition-all ${
-                    mode === m ? "bg-primary text-primary-foreground shadow-[0_0_10px_rgba(198,242,17,0.3)]" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    mode === m ? "bg-[var(--gold-light)] text-primary-foreground shadow-[0_0_10px_rgba(180,255,68,0.3)]" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   }`}
                 >
                   {m}
@@ -137,7 +137,7 @@ function BroadcastSheet({
                     <button
                       key={t}
                       onClick={() => setSelectedTrade(t)}
-                      className={`px-[12px] py-[6px] rounded-[8px] text-[13px] font-medium border transition-colors ${selectedTrade === t ? "bg-primary text-primary-foreground border-primary shadow-[0_0_8px_rgba(198,242,17,0.2)]" : "border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
+                      className={`px-[12px] py-[6px] rounded-[8px] text-[13px] font-medium border transition-colors ${selectedTrade === t ? "bg-[var(--gold-light)] text-primary-foreground border-primary shadow-[0_0_8px_rgba(180,255,68,0.2)]" : "border-border text-muted-foreground hover:bg-muted/50 hover:text-foreground"}`}
                     >
                       {t}
                     </button>
@@ -172,7 +172,7 @@ function BroadcastSheet({
             <button
               onClick={handleSend}
               disabled={broadcast.isPending || (mode === "trade" && !selectedTrade) || (mode === "crews" && selectedCrews.length === 0)}
-              className="w-full rounded-[13px] py-[12px] text-[15px] font-display font-bold text-primary-foreground bg-primary shadow-[0_0_15px_rgba(198,242,17,0.3)] disabled:opacity-50 disabled:shadow-none transition-all active:scale-[0.98] mt-[10px] hover:brightness-110"
+              className="w-full rounded-[13px] py-[12px] text-[15px] font-display font-bold text-primary-foreground bg-[var(--gold-light)] shadow-[0_0_15px_rgba(180,255,68,0.3)] disabled:opacity-50 disabled:shadow-none transition-all active:scale-[0.98] mt-[10px] hover:brightness-110"
             >
               {broadcast.isPending ? "Sending..." : "Send Broadcast"}
             </button>
@@ -296,7 +296,7 @@ function JobCard({ data, onBroadcast, onReopen, onEdit, onDelete }: { data: JobB
         {status === "active" || status === "reopened" ? (
           <button
             onClick={onBroadcast}
-            className="flex-1 rounded-[11px] py-[10px] text-[13px] font-display font-bold text-primary-foreground bg-primary shadow-[0_0_15px_rgba(198,242,17,0.3)] transition-all active:scale-[0.98] hover:brightness-110 flex items-center justify-center gap-[6px]"
+            className="flex-1 rounded-[11px] py-[10px] text-[13px] font-display font-bold text-primary-foreground bg-[var(--gold-light)] shadow-[0_0_15px_rgba(180,255,68,0.3)] transition-all active:scale-[0.98] hover:brightness-110 flex items-center justify-center gap-[6px]"
           >
             <Megaphone className="w-[15px] h-[15px]" /> Broadcast
           </button>
@@ -305,7 +305,7 @@ function JobCard({ data, onBroadcast, onReopen, onEdit, onDelete }: { data: JobB
         {status === "filled" ? (
           <button
             onClick={onReopen}
-            className="flex-1 rounded-[11px] py-[10px] text-[13px] font-display font-bold text-primary bg-background border border-primary/40 shadow-[0_0_10px_rgba(198,242,17,0.1)] transition-all active:scale-[0.98] hover:bg-primary/10 flex items-center justify-center gap-[6px]"
+            className="flex-1 rounded-[11px] py-[10px] text-[13px] font-display font-bold text-primary bg-background border border-primary/40 shadow-[0_0_10px_rgba(180,255,68,0.1)] transition-all active:scale-[0.98] hover:bg-primary/10 flex items-center justify-center gap-[6px]"
           >
             <RefreshCw className="w-[15px] h-[15px]" /> Reopen Job
           </button>
@@ -401,7 +401,7 @@ export default function JobBoard() {
               key={t.key}
               onClick={() => setFilter(t.key as any)}
               className={`flex-1 rounded-[10px] py-[8px] text-[13px] font-display font-bold transition-all ${
-                filter === t.key ? "bg-primary text-primary-foreground shadow-[0_0_10px_rgba(198,242,17,0.3)]" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                filter === t.key ? "bg-[var(--gold-light)] text-primary-foreground shadow-[0_0_10px_rgba(180,255,68,0.3)]" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               }`}
             >
               {t.label}
@@ -416,7 +416,7 @@ export default function JobBoard() {
            </div>
         ) : filteredData.length === 0 ? (
           <div className="text-center text-[13px] text-muted-foreground py-[60px] bg-card rounded-[20px] border border-border shadow-[0_0_15px_rgba(0,0,0,0.3)]">
-            <div className="w-[48px] h-[48px] mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-[12px] border border-primary/20 shadow-[0_0_10px_rgba(198,242,17,0.1)]">
+            <div className="w-[48px] h-[48px] mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-[12px] border border-primary/20 shadow-[0_0_10px_rgba(180,255,68,0.1)]">
               <ClipboardList className="w-[20px] h-[20px] text-primary" />
             </div>
             No jobs found for this view.

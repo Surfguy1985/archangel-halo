@@ -388,10 +388,10 @@ export function AddExpenseDialog({
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="w-full rounded-xl border-2 border-dashed border-[var(--gold)]/40 bg-[var(--gold)]/[0.06] hover:bg-[var(--gold)]/[0.12] transition-colors p-4 flex items-center gap-3 text-left"
+              className="w-full rounded-xl border-2 border-dashed border-[var(--gold)]/40 bg-[var(--gold-light)]/[0.06] hover:bg-[var(--gold-light)]/[0.12] transition-colors p-4 flex items-center gap-3 text-left"
               data-testid="button-scan-receipt"
             >
-              <div className="w-10 h-10 rounded-lg bg-[var(--gold)]/15 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-[var(--gold-light)]/15 flex items-center justify-center shrink-0">
                 <ScanLine className="w-5 h-5 text-[var(--gold-dark,#8f6a1f)]" />
               </div>
               <div>

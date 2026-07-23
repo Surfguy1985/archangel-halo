@@ -17,11 +17,11 @@ export default function Supply() {
         </div>
         <div className="flex gap-2">
           {tab === "inventory" ? (
-             <button className="flex items-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm">
+             <button className="flex items-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm">
                <Plus className="w-4 h-4" /> Add Item
              </button>
           ) : (
-             <button className="flex items-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm">
+             <button className="flex items-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm">
                <Plus className="w-4 h-4" /> New PO
              </button>
           )}

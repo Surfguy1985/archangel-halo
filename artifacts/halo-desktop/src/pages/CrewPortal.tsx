@@ -164,7 +164,7 @@ export default function CrewPortal() {
               >
                 <Icon className="w-[14px] h-[14px]" /> {t.label}
                 {t.badge ? (
-                  <span className="ml-[2px] bg-[var(--gold)] text-[var(--ink)] px-[5px] py-[1px] rounded-full text-[10px] font-bold">
+                  <span className="ml-[2px] bg-[var(--gold-light)] text-[var(--ink)] px-[5px] py-[1px] rounded-full text-[10px] font-bold">
                     {t.badge}
                   </span>
                 ) : null}
@@ -265,7 +265,7 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
             }`}>
               <div>
                 <div className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground flex items-center gap-[6px]">
-                  {isPending && <span className="w-[8px] h-[8px] rounded-full bg-[var(--gold)] animate-pulse" />}
+                  {isPending && <span className="w-[8px] h-[8px] rounded-full bg-[var(--gold-light)] animate-pulse" />}
                   {o.jobNo} {o.category ? `· ${o.category}` : ""}
                 </div>
                 <div className="font-display font-bold text-[18px] mt-[2px] leading-tight">
@@ -470,7 +470,7 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
                     </span>
                   )}
                   {isToday && (
-                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wide px-[8px] py-[2px] rounded-full bg-[var(--gold)]/15 text-[var(--gold-dark,#8f6a1f)]">
+                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wide px-[8px] py-[2px] rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark,#8f6a1f)]">
                       Today
                     </span>
                   )}

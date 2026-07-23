@@ -313,8 +313,8 @@ export function InvoiceEditor({
                     {selectedProperty.pmcName || selectedProperty.city || "Tap to change"}
                   </div>
                 </div>
-                <div className="w-[24px] h-[24px] rounded-full bg-[var(--gold)] grid place-items-center shrink-0">
-                  <Check className="w-[14px] h-[14px] text-white" strokeWidth={3} />
+                <div className="w-[24px] h-[24px] rounded-full bg-[var(--gold-light)] grid place-items-center shrink-0">
+                  <Check className="w-[14px] h-[14px] text-black" strokeWidth={3} />
                 </div>
               </button>
             ) : isEdit ? (

@@ -183,7 +183,7 @@ export function EditCrewSheet({
                 </div>
                 <span
                   className={`w-[44px] h-[26px] rounded-full relative transition-colors shrink-0 ${
-                    isLeader ? "bg-[var(--gold)]" : "bg-[rgba(23,24,28,0.16)]"
+                    isLeader ? "bg-[var(--gold-light)]" : "bg-[rgba(23,24,28,0.16)]"
                   }`}
                 >
                   <span
@@ -209,7 +209,7 @@ export function EditCrewSheet({
                       onClick={() => setPaymentTerms((v) => (v === t.value ? "" : t.value))}
                       className={`px-[13px] py-[8px] rounded-full text-[13px] font-semibold border transition-colors ${
                         paymentTerms === t.value
-                          ? "bg-[var(--gold)] border-[var(--gold)] text-[var(--ink)]"
+                          ? "bg-[var(--gold-light)] border-[var(--gold)] text-[var(--ink)]"
                           : "bg-card border-border text-muted-foreground"
                       }`}
                     >

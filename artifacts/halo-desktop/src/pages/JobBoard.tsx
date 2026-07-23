@@ -244,7 +244,7 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
             <Trash2 className="w-4 h-4 mr-2" /> Delete
           </Button>
           {(boardStatus === 'active' || boardStatus === 'reopened') && (
-            <Button onClick={() => setBroadcastOpen(true)} className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white">
+            <Button onClick={() => setBroadcastOpen(true)} className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black">
               <Send className="w-4 h-4 mr-2" /> Broadcast Job
             </Button>
           )}
@@ -380,7 +380,7 @@ function BroadcastDialog({ open, onOpenChange, job }: { open: boolean, onOpenCha
           <Button 
             onClick={handleBroadcast} 
             disabled={broadcastJob.isPending || (mode === 'trade' && !selectedTrade) || (mode === 'crews' && selectedCrews.length === 0)}
-            className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white"
+            className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
           >
             {broadcastJob.isPending ? "Sending..." : "Send Broadcast"}
           </Button>
@@ -490,7 +490,7 @@ function EditJobDialog({ open, onOpenChange, job }: { open: boolean, onOpenChang
           <Button
             onClick={handleSave}
             disabled={updateJob.isPending}
-            className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white"
+            className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
           >
             {updateJob.isPending ? "Saving..." : "Save Changes"}
           </Button>

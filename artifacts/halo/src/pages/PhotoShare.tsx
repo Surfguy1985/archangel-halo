@@ -50,7 +50,7 @@ function PhotoGrid({
           href={`${base}/api/storage${p.storagePath}`}
           target="_blank"
           rel="noreferrer"
-          className="block rounded-[12px] overflow-hidden bg-card border border-border shadow-[0_0_15px_rgba(198,242,17,0.05)] hover:border-primary transition-colors"
+          className="block rounded-[12px] overflow-hidden bg-card border border-border shadow-[0_0_15px_rgba(180,255,68,0.05)] hover:border-primary transition-colors"
         >
           <div className="aspect-square">
             <img
@@ -112,7 +112,7 @@ function CheckinRow({ c, crewName }: { c: ShareCheckin; crewName: string }) {
     <div className="flex items-start gap-[9px] py-[7px]">
       <div
         className={`mt-[2px] w-[24px] h-[24px] rounded-full grid place-items-center shrink-0 ${
-          isIn ? "bg-primary/20 text-primary shadow-[0_0_10px_rgba(198,242,17,0.2)]" : "bg-muted text-muted-foreground"
+          isIn ? "bg-primary/20 text-primary shadow-[0_0_10px_rgba(180,255,68,0.2)]" : "bg-muted text-muted-foreground"
         }`}
       >
         {isIn ? <LogIn className="w-[12px] h-[12px]" /> : <LogOut className="w-[12px] h-[12px]" />}
@@ -158,7 +158,7 @@ export default function PhotoShare() {
     return (
       <div className="min-h-screen bg-background grid place-items-center px-6">
         <div className="text-center">
-          <ShieldCheck className="w-10 h-10 text-primary mx-auto mb-3 drop-shadow-[0_0_15px_rgba(198,242,17,0.5)]" />
+          <ShieldCheck className="w-10 h-10 text-primary mx-auto mb-3 drop-shadow-[0_0_15px_rgba(180,255,68,0.5)]" />
           <div className="font-display font-bold text-[18px] text-foreground">Invalid link</div>
           <p className="text-[13px] text-muted-foreground mt-1">
             This photo link isn't valid or has been removed.
@@ -201,7 +201,7 @@ export default function PhotoShare() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="bg-card border-b border-border px-[18px] pt-[20px] pb-[16px]">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(198,242,17,0.5)]">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(180,255,68,0.5)]">
           ArchAngel · HALO
         </div>
         <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[3px] text-foreground">
@@ -212,10 +212,10 @@ export default function PhotoShare() {
             {data.trade ? `${data.trade} · ` : ""}
             {formatDayLabel(data.day)}
           </span>
-          <span className="inline-flex items-center gap-[5px] rounded-full bg-primary/10 border border-primary/20 px-[8px] py-[2px] text-[10px] font-display font-bold tracking-[0.1em] uppercase text-primary shadow-[0_0_10px_rgba(198,242,17,0.1)]">
+          <span className="inline-flex items-center gap-[5px] rounded-full bg-primary/10 border border-primary/20 px-[8px] py-[2px] text-[10px] font-display font-bold tracking-[0.1em] uppercase text-primary shadow-[0_0_10px_rgba(180,255,68,0.1)]">
             <span className="relative flex w-[6px] h-[6px]">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
-              <span className="relative inline-flex rounded-full w-[6px] h-[6px] bg-primary" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--gold-light)] opacity-60" />
+              <span className="relative inline-flex rounded-full w-[6px] h-[6px] bg-[var(--gold-light)]" />
             </span>
             Live
           </span>

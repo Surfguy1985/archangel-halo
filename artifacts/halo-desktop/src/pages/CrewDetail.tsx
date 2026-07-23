@@ -230,7 +230,7 @@ export default function CrewDetail() {
   const packetLabel = (key: string) => packetTemplates?.find((t) => t.key === key)?.label ?? key;
   const card = "bg-card rounded-xl shadow-sm border border-border p-6";
   const goldBtn =
-    "flex items-center justify-center gap-2 rounded-md py-2.5 px-4 text-sm font-display font-bold text-white bg-[var(--gold)] hover:bg-[var(--gold-dark)] transition-colors disabled:opacity-50";
+    "flex items-center justify-center gap-2 rounded-md py-2.5 px-4 text-sm font-display font-bold text-black bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] transition-colors disabled:opacity-50";
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">

@@ -413,7 +413,7 @@ export function GuidedTour({
               onClick={startTour}
               className="w-full flex items-center gap-3 rounded-2xl bg-[var(--ink)] text-white p-4 shadow-[0_10px_30px_rgba(23,24,28,0.22)] hover:opacity-95 transition-opacity mb-5"
             >
-              <div className="w-11 h-11 rounded-full grid place-items-center bg-[var(--gold)] shrink-0">
+              <div className="w-11 h-11 rounded-full grid place-items-center bg-[var(--gold-light)] shrink-0">
                 <Play className="w-5 h-5 text-[var(--ink)] ml-0.5" fill="currentColor" strokeWidth={0} />
               </div>
               <div className="flex-1 text-left">
@@ -453,7 +453,7 @@ export function GuidedTour({
                     <div className="relative w-10 h-10 rounded-full grid place-items-center bg-card border border-border shrink-0">
                       <Icon className="w-[19px] h-[19px] text-[var(--gold-dark)]" strokeWidth={1.9} />
                       {isDone && (
-                        <div className="absolute -bottom-0.5 -right-0.5 w-[17px] h-[17px] rounded-full grid place-items-center bg-[var(--gold)] border-2 border-[var(--paper)]">
+                        <div className="absolute -bottom-0.5 -right-0.5 w-[17px] h-[17px] rounded-full grid place-items-center bg-[var(--gold-light)] border-2 border-[var(--paper)]">
                           <Check className="w-[9px] h-[9px] text-[var(--ink)]" strokeWidth={3.5} />
                         </div>
                       )}
@@ -506,7 +506,7 @@ export function GuidedTour({
           <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
             <div className="relative w-9 h-9 rounded-full grid place-items-center bg-[var(--ink)] shrink-0">
               {speaking && !muted && (
-                <span className="absolute inset-0 rounded-full bg-[var(--gold)] opacity-30 animate-ping" />
+                <span className="absolute inset-0 rounded-full bg-[var(--gold-light)] opacity-30 animate-ping" />
               )}
               <Icon className="relative w-[18px] h-[18px] text-[var(--gold-light)]" strokeWidth={1.9} />
             </div>
@@ -541,7 +541,7 @@ export function GuidedTour({
               <div
                 key={idx}
                 className={`h-1 flex-1 rounded-full transition-colors ${
-                  idx < si ? "bg-[var(--gold)]" : idx === si ? "bg-[var(--ink)]" : "bg-[rgba(23,24,28,0.12)]"
+                  idx < si ? "bg-[var(--gold-light)]" : idx === si ? "bg-[var(--ink)]" : "bg-[rgba(23,24,28,0.12)]"
                 }`}
               />
             ))}
@@ -578,7 +578,7 @@ export function GuidedTour({
               <button
                 onClick={togglePlay}
                 aria-label={playing ? "Pause" : "Play"}
-                className="w-11 h-11 rounded-full grid place-items-center bg-[var(--gold)] shadow-[0_6px_18px_rgba(185,138,47,0.4)] hover:bg-[var(--gold-dark)] transition-colors"
+                className="w-11 h-11 rounded-full grid place-items-center bg-[var(--gold-light)] shadow-[0_6px_18px_rgba(185,138,47,0.4)] hover:bg-[var(--gold-dark)] transition-colors"
               >
                 {playing ? (
                   <Pause className="w-5 h-5 text-white" strokeWidth={0} fill="currentColor" />

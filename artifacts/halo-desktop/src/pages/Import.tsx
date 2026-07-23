@@ -248,10 +248,10 @@ export default function Import() {
                   }`}
                 >
                   <div className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center shrink-0 border ${
-                      isSel ? "bg-[var(--gold)] border-[var(--gold)]" : "border-input bg-background"
+                      isSel ? "bg-[var(--gold-light)] border-[var(--gold)]" : "border-input bg-background"
                     }`}
                   >
-                    {isSel && <Check className="w-3.5 h-3.5 text-white" />}
+                    {isSel && <Check className="w-3.5 h-3.5 text-black" />}
                   </div>
                   
                   <div className="flex-1 min-w-0">
@@ -277,7 +277,7 @@ export default function Import() {
           <button
             onClick={onCommit}
             disabled={commit.isPending || selected.size === 0}
-            className="w-full py-4 rounded-xl font-display font-bold text-lg text-white bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-md disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full py-4 rounded-xl font-display font-bold text-lg text-black bg-[linear-gradient(135deg,var(--gold-light),var(--gold),var(--gold-dark))] shadow-md disabled:opacity-50 transition-transform active:scale-[0.98]"
           >
             {commit.isPending
               ? "Importing…"

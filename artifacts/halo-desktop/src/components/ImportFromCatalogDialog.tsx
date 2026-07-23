@@ -117,9 +117,9 @@ export function ImportFromCatalogDialog({
                 className={`w-full flex items-center gap-3 p-3 text-left transition-colors ${already ? "opacity-45 cursor-not-allowed" : "hover:bg-black/[0.02]"}`}
               >
                 <div
-                  className={`w-5 h-5 rounded border shrink-0 grid place-items-center transition-colors ${checked ? "bg-[var(--gold)] border-[var(--gold)]" : "border-border bg-background"}`}
+                  className={`w-5 h-5 rounded border shrink-0 grid place-items-center transition-colors ${checked ? "bg-[var(--gold-light)] border-[var(--gold)]" : "border-border bg-background"}`}
                 >
-                  {checked && <Check className="w-3.5 h-3.5 text-white" />}
+                  {checked && <Check className="w-3.5 h-3.5 text-black" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-sm text-[var(--ink)]">{item.service}</div>
@@ -149,7 +149,7 @@ export function ImportFromCatalogDialog({
           <button
             onClick={submit}
             disabled={selected.size === 0 || importMut.isPending}
-            className="bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50"
+            className="bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50"
           >
             {importMut.isPending ? "Adding…" : `Add ${selected.size || ""} selected`}
           </button>

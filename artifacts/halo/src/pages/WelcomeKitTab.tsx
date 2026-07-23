@@ -337,7 +337,7 @@ function PacketRunner({
 
       <div className="h-[5px] rounded-full bg-[rgba(23,24,28,0.08)] overflow-hidden">
         <div
-          className="h-full bg-[var(--gold)] transition-all duration-300"
+          className="h-full bg-[var(--gold-light)] transition-all duration-300"
           style={{ width: `${((step + 1) / totalSteps) * 100}%` }}
         />
       </div>

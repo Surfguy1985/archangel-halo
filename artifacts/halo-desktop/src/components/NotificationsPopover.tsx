@@ -52,7 +52,7 @@ function NotificationRow({
     >
       <span
         className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${
-          n.readAt ? "bg-transparent" : "bg-[var(--gold)]"
+          n.readAt ? "bg-transparent" : "bg-[var(--gold-light)]"
         }`}
       />
       <div className="flex-1 min-w-0">

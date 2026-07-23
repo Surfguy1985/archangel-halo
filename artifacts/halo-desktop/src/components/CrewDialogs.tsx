@@ -36,7 +36,7 @@ const fieldCls =
 const labelCls = "text-xs font-semibold text-muted-foreground";
 
 const primaryBtn =
-  "flex items-center justify-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none";
+  "flex items-center justify-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none";
 
 const errorCls = "text-xs text-destructive text-center mt-2";
 
@@ -78,7 +78,7 @@ function Toggle({
       </div>
       <span
         className={`w-[44px] h-[26px] rounded-full relative transition-colors shrink-0 ${
-          checked ? "bg-[var(--gold)]" : "bg-black/15"
+          checked ? "bg-[var(--gold-light)]" : "bg-black/15"
         }`}
       >
         <span
@@ -130,7 +130,7 @@ function TermsAndServices({
               onClick={() => setPaymentTerms(paymentTerms === t.value ? "" : t.value)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                 paymentTerms === t.value
-                  ? "bg-[var(--gold)] border-[var(--gold)] text-white"
+                  ? "bg-[var(--gold-light)] border-[var(--gold)] text-black"
                   : "bg-card border-input text-muted-foreground hover:bg-black/[0.03]"
               }`}
             >

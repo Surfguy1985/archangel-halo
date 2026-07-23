@@ -160,7 +160,7 @@ export default function CrewPortal() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background grid place-items-center">
-        <Loader2 className="w-6 h-6 animate-spin text-primary drop-shadow-[0_0_10px_rgba(198,242,17,0.5)]" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary drop-shadow-[0_0_10px_rgba(180,255,68,0.5)]" />
       </div>
     );
   }
@@ -169,7 +169,7 @@ export default function CrewPortal() {
     return (
       <div className="min-h-screen bg-background grid place-items-center px-6">
         <div className="text-center">
-          <ShieldCheck className="w-10 h-10 text-primary drop-shadow-[0_0_10px_rgba(198,242,17,0.5)] mx-auto mb-3" />
+          <ShieldCheck className="w-10 h-10 text-primary drop-shadow-[0_0_10px_rgba(180,255,68,0.5)] mx-auto mb-3" />
           <div className="font-display font-bold text-[18px] text-foreground">Invalid link</div>
           <p className="text-[13px] text-muted-foreground mt-1">
             This portal link isn't valid. Ask ArchAngel for a new one.
@@ -197,7 +197,7 @@ export default function CrewPortal() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="bg-card border-b border-border px-[18px] pt-[20px] pb-[16px]">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(198,242,17,0.4)]">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(180,255,68,0.4)]">
           ArchAngel · HALO
         </div>
         <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[3px] text-foreground">
@@ -218,7 +218,7 @@ export default function CrewPortal() {
                 onClick={() => setTab(t.key)}
                 className={`flex items-center gap-[5px] whitespace-nowrap rounded-[10px] px-[12px] py-[8px] text-[12.5px] font-display font-bold transition-all ${
                   tab === t.key
-                    ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(198,242,17,0.4)]"
+                    ? "bg-[var(--gold-light)] text-primary-foreground shadow-[0_0_15px_rgba(180,255,68,0.4)]"
                     : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                 }`}
               >
@@ -289,7 +289,7 @@ function AgreementModal({ token, crewName }: { token: string; crewName: string }
   return (
     <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-end sm:items-center justify-center p-[14px]">
       <div className="bg-card border border-border rounded-[20px] w-full max-w-[480px] max-h-[86vh] overflow-y-auto p-[20px] shadow-[0_0_40px_rgba(0,0,0,0.6)]">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_5px_rgba(198,242,17,0.3)]">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">
           Welcome, {crewName}
         </div>
         <div className="font-display font-bold text-[20px] mt-[4px] mb-[10px] text-foreground">
@@ -328,7 +328,7 @@ function AgreementModal({ token, crewName }: { token: string; crewName: string }
         <button
           onClick={onAccept}
           disabled={!checked || accept.isPending}
-          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-primary-foreground bg-primary shadow-[0_0_15px_rgba(198,242,17,0.3)] disabled:opacity-50 disabled:shadow-none hover:brightness-110 transition-all active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-primary-foreground bg-[var(--gold-light)] shadow-[0_0_15px_rgba(180,255,68,0.3)] disabled:opacity-50 disabled:shadow-none hover:brightness-110 transition-all active:scale-[0.98]"
         >
           {accept.isPending ? (
             <Loader2 className="w-[18px] h-[18px] animate-spin" />
@@ -531,7 +531,7 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
             }`}>
               <div>
                 <div className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground flex items-center gap-[6px]">
-                  {isPending && <span className="w-[8px] h-[8px] rounded-full bg-[var(--gold)] animate-pulse" />}
+                  {isPending && <span className="w-[8px] h-[8px] rounded-full bg-[var(--gold-light)] animate-pulse" />}
                   {o.jobNo} {o.category ? `· ${o.category}` : ""}
                 </div>
                 <div className="font-display font-bold text-[18px] mt-[2px] leading-tight">
@@ -736,7 +736,7 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
                     </span>
                   )}
                   {isToday && (
-                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wide px-[8px] py-[2px] rounded-full bg-[var(--gold)]/15 text-[var(--gold-dark,#8f6a1f)]">
+                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wide px-[8px] py-[2px] rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark,#8f6a1f)]">
                       Today
                     </span>
                   )}
@@ -972,7 +972,7 @@ function CheckinTab({ token }: { token: string }) {
               onClick={() => setSelectedJobId((v) => (v === j.id ? "" : j.id))}
               className={`px-[12px] py-[8px] rounded-full text-[12.5px] font-semibold border transition-colors ${
                 selectedJobId === j.id
-                  ? "bg-[var(--gold)] border-[var(--gold)] text-[var(--ink)]"
+                  ? "bg-[var(--gold-light)] border-[var(--gold)] text-[var(--ink)]"
                   : "bg-card border-border text-muted-foreground"
               }`}
             >
@@ -1125,7 +1125,7 @@ function PhotosTab({ token }: { token: string }) {
             onClick={() => setSelectedJobId("")}
             className={`px-[12px] py-[8px] rounded-full text-[12.5px] font-semibold border transition-colors ${
               selectedJobId === ""
-                ? "bg-[var(--gold)] border-[var(--gold)] text-[var(--ink)]"
+                ? "bg-[var(--gold-light)] border-[var(--gold)] text-[var(--ink)]"
                 : "bg-card border-border text-muted-foreground"
             }`}
           >
@@ -1138,7 +1138,7 @@ function PhotosTab({ token }: { token: string }) {
               onClick={() => setSelectedJobId((v) => (v === j.id ? "" : j.id))}
               className={`px-[12px] py-[8px] rounded-full text-[12.5px] font-semibold border transition-colors ${
                 selectedJobId === j.id
-                  ? "bg-[var(--gold)] border-[var(--gold)] text-[var(--ink)]"
+                  ? "bg-[var(--gold-light)] border-[var(--gold)] text-[var(--ink)]"
                   : "bg-card border-border text-muted-foreground"
               }`}
             >
@@ -1947,7 +1947,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
 
   const statusChip = (s: string) => {
     const map: Record<string, string> = {
-      submitted: "bg-[var(--gold)]/15 text-[var(--gold-dark,#8f6a1f)]",
+      submitted: "bg-[var(--gold-light)]/15 text-[var(--gold-dark,#8f6a1f)]",
       approved: "bg-emerald-100 text-emerald-700",
       paid: "bg-emerald-100 text-emerald-700",
       rejected: "bg-red-100 text-red-700",

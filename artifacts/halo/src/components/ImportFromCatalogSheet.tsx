@@ -119,7 +119,7 @@ export function ImportFromCatalogSheet({
                   className={`w-full flex items-center gap-[12px] p-[13px] text-left ${already ? "opacity-45" : "active:bg-black/[0.03]"}`}
                 >
                   <div
-                    className={`w-[22px] h-[22px] rounded-[7px] border shrink-0 grid place-items-center transition-colors ${checked ? "bg-[var(--gold)] border-[var(--gold)]" : "border-border bg-background"}`}
+                    className={`w-[22px] h-[22px] rounded-[7px] border shrink-0 grid place-items-center transition-colors ${checked ? "bg-[var(--gold-light)] border-[var(--gold)]" : "border-border bg-background"}`}
                   >
                     {checked && <Check className="w-[15px] h-[15px] text-white" />}
                   </div>

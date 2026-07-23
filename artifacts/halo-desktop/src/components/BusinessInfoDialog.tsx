@@ -322,7 +322,7 @@ export function BusinessInfoDialog({
           <Button
             onClick={submit}
             disabled={update.isPending || !companyName.trim() || !email.trim()}
-            className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white"
+            className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
           >
             {update.isPending ? "Saving…" : "Save"}
           </Button>

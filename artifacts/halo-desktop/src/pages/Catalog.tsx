@@ -156,7 +156,7 @@ function CatalogItemDialog({
           <button
             onClick={submit}
             disabled={!service.trim() || pending}
-            className="bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50"
+            className="bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50"
           >
             {pending ? "Saving…" : item ? "Save changes" : "Add service"}
           </button>
@@ -193,7 +193,7 @@ export default function Catalog() {
         </div>
         <button
           onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm"
+          className="flex items-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm"
         >
           <Plus className="w-4 h-4" /> Add Service
         </button>

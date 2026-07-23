@@ -47,7 +47,7 @@ const fieldCls =
 const labelCls = "text-xs font-semibold text-muted-foreground";
 
 const primaryBtn =
-  "flex items-center justify-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none";
+  "flex items-center justify-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none";
 
 const errorCls = "text-xs text-destructive text-center mt-2";
 

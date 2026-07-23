@@ -21,43 +21,43 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans selection:bg-primary selection:text-black">
       {/* Top Navigation */}
-      <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-background/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-background/90 backdrop-blur-xl">
         <div className="container mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-10">
             <Link href="/" className="flex items-center gap-3 group">
               <div className="bg-primary text-black p-2 relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
                 <Terminal className="w-6 h-6 relative z-10" strokeWidth={1.5} />
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                <div className="absolute inset-0 bg-black/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </div>
-              <span className="font-display font-bold text-xl tracking-[0.2em] uppercase text-white group-hover:text-primary transition-colors">HALO</span>
+              <span className="font-display font-bold text-xl tracking-[0.2em] uppercase text-foreground group-hover:text-primary transition-colors">HALO</span>
             </Link>
             
             <nav className="hidden md:flex items-center gap-8 text-sm font-medium tracking-widest uppercase">
-              <Link href="/" className={location === "/" ? "text-primary" : "text-muted-foreground hover:text-white transition-colors"}>Home</Link>
-              <Link href={docs.length > 0 ? `/docs/${docs[0].slug}` : "/"} className={location.startsWith("/docs") ? "text-primary" : "text-muted-foreground hover:text-white transition-colors"}>Docs</Link>
-              <Link href="/api-reference" className="text-muted-foreground hover:text-white transition-colors">API</Link>
+              <Link href="/" className={location === "/" ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>Home</Link>
+              <Link href={docs.length > 0 ? `/docs/${docs[0].slug}` : "/"} className={location.startsWith("/docs") ? "text-primary" : "text-muted-foreground hover:text-foreground transition-colors"}>Docs</Link>
+              <Link href="/api-reference" className="text-muted-foreground hover:text-foreground transition-colors">API</Link>
             </nav>
           </div>
 
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setSearchOpen(true)}
-              className="hidden md:flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/50 transition-all w-72 group"
+              className="hidden md:flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground bg-black/5 border border-border hover:bg-black/10 hover:border-primary/50 transition-all w-72 group"
             >
               <Search className="w-4 h-4 group-hover:text-primary transition-colors" />
               <span className="flex-1 text-left font-mono text-xs uppercase tracking-wider">Search...</span>
-              <kbd className="pointer-events-none inline-flex h-6 select-none items-center gap-1 bg-white/10 px-2 font-mono text-[10px] font-medium text-white">
+              <kbd className="pointer-events-none inline-flex h-6 select-none items-center gap-1 bg-black/10 px-2 font-mono text-[10px] font-medium text-foreground">
                 <span>⌘</span>K
               </kbd>
             </button>
             <button 
-              className="md:hidden p-2 text-muted-foreground hover:text-white"
+              className="md:hidden p-2 text-muted-foreground hover:text-foreground"
               onClick={() => setSearchOpen(true)}
             >
               <Search className="w-6 h-6" />
             </button>
             <button 
-              className="md:hidden p-2 text-muted-foreground hover:text-white"
+              className="md:hidden p-2 text-muted-foreground hover:text-foreground"
               onClick={() => setMobileMenuOpen(true)}
             >
               <Menu className="w-6 h-6" />
@@ -70,12 +70,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="flex-1 flex container mx-auto px-6">
         {/* Sidebar Navigation */}
-        <aside className="hidden md:block w-72 shrink-0 py-12 pr-8 border-r border-white/10 relative">
+        <aside className="hidden md:block w-72 shrink-0 py-12 pr-8 border-r border-border relative">
           <div className="sticky top-32 space-y-12">
             {Object.entries(groupedDocs).map(([category, items]) => (
               <div key={category}>
-                <h4 className="font-display font-semibold text-xs tracking-[0.2em] uppercase text-white/40 mb-6">{category}</h4>
-                <div className="flex flex-col gap-1 border-l border-white/10 ml-2">
+                <h4 className="font-display font-semibold text-xs tracking-[0.2em] uppercase text-muted-foreground mb-6">{category}</h4>
+                <div className="flex flex-col gap-1 border-l border-border ml-2">
                   {items.map(doc => {
                     const isActive = location === `/docs/${doc.slug}`;
                     return (
@@ -85,7 +85,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         className={`pl-5 py-2 text-sm transition-all border-l-2 -ml-[1px] font-mono ${
                           isActive 
                             ? "border-primary text-primary bg-primary/5" 
-                            : "border-transparent text-muted-foreground hover:text-white hover:border-white/30 hover:bg-white/5"
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:border-border hover:bg-black/5"
                         }`}
                       >
                         {doc.title}
@@ -119,9 +119,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl md:hidden flex flex-col border-b border-primary">
-          <div className="h-20 flex items-center justify-between px-6 border-b border-white/10">
+          <div className="h-20 flex items-center justify-between px-6 border-b border-border">
             <span className="font-display font-bold tracking-widest uppercase text-primary">Menu</span>
-            <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-white hover:text-primary transition-colors">
+            <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-foreground hover:text-primary transition-colors">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -132,7 +132,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </nav>
             {Object.entries(groupedDocs).map(([category, items]) => (
               <div key={category}>
-                <h4 className="font-display font-bold text-xs text-white/40 mb-4 tracking-[0.2em] uppercase">{category}</h4>
+                <h4 className="font-display font-bold text-xs text-muted-foreground mb-4 tracking-[0.2em] uppercase">{category}</h4>
                 <div className="flex flex-col gap-4 font-mono text-sm">
                   {items.map(doc => (
                     <Link 
@@ -153,10 +153,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Search Dialog */}
       <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <DialogContent className="p-0 overflow-hidden max-w-2xl bg-zinc-950 border-white/10 sm:rounded-none shadow-2xl shadow-primary/10">
+        <DialogContent className="p-0 overflow-hidden max-w-2xl bg-popover border-border sm:rounded-none shadow-2xl shadow-primary/10">
           <DialogTitle className="sr-only">Search Documentation</DialogTitle>
           <CommandPrimitive className="[&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:text-primary/70 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input-wrapper]_svg]:text-primary [&_[cmdk-input]]:h-14 [&_[cmdk-input]]:font-mono [&_[cmdk-item]]:px-4 [&_[cmdk-item]]:py-4 [&_[cmdk-item]]:rounded-none [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
-            <CommandInput placeholder="SEARCH DIRECTORY..." className="border-b border-white/10" />
+            <CommandInput placeholder="SEARCH DIRECTORY..." className="border-b border-border" />
             <CommandList className="max-h-[60vh]">
               <CommandEmpty className="py-12 text-center font-mono text-sm text-muted-foreground uppercase tracking-widest">No matching records found.</CommandEmpty>
               {Object.entries(groupedDocs).map(([category, items]) => (
@@ -169,9 +169,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         setSearchOpen(false);
                         setLocation(`/docs/${doc.slug}`);
                       }}
-                      className="flex items-center gap-4 cursor-pointer data-[selected=true]:bg-white/5 data-[selected=true]:text-white group transition-colors"
+                      className="flex items-center gap-4 cursor-pointer data-[selected=true]:bg-black/5 data-[selected=true]:text-foreground group transition-colors"
                     >
-                      <div className="w-8 h-8 flex items-center justify-center bg-black border border-white/10 group-data-[selected=true]:border-primary group-data-[selected=true]:text-primary transition-colors">
+                      <div className="w-8 h-8 flex items-center justify-center bg-secondary border border-border group-data-[selected=true]:border-primary group-data-[selected=true]:text-primary transition-colors">
                         <BookOpen className="w-4 h-4" />
                       </div>
                       <div className="flex flex-col">

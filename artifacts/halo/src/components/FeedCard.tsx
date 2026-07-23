@@ -18,7 +18,7 @@ export function BriefCard({ brief }: { brief: Brief }) {
   return (
     <div className="relative overflow-hidden bg-[linear-gradient(145deg,#1C1C1E,#000000)] rounded-[28px] p-[22px] shadow-[0_20px_40px_rgba(0,0,0,0.15)] mb-[20px] border border-[rgba(255,255,255,0.1)] text-white">
       <div className="absolute top-[-20%] right-[-10%] opacity-30 pointer-events-none">
-         <div className="w-[180px] h-[180px] rounded-full bg-[var(--gold)] blur-[60px]" />
+         <div className="w-[180px] h-[180px] rounded-full bg-[var(--gold-light)] blur-[60px]" />
       </div>
       <div className="relative z-10 flex items-center gap-[8px] mb-[12px]">
         <HaloRing className="w-[18px] h-[18px] text-[var(--gold-light)]" />
@@ -32,7 +32,7 @@ export function BriefCard({ brief }: { brief: Brief }) {
       <div className="relative z-10 text-[16px] text-white/95 leading-[1.4] font-medium mb-[16px]" dangerouslySetInnerHTML={{ __html: brief.body }} />
       <div className="relative z-10 mt-[8px] flex items-center justify-between">
         <div className="flex gap-[8px]">
-          <span className="text-[11px] font-bold text-white bg-[var(--gold)] rounded-[20px] px-[10px] py-[4px] shadow-[0_4px_12px_rgba(0,122,255,0.3)] flex items-center gap-[4px]">
+          <span className="text-[11px] font-bold text-black bg-[var(--gold-light)] rounded-[20px] px-[10px] py-[4px] shadow-[0_4px_12px_rgba(0,122,255,0.3)] flex items-center gap-[4px]">
             <Sparkles className="w-[12px] h-[12px]" />
             HALO
           </span>
@@ -152,7 +152,7 @@ export function FeedCard({
       className={`group relative overflow-hidden bg-card rounded-[22px] p-[16px] mb-[12px] border border-[var(--hairline)] shadow-[0_2px_10px_rgba(0,0,0,0.04),0_10px_20px_rgba(0,0,0,0.02)] transition-all ${isHandled ? 'opacity-60 bg-[rgba(255,255,255,0.5)] grayscale-[0.2]' : ''} ${route ? 'cursor-pointer active:scale-[0.98]' : ''} ${isNow ? 'bg-[linear-gradient(160deg,#fff,#FFF5F5)] border-[#FF3B30]/30' : ''}`}
     >
       <div className="flex gap-[12px] items-start">
-        <div className={`w-[10px] h-[10px] rounded-full shrink-0 mt-[6px] shadow-sm ${isNow ? 'bg-[#FF3B30] shadow-[#FF3B30]/40' : 'bg-[var(--gold)] shadow-[var(--gold)]/40'}`} />
+        <div className={`w-[10px] h-[10px] rounded-full shrink-0 mt-[6px] shadow-sm ${isNow ? 'bg-[#FF3B30] shadow-[#FF3B30]/40' : 'bg-[var(--gold-light)] shadow-[var(--gold)]/40'}`} />
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start gap-[8px]">
             <div className="font-display font-bold text-[16px] leading-[1.2] text-[var(--ink)] tracking-[-0.01em] pr-[8px]">

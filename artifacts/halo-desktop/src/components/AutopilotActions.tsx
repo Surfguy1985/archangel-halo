@@ -65,7 +65,7 @@ export function AutopilotActions() {
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-display flex items-center gap-2 text-[var(--gold-dark)]">
           <Sparkles className="w-4 h-4" /> Autopilot Suggests
-          <span className="ml-auto text-xs font-sans font-semibold px-2 py-0.5 rounded-full bg-[var(--gold)]/15 text-[var(--gold-dark)]">
+          <span className="ml-auto text-xs font-sans font-semibold px-2 py-0.5 rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark)]">
             {pending.length}
           </span>
         </CardTitle>
@@ -79,7 +79,7 @@ export function AutopilotActions() {
               <button
                 onClick={() => onApprove(a.id)}
                 disabled={busy}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--gold)] text-white text-xs font-bold py-2 hover:opacity-90 transition-opacity disabled:opacity-60"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--gold-light)] text-black text-xs font-bold py-2 hover:opacity-90 transition-opacity disabled:opacity-60"
                 data-testid={`button-approve-${a.id}`}
               >
                 {approve.isPending && approve.variables?.id === a.id ? (

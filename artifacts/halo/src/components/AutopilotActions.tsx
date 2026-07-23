@@ -83,7 +83,7 @@ export function AutopilotActions() {
             <button
               onClick={() => onApprove(a.id)}
               disabled={busy}
-              className="flex-1 flex items-center justify-center gap-[6px] rounded-[12px] bg-[var(--gold)] text-white font-display font-bold text-[13.5px] py-[11px] transition-transform active:scale-[0.98] disabled:opacity-60"
+              className="flex-1 flex items-center justify-center gap-[6px] rounded-[12px] bg-[var(--gold-light)] text-black font-display font-bold text-[13.5px] py-[11px] transition-transform active:scale-[0.98] disabled:opacity-60"
             >
               {approve.isPending && approve.variables?.id === a.id ? (
                 <Loader2 className="w-[15px] h-[15px] animate-spin" />

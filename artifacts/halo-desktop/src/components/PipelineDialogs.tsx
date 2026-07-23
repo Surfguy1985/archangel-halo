@@ -190,7 +190,7 @@ export function AddLeadDialog({
           <Button
             onClick={submit}
             disabled={createLead.isPending}
-            className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white"
+            className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
             data-testid="button-save-lead"
           >
             {createLead.isPending ? "Saving…" : "Add lead"}
@@ -451,7 +451,7 @@ export function LeadDetailDialog({
               size="sm"
               onClick={saveDetails}
               disabled={updateLead.isPending}
-              className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white"
+              className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
               data-testid="button-save-lead-details"
             >
               {updateLead.isPending ? "Saving…" : "Save changes"}
@@ -497,7 +497,7 @@ export function LeadDetailDialog({
                   size="sm"
                   onClick={() => doSendEmail(tpl.key)}
                   disabled={sendEmail.isPending || dirty}
-                  className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white"
+                  className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
                   data-testid="button-send-lead-email"
                 >
                   <Send className="w-3.5 h-3.5 mr-1.5" />
@@ -556,7 +556,7 @@ export function LeadDetailDialog({
                       size="sm"
                       onClick={() => doStartCampaign(c.kind)}
                       disabled={startCampaign.isPending}
-                      className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white shrink-0"
+                      className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black shrink-0"
                       data-testid={`button-start-campaign-${c.kind}`}
                     >
                       Start
@@ -902,7 +902,7 @@ export function BidBuilderDialog({
           <Button
             onClick={submit}
             disabled={pending}
-            className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white"
+            className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
             data-testid="button-save-bid"
           >
             {pending ? "Saving…" : editBidId ? "Save changes" : "Create bid"}
@@ -1133,7 +1133,7 @@ export function BidDetailDialog({
                 <Button
                   size="sm"
                   onClick={() => setSendOpen((v) => !v)}
-                  className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white ml-auto"
+                  className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black ml-auto"
                   data-testid="button-open-send-bid"
                 >
                   <Send className="w-3.5 h-3.5 mr-1.5" /> Send proposal
@@ -1170,7 +1170,7 @@ export function BidDetailDialog({
                     size="sm"
                     onClick={doSend}
                     disabled={sendBid.isPending || (!sendTo.trim() && !bid.contactEmail)}
-                    className="bg-[var(--gold)] hover:bg-[var(--gold-dark)] text-white"
+                    className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
                     data-testid="button-send-bid"
                   >
                     <Send className="w-3.5 h-3.5 mr-1.5" />

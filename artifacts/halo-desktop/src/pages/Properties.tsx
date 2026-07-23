@@ -84,7 +84,7 @@ export default function Properties() {
               <Link
                 key={p.id}
                 href={`/properties/${p.id}`}
-                className="group relative block rounded-none overflow-hidden bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] shadow-sm hover:shadow-[0_0_20px_rgba(198,242,17,0.15)] hover:-translate-y-1 transition-all duration-300"
+                className="group relative block rounded-none overflow-hidden bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] shadow-sm hover:shadow-[0_0_20px_rgba(180,255,68,0.15)] hover:-translate-y-1 transition-all duration-300"
               >
                 <div className="relative w-full aspect-[3/2]">
                   {p.imagePath ? (

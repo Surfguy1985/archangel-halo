@@ -458,7 +458,7 @@ export default function JobDetail() {
                           <button
                             onClick={send}
                             disabled={createShare.isPending || !subject || !recapBody}
-                            className="ml-auto flex items-center gap-2 px-4 py-2 rounded-md bg-[var(--gold)] text-white text-sm font-semibold disabled:opacity-50 hover:bg-[var(--gold-dark)] transition-colors"
+                            className="ml-auto flex items-center gap-2 px-4 py-2 rounded-md bg-[var(--gold-light)] text-black text-sm font-semibold disabled:opacity-50 hover:bg-[var(--gold-dark)] transition-colors"
                           >
                             <Send className="w-4 h-4" /> {createShare.isPending ? "Preparing…" : "Send recap"}
                           </button>
@@ -536,7 +536,7 @@ export default function JobDetail() {
             <button
               onClick={submitSchedule}
               disabled={schedule.isPending || !scheduledOn}
-              className="flex items-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium disabled:opacity-50 hover:bg-[var(--gold-dark)] transition-colors"
+              className="flex items-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium disabled:opacity-50 hover:bg-[var(--gold-dark)] transition-colors"
             >
               <CalendarDays className="w-4 h-4" /> {schedule.isPending ? "Scheduling…" : "Schedule job"}
             </button>

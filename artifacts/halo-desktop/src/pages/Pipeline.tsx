@@ -54,7 +54,7 @@ export default function Pipeline() {
               setEditBidId(null);
               setBuilderOpen(true);
             }}
-            className="flex items-center gap-2 bg-[var(--gold)] text-white px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm"
+            className="flex items-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm"
             data-testid="button-new-bid"
           >
             <Plus className="w-4 h-4" /> New Bid
