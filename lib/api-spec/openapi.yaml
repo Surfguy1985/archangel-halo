@@ -1267,6 +1267,32 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/JobBoardCard"
+  /jobs/{id}/close-out:
+    post:
+      operationId: closeOutJob
+      tags: [jobs]
+      summary: Final funnel step — validates invoice paid + crew paid, clears the job, and sends a branded thank-you email to the crew
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job closed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloseOutJobResult"
+        "404":
+          description: Job not found
+        "409":
+          description: Funnel steps missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloseOutBlocked"
   /jobs/{id}/broadcast:
     post:
       operationId: broadcastJob
@@ -4715,6 +4741,9 @@ components:
         paidTotal: { type: ["number", "null"], description: "Sum of paid invoices attached to this job (property detail only)" }
         expensesTotal: { type: ["number", "null"], description: "Sum of expenses attached to this job (property detail only)" }
         boardStatus: { type: ["string", "null"], description: "active | filled | reopened | completed" }
+        nextVisitOn: { type: ["string", "null"], description: "Next scheduled visit date (YYYY-MM-DD, property detail only)" }
+        crewPaymentStatus: { type: ["string", "null"], description: "paid | pending | null when no crew payment recorded (property detail only)" }
+        crewPaidAt: { type: ["string", "null"], description: "When the crew payment was completed (property detail only)" }
         isRecurring: { type: ["boolean", "null"] }
         recurrence: { type: ["string", "null"], description: "daily | weekly | biweekly | monthly | quarterly" }
         createdAt: { type: ["string", "null"] }
@@ -4723,6 +4752,20 @@ components:
           items:
             $ref: "#/components/schemas/JobLineItem"
         lineTotal: { type: ["number", "null"] }
+    CloseOutJobResult:
+      type: object
+      required: [ok, emailSent]
+      properties:
+        ok: { type: boolean }
+        emailSent: { type: boolean, description: "Whether the crew thank-you email was sent" }
+    CloseOutBlocked:
+      type: object
+      required: [error, missing]
+      properties:
+        error: { type: string }
+        missing:
+          type: array
+          items: { type: string }
     JobLineItem:
       type: object
       required: [id, jobId, service, rate, qty, amount]
@@ -5269,6 +5312,7 @@ components:
         dueAt: { type: ["string", "null"] }
         paidAt: { type: ["string", "null"] }
         taxAmount: { type: number }
+        attachmentPath: { type: ["string", "null"], description: "Object storage path of an uploaded invoice image/file" }
         daysLate: { type: ["integer", "null"] }
     InvoiceLineItem:
       type: object
@@ -5316,6 +5360,7 @@ components:
         dueAt: { type: ["string", "null"] }
         paidAt: { type: ["string", "null"] }
         taxAmount: { type: number }
+        attachmentPath: { type: ["string", "null"], description: "Object storage path of an uploaded invoice image/file" }
         daysLate: { type: ["integer", "null"] }
         recipientEmail: { type: ["string", "null"] }
         lineItems:
@@ -5511,6 +5556,7 @@ components:
         notes: { type: string }
         paymentInstructions: { type: string }
         taxAmount: { type: number }
+        attachmentPath: { type: string, description: "Object storage path of an uploaded invoice image/file" }
         lineItems:
           type: array
           items: { $ref: "#/components/schemas/InvoiceLineItemInput" }

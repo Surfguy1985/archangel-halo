@@ -38,6 +38,11 @@ export interface Invoice {
   /** @nullable */
   paidAt?: string | null;
   taxAmount?: number;
+  /**
+     * Object storage path of an uploaded invoice image/file
+     * @nullable
+     */
+  attachmentPath?: string | null;
   /** @nullable */
   daysLate?: number | null;
 }

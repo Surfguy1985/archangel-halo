@@ -14,6 +14,7 @@ import {
   crewsTable,
   jobLineItemsTable,
   schedulesTable,
+  crewPaymentsTable,
 } from "@workspace/db";
 import {
   ListPropertiesResponse,
@@ -332,12 +333,44 @@ router.get("/properties/:id", async (req, res): Promise<void> => {
 
   const crewPhotos = await crewPhotosForJobs(rawJobs);
 
+  const crewPayments =
+    jobIds.length > 0
+      ? await db
+          .select()
+          .from(crewPaymentsTable)
+          .where(inArray(crewPaymentsTable.jobId, jobIds))
+      : [];
+  const jobsWithFunnel = jobsWithMoney.map((j) => {
+    const nextVisit = schedules
+      .filter(
+        (s) =>
+          s.jobId === j.id &&
+          s.scheduledOn >= todayStr &&
+          s.status !== "cancelled",
+      )
+      .sort((a, b) => a.scheduledOn.localeCompare(b.scheduledOn))[0];
+    const payments = crewPayments.filter((p) => p.jobId === j.id);
+    const completedPayment = payments.find((p) => p.status === "completed");
+    return {
+      ...j,
+      nextVisitOn: nextVisit?.scheduledOn ?? null,
+      crewPaymentStatus: completedPayment
+        ? "paid"
+        : payments.length > 0
+          ? "pending"
+          : null,
+      crewPaidAt: completedPayment?.paidAt
+        ? completedPayment.paidAt.toISOString()
+        : null,
+    };
+  });
+
   res.json(
     GetPropertyResponse.parse({
       property: ser(property),
       contacts: serList(contacts),
       priceItems: serList(priceItems),
-      jobs: jobsWithMoney,
+      jobs: jobsWithFunnel,
       expenses: serList(expenses),
       agreements: serList(agreements),
       invoices: decoratedInvoices,

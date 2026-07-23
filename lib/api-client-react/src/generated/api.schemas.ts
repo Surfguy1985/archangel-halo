@@ -246,6 +246,21 @@ export interface Job {
      * @nullable
      */
   boardStatus?: string | null;
+  /**
+     * Next scheduled visit date (YYYY-MM-DD, property detail only)
+     * @nullable
+     */
+  nextVisitOn?: string | null;
+  /**
+     * paid | pending | null when no crew payment recorded (property detail only)
+     * @nullable
+     */
+  crewPaymentStatus?: string | null;
+  /**
+     * When the crew payment was completed (property detail only)
+     * @nullable
+     */
+  crewPaidAt?: string | null;
   /** @nullable */
   isRecurring?: boolean | null;
   /**
@@ -344,6 +359,11 @@ export interface Invoice {
   /** @nullable */
   paidAt?: string | null;
   taxAmount?: number;
+  /**
+     * Object storage path of an uploaded invoice image/file
+     * @nullable
+     */
+  attachmentPath?: string | null;
   /** @nullable */
   daysLate?: number | null;
 }
@@ -743,6 +763,17 @@ export interface BidSendResult {
   to?: string | null;
   /** @nullable */
   error?: string | null;
+}
+
+export interface CloseOutJobResult {
+  ok: boolean;
+  /** Whether the crew thank-you email was sent */
+  emailSent: boolean;
+}
+
+export interface CloseOutBlocked {
+  error: string;
+  missing: string[];
 }
 
 export interface JobLineItemInput {
@@ -1322,6 +1353,11 @@ export interface InvoiceDetail {
   /** @nullable */
   paidAt?: string | null;
   taxAmount?: number;
+  /**
+     * Object storage path of an uploaded invoice image/file
+     * @nullable
+     */
+  attachmentPath?: string | null;
   /** @nullable */
   daysLate?: number | null;
   /** @nullable */
@@ -1521,6 +1557,8 @@ export interface InvoiceInput {
   notes?: string;
   paymentInstructions?: string;
   taxAmount?: number;
+  /** Object storage path of an uploaded invoice image/file */
+  attachmentPath?: string;
   lineItems?: InvoiceLineItemInput[];
 }
 

@@ -217,3 +217,69 @@ export async function sendLeadThankYouEmail(opts: {
     html,
   });
 }
+
+/**
+ * Branded thank-you email sent to a crew member when a job's full funnel
+ * cycle is closed out (invoice paid + crew payment verified).
+ */
+export async function sendCrewThankYouEmail(opts: {
+  to: string;
+  crewName: string | null;
+  jobDescription: string | null;
+  propertyName: string | null;
+  amountPaid: number | null;
+}): Promise<SendEmailResult> {
+  const settings = await getBusinessSettings();
+  const company = settings.companyName || "ArchAngel Contractors";
+  const firstName = opts.crewName?.trim().split(/\s+/)[0] ?? null;
+  const greeting = firstName ? `Hi ${esc(firstName)},` : "Hello,";
+  const jobLine = [opts.jobDescription, opts.propertyName]
+    .filter(Boolean)
+    .join(" at ");
+  const amountFmt =
+    opts.amountPaid != null
+      ? opts.amountPaid.toLocaleString("en-US", {
+          style: "currency",
+          currency: "USD",
+        })
+      : null;
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f2ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f2ee;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <tr><td style="background:#17181c;border-radius:14px 14px 0 0;padding:22px 26px;">
+          <div style="font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#c9a24b;">${esc(company)}</div>
+          <div style="font-size:22px;font-weight:800;color:#ffffff;margin-top:6px;">Thank you for your work</div>
+        </td></tr>
+        <tr><td style="background:#ffffff;padding:24px 26px;border-radius:0 0 14px 14px;box-shadow:0 1px 3px rgba(23,24,28,0.08);">
+          <p style="font-size:15px;color:#3a3c42;line-height:1.6;margin:0 0 14px 0;">${greeting}</p>
+          <p style="font-size:15px;color:#3a3c42;line-height:1.6;margin:0 0 14px 0;">The job is fully closed out and your payment has been verified. We appreciate the quality and care you bring to every job — it's what keeps ${esc(company)} flying high.</p>
+          ${
+            jobLine
+              ? `<div style="background:#f7f5f0;border-left:3px solid #c9a24b;border-radius:8px;padding:12px 16px;margin:0 0 16px 0;">
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#8f6a1f;margin-bottom:4px;">Job completed</div>
+            <div style="font-size:14px;color:#3a3c42;line-height:1.5;">${esc(jobLine)}</div>
+            ${amountFmt ? `<div style="font-size:14px;color:#2E7D4F;font-weight:700;margin-top:6px;">Payment verified · ${esc(amountFmt)}</div>` : ""}
+          </div>`
+              : ""
+          }
+          <p style="font-size:15px;color:#3a3c42;line-height:1.6;margin:0;">Thank you again — we look forward to the next one.</p>
+          <p style="font-size:15px;color:#3a3c42;line-height:1.8;margin:14px 0 0 0;">— The ${esc(company)} team</p>
+        </td></tr>
+        <tr><td style="padding:16px 8px 4px 8px;">
+          <div style="font-size:12px;color:#9a9da4;line-height:1.5;text-align:center;">${esc(company)}<br>Licensed, insured &amp; bonded · Serving the DFW metroplex</div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  return sendEmail({
+    to: opts.to,
+    subject: `Thank you — job closed out and payment verified · ${esc(company)}`,
+    html,
+  });
+}

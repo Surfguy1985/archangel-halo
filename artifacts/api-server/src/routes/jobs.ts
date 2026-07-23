@@ -22,6 +22,7 @@ import {
   priceItemsTable,
   jobLineItemsTable,
   businessSettingsTable,
+  invoicesTable,
 } from "@workspace/db";
 import {
   ListJobsResponse,
@@ -75,9 +76,11 @@ import {
   ClearJobResponse,
   RestartJobParams,
   RestartJobResponse,
+  CloseOutJobParams,
+  CloseOutJobResponse,
 } from "@workspace/api-zod";
 import { completeText } from "../lib/ai";
-import { sendEmail } from "../lib/email";
+import { sendEmail, sendCrewThankYouEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 import { ser, serList } from "../lib/serialize";
 import { crewPhotosForJobs, type CrewJobPhoto } from "../lib/jobPhotos";
@@ -402,6 +405,110 @@ router.post("/jobs/:id/clear", async (req, res): Promise<void> => {
   });
   const { propName, crewName } = await lookups();
   res.json(ClearJobResponse.parse(decorateJob(row, propName, crewName)));
+});
+
+router.post("/jobs/:id/close-out", async (req, res): Promise<void> => {
+  const { id } = CloseOutJobParams.parse(req.params);
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  if (job.clearedAt) {
+    res.status(409).json({
+      error: "This job is already closed out.",
+      missing: [],
+    });
+    return;
+  }
+
+  const missing: string[] = [];
+  if (job.status !== "complete") {
+    missing.push("Mark the work as verified complete first.");
+  }
+  const jobInvoices = await db
+    .select()
+    .from(invoicesTable)
+    .where(eq(invoicesTable.jobId, id));
+  if (jobInvoices.length === 0) {
+    missing.push("Add an invoice for this job.");
+  } else if (!jobInvoices.some((i) => i.status === "paid")) {
+    missing.push("Mark the invoice as payment received.");
+  }
+  if (!job.crewLeaderId) {
+    missing.push("Assign a crew to this job first.");
+  } else {
+    const payments = await db
+      .select()
+      .from(crewPaymentsTable)
+      .where(
+        and(
+          eq(crewPaymentsTable.jobId, id),
+          eq(crewPaymentsTable.crewId, job.crewLeaderId),
+        ),
+      );
+    if (!payments.some((p) => p.status === "completed")) {
+      missing.push("Mark the crew member as paid for this job.");
+    }
+  }
+  if (missing.length > 0) {
+    res.status(409).json({
+      error: "A few funnel steps still need to be finished.",
+      missing,
+    });
+    return;
+  }
+
+  await db
+    .update(jobsTable)
+    .set({ clearedAt: new Date() })
+    .where(eq(jobsTable.id, id));
+  await db.insert(activitiesTable).values({
+    entityType: "job",
+    entityId: id,
+    kind: "note",
+    body: "Job closed out — full funnel completed",
+  });
+  await recomputeJobFinancials(id);
+  await syncJobLaborLedger(id);
+
+  let emailSent = false;
+  if (job.crewLeaderId) {
+    const [crew] = await db
+      .select()
+      .from(crewsTable)
+      .where(eq(crewsTable.id, job.crewLeaderId));
+    if (crew?.email) {
+      const [prop] = await db
+        .select()
+        .from(propertiesTable)
+        .where(eq(propertiesTable.id, job.propertyId));
+      const [payment] = await db
+        .select()
+        .from(crewPaymentsTable)
+        .where(
+          and(
+            eq(crewPaymentsTable.jobId, id),
+            eq(crewPaymentsTable.crewId, job.crewLeaderId),
+            eq(crewPaymentsTable.status, "completed"),
+          ),
+        );
+      try {
+        const result = await sendCrewThankYouEmail({
+          to: crew.email,
+          crewName: crew.name,
+          jobDescription: job.description,
+          propertyName: prop?.name ?? null,
+          amountPaid: payment?.amount ?? job.crewRate ?? null,
+        });
+        emailSent = result.ok;
+      } catch (err) {
+        logger.error({ err }, "crew thank-you email failed");
+      }
+    }
+  }
+
+  res.json(CloseOutJobResponse.parse({ ok: true, emailSent }));
 });
 
 router.post("/jobs/:id/restart", async (req, res): Promise<void> => {

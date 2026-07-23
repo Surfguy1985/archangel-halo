@@ -65,6 +65,8 @@ export * from './categoryAmount';
 export * from './checkScanInput';
 export * from './checkScanInputMediaType';
 export * from './checkScanResult';
+export * from './closeOutBlocked';
+export * from './closeOutJobResult';
 export * from './contact';
 export * from './contactInput';
 export * from './contactUpdate';

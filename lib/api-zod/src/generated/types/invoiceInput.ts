@@ -21,5 +21,7 @@ export interface InvoiceInput {
   notes?: string;
   paymentInstructions?: string;
   taxAmount?: number;
+  /** Object storage path of an uploaded invoice image/file */
+  attachmentPath?: string;
   lineItems?: InvoiceLineItemInput[];
 }

@@ -8,6 +8,7 @@ import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Penc
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
+import { JobFunnel } from "@/components/JobFunnel";
 import { ImportFromCatalogDialog } from "@/components/ImportFromCatalogDialog";
 import {
   EditPropertyDialog,
@@ -42,7 +43,7 @@ export default function PropertyDetail() {
   const restartJob = useRestartJob();
   const completeJob = useCompleteJob();
   const updateProperty = useUpdateProperty();
-  const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id) } });
+  const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id), refetchInterval: 15000 } });
 
   if (isLoading) {
     return <div className="p-8 max-w-6xl mx-auto"><Skeleton className="h-64 w-full" /></div>;
@@ -335,56 +336,21 @@ export default function PropertyDetail() {
                     <span>Expenses <b className="text-[var(--ink)] tabular-nums">${(job.expensesTotal ?? 0).toLocaleString()}</b></span>
                     {marginBadge(job.marginPct)}
                   </div>
+                  <JobFunnel
+                    job={job}
+                    invoice={invoiceForJob(job.id)}
+                    propertyId={id}
+                    onCompleteWork={() => completeJob.mutate({ id: job.id }, { onSuccess: () => invalidateJobLists() })}
+                    completePending={completeJob.isPending}
+                  />
                   <div className="flex items-center gap-2 mt-2">
-                    <Link
-                      href={`/invoices/new?jobId=${job.id}&propertyId=${id}`}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-[var(--ink)] hover:bg-black/[0.08] transition-colors"
-                    >
-                      <Plus className="w-3 h-3" /> Invoice
-                    </Link>
                     <button
                       onClick={() => setExpenseJobId(job.id)}
                       className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-[var(--ink)] hover:bg-black/[0.08] transition-colors"
                     >
                       <Plus className="w-3 h-3" /> Expense
                     </button>
-                    {job.status !== "complete" && (
-                      <button
-                        disabled={completeJob.isPending}
-                        onClick={() => completeJob.mutate({ id: job.id }, { onSuccess: () => invalidateJobLists() })}
-                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors disabled:opacity-50"
-                      >
-                        <Check className="w-3 h-3" /> Verified — complete
-                      </button>
-                    )}
-                  </div>
-                  {job.status === "complete" && (
-                    <div className="flex items-center flex-wrap gap-2 mt-2">
-                      {(() => {
-                        const inv = invoiceForJob(job.id);
-                        return inv ? (
-                          <Link
-                            href={`/invoices/${inv.id}`}
-                            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors hover:opacity-80 ${invoiceStatusCls[inv.status] ?? invoiceStatusCls.draft}`}
-                          >
-                            <Receipt className="w-3 h-3" /> {invoiceStatusLabel[inv.status] ?? "Invoice"} · {inv.invoiceNo}
-                          </Link>
-                        ) : (
-                          <Link
-                            href={`/invoices/new?jobId=${job.id}&propertyId=${id}`}
-                            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[var(--ink)] text-background hover:opacity-90 transition-opacity"
-                          >
-                            <Receipt className="w-3 h-3" /> Create invoice
-                          </Link>
-                        );
-                      })()}
-                      <button
-                        disabled={clearJob.isPending}
-                        onClick={() => clearJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
-                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-muted-foreground hover:bg-black/[0.08] transition-colors disabled:opacity-50"
-                      >
-                        <Archive className="w-3 h-3" /> Clear to history
-                      </button>
+                    {job.status === "complete" && (
                       <button
                         disabled={restartJob.isPending}
                         onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
@@ -392,8 +358,8 @@ export default function PropertyDetail() {
                       >
                         <RotateCcw className="w-3 h-3" /> Reopen for corrections
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ))}
               {!(jobTab === "active" ? activeJobs : completedJobs).length && (

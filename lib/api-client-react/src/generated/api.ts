@@ -61,6 +61,8 @@ import type {
   CategorizeBankTransactionParams,
   CheckScanInput,
   CheckScanResult,
+  CloseOutBlocked,
+  CloseOutJobResult,
   Contact,
   ContactInput,
   ContactUpdate,
@@ -4503,6 +4505,77 @@ export function useListJobBoard<TData = Awaited<ReturnType<typeof listJobBoard>>
 
 
 
+
+export const getCloseOutJobUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/close-out`
+}
+
+/**
+ * @summary Final funnel step — validates invoice paid + crew paid, clears the job, and sends a branded thank-you email to the crew
+ */
+export const closeOutJob = async (id: string, options?: RequestInit): Promise<CloseOutJobResult> => {
+
+  return customFetch<CloseOutJobResult>(getCloseOutJobUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCloseOutJobMutationOptions = <TError = ErrorType<void | CloseOutBlocked>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closeOutJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof closeOutJob>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['closeOutJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof closeOutJob>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  closeOutJob(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CloseOutJobMutationResult = NonNullable<Awaited<ReturnType<typeof closeOutJob>>>
+
+    export type CloseOutJobMutationError = ErrorType<void | CloseOutBlocked>
+
+    /**
+ * @summary Final funnel step — validates invoice paid + crew paid, clears the job, and sends a branded thank-you email to the crew
+ */
+export const useCloseOutJob = <TError = ErrorType<void | CloseOutBlocked>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closeOutJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof closeOutJob>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getCloseOutJobMutationOptions(options));
+    }
 
 export const getBroadcastJobUrl = (id: string,) => {
 

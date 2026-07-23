@@ -26,6 +26,7 @@ export const invoicesTable = pgTable("invoices", {
   dueAt: timestamp("due_at", { withTimezone: true }),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   taxAmount: doublePrecision("tax_amount").notNull().default(0),
+  attachmentPath: text("attachment_path"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

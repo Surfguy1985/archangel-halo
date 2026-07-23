@@ -417,6 +417,7 @@ router.post("/invoices", async (req, res): Promise<void> => {
         notes: body.notes ?? null,
         paymentInstructions: body.paymentInstructions ?? null,
         taxAmount: await resolveTaxAmount(body.taxAmount, total),
+        attachmentPath: body.attachmentPath ?? null,
         status: "draft",
       })
       .returning();

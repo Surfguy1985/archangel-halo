@@ -73,6 +73,21 @@ export interface Job {
      * @nullable
      */
   boardStatus?: string | null;
+  /**
+     * Next scheduled visit date (YYYY-MM-DD, property detail only)
+     * @nullable
+     */
+  nextVisitOn?: string | null;
+  /**
+     * paid | pending | null when no crew payment recorded (property detail only)
+     * @nullable
+     */
+  crewPaymentStatus?: string | null;
+  /**
+     * When the crew payment was completed (property detail only)
+     * @nullable
+     */
+  crewPaidAt?: string | null;
   /** @nullable */
   isRecurring?: boolean | null;
   /**

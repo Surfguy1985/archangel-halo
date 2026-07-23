@@ -255,6 +255,9 @@ export const GetPropertyResponse = zod.object({
   "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
   "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish(),
@@ -315,6 +318,7 @@ export const GetPropertyResponse = zod.object({
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "taxAmount": zod.number().optional(),
+  "attachmentPath": zod.string().nullish().describe('Object storage path of an uploaded invoice image\/file'),
   "daysLate": zod.number().nullish()
 })),
   "upcomingVisits": zod.array(zod.object({
@@ -1123,6 +1127,9 @@ export const ListJobsResponseItem = zod.object({
   "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
   "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish(),
@@ -1185,6 +1192,9 @@ export const CreateJobResponse = zod.object({
   "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
   "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish(),
@@ -1235,6 +1245,9 @@ export const GetJobResponse = zod.object({
   "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
   "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish(),
@@ -1351,6 +1364,9 @@ export const UpdateJobResponse = zod.object({
   "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
   "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish(),
@@ -1415,6 +1431,9 @@ export const CompleteJobResponse = zod.object({
   "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
   "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish(),
@@ -1467,6 +1486,9 @@ export const ClearJobResponse = zod.object({
   "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
   "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish(),
@@ -1519,6 +1541,9 @@ export const RestartJobResponse = zod.object({
   "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
   "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish(),
@@ -1577,6 +1602,9 @@ export const ScheduleJobResponse = zod.object({
   "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
   "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish(),
@@ -1715,6 +1743,9 @@ export const SendJobRecapResponse = zod.object({
   "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
   "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish(),
@@ -1828,6 +1859,9 @@ export const ListJobBoardResponseItem = zod.object({
   "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
   "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish(),
@@ -1867,6 +1901,19 @@ export const ListJobBoardResponseItem = zod.object({
 }))
 })
 export const ListJobBoardResponse = zod.array(ListJobBoardResponseItem)
+
+
+/**
+ * @summary Final funnel step — validates invoice paid + crew paid, clears the job, and sends a branded thank-you email to the crew
+ */
+export const CloseOutJobParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CloseOutJobResponse = zod.object({
+  "ok": zod.boolean(),
+  "emailSent": zod.boolean().describe('Whether the crew thank-you email was sent')
+})
 
 
 /**
@@ -1924,6 +1971,9 @@ export const ReopenJobResponse = zod.object({
   "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
   "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
   "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "createdAt": zod.string().nullish(),
@@ -2756,6 +2806,7 @@ export const ListInvoicesResponseItem = zod.object({
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "taxAmount": zod.number().optional(),
+  "attachmentPath": zod.string().nullish().describe('Object storage path of an uploaded invoice image\/file'),
   "daysLate": zod.number().nullish()
 })
 export const ListInvoicesResponse = zod.array(ListInvoicesResponseItem)
@@ -2775,6 +2826,7 @@ export const CreateInvoiceBody = zod.object({
   "notes": zod.string().optional(),
   "paymentInstructions": zod.string().optional(),
   "taxAmount": zod.number().optional(),
+  "attachmentPath": zod.string().optional().describe('Object storage path of an uploaded invoice image\/file'),
   "lineItems": zod.array(zod.object({
   "dateOfWork": zod.string().optional(),
   "unitNo": zod.string().optional(),
@@ -2804,6 +2856,7 @@ export const CreateInvoiceResponse = zod.object({
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "taxAmount": zod.number().optional(),
+  "attachmentPath": zod.string().nullish().describe('Object storage path of an uploaded invoice image\/file'),
   "daysLate": zod.number().nullish()
 })
 
@@ -2834,6 +2887,7 @@ export const GetInvoiceResponse = zod.object({
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "taxAmount": zod.number().optional(),
+  "attachmentPath": zod.string().nullish().describe('Object storage path of an uploaded invoice image\/file'),
   "daysLate": zod.number().nullish(),
   "recipientEmail": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
@@ -2872,6 +2926,7 @@ export const UpdateInvoiceBody = zod.object({
   "notes": zod.string().optional(),
   "paymentInstructions": zod.string().optional(),
   "taxAmount": zod.number().optional(),
+  "attachmentPath": zod.string().optional().describe('Object storage path of an uploaded invoice image\/file'),
   "lineItems": zod.array(zod.object({
   "dateOfWork": zod.string().optional(),
   "unitNo": zod.string().optional(),
@@ -2901,6 +2956,7 @@ export const UpdateInvoiceResponse = zod.object({
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "taxAmount": zod.number().optional(),
+  "attachmentPath": zod.string().nullish().describe('Object storage path of an uploaded invoice image\/file'),
   "daysLate": zod.number().nullish(),
   "recipientEmail": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
@@ -2960,6 +3016,7 @@ export const SendInvoiceResponse = zod.object({
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "taxAmount": zod.number().optional(),
+  "attachmentPath": zod.string().nullish().describe('Object storage path of an uploaded invoice image\/file'),
   "daysLate": zod.number().nullish()
 })
 
@@ -2990,6 +3047,7 @@ export const RemindInvoiceResponse = zod.object({
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "taxAmount": zod.number().optional(),
+  "attachmentPath": zod.string().nullish().describe('Object storage path of an uploaded invoice image\/file'),
   "daysLate": zod.number().nullish()
 })
 
@@ -3024,6 +3082,7 @@ export const SetInvoiceStatusResponse = zod.object({
   "dueAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "taxAmount": zod.number().optional(),
+  "attachmentPath": zod.string().nullish().describe('Object storage path of an uploaded invoice image\/file'),
   "daysLate": zod.number().nullish()
 })
 
