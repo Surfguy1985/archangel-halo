@@ -795,38 +795,40 @@ export function AddJobDialog({
               autoFocus
             />
           </Field>
-          {(priceItems?.length ?? 0) > 0 && (
-            <Field label="Or pick from this property's price list">
-              <select
-                className={fieldCls}
-                value={priceItemId}
-                data-testid="select-job-price-item"
-                onChange={(e) => {
-                  const itemId = e.target.value;
-                  setPriceItemId(itemId);
-                  const item = priceItems?.find((p) => p.id === itemId);
-                  if (item) {
-                    setDescription(
-                      item.detail ? `${item.service} — ${item.detail}` : item.service,
-                    );
-                    setCategory(item.service);
-                  } else {
-                    setDescription("");
-                    setCategory("");
-                  }
-                }}
-              >
-                <option value="">Choose a service…</option>
-                {priceItems?.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.service}
-                    {p.detail ? ` — ${p.detail}` : ""} (${p.rate}
-                    {p.unit ? `/${p.unit}` : ""})
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
+          <Field label="Or pick from this property's price list">
+            <select
+              className={fieldCls}
+              value={priceItemId}
+              data-testid="select-job-price-item"
+              onChange={(e) => {
+                const itemId = e.target.value;
+                setPriceItemId(itemId);
+                const item = priceItems?.find((p) => p.id === itemId);
+                if (item) {
+                  setDescription(
+                    item.detail ? `${item.service} — ${item.detail}` : item.service,
+                  );
+                  setCategory(item.service);
+                } else {
+                  setDescription("");
+                  setCategory("");
+                }
+              }}
+            >
+              <option value="">
+                {(priceItems?.length ?? 0) > 0
+                  ? "Choose a service…"
+                  : "No price list items yet — add rates on this property"}
+              </option>
+              {priceItems?.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.service}
+                  {p.detail ? ` — ${p.detail}` : ""} (${p.rate}
+                  {p.unit ? `/${p.unit}` : ""})
+                </option>
+              ))}
+            </select>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Category">
               <input
