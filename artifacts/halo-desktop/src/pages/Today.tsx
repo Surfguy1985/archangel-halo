@@ -121,24 +121,24 @@ export default function Today() {
 
       {/* Brief */}
       {today?.brief && (
-        <Card data-tour="morning-brief" className="bg-[var(--card)] border-[var(--primary)] border shadow-[0_0_20px_rgba(180,255,68,0.1)] relative overflow-hidden rounded-none">
-          <div className="absolute top-0 right-0 p-4 opacity-5">
-            <Sparkles className="w-48 h-48 text-[var(--primary)]" />
+        <Card data-tour="morning-brief" className="bg-[var(--primary)] border-[var(--primary)] border shadow-[0_0_20px_rgba(180,255,68,0.25)] relative overflow-hidden rounded-none">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <Sparkles className="w-48 h-48 text-black" />
           </div>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between border-b border-[var(--border)] bg-[var(--muted)]/30">
-            <CardTitle className="text-sm font-display font-bold uppercase tracking-widest flex items-center gap-2 text-[var(--primary)]">
-              <span className="custom-icon"><Sparkles className="w-4 h-4" /></span> Morning Brief
+          <CardHeader className="pb-2 flex flex-row items-center justify-between border-b border-black/20 bg-transparent">
+            <CardTitle className="text-sm font-display font-bold uppercase tracking-widest flex items-center gap-2 text-black">
+              <span className="custom-icon"><Sparkles className="w-4 h-4 text-black" /></span> Morning Brief
             </CardTitle>
             <button 
               onClick={handleRefresh}
               disabled={refreshBrief.isPending}
-              className="text-muted-foreground hover:text-[var(--primary)] transition-colors"
+              className="text-black/60 hover:text-black transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${refreshBrief.isPending ? "animate-spin" : ""}`} />
             </button>
           </CardHeader>
           <CardContent className="pt-6">
-            <p className="text-foreground leading-relaxed text-lg max-w-4xl font-light">
+            <p className="text-black leading-relaxed text-lg max-w-4xl font-normal">
               {today.brief.body}
             </p>
           </CardContent>
