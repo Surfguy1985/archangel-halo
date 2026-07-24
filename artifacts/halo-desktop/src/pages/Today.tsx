@@ -121,7 +121,7 @@ export default function Today() {
 
       {/* Brief */}
       {today?.brief && (
-        <Card data-tour="morning-brief" className="bg-[var(--primary)] border-[var(--primary)] border shadow-[0_0_20px_rgba(180,255,68,0.25)] relative overflow-hidden rounded-none">
+        <Card data-tour="morning-brief" className="bg-[var(--primary)] border-[var(--primary)] border shadow-[0_8px_30px_rgba(180,255,68,0.3)] relative overflow-hidden rounded-3xl">
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <Sparkles className="w-48 h-48 text-black" />
           </div>
@@ -153,7 +153,7 @@ export default function Today() {
             {queueFilter && (
               <button
                 onClick={() => setQueueFilter(null)}
-                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-black px-2 py-1 bg-[var(--primary)] hover:bg-[var(--gold-light)] transition-colors rounded-none"
+                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-black px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--gold-light)] transition-colors rounded-full shadow-sm"
               >
                 {queues?.find(q => q.key === queueFilter)?.label ?? queueFilter}
                 <X className="w-3 h-3" />
@@ -169,7 +169,7 @@ export default function Today() {
               <Card
                 key={item.id}
                 onClick={route ? () => navigate(route) : undefined}
-                className={`relative overflow-hidden hover:border-[var(--primary)] transition-all group ${route ? "cursor-pointer" : ""} rounded-none border-[var(--border)] bg-[var(--card)] hover:shadow-[0_0_15px_rgba(180,255,68,0.1)]`}
+                className={`relative overflow-hidden hover:border-[var(--primary)] transition-all duration-300 group ${route ? "cursor-pointer" : ""} rounded-2xl border-[var(--border)] bg-[var(--card)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(180,255,68,0.15)] hover:-translate-y-0.5`}
               >
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${qc.bar}`} />
                 <CardContent className="p-5 pl-6 flex items-start gap-4">
@@ -189,7 +189,7 @@ export default function Today() {
                   </div>
                   <div className="flex items-center gap-2">
                     {route && (
-                      <div className="w-8 h-8 border border-[var(--border)] flex items-center justify-center group-hover:bg-[var(--primary)] transition-colors rounded-none">
+                      <div className="w-8 h-8 rounded-full border border-[var(--border)] flex items-center justify-center group-hover:bg-[var(--primary)] transition-colors group-hover:border-[var(--primary)] shadow-sm">
                         <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-black" />
                       </div>
                     )}
@@ -199,7 +199,7 @@ export default function Today() {
                       aria-label="Clear"
                       title="Clear from feed"
                       data-testid={`button-dismiss-${item.id}`}
-                      className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-black hover:bg-[var(--primary)] transition-colors rounded-none"
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-black hover:bg-[var(--primary)] transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -209,12 +209,12 @@ export default function Today() {
               );
             })}
             {today?.feed.length === 0 && (
-              <div className="p-8 text-center border border-dashed border-[var(--border)] text-muted-foreground font-mono text-sm uppercase tracking-widest">
+              <div className="p-8 text-center border border-dashed border-[var(--border)] text-muted-foreground font-mono text-sm uppercase tracking-widest rounded-2xl bg-[var(--card)]/50">
                 All caught up for now.
               </div>
             )}
             {(today?.feed.length ?? 0) > 0 && queueFilter && today?.feed.every(item => item.queue !== queueFilter) && (
-              <div className="p-8 text-center border border-dashed border-[var(--border)] text-muted-foreground font-mono text-sm uppercase tracking-widest">
+              <div className="p-8 text-center border border-dashed border-[var(--border)] text-muted-foreground font-mono text-sm uppercase tracking-widest rounded-2xl bg-[var(--card)]/50">
                 Nothing needs attention in this queue.
               </div>
             )}
@@ -237,7 +237,7 @@ export default function Today() {
                 <button
                   key={q.key}
                   onClick={() => setQueueFilter(prev => (prev === q.key ? null : q.key))}
-                  className={`relative overflow-hidden p-4 border flex flex-col justify-between aspect-square text-left transition-all cursor-pointer group rounded-none ${active ? `${qc.border} ${qc.bg}` : `bg-card border-[var(--border)] ${qc.hoverBorder}`}`}
+                  className={`relative overflow-hidden p-4 border flex flex-col justify-between aspect-square text-left transition-all duration-300 cursor-pointer group rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 ${active ? `${qc.border} ${qc.bg}` : `bg-card border-[var(--border)] ${qc.hoverBorder}`}`}
                 >
                   <div className={`absolute left-0 top-0 right-0 h-1 ${qc.bar} ${active ? "" : "opacity-60 group-hover:opacity-100"} transition-opacity`} />
                   <span className={`text-4xl font-display font-bold transition-colors ${active ? qc.text : `text-foreground ${qc.groupHoverText}`}`}>{q.count}</span>
@@ -249,7 +249,7 @@ export default function Today() {
           </div>
 
           {/* Activity Log */}
-          <Card className="border-[var(--border)] bg-card rounded-none">
+          <Card className="border-[var(--border)] bg-card rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] overflow-hidden">
             <CardHeader className="pb-3 cursor-pointer hover:bg-[var(--muted)]/50 transition-colors" onClick={() => setActivityOpen((o) => !o)}>
               <CardTitle className="text-xs font-display font-bold uppercase tracking-widest flex items-center gap-2 text-foreground">
                 <span className="custom-icon py-1 px-1"><History className="w-3 h-3" /></span> Activity Log
