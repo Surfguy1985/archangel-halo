@@ -12,6 +12,7 @@ import {
   crewInvoicesTable,
   crewInvoiceItemsTable,
   photoSharesTable,
+  notificationsTable,
 } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 import {
@@ -53,6 +54,9 @@ import {
   GetPhotoShareResponse,
   ListCrewInvoicesParams,
   ListCrewInvoicesResponse,
+  ReviewCrewInvoiceParams,
+  ReviewCrewInvoiceBody,
+  ReviewCrewInvoiceResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 import { jobLabelMap } from "../lib/jobLabels";
@@ -369,6 +373,107 @@ router.get("/crews/:id/invoices", async (req, res): Promise<void> => {
           .map((it) => ser(it)),
       })),
     ),
+  );
+});
+
+router.patch("/crew-invoices/:id", async (req, res): Promise<void> => {
+  const { id } = ReviewCrewInvoiceParams.parse(req.params);
+  const body = ReviewCrewInvoiceBody.parse(req.body);
+  const [inv] = await db
+    .select()
+    .from(crewInvoicesTable)
+    .where(eq(crewInvoicesTable.id, id))
+    .limit(1);
+  if (!inv) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+  const now = new Date();
+  let updates: Partial<typeof crewInvoicesTable.$inferInsert>;
+  let noteText = "";
+  if (body.action === "approve") {
+    if (inv.status !== "submitted" && inv.status !== "needs_corrections") {
+      res.status(409).json({
+        error: `Only submitted invoices can be approved (this one is ${inv.status})`,
+      });
+      return;
+    }
+    updates = { status: "approved", decidedAt: now, adminNote: null };
+  } else if (body.action === "send_back") {
+    if (inv.status !== "submitted") {
+      res.status(409).json({
+        error: `Only submitted invoices can be sent back (this one is ${inv.status})`,
+      });
+      return;
+    }
+    const note = body.note?.trim();
+    if (!note) {
+      res
+        .status(400)
+        .json({ error: "A note is required when sending back for corrections" });
+      return;
+    }
+    noteText = note;
+    updates = { status: "needs_corrections", decidedAt: now, adminNote: note };
+  } else if (body.action === "mark_paid") {
+    if (inv.status !== "approved") {
+      res.status(409).json({
+        error: `Only approved invoices can be marked paid (this one is ${inv.status})`,
+      });
+      return;
+    }
+    updates = { status: "paid", decidedAt: inv.decidedAt ?? now };
+  } else {
+    if (inv.status === "submitted") {
+      res.status(409).json({
+        error: "Review this invoice before clearing it to history",
+      });
+      return;
+    }
+    if (inv.clearedAt) {
+      res.status(409).json({ error: "This invoice is already in history" });
+      return;
+    }
+    updates = { clearedAt: now };
+  }
+  const [updated] = await db
+    .update(crewInvoicesTable)
+    .set(updates)
+    .where(eq(crewInvoicesTable.id, id))
+    .returning();
+  const items = await db
+    .select()
+    .from(crewInvoiceItemsTable)
+    .where(eq(crewInvoiceItemsTable.invoiceId, id));
+
+  if (body.action !== "clear") {
+    const [crew] = await db
+      .select({ name: crewsTable.name })
+      .from(crewsTable)
+      .where(eq(crewsTable.id, inv.crewId))
+      .limit(1);
+    const labels: Record<string, string> = {
+      approve: "approved",
+      send_back: "sent back for corrections",
+      mark_paid: "marked paid",
+    };
+    await db.insert(notificationsTable).values({
+      kind: "crew_invoice",
+      priority: "normal",
+      entityType: "crew",
+      entityId: inv.crewId,
+      title: `Invoice ${inv.invoiceNo ? `${inv.invoiceNo} ` : ""}from ${crew?.name ?? "crew"} ${labels[body.action]} — $${inv.total.toFixed(2)}`,
+      body: noteText || inv.propertyAddress,
+    });
+  }
+
+  res.json(
+    ReviewCrewInvoiceResponse.parse({
+      ...ser(updated),
+      items: items
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((it) => ser(it)),
+    }),
   );
 });
 

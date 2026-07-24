@@ -63,6 +63,9 @@ import {
   SubmitPortalInvoiceParams,
   SubmitPortalInvoiceBody,
   SubmitPortalInvoiceResponse,
+  ResubmitPortalInvoiceParams,
+  ResubmitPortalInvoiceBody,
+  ResubmitPortalInvoiceResponse,
   MarkPortalSeenParams,
   MarkPortalSeenBody,
   MarkPortalSeenResponse,
@@ -572,6 +575,159 @@ router.post("/portal/:token/invoices", async (req, res): Promise<void> => {
     }),
   );
 });
+
+router.patch(
+  "/portal/:token/invoices/:invoiceId",
+  async (req, res): Promise<void> => {
+    const { token, invoiceId } = ResubmitPortalInvoiceParams.parse(req.params);
+    const crew = await crewByToken(token);
+    if (!crew) {
+      res.status(404).json({ error: "Invalid portal link" });
+      return;
+    }
+    const [existing] = await db
+      .select()
+      .from(crewInvoicesTable)
+      .where(eq(crewInvoicesTable.id, invoiceId))
+      .limit(1);
+    if (!existing || existing.crewId !== crew.id) {
+      res.status(404).json({ error: "Invoice not found" });
+      return;
+    }
+    if (existing.status !== "needs_corrections") {
+      res.status(400).json({
+        error: "Only invoices sent back for corrections can be resubmitted",
+      });
+      return;
+    }
+    const body = ResubmitPortalInvoiceBody.parse(req.body);
+
+    if (!body.fromCompany.trim()) {
+      res.status(400).json({ error: "Your company name is required" });
+      return;
+    }
+    if (!body.propertyAddress.trim()) {
+      res.status(400).json({ error: "Property address is required" });
+      return;
+    }
+    if (!body.signatureName.trim()) {
+      res.status(400).json({ error: "Type your full name to sign" });
+      return;
+    }
+    const items = body.items.filter(
+      (it) => it.typeOfWork.trim() || it.qty || it.unitPrice,
+    );
+    if (items.length === 0) {
+      res.status(400).json({ error: "Add at least one line item" });
+      return;
+    }
+    for (const it of items) {
+      if (!it.dateOfWork.trim() || !it.typeOfWork.trim()) {
+        res
+          .status(400)
+          .json({ error: "Every line needs a date of work and type of work" });
+        return;
+      }
+      if (
+        !Number.isFinite(it.qty) ||
+        it.qty <= 0 ||
+        !Number.isFinite(it.unitPrice) ||
+        it.unitPrice < 0
+      ) {
+        res.status(400).json({
+          error:
+            "Every line needs a quantity above zero and a valid unit price",
+        });
+        return;
+      }
+    }
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const lineAmounts = items.map((it) => round2(it.qty * it.unitPrice));
+    const subtotal = round2(lineAmounts.reduce((s, a) => s + a, 0));
+    const now = new Date();
+
+    const updated = await db.transaction(async (tx) => {
+      const [inv] = await tx
+        .update(crewInvoicesTable)
+        .set({
+          invoiceNo: body.invoiceNo?.trim() || null,
+          poNumber: body.poNumber?.trim() || null,
+          invoiceDate: body.invoiceDate,
+          terms: body.terms ?? null,
+          dueDate: body.dueDate ?? null,
+          fromCompany: body.fromCompany.trim(),
+          fromTrade: body.fromTrade?.trim() || null,
+          fromAddress: body.fromAddress?.trim() || null,
+          fromCityStateZip: body.fromCityStateZip?.trim() || null,
+          fromContact: body.fromContact?.trim() || null,
+          fromPhone: body.fromPhone?.trim() || null,
+          fromEmail: body.fromEmail?.trim() || null,
+          propertyAddress: body.propertyAddress.trim(),
+          subtotal,
+          total: subtotal,
+          signatureName: body.signatureName.trim(),
+          signedAt: now,
+          status: "submitted",
+          adminNote: null,
+          decidedAt: null,
+        })
+        .where(
+          and(
+            eq(crewInvoicesTable.id, invoiceId),
+            eq(crewInvoicesTable.crewId, crew.id),
+            eq(crewInvoicesTable.status, "needs_corrections"),
+          ),
+        )
+        .returning();
+      if (!inv) {
+        return null;
+      }
+      await tx
+        .delete(crewInvoiceItemsTable)
+        .where(eq(crewInvoiceItemsTable.invoiceId, invoiceId));
+      const itemRows = await tx
+        .insert(crewInvoiceItemsTable)
+        .values(
+          items.map((it, idx) => ({
+            invoiceId,
+            dateOfWork: it.dateOfWork,
+            unitNo: it.unitNo?.trim() || null,
+            typeOfWork: it.typeOfWork.trim(),
+            qty: it.qty,
+            unitPrice: it.unitPrice,
+            amount: lineAmounts[idx]!,
+            sortOrder: idx,
+          })),
+        )
+        .returning();
+      return { inv, itemRows };
+    });
+
+    if (!updated) {
+      res.status(409).json({
+        error: "Only invoices sent back for corrections can be resubmitted",
+      });
+      return;
+    }
+
+    await db.insert(notificationsTable).values({
+      kind: "crew_invoice",
+      priority: "urgent",
+      entityType: "crew",
+      entityId: crew.id,
+      title: `${crew.name} resubmitted a corrected invoice — $${subtotal.toFixed(2)}`,
+      body: `${updated.inv.invoiceNo ? `Invoice ${updated.inv.invoiceNo} · ` : ""}${body.propertyAddress.trim()} · signed by ${body.signatureName.trim()}`,
+    });
+
+    res.json(
+      ResubmitPortalInvoiceResponse.parse({
+        ...ser(updated.inv),
+        items: updated.itemRows.map((it) => ser(it)),
+      }),
+    );
+  },
+);
 
 router.get("/portal/:token/messages", async (req, res): Promise<void> => {
   const { token } = ListPortalMessagesParams.parse(req.params);

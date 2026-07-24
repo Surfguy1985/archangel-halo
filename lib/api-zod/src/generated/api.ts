@@ -5047,7 +5047,10 @@ export const ListPortalInvoicesResponseItem = zod.object({
   "total": zod.number(),
   "signatureName": zod.string(),
   "signedAt": zod.string(),
-  "status": zod.string().describe('submitted | reviewed | paid'),
+  "status": zod.string().describe('submitted | approved | needs_corrections | paid'),
+  "adminNote": zod.string().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "createdAt": zod.string().nullish(),
   "items": zod.array(zod.object({
   "id": zod.string(),
@@ -5118,7 +5121,10 @@ export const SubmitPortalInvoiceResponse = zod.object({
   "total": zod.number(),
   "signatureName": zod.string(),
   "signedAt": zod.string(),
-  "status": zod.string().describe('submitted | reviewed | paid'),
+  "status": zod.string().describe('submitted | approved | needs_corrections | paid'),
+  "adminNote": zod.string().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "createdAt": zod.string().nullish(),
   "items": zod.array(zod.object({
   "id": zod.string(),
@@ -5179,7 +5185,10 @@ export const ListCrewInvoicesResponseItem = zod.object({
   "total": zod.number(),
   "signatureName": zod.string(),
   "signedAt": zod.string(),
-  "status": zod.string().describe('submitted | reviewed | paid'),
+  "status": zod.string().describe('submitted | approved | needs_corrections | paid'),
+  "adminNote": zod.string().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
   "createdAt": zod.string().nullish(),
   "items": zod.array(zod.object({
   "id": zod.string(),
@@ -5192,6 +5201,129 @@ export const ListCrewInvoicesResponseItem = zod.object({
 }))
 })
 export const ListCrewInvoicesResponse = zod.array(ListCrewInvoicesResponseItem)
+
+
+/**
+ * @summary Admin review action on a crew-submitted invoice
+ */
+export const ReviewCrewInvoiceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ReviewCrewInvoiceBody = zod.object({
+  "action": zod.enum(['approve', 'send_back', 'mark_paid', 'clear']),
+  "note": zod.string().nullish().describe('Required for send_back — what the crew must fix')
+})
+
+export const ReviewCrewInvoiceResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "invoiceNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "invoiceDate": zod.string(),
+  "terms": zod.string().nullish(),
+  "dueDate": zod.string().nullish(),
+  "fromCompany": zod.string(),
+  "fromTrade": zod.string().nullish(),
+  "fromAddress": zod.string().nullish(),
+  "fromCityStateZip": zod.string().nullish(),
+  "fromContact": zod.string().nullish(),
+  "fromPhone": zod.string().nullish(),
+  "fromEmail": zod.string().nullish(),
+  "propertyAddress": zod.string(),
+  "subtotal": zod.number(),
+  "total": zod.number(),
+  "signatureName": zod.string(),
+  "signedAt": zod.string(),
+  "status": zod.string().describe('submitted | approved | needs_corrections | paid'),
+  "adminNote": zod.string().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "dateOfWork": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "typeOfWork": zod.string(),
+  "qty": zod.number(),
+  "unitPrice": zod.number(),
+  "amount": zod.number()
+}))
+})
+
+
+/**
+ * @summary Crew fixes and resubmits an invoice that was sent back for corrections
+ */
+export const ResubmitPortalInvoiceParams = zod.object({
+  "token": zod.coerce.string(),
+  "invoiceId": zod.coerce.string()
+})
+
+export const resubmitPortalInvoiceBodyInvoiceDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const resubmitPortalInvoiceBodyDueDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const resubmitPortalInvoiceBodyItemsItemDateOfWorkRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const ResubmitPortalInvoiceBody = zod.object({
+  "fromCompany": zod.string(),
+  "fromTrade": zod.string().nullish(),
+  "fromAddress": zod.string().nullish(),
+  "fromCityStateZip": zod.string().nullish(),
+  "fromContact": zod.string().nullish(),
+  "fromPhone": zod.string().nullish(),
+  "fromEmail": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "invoiceDate": zod.string().regex(resubmitPortalInvoiceBodyInvoiceDateRegExp).describe('YYYY-MM-DD'),
+  "terms": zod.string().nullish(),
+  "dueDate": zod.string().regex(resubmitPortalInvoiceBodyDueDateRegExp).nullish(),
+  "propertyAddress": zod.string(),
+  "items": zod.array(zod.object({
+  "dateOfWork": zod.string().regex(resubmitPortalInvoiceBodyItemsItemDateOfWorkRegExp).describe('YYYY-MM-DD'),
+  "unitNo": zod.string().nullish(),
+  "typeOfWork": zod.string(),
+  "qty": zod.number(),
+  "unitPrice": zod.number()
+})),
+  "signatureName": zod.string()
+})
+
+export const ResubmitPortalInvoiceResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "invoiceNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish(),
+  "invoiceDate": zod.string(),
+  "terms": zod.string().nullish(),
+  "dueDate": zod.string().nullish(),
+  "fromCompany": zod.string(),
+  "fromTrade": zod.string().nullish(),
+  "fromAddress": zod.string().nullish(),
+  "fromCityStateZip": zod.string().nullish(),
+  "fromContact": zod.string().nullish(),
+  "fromPhone": zod.string().nullish(),
+  "fromEmail": zod.string().nullish(),
+  "propertyAddress": zod.string(),
+  "subtotal": zod.number(),
+  "total": zod.number(),
+  "signatureName": zod.string(),
+  "signedAt": zod.string(),
+  "status": zod.string().describe('submitted | approved | needs_corrections | paid'),
+  "adminNote": zod.string().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "dateOfWork": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "typeOfWork": zod.string(),
+  "qty": zod.number(),
+  "unitPrice": zod.number(),
+  "amount": zod.number()
+}))
+})
 
 
 /**

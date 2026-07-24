@@ -85,6 +85,8 @@ export * from './crewInvoice';
 export * from './crewInvoiceInput';
 export * from './crewInvoiceItem';
 export * from './crewInvoiceItemInput';
+export * from './crewInvoiceReviewInput';
+export * from './crewInvoiceReviewInputAction';
 export * from './crewJobPhoto';
 export * from './crewMessage';
 export * from './crewPacket';

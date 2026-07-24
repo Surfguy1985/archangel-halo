@@ -23,7 +23,9 @@ import {
   useUpdatePhotoShareNotes,
   useListCrewInvoices,
   getListCrewInvoicesQueryKey,
+  useReviewCrewInvoice,
   type CrewPhoto,
+  type CrewInvoice,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import {
@@ -509,62 +511,7 @@ export default function CrewDetail() {
         <div className={sectionTitle}>
           <Receipt className="w-[13px] h-[13px]" /> Invoices from crew
         </div>
-        {!crewInvoices || crewInvoices.length === 0 ? (
-          <div className="text-[12.5px] text-muted-foreground py-[6px] text-center">
-            No invoices submitted yet.
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            {crewInvoices.map((inv, idx) => (
-              <div
-                key={inv.id}
-                className={`py-[11px] ${idx !== 0 ? "border-t border-border" : ""}`}
-              >
-                <div className="flex items-center justify-between gap-[10px]">
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-semibold truncate">
-                      {inv.invoiceNo ? `#${inv.invoiceNo} · ` : ""}
-                      {inv.propertyAddress}
-                    </div>
-                    <div className="text-[11.5px] text-muted-foreground">
-                      {inv.fromCompany} · {formatWhen(inv.createdAt)}
-                      {inv.terms ? ` · ${inv.terms}` : ""}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-[7px] shrink-0">
-                    <span className="text-[14px] font-bold tabular-nums">
-                      ${inv.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                    </span>
-                    <span className="text-[10px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full bg-[rgba(59,111,181,0.12)] text-[var(--blue)]">
-                      {inv.status}
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-[7px] flex flex-col gap-[3px]">
-                  {inv.items.map((it) => (
-                    <div
-                      key={it.id}
-                      className="flex items-center justify-between text-[12px] text-muted-foreground"
-                    >
-                      <span className="truncate">
-                        {it.dateOfWork}
-                        {it.unitNo ? ` · Unit ${it.unitNo}` : ""} · {it.typeOfWork}
-                      </span>
-                      <span className="tabular-nums shrink-0 ml-[8px]">
-                        {it.qty} × ${it.unitPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })} = $
-                        {it.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-[6px] text-[11.5px] text-muted-foreground italic">
-                  Signed by {inv.signatureName}
-                  {inv.signedAt ? ` on ${formatWhen(inv.signedAt)}` : ""}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <CrewInvoicesReview crewId={id} invoices={crewInvoices} />
       </div>
 
       {/* Documents */}
@@ -1008,6 +955,231 @@ function DailyActivitySection({
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const invoiceStatusChip = (s: string) =>
+  ((
+    {
+      submitted: "bg-[rgba(59,111,181,0.12)] text-[var(--blue)]",
+      approved: "bg-emerald-100 text-emerald-700",
+      paid: "bg-emerald-100 text-emerald-700",
+      needs_corrections: "bg-amber-100 text-amber-800",
+    } as Record<string, string>
+  )[s] ?? "bg-muted text-muted-foreground");
+
+function CrewInvoicesReview({
+  crewId,
+  invoices,
+}: {
+  crewId: string;
+  invoices: CrewInvoice[] | undefined;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const review = useReviewCrewInvoice();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [noteFor, setNoteFor] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+
+  const all = invoices ?? [];
+  const active = all.filter((i) => !i.clearedAt);
+  const history = all.filter((i) => i.clearedAt);
+
+  const act = async (
+    invId: string,
+    action: "approve" | "send_back" | "mark_paid" | "clear",
+    n?: string,
+  ) => {
+    try {
+      await review.mutateAsync({ id: invId, data: { action, note: n ?? null } });
+      queryClient.invalidateQueries({ queryKey: getListCrewInvoicesQueryKey(crewId) });
+      setNoteFor(null);
+      setNote("");
+      toast({
+        title:
+          action === "approve"
+            ? "Invoice approved"
+            : action === "send_back"
+              ? "Sent back for corrections"
+              : action === "mark_paid"
+                ? "Invoice marked paid"
+                : "Invoice cleared to history",
+      });
+    } catch (e) {
+      const err = e as { data?: { error?: string } };
+      toast({
+        title: "Couldn't update invoice",
+        description: err.data?.error ?? "Please try again",
+      });
+    }
+  };
+
+  const renderRow = (inv: CrewInvoice, cleared: boolean, idx: number) => {
+    const isOpen = openId === inv.id;
+    return (
+      <div key={inv.id} className={`py-[11px] ${idx !== 0 ? "border-t border-border" : ""}`}>
+        <button
+          type="button"
+          onClick={() => setOpenId(isOpen ? null : inv.id)}
+          className="w-full flex items-center justify-between gap-[10px] text-left"
+        >
+          <div className="min-w-0">
+            <div className="text-[13px] font-semibold truncate">
+              {inv.invoiceNo ? `#${inv.invoiceNo} · ` : ""}
+              {inv.propertyAddress}
+            </div>
+            <div className="text-[11.5px] text-muted-foreground">
+              {inv.fromCompany} · {formatWhen(inv.createdAt)}
+              {inv.terms ? ` · ${inv.terms}` : ""}
+            </div>
+          </div>
+          <div className="flex items-center gap-[7px] shrink-0">
+            <span className="text-[14px] font-bold tabular-nums">
+              ${inv.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            </span>
+            <span
+              className={`text-[10px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full ${invoiceStatusChip(inv.status)}`}
+            >
+              {inv.status.replace(/_/g, " ")}
+            </span>
+          </div>
+        </button>
+        {isOpen && (
+          <div className="mt-[7px]">
+            <div className="flex flex-col gap-[3px]">
+              {inv.items.map((it) => (
+                <div
+                  key={it.id}
+                  className="flex items-center justify-between text-[12px] text-muted-foreground"
+                >
+                  <span className="truncate">
+                    {it.dateOfWork}
+                    {it.unitNo ? ` · Unit ${it.unitNo}` : ""} · {it.typeOfWork}
+                  </span>
+                  <span className="tabular-nums shrink-0 ml-[8px]">
+                    {it.qty} × ${it.unitPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })} = $
+                    {it.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-[6px] text-[11.5px] text-muted-foreground italic">
+              Signed by {inv.signatureName}
+              {inv.signedAt ? ` on ${formatWhen(inv.signedAt)}` : ""}
+            </div>
+            {inv.status === "needs_corrections" && inv.adminNote && (
+              <div className="mt-[8px] text-[12px] rounded-[10px] bg-amber-50 border border-amber-200 text-amber-800 px-[10px] py-[7px]">
+                Sent back: {inv.adminNote}
+              </div>
+            )}
+            {!cleared && (
+              <div className="mt-[10px] flex flex-wrap items-center gap-[7px]">
+                {(inv.status === "submitted" || inv.status === "needs_corrections") && (
+                  <button
+                    type="button"
+                    disabled={review.isPending}
+                    onClick={() => act(inv.id, "approve")}
+                    className="px-[12px] py-[7px] rounded-[10px] text-[12px] font-bold bg-emerald-600 text-white disabled:opacity-50 transition-transform active:scale-[0.97]"
+                  >
+                    Approve
+                  </button>
+                )}
+                {inv.status === "submitted" && (
+                  <button
+                    type="button"
+                    disabled={review.isPending}
+                    onClick={() => {
+                      setNoteFor(noteFor === inv.id ? null : inv.id);
+                      setNote("");
+                    }}
+                    className="px-[12px] py-[7px] rounded-[10px] text-[12px] font-bold bg-amber-500/15 text-amber-700 disabled:opacity-50 transition-transform active:scale-[0.97]"
+                  >
+                    Send back
+                  </button>
+                )}
+                {inv.status === "approved" && (
+                  <button
+                    type="button"
+                    disabled={review.isPending}
+                    onClick={() => act(inv.id, "mark_paid")}
+                    className="px-[12px] py-[7px] rounded-[10px] text-[12px] font-bold bg-[var(--ink)] text-white disabled:opacity-50 transition-transform active:scale-[0.97]"
+                  >
+                    Mark paid
+                  </button>
+                )}
+                {inv.status !== "submitted" && (
+                  <button
+                    type="button"
+                    disabled={review.isPending}
+                    onClick={() => act(inv.id, "clear")}
+                    className="px-[12px] py-[7px] rounded-[10px] text-[12px] font-bold bg-black/5 text-foreground disabled:opacity-50 transition-transform active:scale-[0.97]"
+                  >
+                    Clear to history
+                  </button>
+                )}
+              </div>
+            )}
+            {!cleared && noteFor === inv.id && (
+              <div className="mt-[8px] flex items-end gap-[7px]">
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="What should the crew fix?"
+                  rows={2}
+                  className="flex-1 resize-none rounded-[10px] border border-border bg-background px-[10px] py-[8px] text-[12px] focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <button
+                  type="button"
+                  disabled={review.isPending || !note.trim()}
+                  onClick={() => act(inv.id, "send_back", note.trim())}
+                  className="px-[12px] py-[8px] rounded-[10px] text-[12px] font-bold bg-amber-600 text-white disabled:opacity-40 transition-transform active:scale-[0.97]"
+                >
+                  Send back
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (all.length === 0) {
+    return (
+      <div className="text-[12.5px] text-muted-foreground py-[6px] text-center">
+        No invoices submitted yet.
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {active.length === 0 ? (
+        <div className="text-[12.5px] text-muted-foreground py-[6px] text-center">
+          No open invoices.
+        </div>
+      ) : (
+        <div className="flex flex-col">{active.map((inv, idx) => renderRow(inv, false, idx))}</div>
+      )}
+      {history.length > 0 && (
+        <div className="mt-[8px] pt-[8px] border-t border-border">
+          <button
+            type="button"
+            onClick={() => setShowHistory(!showHistory)}
+            className="text-[12px] font-bold text-muted-foreground"
+          >
+            {showHistory ? "Hide" : "Show"} history ({history.length})
+          </button>
+          {showHistory && (
+            <div className="flex flex-col opacity-70">
+              {history.map((inv, idx) => renderRow(inv, true, idx))}
+            </div>
+          )}
         </div>
       )}
     </div>

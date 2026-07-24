@@ -25,7 +25,9 @@ import {
   useUpdatePhotoShareNotes,
   useListCrewInvoices,
   getListCrewInvoicesQueryKey,
+  useReviewCrewInvoice,
   type CrewPhoto,
+  type CrewInvoice,
 } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import {
@@ -387,55 +389,7 @@ export default function CrewDetail() {
         {/* Invoices from crew */}
         <div className={card}>
           <div className={sectionTitle}><Receipt className="w-3.5 h-3.5" /> Invoices from crew</div>
-          {!crewInvoices || crewInvoices.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-2 text-center">No invoices submitted yet.</div>
-          ) : (
-            <div className="flex flex-col divide-y divide-border">
-              {crewInvoices.map((inv) => (
-                <div key={inv.id} className="py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold truncate">
-                        {inv.invoiceNo ? `#${inv.invoiceNo} · ` : ""}
-                        {inv.propertyAddress}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {inv.fromCompany} · {formatWhen(inv.createdAt)}
-                        {inv.terms ? ` · ${inv.terms}` : ""}
-                        {inv.dueDate ? ` · Due ${inv.dueDate}` : ""}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-bold tabular-nums">
-                        ${inv.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                      </span>
-                      <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                        {inv.status}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex flex-col gap-1">
-                    {inv.items.map((it) => (
-                      <div key={it.id} className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span className="truncate">
-                          {it.dateOfWork}
-                          {it.unitNo ? ` · Unit ${it.unitNo}` : ""} · {it.typeOfWork}
-                        </span>
-                        <span className="tabular-nums shrink-0 ml-2">
-                          {it.qty} × ${it.unitPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })} = $
-                          {it.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-1.5 text-xs text-muted-foreground italic">
-                    Signed by {inv.signatureName}
-                    {inv.signedAt ? ` on ${formatWhen(inv.signedAt)}` : ""}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <CrewInvoicesReview crewId={id} invoices={crewInvoices} />
         </div>
 
         {/* Documents */}
@@ -910,6 +864,224 @@ function DailyActivitySection({
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const invoiceStatusChip = (s: string) =>
+  ((
+    {
+      submitted: "bg-blue-100 text-blue-800",
+      approved: "bg-emerald-100 text-emerald-700",
+      paid: "bg-emerald-100 text-emerald-700",
+      needs_corrections: "bg-amber-100 text-amber-800",
+    } as Record<string, string>
+  )[s] ?? "bg-muted text-muted-foreground");
+
+function CrewInvoicesReview({
+  crewId,
+  invoices,
+}: {
+  crewId: string;
+  invoices: CrewInvoice[] | undefined;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const review = useReviewCrewInvoice();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [noteFor, setNoteFor] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+
+  const all = invoices ?? [];
+  const active = all.filter((i) => !i.clearedAt);
+  const history = all.filter((i) => i.clearedAt);
+
+  const act = async (
+    invId: string,
+    action: "approve" | "send_back" | "mark_paid" | "clear",
+    n?: string,
+  ) => {
+    try {
+      await review.mutateAsync({ id: invId, data: { action, note: n ?? null } });
+      queryClient.invalidateQueries({ queryKey: getListCrewInvoicesQueryKey(crewId) });
+      setNoteFor(null);
+      setNote("");
+      toast({
+        title:
+          action === "approve"
+            ? "Invoice approved"
+            : action === "send_back"
+              ? "Sent back for corrections"
+              : action === "mark_paid"
+                ? "Invoice marked paid"
+                : "Invoice cleared to history",
+      });
+    } catch (e) {
+      const err = e as { data?: { error?: string } };
+      toast({
+        title: "Couldn't update invoice",
+        description: err.data?.error ?? "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const renderRow = (inv: CrewInvoice, cleared: boolean) => {
+    const isOpen = openId === inv.id;
+    return (
+      <div key={inv.id} className="py-3">
+        <button
+          type="button"
+          onClick={() => setOpenId(isOpen ? null : inv.id)}
+          className="w-full flex items-center justify-between gap-3 text-left"
+        >
+          <div className="min-w-0">
+            <div className="text-sm font-semibold truncate">
+              {inv.invoiceNo ? `#${inv.invoiceNo} · ` : ""}
+              {inv.propertyAddress}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {inv.fromCompany} · {formatWhen(inv.createdAt)}
+              {inv.terms ? ` · ${inv.terms}` : ""}
+              {inv.dueDate ? ` · Due ${inv.dueDate}` : ""}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-sm font-bold tabular-nums">
+              ${inv.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            </span>
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${invoiceStatusChip(inv.status)}`}
+            >
+              {inv.status.replace(/_/g, " ")}
+            </span>
+          </div>
+        </button>
+        {isOpen && (
+          <div className="mt-2">
+            <div className="flex flex-col gap-1">
+              {inv.items.map((it) => (
+                <div key={it.id} className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="truncate">
+                    {it.dateOfWork}
+                    {it.unitNo ? ` · Unit ${it.unitNo}` : ""} · {it.typeOfWork}
+                  </span>
+                  <span className="tabular-nums shrink-0 ml-2">
+                    {it.qty} × ${it.unitPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })} = $
+                    {it.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-1.5 text-xs text-muted-foreground italic">
+              Signed by {inv.signatureName}
+              {inv.signedAt ? ` on ${formatWhen(inv.signedAt)}` : ""}
+            </div>
+            {inv.status === "needs_corrections" && inv.adminNote && (
+              <div className="mt-2 text-xs rounded-md bg-amber-50 border border-amber-200 text-amber-800 px-2.5 py-1.5">
+                Sent back: {inv.adminNote}
+              </div>
+            )}
+            {!cleared && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {(inv.status === "submitted" || inv.status === "needs_corrections") && (
+                  <button
+                    type="button"
+                    disabled={review.isPending}
+                    onClick={() => act(inv.id, "approve")}
+                    className="px-3 py-1.5 rounded-md text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                  >
+                    Approve
+                  </button>
+                )}
+                {inv.status === "submitted" && (
+                  <button
+                    type="button"
+                    disabled={review.isPending}
+                    onClick={() => {
+                      setNoteFor(noteFor === inv.id ? null : inv.id);
+                      setNote("");
+                    }}
+                    className="px-3 py-1.5 rounded-md text-xs font-bold bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 disabled:opacity-50 transition-colors"
+                  >
+                    Send back for corrections
+                  </button>
+                )}
+                {inv.status === "approved" && (
+                  <button
+                    type="button"
+                    disabled={review.isPending}
+                    onClick={() => act(inv.id, "mark_paid")}
+                    className="px-3 py-1.5 rounded-md text-xs font-bold bg-[var(--ink)] text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  >
+                    Mark paid
+                  </button>
+                )}
+                {inv.status !== "submitted" && (
+                  <button
+                    type="button"
+                    disabled={review.isPending}
+                    onClick={() => act(inv.id, "clear")}
+                    className="px-3 py-1.5 rounded-md text-xs font-bold bg-black/5 text-foreground hover:bg-black/10 disabled:opacity-50 transition-colors"
+                  >
+                    Clear to history
+                  </button>
+                )}
+              </div>
+            )}
+            {!cleared && noteFor === inv.id && (
+              <div className="mt-2 flex items-end gap-2">
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="What should the crew fix?"
+                  rows={2}
+                  className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <button
+                  type="button"
+                  disabled={review.isPending || !note.trim()}
+                  onClick={() => act(inv.id, "send_back", note.trim())}
+                  className="px-3 py-2 rounded-md text-xs font-bold bg-amber-600 text-white disabled:opacity-40 hover:bg-amber-700 transition-colors"
+                >
+                  Send back
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (all.length === 0) {
+    return <div className="text-sm text-muted-foreground py-2 text-center">No invoices submitted yet.</div>;
+  }
+
+  return (
+    <div>
+      {active.length === 0 ? (
+        <div className="text-sm text-muted-foreground py-2 text-center">No open invoices.</div>
+      ) : (
+        <div className="flex flex-col divide-y divide-border">{active.map((inv) => renderRow(inv, false))}</div>
+      )}
+      {history.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-border">
+          <button
+            type="button"
+            onClick={() => setShowHistory(!showHistory)}
+            className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {showHistory ? "Hide" : "Show"} history ({history.length})
+          </button>
+          {showHistory && (
+            <div className="flex flex-col divide-y divide-border opacity-70">
+              {history.map((inv) => renderRow(inv, true))}
+            </div>
+          )}
         </div>
       )}
     </div>

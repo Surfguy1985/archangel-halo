@@ -3935,6 +3935,82 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /crew-invoices/{id}:
+    patch:
+      operationId: reviewCrewInvoice
+      tags: [crew-portal]
+      summary: Admin review action on a crew-submitted invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewInvoiceReviewInput"
+      responses:
+        "200":
+          description: Updated invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewInvoice"
+        "400":
+          description: Invalid action
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /portal/{token}/invoices/{invoiceId}:
+    patch:
+      operationId: resubmitPortalInvoice
+      tags: [portal]
+      summary: Crew fixes and resubmits an invoice that was sent back for corrections
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: invoiceId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewInvoiceInput"
+      responses:
+        "200":
+          description: Resubmitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewInvoice"
+        "400":
+          description: Invalid invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link or invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /accounting/accounts:
     get:
       operationId: listLedgerAccounts
@@ -6964,6 +7040,16 @@ components:
         typeOfWork: { type: string }
         qty: { type: number }
         unitPrice: { type: number }
+    CrewInvoiceReviewInput:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [approve, send_back, mark_paid, clear]
+        note:
+          type: ["string", "null"]
+          description: "Required for send_back — what the crew must fix"
     CrewInvoiceInput:
       type: object
       required:
@@ -7036,7 +7122,10 @@ components:
         total: { type: number }
         signatureName: { type: string }
         signedAt: { type: string }
-        status: { type: string, description: "submitted | reviewed | paid" }
+        status: { type: string, description: "submitted | approved | needs_corrections | paid" }
+        adminNote: { type: ["string", "null"] }
+        decidedAt: { type: ["string", "null"] }
+        clearedAt: { type: ["string", "null"] }
         createdAt: { type: ["string", "null"] }
         items:
           type: array

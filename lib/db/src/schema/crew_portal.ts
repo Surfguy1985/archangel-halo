@@ -113,6 +113,9 @@ export const crewInvoicesTable = pgTable("crew_invoices", {
   signatureName: text("signature_name").notNull(),
   signedAt: timestamp("signed_at", { withTimezone: true }).notNull(),
   status: text("status").notNull().default("submitted"),
+  adminNote: text("admin_note"),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  clearedAt: timestamp("cleared_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

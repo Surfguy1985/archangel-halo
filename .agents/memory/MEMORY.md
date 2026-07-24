@@ -41,5 +41,6 @@
 - [HALO portal guide](halo-portal-guide.md) — bilingual Guide tab; ?guide=en|es deep link must be respected by any portal auto-navigation (offer auto-switch skips it).
 - [HALO job funnel close-out](halo-job-funnel.md) — /jobs/:id/close-out enforces crew+complete+paid invoice+crew paid (409 missing[]); /clear now enforces the same checklist (loophole sealed).
 - [HALO Founding Wings](halo-founding-wings.md) — deterministic engines decide money/eligibility, AI only reviews photos (crew_photos, phase before/after) + writes brief; reserve settlement uses guarded HELD claim.
+- [HALO crew invoice review](halo-crew-invoice-review.md) — crew invoice status transitions are server-guarded (409 on invalid); no global error middleware, never throw in async routes.
 - [HALO double-entry ledger](halo-ledger.md) — Books engine: every money mutation (REST and voice) must call syncXLedger; rebuild+syncs serialized by in-process mutex; JE numbering via advisory lock.
 - [HALO job timeline](halo-job-timeline.md) — JobFunnel 5-stage pipeline: /jobs/:id/events feed, manual-assign board sync is server-side + transactional, recap-then-close needs no-email fallback.

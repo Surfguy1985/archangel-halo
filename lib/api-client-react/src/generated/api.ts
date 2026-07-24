@@ -77,6 +77,7 @@ import type {
   CrewInput,
   CrewInvoice,
   CrewInvoiceInput,
+  CrewInvoiceReviewInput,
   CrewMessage,
   CrewPacket,
   CrewPayment,
@@ -13206,6 +13207,152 @@ export function useListCrewInvoices<TData = Awaited<ReturnType<typeof listCrewIn
 
 
 
+
+export const getReviewCrewInvoiceUrl = (id: string,) => {
+
+
+
+
+  return `/api/crew-invoices/${id}`
+}
+
+/**
+ * @summary Admin review action on a crew-submitted invoice
+ */
+export const reviewCrewInvoice = async (id: string,
+    crewInvoiceReviewInput: CrewInvoiceReviewInput, options?: RequestInit): Promise<CrewInvoice> => {
+
+  return customFetch<CrewInvoice>(getReviewCrewInvoiceUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewInvoiceReviewInput)
+  }
+);}
+
+
+
+
+
+export const getReviewCrewInvoiceMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewCrewInvoice>>, TError,{id: string;data: BodyType<CrewInvoiceReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewCrewInvoice>>, TError,{id: string;data: BodyType<CrewInvoiceReviewInput>}, TContext> => {
+
+const mutationKey = ['reviewCrewInvoice'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewCrewInvoice>>, {id: string;data: BodyType<CrewInvoiceReviewInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reviewCrewInvoice(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewCrewInvoiceMutationResult = NonNullable<Awaited<ReturnType<typeof reviewCrewInvoice>>>
+    export type ReviewCrewInvoiceMutationBody = BodyType<CrewInvoiceReviewInput>
+    export type ReviewCrewInvoiceMutationError = ErrorType<Error>
+
+    /**
+ * @summary Admin review action on a crew-submitted invoice
+ */
+export const useReviewCrewInvoice = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewCrewInvoice>>, TError,{id: string;data: BodyType<CrewInvoiceReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewCrewInvoice>>,
+        TError,
+        {id: string;data: BodyType<CrewInvoiceReviewInput>},
+        TContext
+      > => {
+      return useMutation(getReviewCrewInvoiceMutationOptions(options));
+    }
+
+export const getResubmitPortalInvoiceUrl = (token: string,
+    invoiceId: string,) => {
+
+
+
+
+  return `/api/portal/${token}/invoices/${invoiceId}`
+}
+
+/**
+ * @summary Crew fixes and resubmits an invoice that was sent back for corrections
+ */
+export const resubmitPortalInvoice = async (token: string,
+    invoiceId: string,
+    crewInvoiceInput: CrewInvoiceInput, options?: RequestInit): Promise<CrewInvoice> => {
+
+  return customFetch<CrewInvoice>(getResubmitPortalInvoiceUrl(token,invoiceId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewInvoiceInput)
+  }
+);}
+
+
+
+
+
+export const getResubmitPortalInvoiceMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resubmitPortalInvoice>>, TError,{token: string;invoiceId: string;data: BodyType<CrewInvoiceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resubmitPortalInvoice>>, TError,{token: string;invoiceId: string;data: BodyType<CrewInvoiceInput>}, TContext> => {
+
+const mutationKey = ['resubmitPortalInvoice'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resubmitPortalInvoice>>, {token: string;invoiceId: string;data: BodyType<CrewInvoiceInput>}> = (props) => {
+          const {token,invoiceId,data} = props ?? {};
+
+          return  resubmitPortalInvoice(token,invoiceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResubmitPortalInvoiceMutationResult = NonNullable<Awaited<ReturnType<typeof resubmitPortalInvoice>>>
+    export type ResubmitPortalInvoiceMutationBody = BodyType<CrewInvoiceInput>
+    export type ResubmitPortalInvoiceMutationError = ErrorType<Error>
+
+    /**
+ * @summary Crew fixes and resubmits an invoice that was sent back for corrections
+ */
+export const useResubmitPortalInvoice = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resubmitPortalInvoice>>, TError,{token: string;invoiceId: string;data: BodyType<CrewInvoiceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resubmitPortalInvoice>>,
+        TError,
+        {token: string;invoiceId: string;data: BodyType<CrewInvoiceInput>},
+        TContext
+      > => {
+      return useMutation(getResubmitPortalInvoiceMutationOptions(options));
+    }
 
 export const getListLedgerAccountsUrl = () => {
 

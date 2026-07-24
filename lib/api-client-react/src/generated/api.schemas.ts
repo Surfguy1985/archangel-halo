@@ -2791,6 +2791,25 @@ export interface CrewInvoiceItemInput {
   unitPrice: number;
 }
 
+export type CrewInvoiceReviewInputAction = typeof CrewInvoiceReviewInputAction[keyof typeof CrewInvoiceReviewInputAction];
+
+
+export const CrewInvoiceReviewInputAction = {
+  approve: 'approve',
+  send_back: 'send_back',
+  mark_paid: 'mark_paid',
+  clear: 'clear',
+} as const;
+
+export interface CrewInvoiceReviewInput {
+  action: CrewInvoiceReviewInputAction;
+  /**
+     * Required for send_back — what the crew must fix
+     * @nullable
+     */
+  note?: string | null;
+}
+
 export interface CrewInvoiceInput {
   fromCompany: string;
   /** @nullable */
@@ -2867,8 +2886,14 @@ export interface CrewInvoice {
   total: number;
   signatureName: string;
   signedAt: string;
-  /** submitted | reviewed | paid */
+  /** submitted | approved | needs_corrections | paid */
   status: string;
+  /** @nullable */
+  adminNote?: string | null;
+  /** @nullable */
+  decidedAt?: string | null;
+  /** @nullable */
+  clearedAt?: string | null;
   /** @nullable */
   createdAt?: string | null;
   items: CrewInvoiceItem[];

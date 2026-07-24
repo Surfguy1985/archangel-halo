@@ -37,8 +37,14 @@ export interface CrewInvoice {
   total: number;
   signatureName: string;
   signedAt: string;
-  /** submitted | reviewed | paid */
+  /** submitted | approved | needs_corrections | paid */
   status: string;
+  /** @nullable */
+  adminNote?: string | null;
+  /** @nullable */
+  decidedAt?: string | null;
+  /** @nullable */
+  clearedAt?: string | null;
   /** @nullable */
   createdAt?: string | null;
   items: CrewInvoiceItem[];

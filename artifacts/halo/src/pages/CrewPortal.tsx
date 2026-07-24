@@ -22,6 +22,7 @@ import {
   useRespondPortalOffer,
   useListPortalInvoices,
   useSubmitPortalInvoice,
+  useResubmitPortalInvoice,
   useMarkPortalSeen,
   useAcceptPortalAgreement,
   useSetPortalSelfie,
@@ -2159,8 +2160,15 @@ function emptyLine(): InvLine {
 
 function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) {
   const queryClient = useQueryClient();
-  const { data: invoices } = useListPortalInvoices(token);
+  const { data: invoices } = useListPortalInvoices(token, {
+    query: {
+      queryKey: getListPortalInvoicesQueryKey(token),
+      refetchInterval: 8000,
+    },
+  });
   const submit = useSubmitPortalInvoice();
+  const resubmit = useResubmitPortalInvoice();
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [fromCompany, setFromCompany] = useState(portal.crew.name);
   const [fromTrade, setFromTrade] = useState(portal.crew.trade ?? "");
@@ -2222,10 +2230,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
     }
     if (!signatureName.trim()) return setErr("Type your full name to sign the invoice.");
 
-    submit.mutate(
-      {
-        token,
-        data: {
+    const payload = {
           invoiceNo: invoiceNo.trim() || undefined,
           poNumber: poNumber.trim() || undefined,
           invoiceDate,
@@ -2247,28 +2252,62 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
             unitPrice: parseFloat(l.unitPrice),
           })),
           signatureName: signatureName.trim(),
-        },
+    };
+
+    const opts = {
+      onSuccess: () => {
+        setSent(true);
+        setEditingId(null);
+        setInvoiceNo("");
+        setPoNumber("");
+        setInvoiceDate(localToday());
+        setPropertyAddress("");
+        setLines([emptyLine()]);
+        setSignatureName("");
+        queryClient.invalidateQueries({
+          queryKey: getListPortalInvoicesQueryKey(token),
+        });
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setTimeout(() => setSent(false), 6000);
       },
-      {
-        onSuccess: () => {
-          setSent(true);
-          setInvoiceNo("");
-          setPoNumber("");
-          setInvoiceDate(localToday());
-          setPropertyAddress("");
-          setLines([emptyLine()]);
-          setSignatureName("");
-          queryClient.invalidateQueries({
-            queryKey: getListPortalInvoicesQueryKey(token),
-          });
-          window.scrollTo({ top: 0, behavior: "smooth" });
-          setTimeout(() => setSent(false), 6000);
-        },
-        onError: (e: any) => {
-          setErr(e?.data?.error ?? "Something went wrong. Try again.");
-        },
+      onError: (e: any) => {
+        setErr(e?.data?.error ?? "Something went wrong. Try again.");
       },
+    };
+
+    if (editingId) {
+      resubmit.mutate({ token, invoiceId: editingId, data: payload }, opts);
+    } else {
+      submit.mutate({ token, data: payload }, opts);
+    }
+  };
+
+  const startFix = (inv: CrewInvoice) => {
+    setEditingId(inv.id);
+    setFromCompany(inv.fromCompany);
+    setFromTrade(inv.fromTrade ?? "");
+    setFromAddress(inv.fromAddress ?? "");
+    setFromCityStateZip(inv.fromCityStateZip ?? "");
+    setFromContact(inv.fromContact ?? "");
+    setFromPhone(inv.fromPhone ?? "");
+    setFromEmail(inv.fromEmail ?? "");
+    setInvoiceNo(inv.invoiceNo ?? "");
+    setPoNumber(inv.poNumber ?? "");
+    setInvoiceDate(inv.invoiceDate);
+    setTerms(inv.terms ?? "Net 30");
+    setPropertyAddress(inv.propertyAddress);
+    setLines(
+      inv.items.map((it) => ({
+        dateOfWork: it.dateOfWork,
+        unitNo: it.unitNo ?? "",
+        typeOfWork: it.typeOfWork,
+        qty: String(it.qty),
+        unitPrice: String(it.unitPrice),
+      })),
     );
+    setSignatureName("");
+    setErr("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const statusChip = (s: string) => {
@@ -2276,6 +2315,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
       submitted: "bg-[var(--gold-light)]/15 text-[var(--gold-dark,#8f6a1f)]",
       approved: "bg-emerald-100 text-emerald-700",
       paid: "bg-emerald-100 text-emerald-700",
+      needs_corrections: "bg-amber-100 text-amber-800",
       rejected: "bg-red-100 text-red-700",
     };
     return map[s] ?? "bg-muted text-muted-foreground";
@@ -2286,6 +2326,27 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
       {sent && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-[14px] p-[13px] flex items-center gap-[9px] text-[13.5px] font-semibold">
           <Check className="w-[18px] h-[18px]" /> Invoice sent to ArchAngel. They've been notified.
+        </div>
+      )}
+
+      {editingId && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-[14px] p-[13px] text-[13px] font-semibold flex items-center justify-between gap-[9px]">
+          <span>You're fixing an invoice that was sent back. Update it below, sign, and resend.</span>
+          <button
+            onClick={() => {
+              setEditingId(null);
+              setInvoiceNo("");
+              setPoNumber("");
+              setInvoiceDate(localToday());
+              setPropertyAddress("");
+              setLines([emptyLine()]);
+              setSignatureName("");
+              setErr("");
+            }}
+            className="shrink-0 text-[12px] font-bold underline"
+          >
+            Cancel
+          </button>
         </div>
       )}
 
@@ -2468,16 +2529,17 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
         {err && <div className="text-[12.5px] text-destructive mt-[9px]">{err}</div>}
         <button
           onClick={handleSend}
-          disabled={submit.isPending}
+          disabled={submit.isPending || resubmit.isPending}
           className="mt-[12px] w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
         >
-          {submit.isPending ? (
+          {submit.isPending || resubmit.isPending ? (
             <>
               <Loader2 className="w-[17px] h-[17px] animate-spin" /> Sending…
             </>
           ) : (
             <>
-              <Send className="w-[17px] h-[17px]" /> Sign &amp; Send Invoice
+              <Send className="w-[17px] h-[17px]" />{" "}
+              {editingId ? "Sign & Resend Corrected Invoice" : "Sign & Send Invoice"}
             </>
           )}
         </button>
@@ -2490,21 +2552,38 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
           </div>
           <div className="flex flex-col gap-[9px]">
             {invoices.map((inv: CrewInvoice) => (
-              <div key={inv.id} className="flex items-center justify-between rounded-[12px] border border-border px-[12px] py-[10px]">
-                <div className="min-w-0">
-                  <div className="text-[13.5px] font-semibold truncate">
-                    {inv.invoiceNo ? `#${inv.invoiceNo} · ` : ""}{inv.propertyAddress}
+              <div key={inv.id} className="rounded-[12px] border border-border px-[12px] py-[10px]">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="text-[13.5px] font-semibold truncate">
+                      {inv.invoiceNo ? `#${inv.invoiceNo} · ` : ""}{inv.propertyAddress}
+                    </div>
+                    <div className="text-[12px] text-muted-foreground">
+                      {formatDay(inv.invoiceDate)} · {inv.items.length} line{inv.items.length === 1 ? "" : "s"}
+                    </div>
                   </div>
-                  <div className="text-[12px] text-muted-foreground">
-                    {formatDay(inv.invoiceDate)} · {inv.items.length} line{inv.items.length === 1 ? "" : "s"}
+                  <div className="flex items-center gap-[8px] shrink-0 ml-[10px]">
+                    <span className="font-bold text-[14px] tabular-nums">{money(inv.total)}</span>
+                    <span className={`px-[8px] py-[3px] rounded-full text-[11px] font-bold capitalize ${statusChip(inv.status)}`}>
+                      {inv.status.replace(/_/g, " ")}
+                    </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-[8px] shrink-0 ml-[10px]">
-                  <span className="font-bold text-[14px] tabular-nums">{money(inv.total)}</span>
-                  <span className={`px-[8px] py-[3px] rounded-full text-[11px] font-bold capitalize ${statusChip(inv.status)}`}>
-                    {inv.status}
-                  </span>
-                </div>
+                {inv.status === "needs_corrections" && (
+                  <div className="mt-[8px] rounded-[10px] bg-amber-50 border border-amber-200 px-[10px] py-[8px]">
+                    {inv.adminNote && (
+                      <div className="text-[12px] text-amber-800 mb-[7px]">
+                        <span className="font-bold">Office says:</span> {inv.adminNote}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => startFix(inv)}
+                      className="w-full rounded-[10px] py-[8px] text-[12.5px] font-bold bg-amber-600 text-white transition-transform active:scale-[0.98]"
+                    >
+                      Fix &amp; Resubmit
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
