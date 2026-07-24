@@ -1036,6 +1036,7 @@ function CrewInvoicesReview({
             <div className="text-[11.5px] text-muted-foreground">
               {inv.fromCompany} · {formatWhen(inv.createdAt)}
               {inv.terms ? ` · ${inv.terms}` : ""}
+              {inv.jobLabel ? ` · ${inv.jobLabel}` : ""}
             </div>
           </div>
           <div className="flex items-center gap-[7px] shrink-0">

@@ -95,6 +95,8 @@ export const crewPaymentsTable = pgTable("crew_payments", {
 export const crewInvoicesTable = pgTable("crew_invoices", {
   id: uuid("id").primaryKey().defaultRandom(),
   crewId: uuid("crew_id").notNull(),
+  jobId: uuid("job_id"),
+  propertyId: uuid("property_id"),
   invoiceNo: text("invoice_no"),
   poNumber: text("po_number"),
   invoiceDate: text("invoice_date").notNull(),

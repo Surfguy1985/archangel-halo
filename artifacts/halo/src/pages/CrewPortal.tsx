@@ -2166,6 +2166,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
       refetchInterval: 8000,
     },
   });
+  const { data: portalJobs } = useListPortalJobs(token);
   const submit = useSubmitPortalInvoice();
   const resubmit = useResubmitPortalInvoice();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -2181,6 +2182,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
   const [poNumber, setPoNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(localToday());
   const [terms, setTerms] = useState("Net 30");
+  const [jobId, setJobId] = useState("");
   const [propertyAddress, setPropertyAddress] = useState("");
   const [lines, setLines] = useState<InvLine[]>([emptyLine()]);
   const [signatureName, setSignatureName] = useState("");
@@ -2244,6 +2246,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
           fromPhone: fromPhone.trim() || undefined,
           fromEmail: fromEmail.trim() || undefined,
           propertyAddress: propertyAddress.trim(),
+          jobId: jobId || undefined,
           items: filled.map((l) => ({
             dateOfWork: l.dateOfWork,
             unitNo: l.unitNo.trim() || undefined,
@@ -2261,6 +2264,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
         setInvoiceNo("");
         setPoNumber("");
         setInvoiceDate(localToday());
+        setJobId("");
         setPropertyAddress("");
         setLines([emptyLine()]);
         setSignatureName("");
@@ -2295,6 +2299,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
     setPoNumber(inv.poNumber ?? "");
     setInvoiceDate(inv.invoiceDate);
     setTerms(inv.terms ?? "Net 30");
+    setJobId(inv.jobId ?? "");
     setPropertyAddress(inv.propertyAddress);
     setLines(
       inv.items.map((it) => ({
@@ -2338,6 +2343,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
               setInvoiceNo("");
               setPoNumber("");
               setInvoiceDate(localToday());
+              setJobId("");
               setPropertyAddress("");
               setLines([emptyLine()]);
               setSignatureName("");
@@ -2441,6 +2447,37 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
             <label className={invLbl}>Due date (from terms)</label>
             <input type="date" className={invField} value={dueDate} readOnly />
           </div>
+          {portalJobs && portalJobs.length > 0 && (
+            <div>
+              <label className={invLbl}>Which job is this invoice for?</label>
+              <select
+                className={invField}
+                value={jobId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setJobId(id);
+                  if (id) {
+                    const j = portalJobs.find((pj) => pj.id === id);
+                    if (j) {
+                      setPropertyAddress(
+                        [j.propertyName, j.unitNo ? `Unit ${j.unitNo}` : null]
+                          .filter(Boolean)
+                          .join(" · ") || propertyAddress,
+                      );
+                    }
+                  }
+                }}
+              >
+                <option value="">Not one of my listed jobs</option>
+                {portalJobs.map((j) => (
+                  <option key={j.id} value={j.id}>{j.label}</option>
+                ))}
+              </select>
+              <div className="text-[11px] text-muted-foreground mt-[4px]">
+                Picking a job links this invoice to that property in the office system.
+              </div>
+            </div>
+          )}
           <div>
             <label className={invLbl}>Property address (where the work was done) *</label>
             <input className={invField} value={propertyAddress} onChange={(e) => setPropertyAddress(e.target.value)} placeholder="e.g. Maple Grove Apartments" />
@@ -2560,6 +2597,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
                     </div>
                     <div className="text-[12px] text-muted-foreground">
                       {formatDay(inv.invoiceDate)} · {inv.items.length} line{inv.items.length === 1 ? "" : "s"}
+                      {inv.jobLabel ? ` · ${inv.jobLabel}` : ""}
                     </div>
                   </div>
                   <div className="flex items-center gap-[8px] shrink-0 ml-[10px]">

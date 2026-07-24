@@ -33,6 +33,15 @@ export interface CrewInvoice {
   /** @nullable */
   fromEmail?: string | null;
   propertyAddress: string;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  propertyId?: string | null;
+  /**
+     * Human label for the linked job (job no + property + unit)
+     * @nullable
+     */
+  jobLabel?: string | null;
   subtotal: number;
   total: number;
   signatureName: string;

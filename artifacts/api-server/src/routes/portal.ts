@@ -444,13 +444,48 @@ async function invoicesWithItems(crewId: string) {
           .from(crewInvoiceItemsTable)
           .where(inArray(crewInvoiceItemsTable.invoiceId, ids))
       : [];
+  const labels = await jobLabelMap(
+    invoices.map((i) => i.jobId).filter((v): v is string => !!v),
+  );
   return invoices.map((inv) => ({
     ...ser(inv),
+    jobLabel: inv.jobId ? (labels.get(inv.jobId) ?? null) : null,
     items: items
       .filter((it) => it.invoiceId === inv.id)
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((it) => ser(it)),
   }));
+}
+
+// Resolve an optional job link on a crew invoice. The job must be assigned to
+// this crew; propertyId is derived server-side from the job (never trusted
+// from the client).
+async function resolveInvoiceJobLink(
+  crewId: string,
+  jobId: string | null | undefined,
+): Promise<
+  | { ok: true; jobId: string | null; propertyId: string | null; label: string | null }
+  | { ok: false; error: string }
+> {
+  if (!jobId) return { ok: true, jobId: null, propertyId: null, label: null };
+  const [job] = await db
+    .select()
+    .from(jobsTable)
+    .where(eq(jobsTable.id, jobId));
+  if (!job) return { ok: false, error: "That job no longer exists" };
+  if (job.crewLeaderId !== crewId) {
+    return { ok: false, error: "That job isn't assigned to your crew" };
+  }
+  const [prop] = await db
+    .select()
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, job.propertyId));
+  return {
+    ok: true,
+    jobId: job.id,
+    propertyId: job.propertyId,
+    label: buildJobLabel(job.jobNo, prop?.name, job.unitNo),
+  };
 }
 
 router.get("/portal/:token/invoices", async (req, res): Promise<void> => {
@@ -516,11 +551,19 @@ router.post("/portal/:token/invoices", async (req, res): Promise<void> => {
   const subtotal = round2(lineAmounts.reduce((s, a) => s + a, 0));
   const now = new Date();
 
+  const link = await resolveInvoiceJobLink(crew.id, body.jobId);
+  if (!link.ok) {
+    res.status(400).json({ error: link.error });
+    return;
+  }
+
   const created = await db.transaction(async (tx) => {
     const [inv] = await tx
       .insert(crewInvoicesTable)
       .values({
         crewId: crew.id,
+        jobId: link.jobId,
+        propertyId: link.propertyId,
         invoiceNo: body.invoiceNo?.trim() || null,
         poNumber: body.poNumber?.trim() || null,
         invoiceDate: body.invoiceDate,
@@ -571,6 +614,7 @@ router.post("/portal/:token/invoices", async (req, res): Promise<void> => {
   res.status(201).json(
     SubmitPortalInvoiceResponse.parse({
       ...ser(created.inv),
+      jobLabel: link.label,
       items: created.itemRows.map((it) => ser(it)),
     }),
   );
@@ -647,10 +691,18 @@ router.patch(
     const subtotal = round2(lineAmounts.reduce((s, a) => s + a, 0));
     const now = new Date();
 
+    const link = await resolveInvoiceJobLink(crew.id, body.jobId);
+    if (!link.ok) {
+      res.status(400).json({ error: link.error });
+      return;
+    }
+
     const updated = await db.transaction(async (tx) => {
       const [inv] = await tx
         .update(crewInvoicesTable)
         .set({
+          jobId: link.jobId,
+          propertyId: link.propertyId,
           invoiceNo: body.invoiceNo?.trim() || null,
           poNumber: body.poNumber?.trim() || null,
           invoiceDate: body.invoiceDate,
@@ -723,6 +775,7 @@ router.patch(
     res.json(
       ResubmitPortalInvoiceResponse.parse({
         ...ser(updated.inv),
+        jobLabel: link.label,
         items: updated.itemRows.map((it) => ser(it)),
       }),
     );

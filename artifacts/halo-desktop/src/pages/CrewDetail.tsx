@@ -947,6 +947,7 @@ function CrewInvoicesReview({
               {inv.fromCompany} · {formatWhen(inv.createdAt)}
               {inv.terms ? ` · ${inv.terms}` : ""}
               {inv.dueDate ? ` · Due ${inv.dueDate}` : ""}
+              {inv.jobLabel ? ` · ${inv.jobLabel}` : ""}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">

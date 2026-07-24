@@ -7070,6 +7070,9 @@ components:
         dueDate:
           { type: ["string", "null"], pattern: '^\d{4}-\d{2}-\d{2}$' }
         propertyAddress: { type: string }
+        jobId:
+          type: ["string", "null"]
+          description: "Optional job this invoice is for; must be assigned to this crew. Server derives propertyId from it."
         items:
           type: array
           items:
@@ -7118,6 +7121,9 @@ components:
         fromPhone: { type: ["string", "null"] }
         fromEmail: { type: ["string", "null"] }
         propertyAddress: { type: string }
+        jobId: { type: ["string", "null"] }
+        propertyId: { type: ["string", "null"] }
+        jobLabel: { type: ["string", "null"], description: "Human label for the linked job (job no + property + unit)" }
         subtotal: { type: number }
         total: { type: number }
         signatureName: { type: string }

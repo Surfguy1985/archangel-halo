@@ -38,6 +38,11 @@ export interface CrewInvoiceInput {
      */
   dueDate?: string | null;
   propertyAddress: string;
+  /**
+     * Optional job this invoice is for; must be assigned to this crew. Server derives propertyId from it.
+     * @nullable
+     */
+  jobId?: string | null;
   items: CrewInvoiceItemInput[];
   signatureName: string;
 }

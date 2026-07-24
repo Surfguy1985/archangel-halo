@@ -363,10 +363,14 @@ router.get("/crews/:id/invoices", async (req, res): Promise<void> => {
           .from(crewInvoiceItemsTable)
           .where(inArray(crewInvoiceItemsTable.invoiceId, ids))
       : [];
+  const labels = await jobLabelMap(
+    invoices.map((i) => i.jobId).filter((v): v is string => !!v),
+  );
   res.json(
     ListCrewInvoicesResponse.parse(
       invoices.map((inv) => ({
         ...ser(inv),
+        jobLabel: inv.jobId ? (labels.get(inv.jobId) ?? null) : null,
         items: items
           .filter((it) => it.invoiceId === inv.id)
           .sort((a, b) => a.sortOrder - b.sortOrder)

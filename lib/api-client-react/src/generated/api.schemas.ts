@@ -2841,6 +2841,11 @@ export interface CrewInvoiceInput {
      */
   dueDate?: string | null;
   propertyAddress: string;
+  /**
+     * Optional job this invoice is for; must be assigned to this crew. Server derives propertyId from it.
+     * @nullable
+     */
+  jobId?: string | null;
   items: CrewInvoiceItemInput[];
   signatureName: string;
 }
@@ -2882,6 +2887,15 @@ export interface CrewInvoice {
   /** @nullable */
   fromEmail?: string | null;
   propertyAddress: string;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  propertyId?: string | null;
+  /**
+     * Human label for the linked job (job no + property + unit)
+     * @nullable
+     */
+  jobLabel?: string | null;
   subtotal: number;
   total: number;
   signatureName: string;
