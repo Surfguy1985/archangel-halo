@@ -171,20 +171,20 @@ export default function Today() {
                 onClick={route ? () => navigate(route) : undefined}
                 className={`relative overflow-hidden hover:border-[var(--primary)] transition-all duration-300 group ${route ? "cursor-pointer" : ""} rounded-2xl border-[var(--border)] bg-[var(--card)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(180,255,68,0.15)] hover:-translate-y-0.5`}
               >
-                <div className={`absolute left-0 top-0 bottom-0 w-1 ${qc.bar}`} />
-                <CardContent className="p-5 pl-6 flex items-start gap-4">
+                <div className={`absolute left-2 top-3 bottom-3 w-1 rounded-full ${qc.bar}`} />
+                <CardContent className="p-5 pl-7 flex items-start gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 border ${qc.text} ${qc.border} ${qc.bg}`}>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 border rounded-full shadow-sm ${qc.text} ${qc.border} ${qc.bg}`}>
                         {item.queue}
                       </span>
                       {item.amount != null && (
-                        <span className={`text-sm font-mono font-medium ${qc.text}`}>
+                        <span className={`text-sm font-mono font-medium tabular-nums ${qc.text}`}>
                           ${item.amount.toLocaleString()}
                         </span>
                       )}
                     </div>
-                    <h3 className="font-semibold text-foreground text-lg mb-1">{item.title}</h3>
+                    <h3 className="font-semibold text-foreground text-lg mb-1 tracking-tight">{item.title}</h3>
                     <p className="text-muted-foreground text-sm font-light">{item.sub}</p>
                   </div>
                   <div className="flex items-center gap-2">
