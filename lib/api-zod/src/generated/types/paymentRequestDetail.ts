@@ -26,6 +26,8 @@ export interface PaymentRequestDetail {
   /** @nullable */
   sentAt?: string | null;
   /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
   paidAt?: string | null;
   /** @nullable */
   paidAmount?: number | null;

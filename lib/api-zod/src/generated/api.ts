@@ -6443,6 +6443,7 @@ export const ListPaymentRequestsResponseItem = zod.object({
   "sentVia": zod.string().nullish(),
   "sentTo": zod.string().nullish(),
   "sentAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "paidAmount": zod.number().nullish(),
   "paymentMethod": zod.string().nullish(),
@@ -6507,6 +6508,7 @@ export const CreatePaymentRequestResponse = zod.object({
   "sentVia": zod.string().nullish(),
   "sentTo": zod.string().nullish(),
   "sentAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "paidAmount": zod.number().nullish(),
   "paymentMethod": zod.string().nullish(),
@@ -6551,6 +6553,7 @@ export const GetPaymentRequestResponse = zod.object({
   "sentVia": zod.string().nullish(),
   "sentTo": zod.string().nullish(),
   "sentAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "paidAmount": zod.number().nullish(),
   "paymentMethod": zod.string().nullish(),
@@ -6610,6 +6613,7 @@ export const SendPaymentRequestResponse = zod.object({
   "sentVia": zod.string().nullish(),
   "sentTo": zod.string().nullish(),
   "sentAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "paidAmount": zod.number().nullish(),
   "paymentMethod": zod.string().nullish(),
@@ -6661,6 +6665,7 @@ export const ReturnPaymentRequestResponse = zod.object({
   "sentVia": zod.string().nullish(),
   "sentTo": zod.string().nullish(),
   "sentAt": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "paidAmount": zod.number().nullish(),
   "paymentMethod": zod.string().nullish(),
@@ -6706,6 +6711,7 @@ export const GetPublicPaymentRequestResponse = zod.object({
   "companyTagline": zod.string().nullish(),
   "companyEmail": zod.string().nullish(),
   "companyPhone": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
   "paidAt": zod.string().nullish(),
   "paidAmount": zod.number().nullish(),
   "confirmationNo": zod.string().nullish(),
@@ -6744,6 +6750,38 @@ export const SubmitPublicPaymentResponse = zod.object({
   "amount": zod.number(),
   "paidAt": zod.string(),
   "method": zod.string()
+})
+
+
+/**
+ * @summary Property approves the invoice before paying
+ */
+export const ApprovePublicInvoiceParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ApprovePublicInvoiceResponse = zod.object({
+  "requestNo": zod.string(),
+  "status": zod.string(),
+  "total": zod.number(),
+  "memo": zod.string().nullish(),
+  "propertyName": zod.string(),
+  "companyName": zod.string(),
+  "companyTagline": zod.string().nullish(),
+  "companyEmail": zod.string().nullish(),
+  "companyPhone": zod.string().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "paidAmount": zod.number().nullish(),
+  "confirmationNo": zod.string().nullish(),
+  "paymentMethod": zod.string().nullish(),
+  "jobs": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "amount": zod.number()
+}))
 })
 
 

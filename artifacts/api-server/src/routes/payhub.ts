@@ -10,6 +10,7 @@ import {
   crewsTable,
   jobsTable,
   jobLineItemsTable,
+  schedulesTable,
   propertiesTable,
   contactsTable,
   invoicesTable,
@@ -107,6 +108,7 @@ async function requestDetail(reqRow: typeof paymentRequestsTable.$inferSelect) {
     sentVia: reqRow.sentVia,
     sentTo: reqRow.sentTo,
     sentAt: reqRow.sentAt?.toISOString() ?? null,
+    approvedAt: reqRow.approvedAt?.toISOString() ?? null,
     paidAt: reqRow.paidAt?.toISOString() ?? null,
     paidAmount: reqRow.paidAmount,
     paymentMethod: reqRow.paymentMethod,
@@ -508,6 +510,7 @@ async function publicPayload(row: typeof paymentRequestsTable.$inferSelect) {
     companyTagline: settings.tagline ?? null,
     companyEmail: settings.email ?? null,
     companyPhone: settings.phone ?? null,
+    approvedAt: detail.approvedAt,
     paidAt: detail.paidAt,
     paidAmount: detail.paidAmount,
     confirmationNo: detail.confirmationNo,
@@ -528,6 +531,35 @@ router.get("/pay/:token", async (req, res): Promise<void> => {
     return;
   }
   res.json(GetPublicPaymentRequestResponse.parse(await publicPayload(row)));
+});
+
+router.post("/pay/:token/approve", async (req, res): Promise<void> => {
+  const token = String(req.params.token);
+  const [row] = await db
+    .select()
+    .from(paymentRequestsTable)
+    .where(eq(paymentRequestsTable.token, token))
+    .limit(1);
+  if (!row) {
+    res.status(404).json({ error: "Invalid payment link" });
+    return;
+  }
+  let current = row;
+  if (!row.approvedAt && row.status !== "paid" && row.status !== "returned") {
+    const [u] = await db
+      .update(paymentRequestsTable)
+      .set({ approvedAt: new Date() })
+      .where(eq(paymentRequestsTable.id, row.id))
+      .returning();
+    current = u!;
+    await db.insert(activitiesTable).values({
+      entityType: "property",
+      entityId: row.propertyId,
+      kind: "payment",
+      body: `Invoice ${row.requestNo} approved by the property`,
+    });
+  }
+  res.json(GetPublicPaymentRequestResponse.parse(await publicPayload(current)));
 });
 
 router.post("/pay/:token", async (req, res): Promise<void> => {
@@ -564,6 +596,7 @@ router.post("/pay/:token", async (req, res): Promise<void> => {
       .update(paymentRequestsTable)
       .set({
         status: "paid",
+        approvedAt: row.approvedAt ?? paidAt,
         paidAt,
         paidAmount: row.total,
         paymentMethod: parsed.data.method,
@@ -655,9 +688,21 @@ router.get("/pay-hub/distribution/:id", async (req, res): Promise<void> => {
   const jobs = jobIds.length
     ? await db.select().from(jobsTable).where(inArray(jobsTable.id, jobIds))
     : [];
-  const crewIds = [
-    ...new Set(jobs.map((j) => j.crewLeaderId).filter((v): v is string => !!v)),
-  ];
+  const scheduleRows = jobIds.length
+    ? await db
+        .select()
+        .from(schedulesTable)
+        .where(inArray(schedulesTable.jobId, jobIds))
+    : [];
+  const jobCrews = new Map<string, string[]>();
+  for (const job of jobs) {
+    const set = new Set<string>();
+    if (job.crewLeaderId) set.add(job.crewLeaderId);
+    for (const sc of scheduleRows)
+      if (sc.jobId === job.id && sc.crewLeaderId) set.add(sc.crewLeaderId);
+    jobCrews.set(job.id, [...set]);
+  }
+  const crewIds = [...new Set([...jobCrews.values()].flat())];
   const crews = crewIds.length
     ? await db.select().from(crewsTable).where(inArray(crewsTable.id, crewIds))
     : [];
@@ -671,28 +716,39 @@ router.get("/pay-hub/distribution/:id", async (req, res): Promise<void> => {
     .select()
     .from(crewPayoutsTable)
     .where(eq(crewPayoutsTable.paymentRequestId, id));
-  const rows = detail.jobs.map((line) => {
+  // One row per (job, assigned crew) so multi-crew jobs get individual payouts.
+  const rows = detail.jobs.flatMap((line) => {
     const job = jobs.find((j) => j.id === line.jobId);
-    const crew = job?.crewLeaderId
-      ? crews.find((c) => c.id === job.crewLeaderId)
-      : undefined;
-    const bank = crew ? banks.find((b) => b.crewId === crew.id) : undefined;
-    const payout = payouts.find(
-      (p) => p.jobId === line.jobId && p.status !== "returned",
-    );
-    return {
-      jobId: line.jobId,
-      jobLabel: line.label,
-      jobAmount: line.amount,
-      crewId: crew?.id ?? null,
-      crewName: crew?.name ?? null,
-      crewRate: job?.crewRate ?? null,
-      bankConnected: !!bank,
-      bankVerified: bank?.status === "verified",
-      crewPaid: !!payout,
-      payoutId: payout?.id ?? null,
-      payoutStatus: payout?.status ?? null,
+    const assigned = jobCrews.get(line.jobId) ?? [];
+    const perCrewRate =
+      job?.crewRate != null && assigned.length > 0
+        ? job.crewRate / assigned.length
+        : job?.crewRate ?? null;
+    const makeRow = (crewId: string | null) => {
+      const crew = crewId ? crews.find((c) => c.id === crewId) : undefined;
+      const bank = crew ? banks.find((b) => b.crewId === crew.id) : undefined;
+      const payout = payouts.find(
+        (p) =>
+          p.jobId === line.jobId &&
+          (!crewId || p.crewId === crewId) &&
+          p.status !== "returned",
+      );
+      return {
+        jobId: line.jobId,
+        jobLabel: line.label,
+        jobAmount: line.amount,
+        crewId: crew?.id ?? null,
+        crewName: crew?.name ?? null,
+        crewRate: assigned.length > 1 ? perCrewRate : job?.crewRate ?? null,
+        bankConnected: !!bank,
+        bankVerified: bank?.status === "verified",
+        crewPaid: !!payout,
+        payoutId: payout?.id ?? null,
+        payoutStatus: payout?.status ?? null,
+      };
     };
+    if (!assigned.length) return [makeRow(null)];
+    return assigned.map((crewId) => makeRow(crewId));
   });
   res.json(
     GetPayoutDistributionResponse.parse({
@@ -775,8 +831,20 @@ router.post("/pay-hub/payouts", async (req, res): Promise<void> => {
     return;
   }
   if (job.crewLeaderId !== crew.id) {
-    res.status(400).json({ error: `${crew.name} is not assigned to job #${job.jobNo}` });
-    return;
+    const [sched] = await db
+      .select()
+      .from(schedulesTable)
+      .where(
+        and(
+          eq(schedulesTable.jobId, job.id),
+          eq(schedulesTable.crewLeaderId, crew.id),
+        ),
+      )
+      .limit(1);
+    if (!sched) {
+      res.status(400).json({ error: `${crew.name} is not assigned to job #${job.jobNo}` });
+      return;
+    }
   }
   if (body.paymentRequestId) {
     const [reqRow] = await db

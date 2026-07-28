@@ -16689,6 +16689,77 @@ export const useSubmitPublicPayment = <TError = ErrorType<Error>,
       return useMutation(getSubmitPublicPaymentMutationOptions(options));
     }
 
+export const getApprovePublicInvoiceUrl = (token: string,) => {
+
+
+
+
+  return `/api/pay/${token}/approve`
+}
+
+/**
+ * @summary Property approves the invoice before paying
+ */
+export const approvePublicInvoice = async (token: string, options?: RequestInit): Promise<PublicPaymentRequest> => {
+
+  return customFetch<PublicPaymentRequest>(getApprovePublicInvoiceUrl(token),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApprovePublicInvoiceMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approvePublicInvoice>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approvePublicInvoice>>, TError,{token: string}, TContext> => {
+
+const mutationKey = ['approvePublicInvoice'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approvePublicInvoice>>, {token: string}> = (props) => {
+          const {token} = props ?? {};
+
+          return  approvePublicInvoice(token,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApprovePublicInvoiceMutationResult = NonNullable<Awaited<ReturnType<typeof approvePublicInvoice>>>
+
+    export type ApprovePublicInvoiceMutationError = ErrorType<Error>
+
+    /**
+ * @summary Property approves the invoice before paying
+ */
+export const useApprovePublicInvoice = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approvePublicInvoice>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approvePublicInvoice>>,
+        TError,
+        {token: string},
+        TContext
+      > => {
+      return useMutation(getApprovePublicInvoiceMutationOptions(options));
+    }
+
 export const getGetPayoutDistributionUrl = (id: string,) => {
 
 

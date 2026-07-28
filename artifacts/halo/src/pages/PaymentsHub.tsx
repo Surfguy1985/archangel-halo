@@ -865,8 +865,8 @@ function DistributionSheet({
   const createPayout = useCreateCrewPayout();
   const [amounts, setAmounts] = useState<Record<string, number>>({});
 
-  const onPay = (row: any) => {
-    const amount = amounts[row.jobId] ?? row.crewRate ?? 0;
+  const onPay = (row: any, key: string) => {
+    const amount = amounts[key] ?? row.crewRate ?? 0;
     createPayout.mutate(
       {
         data: {
@@ -934,64 +934,75 @@ function DistributionSheet({
             </div>
           ) : (
             <div className="space-y-[12px]">
-              {dist.rows.map((row) => {
-                const amount = amounts[row.jobId] ?? row.crewRate ?? 0;
+              {dist.rows.map((row, i) => {
+                const key = `${row.jobId}-${row.crewId || "none"}-${i}`;
+                const amount = amounts[key] ?? row.crewRate ?? 0;
                 const isPaid = row.crewPaid;
+                const isUnassigned = row.crewId == null;
+
                 return (
                   <div
-                    key={row.jobId}
+                    key={key}
                     className="bg-card rounded-[14px] p-[14px] border border-border"
                   >
                     <div className="flex items-start justify-between mb-[8px]">
                       <div>
-                        <div className="font-semibold text-[14px]">{row.crewName}</div>
+                        <div className="font-semibold text-[14px]">
+                          {isUnassigned ? "No crew assigned" : row.crewName}
+                        </div>
                         <div className="text-[12px] text-muted-foreground">{row.jobLabel}</div>
                       </div>
-                      <div className="flex items-center gap-[6px]">
-                        {row.bankConnected && row.bankVerified ? (
-                          <span className="flex items-center gap-[4px] text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--green)]">
-                            <Shield className="w-[12px] h-[12px]" /> Verified
-                          </span>
+                      {!isUnassigned && (
+                        <div className="flex items-center gap-[6px]">
+                          {row.bankConnected && row.bankVerified ? (
+                            <span className="flex items-center gap-[4px] text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--green)]">
+                              <Shield className="w-[12px] h-[12px]" /> Verified
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-[4px] text-[11px] font-bold uppercase tracking-[0.05em] text-muted-foreground">
+                              <AlertCircle className="w-[12px] h-[12px]" /> Not connected
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {!isUnassigned && (
+                      <>
+                        <div className="flex items-center gap-[8px] mb-[10px]">
+                          <span className="text-[12px] text-muted-foreground">Amount:</span>
+                          <input
+                            type="number"
+                            value={amount}
+                            onChange={(e) =>
+                              setAmounts((prev) => ({
+                                ...prev,
+                                [key]: Number(e.target.value),
+                              }))
+                            }
+                            step="0.01"
+                            disabled={isPaid}
+                            className="flex-1 border border-border rounded-[8px] px-[10px] py-[6px] text-[14px] font-display font-bold disabled:opacity-50"
+                            data-testid={`input-amount-${key}`}
+                          />
+                        </div>
+
+                        {isPaid ? (
+                          <div className="flex items-center gap-[6px] text-[var(--green)] font-semibold text-[13px]">
+                            <CheckCircle2 className="w-[16px] h-[16px]" /> Paid
+                            {row.payoutId && ` · Confirmation ${row.payoutId}`}
+                          </div>
                         ) : (
-                          <span className="flex items-center gap-[4px] text-[11px] font-bold uppercase tracking-[0.05em] text-muted-foreground">
-                            <AlertCircle className="w-[12px] h-[12px]" /> Not connected
-                          </span>
+                          <button
+                            onClick={() => onPay(row, key)}
+                            disabled={createPayout.isPending}
+                            className="w-full flex items-center justify-center gap-[6px] rounded-[12px] py-[10px] text-[13px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_6px_rgba(143,106,31,0.2)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+                            data-testid={`button-pay-${key}`}
+                          >
+                            <DollarSign className="w-[16px] h-[16px]" /> Pay now
+                          </button>
                         )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-[8px] mb-[10px]">
-                      <span className="text-[12px] text-muted-foreground">Amount:</span>
-                      <input
-                        type="number"
-                        value={amount}
-                        onChange={(e) =>
-                          setAmounts((prev) => ({
-                            ...prev,
-                            [row.jobId]: Number(e.target.value),
-                          }))
-                        }
-                        step="0.01"
-                        disabled={isPaid}
-                        className="flex-1 border border-border rounded-[8px] px-[10px] py-[6px] text-[14px] font-display font-bold disabled:opacity-50"
-                        data-testid={`input-amount-${row.jobId}`}
-                      />
-                    </div>
-
-                    {isPaid ? (
-                      <div className="flex items-center gap-[6px] text-[var(--green)] font-semibold text-[13px]">
-                        <CheckCircle2 className="w-[16px] h-[16px]" /> Paid
-                        {row.payoutId && ` · Confirmation ${row.payoutId}`}
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => onPay(row)}
-                        disabled={createPayout.isPending}
-                        className="w-full flex items-center justify-center gap-[6px] rounded-[12px] py-[10px] text-[13px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_6px_rgba(143,106,31,0.2)] disabled:opacity-50 transition-transform active:scale-[0.98]"
-                        data-testid={`button-pay-${row.jobId}`}
-                      >
-                        <DollarSign className="w-[16px] h-[16px]" /> Pay now
-                      </button>
+                      </>
                     )}
                   </div>
                 );

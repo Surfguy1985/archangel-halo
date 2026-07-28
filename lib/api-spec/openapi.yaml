@@ -4954,6 +4954,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /pay/{token}/approve:
+    post:
+      operationId: approvePublicInvoice
+      tags: [pay-hub]
+      summary: Property approves the invoice before paying
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Approved invoice state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPaymentRequest"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /pay-hub/distribution/{id}:
     get:
       operationId: getPayoutDistribution
@@ -8288,6 +8312,7 @@ components:
         sentVia: { type: ["string", "null"] }
         sentTo: { type: ["string", "null"] }
         sentAt: { type: ["string", "null"] }
+        approvedAt: { type: ["string", "null"] }
         paidAt: { type: ["string", "null"] }
         paidAmount: { type: ["number", "null"] }
         paymentMethod: { type: ["string", "null"] }
@@ -8328,6 +8353,7 @@ components:
         companyTagline: { type: ["string", "null"] }
         companyEmail: { type: ["string", "null"] }
         companyPhone: { type: ["string", "null"] }
+        approvedAt: { type: ["string", "null"] }
         paidAt: { type: ["string", "null"] }
         paidAmount: { type: ["number", "null"] }
         confirmationNo: { type: ["string", "null"] }

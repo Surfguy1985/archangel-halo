@@ -1,8 +1,11 @@
 import { useState, useMemo } from "react";
 import { useParams } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetPublicPaymentRequest,
   useSubmitPublicPayment,
+  useApprovePublicInvoice,
+  getGetPublicPaymentRequestQueryKey,
 } from "@workspace/api-client-react";
 import {
   CheckCircle2,
@@ -11,6 +14,8 @@ import {
   DollarSign,
   Loader2,
   AlertCircle,
+  FileText,
+  Check,
 } from "lucide-react";
 
 const fmtMoney = (n: number) => `$${n.toFixed(2)}`;
@@ -21,7 +26,9 @@ type PaymentMethod = "card" | "ach" | "wire" | "echeck";
 
 export default function PublicPayment() {
   const { token } = useParams<{ token: string }>();
+  const queryClient = useQueryClient();
   const { data: req, isLoading, isError } = useGetPublicPaymentRequest(token);
+  
   const [method, setMethod] = useState<PaymentMethod>("card");
   const [payerName, setPayerName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
@@ -35,6 +42,7 @@ export default function PublicPayment() {
   const [receipt, setReceipt] = useState<any>(null);
 
   const submit = useSubmitPublicPayment();
+  const approve = useApprovePublicInvoice();
 
   const canSubmit = useMemo(() => {
     if (!payerName) return false;
@@ -73,6 +81,19 @@ export default function PublicPayment() {
         onSuccess: (res) => {
           setReceipt(res);
           setSuccess(true);
+        },
+      }
+    );
+  };
+
+  const onApprove = () => {
+    approve.mutate(
+      { token },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            queryKey: getGetPublicPaymentRequestQueryKey(token),
+          });
         },
       }
     );
@@ -160,7 +181,7 @@ export default function PublicPayment() {
           {req.companyName}
         </div>
         <div className="font-display font-bold text-[22px] tracking-[-0.01em] text-foreground">
-          Payment request
+          {req.approvedAt ? "Payment Request" : "Invoice Approval"}
         </div>
         {req.companyTagline && (
           <div className="text-[12.5px] text-muted-foreground">{req.companyTagline}</div>
@@ -168,231 +189,292 @@ export default function PublicPayment() {
       </header>
 
       <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto w-full flex-1">
-        <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[20px] mb-[20px]">
-          <div className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-[6px]">
-            Amount due
+        <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[24px] mb-[20px] relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-[24px] opacity-[0.04] pointer-events-none">
+            <FileText className="w-[120px] h-[120px]" />
           </div>
-          <div className="font-display font-bold text-[42px] tracking-[-0.02em] tabular-nums leading-none text-[var(--ink)] mb-[16px]">
-            {fmtMoney(req.total)}
-          </div>
-          <div className="text-[13px] text-muted-foreground">
-            {req.propertyName}
-            {req.memo && ` · ${req.memo}`}
-          </div>
-        </div>
-
-        {req.jobs && req.jobs.length > 0 && (
-          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px] mb-[20px]">
-            <div className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-[10px]">
-              Breakdown
-            </div>
-            {req.jobs.map((j, i) => (
-              <div
-                key={i}
-                className={`flex items-center justify-between py-[10px] text-[14px] ${
-                  i !== 0 ? "border-t border-border/60" : ""
-                }`}
-              >
-                <span className="text-foreground">{j.label}</span>
-                <span className="font-semibold tabular-nums">{fmtMoney(j.amount)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[20px]">
-          <div className="text-[14px] font-semibold text-foreground mb-[14px]">
-            Choose payment method
-          </div>
-          <div className="grid grid-cols-2 gap-[8px] mb-[20px]">
-            {[
-              { key: "card" as PaymentMethod, label: "Card", icon: CreditCard },
-              { key: "ach" as PaymentMethod, label: "ACH", icon: Building2 },
-              { key: "wire" as PaymentMethod, label: "Wire", icon: DollarSign },
-              { key: "echeck" as PaymentMethod, label: "eCheck", icon: Building2 },
-            ].map((m) => {
-              const Icon = m.icon;
-              return (
-                <button
-                  key={m.key}
-                  onClick={() => setMethod(m.key)}
-                  className={`flex items-center justify-center gap-[6px] rounded-[12px] py-[12px] text-[14px] font-display font-bold transition-all ${
-                    method === m.key
-                      ? "bg-[var(--ink)] text-white shadow-[0_4px_12px_rgba(23,24,28,0.2)]"
-                      : "bg-muted/60 text-muted-foreground hover:bg-muted"
-                  }`}
-                  data-testid={`button-method-${m.key}`}
-                >
-                  <Icon className="w-[16px] h-[16px]" /> {m.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="space-y-[12px]">
+          
+          <div className="flex items-start justify-between mb-[20px] relative z-10">
             <div>
-              <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
-                Name
-              </label>
-              <input
-                type="text"
-                value={payerName}
-                onChange={(e) => setPayerName(e.target.value)}
-                placeholder="Full name or company name"
-                className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px]"
-                data-testid="input-payer-name"
-              />
+              <div className="font-display font-bold text-[24px] text-[var(--ink)]">INVOICE</div>
+              <div className="font-mono text-[13px] text-muted-foreground mt-[2px]">{req.requestNo}</div>
             </div>
-
-            {method === "card" && (
-              <>
-                <div>
-                  <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
-                    Card number
-                  </label>
-                  <input
-                    type="text"
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(e.target.value)}
-                    placeholder="4111 1111 1111 1111"
-                    className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono"
-                    data-testid="input-card-number"
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-[8px]">
-                  <div className="col-span-2">
-                    <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
-                      Expiry
-                    </label>
-                    <input
-                      type="text"
-                      value={cardExp}
-                      onChange={(e) => setCardExp(e.target.value)}
-                      placeholder="MM/YY"
-                      className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono"
-                      data-testid="input-card-exp"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
-                      CVV
-                    </label>
-                    <input
-                      type="text"
-                      value={cardCode}
-                      onChange={(e) => setCardCode(e.target.value)}
-                      placeholder="123"
-                      className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono"
-                      data-testid="input-card-code"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
-                    ZIP code
-                  </label>
-                  <input
-                    type="text"
-                    value={zip}
-                    onChange={(e) => setZip(e.target.value)}
-                    placeholder="90210"
-                    className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px]"
-                    data-testid="input-zip"
-                  />
-                </div>
-              </>
-            )}
-
-            {(method === "ach" || method === "echeck") && (
-              <>
-                <div>
-                  <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
-                    Routing number
-                  </label>
-                  <input
-                    type="text"
-                    value={routingNumber}
-                    onChange={(e) => setRoutingNumber(e.target.value)}
-                    placeholder="9 digits"
-                    className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono"
-                    data-testid="input-routing"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
-                    Account number
-                  </label>
-                  <input
-                    type="text"
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    placeholder="Account number"
-                    className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono"
-                    data-testid="input-account"
-                  />
-                </div>
-              </>
-            )}
-
-            {method === "wire" && (
-              <div className="bg-muted/30 rounded-[12px] p-[14px] text-[13px] text-muted-foreground leading-relaxed">
-                <div className="font-semibold text-foreground mb-[6px]">Wire instructions</div>
-                <div className="space-y-[4px] font-mono text-[12px]">
-                  <div>Bank: First National Bank</div>
-                  <div>Routing: 123456789</div>
-                  <div>Account: 9876543210</div>
-                  <div>Account Name: {req.companyName}</div>
-                </div>
-                <div className="mt-[10px] text-[12px]">
-                  After wiring, click Confirm below to notify us. Include request #{req.requestNo}{" "}
-                  in the wire memo.
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
-                Email (optional)
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px]"
-                data-testid="input-email"
-              />
-              <div className="text-[11px] text-muted-foreground mt-[4px]">
-                For payment confirmation receipt.
+            <div className="text-right">
+              <div className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-[2px]">Amount Due</div>
+              <div className="font-display font-bold text-[28px] tracking-[-0.02em] tabular-nums leading-none text-[var(--ink)]">
+                {fmtMoney(req.total)}
               </div>
             </div>
           </div>
 
-          {submit.isError && (
-            <div className="mt-[14px] flex items-start gap-[8px] bg-destructive/10 rounded-[10px] p-[12px] text-[13px] text-destructive">
-              <AlertCircle className="w-[16px] h-[16px] shrink-0 mt-[1px]" />
-              <span>{submit.error?.message || "Payment failed. Please try again."}</span>
+          <div className="grid grid-cols-2 gap-[16px] mb-[24px] relative z-10 text-[13px]">
+            <div>
+              <div className="text-muted-foreground mb-[2px]">Billed To:</div>
+              <div className="font-semibold text-[var(--ink)]">{req.propertyName}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-muted-foreground mb-[2px]">Date Issued:</div>
+              <div className="font-semibold text-[var(--ink)]">{(req as any).createdAt ? fmtDate((req as any).createdAt) : fmtDate(new Date().toISOString())}</div>
+            </div>
+          </div>
+
+          {req.memo && (
+            <div className="bg-muted/10 rounded-[12px] p-[14px] text-[13px] text-muted-foreground mb-[24px] relative z-10">
+              <span className="font-semibold text-[var(--ink)]">Memo:</span> {req.memo}
             </div>
           )}
 
-          <button
-            onClick={onSubmit}
-            disabled={!canSubmit || submit.isPending}
-            className="w-full mt-[20px] flex items-center justify-center gap-[8px] rounded-[14px] py-[15px] font-display font-bold text-[16px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_8px_24px_rgba(143,106,31,0.25)] disabled:opacity-50 disabled:shadow-none transition-all active:scale-[0.98]"
-            data-testid="button-submit-payment"
-          >
-            {submit.isPending ? (
-              <Loader2 className="w-[20px] h-[20px] animate-spin" />
-            ) : (
-              <CheckCircle2 className="w-[20px] h-[20px]" />
-            )}
-            {method === "wire" ? "Confirm wire sent" : `Pay ${fmtMoney(req.total)}`}
-          </button>
-
-          <div className="mt-[16px] text-[11px] text-center text-muted-foreground">
-            Secure payment powered by {req.companyName}
-          </div>
+          {req.jobs && req.jobs.length > 0 && (
+            <div className="relative z-10 border-t border-border/60 pt-[16px]">
+              <div className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-[12px]">
+                Line Items
+              </div>
+              {req.jobs.map((j, i) => (
+                <div
+                  key={i}
+                  className={`flex items-center justify-between py-[10px] text-[14px] ${
+                    i !== 0 ? "border-t border-border/60" : ""
+                  }`}
+                >
+                  <span className="text-foreground">{j.label}</span>
+                  <span className="font-semibold tabular-nums text-[var(--ink)]">{fmtMoney(j.amount)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between py-[12px] mt-[8px] border-t-2 border-border/80 text-[16px] font-display font-bold text-[var(--ink)]">
+                <span>Total</span>
+                <span>{fmtMoney(req.total)}</span>
+              </div>
+            </div>
+          )}
         </div>
+
+        {!req.approvedAt ? (
+          <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[24px] text-center">
+            <div className="w-[48px] h-[48px] rounded-full bg-[rgba(143,106,31,0.12)] grid place-items-center mx-auto mb-[16px]">
+              <FileText className="w-[24px] h-[24px] text-[var(--gold-dark)]" />
+            </div>
+            <div className="font-display font-bold text-[18px] text-[var(--ink)] mb-[8px]">
+              Review & Approve
+            </div>
+            <p className="text-[14px] text-muted-foreground mb-[20px]">
+              Please review the invoice details above. Once approved, you can proceed to payment.
+            </p>
+            <button
+              onClick={onApprove}
+              disabled={approve.isPending}
+              className="w-full flex items-center justify-center gap-[8px] rounded-[14px] py-[15px] font-display font-bold text-[16px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98] disabled:opacity-50"
+            >
+              {approve.isPending ? <Loader2 className="w-[20px] h-[20px] animate-spin" /> : <Check className="w-[20px] h-[20px]" />}
+              Approve Invoice
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="bg-[rgba(60,122,78,0.08)] border border-[rgba(60,122,78,0.2)] rounded-[16px] p-[16px] mb-[20px] flex items-center gap-[12px]">
+              <div className="w-[36px] h-[36px] rounded-full bg-[var(--green)] flex items-center justify-center shrink-0">
+                <Check className="w-[18px] h-[18px] text-white" />
+              </div>
+              <div>
+                <div className="font-display font-bold text-[15px] text-[var(--green)]">Invoice Approved</div>
+                <div className="text-[12.5px] text-muted-foreground">Approved on {fmtDate(req.approvedAt)}</div>
+              </div>
+            </div>
+
+            <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[20px]">
+              <div className="text-[14px] font-semibold text-foreground mb-[14px]">
+                Choose payment method
+              </div>
+              <div className="grid grid-cols-2 gap-[8px] mb-[20px]">
+                {[
+                  { key: "card" as PaymentMethod, label: "Card", icon: CreditCard },
+                  { key: "ach" as PaymentMethod, label: "ACH", icon: Building2 },
+                  { key: "wire" as PaymentMethod, label: "Wire", icon: DollarSign },
+                  { key: "echeck" as PaymentMethod, label: "eCheck", icon: Building2 },
+                ].map((m) => {
+                  const Icon = m.icon;
+                  return (
+                    <button
+                      key={m.key}
+                      onClick={() => setMethod(m.key)}
+                      className={`flex items-center justify-center gap-[6px] rounded-[12px] py-[12px] text-[14px] font-display font-bold transition-all ${
+                        method === m.key
+                          ? "bg-[var(--ink)] text-white shadow-[0_4px_12px_rgba(23,24,28,0.2)]"
+                          : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                      }`}
+                      data-testid={`button-method-${m.key}`}
+                    >
+                      <Icon className="w-[16px] h-[16px]" /> {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-[12px]">
+                <div>
+                  <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    value={payerName}
+                    onChange={(e) => setPayerName(e.target.value)}
+                    placeholder="Full name or company name"
+                    className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px]"
+                    data-testid="input-payer-name"
+                  />
+                </div>
+
+                {method === "card" && (
+                  <>
+                    <div>
+                      <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                        Card number
+                      </label>
+                      <input
+                        type="text"
+                        value={cardNumber}
+                        onChange={(e) => setCardNumber(e.target.value)}
+                        placeholder="4111 1111 1111 1111"
+                        className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono"
+                        data-testid="input-card-number"
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-[8px]">
+                      <div className="col-span-2">
+                        <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                          Expiry
+                        </label>
+                        <input
+                          type="text"
+                          value={cardExp}
+                          onChange={(e) => setCardExp(e.target.value)}
+                          placeholder="MM/YY"
+                          className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono"
+                          data-testid="input-card-exp"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                          CVV
+                        </label>
+                        <input
+                          type="text"
+                          value={cardCode}
+                          onChange={(e) => setCardCode(e.target.value)}
+                          placeholder="123"
+                          className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono"
+                          data-testid="input-card-code"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                        ZIP code
+                      </label>
+                      <input
+                        type="text"
+                        value={zip}
+                        onChange={(e) => setZip(e.target.value)}
+                        placeholder="90210"
+                        className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px]"
+                        data-testid="input-zip"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {(method === "ach" || method === "echeck") && (
+                  <>
+                    <div>
+                      <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                        Routing number
+                      </label>
+                      <input
+                        type="text"
+                        value={routingNumber}
+                        onChange={(e) => setRoutingNumber(e.target.value)}
+                        placeholder="9 digits"
+                        className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono"
+                        data-testid="input-routing"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                        Account number
+                      </label>
+                      <input
+                        type="text"
+                        value={accountNumber}
+                        onChange={(e) => setAccountNumber(e.target.value)}
+                        placeholder="Account number"
+                        className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono"
+                        data-testid="input-account"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {method === "wire" && (
+                  <div className="bg-muted/30 rounded-[12px] p-[14px] text-[13px] text-muted-foreground leading-relaxed">
+                    <div className="font-semibold text-foreground mb-[6px]">Wire instructions</div>
+                    <div className="space-y-[4px] font-mono text-[12px]">
+                      <div>Bank: First National Bank</div>
+                      <div>Routing: 123456789</div>
+                      <div>Account: 9876543210</div>
+                      <div>Account Name: {req.companyName}</div>
+                    </div>
+                    <div className="mt-[10px] text-[12px]">
+                      After wiring, click Confirm below to notify us. Include request #{req.requestNo}{" "}
+                      in the wire memo.
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                    Email (optional)
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px]"
+                    data-testid="input-email"
+                  />
+                  <div className="text-[11px] text-muted-foreground mt-[4px]">
+                    For payment confirmation receipt.
+                  </div>
+                </div>
+              </div>
+
+              {submit.isError && (
+                <div className="mt-[14px] flex items-start gap-[8px] bg-destructive/10 rounded-[10px] p-[12px] text-[13px] text-destructive">
+                  <AlertCircle className="w-[16px] h-[16px] shrink-0 mt-[1px]" />
+                  <span>{submit.error?.message || "Payment failed. Please try again."}</span>
+                </div>
+              )}
+
+              <button
+                onClick={onSubmit}
+                disabled={!canSubmit || submit.isPending}
+                className="w-full mt-[20px] flex items-center justify-center gap-[8px] rounded-[14px] py-[15px] font-display font-bold text-[16px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_8px_24px_rgba(143,106,31,0.25)] disabled:opacity-50 disabled:shadow-none transition-all active:scale-[0.98]"
+                data-testid="button-submit-payment"
+              >
+                {submit.isPending ? (
+                  <Loader2 className="w-[20px] h-[20px] animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-[20px] h-[20px]" />
+                )}
+                {method === "wire" ? "Confirm wire sent" : `Pay ${fmtMoney(req.total)}`}
+              </button>
+
+              <div className="mt-[16px] text-[11px] text-center text-muted-foreground">
+                Secure payment powered by {req.companyName}
+              </div>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );

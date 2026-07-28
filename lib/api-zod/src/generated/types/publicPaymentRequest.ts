@@ -22,6 +22,8 @@ export interface PublicPaymentRequest {
   /** @nullable */
   companyPhone?: string | null;
   /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
   paidAt?: string | null;
   /** @nullable */
   paidAmount?: number | null;

@@ -3584,6 +3584,8 @@ export interface PaymentRequestDetail {
   /** @nullable */
   sentAt?: string | null;
   /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
   paidAt?: string | null;
   /** @nullable */
   paidAmount?: number | null;
@@ -3631,6 +3633,8 @@ export interface PublicPaymentRequest {
   companyEmail?: string | null;
   /** @nullable */
   companyPhone?: string | null;
+  /** @nullable */
+  approvedAt?: string | null;
   /** @nullable */
   paidAt?: string | null;
   /** @nullable */

@@ -20,6 +20,7 @@ export const paymentRequestsTable = pgTable("payment_requests", {
   sentVia: text("sent_via"), // email | sms
   sentTo: text("sent_to"),
   sentAt: timestamp("sent_at", { withTimezone: true }),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   paidAmount: doublePrecision("paid_amount"),
   paymentMethod: text("payment_method"), // card | ach | wire | echeck

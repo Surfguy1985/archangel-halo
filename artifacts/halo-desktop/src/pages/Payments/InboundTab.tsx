@@ -164,11 +164,21 @@ function RequestCard({ req, onClick, onReturn, onSend }: { req: PaymentRequestDe
           <div className="flex items-center gap-2 mb-1">
             <span className="font-mono text-xs text-muted-foreground">{req.requestNo}</span>
             <StatusBadge status={req.status} />
+            {req.approvedAt && (
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 uppercase text-[10px]">
+                Approved
+              </Badge>
+            )}
           </div>
           <h3 className="font-display font-semibold text-[var(--ink)] text-base">{req.propertyName}</h3>
           <p className="text-sm text-muted-foreground mt-0.5">
             {req.memo || `${req.jobs?.length || 0} job${req.jobs?.length !== 1 ? "s" : ""}`}
           </p>
+          {req.approvedAt && req.status !== "paid" && (
+            <p className="text-xs text-blue-600/80 mt-1 flex items-center gap-1 font-medium">
+               <CheckCircle2 className="w-3 h-3" /> Invoice Approved {fmtDate(req.approvedAt)}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col sm:items-end justify-center gap-2">

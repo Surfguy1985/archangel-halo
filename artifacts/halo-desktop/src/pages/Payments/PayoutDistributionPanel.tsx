@@ -64,8 +64,8 @@ export function PayoutDistributionPanel({ req, open, onOpenChange }: { req: Paym
               </div>
             ) : (
               <div className="space-y-3">
-                {dist?.rows.map((row) => (
-                  <PayoutRow key={row.jobId} row={row} requestId={req.id} />
+                {dist?.rows.map((row, idx) => (
+                  <PayoutRow key={`${row.jobId}-${row.crewId || idx}`} row={row} requestId={req.id} />
                 ))}
               </div>
             )}
