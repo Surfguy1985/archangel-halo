@@ -61,25 +61,25 @@ export function AutopilotActions() {
   const busy = approve.isPending || dismiss.isPending;
 
   return (
-    <Card className="border-[var(--gold)]/30 bg-[var(--gold-tint)]/40 shadow-sm">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base font-display flex items-center gap-2 text-[var(--gold-dark)]">
+    <Card className="border-none bg-[var(--secondary)] text-white shadow-sm rounded-none">
+      <CardHeader className="pb-3 border-b border-white/10">
+        <CardTitle className="text-base font-display flex items-center gap-2 text-[var(--primary)]">
           <Sparkles className="w-4 h-4" /> Autopilot Suggests
-          <span className="ml-auto text-xs font-sans font-semibold px-2 py-0.5 rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark)]">
+          <span className="ml-auto text-xs font-sans font-semibold px-2 py-0.5 rounded-full bg-[var(--primary)] text-[var(--secondary)]">
             {pending.length}
           </span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-4">
         {pending.map((a) => (
-          <div key={a.id} className="rounded-lg border border-[var(--gold)]/20 bg-card p-4">
-            <div className="font-semibold text-[var(--ink)] text-sm mb-1">{a.title}</div>
-            <p className="text-xs text-muted-foreground leading-relaxed">{a.body}</p>
+          <div key={a.id} className="rounded-none border border-white/10 bg-white/5 p-4">
+            <div className="font-semibold text-white text-sm mb-1">{a.title}</div>
+            <p className="text-xs text-white/70 leading-relaxed">{a.body}</p>
             <div className="flex gap-2 mt-3">
               <button
                 onClick={() => onApprove(a.id)}
                 disabled={busy}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md bg-[var(--gold-light)] text-black text-xs font-bold py-2 hover:opacity-90 transition-opacity disabled:opacity-60"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-none bg-[var(--primary)] text-[var(--secondary)] text-xs font-bold py-2 hover:opacity-90 transition-opacity disabled:opacity-60"
                 data-testid={`button-approve-${a.id}`}
               >
                 {approve.isPending && approve.variables?.id === a.id ? (
@@ -92,7 +92,7 @@ export function AutopilotActions() {
               <button
                 onClick={() => onDismiss(a.id)}
                 disabled={busy}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-card text-muted-foreground text-xs font-bold py-2 hover:bg-muted transition-colors disabled:opacity-60"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-none border border-white/20 bg-transparent text-white/70 text-xs font-bold py-2 hover:bg-white/10 transition-colors disabled:opacity-60"
                 data-testid={`button-dismiss-${a.id}`}
               >
                 <X className="w-3.5 h-3.5" strokeWidth={2.5} />

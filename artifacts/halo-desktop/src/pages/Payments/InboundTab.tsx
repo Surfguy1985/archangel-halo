@@ -48,7 +48,7 @@ export function InboundTab() {
   const [sendReq, setSendReq] = useState<PaymentRequestDetail | null>(null);
 
   if (isLoading) {
-    return <Skeleton className="h-64 w-full rounded-2xl" />;
+    return <Skeleton className="h-64 w-full rounded-none bg-muted" />;
   }
 
   const sorted = [...(requests ?? [])].sort((a, b) => 
@@ -58,14 +58,14 @@ export function InboundTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-display font-bold text-[var(--ink)]">Payment Requests</h2>
-        <Button className="rounded-full gap-2 bg-[var(--ink)] text-white hover:bg-[var(--ink2)]" onClick={() => setNewOpen(true)}>
+        <h2 className="text-lg font-display font-bold text-[var(--secondary)]">Payment Requests</h2>
+        <Button className="rounded-none font-bold uppercase tracking-wider text-xs gap-2 bg-[var(--primary)] text-[var(--secondary)] hover:opacity-90 px-6" onClick={() => setNewOpen(true)}>
           <Plus className="w-4 h-4" /> Request Payment
         </Button>
       </div>
 
       {sorted.length === 0 ? (
-        <div className="p-12 text-center border border-dashed border-border rounded-2xl bg-white text-muted-foreground">
+        <div className="p-12 text-center border border-dashed border-border rounded-none bg-white text-muted-foreground">
           No payment requests yet. Create one to get paid.
         </div>
       ) : (
@@ -119,9 +119,9 @@ function SendPaymentDialog({ req, open, onOpenChange }: { req: PaymentRequestDet
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-3xl">
+      <DialogContent className="sm:max-w-[400px] border border-border shadow-md rounded-none">
         <DialogHeader>
-          <DialogTitle className="text-xl font-display font-bold">Send Payment Link</DialogTitle>
+          <DialogTitle className="text-xl font-display font-bold text-[var(--secondary)]">Send Payment Link</DialogTitle>
         </DialogHeader>
         <div className="py-4 space-y-4">
           <div className="space-y-2">
@@ -130,13 +130,13 @@ function SendPaymentDialog({ req, open, onOpenChange }: { req: PaymentRequestDet
               value={to} 
               onChange={e => setTo(e.target.value)} 
               placeholder="e.g. manager@property.com" 
-              className="rounded-xl"
+              className="rounded-none border-border focus-visible:ring-[var(--secondary)]"
             />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-full">Cancel</Button>
-          <Button onClick={handleSend} disabled={sendReqApi.isPending || !to} className="rounded-full bg-[var(--ink)] text-white hover:bg-[var(--ink2)]">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-none">Cancel</Button>
+          <Button onClick={handleSend} disabled={sendReqApi.isPending || !to} className="rounded-none bg-[var(--primary)] text-[var(--secondary)] font-bold hover:opacity-90">
             Send Link
           </Button>
         </DialogFooter>
@@ -156,7 +156,7 @@ function RequestCard({ req, onClick, onReturn, onSend }: { req: PaymentRequestDe
 
   return (
     <Card 
-      className={`rounded-2xl border-none shadow-sm overflow-hidden transition-all ${req.status === "paid" ? "cursor-pointer hover:shadow-md ring-1 ring-emerald-500/20" : ""}`}
+      className={`rounded-none border border-border shadow-sm overflow-hidden transition-all bg-white ${req.status === "paid" ? "cursor-pointer hover:border-[var(--secondary)]" : ""}`}
       onClick={onClick}
     >
       <div className="p-4 flex flex-col sm:flex-row gap-4 justify-between sm:items-center">
@@ -165,12 +165,12 @@ function RequestCard({ req, onClick, onReturn, onSend }: { req: PaymentRequestDe
             <span className="font-mono text-xs text-muted-foreground">{req.requestNo}</span>
             <StatusBadge status={req.status} />
             {req.approvedAt && (
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 uppercase text-[10px]">
+              <Badge variant="outline" className="bg-blue-100 text-blue-800 border-none uppercase text-[10px] rounded-full">
                 Approved
               </Badge>
             )}
           </div>
-          <h3 className="font-display font-semibold text-[var(--ink)] text-base">{req.propertyName}</h3>
+          <h3 className="font-display font-semibold text-[var(--secondary)] text-base">{req.propertyName}</h3>
           <p className="text-sm text-muted-foreground mt-0.5">
             {req.memo || `${req.jobs?.length || 0} job${req.jobs?.length !== 1 ? "s" : ""}`}
           </p>
@@ -182,23 +182,23 @@ function RequestCard({ req, onClick, onReturn, onSend }: { req: PaymentRequestDe
         </div>
 
         <div className="flex flex-col sm:items-end justify-center gap-2">
-          <div className="font-display font-bold text-xl tabular-nums text-[var(--ink)]">
+          <div className="font-display font-bold text-xl tabular-nums text-[var(--secondary)]">
             {money(req.total)}
           </div>
           
           {req.status === "paid" && (
             <div className="flex items-center gap-2">
-              <div className="text-xs text-emerald-600 font-medium flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-md">
+              <div className="text-xs text-emerald-700 font-medium flex items-center gap-1 bg-emerald-100 px-2 py-1 rounded-none border border-emerald-200">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Paid {fmtDate(req.paidAt)} via {req.paymentMethod}
                 {req.confirmationNo && <span className="opacity-70 ml-1">#{req.confirmationNo}</span>}
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-slate-600">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-[var(--secondary)] rounded-none">
                     <MoreHorizontal className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                <DropdownMenuContent align="end" className="w-48 rounded-none">
                   <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-700" onClick={(e) => { e.stopPropagation(); onReturn(); }}>
                     <RotateCcw className="w-4 h-4 mr-2" /> Mark Returned
                   </DropdownMenuItem>
@@ -208,17 +208,17 @@ function RequestCard({ req, onClick, onReturn, onSend }: { req: PaymentRequestDe
           )}
 
           {req.status === "returned" && (
-            <div className="text-xs text-red-600 font-medium flex items-center gap-1 bg-red-50 px-2 py-1 rounded-md">
+            <div className="text-xs text-red-700 font-medium flex items-center gap-1 bg-red-100 px-2 py-1 rounded-none border border-red-200">
               <XCircle className="w-3.5 h-3.5" /> Returned: {req.returnReason || "Unknown"}
             </div>
           )}
 
           {(req.status === "draft" || req.status === "sent") && (
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" className="h-8 rounded-full text-xs" onClick={(e) => { e.stopPropagation(); copyLink(); }}>
+              <Button size="sm" variant="outline" className="h-8 rounded-none text-xs border-border text-[var(--secondary)]" onClick={(e) => { e.stopPropagation(); copyLink(); }}>
                 <LinkIcon className="w-3.5 h-3.5 mr-1" /> Copy Link
               </Button>
-              <Button size="sm" className="h-8 rounded-full text-xs bg-[var(--gold-dark)] text-white hover:bg-[var(--gold-dark)]/90" onClick={(e) => {
+              <Button size="sm" className="h-8 rounded-none text-xs bg-[var(--primary)] text-[var(--secondary)] font-bold hover:opacity-90" onClick={(e) => {
                 e.stopPropagation();
                 onSend();
               }}>
@@ -230,7 +230,7 @@ function RequestCard({ req, onClick, onReturn, onSend }: { req: PaymentRequestDe
       </div>
       
       {req.status === "paid" && (
-        <div className="bg-[var(--paper)] px-4 py-2 text-xs text-muted-foreground flex items-center justify-between border-t border-border">
+        <div className="bg-[var(--background)] px-4 py-2 text-xs text-[var(--secondary)] font-medium flex items-center justify-between border-t border-border">
           <span>Funds received. Tap to distribute payouts.</span>
           <ChevronRight className="w-4 h-4" />
         </div>
@@ -264,14 +264,14 @@ function ReturnPaymentRequestDialog({ req, open, onOpenChange }: { req: PaymentR
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-3xl">
+      <DialogContent className="sm:max-w-[400px] border border-border shadow-md rounded-none">
         <DialogHeader>
           <DialogTitle className="text-xl font-display font-bold text-red-600 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5" /> Return Payment
           </DialogTitle>
         </DialogHeader>
         <div className="py-4 space-y-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-foreground">
             Marking this request as returned will flag it in the system. The funds ({money(req.total)}) did not settle successfully.
           </p>
           <div className="space-y-2">
@@ -280,13 +280,13 @@ function ReturnPaymentRequestDialog({ req, open, onOpenChange }: { req: PaymentR
               value={reason} 
               onChange={e => setReason(e.target.value)} 
               placeholder="e.g. Insufficient Funds (R01)" 
-              className="rounded-xl"
+              className="rounded-none border-border"
             />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-full">Cancel</Button>
-          <Button onClick={handleReturn} disabled={ret.isPending} className="rounded-full bg-red-600 text-white hover:bg-red-700">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-none">Cancel</Button>
+          <Button onClick={handleReturn} disabled={ret.isPending} className="rounded-none bg-red-600 text-white hover:bg-red-700">
             Confirm Return
           </Button>
         </DialogFooter>
@@ -298,12 +298,12 @@ function ReturnPaymentRequestDialog({ req, open, onOpenChange }: { req: PaymentR
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case "paid":
-      return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 uppercase text-[10px]">Paid</Badge>;
+      return <Badge className="bg-emerald-100 text-emerald-800 border-none uppercase text-[10px] rounded-full shadow-none hover:bg-emerald-100">Paid</Badge>;
     case "sent":
-      return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 uppercase text-[10px]">Sent</Badge>;
+      return <Badge className="bg-[var(--secondary)] text-white border-none uppercase text-[10px] rounded-full shadow-none hover:bg-[var(--secondary)]">Sent</Badge>;
     case "returned":
-      return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 uppercase text-[10px]">Returned</Badge>;
+      return <Badge className="bg-red-100 text-red-800 border-none uppercase text-[10px] rounded-full shadow-none hover:bg-red-100">Returned</Badge>;
     default:
-      return <Badge variant="secondary" className="uppercase text-[10px] text-muted-foreground">Draft</Badge>;
+      return <Badge className="bg-gray-100 text-gray-800 border-none uppercase text-[10px] rounded-full shadow-none hover:bg-gray-100">Draft</Badge>;
   }
 }

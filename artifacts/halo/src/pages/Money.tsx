@@ -124,7 +124,7 @@ function HistorySheet({
               Nothing here yet.
             </div>
           ) : (
-            <div className="bg-card rounded-[20px] shadow-[0_2px_6px_rgba(0,0,0,0.04)] p-[8px_16px]">
+            <div className="bg-card border border-border rounded-[20px] shadow-[0_2px_6px_rgba(0,0,0,0.04)] p-[8px_16px]">
               {rows.map((r, idx) => (
                 <div
                   key={r.id}
@@ -181,57 +181,54 @@ const statusLabel: Record<string, string> = {
 function OverviewHero() {
   const { data: money, isLoading } = useGetMoneySummary();
   if (isLoading || !money) {
-    return <div className="animate-pulse h-[260px] bg-card rounded-[24px]" />;
+    return <div className="animate-pulse h-[260px] bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] rounded-[20px] border border-[var(--hairline)]" />;
   }
   return (
-    <div className="bg-card rounded-[24px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[24px] relative overflow-hidden">
-      <div className="absolute top-0 right-0 p-[24px] opacity-[0.04] pointer-events-none">
-        <Wallet className="w-[140px] h-[140px]" />
-      </div>
+    <div className="bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] rounded-[24px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-[24px] relative overflow-hidden">
       <div className="relative z-10">
-        <div className="text-[12.5px] font-semibold text-muted-foreground uppercase tracking-[0.1em] mb-[6px]">
+        <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.15em] mb-[8px]">
           Landing this week
         </div>
-        <div className="font-display font-bold text-[48px] tracking-[-0.02em] tabular-nums leading-none mb-[28px] text-[var(--ink)]">
+        <div className="font-display font-bold text-[56px] tracking-tight tabular-nums leading-none mb-[32px] text-[var(--ink)]">
           ${money.landing.toLocaleString()}
         </div>
 
-        <div className="grid grid-cols-3 gap-[16px] pt-[20px] border-t border-border/60">
+        <div className="grid grid-cols-3 gap-[16px] pt-[20px] border-t border-[var(--hairline)]">
           <div>
-            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">At Risk</div>
-            <div className="font-display font-bold text-[18px] text-destructive tabular-nums mt-[4px]">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">At Risk</div>
+            <div className="font-display font-bold text-[20px] text-destructive tabular-nums mt-[4px]">
               ${money.atRisk.toLocaleString()}
             </div>
           </div>
           <div>
-            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">MTD Rev</div>
-            <div className="font-display font-bold text-[18px] tabular-nums mt-[4px] text-[var(--ink)]">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">MTD Rev</div>
+            <div className="font-display font-bold text-[20px] tabular-nums mt-[4px] text-[var(--ink)]">
               ${money.mtd.toLocaleString()}
             </div>
           </div>
           <div>
-            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">Margin</div>
-            <div className="font-display font-bold text-[18px] tabular-nums mt-[4px] text-[var(--ink)]">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">Margin</div>
+            <div className="font-display font-bold text-[20px] tabular-nums mt-[4px] text-[var(--gold-dark)]">
               {money.marginPct}%
             </div>
           </div>
         </div>
 
-        <div className="mt-[24px] pt-[20px] border-t border-border/60">
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-[14px]">
+        <div className="mt-[24px] pt-[20px] border-t border-[var(--hairline)]">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] mb-[16px]">
             Aging Accounts
           </div>
           <div className="flex gap-[8px]">
             {money.aging.map((b, i) => (
               <div key={i} className="flex-1 text-center">
                 <div
-                  className="h-[6px] rounded-full mb-[8px] opacity-90"
+                  className="h-[4px] rounded-full mb-[10px] opacity-80"
                   style={{ backgroundColor: b.color || "var(--muted)" }}
                 />
-                <span className="block text-[10.5px] text-muted-foreground font-medium uppercase tracking-wider">
+                <span className="block text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
                   {b.label}
                 </span>
-                <b className="block text-[13.5px] font-display tabular-nums mt-[2px] text-[var(--ink)]">
+                <b className="block text-[14px] font-display tabular-nums mt-[4px] text-[var(--ink)]">
                   ${b.value.toLocaleString()}
                 </b>
               </div>
@@ -332,7 +329,7 @@ function Invoices() {
         />
       </div>
       {isLoading ? (
-        <div className="animate-pulse h-32 bg-card rounded-[20px]" />
+        <div className="animate-pulse h-32 bg-card border border-border rounded-[20px]" />
       ) : !invoices || invoices.length === 0 ? (
         <div className="text-center text-[15px] text-muted-foreground py-[50px]">
           No invoices yet.
@@ -343,7 +340,7 @@ function Invoices() {
             <div
               key={inv.id}
               onClick={() => navigate(`/invoices/${inv.id}`)}
-              className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[18px] cursor-pointer transition-transform active:scale-[0.98]"
+              className="bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] rounded-[20px] border border-border p-[18px] cursor-pointer transition-transform active:scale-[0.98] hover:bg-card"
             >
               <div className="flex items-start gap-[12px]">
                 <div className="flex-1 min-w-0">
@@ -536,13 +533,13 @@ function Expenses() {
         />
       </div>
       {isLoading ? (
-        <div className="animate-pulse h-32 bg-card rounded-[20px]" />
+        <div className="animate-pulse h-32 bg-card border border-border rounded-[20px]" />
       ) : !expenses || expenses.length === 0 ? (
         <div className="text-center text-[15px] text-muted-foreground py-[50px]">
           No expenses logged.
         </div>
       ) : (
-        <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[8px_16px]">
+        <div className="bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] rounded-[20px] border border-border p-[8px_16px]">
           {sorted.map((e, idx) => (
             <div
               key={e.id}
@@ -689,7 +686,7 @@ function CrewPay() {
       </button>
 
       {isLoading ? (
-        <div className="animate-pulse h-32 bg-card rounded-[20px]" />
+        <div className="animate-pulse h-32 bg-card border border-border rounded-[20px]" />
       ) : groups.length === 0 ? (
         <div className="text-center text-[15px] text-muted-foreground py-[50px]">
           No crew payments logged.
@@ -702,8 +699,8 @@ function CrewPay() {
               .reduce((sum, i) => sum + i.amount, 0);
 
             return (
-              <div key={g.name} className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
-                <div className="bg-muted/5 p-[16px_20px] border-b border-border/60 flex items-center justify-between">
+              <div key={g.name} className="bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] rounded-[20px] border border-border overflow-hidden">
+                <div className="bg-muted/5 p-[16px_20px] border-b border-border flex items-center justify-between">
                   <div className="font-display font-bold text-[17px] text-[var(--ink)]">{g.name}</div>
                   {pendingTotal > 0 && (
                     <div className="text-[13px] font-bold text-destructive">
@@ -807,7 +804,7 @@ export default function Money() {
               <El
                 key={item.id}
                 {...props}
-                className="bg-card p-[20px] rounded-[24px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center gap-[20px] active:scale-[0.98] transition-transform text-left border border-transparent active:border-[var(--gold-tint)]"
+                className="bg-card border border-border p-[20px] rounded-[24px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center gap-[20px] active:scale-[0.98] transition-transform text-left border border-transparent active:border-[var(--gold-tint)]"
                 data-testid={`button-menu-${item.id}`}
               >
                 <div className="w-[56px] h-[56px] rounded-full bg-[var(--gold-tint)] text-[var(--gold-dark)] flex items-center justify-center shrink-0">

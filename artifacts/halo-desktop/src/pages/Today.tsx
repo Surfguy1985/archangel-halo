@@ -27,27 +27,23 @@ function entityRoute(entityType?: string | null, entityId?: string | null): stri
   }
 }
 
-type QueueColor = { text: string; border: string; bar: string; bg: string; hoverBorder: string; groupHoverText: string };
+type QueueColor = { text: string; bg: string };
 
 const QUEUE_COLORS: Record<string, QueueColor> = {
-  money:      { text: "text-emerald-600",  border: "border-emerald-500",  bar: "bg-emerald-500",  bg: "bg-emerald-50",  hoverBorder: "hover:border-emerald-500",  groupHoverText: "group-hover:text-emerald-600" },
-  invoice:    { text: "text-violet-600",   border: "border-violet-500",   bar: "bg-violet-500",   bg: "bg-violet-50",   hoverBorder: "hover:border-violet-500",   groupHoverText: "group-hover:text-violet-600" },
-  schedule:   { text: "text-sky-600",      border: "border-sky-500",      bar: "bg-sky-500",      bg: "bg-sky-50",      hoverBorder: "hover:border-sky-500",      groupHoverText: "group-hover:text-sky-600" },
-  bids:       { text: "text-amber-600",    border: "border-amber-500",    bar: "bg-amber-500",    bg: "bg-amber-50",    hoverBorder: "hover:border-amber-500",    groupHoverText: "group-hover:text-amber-600" },
-  margin:     { text: "text-rose-600",     border: "border-rose-500",     bar: "bg-rose-500",     bg: "bg-rose-50",     hoverBorder: "hover:border-rose-500",     groupHoverText: "group-hover:text-rose-600" },
-  supply:     { text: "text-orange-600",   border: "border-orange-500",   bar: "bg-orange-500",   bg: "bg-orange-50",   hoverBorder: "hover:border-orange-500",   groupHoverText: "group-hover:text-orange-600" },
-  compliance: { text: "text-red-600",      border: "border-red-500",      bar: "bg-red-500",      bg: "bg-red-50",      hoverBorder: "hover:border-red-500",      groupHoverText: "group-hover:text-red-600" },
-  leads:      { text: "text-cyan-600",     border: "border-cyan-500",     bar: "bg-cyan-500",     bg: "bg-cyan-50",     hoverBorder: "hover:border-cyan-500",     groupHoverText: "group-hover:text-cyan-600" },
-  followup:   { text: "text-fuchsia-600",  border: "border-fuchsia-500",  bar: "bg-fuchsia-500",  bg: "bg-fuchsia-50",  hoverBorder: "hover:border-fuchsia-500",  groupHoverText: "group-hover:text-fuchsia-600" },
+  money:      { text: "text-emerald-700",  bg: "bg-emerald-100" },
+  invoice:    { text: "text-violet-700",   bg: "bg-violet-100" },
+  schedule:   { text: "text-sky-700",      bg: "bg-sky-100" },
+  bids:       { text: "text-amber-700",    bg: "bg-amber-100" },
+  margin:     { text: "text-rose-700",     bg: "bg-rose-100" },
+  supply:     { text: "text-orange-700",   bg: "bg-orange-100" },
+  compliance: { text: "text-red-700",      bg: "bg-red-100" },
+  leads:      { text: "text-cyan-700",     bg: "bg-cyan-100" },
+  followup:   { text: "text-fuchsia-700",  bg: "bg-fuchsia-100" },
 };
 
 const DEFAULT_QUEUE_COLOR: QueueColor = {
-  text: "text-[var(--primary)]",
-  border: "border-[var(--primary)]",
-  bar: "bg-[var(--primary)]",
-  bg: "bg-[var(--gold-tint)]",
-  hoverBorder: "hover:border-[var(--primary)]",
-  groupHoverText: "group-hover:text-[var(--primary)]",
+  text: "text-black",
+  bg: "bg-[var(--primary)]",
 };
 
 function queueColor(queue: string) {
@@ -97,21 +93,21 @@ export default function Today() {
 
   if (isLoading) {
     return (
-      <div className="p-8 space-y-6">
-        <Skeleton className="h-10 w-64 bg-[var(--muted)]" />
-        <Skeleton className="h-48 w-full bg-[var(--muted)]" />
+      <div className="p-8 space-y-6 bg-[var(--background)] min-h-screen">
+        <Skeleton className="h-10 w-64 bg-muted" />
+        <Skeleton className="h-48 w-full bg-muted" />
         <div className="grid grid-cols-4 gap-4">
-          <Skeleton className="h-32 bg-[var(--muted)]" />
-          <Skeleton className="h-32 bg-[var(--muted)]" />
-          <Skeleton className="h-32 bg-[var(--muted)]" />
-          <Skeleton className="h-32 bg-[var(--muted)]" />
+          <Skeleton className="h-32 bg-muted" />
+          <Skeleton className="h-32 bg-muted" />
+          <Skeleton className="h-32 bg-muted" />
+          <Skeleton className="h-32 bg-muted" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-8 max-w-6xl mx-auto space-y-8 bg-[var(--background)] min-h-[100dvh]">
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-display font-bold text-foreground tracking-tight uppercase">Today</h1>
@@ -121,24 +117,24 @@ export default function Today() {
 
       {/* Brief */}
       {today?.brief && (
-        <Card data-tour="morning-brief" className="bg-[var(--primary)] border-[var(--primary)] border shadow-[0_8px_30px_rgba(180,255,68,0.3)] relative overflow-hidden rounded-3xl">
+        <Card data-tour="morning-brief" className="bg-[var(--secondary)] text-white border-none rounded-none shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10">
-            <Sparkles className="w-48 h-48 text-black" />
+            <Sparkles className="w-48 h-48 text-white" />
           </div>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between border-b border-black/20 bg-transparent">
-            <CardTitle className="text-sm font-display font-bold uppercase tracking-widest flex items-center gap-2 text-black">
-              <span className="custom-icon"><Sparkles className="w-4 h-4 text-black" /></span> Morning Brief
+          <CardHeader className="pb-2 flex flex-row items-center justify-between border-b border-white/10">
+            <CardTitle className="text-sm font-display font-bold uppercase tracking-widest flex items-center gap-2 text-[var(--primary)]">
+              <Sparkles className="w-4 h-4" /> Morning Brief
             </CardTitle>
             <button 
               onClick={handleRefresh}
               disabled={refreshBrief.isPending}
-              className="text-black/60 hover:text-black transition-colors"
+              className="text-white/60 hover:text-[var(--primary)] transition-colors"
             >
               <RefreshCw className={`w-4 h-4 ${refreshBrief.isPending ? "animate-spin" : ""}`} />
             </button>
           </CardHeader>
           <CardContent className="pt-6">
-            <p className="text-black leading-relaxed text-lg max-w-4xl font-normal">
+            <p className="text-white/90 leading-relaxed text-lg max-w-4xl font-normal">
               {today.brief.body}
             </p>
           </CardContent>
@@ -148,12 +144,12 @@ export default function Today() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Feed */}
         <div data-tour="needs-attention" className="lg:col-span-2 space-y-6">
-          <div className="flex items-center gap-3 border-b border-[var(--border)] pb-2">
+          <div className="flex items-center gap-3 border-b border-border pb-2">
             <h2 className="text-xl font-display font-bold text-foreground uppercase tracking-wide">Needs Attention</h2>
             {queueFilter && (
               <button
                 onClick={() => setQueueFilter(null)}
-                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-black px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--gold-light)] transition-colors rounded-full shadow-sm"
+                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90 transition-colors rounded-full"
               >
                 {queues?.find(q => q.key === queueFilter)?.label ?? queueFilter}
                 <X className="w-3 h-3" />
@@ -169,17 +165,16 @@ export default function Today() {
               <Card
                 key={item.id}
                 onClick={route ? () => navigate(route) : undefined}
-                className={`relative overflow-hidden hover:border-[var(--primary)] transition-all duration-300 group ${route ? "cursor-pointer" : ""} rounded-2xl border-[var(--border)] bg-[var(--card)] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(180,255,68,0.15)] hover:-translate-y-0.5`}
+                className={`relative overflow-hidden group ${route ? "cursor-pointer hover:border-[var(--secondary)]" : ""} rounded-none border border-border bg-card shadow-sm transition-colors`}
               >
-                <div className={`absolute left-2 top-3 bottom-3 w-1 rounded-full ${qc.bar}`} />
-                <CardContent className="p-5 pl-7 flex items-start gap-4">
+                <CardContent className="p-5 flex items-start gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 border rounded-full shadow-sm ${qc.text} ${qc.border} ${qc.bg}`}>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${qc.bg} ${qc.text}`}>
                         {item.queue}
                       </span>
                       {item.amount != null && (
-                        <span className={`text-sm font-mono font-medium tabular-nums ${qc.text}`}>
+                        <span className="text-sm font-mono font-medium tabular-nums text-[var(--secondary)]">
                           ${item.amount.toLocaleString()}
                         </span>
                       )}
@@ -189,8 +184,8 @@ export default function Today() {
                   </div>
                   <div className="flex items-center gap-2">
                     {route && (
-                      <div className="w-8 h-8 rounded-full border border-[var(--border)] flex items-center justify-center group-hover:bg-[var(--primary)] transition-colors group-hover:border-[var(--primary)] shadow-sm">
-                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-black" />
+                      <div className="w-8 h-8 flex items-center justify-center text-muted-foreground group-hover:text-[var(--secondary)] transition-colors">
+                        <ArrowRight className="w-5 h-5" />
                       </div>
                     )}
                     <button
@@ -199,7 +194,7 @@ export default function Today() {
                       aria-label="Clear"
                       title="Clear from feed"
                       data-testid={`button-dismiss-${item.id}`}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-black hover:bg-[var(--primary)] transition-colors"
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-[var(--secondary)] hover:bg-muted transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -209,12 +204,12 @@ export default function Today() {
               );
             })}
             {today?.feed.length === 0 && (
-              <div className="p-8 text-center border border-dashed border-[var(--border)] text-muted-foreground font-mono text-sm uppercase tracking-widest rounded-2xl bg-[var(--card)]/50">
+              <div className="p-8 text-center border border-border text-muted-foreground font-mono text-sm uppercase tracking-widest bg-card">
                 All caught up for now.
               </div>
             )}
             {(today?.feed.length ?? 0) > 0 && queueFilter && today?.feed.every(item => item.queue !== queueFilter) && (
-              <div className="p-8 text-center border border-dashed border-[var(--border)] text-muted-foreground font-mono text-sm uppercase tracking-widest rounded-2xl bg-[var(--card)]/50">
+              <div className="p-8 text-center border border-border text-muted-foreground font-mono text-sm uppercase tracking-widest bg-card">
                 Nothing needs attention in this queue.
               </div>
             )}
@@ -223,25 +218,22 @@ export default function Today() {
 
         {/* Sidebar Widgets */}
         <div className="space-y-8">
-          {/* Autopilot proposals */}
           <AutopilotActions />
 
           {/* Queues */}
           <div data-tour="operations">
-            <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4 border-b border-[var(--border)] pb-2">Operations</h2>
+            <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4 border-b border-border pb-2">Operations</h2>
             <div className="grid grid-cols-2 gap-3">
               {queues?.map(q => {
-                const qc = queueColor(q.key);
                 const active = queueFilter === q.key;
                 return (
                 <button
                   key={q.key}
                   onClick={() => setQueueFilter(prev => (prev === q.key ? null : q.key))}
-                  className={`relative overflow-hidden p-4 border flex flex-col justify-between aspect-square text-left transition-all duration-300 cursor-pointer group rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 ${active ? `${qc.border} ${qc.bg}` : `bg-card border-[var(--border)] ${qc.hoverBorder}`}`}
+                  className={`p-4 flex flex-col justify-between aspect-square text-left transition-colors cursor-pointer rounded-none border ${active ? `bg-[var(--secondary)] text-white border-[var(--secondary)]` : `bg-card text-foreground border-border hover:border-[var(--secondary)]`}`}
                 >
-                  <div className={`absolute left-0 top-0 right-0 h-1 ${qc.bar} ${active ? "" : "opacity-60 group-hover:opacity-100"} transition-opacity`} />
-                  <span className={`text-4xl font-display font-bold transition-colors ${active ? qc.text : `text-foreground ${qc.groupHoverText}`}`}>{q.count}</span>
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${active ? qc.text : "text-muted-foreground"}`}>{q.label}</span>
+                  <span className={`text-4xl font-display font-bold ${active ? "text-[var(--primary)]" : "text-[var(--secondary)]"}`}>{q.count}</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${active ? "text-white" : "text-muted-foreground"}`}>{q.label}</span>
                 </button>
                 );
               })}
@@ -249,10 +241,10 @@ export default function Today() {
           </div>
 
           {/* Activity Log */}
-          <Card className="border-[var(--border)] bg-card rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] overflow-hidden">
-            <CardHeader className="pb-3 cursor-pointer hover:bg-[var(--muted)]/50 transition-colors" onClick={() => setActivityOpen((o) => !o)}>
+          <Card className="border-border bg-card rounded-none shadow-sm overflow-hidden">
+            <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setActivityOpen((o) => !o)}>
               <CardTitle className="text-xs font-display font-bold uppercase tracking-widest flex items-center gap-2 text-foreground">
-                <span className="custom-icon py-1 px-1"><History className="w-3 h-3" /></span> Activity Log
+                <History className="w-4 h-4 text-[var(--secondary)]" /> Activity Log
                 <span className="ml-auto flex items-center gap-2 text-xs font-mono font-medium text-muted-foreground">
                   {activities?.length ?? 0}
                   <ChevronDown className={`w-4 h-4 transition-transform ${activityOpen ? "rotate-180" : ""}`} />
@@ -260,12 +252,12 @@ export default function Today() {
               </CardTitle>
             </CardHeader>
             {activityOpen && (
-            <CardContent className="pt-2 border-t border-[var(--border)]">
+            <CardContent className="pt-2 border-t border-border">
               {(activities?.length ?? 0) > 0 ? (
                 <div className="space-y-4 pt-2">
                   {activities!.slice(0, 12).map((a) => (
                     <div key={a.id} className="flex items-start gap-3 text-sm">
-                      <div className="w-1 h-full min-h-[20px] bg-[var(--primary)] shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] mt-1.5 shrink-0" />
                       <div className="min-w-0 flex-1">
                         <div className="text-foreground leading-snug text-sm font-light">{a.body || a.kind}</div>
                         {a.createdAt && (
@@ -280,7 +272,7 @@ export default function Today() {
               ) : (
                 <p className="text-sm text-muted-foreground font-light">No activity recorded yet.</p>
               )}
-              <p className="mt-4 pt-4 border-t border-[var(--border)] text-[10px] uppercase tracking-wider text-muted-foreground">
+              <p className="mt-4 pt-4 border-t border-border text-[10px] uppercase tracking-wider text-muted-foreground">
                 This log is permanent — it stays even after a data wipe.
               </p>
             </CardContent>

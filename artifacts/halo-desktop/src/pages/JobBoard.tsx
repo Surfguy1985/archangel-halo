@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   useListJobBoard, 
   getListJobBoardQueryKey, 
@@ -39,7 +39,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useEffect } from "react";
 
 export default function JobBoard() {
   const { data: jobBoard, isLoading } = useListJobBoard({
@@ -53,22 +52,22 @@ export default function JobBoard() {
   }) || [];
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 h-screen flex flex-col">
+    <div className="p-8 max-w-7xl mx-auto space-y-8 min-h-[100dvh] flex flex-col bg-[var(--background)]">
       <header className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-4xl font-display font-bold text-foreground tracking-tight uppercase">Job Board</h1>
           <p className="text-muted-foreground font-mono mt-1 text-sm">Available jobs and broadcast status</p>
         </div>
         
-        <div className="flex bg-card p-1 rounded-none border border-border shadow-sm">
+        <div className="flex gap-2">
           {["active", "filled", "reopened", "completed", "all"].map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}
-              className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-none transition-colors ${
+              className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-full transition-colors ${
                 filter === status 
-                  ? "bg-[var(--primary)] text-black shadow-sm" 
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-[var(--secondary)] text-white shadow-sm" 
+                  : "bg-white border border-border text-muted-foreground hover:border-[var(--secondary)] hover:text-[var(--secondary)]"
               }`}
             >
               {status}
@@ -77,16 +76,16 @@ export default function JobBoard() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto pb-12">
+      <div className="flex-1 pb-12">
         {isLoading ? (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <Skeleton className="h-[400px] rounded-xl" />
-            <Skeleton className="h-[400px] rounded-xl" />
+            <Skeleton className="h-[400px] rounded-none bg-muted" />
+            <Skeleton className="h-[400px] rounded-none bg-muted" />
           </div>
         ) : filteredJobs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 border border-dashed border-border rounded-xl text-muted-foreground bg-card/50">
+          <div className="flex flex-col items-center justify-center h-64 border border-dashed border-border text-muted-foreground bg-card">
             <ClipboardList className="w-12 h-12 mb-4 text-border" />
-            <p className="font-medium text-lg text-[var(--ink)]">No jobs found</p>
+            <p className="font-medium text-lg text-[var(--secondary)]">No jobs found</p>
             <p className="text-sm">There are no jobs matching the current filter.</p>
           </div>
         ) : (
@@ -110,27 +109,27 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
   const [postingOpen, setPostingOpen] = useState(false);
   
   const statusColors: Record<string, string> = {
-    active: "bg-[var(--blue)]/10 text-[var(--blue)] border-[var(--blue)]/20",
-    filled: "bg-[var(--green)]/10 text-[var(--green)] border-[var(--green)]/20",
-    reopened: "bg-[var(--orange)]/10 text-[var(--orange)] border-[var(--orange)]/20",
-    completed: "bg-black/5 text-muted-foreground border-border",
+    active: "bg-blue-100 text-blue-800",
+    filled: "bg-emerald-100 text-emerald-800",
+    reopened: "bg-orange-100 text-orange-800",
+    completed: "bg-gray-100 text-gray-600",
   };
 
   const boardStatus = job.boardStatus || "active";
   const badgeColor = statusColors[boardStatus] || statusColors.active;
 
   return (
-    <Card className="overflow-hidden flex flex-col shadow-sm border-border hover:shadow-md transition-shadow h-full">
-      <div className="p-5 border-b border-border bg-black/[0.02]">
+    <Card className="flex flex-col border border-border shadow-sm rounded-none bg-white">
+      <div className="p-5 border-b border-border bg-[var(--background)]">
         <div className="flex items-start justify-between mb-2">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="font-mono text-xs text-muted-foreground">{job.jobNo}</span>
-              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeColor}`}>
+              <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${badgeColor}`}>
                 {boardStatus}
               </span>
             </div>
-            <h3 className="font-display font-bold text-xl text-[var(--ink)] flex items-center gap-2">
+            <h3 className="font-display font-bold text-xl text-[var(--secondary)] flex items-center gap-2">
               {job.propertyName || "Unknown Property"}
               {job.unitNo && <span className="text-muted-foreground font-normal">#{job.unitNo}</span>}
             </h3>
@@ -138,7 +137,7 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
           {job.marginPct !== null && job.marginPct !== undefined && (
             <div className="text-right">
               <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Margin</div>
-              <div className="font-mono font-bold text-[var(--gold-dark)]">{job.marginPct}%</div>
+              <div className="font-mono font-bold text-[var(--secondary)]">{job.marginPct}%</div>
             </div>
           )}
         </div>
@@ -153,32 +152,32 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
           {job.scheduledOn && (
             <div className="flex items-center gap-1.5">
               <CalendarIcon className="w-4 h-4" />
-              <span>Needed: <span className="font-medium text-[var(--ink)]">{format(new Date(job.scheduledOn + "T00:00:00"), "MMM d, yyyy")}</span></span>
+              <span>Needed: <span className="font-medium text-[var(--secondary)]">{format(new Date(job.scheduledOn + "T00:00:00"), "MMM d, yyyy")}</span></span>
             </div>
           )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mt-3">
           {job.scheduleType === "flex" ? (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
               Flex{job.flexDueBy ? ` · due ${format(new Date(job.flexDueBy + "T00:00:00"), "MMM d")}` : ""}
             </span>
           ) : (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border bg-[var(--gold-tint)] text-[var(--gold-dark)] border-[var(--gold)]/30">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary)] text-[var(--secondary)] border border-[var(--secondary)]/20">
               Set Schedule
             </span>
           )}
           <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
             (job.crewsFilled ?? 0) >= (job.crewsNeeded ?? 1)
-              ? "bg-[var(--green)]/10 text-[var(--green)] border-[var(--green)]/20"
-              : "bg-black/5 text-muted-foreground border-border"
+              ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+              : "bg-gray-100 text-gray-600 border-gray-200"
           }`}>
             {job.crewsFilled ?? 0} of {job.crewsNeeded ?? 1} crew{(job.crewsNeeded ?? 1) > 1 ? "s" : ""} filled
           </span>
           {boardStatus !== "completed" && (
             <button
               onClick={() => setPostingOpen(true)}
-              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors inline-flex items-center gap-1"
+              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-border text-muted-foreground hover:text-[var(--secondary)] hover:border-[var(--secondary)] transition-colors inline-flex items-center gap-1"
             >
               <Pencil className="w-3 h-3" /> Edit Posting
             </button>
@@ -190,21 +189,21 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
         <div className="p-5 flex-1 flex flex-col gap-6">
           {job.description && (
             <div>
-              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Scope of Work</h4>
-              <p className="text-sm whitespace-pre-wrap text-[var(--ink)] leading-relaxed">{job.description}</p>
+              <h4 className="text-xs font-bold text-[var(--secondary)] uppercase tracking-wider mb-2">Scope of Work</h4>
+              <p className="text-sm whitespace-pre-wrap text-foreground leading-relaxed">{job.description}</p>
             </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {priceItems.length > 0 && (
               <div>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+                <h4 className="text-xs font-bold text-[var(--secondary)] uppercase tracking-wider mb-2 flex items-center gap-1">
                   <DollarSign className="w-3.5 h-3.5" /> Price List
                 </h4>
                 <div className="space-y-2">
                   {priceItems.map(item => (
-                    <div key={item.id} className="flex justify-between items-center text-sm p-2 rounded-md bg-black/[0.02] border border-border">
-                      <span className="font-medium text-[var(--ink)] truncate pr-2">{item.service}</span>
+                    <div key={item.id} className="flex justify-between items-center text-sm p-2 bg-[var(--background)] border border-border rounded-none">
+                      <span className="font-medium text-[var(--secondary)] truncate pr-2">{item.service}</span>
                       <span className="font-mono font-medium">${item.rate} {item.unit ? `/${item.unit}` : ''}</span>
                     </div>
                   ))}
@@ -214,21 +213,21 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
 
             {broadcasts.length > 0 && (
               <div>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+                <h4 className="text-xs font-bold text-[var(--secondary)] uppercase tracking-wider mb-2 flex items-center gap-1">
                   <Send className="w-3.5 h-3.5" /> Broadcasts
                 </h4>
                 <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
                   {broadcasts.map(b => (
-                    <div key={b.id} className="flex justify-between items-center text-sm p-2 rounded-md bg-card border border-border">
+                    <div key={b.id} className="flex justify-between items-center text-sm p-2 bg-white border border-border rounded-none">
                       <div className="truncate pr-2">
-                        <span className="font-medium text-[var(--ink)] block truncate">{b.crewName}</span>
+                        <span className="font-medium text-[var(--secondary)] block truncate">{b.crewName}</span>
                         {b.respondedAt && <span className="text-[10px] text-muted-foreground block">{format(new Date(b.respondedAt), "MMM d, h:mm a")}</span>}
                       </div>
                       <Badge variant="outline" className={`
-                        capitalize text-[10px] px-1.5 py-0 rounded
-                        ${b.status === 'approved' ? 'bg-[var(--green)]/10 text-[var(--green)] border-[var(--green)]/20' : 
-                          b.status === 'declined' || b.status === 'withdrawn' ? 'bg-destructive/10 text-destructive border-destructive/20' : 
-                          'bg-[var(--gold-tint)] text-[var(--gold-dark)] border-[var(--gold)]/20'}
+                        capitalize text-[10px] px-1.5 py-0 rounded-none border-none
+                        ${b.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : 
+                          b.status === 'declined' || b.status === 'withdrawn' ? 'bg-red-100 text-red-800' : 
+                          'bg-[var(--primary)] text-[var(--secondary)]'}
                       `}>
                         {b.status}
                       </Badge>
@@ -241,12 +240,12 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
           
           {photos.length > 0 && (
             <div>
-              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+              <h4 className="text-xs font-bold text-[var(--secondary)] uppercase tracking-wider mb-2 flex items-center gap-1">
                 <ImageIcon className="w-3.5 h-3.5" /> Photos
               </h4>
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {photos.map(photo => (
-                  <div key={photo.storagePath} className="relative w-20 h-20 rounded-md overflow-hidden border border-border shrink-0 bg-black/5">
+                  <div key={photo.storagePath} className="relative w-20 h-20 rounded-none overflow-hidden border border-border shrink-0 bg-muted">
                     <img 
                       src={`/api/storage${photo.storagePath}`} 
                       alt="Job Photo" 
@@ -259,34 +258,34 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
           )}
         </div>
 
-        <div className="p-4 bg-card border-t border-border flex justify-end gap-3 shrink-0">
+        <div className="p-4 bg-[var(--background)] border-t border-border flex justify-end gap-3 shrink-0">
           <Button
             variant="outline"
             onClick={() => setEditOpen(true)}
-            className="text-[var(--ink)]"
+            className="text-[var(--secondary)] rounded-none border-border"
           >
             <Pencil className="w-4 h-4 mr-2" /> Edit
           </Button>
           <Button
             variant="outline"
             onClick={() => setDeleteConfirmOpen(true)}
-            className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+            className="text-destructive border-destructive hover:bg-destructive hover:text-white rounded-none"
           >
             <Trash2 className="w-4 h-4 mr-2" /> Delete
           </Button>
           {(boardStatus === 'active' || boardStatus === 'reopened') && (
-            <Button onClick={() => setBroadcastOpen(true)} className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black">
+            <Button onClick={() => setBroadcastOpen(true)} className="bg-[var(--primary)] hover:opacity-90 text-[var(--secondary)] rounded-none font-bold">
               <Send className="w-4 h-4 mr-2" /> Broadcast Job
             </Button>
           )}
           {boardStatus === 'filled' && (
-            <Button variant="outline" onClick={() => setReopenConfirmOpen(true)} className="text-[var(--orange)] border-[var(--orange)]/30 hover:bg-[var(--orange)]/10">
+            <Button variant="outline" onClick={() => setReopenConfirmOpen(true)} className="text-orange-600 border-orange-600 hover:bg-orange-600 hover:text-white rounded-none">
               <RotateCcw className="w-4 h-4 mr-2" /> Reopen Job
             </Button>
           )}
           {boardStatus === 'completed' && (
              <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium px-2">
-               <CheckCircle2 className="w-4 h-4 text-[var(--green)]" /> Completed
+               <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Completed
              </div>
           )}
         </div>

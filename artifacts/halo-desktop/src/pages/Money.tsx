@@ -83,10 +83,10 @@ const fmtDate = (s?: string | null) => {
 };
 
 const statusColor: Record<string, string> = {
-  paid: "var(--green)",
-  past_due: "var(--red)",
-  sent: "var(--gold)",
-  draft: "var(--muted)",
+  paid: "bg-emerald-100 text-emerald-800",
+  past_due: "bg-red-100 text-red-800",
+  sent: "bg-blue-100 text-blue-800",
+  draft: "bg-gray-100 text-gray-800",
 };
 const statusLabel: Record<string, string> = {
   paid: "Paid",
@@ -111,16 +111,16 @@ function SummaryCards() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-32 w-full" />
+          <Skeleton key={i} className="h-32 w-full rounded-none" />
         ))}
       </div>
     );
   }
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-      <Card className="bg-[var(--gold-light)] text-black border-none shadow-md">
+      <Card className="bg-[var(--secondary)] text-white border-none shadow-sm rounded-none">
         <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-4 opacity-90">
+          <div className="flex items-center gap-2 mb-4 opacity-90 text-[var(--primary)]">
             <ArrowDownRight className="w-5 h-5" />
             <span className="font-semibold uppercase tracking-wider text-xs">Landing (Owed)</span>
           </div>
@@ -130,9 +130,9 @@ function SummaryCards() {
         </CardContent>
       </Card>
 
-      <Card className="bg-destructive text-white border-none shadow-md">
+      <Card className="bg-destructive text-white border-none shadow-sm rounded-none">
         <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-4 opacity-90">
+          <div className="flex items-center gap-2 mb-4 opacity-90 text-white">
             <AlertCircle className="w-5 h-5" />
             <span className="font-semibold uppercase tracking-wider text-xs">At Risk (&gt;30d)</span>
           </div>
@@ -142,22 +142,22 @@ function SummaryCards() {
         </CardContent>
       </Card>
 
-      <Card className="bg-card border-border shadow-sm">
+      <Card className="bg-white border border-border shadow-sm rounded-none">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4 text-muted-foreground">
             <ArrowUpRight className="w-5 h-5" />
             <span className="font-semibold uppercase tracking-wider text-xs">MTD Revenue</span>
           </div>
-          <div className="text-3xl font-mono font-bold tracking-tight text-[var(--ink)]">
+          <div className="text-3xl font-mono font-bold tracking-tight text-[var(--secondary)]">
             {money(summary?.mtd ?? 0)}
           </div>
-          <div className="mt-2 text-sm font-medium text-[var(--gold-dark)]">
+          <div className="mt-2 text-sm font-medium text-[var(--primary)] text-emerald-600">
             {summary?.marginPct}% {summary?.bankConnected ? "Cash Margin" : "Margin"}
           </div>
         </CardContent>
       </Card>
 
-      <Card className="bg-card border-border shadow-sm">
+      <Card className="bg-white border border-border shadow-sm rounded-none">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4 text-muted-foreground">
             <CreditCard className="w-5 h-5" />
@@ -165,7 +165,7 @@ function SummaryCards() {
               {summary?.bankConnected ? "Spent MTD" : "Collected MTD"}
             </span>
           </div>
-          <div className="text-3xl font-mono font-bold tracking-tight text-[var(--ink)]">
+          <div className="text-3xl font-mono font-bold tracking-tight text-[var(--secondary)]">
             {money(
               summary?.bankConnected
                 ? summary?.spentMtd ?? 0
@@ -188,17 +188,17 @@ function AgingReceivables() {
   if (!summary) return null;
   return (
     <div>
-      <h2 className="text-xl font-display font-bold mb-4 text-[var(--ink)]">Aging Receivables</h2>
+      <h2 className="text-xl font-display font-bold mb-4 text-[var(--secondary)] uppercase">Aging Receivables</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {summary.aging.map((bucket, i) => (
-          <div key={i} className="p-4 bg-card rounded-lg border border-border">
+          <div key={i} className="p-4 bg-white border border-border">
             <div
               className="h-1.5 rounded-full mb-3"
               style={{ backgroundColor: bucket.color || "var(--muted)" }}
             />
             <span className="text-sm font-medium text-muted-foreground">{bucket.label}</span>
             <div
-              className={`font-mono font-bold text-lg mt-1 ${bucket.color ? "text-destructive" : "text-[var(--ink)]"}`}
+              className={`font-mono font-bold text-lg mt-1 ${bucket.color ? "text-destructive" : "text-[var(--secondary)]"}`}
             >
               {money(bucket.value)}
             </div>
@@ -212,8 +212,7 @@ function AgingReceivables() {
 function InvoiceStatusBadge({ inv }: { inv: Invoice }) {
   return (
     <span
-      className="text-[10.5px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded-full text-white shrink-0"
-      style={{ backgroundColor: statusColor[inv.status] || "#8B8577" }}
+      className={`text-[10.5px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded-full shrink-0 ${statusColor[inv.status] || statusColor.draft}`}
     >
       {statusLabel[inv.status] || inv.status}
       {inv.status === "past_due" && inv.daysLate ? ` · ${inv.daysLate}d` : ""}
@@ -227,8 +226,8 @@ function Invoices() {
   const { toast } = useToast();
   const { data: invoices, isLoading } = useListInvoices();
   const [filter, setFilter] = useState<InvoiceFilter>("all");
-  const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
-  const [sendInvoice, setSendInvoice] = useState<Invoice | null>(null);
+  const [payInvoice, setInvoiceToPay] = useState<Invoice | null>(null);
+  const [sendInvoice, setInvoiceToSend] = useState<Invoice | null>(null);
   const [businessOpen, setBusinessOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const remind = useRemindInvoice();
@@ -288,10 +287,10 @@ function Invoices() {
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              className={`px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider transition-colors ${
                 filter === f.key
-                  ? "bg-[var(--ink)] text-white"
-                  : "bg-card border border-border text-muted-foreground hover:text-[var(--ink)]"
+                  ? "bg-[var(--secondary)] text-white shadow-sm"
+                  : "bg-white border border-border text-muted-foreground hover:border-[var(--secondary)] hover:text-[var(--secondary)]"
               }`}
             >
               {f.label}
@@ -307,10 +306,11 @@ function Invoices() {
             size="sm"
             onClick={() => setScanOpen(true)}
             data-testid="button-open-scan-check"
+            className="rounded-none text-[var(--secondary)] border-border"
           >
             <ScanLine className="w-4 h-4 mr-1.5" /> Scan check
           </Button>
-          <Button size="sm" onClick={() => navigate("/invoices/new")}>
+          <Button size="sm" onClick={() => navigate("/invoices/new")} className="bg-[var(--primary)] hover:opacity-90 text-[var(--secondary)] rounded-none font-bold">
             <Plus className="w-4 h-4 mr-1.5" /> New invoice
           </Button>
           <DropdownMenu>
@@ -318,14 +318,14 @@ function Invoices() {
               <Button
                 variant="outline"
                 size="sm"
-                className="px-2"
+                className="px-2 rounded-none border-border"
                 aria-label="More actions"
                 data-testid="button-invoices-overflow"
               >
-                <MoreHorizontal className="w-4 h-4" />
+                <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-48 rounded-none">
               <DropdownMenuItem onSelect={() => setBusinessOpen(true)}>
                 <Building2 className="w-4 h-4 mr-2" /> Business info
               </DropdownMenuItem>
@@ -338,9 +338,9 @@ function Invoices() {
       </div>
 
       {isLoading ? (
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full rounded-none" />
       ) : filtered.length === 0 ? (
-        <div className="p-12 text-center border border-dashed border-border rounded-xl text-muted-foreground">
+        <div className="p-12 text-center border border-dashed border-border text-muted-foreground bg-white">
           No invoices in this view.
         </div>
       ) : (
@@ -349,7 +349,7 @@ function Invoices() {
             <div
               key={inv.id}
               onClick={() => navigate(`/invoices/${inv.id}`)}
-              className="group bg-card rounded-xl border border-border shadow-sm p-4 cursor-pointer hover:border-[var(--gold)] transition-colors"
+              className="group bg-white border border-border shadow-sm p-4 cursor-pointer hover:border-[var(--secondary)] transition-colors"
             >
               <div className="flex items-center gap-4">
                 <div className="flex-1 min-w-0">
@@ -357,7 +357,7 @@ function Invoices() {
                     <span className="font-mono text-[13px] text-muted-foreground">{inv.invoiceNo}</span>
                     <InvoiceStatusBadge inv={inv} />
                   </div>
-                  <div className="font-semibold text-[15px] text-[var(--ink)] truncate mt-1">
+                  <div className="font-semibold text-[15px] text-[var(--secondary)] truncate mt-1">
                     {inv.propertyName || "—"}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
@@ -371,7 +371,7 @@ function Invoices() {
                   </div>
                 </div>
                 <div className="flex items-center gap-4 shrink-0">
-                  <span className="font-display font-bold text-xl tabular-nums text-[var(--ink)]">
+                  <span className="font-display font-bold text-xl tabular-nums text-[var(--secondary)]">
                     {money(inv.amount)}
                   </span>
                   <div className="flex items-center gap-2">
@@ -380,8 +380,9 @@ function Invoices() {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSendInvoice(inv);
+                          setInvoiceToSend(inv);
                         }}
+                        className="bg-[var(--secondary)] text-white rounded-none"
                       >
                         <Send className="w-4 h-4 mr-1.5" /> Send
                       </Button>
@@ -405,6 +406,7 @@ function Invoices() {
                           );
                         }}
                         disabled={remind.isPending}
+                        className="rounded-none border-red-200 text-red-600 hover:bg-red-50"
                       >
                         <BellRing className="w-4 h-4 mr-1.5" /> Remind
                       </Button>
@@ -414,13 +416,14 @@ function Invoices() {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setPayInvoice(inv);
+                          setInvoiceToPay(inv);
                         }}
+                        className="bg-[var(--secondary)] text-white rounded-none"
                       >
                         <CreditCard className="w-4 h-4 mr-1.5" /> Record payment
                       </Button>
                     )}
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-[var(--gold)] transition-colors" />
+                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-[var(--primary)] transition-colors" />
                   </div>
                 </div>
               </div>
@@ -431,12 +434,12 @@ function Invoices() {
 
       <RecordPaymentDialog
         open={!!payInvoice}
-        onOpenChange={(o) => !o && setPayInvoice(null)}
+        onOpenChange={(o) => !o && setInvoiceToPay(null)}
         invoice={payInvoice}
       />
       <SendInvoiceDialog
         open={!!sendInvoice}
-        onOpenChange={(o) => !o && setSendInvoice(null)}
+        onOpenChange={(o) => !o && setInvoiceToSend(null)}
         invoice={sendInvoice}
       />
       <BusinessInfoDialog open={businessOpen} onOpenChange={setBusinessOpen} />
@@ -812,6 +815,7 @@ function CrewPay() {
 const MONEY_TABS = ["invoices", "expenses", "crew", "bank", "aging", "report", "books"];
 
 export default function Money() {
+  const [, setLocation] = useLocation();
   const search = useSearch();
   const urlTab = new URLSearchParams(search).get("tab");
   const [tab, setTab] = useState(
@@ -821,14 +825,14 @@ export default function Money() {
     if (urlTab && MONEY_TABS.includes(urlTab)) setTab(urlTab);
   }, [urlTab]);
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-8 max-w-6xl mx-auto space-y-8 min-h-[100dvh] bg-[var(--background)]">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">Money</h1>
-          <p className="text-muted-foreground">Cash flow, receivables &amp; payouts</p>
+          <h1 className="text-4xl font-display font-bold text-[var(--secondary)] tracking-tight uppercase">Money</h1>
+          <p className="text-muted-foreground font-mono mt-1 text-sm">{todayLocal()}</p>
         </div>
         <Link href="/money/payments">
-          <Button variant="default" className="bg-[var(--gold-dark)] text-white hover:bg-[var(--gold-dark)]/90 gap-2">
+          <Button variant="default" className="bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90 gap-2 rounded-none font-bold uppercase tracking-wider text-xs px-6 py-2">
             <ScanLine className="w-4 h-4" /> Pay Hub
           </Button>
         </Link>
@@ -838,15 +842,15 @@ export default function Money() {
         <SummaryCards />
       </div>
 
-      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
-        <TabsList data-tour="money-tabs">
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="expenses">Expenses</TabsTrigger>
-          <TabsTrigger value="crew">Crew Pay</TabsTrigger>
-          <TabsTrigger value="bank">Bank</TabsTrigger>
-          <TabsTrigger value="aging">Aging</TabsTrigger>
-          <TabsTrigger value="report" data-testid="tab-report">Report</TabsTrigger>
-          <TabsTrigger value="books" data-testid="tab-books">Books</TabsTrigger>
+      <Tabs value={tab} onValueChange={(t) => { setTab(t); setLocation(`/money?tab=${t}`); }} className="space-y-6">
+        <TabsList data-tour="money-tabs" className="bg-white border border-border shadow-sm p-1 rounded-none flex flex-wrap h-auto gap-1">
+          <TabsTrigger value="invoices" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Invoices</TabsTrigger>
+          <TabsTrigger value="expenses" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Expenses</TabsTrigger>
+          <TabsTrigger value="crew" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Crew Pay</TabsTrigger>
+          <TabsTrigger value="bank" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Bank</TabsTrigger>
+          <TabsTrigger value="aging" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Aging</TabsTrigger>
+          <TabsTrigger value="report" data-testid="tab-report" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Report</TabsTrigger>
+          <TabsTrigger value="books" data-testid="tab-books" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Books</TabsTrigger>
         </TabsList>
 
         <TabsContent value="invoices">

@@ -37,7 +37,7 @@ export function BriefCard({ brief }: { brief: Brief }) {
             HALO
           </span>
           {brief.needsYou > 0 && (
-            <span className="text-[11px] font-bold text-white bg-white/15 backdrop-blur-md rounded-[20px] px-[10px] py-[4px] border border-white/10">
+            <span className="text-[11px] font-bold text-white bg-white/15 backdrop-blur-md rounded-[20px] px-[10px] py-[4px] border border-border">
               {brief.needsYou} NEED YOU
             </span>
           )}
@@ -149,10 +149,10 @@ export function FeedCard({
   return (
     <div
       onClick={route ? () => navigate(route) : undefined}
-      className={`group relative overflow-hidden bg-card rounded-[22px] p-[16px] mb-[12px] border border-[var(--hairline)] shadow-[0_2px_10px_rgba(0,0,0,0.04),0_10px_20px_rgba(0,0,0,0.02)] transition-all ${isHandled ? 'opacity-60 bg-[rgba(255,255,255,0.5)] grayscale-[0.2]' : ''} ${route ? 'cursor-pointer active:scale-[0.98]' : ''} ${isNow ? 'bg-[linear-gradient(160deg,#fff,#FFF5F5)] border-[#FF3B30]/30' : ''}`}
+      className={`group relative overflow-hidden bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] rounded-[22px] p-[16px] mb-[12px] transition-all ${isHandled ? 'opacity-60 grayscale-[0.2]' : ''} ${route ? 'cursor-pointer active:scale-[0.98] hover:border-[var(--gold)]' : ''} ${isNow ? 'border-[#FF3B30]' : ''}`}
     >
       <div className="flex gap-[12px] items-start">
-        <div className={`w-[10px] h-[10px] rounded-full shrink-0 mt-[6px] shadow-sm ${isNow ? 'bg-[#FF3B30] shadow-[#FF3B30]/40' : 'bg-[var(--gold-light)] shadow-[var(--gold)]/40'}`} />
+        <div className={`w-[10px] h-[10px] rounded-full shrink-0 mt-[6px] ${isNow ? 'bg-[#FF3B30]' : 'bg-[var(--gold-light)]'}`} />
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start gap-[8px]">
             <div className="font-display font-bold text-[16px] leading-[1.2] text-[var(--ink)] tracking-[-0.01em] pr-[8px]">
@@ -181,7 +181,7 @@ export function FeedCard({
           {card.meta && card.meta.length > 0 && (
             <div className="flex flex-wrap gap-[6px] mt-[10px]">
               {card.meta.map((m, i) => (
-                <span key={i} className={`text-[11px] rounded-[8px] px-[8px] py-[3px] font-semibold tracking-wide flex items-center ${m.mono ? 'font-mono text-[10px] tracking-[0.04em]' : ''} ${m.warn ? 'text-[#FF3B30] bg-[#FF3B30]/10' : m.gold ? 'text-[var(--gold-dark)] bg-[var(--gold-tint)]' : 'text-[var(--ink2)] bg-[rgba(0,0,0,0.05)]'}`}>
+                <span key={i} className={`text-[11px] rounded-full px-[8px] py-[3px] font-semibold tracking-wide flex items-center ${m.mono ? 'font-mono text-[10px] tracking-[0.04em]' : ''} ${m.warn ? 'text-white bg-[#FF3B30]' : m.gold ? 'text-[var(--ink)] bg-[var(--gold-light)]' : 'text-[var(--ink)] bg-[var(--muted)]/20 border border-[var(--hairline)]'}`}>
                   {m.label}
                 </span>
               ))}
@@ -198,7 +198,7 @@ export function FeedCard({
                     e.stopPropagation();
                     runAction(a.action);
                   }}
-                  className={`rounded-[12px] px-[14px] py-[8px] text-[13px] font-bold tracking-wide transition-all active:scale-95 disabled:opacity-50 inline-flex items-center justify-center gap-[6px] shadow-sm ${a.kind === 'gold' ? 'bg-[var(--gold-light)] text-[#07101E] shadow-[0_4px_12px_rgba(180,255,68,0.35)]' : a.kind === 'ghost' ? 'bg-[rgba(0,0,0,0.05)] text-[var(--ink)] hover:bg-[rgba(0,0,0,0.08)]' : 'bg-white border border-[rgba(0,0,0,0.1)] text-[var(--ink)] shadow-[0_2px_4px_rgba(0,0,0,0.04)]'}`}
+                  className={`rounded-full px-[14px] py-[8px] text-[13px] font-bold tracking-wide transition-all active:scale-95 disabled:opacity-50 inline-flex items-center justify-center gap-[6px] ${a.kind === 'gold' ? 'bg-[var(--gold-light)] text-[#07101E]' : a.kind === 'ghost' ? 'bg-transparent border border-[var(--hairline)] text-[var(--ink)]' : 'bg-[var(--ink)] text-white'}`}
                 >
                   {actionPending && (a.action === "remindInvoice" || a.action === "nudgeBid") && (
                     <Loader2 className="w-[14px] h-[14px] animate-spin" />

@@ -54,46 +54,46 @@ const fmtDate = (d?: string | null) =>
 function OverviewStats() {
   const { data: overview, isLoading } = useGetPayHubOverview();
   if (isLoading || !overview) {
-    return <div className="animate-pulse h-[180px] bg-card rounded-[20px]" />;
+    return <div className="animate-pulse h-[180px] bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)] rounded-[20px] border border-[var(--hairline)]" />;
   }
   return (
-    <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[20px]">
-      <div className="grid grid-cols-2 gap-[16px]">
+    <div className="bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)] rounded-[20px] border border-[var(--hairline)] p-[20px] relative overflow-hidden">
+      <div className="relative z-10 grid grid-cols-2 gap-[16px]">
         <div>
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] flex items-center gap-1.5 mb-1">
             Outstanding
           </div>
-          <div className="font-display font-bold text-[24px] tabular-nums text-[var(--ink)] mt-[2px]">
+          <div className="font-display font-bold text-[32px] tabular-nums text-[var(--ink)] mt-[2px] leading-none">
             {overview.outstandingCount}
           </div>
-          <div className="text-[13px] text-muted-foreground">
+          <div className="text-[13px] text-muted-foreground font-mono mt-1">
             {fmtMoney(overview.outstandingTotal)}
           </div>
         </div>
         <div>
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] flex items-center gap-1.5 mb-1">
             Received MTD
           </div>
-          <div className="font-display font-bold text-[24px] tabular-nums text-[var(--green)] mt-[2px]">
+          <div className="font-display font-bold text-[32px] tabular-nums text-[var(--gold-dark)] mt-[2px] leading-none">
             {fmtMoney(overview.receivedMtd)}
           </div>
-          <div className="text-[13px] text-muted-foreground">
+          <div className="text-[13px] text-muted-foreground font-mono mt-1">
             Payouts: {fmtMoney(overview.payoutsMtd)}
           </div>
         </div>
-        <div>
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">
+        <div className="pt-3 border-t border-[var(--hairline)]">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] mb-1">
             Verified Crew
           </div>
-          <div className="font-display font-bold text-[24px] tabular-nums text-[var(--ink)] mt-[2px]">
+          <div className="font-display font-bold text-[24px] tabular-nums text-[var(--ink)] mt-[2px] leading-none">
             {overview.verifiedCrewCount}
           </div>
         </div>
-        <div>
-          <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em]">
+        <div className="pt-3 border-t border-[var(--hairline)]">
+          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] mb-1">
             Returned
           </div>
-          <div className="font-display font-bold text-[24px] tabular-nums text-destructive mt-[2px]">
+          <div className="font-display font-bold text-[24px] tabular-nums text-destructive mt-[2px] leading-none">
             {overview.returnedCount}
           </div>
         </div>
@@ -218,7 +218,7 @@ function ImportInvoiceSheet({
           )}
 
           {extractedData && (
-            <div className="mt-[16px] bg-card rounded-[16px] p-[16px]">
+            <div className="mt-[16px] bg-card border border-border rounded-[16px] p-[16px]">
               <div className="flex items-center justify-between mb-[12px]">
                 <span className="font-display font-bold text-[15px]">Extracted fields</span>
                 <span
@@ -379,7 +379,7 @@ function CreateRequestSheet({
                       setPropertyId(p.id);
                       setStep("jobs");
                     }}
-                    className="w-full text-left bg-card rounded-[14px] p-[14px] border border-border hover:border-[var(--gold)] transition-colors active:scale-[0.98]"
+                    className="w-full text-left bg-card border border-border rounded-[14px] p-[14px] hover:border-[var(--gold)] transition-colors active:scale-[0.98]"
                     data-testid={`button-select-property-${p.id}`}
                   >
                     <div className="font-semibold text-[15px]">{p.name}</div>
@@ -396,7 +396,7 @@ function CreateRequestSheet({
             <div>
               <button
                 onClick={() => setStep("property")}
-                className="flex items-center gap-[6px] text-[13px] text-muted-foreground mb-[12px] hover:text-foreground"
+                className="flex items-center gap-[6px] text-[13px] text-muted-foreground mb-[12px] hover:text-[var(--ink)]"
                 data-testid="button-back-to-property"
               >
                 <ArrowLeft className="w-[14px] h-[14px]" /> Back to properties
@@ -408,7 +408,7 @@ function CreateRequestSheet({
                 {jobs.map((j) => (
                   <label
                     key={j.id}
-                    className="flex items-start gap-[10px] bg-card rounded-[14px] p-[14px] border border-border cursor-pointer hover:border-[var(--gold)] transition-colors"
+                    className="flex items-start gap-[10px] bg-card border border-border rounded-[14px] p-[14px] cursor-pointer hover:border-[var(--gold)] transition-colors"
                   >
                     <input
                       type="checkbox"
@@ -427,7 +427,7 @@ function CreateRequestSheet({
                 ))}
               </div>
               {selectedJobs.length > 0 && (
-                <div className="bg-card rounded-[14px] p-[14px] mb-[16px]">
+                <div className="bg-card border border-border rounded-[14px] p-[14px] mb-[16px]">
                   <div className="text-[12px] text-muted-foreground mb-[8px]">
                     Memo (optional):
                   </div>
@@ -566,7 +566,7 @@ function PaymentRequestCard({ req }: { req: PaymentRequestDetail }) {
 
   return (
     <>
-      <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[18px]">
+      <div className="bg-card border border-border rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[18px]">
         <div className="flex items-start gap-[12px] mb-[12px]">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-[8px]">
@@ -943,7 +943,7 @@ function DistributionSheet({
                 return (
                   <div
                     key={key}
-                    className="bg-card rounded-[14px] p-[14px] border border-border"
+                    className="bg-card border border-border rounded-[14px] p-[14px]"
                   >
                     <div className="flex items-start justify-between mb-[8px]">
                       <div>
@@ -1055,7 +1055,7 @@ function PayoutsList() {
   };
 
   if (isLoading) {
-    return <div className="animate-pulse h-32 bg-card rounded-[20px]" />;
+    return <div className="animate-pulse h-32 bg-card border border-border rounded-[20px]" />;
   }
 
   if (!payouts || payouts.length === 0) {
@@ -1071,7 +1071,7 @@ function PayoutsList() {
       {sorted.map((p) => (
         <div
           key={p.id}
-          className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px]"
+          className="bg-card border border-border rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px]"
         >
           <div className="flex items-start gap-[12px]">
             <div className="flex-1 min-w-0">
@@ -1153,7 +1153,7 @@ export default function PaymentsHub() {
           <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary">
             Money · Payments
           </div>
-          <div className="font-display font-bold text-[22px] tracking-[-0.01em] text-foreground">
+          <div className="font-display font-bold text-[22px] tracking-[-0.01em] text-[var(--ink)]">
             Payment Hub
           </div>
         </div>
@@ -1184,7 +1184,7 @@ export default function PaymentsHub() {
             onClick={() => setTab("requests")}
             className={`flex-1 rounded-[10px] py-[10px] text-[14px] font-display font-bold transition-all ${
               tab === "requests"
-                ? "bg-card text-foreground shadow-sm"
+                ? "bg-card text-[var(--ink)] shadow-sm"
                 : "text-muted-foreground"
             }`}
             data-testid="tab-requests"
@@ -1195,7 +1195,7 @@ export default function PaymentsHub() {
             onClick={() => setTab("payouts")}
             className={`flex-1 rounded-[10px] py-[10px] text-[14px] font-display font-bold transition-all ${
               tab === "payouts"
-                ? "bg-card text-foreground shadow-sm"
+                ? "bg-card text-[var(--ink)] shadow-sm"
                 : "text-muted-foreground"
             }`}
             data-testid="tab-payouts"
@@ -1207,7 +1207,7 @@ export default function PaymentsHub() {
         {tab === "requests" && (
           <>
             {isLoading ? (
-              <div className="animate-pulse h-32 bg-card rounded-[20px]" />
+              <div className="animate-pulse h-32 bg-card border border-border rounded-[20px]" />
             ) : !requests || requests.length === 0 ? (
               <div className="text-center text-[15px] text-muted-foreground py-[50px]">
                 No payment requests yet.
