@@ -84,3 +84,9 @@ id = "BgOTdF2SIF8dfVQG1ycUM"
 uri = "file://artifacts/halo-desktop/src/assets/tour-audio/notifications-1.mp3"
 type = "audio"
 title = "notifications-1"
+
+[[outputs]]
+id = "P1Z3iFZjUWqjkMDe4-BC8"
+uri = "file://exports/halo-backend-codebase.md"
+type = "text"
+title = "HALO Backend — Complete Codebase (Markdown)"
