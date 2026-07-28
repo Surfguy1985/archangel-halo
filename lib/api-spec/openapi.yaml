@@ -4714,6 +4714,436 @@ paths:
                 $ref: "#/components/schemas/Error"
 
 
+  /pay-hub/ocr:
+    post:
+      operationId: extractPaymentInfo
+      tags: [pay-hub]
+      summary: OCR an imported invoice to extract payment info
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentOcrInput"
+      responses:
+        "200":
+          description: Extracted payment info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentOcrResult"
+
+  /pay-hub/overview:
+    get:
+      operationId: getPayHubOverview
+      tags: [pay-hub]
+      summary: Payments hub summary counts and totals
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayHubOverview"
+
+  /pay-hub/requests:
+    get:
+      operationId: listPaymentRequests
+      tags: [pay-hub]
+      summary: List payment requests
+      responses:
+        "200":
+          description: Requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PaymentRequestDetail"
+    post:
+      operationId: createPaymentRequest
+      tags: [pay-hub]
+      summary: Create a payment request for a property covering selected jobs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentRequestInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentRequestDetail"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /pay-hub/requests/{id}:
+    get:
+      operationId: getPaymentRequest
+      tags: [pay-hub]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentRequestDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deletePaymentRequest
+      tags: [pay-hub]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /pay-hub/requests/{id}/send:
+    post:
+      operationId: sendPaymentRequest
+      tags: [pay-hub]
+      summary: Email or text the branded payment link
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentRequestSend"
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentRequestDetail"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /pay-hub/requests/{id}/return:
+    post:
+      operationId: returnPaymentRequest
+      tags: [pay-hub]
+      summary: Mark a received payment as returned
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentReturnInput"
+      responses:
+        "200":
+          description: Marked returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentRequestDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Not in a returnable state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /pay/{token}:
+    get:
+      operationId: getPublicPaymentRequest
+      tags: [pay-hub]
+      summary: Public branded payment page data
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Payment page data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPaymentRequest"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: submitPublicPayment
+      tags: [pay-hub]
+      summary: Property submits a payment (Cybrid rails stubbed)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublicPaymentInput"
+      responses:
+        "200":
+          description: Payment received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPaymentReceipt"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /pay-hub/distribution/{id}:
+    get:
+      operationId: getPayoutDistribution
+      tags: [pay-hub]
+      summary: Received amount with per-job crew payout rows for one request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Distribution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutDistribution"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /pay-hub/payouts:
+    get:
+      operationId: listCrewPayouts
+      tags: [pay-hub]
+      summary: List crew payouts
+      parameters:
+        - name: crewId
+          in: query
+          required: false
+          schema: { type: string }
+        - name: jobId
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Payouts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewPayoutView"
+    post:
+      operationId: createCrewPayout
+      tags: [pay-hub]
+      summary: One-tap ACH payout to a crew (Cybrid rails stubbed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewPayoutInput"
+      responses:
+        "201":
+          description: Paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewPayoutView"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Crew bank account not verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /pay-hub/payouts/{id}/return:
+    post:
+      operationId: returnCrewPayout
+      tags: [pay-hub]
+      summary: Mark a crew payout as returned
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentReturnInput"
+      responses:
+        "200":
+          description: Marked returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewPayoutView"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /crews/{id}/bank:
+    get:
+      operationId: getCrewBankStatus
+      tags: [pay-hub]
+      summary: Office view of a crew's connected bank account (masked)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Bank status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewBankStatus"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /portal/{token}/bank:
+    get:
+      operationId: getPortalBank
+      tags: [portal]
+      summary: Crew's own connected bank account (masked)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Bank status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewBankStatus"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: submitPortalBank
+      tags: [portal]
+      summary: Crew submits banking info for ACH payouts
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewBankInput"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewBankStatus"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+
 components:
   schemas:
     HealthStatus:
@@ -7775,3 +8205,242 @@ components:
             held: { type: number }
             released: { type: number }
             debited: { type: number }
+
+    PayerInfo:
+      type: object
+      properties:
+        routingNumber: { type: ["string", "null"] }
+        accountNumber: { type: ["string", "null"] }
+        cardNumber: { type: ["string", "null"] }
+        cardExp: { type: ["string", "null"] }
+        cardCode: { type: ["string", "null"] }
+        zip: { type: ["string", "null"] }
+        payerName: { type: ["string", "null"] }
+        amount: { type: ["number", "null"] }
+        notes: { type: ["string", "null"] }
+
+    PaymentOcrInput:
+      type: object
+      required: [image, mediaType]
+      properties:
+        image: { type: string, description: "Base64 image data" }
+        mediaType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp, image/gif]
+        filename: { type: string }
+
+    PaymentOcrResult:
+      type: object
+      required: [found, confidence]
+      properties:
+        found: { type: boolean }
+        confidence: { type: string, description: "high | medium | low" }
+        summary: { type: ["string", "null"] }
+        payerInfo:
+          $ref: "#/components/schemas/PayerInfo"
+
+    PayHubOverview:
+      type: object
+      required: [outstandingCount, outstandingTotal, receivedMtd, payoutsMtd, returnedCount, verifiedCrewCount]
+      properties:
+        outstandingCount: { type: integer }
+        outstandingTotal: { type: number }
+        receivedMtd: { type: number }
+        payoutsMtd: { type: number }
+        returnedCount: { type: integer }
+        verifiedCrewCount: { type: integer }
+
+    PaymentRequestJobLine:
+      type: object
+      required: [id, jobId, label, amount]
+      properties:
+        id: { type: string }
+        jobId: { type: string }
+        invoiceId: { type: ["string", "null"] }
+        label: { type: string }
+        amount: { type: number }
+
+    PaymentRequestInput:
+      type: object
+      required: [propertyId, jobIds]
+      properties:
+        propertyId: { type: string }
+        jobIds:
+          type: array
+          minItems: 1
+          items: { type: string }
+        memo: { type: string }
+        payerInfo:
+          $ref: "#/components/schemas/PayerInfo"
+
+    PaymentRequestDetail:
+      type: object
+      required: [id, requestNo, token, propertyId, propertyName, total, status, jobs, createdAt]
+      properties:
+        id: { type: string }
+        requestNo: { type: string }
+        token: { type: string }
+        propertyId: { type: string }
+        propertyName: { type: string }
+        total: { type: number }
+        memo: { type: ["string", "null"] }
+        status: { type: string, description: "draft | sent | paid | returned" }
+        sentVia: { type: ["string", "null"] }
+        sentTo: { type: ["string", "null"] }
+        sentAt: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"] }
+        paidAmount: { type: ["number", "null"] }
+        paymentMethod: { type: ["string", "null"] }
+        confirmationNo: { type: ["string", "null"] }
+        returnedAt: { type: ["string", "null"] }
+        returnReason: { type: ["string", "null"] }
+        payerInfo:
+          $ref: "#/components/schemas/PayerInfo"
+        createdAt: { type: string }
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentRequestJobLine"
+
+    PaymentRequestSend:
+      type: object
+      required: [via, to]
+      properties:
+        via: { type: string, enum: [email, sms] }
+        to: { type: string }
+
+    PaymentReturnInput:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string }
+
+    PublicPaymentRequest:
+      type: object
+      required: [requestNo, status, total, propertyName, companyName, jobs]
+      properties:
+        requestNo: { type: string }
+        status: { type: string }
+        total: { type: number }
+        memo: { type: ["string", "null"] }
+        propertyName: { type: string }
+        companyName: { type: string }
+        companyTagline: { type: ["string", "null"] }
+        companyEmail: { type: ["string", "null"] }
+        companyPhone: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"] }
+        paidAmount: { type: ["number", "null"] }
+        confirmationNo: { type: ["string", "null"] }
+        paymentMethod: { type: ["string", "null"] }
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentRequestJobLine"
+
+    PublicPaymentInput:
+      type: object
+      required: [method, payerName]
+      properties:
+        method: { type: string, enum: [card, ach, wire, echeck] }
+        payerName: { type: string }
+        cardNumber: { type: string }
+        cardExp: { type: string }
+        cardCode: { type: string }
+        zip: { type: string }
+        routingNumber: { type: string }
+        accountNumber: { type: string }
+        email: { type: string }
+
+    PublicPaymentReceipt:
+      type: object
+      required: [confirmationNo, amount, paidAt, method]
+      properties:
+        confirmationNo: { type: string }
+        amount: { type: number }
+        paidAt: { type: string }
+        method: { type: string }
+
+    CrewBankInput:
+      type: object
+      required: [accountKind, holderName, accountType, routingNumber, accountNumber]
+      properties:
+        accountKind: { type: string, enum: [personal, business] }
+        holderName: { type: string, minLength: 1 }
+        businessName: { type: string }
+        bankName: { type: string }
+        accountType: { type: string, enum: [checking, savings] }
+        routingNumber: { type: string, minLength: 9, maxLength: 9 }
+        accountNumber: { type: string, minLength: 4 }
+
+    CrewBankStatus:
+      type: object
+      required: [connected]
+      properties:
+        connected: { type: boolean }
+        status: { type: ["string", "null"], description: "pending | verified" }
+        accountKind: { type: ["string", "null"] }
+        holderName: { type: ["string", "null"] }
+        businessName: { type: ["string", "null"] }
+        bankName: { type: ["string", "null"] }
+        accountType: { type: ["string", "null"] }
+        routingLast4: { type: ["string", "null"] }
+        accountLast4: { type: ["string", "null"] }
+        verifiedAt: { type: ["string", "null"] }
+
+    CrewPayoutInput:
+      type: object
+      required: [crewId, jobId, amount]
+      properties:
+        crewId: { type: string }
+        jobId: { type: string }
+        amount: { type: number, exclusiveMinimum: 0 }
+        paymentRequestId: { type: string }
+
+    CrewPayoutView:
+      type: object
+      required: [id, crewId, crewName, jobId, jobLabel, amount, method, status, confirmationNo, paidAt]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        crewName: { type: string }
+        jobId: { type: string }
+        jobLabel: { type: string }
+        paymentRequestId: { type: ["string", "null"] }
+        amount: { type: number }
+        method: { type: string }
+        status: { type: string, description: "paid | returned" }
+        confirmationNo: { type: string }
+        paidAt: { type: string }
+        returnedAt: { type: ["string", "null"] }
+        returnReason: { type: ["string", "null"] }
+
+    PayoutDistributionRow:
+      type: object
+      required: [jobId, jobLabel, jobAmount, crewPaid]
+      properties:
+        jobId: { type: string }
+        jobLabel: { type: string }
+        jobAmount: { type: number }
+        crewId: { type: ["string", "null"] }
+        crewName: { type: ["string", "null"] }
+        crewRate: { type: ["number", "null"] }
+        bankConnected: { type: boolean }
+        bankVerified: { type: boolean }
+        crewPaid: { type: boolean }
+        payoutId: { type: ["string", "null"] }
+        payoutStatus: { type: ["string", "null"] }
+
+    PayoutDistribution:
+      type: object
+      required: [requestId, requestNo, propertyName, receivedAmount, confirmationNo, rows]
+      properties:
+        requestId: { type: string }
+        requestNo: { type: string }
+        propertyName: { type: string }
+        receivedAmount: { type: number }
+        confirmationNo: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"] }
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/PayoutDistributionRow"

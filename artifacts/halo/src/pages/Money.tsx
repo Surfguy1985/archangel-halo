@@ -727,6 +727,7 @@ function CrewPay() {
 
 const MENU_ITEMS = [
   { id: "invoices", label: "Invoices & Billing", icon: FileText, desc: "Create invoices, track payments" },
+  { id: "payments", label: "Payments", icon: Wallet, desc: "Collect & distribute payments", route: "/money/payments" },
   { id: "expenses", label: "Expenses", icon: Receipt, desc: "Log expenses, pay bills" },
   { id: "crew", label: "Crew Pay", icon: Users, desc: "Manage crew payouts" },
   { id: "bank", label: "Bank Account", icon: Landmark, desc: "Connected accounts & txns" },
@@ -742,7 +743,7 @@ export default function Money() {
   const [location, navigate] = useLocation();
 
   const setTab = (t: string) => {
-    navigate(`${location}?tab=${t}`);
+    navigate(`${location.split("?")[0]}?tab=${t}`);
   };
 
   if (activeTab !== "overview") {
@@ -796,26 +797,34 @@ export default function Money() {
           Management
         </h2>
         <div className="flex flex-col gap-[14px]">
-          {MENU_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setTab(item.id)}
-              className="bg-card p-[20px] rounded-[24px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center gap-[20px] active:scale-[0.98] transition-transform text-left border border-transparent active:border-[var(--gold-tint)]"
-            >
-              <div className="w-[56px] h-[56px] rounded-full bg-[var(--gold-tint)] text-[var(--gold-dark)] flex items-center justify-center shrink-0">
-                <item.icon className="w-[26px] h-[26px]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-display font-bold text-[18px] text-[var(--ink)]">
-                  {item.label}
+          {MENU_ITEMS.map((item) => {
+            const isRoute = "route" in item && item.route;
+            const El = isRoute ? "a" : "button";
+            const props = isRoute
+              ? { href: item.route, onClick: (e: React.MouseEvent) => { e.preventDefault(); navigate(item.route!); } }
+              : { onClick: () => setTab(item.id) };
+            return (
+              <El
+                key={item.id}
+                {...props}
+                className="bg-card p-[20px] rounded-[24px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center gap-[20px] active:scale-[0.98] transition-transform text-left border border-transparent active:border-[var(--gold-tint)]"
+                data-testid={`button-menu-${item.id}`}
+              >
+                <div className="w-[56px] h-[56px] rounded-full bg-[var(--gold-tint)] text-[var(--gold-dark)] flex items-center justify-center shrink-0">
+                  <item.icon className="w-[26px] h-[26px]" />
                 </div>
-                <div className="text-[14px] text-muted-foreground truncate mt-[4px]">
-                  {item.desc}
+                <div className="flex-1 min-w-0">
+                  <div className="font-display font-bold text-[18px] text-[var(--ink)]">
+                    {item.label}
+                  </div>
+                  <div className="text-[14px] text-muted-foreground truncate mt-[4px]">
+                    {item.desc}
+                  </div>
                 </div>
-              </div>
-              <ChevronRight className="w-[24px] h-[24px] text-muted-foreground/40 shrink-0" />
-            </button>
-          ))}
+                <ChevronRight className="w-[24px] h-[24px] text-muted-foreground/40 shrink-0" />
+              </El>
+            );
+          })}
         </div>
       </div>
     </div>

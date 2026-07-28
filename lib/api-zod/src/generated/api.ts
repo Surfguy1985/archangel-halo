@@ -6388,3 +6388,558 @@ export const GetPortalWingsResponse = zod.object({
 })
 
 
+/**
+ * @summary OCR an imported invoice to extract payment info
+ */
+export const ExtractPaymentInfoBody = zod.object({
+  "image": zod.string().describe('Base64 image data'),
+  "mediaType": zod.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+  "filename": zod.string().optional()
+})
+
+export const ExtractPaymentInfoResponse = zod.object({
+  "found": zod.boolean(),
+  "confidence": zod.string().describe('high | medium | low'),
+  "summary": zod.string().nullish(),
+  "payerInfo": zod.object({
+  "routingNumber": zod.string().nullish(),
+  "accountNumber": zod.string().nullish(),
+  "cardNumber": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "cardCode": zod.string().nullish(),
+  "zip": zod.string().nullish(),
+  "payerName": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "notes": zod.string().nullish()
+}).optional()
+})
+
+
+/**
+ * @summary Payments hub summary counts and totals
+ */
+export const GetPayHubOverviewResponse = zod.object({
+  "outstandingCount": zod.number(),
+  "outstandingTotal": zod.number(),
+  "receivedMtd": zod.number(),
+  "payoutsMtd": zod.number(),
+  "returnedCount": zod.number(),
+  "verifiedCrewCount": zod.number()
+})
+
+
+/**
+ * @summary List payment requests
+ */
+export const ListPaymentRequestsResponseItem = zod.object({
+  "id": zod.string(),
+  "requestNo": zod.string(),
+  "token": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "total": zod.number(),
+  "memo": zod.string().nullish(),
+  "status": zod.string().describe('draft | sent | paid | returned'),
+  "sentVia": zod.string().nullish(),
+  "sentTo": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "paidAmount": zod.number().nullish(),
+  "paymentMethod": zod.string().nullish(),
+  "confirmationNo": zod.string().nullish(),
+  "returnedAt": zod.string().nullish(),
+  "returnReason": zod.string().nullish(),
+  "payerInfo": zod.object({
+  "routingNumber": zod.string().nullish(),
+  "accountNumber": zod.string().nullish(),
+  "cardNumber": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "cardCode": zod.string().nullish(),
+  "zip": zod.string().nullish(),
+  "payerName": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "notes": zod.string().nullish()
+}).optional(),
+  "createdAt": zod.string(),
+  "jobs": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "amount": zod.number()
+}))
+})
+export const ListPaymentRequestsResponse = zod.array(ListPaymentRequestsResponseItem)
+
+
+/**
+ * @summary Create a payment request for a property covering selected jobs
+ */
+
+
+
+export const CreatePaymentRequestBody = zod.object({
+  "propertyId": zod.string(),
+  "jobIds": zod.array(zod.string()).min(1),
+  "memo": zod.string().optional(),
+  "payerInfo": zod.object({
+  "routingNumber": zod.string().nullish(),
+  "accountNumber": zod.string().nullish(),
+  "cardNumber": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "cardCode": zod.string().nullish(),
+  "zip": zod.string().nullish(),
+  "payerName": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "notes": zod.string().nullish()
+}).optional()
+})
+
+export const CreatePaymentRequestResponse = zod.object({
+  "id": zod.string(),
+  "requestNo": zod.string(),
+  "token": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "total": zod.number(),
+  "memo": zod.string().nullish(),
+  "status": zod.string().describe('draft | sent | paid | returned'),
+  "sentVia": zod.string().nullish(),
+  "sentTo": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "paidAmount": zod.number().nullish(),
+  "paymentMethod": zod.string().nullish(),
+  "confirmationNo": zod.string().nullish(),
+  "returnedAt": zod.string().nullish(),
+  "returnReason": zod.string().nullish(),
+  "payerInfo": zod.object({
+  "routingNumber": zod.string().nullish(),
+  "accountNumber": zod.string().nullish(),
+  "cardNumber": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "cardCode": zod.string().nullish(),
+  "zip": zod.string().nullish(),
+  "payerName": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "notes": zod.string().nullish()
+}).optional(),
+  "createdAt": zod.string(),
+  "jobs": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "amount": zod.number()
+}))
+})
+
+
+export const GetPaymentRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetPaymentRequestResponse = zod.object({
+  "id": zod.string(),
+  "requestNo": zod.string(),
+  "token": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "total": zod.number(),
+  "memo": zod.string().nullish(),
+  "status": zod.string().describe('draft | sent | paid | returned'),
+  "sentVia": zod.string().nullish(),
+  "sentTo": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "paidAmount": zod.number().nullish(),
+  "paymentMethod": zod.string().nullish(),
+  "confirmationNo": zod.string().nullish(),
+  "returnedAt": zod.string().nullish(),
+  "returnReason": zod.string().nullish(),
+  "payerInfo": zod.object({
+  "routingNumber": zod.string().nullish(),
+  "accountNumber": zod.string().nullish(),
+  "cardNumber": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "cardCode": zod.string().nullish(),
+  "zip": zod.string().nullish(),
+  "payerName": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "notes": zod.string().nullish()
+}).optional(),
+  "createdAt": zod.string(),
+  "jobs": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "amount": zod.number()
+}))
+})
+
+
+export const DeletePaymentRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeletePaymentRequestResponse = zod.void()
+
+
+/**
+ * @summary Email or text the branded payment link
+ */
+export const SendPaymentRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SendPaymentRequestBody = zod.object({
+  "via": zod.enum(['email', 'sms']),
+  "to": zod.string()
+})
+
+export const SendPaymentRequestResponse = zod.object({
+  "id": zod.string(),
+  "requestNo": zod.string(),
+  "token": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "total": zod.number(),
+  "memo": zod.string().nullish(),
+  "status": zod.string().describe('draft | sent | paid | returned'),
+  "sentVia": zod.string().nullish(),
+  "sentTo": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "paidAmount": zod.number().nullish(),
+  "paymentMethod": zod.string().nullish(),
+  "confirmationNo": zod.string().nullish(),
+  "returnedAt": zod.string().nullish(),
+  "returnReason": zod.string().nullish(),
+  "payerInfo": zod.object({
+  "routingNumber": zod.string().nullish(),
+  "accountNumber": zod.string().nullish(),
+  "cardNumber": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "cardCode": zod.string().nullish(),
+  "zip": zod.string().nullish(),
+  "payerName": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "notes": zod.string().nullish()
+}).optional(),
+  "createdAt": zod.string(),
+  "jobs": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "amount": zod.number()
+}))
+})
+
+
+/**
+ * @summary Mark a received payment as returned
+ */
+export const ReturnPaymentRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ReturnPaymentRequestBody = zod.object({
+  "reason": zod.string()
+})
+
+export const ReturnPaymentRequestResponse = zod.object({
+  "id": zod.string(),
+  "requestNo": zod.string(),
+  "token": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "total": zod.number(),
+  "memo": zod.string().nullish(),
+  "status": zod.string().describe('draft | sent | paid | returned'),
+  "sentVia": zod.string().nullish(),
+  "sentTo": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "paidAmount": zod.number().nullish(),
+  "paymentMethod": zod.string().nullish(),
+  "confirmationNo": zod.string().nullish(),
+  "returnedAt": zod.string().nullish(),
+  "returnReason": zod.string().nullish(),
+  "payerInfo": zod.object({
+  "routingNumber": zod.string().nullish(),
+  "accountNumber": zod.string().nullish(),
+  "cardNumber": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "cardCode": zod.string().nullish(),
+  "zip": zod.string().nullish(),
+  "payerName": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "notes": zod.string().nullish()
+}).optional(),
+  "createdAt": zod.string(),
+  "jobs": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "amount": zod.number()
+}))
+})
+
+
+/**
+ * @summary Public branded payment page data
+ */
+export const GetPublicPaymentRequestParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPublicPaymentRequestResponse = zod.object({
+  "requestNo": zod.string(),
+  "status": zod.string(),
+  "total": zod.number(),
+  "memo": zod.string().nullish(),
+  "propertyName": zod.string(),
+  "companyName": zod.string(),
+  "companyTagline": zod.string().nullish(),
+  "companyEmail": zod.string().nullish(),
+  "companyPhone": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "paidAmount": zod.number().nullish(),
+  "confirmationNo": zod.string().nullish(),
+  "paymentMethod": zod.string().nullish(),
+  "jobs": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "amount": zod.number()
+}))
+})
+
+
+/**
+ * @summary Property submits a payment (Cybrid rails stubbed)
+ */
+export const SubmitPublicPaymentParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const SubmitPublicPaymentBody = zod.object({
+  "method": zod.enum(['card', 'ach', 'wire', 'echeck']),
+  "payerName": zod.string(),
+  "cardNumber": zod.string().optional(),
+  "cardExp": zod.string().optional(),
+  "cardCode": zod.string().optional(),
+  "zip": zod.string().optional(),
+  "routingNumber": zod.string().optional(),
+  "accountNumber": zod.string().optional(),
+  "email": zod.string().optional()
+})
+
+export const SubmitPublicPaymentResponse = zod.object({
+  "confirmationNo": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string(),
+  "method": zod.string()
+})
+
+
+/**
+ * @summary Received amount with per-job crew payout rows for one request
+ */
+export const GetPayoutDistributionParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetPayoutDistributionResponse = zod.object({
+  "requestId": zod.string(),
+  "requestNo": zod.string(),
+  "propertyName": zod.string(),
+  "receivedAmount": zod.number(),
+  "confirmationNo": zod.string().nullable(),
+  "paidAt": zod.string().nullish(),
+  "rows": zod.array(zod.object({
+  "jobId": zod.string(),
+  "jobLabel": zod.string(),
+  "jobAmount": zod.number(),
+  "crewId": zod.string().nullish(),
+  "crewName": zod.string().nullish(),
+  "crewRate": zod.number().nullish(),
+  "bankConnected": zod.boolean().optional(),
+  "bankVerified": zod.boolean().optional(),
+  "crewPaid": zod.boolean(),
+  "payoutId": zod.string().nullish(),
+  "payoutStatus": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary List crew payouts
+ */
+export const ListCrewPayoutsQueryParams = zod.object({
+  "crewId": zod.coerce.string().optional(),
+  "jobId": zod.coerce.string().optional()
+})
+
+export const ListCrewPayoutsResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "jobId": zod.string(),
+  "jobLabel": zod.string(),
+  "paymentRequestId": zod.string().nullish(),
+  "amount": zod.number(),
+  "method": zod.string(),
+  "status": zod.string().describe('paid | returned'),
+  "confirmationNo": zod.string(),
+  "paidAt": zod.string(),
+  "returnedAt": zod.string().nullish(),
+  "returnReason": zod.string().nullish()
+})
+export const ListCrewPayoutsResponse = zod.array(ListCrewPayoutsResponseItem)
+
+
+/**
+ * @summary One-tap ACH payout to a crew (Cybrid rails stubbed)
+ */
+export const createCrewPayoutBodyAmountExclusiveMin = 0;
+
+
+
+export const CreateCrewPayoutBody = zod.object({
+  "crewId": zod.string(),
+  "jobId": zod.string(),
+  "amount": zod.number().gt(createCrewPayoutBodyAmountExclusiveMin),
+  "paymentRequestId": zod.string().optional()
+})
+
+export const CreateCrewPayoutResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "jobId": zod.string(),
+  "jobLabel": zod.string(),
+  "paymentRequestId": zod.string().nullish(),
+  "amount": zod.number(),
+  "method": zod.string(),
+  "status": zod.string().describe('paid | returned'),
+  "confirmationNo": zod.string(),
+  "paidAt": zod.string(),
+  "returnedAt": zod.string().nullish(),
+  "returnReason": zod.string().nullish()
+})
+
+
+/**
+ * @summary Mark a crew payout as returned
+ */
+export const ReturnCrewPayoutParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ReturnCrewPayoutBody = zod.object({
+  "reason": zod.string()
+})
+
+export const ReturnCrewPayoutResponse = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "jobId": zod.string(),
+  "jobLabel": zod.string(),
+  "paymentRequestId": zod.string().nullish(),
+  "amount": zod.number(),
+  "method": zod.string(),
+  "status": zod.string().describe('paid | returned'),
+  "confirmationNo": zod.string(),
+  "paidAt": zod.string(),
+  "returnedAt": zod.string().nullish(),
+  "returnReason": zod.string().nullish()
+})
+
+
+/**
+ * @summary Office view of a crew's connected bank account (masked)
+ */
+export const GetCrewBankStatusParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetCrewBankStatusResponse = zod.object({
+  "connected": zod.boolean(),
+  "status": zod.string().nullish().describe('pending | verified'),
+  "accountKind": zod.string().nullish(),
+  "holderName": zod.string().nullish(),
+  "businessName": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "accountType": zod.string().nullish(),
+  "routingLast4": zod.string().nullish(),
+  "accountLast4": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Crew's own connected bank account (masked)
+ */
+export const GetPortalBankParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPortalBankResponse = zod.object({
+  "connected": zod.boolean(),
+  "status": zod.string().nullish().describe('pending | verified'),
+  "accountKind": zod.string().nullish(),
+  "holderName": zod.string().nullish(),
+  "businessName": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "accountType": zod.string().nullish(),
+  "routingLast4": zod.string().nullish(),
+  "accountLast4": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Crew submits banking info for ACH payouts
+ */
+export const SubmitPortalBankParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+
+export const submitPortalBankBodyRoutingNumberMin = 9;
+export const submitPortalBankBodyRoutingNumberMax = 9;
+
+export const submitPortalBankBodyAccountNumberMin = 4;
+
+
+
+export const SubmitPortalBankBody = zod.object({
+  "accountKind": zod.enum(['personal', 'business']),
+  "holderName": zod.string().min(1),
+  "businessName": zod.string().optional(),
+  "bankName": zod.string().optional(),
+  "accountType": zod.enum(['checking', 'savings']),
+  "routingNumber": zod.string().min(submitPortalBankBodyRoutingNumberMin).max(submitPortalBankBodyRoutingNumberMax),
+  "accountNumber": zod.string().min(submitPortalBankBodyAccountNumberMin)
+})
+
+export const SubmitPortalBankResponse = zod.object({
+  "connected": zod.boolean(),
+  "status": zod.string().nullish().describe('pending | verified'),
+  "accountKind": zod.string().nullish(),
+  "holderName": zod.string().nullish(),
+  "businessName": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "accountType": zod.string().nullish(),
+  "routingLast4": zod.string().nullish(),
+  "accountLast4": zod.string().nullish(),
+  "verifiedAt": zod.string().nullish()
+})
+
+

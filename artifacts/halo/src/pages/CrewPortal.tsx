@@ -27,7 +27,10 @@ import {
   useAcceptPortalAgreement,
   useSetPortalSelfie,
   useGetPortalWings,
+  useGetPortalBank,
+  useSubmitPortalBank,
   getListPortalInvoicesQueryKey,
+  getGetPortalBankQueryKey,
   type W9Data,
   type PortalBundle,
   type PortalOffer,
@@ -67,12 +70,20 @@ import {
   Feather,
   Award,
   ShieldCheck as ShieldCheckIcon,
+  CheckCircle2,
+  Shield,
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 import WelcomeKitTab from "./WelcomeKitTab";
 import { FalkonBadge } from "@/components/FalkonBadge";
 import { portalGuide, type GuideLang } from "@/lib/portalGuideContent";
 import { WingsGuide, TierBadge, type WingsGuideLang } from "@/components/WingsGuide";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 type Tab =
   | "offers"
@@ -258,13 +269,7 @@ export default function CrewPortal() {
         {tab === "checkin" && <CheckinTab token={token} />}
         {tab === "photos" && <PhotosTab token={token} />}
         {tab === "documents" && <DocumentsTab token={token} />}
-        {tab === "pay" && (
-          <PaymentTab
-            token={token}
-            initialMethod={portal.crew.preferredPaymentMethod ?? ""}
-            initialDetails={portal.crew.paymentDetails ?? ""}
-          />
-        )}
+        {tab === "pay" && <PaymentTab token={token} />}
         {tab === "w9" && <W9Tab token={token} />}
         {tab === "wings" && <WingsTab token={token} />}
         {tab === "guide" && <GuideTab lang={guideLang} onLangChange={setGuideLang} />}
@@ -1694,93 +1699,436 @@ function DocumentsTab({ token }: { token: string }) {
   );
 }
 
-const PAY_METHODS = ["Direct deposit (ACH)", "Check", "Zelle", "Venmo", "Cash App", "PayPal"];
-
-function PaymentTab({
-  token,
-  initialMethod,
-  initialDetails,
-}: {
-  token: string;
-  initialMethod: string;
-  initialDetails: string;
-}) {
+function PaymentTab({ token }: { token: string }) {
   const queryClient = useQueryClient();
-  const save = useSetPortalPaymentMethod();
-  const [method, setMethod] = useState(initialMethod);
-  const [details, setDetails] = useState(initialDetails);
-  const [saved, setSaved] = useState(false);
+  const { data: bank, isLoading } = useGetPortalBank(token, {
+    query: {
+      enabled: !!token,
+      queryKey: getGetPortalBankQueryKey(token),
+    },
+  });
+  const [connectOpen, setConnectOpen] = useState(false);
 
-  const handleSave = () => {
-    save.mutate(
-      {
-        token,
-        data: {
-          preferredPaymentMethod: method || null,
-          paymentDetails: details || null,
-        },
-      },
-      {
-        onSuccess: () => {
-          setSaved(true);
-          queryClient.invalidateQueries({
-            queryKey: getGetPortalQueryKey(token),
-          });
-          setTimeout(() => setSaved(false), 1800);
-        },
-      },
+  if (isLoading) {
+    return (
+      <div className="py-[40px] grid place-items-center">
+        <Loader2 className="w-[22px] h-[22px] animate-spin text-primary" />
+      </div>
     );
-  };
+  }
+
+  if (!bank || !bank.connected) {
+    return (
+      <div className="animate-in fade-in duration-200">
+        <div className={`${card} text-center`}>
+          <div className="w-[56px] h-[56px] rounded-full bg-[rgba(143,106,31,0.1)] grid place-items-center mx-auto mb-[12px]">
+            <Wallet className="w-[28px] h-[28px] text-[var(--gold)]" />
+          </div>
+          <div className="font-display font-bold text-[18px] mb-[6px]">
+            Connect your bank account
+          </div>
+          <p className="text-[13px] text-muted-foreground mb-[16px] leading-relaxed">
+            Get paid instantly when jobs are completed. Connect your bank to receive payouts
+            directly.
+          </p>
+          <button
+            onClick={() => setConnectOpen(true)}
+            className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
+            data-testid="button-open-bank-connect"
+          >
+            <Wallet className="w-[18px] h-[18px]" /> Connect bank account
+          </button>
+        </div>
+        <BankConnectSheet
+          token={token}
+          open={connectOpen}
+          onOpenChange={setConnectOpen}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in fade-in duration-200">
       <div className={card}>
-        <div className="font-display font-bold text-[16px] mb-[3px]">
-          How do you want to get paid?
+        <div className="flex items-start gap-[12px] mb-[12px]">
+          <div className="w-[48px] h-[48px] rounded-full bg-[rgba(60,122,78,0.12)] grid place-items-center shrink-0">
+            <Shield className="w-[24px] h-[24px] text-[var(--green)]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-[6px] mb-[4px]">
+              <div className="font-display font-bold text-[16px]">Bank connected</div>
+              <CheckCircle2 className="w-[16px] h-[16px] text-[var(--green)]" />
+            </div>
+            <div className="text-[12px] text-muted-foreground">
+              You'll be paid instantly when jobs are completed.
+            </div>
+          </div>
         </div>
-        <p className="text-[12.5px] text-muted-foreground mb-[14px]">
-          Pick your preferred method and add the details we'll need.
-        </p>
-        <div className="grid grid-cols-2 gap-[8px] mb-[14px]">
-          {PAY_METHODS.map((m) => (
-            <button
-              key={m}
-              onClick={() => setMethod(m)}
-              className={`rounded-[12px] py-[11px] px-[10px] text-[13px] font-semibold border transition-colors ${
-                method === m
-                  ? "bg-[var(--ink)] text-white border-[var(--ink)]"
-                  : "bg-background text-foreground border-border"
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-        <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
-          Payment details
-        </label>
-        <textarea
-          value={details}
-          onChange={(e) => setDetails(e.target.value)}
-          rows={3}
-          placeholder="e.g. Routing & account #, Zelle email/phone, or mailing address"
-          className="w-full resize-none rounded-[12px] border border-border bg-background px-[13px] py-[11px] text-[14px] mb-[14px] focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40"
-        />
-        <button
-          onClick={handleSave}
-          disabled={save.isPending}
-          className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
-        >
-          {saved ? (
-            <>
-              <Check className="w-[17px] h-[17px]" /> Saved
-            </>
-          ) : (
-            "Save payment method"
+        <div className="bg-background rounded-[12px] p-[14px] space-y-[8px] text-[13px]">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Account type</span>
+            <span className="font-semibold capitalize">
+              {bank.accountKind === "personal" ? "Personal" : "Business"}
+              {bank.accountType && ` · ${bank.accountType}`}
+            </span>
+          </div>
+          {bank.holderName && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Account holder</span>
+              <span className="font-semibold">{bank.holderName}</span>
+            </div>
           )}
-        </button>
+          {bank.businessName && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Business name</span>
+              <span className="font-semibold">{bank.businessName}</span>
+            </div>
+          )}
+          {bank.bankName && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Bank</span>
+              <span className="font-semibold">{bank.bankName}</span>
+            </div>
+          )}
+          {bank.accountLast4 && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Account</span>
+              <span className="font-mono font-semibold">•••• {bank.accountLast4}</span>
+            </div>
+          )}
+          {bank.status === "verified" && bank.verifiedAt && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Status</span>
+              <span className="flex items-center gap-[4px] font-semibold text-[var(--green)]">
+                <Shield className="w-[13px] h-[13px]" /> Verified
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function BankConnectSheet({
+  token,
+  open,
+  onOpenChange,
+}: {
+  token: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [accountKind, setAccountKind] = useState<"personal" | "business">("personal");
+  const [holderName, setHolderName] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [accountType, setAccountType] = useState<"checking" | "savings">("checking");
+  const [routingNumber, setRoutingNumber] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const submitBank = useSubmitPortalBank();
+
+  const onSubmit = () => {
+    setError(null);
+    if (routingNumber.replace(/\D/g, "").length !== 9) {
+      setError("Routing number must be 9 digits.");
+      return;
+    }
+    if (!accountNumber) {
+      setError("Account number is required.");
+      return;
+    }
+
+    submitBank.mutate(
+      {
+        token,
+        data: {
+          accountKind,
+          holderName,
+          businessName: accountKind === "business" ? businessName : undefined,
+          bankName: bankName || undefined,
+          accountType,
+          routingNumber: routingNumber.replace(/\D/g, ""),
+          accountNumber,
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            queryKey: getGetPortalBankQueryKey(token),
+          });
+          queryClient.invalidateQueries({
+            queryKey: getGetPortalQueryKey(token),
+          });
+          setStep(4);
+        },
+        onError: (e) => {
+          setError(e.message || "Couldn't connect your bank. Try again.");
+        },
+      }
+    );
+  };
+
+  const onClose = () => {
+    if (step === 4) {
+      onOpenChange(false);
+      setStep(1);
+      setAccountKind("personal");
+      setHolderName("");
+      setBusinessName("");
+      setBankName("");
+      setRoutingNumber("");
+      setAccountNumber("");
+      setError(null);
+    } else {
+      onOpenChange(false);
+    }
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onClose}>
+      <SheetContent
+        side="bottom"
+        className="rounded-t-[32px] bg-[var(--paper)] p-0 flex flex-col max-h-[88vh] border-none shadow-[0_-12px_44px_rgba(23,24,28,0.24)]"
+      >
+        <div className="w-[40px] h-[5px] rounded-full bg-[rgba(23,24,28,0.16)] mx-auto mt-[12px] mb-[4px] shrink-0" />
+        <div className="p-[12px_24px_32px] overflow-y-auto">
+          <SheetHeader className="text-left mb-[16px]">
+            <SheetTitle className="font-display font-bold text-[22px] tracking-[-0.01em] m-[6px_0_2px]">
+              Connect your bank
+            </SheetTitle>
+            <div className="text-[14px] text-muted-foreground">
+              Step {step} of 4
+            </div>
+          </SheetHeader>
+
+          {step === 1 && (
+            <div>
+              <div className="text-[14px] font-semibold mb-[12px]">
+                What type of account?
+              </div>
+              <div className="grid grid-cols-2 gap-[10px] mb-[20px]">
+                {[
+                  { key: "personal" as const, label: "Personal", icon: Home },
+                  { key: "business" as const, label: "Business", icon: Briefcase },
+                ].map((opt) => {
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.key}
+                      onClick={() => setAccountKind(opt.key)}
+                      className={`flex flex-col items-center gap-[10px] rounded-[14px] p-[20px] border-2 transition-all ${
+                        accountKind === opt.key
+                          ? "border-[var(--gold)] bg-[rgba(143,106,31,0.06)]"
+                          : "border-border bg-card"
+                      }`}
+                      data-testid={`button-account-${opt.key}`}
+                    >
+                      <div
+                        className={`w-[44px] h-[44px] rounded-full grid place-items-center ${
+                          accountKind === opt.key
+                            ? "bg-[var(--gold-light)] text-[var(--ink)]"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        <Icon className="w-[22px] h-[22px]" />
+                      </div>
+                      <span className="font-display font-bold text-[15px]">{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setStep(2)}
+                className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
+                data-testid="button-next-step-2"
+              >
+                Continue
+              </button>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div>
+              <div className="space-y-[14px] mb-[20px]">
+                <div>
+                  <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                    Account holder name
+                  </label>
+                  <input
+                    type="text"
+                    value={holderName}
+                    onChange={(e) => setHolderName(e.target.value)}
+                    placeholder="Your full name"
+                    className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px]"
+                    data-testid="input-holder-name"
+                  />
+                </div>
+                {accountKind === "business" && (
+                  <div>
+                    <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                      Business name
+                    </label>
+                    <input
+                      type="text"
+                      value={businessName}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                      placeholder="Your business name"
+                      className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px]"
+                      data-testid="input-business-name"
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                    Bank name (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    placeholder="e.g. Chase, Wells Fargo"
+                    className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px]"
+                    data-testid="input-bank-name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                    Account type
+                  </label>
+                  <div className="flex gap-[8px]">
+                    {(["checking", "savings"] as const).map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setAccountType(type)}
+                        className={`flex-1 rounded-[10px] py-[10px] text-[14px] font-display font-bold border transition-all ${
+                          accountType === type
+                            ? "bg-[var(--ink)] text-white border-[var(--ink)]"
+                            : "bg-card text-muted-foreground border-border"
+                        }`}
+                        data-testid={`button-account-type-${type}`}
+                      >
+                        {type === "checking" ? "Checking" : "Savings"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-[8px]">
+                <button
+                  onClick={() => setStep(1)}
+                  className="rounded-[13px] px-[16px] py-[13px] text-[15px] font-display font-bold bg-card border border-border"
+                  data-testid="button-back-step-1"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={() => setStep(3)}
+                  disabled={!holderName || (accountKind === "business" && !businessName)}
+                  className="flex-1 flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+                  data-testid="button-next-step-3"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div>
+              <div className="space-y-[14px] mb-[20px]">
+                <div>
+                  <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                    Routing number
+                  </label>
+                  <input
+                    type="text"
+                    value={routingNumber}
+                    onChange={(e) => setRoutingNumber(e.target.value)}
+                    placeholder="9 digits"
+                    className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono"
+                    data-testid="input-routing-number"
+                  />
+                  <div className="text-[11px] text-muted-foreground mt-[4px]">
+                    Found on the bottom of your check.
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                    Account number
+                  </label>
+                  <input
+                    type="text"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value)}
+                    placeholder="Account number"
+                    className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono"
+                    data-testid="input-account-number"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="mb-[14px] flex items-start gap-[8px] bg-destructive/10 rounded-[10px] p-[12px] text-[13px] text-destructive">
+                  <AlertCircle className="w-[16px] h-[16px] shrink-0 mt-[1px]" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="flex gap-[8px]">
+                <button
+                  onClick={() => setStep(2)}
+                  className="rounded-[13px] px-[16px] py-[13px] text-[15px] font-display font-bold bg-card border border-border"
+                  data-testid="button-back-step-2"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={onSubmit}
+                  disabled={submitBank.isPending}
+                  className="flex-1 flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+                  data-testid="button-submit-bank"
+                >
+                  {submitBank.isPending ? (
+                    <Loader2 className="w-[18px] h-[18px] animate-spin" />
+                  ) : (
+                    <Shield className="w-[18px] h-[18px]" />
+                  )}
+                  Connect account
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="text-center py-[20px]">
+              <div className="w-[64px] h-[64px] rounded-full bg-[rgba(60,122,78,0.12)] grid place-items-center mx-auto mb-[16px]">
+                <CheckCircle2 className="w-[36px] h-[36px] text-[var(--green)]" />
+              </div>
+              <div className="font-display font-bold text-[20px] mb-[8px]">
+                Connected & verified
+              </div>
+              <p className="text-[14px] text-muted-foreground mb-[20px]">
+                Your bank account is connected. You can now be paid instantly when jobs are
+                completed.
+              </p>
+              <button
+                onClick={onClose}
+                className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
+                data-testid="button-close-bank-connect"
+              >
+                Done
+              </button>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 

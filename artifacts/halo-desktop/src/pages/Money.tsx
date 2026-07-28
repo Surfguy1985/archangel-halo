@@ -63,6 +63,7 @@ import { ZellePayDialog } from "@/components/ZellePayDialog";
 import { BusinessInfoDialog } from "@/components/BusinessInfoDialog";
 import { BusinessReportTab } from "@/components/BusinessReportTab";
 import { BooksTab } from "@/components/BooksTab";
+import { Link } from "wouter";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -821,9 +822,16 @@ export default function Money() {
   }, [urlTab]);
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <header>
-        <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">Money</h1>
-        <p className="text-muted-foreground">Cash flow, receivables &amp; payouts</p>
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">Money</h1>
+          <p className="text-muted-foreground">Cash flow, receivables &amp; payouts</p>
+        </div>
+        <Link href="/money/payments">
+          <Button variant="default" className="bg-[var(--gold-dark)] text-white hover:bg-[var(--gold-dark)]/90 gap-2">
+            <ScanLine className="w-4 h-4" /> Pay Hub
+          </Button>
+        </Link>
       </header>
 
       <div data-tour="money-summary">

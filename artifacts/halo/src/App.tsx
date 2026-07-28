@@ -18,6 +18,8 @@ import PhotoShare from "./pages/PhotoShare";
 import RecapShare from "./pages/RecapShare";
 import JobTracker from "./pages/JobTracker";
 import Pipeline from "./pages/Pipeline";
+import PaymentsHub from "./pages/PaymentsHub";
+import PublicPayment from "./pages/PublicPayment";
 import Supply from "./pages/Supply";
 import Vendors from "./pages/Vendors";
 import Import from "./pages/Import";
@@ -53,6 +55,7 @@ function AdminRouter() {
         <Route path="/properties/:id" component={PropertyDetail} />
         <Route path="/jobs/:id" component={JobDetail} />
         <Route path="/money" component={Money} />
+        <Route path="/money/payments" component={PaymentsHub} />
         <Route path="/invoices/:id" component={InvoiceDetail} />
         <Route path="/calendar" component={Calendar} />
         <Route path="/crews" component={Crews} />
@@ -82,6 +85,7 @@ function App() {
             <Route path="/photos/:token" component={PhotoShare} />
             <Route path="/recap/:token" component={RecapShare} />
             <Route path="/track/:token" component={JobTracker} />
+            <Route path="/pay/:token" component={PublicPayment} />
             <Route component={AdminRouter} />
           </Switch>
         </WouterRouter>

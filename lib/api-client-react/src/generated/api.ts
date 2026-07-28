@@ -69,6 +69,8 @@ import type {
   ContactUpdate,
   CreatePlaidLinkToken200,
   Crew,
+  CrewBankInput,
+  CrewBankStatus,
   CrewCheckin,
   CrewCheckinInput,
   CrewDetail,
@@ -83,6 +85,8 @@ import type {
   CrewPayment,
   CrewPaymentInput,
   CrewPaymentUpdate,
+  CrewPayoutInput,
+  CrewPayoutView,
   CrewPhoto,
   CrewPhotoInput,
   CrewPortalLink,
@@ -141,6 +145,7 @@ import type {
   ListActivitiesParams,
   ListBankTransactionsParams,
   ListBidsParams,
+  ListCrewPayoutsParams,
   ListExpensesParams,
   ListInvoicesParams,
   ListJobsParams,
@@ -157,9 +162,17 @@ import type {
   Notification,
   OkResponse,
   PacketTemplateSummary,
+  PayHubOverview,
   Payment,
   PaymentInput,
   PaymentMethodInput,
+  PaymentOcrInput,
+  PaymentOcrResult,
+  PaymentRequestDetail,
+  PaymentRequestInput,
+  PaymentRequestSend,
+  PaymentReturnInput,
+  PayoutDistribution,
   PhotoShare,
   PhotoShareInput,
   PhotoShareNotesInput,
@@ -186,6 +199,9 @@ import type {
   PropertyInput,
   PropertySummary,
   PropertyUpdate,
+  PublicPaymentInput,
+  PublicPaymentReceipt,
+  PublicPaymentRequest,
   PurchaseOrder,
   PurchaseOrderInput,
   Queue,
@@ -15947,4 +15963,1259 @@ export function useGetPortalWings<TData = Awaited<ReturnType<typeof getPortalWin
 
 
 
+
+export const getExtractPaymentInfoUrl = () => {
+
+
+
+
+  return `/api/pay-hub/ocr`
+}
+
+/**
+ * @summary OCR an imported invoice to extract payment info
+ */
+export const extractPaymentInfo = async (paymentOcrInput: PaymentOcrInput, options?: RequestInit): Promise<PaymentOcrResult> => {
+
+  return customFetch<PaymentOcrResult>(getExtractPaymentInfoUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentOcrInput)
+  }
+);}
+
+
+
+
+
+export const getExtractPaymentInfoMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractPaymentInfo>>, TError,{data: BodyType<PaymentOcrInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof extractPaymentInfo>>, TError,{data: BodyType<PaymentOcrInput>}, TContext> => {
+
+const mutationKey = ['extractPaymentInfo'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extractPaymentInfo>>, {data: BodyType<PaymentOcrInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  extractPaymentInfo(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExtractPaymentInfoMutationResult = NonNullable<Awaited<ReturnType<typeof extractPaymentInfo>>>
+    export type ExtractPaymentInfoMutationBody = BodyType<PaymentOcrInput>
+    export type ExtractPaymentInfoMutationError = ErrorType<unknown>
+
+    /**
+ * @summary OCR an imported invoice to extract payment info
+ */
+export const useExtractPaymentInfo = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractPaymentInfo>>, TError,{data: BodyType<PaymentOcrInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof extractPaymentInfo>>,
+        TError,
+        {data: BodyType<PaymentOcrInput>},
+        TContext
+      > => {
+      return useMutation(getExtractPaymentInfoMutationOptions(options));
+    }
+
+export const getGetPayHubOverviewUrl = () => {
+
+
+
+
+  return `/api/pay-hub/overview`
+}
+
+/**
+ * @summary Payments hub summary counts and totals
+ */
+export const getPayHubOverview = async ( options?: RequestInit): Promise<PayHubOverview> => {
+
+  return customFetch<PayHubOverview>(getGetPayHubOverviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPayHubOverviewQueryKey = () => {
+    return [
+    `/api/pay-hub/overview`
+    ] as const;
+    }
+
+
+export const getGetPayHubOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getPayHubOverview>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPayHubOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPayHubOverviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPayHubOverview>>> = ({ signal }) => getPayHubOverview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPayHubOverview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPayHubOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getPayHubOverview>>>
+export type GetPayHubOverviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Payments hub summary counts and totals
+ */
+
+export function useGetPayHubOverview<TData = Awaited<ReturnType<typeof getPayHubOverview>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPayHubOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPayHubOverviewQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListPaymentRequestsUrl = () => {
+
+
+
+
+  return `/api/pay-hub/requests`
+}
+
+/**
+ * @summary List payment requests
+ */
+export const listPaymentRequests = async ( options?: RequestInit): Promise<PaymentRequestDetail[]> => {
+
+  return customFetch<PaymentRequestDetail[]>(getListPaymentRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPaymentRequestsQueryKey = () => {
+    return [
+    `/api/pay-hub/requests`
+    ] as const;
+    }
+
+
+export const getListPaymentRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listPaymentRequests>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPaymentRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPaymentRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPaymentRequests>>> = ({ signal }) => listPaymentRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPaymentRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPaymentRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listPaymentRequests>>>
+export type ListPaymentRequestsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List payment requests
+ */
+
+export function useListPaymentRequests<TData = Awaited<ReturnType<typeof listPaymentRequests>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPaymentRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPaymentRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePaymentRequestUrl = () => {
+
+
+
+
+  return `/api/pay-hub/requests`
+}
+
+/**
+ * @summary Create a payment request for a property covering selected jobs
+ */
+export const createPaymentRequest = async (paymentRequestInput: PaymentRequestInput, options?: RequestInit): Promise<PaymentRequestDetail> => {
+
+  return customFetch<PaymentRequestDetail>(getCreatePaymentRequestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentRequestInput)
+  }
+);}
+
+
+
+
+
+export const getCreatePaymentRequestMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPaymentRequest>>, TError,{data: BodyType<PaymentRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPaymentRequest>>, TError,{data: BodyType<PaymentRequestInput>}, TContext> => {
+
+const mutationKey = ['createPaymentRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPaymentRequest>>, {data: BodyType<PaymentRequestInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPaymentRequest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePaymentRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createPaymentRequest>>>
+    export type CreatePaymentRequestMutationBody = BodyType<PaymentRequestInput>
+    export type CreatePaymentRequestMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create a payment request for a property covering selected jobs
+ */
+export const useCreatePaymentRequest = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPaymentRequest>>, TError,{data: BodyType<PaymentRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPaymentRequest>>,
+        TError,
+        {data: BodyType<PaymentRequestInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePaymentRequestMutationOptions(options));
+    }
+
+export const getGetPaymentRequestUrl = (id: string,) => {
+
+
+
+
+  return `/api/pay-hub/requests/${id}`
+}
+
+export const getPaymentRequest = async (id: string, options?: RequestInit): Promise<PaymentRequestDetail> => {
+
+  return customFetch<PaymentRequestDetail>(getGetPaymentRequestUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPaymentRequestQueryKey = (id: string,) => {
+    return [
+    `/api/pay-hub/requests/${id}`
+    ] as const;
+    }
+
+
+export const getGetPaymentRequestQueryOptions = <TData = Awaited<ReturnType<typeof getPaymentRequest>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPaymentRequest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPaymentRequestQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPaymentRequest>>> = ({ signal }) => getPaymentRequest(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPaymentRequest>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPaymentRequestQueryResult = NonNullable<Awaited<ReturnType<typeof getPaymentRequest>>>
+export type GetPaymentRequestQueryError = ErrorType<Error>
+
+
+
+export function useGetPaymentRequest<TData = Awaited<ReturnType<typeof getPaymentRequest>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPaymentRequest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPaymentRequestQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeletePaymentRequestUrl = (id: string,) => {
+
+
+
+
+  return `/api/pay-hub/requests/${id}`
+}
+
+export const deletePaymentRequest = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeletePaymentRequestUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeletePaymentRequestMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePaymentRequest>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePaymentRequest>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deletePaymentRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePaymentRequest>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deletePaymentRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePaymentRequestMutationResult = NonNullable<Awaited<ReturnType<typeof deletePaymentRequest>>>
+
+    export type DeletePaymentRequestMutationError = ErrorType<Error>
+
+    export const useDeletePaymentRequest = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePaymentRequest>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePaymentRequest>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeletePaymentRequestMutationOptions(options));
+    }
+
+export const getSendPaymentRequestUrl = (id: string,) => {
+
+
+
+
+  return `/api/pay-hub/requests/${id}/send`
+}
+
+/**
+ * @summary Email or text the branded payment link
+ */
+export const sendPaymentRequest = async (id: string,
+    paymentRequestSend: PaymentRequestSend, options?: RequestInit): Promise<PaymentRequestDetail> => {
+
+  return customFetch<PaymentRequestDetail>(getSendPaymentRequestUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentRequestSend)
+  }
+);}
+
+
+
+
+
+export const getSendPaymentRequestMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendPaymentRequest>>, TError,{id: string;data: BodyType<PaymentRequestSend>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendPaymentRequest>>, TError,{id: string;data: BodyType<PaymentRequestSend>}, TContext> => {
+
+const mutationKey = ['sendPaymentRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendPaymentRequest>>, {id: string;data: BodyType<PaymentRequestSend>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendPaymentRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendPaymentRequestMutationResult = NonNullable<Awaited<ReturnType<typeof sendPaymentRequest>>>
+    export type SendPaymentRequestMutationBody = BodyType<PaymentRequestSend>
+    export type SendPaymentRequestMutationError = ErrorType<Error>
+
+    /**
+ * @summary Email or text the branded payment link
+ */
+export const useSendPaymentRequest = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendPaymentRequest>>, TError,{id: string;data: BodyType<PaymentRequestSend>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendPaymentRequest>>,
+        TError,
+        {id: string;data: BodyType<PaymentRequestSend>},
+        TContext
+      > => {
+      return useMutation(getSendPaymentRequestMutationOptions(options));
+    }
+
+export const getReturnPaymentRequestUrl = (id: string,) => {
+
+
+
+
+  return `/api/pay-hub/requests/${id}/return`
+}
+
+/**
+ * @summary Mark a received payment as returned
+ */
+export const returnPaymentRequest = async (id: string,
+    paymentReturnInput: PaymentReturnInput, options?: RequestInit): Promise<PaymentRequestDetail> => {
+
+  return customFetch<PaymentRequestDetail>(getReturnPaymentRequestUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentReturnInput)
+  }
+);}
+
+
+
+
+
+export const getReturnPaymentRequestMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof returnPaymentRequest>>, TError,{id: string;data: BodyType<PaymentReturnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof returnPaymentRequest>>, TError,{id: string;data: BodyType<PaymentReturnInput>}, TContext> => {
+
+const mutationKey = ['returnPaymentRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof returnPaymentRequest>>, {id: string;data: BodyType<PaymentReturnInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  returnPaymentRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReturnPaymentRequestMutationResult = NonNullable<Awaited<ReturnType<typeof returnPaymentRequest>>>
+    export type ReturnPaymentRequestMutationBody = BodyType<PaymentReturnInput>
+    export type ReturnPaymentRequestMutationError = ErrorType<Error>
+
+    /**
+ * @summary Mark a received payment as returned
+ */
+export const useReturnPaymentRequest = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof returnPaymentRequest>>, TError,{id: string;data: BodyType<PaymentReturnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof returnPaymentRequest>>,
+        TError,
+        {id: string;data: BodyType<PaymentReturnInput>},
+        TContext
+      > => {
+      return useMutation(getReturnPaymentRequestMutationOptions(options));
+    }
+
+export const getGetPublicPaymentRequestUrl = (token: string,) => {
+
+
+
+
+  return `/api/pay/${token}`
+}
+
+/**
+ * @summary Public branded payment page data
+ */
+export const getPublicPaymentRequest = async (token: string, options?: RequestInit): Promise<PublicPaymentRequest> => {
+
+  return customFetch<PublicPaymentRequest>(getGetPublicPaymentRequestUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicPaymentRequestQueryKey = (token: string,) => {
+    return [
+    `/api/pay/${token}`
+    ] as const;
+    }
+
+
+export const getGetPublicPaymentRequestQueryOptions = <TData = Awaited<ReturnType<typeof getPublicPaymentRequest>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicPaymentRequest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicPaymentRequestQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicPaymentRequest>>> = ({ signal }) => getPublicPaymentRequest(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicPaymentRequest>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicPaymentRequestQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicPaymentRequest>>>
+export type GetPublicPaymentRequestQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Public branded payment page data
+ */
+
+export function useGetPublicPaymentRequest<TData = Awaited<ReturnType<typeof getPublicPaymentRequest>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicPaymentRequest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicPaymentRequestQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubmitPublicPaymentUrl = (token: string,) => {
+
+
+
+
+  return `/api/pay/${token}`
+}
+
+/**
+ * @summary Property submits a payment (Cybrid rails stubbed)
+ */
+export const submitPublicPayment = async (token: string,
+    publicPaymentInput: PublicPaymentInput, options?: RequestInit): Promise<PublicPaymentReceipt> => {
+
+  return customFetch<PublicPaymentReceipt>(getSubmitPublicPaymentUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(publicPaymentInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitPublicPaymentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPublicPayment>>, TError,{token: string;data: BodyType<PublicPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitPublicPayment>>, TError,{token: string;data: BodyType<PublicPaymentInput>}, TContext> => {
+
+const mutationKey = ['submitPublicPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitPublicPayment>>, {token: string;data: BodyType<PublicPaymentInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  submitPublicPayment(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitPublicPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof submitPublicPayment>>>
+    export type SubmitPublicPaymentMutationBody = BodyType<PublicPaymentInput>
+    export type SubmitPublicPaymentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Property submits a payment (Cybrid rails stubbed)
+ */
+export const useSubmitPublicPayment = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPublicPayment>>, TError,{token: string;data: BodyType<PublicPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitPublicPayment>>,
+        TError,
+        {token: string;data: BodyType<PublicPaymentInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitPublicPaymentMutationOptions(options));
+    }
+
+export const getGetPayoutDistributionUrl = (id: string,) => {
+
+
+
+
+  return `/api/pay-hub/distribution/${id}`
+}
+
+/**
+ * @summary Received amount with per-job crew payout rows for one request
+ */
+export const getPayoutDistribution = async (id: string, options?: RequestInit): Promise<PayoutDistribution> => {
+
+  return customFetch<PayoutDistribution>(getGetPayoutDistributionUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPayoutDistributionQueryKey = (id: string,) => {
+    return [
+    `/api/pay-hub/distribution/${id}`
+    ] as const;
+    }
+
+
+export const getGetPayoutDistributionQueryOptions = <TData = Awaited<ReturnType<typeof getPayoutDistribution>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPayoutDistribution>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPayoutDistributionQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPayoutDistribution>>> = ({ signal }) => getPayoutDistribution(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPayoutDistribution>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPayoutDistributionQueryResult = NonNullable<Awaited<ReturnType<typeof getPayoutDistribution>>>
+export type GetPayoutDistributionQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Received amount with per-job crew payout rows for one request
+ */
+
+export function useGetPayoutDistribution<TData = Awaited<ReturnType<typeof getPayoutDistribution>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPayoutDistribution>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPayoutDistributionQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCrewPayoutsUrl = (params?: ListCrewPayoutsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/pay-hub/payouts?${stringifiedParams}` : `/api/pay-hub/payouts`
+}
+
+/**
+ * @summary List crew payouts
+ */
+export const listCrewPayouts = async (params?: ListCrewPayoutsParams, options?: RequestInit): Promise<CrewPayoutView[]> => {
+
+  return customFetch<CrewPayoutView[]>(getListCrewPayoutsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCrewPayoutsQueryKey = (params?: ListCrewPayoutsParams,) => {
+    return [
+    `/api/pay-hub/payouts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCrewPayoutsQueryOptions = <TData = Awaited<ReturnType<typeof listCrewPayouts>>, TError = ErrorType<unknown>>(params?: ListCrewPayoutsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewPayouts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCrewPayoutsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCrewPayouts>>> = ({ signal }) => listCrewPayouts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCrewPayouts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCrewPayoutsQueryResult = NonNullable<Awaited<ReturnType<typeof listCrewPayouts>>>
+export type ListCrewPayoutsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List crew payouts
+ */
+
+export function useListCrewPayouts<TData = Awaited<ReturnType<typeof listCrewPayouts>>, TError = ErrorType<unknown>>(
+ params?: ListCrewPayoutsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCrewPayouts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCrewPayoutsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCrewPayoutUrl = () => {
+
+
+
+
+  return `/api/pay-hub/payouts`
+}
+
+/**
+ * @summary One-tap ACH payout to a crew (Cybrid rails stubbed)
+ */
+export const createCrewPayout = async (crewPayoutInput: CrewPayoutInput, options?: RequestInit): Promise<CrewPayoutView> => {
+
+  return customFetch<CrewPayoutView>(getCreateCrewPayoutUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewPayoutInput)
+  }
+);}
+
+
+
+
+
+export const getCreateCrewPayoutMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCrewPayout>>, TError,{data: BodyType<CrewPayoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCrewPayout>>, TError,{data: BodyType<CrewPayoutInput>}, TContext> => {
+
+const mutationKey = ['createCrewPayout'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCrewPayout>>, {data: BodyType<CrewPayoutInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCrewPayout(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCrewPayoutMutationResult = NonNullable<Awaited<ReturnType<typeof createCrewPayout>>>
+    export type CreateCrewPayoutMutationBody = BodyType<CrewPayoutInput>
+    export type CreateCrewPayoutMutationError = ErrorType<Error>
+
+    /**
+ * @summary One-tap ACH payout to a crew (Cybrid rails stubbed)
+ */
+export const useCreateCrewPayout = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCrewPayout>>, TError,{data: BodyType<CrewPayoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCrewPayout>>,
+        TError,
+        {data: BodyType<CrewPayoutInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCrewPayoutMutationOptions(options));
+    }
+
+export const getReturnCrewPayoutUrl = (id: string,) => {
+
+
+
+
+  return `/api/pay-hub/payouts/${id}/return`
+}
+
+/**
+ * @summary Mark a crew payout as returned
+ */
+export const returnCrewPayout = async (id: string,
+    paymentReturnInput: PaymentReturnInput, options?: RequestInit): Promise<CrewPayoutView> => {
+
+  return customFetch<CrewPayoutView>(getReturnCrewPayoutUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(paymentReturnInput)
+  }
+);}
+
+
+
+
+
+export const getReturnCrewPayoutMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof returnCrewPayout>>, TError,{id: string;data: BodyType<PaymentReturnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof returnCrewPayout>>, TError,{id: string;data: BodyType<PaymentReturnInput>}, TContext> => {
+
+const mutationKey = ['returnCrewPayout'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof returnCrewPayout>>, {id: string;data: BodyType<PaymentReturnInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  returnCrewPayout(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReturnCrewPayoutMutationResult = NonNullable<Awaited<ReturnType<typeof returnCrewPayout>>>
+    export type ReturnCrewPayoutMutationBody = BodyType<PaymentReturnInput>
+    export type ReturnCrewPayoutMutationError = ErrorType<Error>
+
+    /**
+ * @summary Mark a crew payout as returned
+ */
+export const useReturnCrewPayout = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof returnCrewPayout>>, TError,{id: string;data: BodyType<PaymentReturnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof returnCrewPayout>>,
+        TError,
+        {id: string;data: BodyType<PaymentReturnInput>},
+        TContext
+      > => {
+      return useMutation(getReturnCrewPayoutMutationOptions(options));
+    }
+
+export const getGetCrewBankStatusUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/bank`
+}
+
+/**
+ * @summary Office view of a crew's connected bank account (masked)
+ */
+export const getCrewBankStatus = async (id: string, options?: RequestInit): Promise<CrewBankStatus> => {
+
+  return customFetch<CrewBankStatus>(getGetCrewBankStatusUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrewBankStatusQueryKey = (id: string,) => {
+    return [
+    `/api/crews/${id}/bank`
+    ] as const;
+    }
+
+
+export const getGetCrewBankStatusQueryOptions = <TData = Awaited<ReturnType<typeof getCrewBankStatus>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewBankStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrewBankStatusQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrewBankStatus>>> = ({ signal }) => getCrewBankStatus(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrewBankStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCrewBankStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getCrewBankStatus>>>
+export type GetCrewBankStatusQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Office view of a crew's connected bank account (masked)
+ */
+
+export function useGetCrewBankStatus<TData = Awaited<ReturnType<typeof getCrewBankStatus>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewBankStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCrewBankStatusQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPortalBankUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/bank`
+}
+
+/**
+ * @summary Crew's own connected bank account (masked)
+ */
+export const getPortalBank = async (token: string, options?: RequestInit): Promise<CrewBankStatus> => {
+
+  return customFetch<CrewBankStatus>(getGetPortalBankUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalBankQueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}/bank`
+    ] as const;
+    }
+
+
+export const getGetPortalBankQueryOptions = <TData = Awaited<ReturnType<typeof getPortalBank>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalBank>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalBankQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalBank>>> = ({ signal }) => getPortalBank(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalBank>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalBankQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalBank>>>
+export type GetPortalBankQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Crew's own connected bank account (masked)
+ */
+
+export function useGetPortalBank<TData = Awaited<ReturnType<typeof getPortalBank>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalBank>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalBankQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubmitPortalBankUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/bank`
+}
+
+/**
+ * @summary Crew submits banking info for ACH payouts
+ */
+export const submitPortalBank = async (token: string,
+    crewBankInput: CrewBankInput, options?: RequestInit): Promise<CrewBankStatus> => {
+
+  return customFetch<CrewBankStatus>(getSubmitPortalBankUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewBankInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitPortalBankMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPortalBank>>, TError,{token: string;data: BodyType<CrewBankInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitPortalBank>>, TError,{token: string;data: BodyType<CrewBankInput>}, TContext> => {
+
+const mutationKey = ['submitPortalBank'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitPortalBank>>, {token: string;data: BodyType<CrewBankInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  submitPortalBank(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitPortalBankMutationResult = NonNullable<Awaited<ReturnType<typeof submitPortalBank>>>
+    export type SubmitPortalBankMutationBody = BodyType<CrewBankInput>
+    export type SubmitPortalBankMutationError = ErrorType<Error>
+
+    /**
+ * @summary Crew submits banking info for ACH payouts
+ */
+export const useSubmitPortalBank = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPortalBank>>, TError,{token: string;data: BodyType<CrewBankInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitPortalBank>>,
+        TError,
+        {token: string;data: BodyType<CrewBankInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitPortalBankMutationOptions(options));
+    }
 

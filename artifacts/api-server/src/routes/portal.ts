@@ -23,6 +23,7 @@ import {
   wingOverridesTable,
   wingScoreSnapshotsTable,
   wingReserveAccountsTable,
+  crewBankAccountsTable,
 } from "@workspace/db";
 import {
   GetPortalParams,
@@ -55,6 +56,8 @@ import {
   SetPortalPaymentMethodParams,
   SetPortalPaymentMethodBody,
   SetPortalPaymentMethodResponse,
+  SubmitPortalBankBody,
+  GetPortalBankResponse,
   RespondPortalOfferParams,
   RespondPortalOfferBody,
   RespondPortalOfferResponse,
@@ -1292,6 +1295,76 @@ router.put("/portal/:token/payment-method", async (req, res): Promise<void> => {
       paymentDetails: body.paymentDetails ?? null,
     }),
   );
+});
+
+import { bankStatusPayload } from "./payhub";
+
+router.get("/portal/:token/bank", async (req, res): Promise<void> => {
+  const token = String(req.params.token);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const [bank] = await db
+    .select()
+    .from(crewBankAccountsTable)
+    .where(eq(crewBankAccountsTable.crewId, crew.id))
+    .limit(1);
+  res.json(GetPortalBankResponse.parse(bankStatusPayload(bank)));
+});
+
+router.post("/portal/:token/bank", async (req, res): Promise<void> => {
+  const token = String(req.params.token);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const parsed = SubmitPortalBankBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const body = parsed.data;
+  if (!/^\d{9}$/.test(body.routingNumber)) {
+    res.status(400).json({ error: "Routing number must be 9 digits" });
+    return;
+  }
+  if (!/^\d{4,17}$/.test(body.accountNumber)) {
+    res.status(400).json({ error: "Account number must be 4-17 digits" });
+    return;
+  }
+  // NOTE: Cybrid account verification drops in here — instant-verify stub.
+  const values = {
+    crewId: crew.id,
+    accountKind: body.accountKind,
+    holderName: body.holderName,
+    businessName: body.businessName ?? null,
+    bankName: body.bankName ?? null,
+    accountType: body.accountType,
+    routingNumber: body.routingNumber,
+    accountNumber: body.accountNumber,
+    status: "verified",
+    verifiedAt: new Date(),
+  };
+  const [bank] = await db
+    .insert(crewBankAccountsTable)
+    .values(values)
+    .onConflictDoUpdate({
+      target: crewBankAccountsTable.crewId,
+      set: values,
+    })
+    .returning();
+  await db.insert(notificationsTable).values({
+    kind: "crew_bank_connected",
+    priority: "normal",
+    entityType: "crew",
+    entityId: crew.id,
+    title: `${crew.name} connected a bank account`,
+    body: `${body.accountKind === "business" ? "Business" : "Personal"} ${body.accountType} ••••${body.accountNumber.slice(-4)} — verified for instant ACH payouts`,
+  });
+  res.json(GetPortalBankResponse.parse(bankStatusPayload(bank))); 
 });
 
 class OfferConflictError extends Error {}

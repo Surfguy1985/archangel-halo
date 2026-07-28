@@ -3493,6 +3493,300 @@ export interface PortalWings {
   reserve: PortalWingsReserve;
 }
 
+export interface PayerInfo {
+  /** @nullable */
+  routingNumber?: string | null;
+  /** @nullable */
+  accountNumber?: string | null;
+  /** @nullable */
+  cardNumber?: string | null;
+  /** @nullable */
+  cardExp?: string | null;
+  /** @nullable */
+  cardCode?: string | null;
+  /** @nullable */
+  zip?: string | null;
+  /** @nullable */
+  payerName?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type PaymentOcrInputMediaType = typeof PaymentOcrInputMediaType[keyof typeof PaymentOcrInputMediaType];
+
+
+export const PaymentOcrInputMediaType = {
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+  'image/webp': 'image/webp',
+  'image/gif': 'image/gif',
+} as const;
+
+export interface PaymentOcrInput {
+  /** Base64 image data */
+  image: string;
+  mediaType: PaymentOcrInputMediaType;
+  filename?: string;
+}
+
+export interface PaymentOcrResult {
+  found: boolean;
+  /** high | medium | low */
+  confidence: string;
+  /** @nullable */
+  summary?: string | null;
+  payerInfo?: PayerInfo;
+}
+
+export interface PayHubOverview {
+  outstandingCount: number;
+  outstandingTotal: number;
+  receivedMtd: number;
+  payoutsMtd: number;
+  returnedCount: number;
+  verifiedCrewCount: number;
+}
+
+export interface PaymentRequestJobLine {
+  id: string;
+  jobId: string;
+  /** @nullable */
+  invoiceId?: string | null;
+  label: string;
+  amount: number;
+}
+
+export interface PaymentRequestInput {
+  propertyId: string;
+  /** @minItems 1 */
+  jobIds: string[];
+  memo?: string;
+  payerInfo?: PayerInfo;
+}
+
+export interface PaymentRequestDetail {
+  id: string;
+  requestNo: string;
+  token: string;
+  propertyId: string;
+  propertyName: string;
+  total: number;
+  /** @nullable */
+  memo?: string | null;
+  /** draft | sent | paid | returned */
+  status: string;
+  /** @nullable */
+  sentVia?: string | null;
+  /** @nullable */
+  sentTo?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  paidAmount?: number | null;
+  /** @nullable */
+  paymentMethod?: string | null;
+  /** @nullable */
+  confirmationNo?: string | null;
+  /** @nullable */
+  returnedAt?: string | null;
+  /** @nullable */
+  returnReason?: string | null;
+  payerInfo?: PayerInfo;
+  createdAt: string;
+  jobs: PaymentRequestJobLine[];
+}
+
+export type PaymentRequestSendVia = typeof PaymentRequestSendVia[keyof typeof PaymentRequestSendVia];
+
+
+export const PaymentRequestSendVia = {
+  email: 'email',
+  sms: 'sms',
+} as const;
+
+export interface PaymentRequestSend {
+  via: PaymentRequestSendVia;
+  to: string;
+}
+
+export interface PaymentReturnInput {
+  reason: string;
+}
+
+export interface PublicPaymentRequest {
+  requestNo: string;
+  status: string;
+  total: number;
+  /** @nullable */
+  memo?: string | null;
+  propertyName: string;
+  companyName: string;
+  /** @nullable */
+  companyTagline?: string | null;
+  /** @nullable */
+  companyEmail?: string | null;
+  /** @nullable */
+  companyPhone?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  paidAmount?: number | null;
+  /** @nullable */
+  confirmationNo?: string | null;
+  /** @nullable */
+  paymentMethod?: string | null;
+  jobs: PaymentRequestJobLine[];
+}
+
+export type PublicPaymentInputMethod = typeof PublicPaymentInputMethod[keyof typeof PublicPaymentInputMethod];
+
+
+export const PublicPaymentInputMethod = {
+  card: 'card',
+  ach: 'ach',
+  wire: 'wire',
+  echeck: 'echeck',
+} as const;
+
+export interface PublicPaymentInput {
+  method: PublicPaymentInputMethod;
+  payerName: string;
+  cardNumber?: string;
+  cardExp?: string;
+  cardCode?: string;
+  zip?: string;
+  routingNumber?: string;
+  accountNumber?: string;
+  email?: string;
+}
+
+export interface PublicPaymentReceipt {
+  confirmationNo: string;
+  amount: number;
+  paidAt: string;
+  method: string;
+}
+
+export type CrewBankInputAccountKind = typeof CrewBankInputAccountKind[keyof typeof CrewBankInputAccountKind];
+
+
+export const CrewBankInputAccountKind = {
+  personal: 'personal',
+  business: 'business',
+} as const;
+
+export type CrewBankInputAccountType = typeof CrewBankInputAccountType[keyof typeof CrewBankInputAccountType];
+
+
+export const CrewBankInputAccountType = {
+  checking: 'checking',
+  savings: 'savings',
+} as const;
+
+export interface CrewBankInput {
+  accountKind: CrewBankInputAccountKind;
+  /** @minLength 1 */
+  holderName: string;
+  businessName?: string;
+  bankName?: string;
+  accountType: CrewBankInputAccountType;
+  /**
+     * @minLength 9
+     * @maxLength 9
+     */
+  routingNumber: string;
+  /** @minLength 4 */
+  accountNumber: string;
+}
+
+export interface CrewBankStatus {
+  connected: boolean;
+  /**
+     * pending | verified
+     * @nullable
+     */
+  status?: string | null;
+  /** @nullable */
+  accountKind?: string | null;
+  /** @nullable */
+  holderName?: string | null;
+  /** @nullable */
+  businessName?: string | null;
+  /** @nullable */
+  bankName?: string | null;
+  /** @nullable */
+  accountType?: string | null;
+  /** @nullable */
+  routingLast4?: string | null;
+  /** @nullable */
+  accountLast4?: string | null;
+  /** @nullable */
+  verifiedAt?: string | null;
+}
+
+export interface CrewPayoutInput {
+  crewId: string;
+  jobId: string;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  paymentRequestId?: string;
+}
+
+export interface CrewPayoutView {
+  id: string;
+  crewId: string;
+  crewName: string;
+  jobId: string;
+  jobLabel: string;
+  /** @nullable */
+  paymentRequestId?: string | null;
+  amount: number;
+  method: string;
+  /** paid | returned */
+  status: string;
+  confirmationNo: string;
+  paidAt: string;
+  /** @nullable */
+  returnedAt?: string | null;
+  /** @nullable */
+  returnReason?: string | null;
+}
+
+export interface PayoutDistributionRow {
+  jobId: string;
+  jobLabel: string;
+  jobAmount: number;
+  /** @nullable */
+  crewId?: string | null;
+  /** @nullable */
+  crewName?: string | null;
+  /** @nullable */
+  crewRate?: number | null;
+  bankConnected?: boolean;
+  bankVerified?: boolean;
+  crewPaid: boolean;
+  /** @nullable */
+  payoutId?: string | null;
+  /** @nullable */
+  payoutStatus?: string | null;
+}
+
+export interface PayoutDistribution {
+  requestId: string;
+  requestNo: string;
+  propertyName: string;
+  receivedAmount: number;
+  /** @nullable */
+  confirmationNo: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  rows: PayoutDistributionRow[];
+}
+
 export type ListPropertiesParams = {
 search?: string;
 };
@@ -3644,5 +3938,10 @@ status?: string;
 
 export type ListWingsAuditParams = {
 limit?: number;
+};
+
+export type ListCrewPayoutsParams = {
+crewId?: string;
+jobId?: string;
 };
 

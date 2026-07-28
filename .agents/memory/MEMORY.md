@@ -44,4 +44,5 @@
 - [HALO crew invoice review](halo-crew-invoice-review.md) — crew invoice status transitions are server-guarded (409 on invalid); no global error middleware, never throw in async routes.
 - [HALO crew invoice job linking](halo-crew-invoice-job-link.md) — portal invoice jobId must pass crew-ownership check server-side; propertyId derived, jobLabel attached in all read models.
 - [HALO double-entry ledger](halo-ledger.md) — Books engine: every money mutation (REST and voice) must call syncXLedger; rebuild+syncs serialized by in-process mutex; JE numbering via advisory lock.
+- [HALO Payments Hub](halo-payments-hub.md) — Cybrid rails stubbed at marked spots; guarded transactional pay/return; payout ownership+dedupe checks; payerInfo sanitized (no CVV, last4 only).
 - [HALO job timeline](halo-job-timeline.md) — JobFunnel 5-stage pipeline: /jobs/:id/events feed, manual-assign board sync is server-side + transactional, recap-then-close needs no-email fallback.
