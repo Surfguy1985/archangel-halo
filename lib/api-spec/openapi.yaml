@@ -8208,7 +8208,8 @@ components:
       type: object
       required: [action]
       properties:
-        action: { type: string, description: "approve | schedule | refer | acknowledge" }
+        action: { type: string, description: "approve | pay_method | schedule | refer | acknowledge" }
+        method: { type: ["string", "null"], description: "Payment method choice for pay_method — ach | check" }
         name: { type: ["string", "null"], description: "Who is acting (approver, requester, referrer)" }
         contact: { type: ["string", "null"], description: "Referral contact — email or phone" }
         note: { type: ["string", "null"] }

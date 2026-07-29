@@ -150,7 +150,7 @@ export function CardDetailDialog({ card, token, readOnly, onClose }: CardDetailD
             
             {card.module && (
               <div className="mt-2 p-4 rounded-xl bg-black/[0.02] border border-black/5">
-                <CardModuleDetail module={card.module} token={token} />
+                <CardModuleDetail module={card.module} token={token} cardKey={card.cardKey} readOnly={readOnly} />
               </div>
             )}
           </div>

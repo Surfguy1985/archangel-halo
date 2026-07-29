@@ -8497,7 +8497,8 @@ export const ClientBoardCardActionParams = zod.object({
 })
 
 export const ClientBoardCardActionBody = zod.object({
-  "action": zod.string().describe('approve | schedule | refer | acknowledge'),
+  "action": zod.string().describe('approve | pay_method | schedule | refer | acknowledge'),
+  "method": zod.string().nullish().describe('Payment method choice for pay_method — ach | check'),
   "name": zod.string().nullish().describe('Who is acting (approver, requester, referrer)'),
   "contact": zod.string().nullish().describe('Referral contact — email or phone'),
   "note": zod.string().nullish(),

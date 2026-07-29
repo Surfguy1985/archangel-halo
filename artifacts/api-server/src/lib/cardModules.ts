@@ -389,6 +389,17 @@ export async function buildSummaryModule(
     flagCount: (s.flags ?? []).filter((f) => f.checked).length,
     photoCount: (s.photos ?? []).length,
     summaryUrl: `${publicBaseUrl()}/summary/${s.token}`,
+    // Full before/after photo set — the client views these right on the card.
+    photos: (s.photos ?? []).slice(0, 24).map((p) => ({
+      phase: p.phase,
+      url: `/api/storage${p.path}`,
+    })),
+    // Flagged attention items with crew notes, viewable inline.
+    flaggedItems: (s.flags ?? [])
+      .filter((f) => f.checked)
+      .slice(0, 12)
+      .map((f) => ({ label: f.label, note: f.note || null })),
+    observations: s.observations ?? null,
     // Full task list for the expanded card view (capped — card stays a snapshot).
     taskSections: (s.checklist ?? []).slice(0, 8).map((sec) => ({
       title: sec.section,

@@ -60,6 +60,11 @@ export const DASHBOARD_TOUR_STEPS: DashboardTourStep[] = [
 
 export function DashboardTour({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
+  // Keep onClose behind a ref so parent re-renders (new inline closure each
+  // time) can't retrigger mount-style effects — that caused a focus/scroll
+  // update loop ("Maximum update depth exceeded") on mobile.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const [playing, setPlaying] = useState(true);
   const genRef = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -80,14 +85,14 @@ export function DashboardTour({ onClose }: { onClose: () => void }) {
       setStep((s) => {
         const n = s + dir;
         if (n >= DASHBOARD_TOUR_STEPS.length) {
-          onClose();
+          onCloseRef.current();
           return s;
         }
         return Math.max(0, n);
       });
       setPlaying(true);
     },
-    [onClose, stop],
+    [stop],
   );
 
   // Highlight geometry.
@@ -95,7 +100,20 @@ export function DashboardTour({ onClose }: { onClose: () => void }) {
     const target = DASHBOARD_TOUR_STEPS[step]?.target;
     const el = target ? document.querySelector(`[data-testid="${target}"]`) : null;
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-    const update = () => setSpot(el ? el.getBoundingClientRect() : null);
+    const update = () =>
+      setSpot((prev) => {
+        const next = el ? el.getBoundingClientRect() : null;
+        // Skip no-op updates — scroll/resize fire constantly on mobile and a
+        // fresh DOMRect object every event forces endless re-renders.
+        if (
+          prev && next &&
+          prev.top === next.top && prev.left === next.left &&
+          prev.width === next.width && prev.height === next.height
+        ) {
+          return prev;
+        }
+        return next;
+      });
     update();
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
@@ -161,7 +179,7 @@ export function DashboardTour({ onClose }: { onClose: () => void }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         stop();
-        onClose();
+        onCloseRef.current();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -169,7 +187,9 @@ export function DashboardTour({ onClose }: { onClose: () => void }) {
       window.removeEventListener("keydown", onKey);
       prev?.focus?.();
     };
-  }, [onClose, stop]);
+    // Mount-only: focus management must not rerun on parent re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const s = DASHBOARD_TOUR_STEPS[step];
 

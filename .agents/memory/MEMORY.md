@@ -59,5 +59,5 @@
 - [Dev-banner 502 under base paths](halo-dev-banner-502.md) — Replit dev-banner script is root-relative; base-pathed artifacts must rebase+serve it or every load 502s when root app is down.
 - [HALO merge corruption](halo-merge-corruption.md) — task merges have garbled route handlers before; if typecheck fails in an untouched file, restore from last clean git version + db push.
 - [HALO shared board UI](halo-board-ui.md) — @workspace/board-ui Apple board used by client + office views; Tailwind @source, composite build, token threading gotchas.
-- [HALO card modules](halo-card-modules.md) — pushed-card interactive modules: server-built at push, action state survives re-send, auth+tx-gated action endpoint, invoice dedupe gotcha.
+- [HALO card modules](halo-card-modules.md) — invoice pay-flow state machine, projected-vs-pushed invoice dedupe, TWO BoardCardModules copies, type="button" inside dialog form.
 - [HALO crew message attachments](halo-message-attachments.md) — crew_messages carry attachmentName/Path; invoice PDFs are client-generated (jsPDF) and delivered into the thread; all thread UIs must render attachments.

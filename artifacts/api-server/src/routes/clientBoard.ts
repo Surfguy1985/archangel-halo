@@ -308,7 +308,7 @@ function isMakeReady(job: Job): boolean {
 
 async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   const propertyId = account.propertyId;
-  const [jobs, requests, invoices, boardRows] = await Promise.all([
+  const [jobs, requests, invoices, boardRows, pushed] = await Promise.all([
     db.select().from(jobsTable).where(eq(jobsTable.propertyId, propertyId)),
     db.select().from(workRequestsTable).where(eq(workRequestsTable.propertyId, propertyId)),
     db.select().from(invoicesTable).where(eq(invoicesTable.propertyId, propertyId)),
@@ -316,6 +316,11 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       .select()
       .from(clientDashboardCardsTable)
       .where(eq(clientDashboardCardsTable.propertyId, propertyId)),
+    db
+      .select()
+      .from(clientBoardCardsTable)
+      .where(eq(clientBoardCardsTable.propertyId, propertyId))
+      .orderBy(desc(clientBoardCardsTable.updatedAt)),
   ]);
 
   const overrides = new Map(
@@ -523,9 +528,23 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   }
 
   // Invoice cards ----------------------------------------------------------
+  // When the office pushed an interactive card for an invoice, that card IS
+  // the invoice on this board — skip the auto-projected duplicate so the
+  // client never sees two cards with the same title and different powers.
+  const pushedInvoiceIds = new Set(
+    pushed
+      .filter(
+        (c) =>
+          c.sourceType === "invoice" &&
+          c.sourceId &&
+          (!c.completedAt || now - c.completedAt.getTime() <= 30 * DAY),
+      )
+      .map((c) => c.sourceId),
+  );
   for (const inv of invoices) {
     if (inv.status === "paid" && inv.paidAt && now - new Date(inv.paidAt).getTime() > 30 * DAY)
       continue;
+    if (pushedInvoiceIds.has(inv.id)) continue;
     const stageIndex = inv.status === "paid" ? 4 : inv.status === "sent" ? 3 : 1;
     cards.push(
       applyOverride({
@@ -557,6 +576,22 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
             ? []
             : [{ key: "invoice.mark_reviewed", label: "Mark Reviewed", kind: "secondary", href: null }],
         editable: false,
+        // Display-only module so the detail view shows the invoice (amount,
+        // status, PDF). Approval/pay-method actions live on pushed cards,
+        // which persist client action state.
+        module: {
+          type: "invoice",
+          invoiceId: inv.id,
+          invoiceNo: inv.invoiceNo,
+          amount: inv.amount + (inv.taxAmount ?? 0),
+          status: inv.status,
+          dueDate: inv.dueAt
+            ? `${inv.dueAt.getFullYear()}-${String(inv.dueAt.getMonth() + 1).padStart(2, "0")}-${String(inv.dueAt.getDate()).padStart(2, "0")}`
+            : null,
+          payUrl: null,
+          pdfUrl: `/api/invoices/${inv.id}/pdf`,
+          canApprove: false,
+        },
         updatedAt: (inv.paidAt ?? inv.sentAt ?? inv.createdAt).toISOString(),
       }),
     );
@@ -646,11 +681,6 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   // Pushed cards from the office ("From Archangel") ------------------------
   // These are the interactive micro-service modules the contractor pushes:
   // invoice pay/approve, live crew tracker, flagged items, referral asks.
-  const pushed = await db
-    .select()
-    .from(clientBoardCardsTable)
-    .where(eq(clientBoardCardsTable.propertyId, account.propertyId))
-    .orderBy(desc(clientBoardCardsTable.updatedAt));
   const pushLane = (c: (typeof pushed)[number]): string => {
     if (c.column === "done") return "done";
     if (c.column === "in_progress") return "in_progress";

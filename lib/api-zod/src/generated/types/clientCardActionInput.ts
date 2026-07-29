@@ -7,8 +7,13 @@
  */
 
 export interface ClientCardActionInput {
-  /** approve | schedule | refer | acknowledge */
+  /** approve | pay_method | schedule | refer | acknowledge */
   action: string;
+  /**
+     * Payment method choice for pay_method — ach | check
+     * @nullable
+     */
+  method?: string | null;
   /**
      * Who is acting (approver, requester, referrer)
      * @nullable

@@ -404,12 +404,15 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
 
   const isPending = actionMut.isPending;
 
-  const handleAction = (e: React.MouseEvent, action: string, data: any = {}) => {
+  const handleAction = (e: React.MouseEvent, action: string, data: any = {}, openUrl?: string | null) => {
     e.stopPropagation();
     if (readOnly) {
       toast({ title: 'Sign in required', description: 'You are viewing as a guest.', variant: 'destructive' });
       return;
     }
+    // Open synchronously so mobile popup blockers allow it; the event is
+    // recorded regardless of whether the tab stays open.
+    if (openUrl) window.open(openUrl, '_blank', 'noopener');
     actionMut.mutate(
       { token, cardId: cardKey, data: { action, ...data } },
       {
@@ -426,38 +429,67 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
   };
 
   if (module.type === 'invoice') {
+    const isPaid = String(module.status || '').toLowerCase() === 'paid';
     return (
       <>
-        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
-          {module.approvedAt ? (
-            <div className="flex-1 h-full rounded-[8px] bg-black/5 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center pointer-events-none border border-black/5">
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-[#5c7a28]" /> APPROVED
+        {isPaid ? (
+          <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+            <div className="flex-1 h-full rounded-[8px] bg-[#5c7a28]/10 text-[#5c7a28] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center pointer-events-none border border-[#5c7a28]/20">
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> PAID — THANK YOU
             </div>
-          ) : (
-            <>
-              {module.canApprove && (
-                <button disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'approve')} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 disabled:opacity-50 transition-colors">
-                  {isPending ? 'Wait...' : 'Approve'}
-                </button>
-              )}
-              {module.pdfUrl && (
-                <button onClick={(e) => { e.stopPropagation(); setPdfViewerUrl(module.pdfUrl); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
-                  PDF
-                </button>
-              )}
-              {module.payUrl && (
-                <a href={module.payUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] transition-colors">
-                  Pay Now <ArrowUpRight className="w-3.5 h-3.5 ml-1" />
-                </a>
-              )}
-              {!module.canApprove && !module.payUrl && !module.pdfUrl && (
-                <div className="flex-1 h-full rounded-[8px] bg-black/5 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-50 pointer-events-none">
-                  —
-                </div>
-              )}
-            </>
-          )}
-        </div>
+          </div>
+        ) : !module.approvedAt ? (
+          /* Step 1 — review & approve */
+          <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+            {module.pdfUrl && (
+              <button type="button" onClick={(e) => { e.stopPropagation(); setPdfViewerUrl(module.pdfUrl); }} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 transition-colors">
+                <FileText className="w-3.5 h-3.5 mr-1.5" /> Review
+              </button>
+            )}
+            {module.canApprove ? (
+              <button type="button" disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'approve')} className="flex-[1.4] h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] disabled:opacity-50 transition-colors">
+                {isPending ? 'Wait...' : 'Approve Invoice'}
+              </button>
+            ) : !module.pdfUrl ? (
+              <div className="flex-1 h-full rounded-[8px] bg-black/5 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-50 pointer-events-none">—</div>
+            ) : null}
+          </div>
+        ) : !module.payMethod ? (
+          /* Step 2 — approved: choose how to pay */
+          <div className="flex flex-col gap-1.5 mt-[4px] shrink-0">
+            <div className="flex items-center gap-1.5 text-[9px] font-[800] uppercase tracking-widest text-[#5c7a28]">
+              <CheckCircle2 className="w-3 h-3" /> Approved — how will you pay?
+            </div>
+            <div className="flex items-center h-[36px] gap-2">
+              <button type="button" disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'pay_method', { method: 'ach' }, module.payUrl)} className="flex-[1.4] h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 disabled:opacity-50 transition-colors">
+                <CreditCard className="w-3.5 h-3.5 mr-1.5" /> Pay by ACH
+              </button>
+              <button type="button" disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'pay_method', { method: 'check' })} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 disabled:opacity-50 transition-colors">
+                Mail a Check
+              </button>
+            </div>
+          </div>
+        ) : module.payMethod === 'ach' ? (
+          /* Step 3a — ACH chosen: Pay Hub CTA stays live until paid */
+          <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+            <a href={module.payUrl || '#'} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex-[1.6] h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] transition-colors">
+              Open Pay Hub <ArrowUpRight className="w-3.5 h-3.5 ml-1" />
+            </a>
+            <button type="button" disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'pay_method', { method: 'check' })} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#6e6e73] text-[10px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 disabled:opacity-50 transition-colors">
+              Check instead
+            </button>
+          </div>
+        ) : (
+          /* Step 3b — check chosen */
+          <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+            <div className="flex-[1.6] h-full rounded-[8px] bg-[#5c7a28]/10 text-[#5c7a28] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center pointer-events-none border border-[#5c7a28]/20">
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> CHECK ON THE WAY
+            </div>
+            <button type="button" disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'pay_method', { method: 'ach' }, module.payUrl)} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#6e6e73] text-[10px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 disabled:opacity-50 transition-colors">
+              ACH instead
+            </button>
+          </div>
+        )}
         <PdfViewerDialog url={pdfViewerUrl || ''} open={!!pdfViewerUrl} onOpenChange={(o) => { if(!o) setPdfViewerUrl(null); }} />
       </>
     );

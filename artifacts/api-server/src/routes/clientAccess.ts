@@ -767,6 +767,69 @@ router.post("/client/:token/board/cards/:cardId/action", async (req, res): Promi
           body: `${propName} requested work from their board card "${card.title}".`,
         });
       }
+    } else if (body.action === "pay_method") {
+      if (module.type !== "invoice") {
+        status = 400;
+        payload = { error: "Only invoice cards take a payment method" };
+        return;
+      }
+      const method = body.method === "ach" || body.method === "check" ? body.method : null;
+      if (!method) {
+        status = 400;
+        payload = { error: "Choose ACH or check" };
+        return;
+      }
+      if (String(module.status ?? "").toLowerCase() === "paid") {
+        status = 409;
+        payload = { error: "This invoice is already paid" };
+        return;
+      }
+      // Idempotent: re-choosing the same method is a no-op — no duplicate
+      // notifications or activity from double-taps or retries.
+      if (module.payMethod === method) {
+        const [same] = await tx
+          .select()
+          .from(clientBoardCardsTable)
+          .where(eq(clientBoardCardsTable.id, card.id));
+        payload = ClientBoardCardActionResponse.parse(serCard(same!));
+        return;
+      }
+      // Method choice implies approval — record both so the office sees one
+      // coherent state, and the pay flow unlocks either way.
+      if (!module.approvedAt) {
+        module.approvedAt = nowIso;
+        module.approvedBy = actorName;
+        if (typeof module.payUrl === "string") {
+          const prToken = module.payUrl.split("/pay/")[1];
+          if (prToken) {
+            await tx
+              .update(paymentRequestsTable)
+              .set({ approvedAt: now })
+              .where(and(eq(paymentRequestsTable.token, prToken), isNull(paymentRequestsTable.approvedAt)));
+          }
+        }
+      }
+      module.payMethod = method;
+      module.payMethodAt = nowIso;
+      module.payMethodBy = actorName;
+      const methodLabel = method === "ach" ? "ACH through the Pay Hub" : "a mailed check";
+      await tx.insert(activitiesTable).values({
+        entityType: "property",
+        entityId: account.propertyId,
+        kind: "note",
+        body: `Invoice ${module.invoiceNo ?? ""} — ${propName}${actorName ? ` (${actorName})` : ""} chose to pay by ${methodLabel} from their board.`,
+      });
+      await tx.insert(notificationsTable).values({
+        kind: "client_board",
+        priority: "high",
+        entityType: "property",
+        entityId: account.propertyId,
+        title: `${propName} is paying ${module.invoiceNo ?? "an invoice"} by ${method === "ach" ? "ACH" : "check"}`,
+        body:
+          method === "check"
+            ? `Expect a check for invoice ${module.invoiceNo ?? ""}. Chosen on the "${card.title}" card.`
+            : `They opened the Pay Hub link for invoice ${module.invoiceNo ?? ""} from the "${card.title}" card.`,
+      });
     } else if (body.action === "refer") {
       if (module.type !== "referral") {
         status = 400;
