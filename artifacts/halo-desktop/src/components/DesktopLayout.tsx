@@ -132,7 +132,7 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
       </aside>
 
       {/* Main Content */}
-      <main className="ml-[76px] flex-1 bg-background flex flex-col min-h-screen">
+      <main className="ml-[76px] flex-1 min-w-0 bg-background flex flex-col min-h-screen">
         <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md px-8 pt-6 pb-4 border-b border-border/50">
           <div data-tour="ask-halo" className="relative max-w-2xl">
             <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--primary)]" />

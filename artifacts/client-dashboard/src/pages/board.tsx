@@ -1,5 +1,5 @@
 import { useLocation, useParams } from 'wouter';
-import { useGetClientBoard, useMarkClientBoardTourSeen } from '@workspace/api-client-react';
+import { useGetClientBoard, useMarkClientBoardTourSeen, useDispatchClientBoardAction, useCreateClientBoardCard, useCreateClientBoardAiCard, useGetClientPmBoard, getGetClientPmBoardQueryKey } from '@workspace/api-client-react';
 import { LoginDialog } from '@/components/LoginDialog';
 import { useToast } from '@/hooks/use-toast';
 import { CommandPalette } from '@/components/kanban/CommandPalette';
@@ -10,8 +10,9 @@ import { DashboardTour } from '@/components/DashboardTour';
 import { motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import { NotificationBell } from '@/components/NotificationBell';
+import { CardDetailDialog } from '@/components/kanban/CardDetailDialog';
 import { BirdseyeMapDialog } from '@/components/BirdseyeMapDialog';
-import { AppleBoard } from '@/components/apple-board/AppleBoard';
+import { AppleBoard } from '@workspace/board-ui';
 
 function Board() {
   const { token } = useParams<{ token: string }>();
@@ -43,6 +44,7 @@ function Board() {
   const [birdseyeOpen, setBirdseyeOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [detailCard, setDetailCard] = useState<any | null>(null);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -61,6 +63,11 @@ function Board() {
       refetchInterval: 4000,
     }
   });
+
+  const dispatchAction = useDispatchClientBoardAction();
+  const createAiCard = useCreateClientBoardAiCard();
+  const createCard = useCreateClientBoardCard();
+  const pmBoardQuery = useGetClientPmBoard(token, { query: { queryKey: getGetClientPmBoardQueryKey(token), enabled: activeTab === 'pm' }});
 
   const markTourSeen = useMarkClientBoardTourSeen();
 
@@ -122,6 +129,85 @@ function Board() {
   }
 
   const { viewer, propertyName, logoUrl } = board;
+
+  const activeBoardData = activeTab === 'pm' ? pmBoardQuery.data : board;
+  const isLoadingActive = activeTab === 'pm' ? pmBoardQuery.isLoading : isLoading;
+
+  const handleCardClick = (card: any) => {
+    setDetailCard(card);
+  };
+
+  const handleCardMove = (cardKey: string, laneKey: string, dropIndex?: number) => {
+    const cards = activeBoardData?.cards || [];
+    const card = cards.find((c: any) => c.cardKey === cardKey);
+    if (!card) return;
+
+    const targetLaneKeys = cards
+      .filter((c: any) => c.lane === laneKey && c.cardKey !== cardKey)
+      .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
+      .map((c: any) => c.cardKey);
+    const insertAt = Math.max(0, Math.min(dropIndex ?? 0, targetLaneKeys.length));
+
+    if (card.lane === laneKey) {
+      const currentOrder = cards
+        .filter((c: any) => c.lane === laneKey)
+        .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
+        .map((c: any) => c.cardKey);
+      if (currentOrder.indexOf(cardKey) === insertAt) return;
+    }
+
+    const orderedCardKeys = [...targetLaneKeys];
+    orderedCardKeys.splice(insertAt, 0, cardKey);
+
+    const qKey = activeTab === 'pm' ? getGetClientPmBoardQueryKey(token) : getGetClientBoardQueryKey(token);
+    const previousCards = cards.map((c: any) => ({ ...c }));
+    queryClient.setQueryData(qKey, (old: any) => {
+      if (!old) return old;
+      return {
+        ...old,
+        cards: old.cards.map((c: any) => {
+          const idx = orderedCardKeys.indexOf(c.cardKey);
+          if (c.cardKey === cardKey) return { ...c, lane: laneKey, position: insertAt };
+          if (idx >= 0) return { ...c, position: idx };
+          return c;
+        })
+      };
+    });
+
+    dispatchAction.mutate({
+      token,
+      data: {
+        action: "card.moved",
+        cardKey,
+        payload: { lane: laneKey, position: insertAt, orderedCardKeys }
+      }
+    }, {
+      onSuccess: (outcome) => {
+        if (!outcome.ok) {
+          queryClient.setQueryData(qKey, (old: any) => old ? { ...old, cards: previousCards } : old);
+          toast({ title: "Move blocked", description: outcome.reason || outcome.message || "Cannot move card", variant: "destructive" });
+        } else {
+          queryClient.invalidateQueries({ queryKey: qKey });
+        }
+      },
+      onError: (err) => {
+        queryClient.setQueryData(qKey, (old: any) => old ? { ...old, cards: previousCards } : old);
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      }
+    });
+  };
+
+  const handleCreateAiCard = async (prompt: string) => {
+    await createAiCard.mutateAsync({ token, data: { prompt }});
+    toast({ title: "Card created" });
+    queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+  };
+
+  const handleCreateCard = async (data: any) => {
+    await createCard.mutateAsync({ token, data });
+    toast({ title: "Card created" });
+    queryClient.invalidateQueries({ queryKey: activeTab === 'pm' ? getGetClientPmBoardQueryKey(token) : getGetClientBoardQueryKey(token) });
+  };
 
   return (
     <motion.div 
@@ -242,11 +328,18 @@ function Board() {
       </div>
 
       <AppleBoard
+        board={activeBoardData}
         token={token}
+        isLoading={isLoadingActive}
         viewer={viewer as any}
         boardKey={activeTab === 'pm' ? 'pm' : undefined}
         onLoginRequired={() => setLoginOpen(true)}
         onOpenBirdseye={activeTab === 'vendors' ? () => setBirdseyeOpen(true) : undefined}
+        onCardClick={handleCardClick}
+        onCardMove={handleCardMove}
+        onCreateAiCard={activeTab === 'vendors' ? handleCreateAiCard : undefined}
+        onCreateCard={handleCreateCard}
+        showToast={toast}
       />
 
       <CommandPalette
@@ -266,6 +359,13 @@ function Board() {
       />
 
       {tourOpen && <DashboardTour onClose={() => setTourOpen(false)} />}
+
+      <CardDetailDialog
+        token={token}
+        card={detailCard}
+        onClose={() => setDetailCard(null)}
+        readOnly={viewer.readOnly}
+      />
     </motion.div>
   );
 }

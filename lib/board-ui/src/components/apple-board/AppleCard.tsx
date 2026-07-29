@@ -47,7 +47,7 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
   const Icon = template.icon;
   const color = APPLE_CATEGORY_COLORS[template.category] || APPLE_CATEGORY_COLORS.blank;
 
-  const checkedCount = card.checklist?.filter(c => c.done).length || 0;
+  const checkedCount = card.checklist?.filter((c: any) => c.done).length || 0;
   const totalCount = card.checklist?.length || 0;
   const checklistProgress = totalCount > 0 ? (checkedCount / totalCount) * 100 : 0;
 
@@ -114,7 +114,7 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
               {template.labelPreset}
             </span>
           )}
-          {card.labels?.filter(l => l !== template?.labelPreset).map((lbl, idx) => (
+          {card.labels?.filter((l: any) => l !== template?.labelPreset).map((lbl: any, idx: number) => (
             <span
               key={idx}
               className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-[#f5f5f7] text-[#6e6e73]"

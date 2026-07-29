@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Link, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  useGetOfficeBoardFull,
+  getGetOfficeBoardFullQueryKey,
   useGetOfficeClientBoard,
   getGetOfficeClientBoardQueryKey,
   useCreateOfficeClientBoardCard,
@@ -51,6 +53,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { AppleBoard } from "@workspace/board-ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -1642,9 +1645,9 @@ export default function ClientBoardOffice() {
   const [commentTarget, setCommentTarget] = useState<{ cardKey: string; title: string } | null>(null);
   const [respondTarget, setRespondTarget] = useState<{ cardKey: string; status: "accepted" | "declined" } | null>(null);
 
-  const { data: board, isLoading: boardLoading } = useGetOfficeClientBoard(propertyId!, {
+  const { data: boardFull, isLoading: boardLoading } = useGetOfficeBoardFull(propertyId!, {
     query: {
-      queryKey: getGetOfficeClientBoardQueryKey(propertyId!),
+      queryKey: getGetOfficeBoardFullQueryKey(propertyId!),
       enabled: view === "board" && !!propertyId,
     },
   });
@@ -1689,7 +1692,7 @@ export default function ClientBoardOffice() {
             </Link>
             <div>
               <h1 className="text-2xl font-display font-bold text-foreground">
-                {board?.propertyName || "Client Collaboration"}
+                {boardFull?.propertyName || "Client Collaboration"}
               </h1>
               <p className="text-sm font-medium text-muted-foreground mt-0.5">
                 What the client sees and sends
@@ -1767,54 +1770,17 @@ export default function ClientBoardOffice() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-x-auto pb-6 mt-6">
-          <div className="flex h-full gap-6 px-6 min-w-max">
-            {COLUMNS.map((col) => {
-              const colCards = board?.cards.filter((c) => c.column === col.key) || [];
-              const ColIcon = col.icon;
-              return (
-                <div
-                  key={col.key}
-                  className="w-[320px] flex flex-col h-full bg-muted/30 rounded-2xl p-4 border border-border"
-                >
-                  <div className="flex items-center gap-2 mb-4 px-2 shrink-0">
-                    <ColIcon className="w-4 h-4 text-muted-foreground" />
-                    <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">
-                      {col.label}
-                    </h3>
-                    <span className="ml-auto bg-card px-2 py-0.5 rounded-full text-xs font-bold text-muted-foreground shadow-sm">
-                      {colCards.length}
-                    </span>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto space-y-3 px-1 pb-4">
-                    {boardLoading && !board ? (
-                      <>
-                        <Skeleton className="h-32 w-full rounded-2xl" />
-                        <Skeleton className="h-32 w-full rounded-2xl" />
-                      </>
-                    ) : colCards.length === 0 ? (
-                      <div className="h-full flex items-center justify-center">
-                        <div className="text-xs font-medium text-muted-foreground/50 border border-dashed border-border/50 rounded-xl px-4 py-8 w-full text-center">
-                          Drop cards here
-                        </div>
-                      </div>
-                    ) : (
-                      colCards.map((card) => (
-                        <CardView
-                          key={card.id}
-                          card={card}
-                          onEdit={() => setEditCard(card)}
-                          onRemove={() => handleRemove(card.id)}
-                          removing={del.isPending && del.variables?.cardId === card.id}
-                          onComment={() => setCommentTarget({ cardKey: `push:${card.id}`, title: card.title })}
-                        />
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+        <div className="flex-1 min-h-0 flex flex-col mt-0 border-t border-border overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col">
+            <AppleBoard
+              board={boardFull?.board as any}
+              isLoading={boardLoading}
+              viewer={{ readOnly: true, authenticated: true, permissions: [] }}
+              boardKey={undefined}
+              onLoginRequired={() => {}}
+              onCardClick={() => {}}
+              onCardMove={() => {}}
+            />
           </div>
         </div>
       )}

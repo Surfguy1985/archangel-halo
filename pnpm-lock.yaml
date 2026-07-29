@@ -366,6 +366,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/board-ui':
+        specifier: workspace:*
+        version: link:../../lib/board-ui
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -1050,6 +1053,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/board-ui':
+        specifier: workspace:*
+        version: link:../../lib/board-ui
       '@workspace/object-storage-web':
         specifier: workspace:*
         version: link:../../lib/object-storage-web
@@ -1329,6 +1335,31 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 3.25.76
+
+  lib/board-ui:
+    dependencies:
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.101.2(react@19.1.0)
+      '@workspace/api-client-react':
+        specifier: workspace:*
+        version: link:../api-client-react
+      date-fns:
+        specifier: ^3.6.0
+        version: 3.6.0
+      framer-motion:
+        specifier: 'catalog:'
+        version: 12.42.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      lucide-react:
+        specifier: 'catalog:'
+        version: 0.545.0(react@19.1.0)
+    devDependencies:
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.17)
 
   lib/db:
     dependencies:

@@ -9,8 +9,13 @@
   "dependencies": {
     "framer-motion": "catalog:",
     "lucide-react": "catalog:",
-    "date-fns": "catalog:",
+    "date-fns": "^3.6.0",
+    "@tanstack/react-query": "catalog:",
     "@workspace/api-client-react": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:"
   },
   "peerDependencies": {
     "react": ">=18",

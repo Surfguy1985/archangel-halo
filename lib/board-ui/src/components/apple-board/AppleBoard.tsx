@@ -13,6 +13,7 @@ export interface AppleBoardData {
 
 export interface AppleBoardProps {
   board: AppleBoardData | undefined;
+  token?: string;
   isLoading?: boolean;
   viewer: { readOnly: boolean; authenticated: boolean; permissions?: string[] };
   boardKey?: 'pm';
@@ -40,6 +41,7 @@ const DEFAULT_LANE_COLORS: Record<string, string> = {
 
 export function AppleBoard({ 
   board, 
+  token,
   isLoading, 
   viewer, 
   boardKey, 
@@ -263,7 +265,7 @@ export function AppleBoard({
             >
               {[
                 'All my unpaid invoices',
-                'Who's on site right now?',
+                "Who's on site right now?",
                 'Progress on my active job',
               ].map((sample) => (
                 <button
@@ -341,6 +343,7 @@ export function AppleBoard({
                     <AppleCard
                       key={card.cardKey}
                       card={card}
+                      token={token}
                       isDragged={draggedCard === card.cardKey}
                       readOnly={viewer.readOnly}
                       onDragStart={(e) => handleDragStart(e, card.cardKey)}

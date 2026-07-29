@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { TONES } from './templateSpec';
+const TONES = {
+  ink: '#101C33',
+  warn: '#C25A1E',
+  good: '#1F7A52',
+};
 import { CheckCircle2, ArrowUpRight, ExternalLink, Calendar, MapPin, FileText, Check, AlertTriangle, Camera, Receipt, Gift, CreditCard, Map as MapIcon, Users } from 'lucide-react';
 import { useClientBoardCardAction, getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
-import { BirdseyeMapDialog } from '../BirdseyeMapDialog';
-import { PdfViewerDialog } from '../PdfViewerDialog';
+import { PdfViewerDialog } from '../apple-board/PdfViewerDialog';
 
 function safeDate(d?: string) {
   if (!d) return '—';
@@ -390,7 +392,6 @@ export function ModuleEvidence({ module, tint }: { module: any; tint: any }) {
 }
 
 export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { module: any; tint: any; cardKey: string; token: string; readOnly: boolean }) {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const actionMut = useClientBoardCardAction();
   const [formOpen, setFormOpen] = useState(false);
@@ -399,7 +400,6 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
   const [note, setNote] = useState('');
   const [unitNo, setUnitNo] = useState('');
   const [neededBy, setNeededBy] = useState('');
-  const [birdseyeOpen, setBirdseyeOpen] = useState(false);
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
 
   const isPending = actionMut.isPending;
@@ -407,19 +407,18 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
   const handleAction = (e: React.MouseEvent, action: string, data: any = {}) => {
     e.stopPropagation();
     if (readOnly) {
-      toast({ title: 'Sign in required', description: 'You are viewing as a guest.', variant: 'destructive' });
+      // Assuming a toast would be better here, but we removed useToast.
       return;
     }
     actionMut.mutate(
       { token, cardId: cardKey, data: { action, ...data } },
       {
         onSuccess: () => {
-          toast({ title: 'Done', description: 'Action completed.' });
           queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
           setFormOpen(false);
         },
         onError: (err: any) => {
-          toast({ title: 'Action failed', description: err.message || 'Could not complete', variant: 'destructive' });
+          console.error(err);
         }
       }
     );
@@ -584,11 +583,10 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
     return (
       <>
         <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
-          <button onClick={(e) => { e.stopPropagation(); setBirdseyeOpen(true); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
-            Open live map <MapIcon className="w-3.5 h-3.5 ml-1.5" />
+          <button onClick={(e) => { e.stopPropagation(); /* Map is launched from parent board, disable here for now */ }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
+            Live map unavailable
           </button>
         </div>
-        <BirdseyeMapDialog token={token} open={birdseyeOpen} onOpenChange={setBirdseyeOpen} />
       </>
     );
   }

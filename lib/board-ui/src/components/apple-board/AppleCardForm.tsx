@@ -233,14 +233,13 @@ export function AppleCardForm({ template, open, onClose, onBack, defaultLane = '
           {/* Footer */}
           <div className="px-8 py-5 border-t border-black/[0.06] shrink-0 bg-white">
             <div className="flex items-center justify-end gap-3">
-              <Button
+              <button
                 type="button"
-                variant="ghost"
                 onClick={onClose}
-                className="h-11 px-5 rounded-[10px] font-semibold text-[#007AFF] hover:bg-[#007AFF]/[0.08] hover:text-[#007AFF]"
+                className="h-11 px-5 rounded-[10px] font-semibold text-[#007AFF] hover:bg-[#007AFF]/[0.08] transition-colors"
               >
                 Cancel
-              </Button>
+              </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
