@@ -43,7 +43,7 @@ function PhotoGrid({
   base: string;
 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-[8px]">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-[8px] lg:gap-[10px]">
       {photos.map((p) => (
         <a
           key={p.id}
@@ -200,14 +200,15 @@ export default function PhotoShare() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="bg-card border-b border-border px-[18px] pt-[20px] pb-[16px]">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(180,255,68,0.5)]">
+      <header className="bg-card border-b border-border px-[18px] pt-[20px] pb-[16px] lg:px-0 lg:pt-[28px] lg:pb-[22px]">
+        <div className="lg:max-w-[1060px] lg:mx-auto lg:px-[24px]">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(180,255,68,0.5)] lg:text-[12px]">
           ArchAngel · HALO
         </div>
-        <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[3px] text-foreground">
+        <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[3px] text-foreground lg:text-[28px]">
           {data.crewName}
         </div>
-        <div className="text-[12.5px] text-muted-foreground flex items-center gap-[8px]">
+        <div className="text-[12.5px] text-muted-foreground flex items-center gap-[8px] lg:text-[14px]">
           <span>
             {data.trade ? `${data.trade} · ` : ""}
             {formatDayLabel(data.day)}
@@ -220,9 +221,10 @@ export default function PhotoShare() {
             Live
           </span>
         </div>
+        </div>
       </header>
 
-      <main className="px-[14px] py-[16px] pb-[40px] max-w-[720px] mx-auto flex-1 w-full">
+      <main className="px-[14px] py-[16px] pb-[40px] max-w-[720px] mx-auto flex-1 w-full lg:max-w-[1060px] lg:px-[24px] lg:py-[32px]">
         <div className="font-display font-bold text-[11px] tracking-[0.14em] uppercase text-muted-foreground mb-[12px] flex items-center gap-[6px]">
           <Camera className="w-[13px] h-[13px] text-primary" /> Daily activity ·{" "}
           <span className="text-foreground">{data.photos.length} photo{data.photos.length === 1 ? "" : "s"}</span>
@@ -240,7 +242,7 @@ export default function PhotoShare() {
               const after = photos.filter((p) => p.phase === "after");
               const other = photos.filter((p) => p.phase !== "before" && p.phase !== "after");
               return (
-                <div key={k} className="bg-card border border-border rounded-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] p-[14px]">
+                <div key={k} className="bg-card border border-border rounded-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] p-[14px] lg:p-[22px]">
                   <div className="text-[14.5px] font-display font-bold text-foreground">
                     {labelFor(k)}
                     <span className="text-muted-foreground font-normal font-sans text-[12.5px]">

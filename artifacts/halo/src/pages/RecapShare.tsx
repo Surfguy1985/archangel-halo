@@ -54,22 +54,24 @@ export default function RecapShare() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="bg-card border-b border-border px-[18px] pt-[22px] pb-[18px]">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(180,255,68,0.4)]">
+      <header className="bg-card border-b border-border px-[18px] pt-[22px] pb-[18px] lg:px-0 lg:pt-[28px] lg:pb-[22px]">
+        <div className="lg:max-w-[1060px] lg:mx-auto lg:px-[24px]">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(180,255,68,0.4)] lg:text-[12px]">
           ArchAngel Contractors
         </div>
-        <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[4px] leading-snug text-foreground">
+        <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[4px] leading-snug text-foreground lg:text-[28px]">
           {data.subject}
         </div>
-        <div className="text-[12.5px] text-muted-foreground mt-[3px]">
+        <div className="text-[12.5px] text-muted-foreground mt-[3px] lg:text-[14px]">
           {where}
           {where ? " · " : ""}
           <span className="text-foreground">{data.jobNo}</span>
         </div>
+        </div>
       </header>
 
-      <main className="px-[14px] py-[16px] pb-[44px] max-w-[720px] mx-auto flex-1 w-full">
-        <div className="bg-card rounded-[16px] border border-border border-t-[3px] border-t-primary shadow-[0_0_20px_rgba(180,255,68,0.05)] p-[18px] mb-[14px]">
+      <main className="px-[14px] py-[16px] pb-[44px] max-w-[720px] mx-auto flex-1 w-full lg:max-w-[1060px] lg:px-[24px] lg:py-[32px] lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-x-[28px] lg:gap-y-0 lg:items-start">
+        <div className="bg-card rounded-[16px] border border-border border-t-[3px] border-t-primary shadow-[0_0_20px_rgba(180,255,68,0.05)] p-[18px] mb-[14px] lg:p-[28px] lg:mb-0">
           <div className="flex items-center gap-[7px] text-[12px] font-semibold text-primary mb-[10px]">
             <CheckCircle2 className="w-[15px] h-[15px] drop-shadow-[0_0_5px_rgba(180,255,68,0.5)]" />
             Work completed
@@ -80,7 +82,7 @@ export default function RecapShare() {
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-[16px] p-[15px] mb-[14px]">
+        <div className="bg-card border border-border rounded-[16px] p-[15px] mb-[14px] lg:p-[22px] lg:mb-0 lg:sticky lg:top-[24px]">
           <div className="font-display font-bold text-[11px] tracking-[0.14em] uppercase text-primary drop-shadow-[0_0_5px_rgba(180,255,68,0.3)] mb-[12px]">
             Job details
           </div>
@@ -121,12 +123,12 @@ export default function RecapShare() {
         </div>
 
         {data.photos.length > 0 && (
-          <div className="mt-[20px]">
+          <div className="mt-[20px] lg:col-span-2 lg:mt-[28px]">
             <div className="font-display font-bold text-[11px] tracking-[0.14em] uppercase text-muted-foreground mb-[12px] flex items-center gap-[6px]">
               <Camera className="w-[14px] h-[14px] text-primary" /> Photo documentation ·{" "}
               <span className="text-foreground">{data.photos.length} photo{data.photos.length === 1 ? "" : "s"}</span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-[8px]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-[8px] lg:gap-[10px]">
               {data.photos.map((p, i) => (
                 <a
                   key={i}
@@ -153,7 +155,7 @@ export default function RecapShare() {
           </div>
         )}
 
-        <div className="text-[12px] text-muted-foreground leading-relaxed border-t border-border mt-[24px] pt-[16px] mb-[12px]">
+        <div className="text-[12px] text-muted-foreground leading-relaxed border-t border-border mt-[24px] pt-[16px] mb-[12px] lg:col-span-2 lg:mt-[28px]">
           ArchAngel Contractors · Shared via HALO. Questions? Just reply to the
           text that brought you here — we're happy to help.
         </div>
