@@ -136,7 +136,17 @@ type UnitStatus = {
 
 const OPEN_JOB = (j: Job) => j.status !== "cancelled" && j.status !== "complete" && !j.clearedAt && !j.completedAt;
 
-async function computeUnitStatuses(propertyId: string): Promise<Map<string, UnitStatus>> {
+async function computeUnitStatuses(
+  propertyId: string,
+): Promise<{ byUnit: Map<string, UnitStatus>; display: Map<string, string> }> {
+  // Remember the first raw label seen for each normalized key so units that
+  // only exist in HALO data (jobs/requests/invoices) can be materialized.
+  const display = new Map<string, string>();
+  const keyOf = (raw: string | null | undefined): string => {
+    const k = normUnit(raw);
+    if (k && !display.has(k)) display.set(k, String(raw).trim());
+    return k;
+  };
   const [jobs, requests, invoices, summaries] = await Promise.all([
     db.select().from(jobsTable).where(eq(jobsTable.propertyId, propertyId)),
     db.select().from(workRequestsTable).where(eq(workRequestsTable.propertyId, propertyId)),
@@ -157,12 +167,12 @@ async function computeUnitStatuses(propertyId: string): Promise<Map<string, Unit
   for (const inv of invoices) {
     const set = new Set<string>();
     const job = inv.jobId ? jobById.get(inv.jobId) : undefined;
-    if (job?.unitNo) set.add(normUnit(job.unitNo));
+    if (job?.unitNo) set.add(keyOf(job.unitNo));
     invoiceUnits.set(inv.id, set);
   }
   for (const li of lineItems) {
     if (!li.unitNo) continue;
-    invoiceUnits.get(li.invoiceId)?.add(normUnit(li.unitNo));
+    invoiceUnits.get(li.invoiceId)?.add(keyOf(li.unitNo));
   }
   const summaryByJob = new Map(summaries.map((s) => [s.jobId, s]));
 
@@ -185,7 +195,7 @@ async function computeUnitStatuses(propertyId: string): Promise<Map<string, Unit
   const DAY = 86_400_000;
 
   for (const job of jobs) {
-    const key = normUnit(job.unitNo);
+    const key = keyOf(job.unitNo);
     if (!key) continue;
     const s = get(key);
     if (OPEN_JOB(job)) {
@@ -209,7 +219,7 @@ async function computeUnitStatuses(propertyId: string): Promise<Map<string, Unit
   }
 
   for (const wr of requests) {
-    const key = normUnit(wr.unitNo);
+    const key = keyOf(wr.unitNo);
     if (!key || wr.status !== "pending") continue;
     raise(get(key), "yellow", `Work request pending: ${wr.serviceLabel}`);
   }
@@ -227,11 +237,13 @@ async function computeUnitStatuses(propertyId: string): Promise<Map<string, Unit
     }
   }
 
-  return byUnit;
+  return { byUnit, display };
 }
 
+const UNIT_TEMPLATE_SLOTS = 50;
+
 async function unitMapView(propertyId: string, viewer: Viewer, extracted?: number) {
-  const [[prop], [map], units, statuses] = await Promise.all([
+  const [[prop], [map], unitsInitial, { byUnit: statuses, display }] = await Promise.all([
     db.select().from(propertiesTable).where(eq(propertiesTable.id, propertyId)).limit(1),
     db.select().from(propertyMapsTable).where(eq(propertyMapsTable.propertyId, propertyId)).limit(1),
     db
@@ -241,6 +253,41 @@ async function unitMapView(propertyId: string, viewer: Viewer, extracted?: numbe
       .orderBy(asc(propertyUnitsTable.label)),
     computeUnitStatuses(propertyId),
   ]);
+
+  // Materialize units that only exist in HALO data (jobs, requests, invoices)
+  // so the standard box template picks them up automatically. Capped at the
+  // 50-slot template.
+  let units = unitsInitial;
+  const known = new Set(units.map((u) => normUnit(u.label)));
+  const missing = [...display.entries()].filter(([key]) => !known.has(key));
+  const room = UNIT_TEMPLATE_SLOTS - units.length;
+  if (missing.length && room > 0) {
+    // Stagger default coordinates in a 10-column grid so auto-created units
+    // don't stack at (0,0) on the office map canvas.
+    const startIdx = units.length;
+    await db
+      .insert(propertyUnitsTable)
+      .values(
+        missing.slice(0, room).map(([, label], i) => {
+          const slot = startIdx + i;
+          return {
+            propertyId,
+            label,
+            x: clamp01((slot % 10) * 0.1 + 0.005),
+            y: clamp01(Math.floor(slot / 10) * 0.1 + 0.005),
+            w: 0.09,
+            h: 0.08,
+          };
+        }),
+      )
+      .onConflictDoNothing();
+    units = await db
+      .select()
+      .from(propertyUnitsTable)
+      .where(eq(propertyUnitsTable.propertyId, propertyId))
+      .orderBy(asc(propertyUnitsTable.label));
+  }
+
   return {
     propertyName: prop?.name ?? "Your property",
     imageUrl: map?.imagePath ? storageUrl(map.imagePath) : null,
@@ -559,7 +606,7 @@ async function handleUnitSummary(req: Request, res: Response): Promise<void> {
     return;
   }
   const key = normUnit(unit.label);
-  const statuses = await computeUnitStatuses(scope.propertyId);
+  const { byUnit: statuses } = await computeUnitStatuses(scope.propertyId);
   const status = statuses.get(key) ?? { status: "green" as const, reasons: [], openJobs: 0, openInvoices: 0 };
 
   const jobs = (

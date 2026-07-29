@@ -53,5 +53,6 @@
 - [HALO client card digest](halo-client-card-digest.md) — new-card pings are an hourly scheduler sweep on notifiedAt, claim-before-send; per-account notifyNewCards toggle; email only (no Twilio helper yet).
 - [HALO client access control](halo-client-access.md) — client dashboard gates by effectivePermissions (NULL=role defaults); feature catalog+defaults server-side; seat-cap changes need FOR UPDATE tx.
 - [HALO client dashboard board](halo-client-dashboard.md) — /dashboard/:token PWA; HALO cards recomputed on read, client edits/overrides in client_board_cards; Bearer HMAC sessions; blocked actions audited, not errors.
+- [HALO client board UI](halo-client-board-ui.md) — stacked/unstacked modes: touch taps fire synthetic mouseenter, so hover is ignored on coarse pointers; units page is a fixed 50-box template auto-filled from HALO data.
 - [HALO unit map + hub CMS](halo-unit-map-cms.md) — unit boxes use fractional coords; statuses keyed by normalized unit label; new endpoints must hit both client-token and office mounts.
 - [HALO job timeline](halo-job-timeline.md) — JobFunnel 5-stage pipeline: /jobs/:id/events feed, manual-assign board sync is server-side + transactional, recap-then-close needs no-email fallback.

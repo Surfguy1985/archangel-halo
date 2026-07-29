@@ -72,54 +72,60 @@ export function CardDetailDialog({ card, token, readOnly, onClose }: CardDetailD
 
   return (
     <Dialog open={!!card} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-        <form onSubmit={handleSave}>
-          <DialogHeader>
-            <DialogTitle>Card Details</DialogTitle>
-            <DialogDescription>
-              {card.cardKey} • {card.template}
-            </DialogDescription>
-          </DialogHeader>
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-[28px] border-black/5 shadow-[0_24px_64px_rgba(0,0,0,0.15)] p-0">
+        <form onSubmit={handleSave} className="flex flex-col h-full">
+          <div className="px-8 pt-8 pb-4">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-[800] text-[#101c33]">Card Details</DialogTitle>
+              <DialogDescription className="font-[600] uppercase tracking-wider text-xs">
+                {card.cardKey} • {card.template}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <div className="flex flex-col gap-4 py-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="title">Title</Label>
+          <div className="flex flex-col gap-6 px-8 py-4">
+            <div className="flex flex-col gap-2.5">
+              <Label htmlFor="title" className="text-xs font-[800] uppercase tracking-widest text-muted-foreground">Title</Label>
               {isFullyEditable ? (
-                <Input id="title" value={title} onChange={e => setTitle(e.target.value)} required />
+                <Input id="title" value={title} onChange={e => setTitle(e.target.value)} required className="h-11 rounded-xl font-[600]" />
               ) : (
-                <div className="text-sm font-semibold">{card.title}</div>
+                <div className="text-[15px] font-[800] leading-snug">{card.title}</div>
               )}
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="description">Description</Label>
+            <div className="flex flex-col gap-2.5">
+              <Label htmlFor="description" className="text-xs font-[800] uppercase tracking-widest text-muted-foreground">Description</Label>
               {isFullyEditable ? (
-                <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} />
+                <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} className="rounded-xl min-h-[80px] font-[500]" />
               ) : (
-                <div className="text-sm">{card.description || <span className="text-muted-foreground italic">No description</span>}</div>
+                <div className="text-[13px] font-[500] leading-relaxed bg-black/[0.02] p-4 rounded-xl border border-black/5">
+                  {card.description || <span className="text-muted-foreground italic">No description provided</span>}
+                </div>
               )}
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="notes">Client Notes</Label>
+            <div className="flex flex-col gap-2.5">
+              <Label htmlFor="notes" className="text-xs font-[800] uppercase tracking-widest text-muted-foreground">Client Notes</Label>
               {isNotesEditable ? (
-                <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add private notes here..." />
+                <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add private notes here..." className="rounded-xl min-h-[80px] font-[500]" />
               ) : (
-                <div className="text-sm">{card.notes || <span className="text-muted-foreground italic">No notes</span>}</div>
+                <div className="text-[13px] font-[500] leading-relaxed bg-black/[0.02] p-4 rounded-xl border border-black/5">
+                  {card.notes || <span className="text-muted-foreground italic">No notes</span>}
+                </div>
               )}
             </div>
 
             {isFullyEditable && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="dueOn">Due Date</Label>
-                  <Input id="dueOn" type="date" value={dueOn} onChange={e => setDueOn(e.target.value)} />
+              <div className="grid grid-cols-2 gap-6">
+                <div className="flex flex-col gap-2.5">
+                  <Label htmlFor="dueOn" className="text-xs font-[800] uppercase tracking-widest text-muted-foreground">Due Date</Label>
+                  <Input id="dueOn" type="date" value={dueOn} onChange={e => setDueOn(e.target.value)} className="h-11 rounded-xl font-[600]" />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="priority">Priority</Label>
+                <div className="flex flex-col gap-2.5">
+                  <Label htmlFor="priority" className="text-xs font-[800] uppercase tracking-widest text-muted-foreground">Priority</Label>
                   <select
                     id="priority"
-                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    className="h-11 rounded-xl border border-input bg-background px-3 text-sm font-[600]"
                     value={priority}
                     onChange={e => setPriority(e.target.value)}
                   >
@@ -135,23 +141,25 @@ export function CardDetailDialog({ card, token, readOnly, onClose }: CardDetailD
             
             {/* Readonly info for context */}
             {!isFullyEditable && card.dueOn && (
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-muted-foreground">Due Date</span>
-                <span className="text-sm">{card.dueOn}</span>
+              <div className="flex flex-col gap-1.5 p-4 rounded-xl bg-black/[0.02] border border-black/5">
+                <span className="text-[10px] font-[800] uppercase tracking-widest text-muted-foreground">Due Date</span>
+                <span className="text-[13px] font-[800]">{card.dueOn}</span>
               </div>
             )}
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              {isNotesEditable || isFullyEditable ? 'Cancel' : 'Close'}
-            </Button>
-            {(isNotesEditable || isFullyEditable) && (
-              <Button type="submit" disabled={updateCard.isPending}>
-                {updateCard.isPending ? 'Saving...' : 'Save Changes'}
+          <div className="px-8 py-6 mt-2 bg-black/[0.015] border-t border-black/5">
+            <DialogFooter className="gap-3 sm:gap-0">
+              <Button type="button" variant="outline" onClick={onClose} className="h-10 rounded-xl font-[800]">
+                {isNotesEditable || isFullyEditable ? 'Cancel' : 'Close'}
               </Button>
-            )}
-          </DialogFooter>
+              {(isNotesEditable || isFullyEditable) && (
+                <Button type="submit" disabled={updateCard.isPending} className="h-10 rounded-xl bg-[#d8f84e] text-[#101c33] font-[800] shadow-[0_2px_12px_rgba(216,248,78,0.3)] hover:bg-[#c8e83e] hover:shadow-[0_4px_16px_rgba(216,248,78,0.4)]">
+                  {updateCard.isPending ? 'Saving...' : 'Save Changes'}
+                </Button>
+              )}
+            </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

@@ -2,6 +2,8 @@
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
 
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&display=swap');
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -39,7 +41,7 @@
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-destructive-border: hsl(var(--destructive-border));
 
-  --font-sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Geist", "Helvetica Neue", Arial, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: ui-monospace, Menlo, monospace;
 
@@ -50,79 +52,79 @@
 }
 
 :root {
-  --background: 48 14% 94%;
-  --foreground: 220 52% 13%;
+  --background: 220 10% 97%;
+  --foreground: 220 40% 10%;
 
   --card: 0 0% 100%;
-  --card-foreground: 220 52% 13%;
-  --card-border: 48 11% 88%;
+  --card-foreground: 220 40% 10%;
+  --card-border: 220 15% 92%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 220 52% 13%;
-  --popover-border: 48 11% 88%;
+  --popover-foreground: 220 40% 10%;
+  --popover-border: 220 15% 92%;
 
-  --primary: 71 92% 64%;
-  --primary-foreground: 220 52% 13%;
-  --primary-border: 71 92% 55%;
+  --primary: 69 92% 64%;
+  --primary-foreground: 220 50% 10%;
+  --primary-border: 69 92% 55%;
 
-  --secondary: 48 19% 92%;
-  --secondary-foreground: 220 52% 13%;
-  --secondary-border: 48 11% 88%;
+  --secondary: 220 15% 96%;
+  --secondary-foreground: 220 40% 10%;
+  --secondary-border: 220 15% 90%;
 
-  --muted: 45 15% 86%;
-  --muted-foreground: 47 7% 55%;
-  --muted-border: 45 15% 80%;
+  --muted: 220 15% 94%;
+  --muted-foreground: 220 15% 45%;
+  --muted-border: 220 15% 88%;
 
-  --accent: 71 92% 85%;
-  --accent-foreground: 220 52% 13%;
-  --accent-border: 71 92% 70%;
+  --accent: 69 92% 85%;
+  --accent-foreground: 220 40% 10%;
+  --accent-border: 69 92% 70%;
 
-  --destructive: 348 83% 47%;
+  --destructive: 348 83% 50%;
   --destructive-foreground: 0 0% 100%;
-  --destructive-border: 348 83% 40%;
+  --destructive-border: 348 83% 45%;
 
-  --border: 48 11% 88%;
-  --input: 48 11% 88%;
-  --ring: 71 92% 64%;
+  --border: 220 15% 92%;
+  --input: 220 15% 92%;
+  --ring: 69 92% 64%;
 
-  --radius: 0.75rem;
+  --radius: 1.25rem;
 }
 
 .dark {
-  --background: 220 52% 13%;
-  --foreground: 48 14% 94%;
+  --background: 220 40% 6%;
+  --foreground: 220 10% 98%;
 
-  --card: 220 40% 18%;
-  --card-foreground: 48 14% 94%;
-  --card-border: 220 30% 25%;
+  --card: 220 35% 10%;
+  --card-foreground: 220 10% 98%;
+  --card-border: 220 30% 15%;
 
-  --popover: 220 40% 18%;
-  --popover-foreground: 48 14% 94%;
-  --popover-border: 220 30% 25%;
+  --popover: 220 35% 10%;
+  --popover-foreground: 220 10% 98%;
+  --popover-border: 220 30% 15%;
 
-  --primary: 71 92% 64%;
-  --primary-foreground: 220 52% 13%;
-  --primary-border: 71 92% 55%;
+  --primary: 69 92% 64%;
+  --primary-foreground: 220 50% 10%;
+  --primary-border: 69 92% 55%;
 
-  --secondary: 220 40% 25%;
-  --secondary-foreground: 48 14% 94%;
-  --secondary-border: 220 30% 35%;
+  --secondary: 220 30% 12%;
+  --secondary-foreground: 220 10% 98%;
+  --secondary-border: 220 30% 18%;
 
-  --muted: 220 30% 20%;
-  --muted-foreground: 220 20% 65%;
-  --muted-border: 220 30% 25%;
+  --muted: 220 30% 12%;
+  --muted-foreground: 220 15% 65%;
+  --muted-border: 220 30% 18%;
 
-  --accent: 220 40% 30%;
-  --accent-foreground: 48 14% 94%;
-  --accent-border: 220 30% 40%;
+  --accent: 220 30% 16%;
+  --accent-foreground: 220 10% 98%;
+  --accent-border: 220 30% 22%;
 
-  --destructive: 348 83% 47%;
+  --destructive: 348 83% 50%;
   --destructive-foreground: 0 0% 100%;
-  --destructive-border: 348 83% 40%;
+  --destructive-border: 348 83% 45%;
 
-  --border: 220 30% 25%;
-  --input: 220 30% 25%;
-  --ring: 71 92% 64%;
+  --border: 220 30% 15%;
+  --input: 220 30% 15%;
+  --ring: 69 92% 64%;
 }
 
 @layer base {
@@ -132,28 +134,29 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background-image: radial-gradient(at 0% 0%, hsla(69, 92%, 64%, 0.06) 0px, transparent 40%),
+                      radial-gradient(at 100% 100%, hsla(220, 40%, 10%, 0.04) 0px, transparent 50%);
+    background-attachment: fixed;
   }
 }
 
 /* Kanban custom utilities */
 .kanban-lane-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 .kanban-lane-scroll::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 3px;
+  background: hsl(var(--muted-foreground) / 0.15);
+  border-radius: 5px;
 }
 .kanban-lane-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
-
-/* Card snap-in animation after a drag-and-drop move */
-@keyframes card-snap {
-  0% { transform: scale(1.04) translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.18); }
-  60% { transform: scale(0.985) translateY(1px); }
-  100% { transform: scale(1) translateY(0); box-shadow: none; }
+.kanban-lane-scroll:hover::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
 }
+
+/* Framer motion handles the physical layout changes now, but keeping class for back-compat */
 .card-snap {
-  animation: card-snap 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  /* empty */
 }

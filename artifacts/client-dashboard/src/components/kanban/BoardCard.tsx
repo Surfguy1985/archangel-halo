@@ -23,13 +23,6 @@ interface BoardCardProps {
   onDragEnd: (e: React.DragEvent) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Card anatomy (from the uploaded halo-board-templates spec):
-// uniform 340x430 frame, 9 fixed regions — sla_rail, identity, title,
-// context, metric_triad (exactly 3), evidence (fixed 130px), labels,
-// decision (always two buttons), footer. Only bound values change.
-// ---------------------------------------------------------------------------
-
 type Metric = { label: string; value: string; tone: MetricTone };
 
 function parseLocalDate(s: string): Date {
@@ -39,8 +32,8 @@ function parseLocalDate(s: string): Date {
 
 function slaPercent(card: ClientBoardCardView, targetDays: number): number {
   const due = card.dueOn || card.scheduledOn;
-  if (!due) return 30; // no clock — render calm green fill
-  const dueMs = parseLocalDate(due).getTime() + 86_400_000; // end of day
+  if (!due) return 30;
+  const dueMs = parseLocalDate(due).getTime() + 86_400_000;
   const startMs = dueMs - targetDays * 86_400_000;
   const pct = ((Date.now() - startMs) / (dueMs - startMs)) * 100;
   return Math.max(4, Math.min(140, pct));
@@ -95,7 +88,7 @@ function metricsFor(card: ClientBoardCardView): [Metric, Metric, Metric] {
         { label: 'PRIORITY', value: (card.priority ?? 'none').toUpperCase(), tone: card.priority === 'urgent' || card.priority === 'high' ? 'bad' : 'mute' },
         { label: 'LANE', value: card.lane.replace('_', ' ').toUpperCase(), tone: 'ink' },
       ];
-    default: // job / makeready
+    default:
       return [
         { label: card.scheduledOn ? 'SCHED' : 'DUE', value: fmtDue(due), tone: dueTone },
         { label: 'STAGE', value: `${pct}%`, tone: pctTone },
@@ -115,10 +108,10 @@ function alertLabels(card: ClientBoardCardView): { name: string; color: string }
   const out: { name: string; color: string }[] = [];
   const due = card.dueOn || card.scheduledOn;
   if (due && parseLocalDate(due).getTime() + 86_400_000 < Date.now() && card.lane !== 'done')
-    out.push({ name: 'Overdue', color: '#c25a1e' });
-  if (card.priority === 'urgent') out.push({ name: 'Sev 1', color: '#b23a2e' });
-  if (card.template !== 'custom') out.push({ name: 'Auto-generated', color: '#4a6070' });
-  if (card.photos && card.photos.length > 0) out.push({ name: 'Photo evidence', color: '#5c7a28' });
+    out.push({ name: 'Overdue', color: '#e11d48' });
+  if (card.priority === 'urgent') out.push({ name: 'Sev 1', color: '#be123c' });
+  if (card.template !== 'custom') out.push({ name: 'Auto-gen', color: '#475569' });
+  if (card.photos && card.photos.length > 0) out.push({ name: 'Evidence', color: '#65a30d' });
   return out.slice(0, 3);
 }
 
@@ -161,21 +154,19 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
     );
   };
 
-  // Decision row: always two buttons in the same place.
   const actionBtns = (card.actions ?? []).filter((a) => a.kind !== 'link');
   const linkBtns = (card.actions ?? []).filter((a) => a.kind === 'link');
   const primaryBtn = actionBtns.find((a) => a.kind === 'primary') ?? linkBtns[0] ?? actionBtns[0];
-  const secondaryBtn =
-    (card.actions ?? []).find((a) => a !== primaryBtn) ?? null;
+  const secondaryBtn = (card.actions ?? []).find((a) => a !== primaryBtn) ?? null;
 
   const renderDecision = (btn: typeof primaryBtn | undefined, primary: boolean) => {
     const cls = primary
-      ? 'flex-1 h-8 rounded-lg bg-[#d8f84e] text-[#101c33] text-[10.5px] font-extrabold uppercase tracking-wide hover:brightness-95 disabled:opacity-50'
-      : 'flex-1 h-8 rounded-lg border text-[10.5px] font-extrabold uppercase tracking-wide text-[#101c33] hover:bg-black/5 disabled:opacity-50';
-    const style = primary ? undefined : { borderColor: d.border };
+      ? 'flex-1 h-[40px] rounded-[14px] bg-[#d8f84e] text-[#101c33] text-[11px] font-[800] uppercase tracking-wider shadow-[0_2px_12px_rgba(216,248,78,0.3)] hover:shadow-[0_4px_16px_rgba(216,248,78,0.4)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:active:scale-100'
+      : 'flex-1 h-[40px] rounded-[14px] border border-black/10 bg-white shadow-sm text-[11px] font-[800] uppercase tracking-wider text-[#101c33] hover:bg-black/[0.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:active:scale-100';
+    
     if (!btn)
       return (
-        <div className={cls} style={{ ...style, opacity: 0.35, pointerEvents: 'none' as const, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className={cls} style={{ opacity: 0.35, pointerEvents: 'none' as const, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           —
         </div>
       );
@@ -187,7 +178,6 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}
           className={`${cls} flex items-center justify-center`}
-          style={style}
         >
           {btn.label}
         </a>
@@ -198,31 +188,29 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
         disabled={isDispatching || readOnly}
         onClick={(e) => handleAction(e, btn.key)}
         className={cls}
-        style={style}
       >
         {btn.label}
       </button>
     );
   };
 
-  // Evidence block — fixed 130px whatever it holds; overflow clipped.
   const renderEvidence = () => {
     if (card.photos && card.photos.length > 0) {
       const pair = card.photos.slice(0, 2);
       return (
-        <div className="grid h-full grid-cols-2 gap-1.5">
+        <div className="grid h-full grid-cols-2 gap-2">
           {pair.map((p, i) => (
-            <div key={i} className="relative overflow-hidden rounded-lg border" style={{ borderColor: d.hairline }}>
-              <img src={p.url} alt={p.phase ?? 'photo'} className="h-full w-full object-cover" />
+            <div key={i} className="relative overflow-hidden rounded-[14px] border border-black/5 shadow-inner">
+              <img src={p.url} alt={p.phase ?? 'photo'} className="h-full w-full object-cover transition-transform duration-500 hover:scale-110" />
               {p.phase && (
-                <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wider text-white">
+                <span className="absolute left-2 top-2 rounded-md bg-black/60 backdrop-blur-md px-1.5 py-0.5 text-[8.5px] font-[800] uppercase tracking-wider text-white shadow-sm">
                   {p.phase}
                 </span>
               )}
             </div>
           ))}
           {pair.length === 1 && (
-            <div className="flex items-center justify-center rounded-lg border border-dashed text-[9px] font-bold uppercase text-[#8c8a81]" style={{ borderColor: d.border }}>
+            <div className="flex items-center justify-center rounded-[14px] border-2 border-dashed border-black/5 bg-black/[0.01] text-[10px] font-bold uppercase text-[#8c8a81]">
               Awaiting after
             </div>
           )}
@@ -231,59 +219,59 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
     }
     if (card.template === 'crew' && card.crew) {
       return (
-        <div className="flex h-full flex-col justify-center gap-2 rounded-lg px-3" style={{ background: d.footer }}>
-          <div className="flex items-center gap-2.5">
+        <div className="flex h-full flex-col justify-center gap-2 rounded-[14px] px-4 border border-black/5 bg-white shadow-sm">
+          <div className="flex items-center gap-3">
             {card.crew.selfieUrl ? (
-              <img src={card.crew.selfieUrl} alt={card.crew.name} className="h-10 w-10 rounded-full object-cover" />
+              <img src={card.crew.selfieUrl} alt={card.crew.name} className="h-11 w-11 rounded-full object-cover shadow-sm border border-black/5" />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-sm font-extrabold" style={{ color: spec.accent }}>
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black/5 shadow-inner text-sm font-extrabold text-[#101c33]">
                 {card.crew.name.slice(0, 1)}
               </div>
             )}
             <div className="min-w-0">
-              <div className="truncate text-[12px] font-bold text-[#101c33]">{card.crew.name}</div>
-              <div className="text-[10px] font-semibold text-[#6e6c63]">{card.crew.trade ?? 'Crew'}</div>
+              <div className="truncate text-[13px] font-[800] text-[#101c33] leading-tight">{card.crew.name}</div>
+              <div className="text-[11px] font-[600] text-muted-foreground">{card.crew.trade ?? 'Crew'}</div>
             </div>
             <span
-              className="ml-auto rounded-full px-2 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wider"
+              className="ml-auto rounded-md px-2 py-0.5 text-[9px] font-[800] uppercase tracking-wider shadow-sm"
               style={card.crew.onSite ? { background: '#dcefe4', color: TONES.good } : { background: '#edebe4', color: '#6e6c63' }}
             >
               {card.crew.onSite ? 'On site' : 'Off site'}
             </span>
           </div>
           {card.crew.lastSeenAt && (
-            <div className="text-[9.5px] font-semibold text-[#6e6c63]">
+            <div className="text-[10px] font-[600] text-muted-foreground mt-1">
               Last seen {format(new Date(card.crew.lastSeenAt), 'MMM d, h:mm a')}
             </div>
           )}
         </div>
       );
     }
-    // Checklist-style fallback: description / notes lines.
+    
     const lines = [card.description, card.notes]
       .filter(Boolean)
       .join('\n')
       .split('\n')
       .filter((l) => l.trim())
       .slice(0, 3);
+      
     return (
-      <div className="flex h-full flex-col justify-center gap-1.5 overflow-hidden rounded-lg px-3 py-2" style={{ background: d.footer }}>
+      <div className="flex h-full flex-col justify-center gap-2.5 overflow-hidden rounded-[14px] px-4 py-3 border border-black/5 bg-white shadow-sm">
         {lines.length > 0 ? (
           lines.map((l, i) => (
-            <div key={i} className="flex items-start gap-2">
-              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: spec.accent }} />
-              <span className="line-clamp-1 text-[10.5px] font-semibold text-[#101c33]">{l}</span>
+            <div key={i} className="flex items-start gap-2.5">
+              <span className="mt-1.5 h-[5px] w-[5px] shrink-0 rounded-full shadow-sm" style={{ background: spec.accent }} />
+              <span className="line-clamp-1 text-[11.5px] font-[600] text-[#101c33] leading-snug">{l}</span>
             </div>
           ))
         ) : (
-          <span className="text-[10px] font-semibold italic text-[#8c8a81]">No evidence yet</span>
+          <span className="text-[11px] font-[600] italic text-muted-foreground">No evidence yet</span>
         )}
       </div>
     );
   };
 
-  const stageChip =
-    card.pipeline && card.stageIndex != null && card.stageIndex < card.pipeline.length
+  const stageChip = card.pipeline && card.stageIndex != null && card.stageIndex < card.pipeline.length
       ? card.pipeline[card.stageIndex]
       : null;
 
@@ -293,100 +281,100 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={`group relative flex h-[430px] w-full flex-col overflow-hidden rounded-[14px] border shadow-sm transition-shadow hover:shadow-md ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
-      style={{ background: d.cardBg, borderColor: d.border }}
+      className={`group relative flex h-[430px] w-full flex-col overflow-hidden rounded-[24px] border shadow-[0_4px_24px_rgba(0,0,0,0.03)] transition-all duration-300 hover:shadow-[0_8px_32px_rgba(0,0,0,0.06)] bg-white ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      style={{ borderColor: 'rgba(0,0,0,0.06)' }}
     >
-      {/* 1 — SLA rail (3px, computed) */}
-      <div className="h-[3px] w-full shrink-0" style={{ background: d.railTrack }}>
-        <div className="h-full" style={{ width: `${Math.min(100, heat)}%`, background: rail }} />
+      {/* SLA rail glowing track */}
+      <div className="h-[4px] w-full shrink-0 relative overflow-hidden bg-black/5">
+        <div className="h-full absolute left-0 top-0 transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, heat)}%`, background: rail, boxShadow: `0 0 10px ${rail}` }} />
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-3">
-        {/* 2 — identity: category dot · code (mono) · priority · column */}
+      <div className="flex flex-1 flex-col gap-3 p-5 pt-4">
+        {/* Identity */}
         <div className="flex h-[24px] items-center gap-2">
-          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: spec.accent }} />
-          <span className="font-mono text-[10px] font-bold tracking-tight text-[#101c33]">{cardCode(card)}</span>
+          <span className="h-2 w-2 shrink-0 rounded-sm shadow-sm" style={{ background: spec.accent }} />
+          <span className="font-mono text-[11px] font-[800] tracking-tight text-[#101c33]">{cardCode(card)}</span>
           <span
-            className="rounded px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wider"
+            className="rounded-md px-1.5 py-0.5 text-[8.5px] font-[800] uppercase tracking-wider shadow-sm"
             style={{ background: prio.bg, color: prio.fg }}
           >
             {card.priority ?? 'none'}
           </span>
           {stageChip && (
-            <span className="ml-auto truncate rounded px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-wider" style={{ background: d.unitChip, color: '#101c33' }}>
+            <span className="ml-auto truncate rounded-md px-2 py-0.5 text-[8.5px] font-[800] uppercase tracking-wider shadow-sm" style={{ background: d.unitChip, color: '#101c33' }}>
               {stageChip}
             </span>
           )}
         </div>
 
-        {/* 3 — title: two lines, clamped */}
-        <h3 className="line-clamp-2 h-[42px] text-[14.5px] font-[650] leading-tight text-[#101c33]">
+        {/* Title */}
+        <h3 className="line-clamp-2 h-[44px] text-[16px] font-[800] leading-tight text-[#101c33]">
           {card.title}
         </h3>
 
-        {/* 4 — context: unit chip + source/refs, single line */}
-        <div className="flex h-[24px] items-center gap-1.5 overflow-hidden">
+        {/* Context */}
+        <div className="flex h-[24px] items-center gap-2 overflow-hidden">
           {card.unitNo && (
-            <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-extrabold" style={{ background: d.unitChip, color: '#101c33' }}>
+            <span className="shrink-0 rounded-md px-1.5 py-0.5 text-[9.5px] font-[800] shadow-sm" style={{ background: d.unitChip, color: '#101c33' }}>
               {card.unitNo}
             </span>
           )}
-          <span className="truncate text-[10.5px] font-semibold text-[#6e6c63]">
+          <span className="truncate text-[11px] font-[700] text-muted-foreground">
             {card.subtitle || spec.categoryLabel}
           </span>
         </div>
 
-        {/* 5 — metric triad: exactly three, equal thirds */}
-        <div className="grid h-[62px] grid-cols-3 divide-x rounded-lg border" style={{ borderColor: d.hairline }}>
+        {/* Metric triad */}
+        <div className="grid h-[64px] grid-cols-3 divide-x divide-black/5 rounded-[14px] bg-black/[0.015] border border-black/5 shadow-inner">
           {metrics.map((m, i) => (
-            <div key={i} className="flex flex-col items-center justify-center gap-0.5 px-1" style={{ borderColor: d.hairline }}>
-              <span className="text-[8px] font-extrabold uppercase tracking-widest text-[#8c8a81]">{m.label}</span>
-              <span className="max-w-full truncate text-[15px] font-bold" style={{ color: TONES[m.tone] }}>
+            <div key={i} className="flex flex-col items-center justify-center gap-0.5 px-1">
+              <span className="text-[8.5px] font-[800] uppercase tracking-widest text-muted-foreground">{m.label}</span>
+              <span className="max-w-full truncate text-[15px] font-[800]" style={{ color: TONES[m.tone] }}>
                 {m.value}
               </span>
             </div>
           ))}
         </div>
 
-        {/* 6 — evidence: fixed height, clipped */}
-        <div className="h-[118px] shrink-0 overflow-hidden">{renderEvidence()}</div>
+        {/* Evidence */}
+        <div className="h-[114px] shrink-0 overflow-hidden">{renderEvidence()}</div>
 
-        {/* 7 — labels: category first, then alerts */}
-        <div className="flex h-[22px] items-center gap-1 overflow-hidden">
-          <span className="shrink-0 rounded-full px-2 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wider text-white" style={{ background: spec.accent }}>
+        {/* Labels & Tags */}
+        <div className="flex h-[24px] items-center gap-1.5 overflow-hidden">
+          <span className="shrink-0 rounded-md px-2 py-0.5 text-[9px] font-[800] uppercase tracking-wider text-white shadow-sm" style={{ background: spec.accent }}>
             {spec.categoryLabel}
           </span>
           {labels.map((l) => (
-            <span key={l.name} className="shrink-0 rounded-full px-2 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wider text-white" style={{ background: l.color }}>
+            <span key={l.name} className="shrink-0 rounded-md px-2 py-0.5 text-[9px] font-[800] uppercase tracking-wider text-white shadow-sm" style={{ background: l.color }}>
               {l.name}
             </span>
           ))}
         </div>
-
-        {/* 8 — decision: always two buttons in the same place */}
-        <div className="flex h-[36px] items-stretch gap-1.5">
-          {renderDecision(primaryBtn, true)}
-          {renderDecision(secondaryBtn ?? undefined, false)}
-        </div>
       </div>
 
-      {/* 9 — footer: owner · live clock coloured by the rail · photos */}
-      <div className="flex h-[38px] shrink-0 items-center gap-2 px-3" style={{ background: d.footer }}>
+      {/* Decision row pushes to bottom, slightly overlaying footer area visually if we wanted, but let's keep it clean */}
+      <div className="flex h-[40px] shrink-0 items-stretch gap-2 px-5 mb-4">
+        {renderDecision(primaryBtn, true)}
+        {renderDecision(secondaryBtn ?? undefined, false)}
+      </div>
+
+      {/* Footer */}
+      <div className="flex h-[44px] shrink-0 items-center gap-3 px-5 border-t border-black/5 bg-black/[0.015]">
         {card.crew?.selfieUrl ? (
-          <img src={card.crew.selfieUrl} alt={card.crew.name} className="h-6 w-6 rounded-full object-cover" />
+          <img src={card.crew.selfieUrl} alt={card.crew.name} className="h-6 w-6 rounded-full object-cover shadow-sm" />
         ) : (
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white">
-            <User className="h-3.5 w-3.5" style={{ color: spec.accent }} />
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm border border-black/5">
+            <User className="h-3 w-3" style={{ color: spec.accent }} />
           </div>
         )}
-        <span className="truncate text-[10px] font-bold text-[#101c33]">
+        <span className="truncate text-[10.5px] font-[800] text-[#101c33]">
           {card.crew?.name ?? (card.template === 'custom' ? 'Your card' : 'Unassigned')}
         </span>
-        <span className="ml-auto text-[10px] font-extrabold" style={{ color: rail }}>
+        <span className="ml-auto text-[10.5px] font-[800]" style={{ color: rail }}>
           {fmtDue(card.dueOn || card.scheduledOn)}
         </span>
         {card.photos && card.photos.length > 0 && (
-          <span className="flex items-center gap-1 text-[10px] font-bold text-[#6e6c63]">
+          <span className="flex items-center gap-1 text-[10.5px] font-[800] text-muted-foreground">
             <Camera className="h-3 w-3" />
             {card.photos.length}
           </span>
