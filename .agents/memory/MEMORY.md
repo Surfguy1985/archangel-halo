@@ -57,4 +57,5 @@
 - [HALO crew command center](halo-crew-command-center.md) — live crew map rules: per-crew last-checkin lookup, escape divIcon HTML, invoice send_back needs a note, keep photo-share UI reachable in restyles.
 - [HALO job timeline](halo-job-timeline.md) — JobFunnel 5-stage pipeline: /jobs/:id/events feed, manual-assign board sync is server-side + transactional, recap-then-close needs no-email fallback.
 - [Dev-banner 502 under base paths](halo-dev-banner-502.md) — Replit dev-banner script is root-relative; base-pathed artifacts must rebase+serve it or every load 502s when root app is down.
+- [HALO merge corruption](halo-merge-corruption.md) — task merges have garbled route handlers before; if typecheck fails in an untouched file, restore from last clean git version + db push.
 - [HALO crew message attachments](halo-message-attachments.md) — crew_messages carry attachmentName/Path; invoice PDFs are client-generated (jsPDF) and delivered into the thread; all thread UIs must render attachments.

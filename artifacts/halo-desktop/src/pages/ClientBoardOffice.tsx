@@ -8,6 +8,8 @@ import {
   useUpdateOfficeClientBoardCard,
   useDeleteOfficeClientBoardCard,
   usePushClientBoardCard,
+  useGetClientBoardPushQuickPicks,
+  getGetClientBoardPushQuickPicksQueryKey,
   type ClientBoardFeedCard,
 } from "@workspace/api-client-react";
 import {
@@ -316,6 +318,15 @@ function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string
   const [dueDate, setDueDate] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [linkLabel, setLinkLabel] = useState("Open");
+  // Dedupe source + job ref set by quick-picks; cleared when the user edits by hand.
+  const [source, setSource] = useState<{ type: string; id: string; jobId?: string } | null>(null);
+
+  const { data: quickPicks } = useGetClientBoardPushQuickPicks(propertyId, {
+    query: {
+      queryKey: getGetClientBoardPushQuickPicksQueryKey(propertyId),
+      enabled: open,
+    },
+  });
 
   useEffect(() => {
     if (open) {
@@ -326,8 +337,30 @@ function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string
       setDueDate("");
       setLinkUrl("");
       setLinkLabel("Open");
+      setSource(null);
     }
   }, [open]);
+
+  const pickInvoice = (inv: NonNullable<typeof quickPicks>["invoices"][number]) => {
+    setKind("invoice");
+    setTitle(`Invoice ${inv.invoiceNo}`);
+    setAmount(String(inv.amount));
+    setDueDate(inv.dueDate ?? "");
+    setLinkUrl(inv.payUrl ?? "");
+    setLinkLabel(inv.payUrl ? "Pay now" : "Open");
+    setSource({ type: "invoice", id: inv.id });
+  };
+
+  const pickTracker = (t: NonNullable<typeof quickPicks>["trackers"][number]) => {
+    setKind("tracker");
+    setTitle(`Live tracker — Job ${t.jobNo}`);
+    setBody(t.description || `Watch crew arrivals, GPS check-ins, and photos live for job ${t.jobNo}.`);
+    setAmount("");
+    setDueDate("");
+    setLinkUrl(t.trackerUrl);
+    setLinkLabel("Watch live");
+    setSource({ type: "tracker", id: t.jobId, jobId: t.jobId });
+  };
 
   const handleSubmit = () => {
     push.mutate(
@@ -341,6 +374,9 @@ function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string
           dueDate: (kind === "invoice" || kind === "payment_request") && dueDate ? dueDate : null,
           linkUrl: linkUrl.trim() || null,
           linkLabel: linkUrl.trim() ? linkLabel.trim() || "Open" : null,
+          sourceType: source?.type ?? null,
+          sourceId: source?.id ?? null,
+          jobId: source?.jobId ?? null,
         },
       },
       {
@@ -377,6 +413,60 @@ function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string
         </DialogHeader>
 
         <div className="space-y-5">
+          {quickPicks && (quickPicks.invoices.length > 0 || quickPicks.trackers.length > 0) && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#101c33]">Quick picks</label>
+                {source && (
+                  <button
+                    type="button"
+                    onClick={() => setSource(null)}
+                    className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                    data-testid="button-clear-quick-pick"
+                  >
+                    Clear selection
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto">
+                {quickPicks.invoices.map((inv) => (
+                  <button
+                    key={inv.id}
+                    type="button"
+                    onClick={() => pickInvoice(inv)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors flex items-center gap-1.5 ${
+                      source?.type === "invoice" && source.id === inv.id
+                        ? "bg-[#B4FF44] border-[#B4FF44] text-black"
+                        : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                    }`}
+                    data-testid={`button-quick-pick-invoice-${inv.invoiceNo}`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    {inv.invoiceNo} · ${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </button>
+                ))}
+                {quickPicks.trackers.map((t) => (
+                  <button
+                    key={t.jobId}
+                    type="button"
+                    onClick={() => pickTracker(t)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors flex items-center gap-1.5 ${
+                      source?.type === "tracker" && source.id === t.jobId
+                        ? "bg-[#B4FF44] border-[#B4FF44] text-black"
+                        : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                    }`}
+                    data-testid={`button-quick-pick-tracker-${t.jobNo}`}
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    Job {t.jobNo}{t.unitNo ? ` · Unit ${t.unitNo}` : ""} tracker
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Tap an unpaid invoice or a live job tracker to prefill the card.
+              </p>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-[#101c33] mb-2">Card Type</label>
             <div className="flex flex-wrap gap-2">

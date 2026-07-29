@@ -16,8 +16,8 @@ description: Client dashboard board view modes, touch-expansion quirk, and the f
 
 ## Template-driven card grammar
 - Card styling (accent/pipeline/prefix) comes from a client-side template spec registry; API template ids are mapped through an alias table — any new API template id must be added to that alias map or its cards silently render with the wrong accent/pipeline.
-- Triage sheet in board.tsx lists urgent/high, past-due, and requested-lane cards; Defer is client-side only (in-memory dismiss); read-only viewers get the login dialog instead of dispatching actions.
-- Create Card button is visible to guests by design (click → login dialog); template picker encodes the chosen template name in notes/description because the create API has no template field.
+- Triage sheet in board.tsx lists urgent/high, past-due, and requested-lane cards; Defer persists server-side via the `card.snoozed` action (snoozedUntil on the override row); read-only viewers get the login dialog instead of dispatching actions.
+- Create Card button is visible to guests by design (click → login dialog); the create API carries a first-class `template` field (validated server-side), with legacy notes-encoded template names still decoded for old cards.
 - Header has BOTH `button-map-view` (crew map /map, tour target — must keep) and `button-site-map` (units grid /units).
 ## Fixed-seed spec rebuild (Jul 2026)
 Board now follows the uploaded fixed-seed spec (attached_assets/REPLIT_PROMPT_1785304749112.md, sections 2-5): every card is a fixed 340x430 nine-region frame, all surfaces color-mix derived from the category accent hex, navy pulse rail + category chip toolbar in the chrome.

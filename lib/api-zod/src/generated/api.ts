@@ -7674,7 +7674,12 @@ export const PushClientBoardCardResponse = zod.object({
   "notifySkippedReason": zod.string().nullish().describe('off | no_contact | send_failed when notified is false')
 })
 
-
+/**
+ * @summary Real entities the Push Card composer can prefill from — unpaid invoices and live job trackers
+ */
+export const GetClientBoardPushQuickPicksParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
 /**
  * @summary Send the branded onboarding email/SMS with the dashboard link
  */
@@ -9136,3 +9141,22 @@ export const OfficeDeleteHubItemResponse = zod.object({
   "ok": zod.boolean()
 })
 
+
+export const GetClientBoardPushQuickPicksResponse = zod.object({
+  "invoices": zod.array(zod.object({
+  "id": zod.string(),
+  "invoiceNo": zod.string(),
+  "amount": zod.number().describe('Total including tax'),
+  "status": zod.string().optional(),
+  "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
+  "payUrl": zod.string().nullish().describe('Absolute pay link when an unpaid payment request covers this invoice'),
+  "billToName": zod.string().nullish()
+})),
+  "trackers": zod.array(zod.object({
+  "jobId": zod.string(),
+  "jobNo": zod.string(),
+  "description": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "trackerUrl": zod.string().describe('Absolute live tracker link')
+}))
+})

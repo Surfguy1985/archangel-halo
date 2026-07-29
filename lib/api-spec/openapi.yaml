@@ -5672,6 +5672,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /admin/accounts/{propertyId}/board/push/quick-picks:
+    get:
+      operationId: getClientBoardPushQuickPicks
+      tags: [admin]
+      summary: Real entities the Push Card composer can prefill from — unpaid invoices and live job trackers
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Quick-pick candidates for this property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientCardQuickPicksRec"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /admin/accounts/{propertyId}/onboarding/send:
     post:
       operationId: sendClientOnboarding
@@ -7966,6 +7989,38 @@ components:
         notified: { type: boolean, description: "True if the instant email went out" }
         notifiedTo: { type: ["string", "null"] }
         notifySkippedReason: { type: ["string", "null"], description: "off | no_contact | send_failed when notified is false" }
+    ClientCardQuickPickInvoice:
+      type: object
+      required: [id, invoiceNo, amount]
+      properties:
+        id: { type: string }
+        invoiceNo: { type: string }
+        amount: { type: number, description: "Total including tax" }
+        status: { type: string }
+        dueDate: { type: ["string", "null"], description: "YYYY-MM-DD" }
+        payUrl: { type: ["string", "null"], description: "Absolute pay link when an unpaid payment request covers this invoice" }
+        billToName: { type: ["string", "null"] }
+    ClientCardQuickPickTracker:
+      type: object
+      required: [jobId, jobNo, trackerUrl]
+      properties:
+        jobId: { type: string }
+        jobNo: { type: string }
+        description: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        trackerUrl: { type: string, description: "Absolute live tracker link" }
+    ClientCardQuickPicksRec:
+      type: object
+      required: [invoices, trackers]
+      properties:
+        invoices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientCardQuickPickInvoice"
+        trackers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientCardQuickPickTracker"
     OnboardingSendInput:
       type: object
       required: [channel, to]

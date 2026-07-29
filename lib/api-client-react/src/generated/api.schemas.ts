@@ -720,6 +720,25 @@ export interface ClientCardPushRec {
   notifySkippedReason?: string | null;
 }
 
+export interface ClientCardQuickPickInvoice {
+  id: string;
+  invoiceNo: string;
+  /** Total including tax */
+  amount: number;
+  status?: string;
+  /**
+     * YYYY-MM-DD
+     * @nullable
+     */
+  dueDate?: string | null;
+  /**
+     * Absolute pay link when an unpaid payment request covers this invoice
+     * @nullable
+     */
+  payUrl?: string | null;
+  /** @nullable */
+  billToName?: string | null;
+}
 export interface OnboardingSendInput {
   /** email | sms */
   channel: string;
@@ -5293,3 +5312,19 @@ jobId?: string;
 export type ListWorkRequestsParams = {
 status?: string;
 };
+
+export interface ClientCardQuickPickTracker {
+  jobId: string;
+  jobNo: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** Absolute live tracker link */
+  trackerUrl: string;
+}
+
+export interface ClientCardQuickPicksRec {
+  invoices: ClientCardQuickPickInvoice[];
+  trackers: ClientCardQuickPickTracker[];
+}

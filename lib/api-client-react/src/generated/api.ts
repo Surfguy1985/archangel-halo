@@ -87,6 +87,7 @@ import type {
   ClientBoardWebhookView,
   ClientCardPushInput,
   ClientCardPushRec,
+  ClientCardQuickPicksRec,
   ClientCredentialIssued,
   ClientHubView,
   ClientPasswordResetInput,
@@ -18813,6 +18814,83 @@ export const usePushClientBoardCard = <TError = ErrorType<Error>,
       > => {
       return useMutation(getPushClientBoardCardMutationOptions(options));
     }
+
+export const getGetClientBoardPushQuickPicksUrl = (propertyId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/push/quick-picks`
+}
+
+/**
+ * @summary Real entities the Push Card composer can prefill from — unpaid invoices and live job trackers
+ */
+export const getClientBoardPushQuickPicks = async (propertyId: string, options?: RequestInit): Promise<ClientCardQuickPicksRec> => {
+
+  return customFetch<ClientCardQuickPicksRec>(getGetClientBoardPushQuickPicksUrl(propertyId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientBoardPushQuickPicksQueryKey = (propertyId: string,) => {
+    return [
+    `/api/admin/accounts/${propertyId}/board/push/quick-picks`
+    ] as const;
+    }
+
+
+export const getGetClientBoardPushQuickPicksQueryOptions = <TData = Awaited<ReturnType<typeof getClientBoardPushQuickPicks>>, TError = ErrorType<Error>>(propertyId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBoardPushQuickPicks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientBoardPushQuickPicksQueryKey(propertyId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientBoardPushQuickPicks>>> = ({ signal }) => getClientBoardPushQuickPicks(propertyId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: propertyId !== null && propertyId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientBoardPushQuickPicks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientBoardPushQuickPicksQueryResult = NonNullable<Awaited<ReturnType<typeof getClientBoardPushQuickPicks>>>
+export type GetClientBoardPushQuickPicksQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Real entities the Push Card composer can prefill from — unpaid invoices and live job trackers
+ */
+
+export function useGetClientBoardPushQuickPicks<TData = Awaited<ReturnType<typeof getClientBoardPushQuickPicks>>, TError = ErrorType<Error>>(
+ propertyId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBoardPushQuickPicks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientBoardPushQuickPicksQueryOptions(propertyId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getSendClientOnboardingUrl = (propertyId: string,) => {
 

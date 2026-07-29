@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes, scryptSync } from "crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import {
   db,
   clientAccountsTable,
@@ -9,6 +9,11 @@ import {
   propertiesTable,
   contactsTable,
   priceItemsTable,
+  invoicesTable,
+  jobsTable,
+  activitiesTable,
+  paymentRequestsTable,
+  paymentRequestJobsTable,
   type ClientAccount,
   type ClientUser,
   type ClientOnboardingSend,
@@ -30,6 +35,7 @@ import {
   SendClientOnboardingResponse,
   PushClientBoardCardBody,
   PushClientBoardCardResponse,
+  GetClientBoardPushQuickPicksResponse,
 } from "@workspace/api-zod";
 import { raiseClientCard } from "../lib/clientBoard";
 import { notifyCardPush } from "../lib/clientCardDigest";
@@ -619,6 +625,131 @@ router.post(
         notified: notify.notified,
         notifiedTo: notify.notifiedTo,
         notifySkippedReason: notify.skippedReason,
+      }),
+    );
+  },
+);
+
+// Real entities the Push Card composer can prefill from in one tap.
+router.get(
+  "/admin/accounts/:propertyId/board/push/quick-picks",
+  async (req, res): Promise<void> => {
+    const [property] = await db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, req.params.propertyId));
+    if (!property) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const base = publicBaseUrl();
+
+    // Unpaid invoices — sent but not paid (past_due is virtual on "sent").
+    const invoices = await db
+      .select()
+      .from(invoicesTable)
+      .where(and(eq(invoicesTable.propertyId, property.id), eq(invoicesTable.status, "sent")))
+      .orderBy(desc(invoicesTable.createdAt));
+
+    // Pay links: latest unpaid payment request that covers each invoice.
+    const payUrlByInvoice = new Map<string, string>();
+    if (invoices.length > 0) {
+      const linkRows = await db
+        .select({
+          invoiceId: paymentRequestJobsTable.invoiceId,
+          token: paymentRequestsTable.token,
+          status: paymentRequestsTable.status,
+          createdAt: paymentRequestsTable.createdAt,
+        })
+        .from(paymentRequestJobsTable)
+        .innerJoin(
+          paymentRequestsTable,
+          eq(paymentRequestJobsTable.requestId, paymentRequestsTable.id),
+        )
+        .where(
+          inArray(
+            paymentRequestJobsTable.invoiceId,
+            invoices.map((i) => i.id),
+          ),
+        )
+        .orderBy(desc(paymentRequestsTable.createdAt));
+      for (const row of linkRows) {
+        if (!row.invoiceId) continue;
+        if (row.status === "paid" || row.status === "returned") continue;
+        if (!payUrlByInvoice.has(row.invoiceId)) {
+          payUrlByInvoice.set(row.invoiceId, `${base}/pay/${row.token}`);
+        }
+      }
+    }
+
+    // Active jobs — not completed/cleared. Ensure each has its stable tracker
+    // token (atomic first-wins, same as the job tracker share flow).
+    const activeJobs = await db
+      .select()
+      .from(jobsTable)
+      .where(
+        and(
+          eq(jobsTable.propertyId, property.id),
+          isNull(jobsTable.completedAt),
+          isNull(jobsTable.clearedAt),
+        ),
+      )
+      .orderBy(desc(jobsTable.createdAt));
+    const trackers: {
+      jobId: string;
+      jobNo: string;
+      description: string | null;
+      unitNo: string | null;
+      trackerUrl: string;
+    }[] = [];
+    for (const job of activeJobs) {
+      let token = job.trackerToken;
+      if (!token) {
+        const candidate = randomBytes(18).toString("base64url");
+        const updated = await db
+          .update(jobsTable)
+          .set({ trackerToken: candidate })
+          .where(and(eq(jobsTable.id, job.id), isNull(jobsTable.trackerToken)))
+          .returning({ trackerToken: jobsTable.trackerToken });
+        if (updated.length > 0) {
+          token = candidate;
+          await db.insert(activitiesTable).values({
+            entityType: "job",
+            entityId: job.id,
+            kind: "note",
+            body: `Live tracker link created for job ${job.jobNo}.`,
+          });
+        } else {
+          const [fresh] = await db
+            .select({ trackerToken: jobsTable.trackerToken })
+            .from(jobsTable)
+            .where(eq(jobsTable.id, job.id));
+          token = fresh?.trackerToken ?? candidate;
+        }
+      }
+      trackers.push({
+        jobId: job.id,
+        jobNo: job.jobNo,
+        description: job.description ?? null,
+        unitNo: job.unitNo ?? null,
+        trackerUrl: `${base}/track/${token}`,
+      });
+    }
+
+    res.json(
+      GetClientBoardPushQuickPicksResponse.parse({
+        invoices: invoices.map((inv) => ({
+          id: inv.id,
+          invoiceNo: inv.invoiceNo,
+          amount: inv.amount + (inv.taxAmount ?? 0),
+          status: inv.status,
+          dueDate: inv.dueAt
+            ? `${inv.dueAt.getFullYear()}-${String(inv.dueAt.getMonth() + 1).padStart(2, "0")}-${String(inv.dueAt.getDate()).padStart(2, "0")}`
+            : null,
+          payUrl: payUrlByInvoice.get(inv.id) ?? null,
+          billToName: inv.billToName ?? null,
+        })),
+        trackers,
       }),
     );
   },

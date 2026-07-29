@@ -7,7 +7,9 @@ import { useQueryClient} from "@tanstack/react-query";
 import { useParams, Link} from "wouter";
 import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Radio, Repeat, BookOpen, Receipt, Users, Wand2} from "lucide-react";
 import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
+import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton} from "@/components/ui/skeleton";
+
 import { useState} from "react";
 import { useToast} from "@/hooks/use-toast";
 import { JobLineItemsPanel} from "@/components/JobLineItemsPanel";
@@ -36,6 +38,7 @@ export default function PropertyDetail() {
   const [editContactId, setEditContactId] = useState<string | null>(null);
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
   const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
+  const [expandedInvoiceGroup, setExpandedInvoiceGroup] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [jobTab, setJobTab] = useState<"active" | "history">("active");
@@ -205,8 +208,7 @@ export default function PropertyDetail() {
     };
 
     return (
-      <div key={job.id}>
-      <div className="bg-[var(--ink)] text-white rounded-2xl p-6 shadow-sm flex flex-col gap-5 relative z-10">
+      <div key={job.id} className="bg-[var(--ink)] text-white rounded-2xl p-6 shadow-sm flex flex-col gap-5 relative z-10">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <Link href={`/jobs/${job.id}`} className="block hover:opacity-80 transition-opacity">
