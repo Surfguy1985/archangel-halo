@@ -42,7 +42,7 @@ export default function Admin() {
           {accounts.map((a) => (
             <Link
               key={a.propertyId}
-              href={`/admin/${a.propertyId}`}
+              href={`/admin/${a.propertyId}/board`}
               className="block bg-[var(--ink)] text-white rounded-2xl p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
               data-testid={`card-account-${a.propertyId}`}
             >

@@ -739,6 +739,23 @@ export interface ClientCardQuickPickInvoice {
   /** @nullable */
   billToName?: string | null;
 }
+
+export interface ClientCardQuickPickTracker {
+  jobId: string;
+  jobNo: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** Absolute live tracker link */
+  trackerUrl: string;
+}
+
+export interface ClientCardQuickPicksRec {
+  invoices: ClientCardQuickPickInvoice[];
+  trackers: ClientCardQuickPickTracker[];
+}
+
 export interface OnboardingSendInput {
   /** email | sms */
   channel: string;
@@ -4778,6 +4795,7 @@ export interface ClientBoardCrew {
   /** @nullable */
   lastSeenAt?: string | null;
 }
+
 export interface ClientBoardCardView {
   cardKey: string;
   template: string;
@@ -5313,18 +5331,3 @@ export type ListWorkRequestsParams = {
 status?: string;
 };
 
-export interface ClientCardQuickPickTracker {
-  jobId: string;
-  jobNo: string;
-  /** @nullable */
-  description?: string | null;
-  /** @nullable */
-  unitNo?: string | null;
-  /** Absolute live tracker link */
-  trackerUrl: string;
-}
-
-export interface ClientCardQuickPicksRec {
-  invoices: ClientCardQuickPickInvoice[];
-  trackers: ClientCardQuickPickTracker[];
-}
