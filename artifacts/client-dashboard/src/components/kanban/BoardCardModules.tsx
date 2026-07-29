@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TONES } from './templateSpec';
-import { CheckCircle2, ArrowUpRight, ExternalLink, Calendar, MapPin, FileText, Check } from 'lucide-react';
+import { CheckCircle2, ArrowUpRight, ExternalLink, Calendar, MapPin, FileText, Check, AlertTriangle, Camera, Receipt, Gift, CreditCard } from 'lucide-react';
 import { useClientBoardCardAction, getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
@@ -92,6 +92,54 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
              <span className="text-[14px] font-[700] text-[#101C33]">{module.label}</span>
              <span className="text-[10px] font-[600] text-[#96948B] truncate max-w-[240px]">{module.url}</span>
            </div>
+        </div>
+      </div>
+    );
+  }
+  if (module.type === 'summary') {
+    const isExceeded = module.result === 'exceeded';
+    const isMet = module.result === 'met';
+    return (
+      <div className="grid grid-cols-3 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden" style={{ background: tint.bd }} data-testid={`module-summary-metrics-${module.summaryId}`}>
+        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+          <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">UNIT</span>
+          <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px] text-[#101C33]">{module.unitNo || 'PROP'}</span>
+          <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">location</span>
+        </div>
+        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+          <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">DATE</span>
+          <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]" style={{ color: TONES.ink }}>{safeDate(module.serviceDate)}</span>
+          <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">serviced</span>
+        </div>
+        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+          <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">RESULT</span>
+          <div className="mt-[4px] flex items-center">
+            <span className={`inline-flex items-center justify-center rounded-[6px] px-[6px] py-[3px] text-[10px] font-[800] uppercase tracking-wider ${isExceeded ? 'bg-emerald-100 text-emerald-700' : isMet ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-700'}`}>
+              {module.result || 'UNKNOWN'}
+            </span>
+          </div>
+          <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[6px]">quality score</span>
+        </div>
+      </div>
+    );
+  }
+  if (module.type === 'photos') {
+    return (
+      <div className="grid grid-cols-3 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden" style={{ background: tint.bd }} data-testid={`module-photos-metrics-${module.jobId}`}>
+        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+          <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">JOB NO</span>
+          <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px] text-[#101C33]">{module.jobNo || '—'}</span>
+          <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">reference</span>
+        </div>
+        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+          <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">UNIT</span>
+          <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px] text-[#101C33]">{module.unitNo || 'PROP'}</span>
+          <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">location</span>
+        </div>
+        <div className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+          <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">MEDIA</span>
+          <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]" style={{ color: TONES.good }}>{module.totalCount || 0}</span>
+          <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">photos added</span>
         </div>
       </div>
     );
@@ -190,6 +238,49 @@ export function ModuleEvidence({ module, tint }: { module: any; tint: any }) {
          <p className="text-[11px] font-[600] text-[#6E6C63] max-w-[200px]">
            This card contains an external resource. Click below to open.
          </p>
+      </div>
+    );
+  }
+  if (module.type === 'summary') {
+    return (
+      <div className="bg-white rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col p-[12px] relative" style={{ border: `1px solid ${tint.bd}` }} data-testid={`module-summary-evidence-${module.summaryId}`}>
+         <div className="flex items-center gap-2 mb-3">
+            <CheckCircle2 className="h-4 w-4 text-[#101C33]" />
+            <span className="text-[11px] font-[800] uppercase tracking-wider text-[#101C33] truncate">{module.title || 'Service Recap'}</span>
+         </div>
+         <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between border-b border-black/5 pb-1">
+               <span className="text-[11px] font-[600] text-[#6E6C63]">Checklist</span>
+               <span className="text-[11px] font-[700] text-[#101C33]" data-testid={`module-summary-checklist-${module.summaryId}`}>{module.checkedCount || 0} of {module.itemCount || 0} done</span>
+            </div>
+            <div className="flex items-center justify-between border-b border-black/5 pb-1">
+               <span className="text-[11px] font-[600] text-[#6E6C63]">Attention items</span>
+               <span className="text-[11px] font-[700] text-[#101C33]">{module.flagCount || 0} flagged</span>
+            </div>
+            <div className="flex items-center justify-between">
+               <span className="text-[11px] font-[600] text-[#6E6C63]">Evidence</span>
+               <span className="text-[11px] font-[700] text-[#101C33]">{module.photoCount || 0} photos</span>
+            </div>
+         </div>
+      </div>
+    );
+  }
+  if (module.type === 'photos') {
+    const urls = (module.photoUrls || []).slice(0, 4);
+    return (
+      <div className="bg-[#FBFAF7] rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col p-[8px]" style={{ border: `1px solid ${tint.bd}` }} data-testid={`module-photos-evidence-${module.jobId}`}>
+         {urls.length > 0 ? (
+            <div className={`grid gap-2 h-full ${urls.length === 1 ? 'grid-cols-1' : urls.length === 2 ? 'grid-cols-2' : urls.length === 3 ? 'grid-cols-3' : 'grid-cols-2 grid-rows-2'}`}>
+              {urls.map((url: string, i: number) => (
+                <img key={i} src={url} alt={`Evidence ${i+1}`} className="w-full h-full object-cover rounded-xl border border-black/10 shadow-sm" />
+              ))}
+            </div>
+         ) : (
+            <div className="flex-1 flex flex-col items-center justify-center opacity-50">
+               <Camera className="h-6 w-6 text-[#101C33] mb-1" />
+               <span className="text-[10px] font-[700] uppercase text-[#101C33]">No photos</span>
+            </div>
+         )}
       </div>
     );
   }
@@ -353,6 +444,26 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
          <a href={module.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] transition-colors">
             {module.label || 'Open Link'} <ExternalLink className="w-3.5 h-3.5 ml-1" />
          </a>
+      </div>
+    );
+  }
+
+  if (module.type === 'summary') {
+    return (
+      <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0" data-testid={`module-summary-decision-${module.summaryId}`}>
+         <a href={module.summaryUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] transition-colors shadow-sm">
+            View full recap <ArrowUpRight className="w-3.5 h-3.5 ml-1" />
+         </a>
+      </div>
+    );
+  }
+
+  if (module.type === 'photos') {
+    return (
+      <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0" data-testid={`module-photos-decision-${module.jobId}`}>
+         <div className="flex-1 h-full rounded-[8px] bg-black/5 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-50 pointer-events-none">
+            EVIDENCE LOGGED
+         </div>
       </div>
     );
   }

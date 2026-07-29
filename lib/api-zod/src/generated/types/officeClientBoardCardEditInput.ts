@@ -16,5 +16,11 @@ export interface OfficeClientBoardCardEditInput {
      * @nullable
      */
   dueDate?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  actionLabel?: string | null;
+  /** Rebuild the module snapshot from the card's original source; client action state is preserved */
+  refreshModule?: boolean;
   links?: ClientBoardFeedCardLink[];
 }

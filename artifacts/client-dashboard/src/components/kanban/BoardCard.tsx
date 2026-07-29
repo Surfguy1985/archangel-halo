@@ -14,7 +14,7 @@ import {
   TONES,
   MetricTone,
 } from './templateSpec';
-import { Camera, User, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
+import { Camera, User, CheckCircle2, Circle, AlertCircle, FileText, MapPin, ClipboardCheck, AlertTriangle, Gift, CheckSquare, Receipt, CreditCard, ExternalLink } from 'lucide-react';
 import { ModuleMetrics, ModuleEvidence, ModuleDecision } from './BoardCardModules';
 
 interface BoardCardProps {
@@ -96,13 +96,58 @@ function alertLabels(card: ClientBoardCardView, spec: any): { name: string; colo
   return out.slice(0, 3);
 }
 
+function ModuleAppTile({ type }: { type: string }) {
+  let color = '';
+  let Icon = Circle;
+  
+  switch(type) {
+    case 'invoice': color = '#f59e0b'; Icon = Receipt; break;
+    case 'payment': color = '#10b981'; Icon = CreditCard; break;
+    case 'tracker': color = '#8b5cf6'; Icon = MapPin; break;
+    case 'summary': color = '#0ea5e9'; Icon = ClipboardCheck; break;
+    case 'photos': color = '#ec4899'; Icon = Camera; break;
+    case 'flags': color = '#ef4444'; Icon = AlertTriangle; break;
+    case 'referral': color = '#14b8a6'; Icon = Gift; break;
+    case 'link': color = '#64748b'; Icon = ExternalLink; break;
+    case 'manual': default: color = '#64748b'; Icon = CheckSquare; break;
+  }
+
+  return (
+    <div 
+      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] shadow-sm border border-black/5" 
+      style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${color} 80%, white), ${color})` }}
+    >
+      <Icon className="h-3 w-3 text-white" strokeWidth={2.5} />
+    </div>
+  );
+}
+
 export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: BoardCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const dispatchAction = useDispatchClientBoardAction();
   const [isDispatching, setIsDispatching] = useState(false);
 
-  const spec = specFor(card.template);
+  const baseSpec = specFor(card.template);
+  const cardModule = (card as any).module;
+  
+  let accent = baseSpec.accent;
+  if (cardModule) {
+    switch(cardModule.type) {
+      case 'invoice': accent = '#f59e0b'; break;
+      case 'payment': accent = '#10b981'; break;
+      case 'tracker': accent = '#8b5cf6'; break;
+      case 'summary': accent = '#0ea5e9'; break;
+      case 'photos': accent = '#ec4899'; break;
+      case 'flags': accent = '#ef4444'; break;
+      case 'referral': accent = '#14b8a6'; break;
+      case 'link':
+      case 'manual': 
+      default: accent = '#64748b'; break;
+    }
+  }
+
+  const spec = { ...baseSpec, accent };
   const tint = cardTint(spec);
   const heat = slaPercent(card, spec.slaTargetDays);
   const rail = card.lane === 'done' ? TONES.good : heatColor(heat);
@@ -143,8 +188,6 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
   const stageIndex = card.stageIndex ?? 0;
   const pipeline = spec.pipeline || [];
   const stageChip = pipeline[stageIndex];
-
-  const cardModule = (card as any).module;
   
   // Evidence list building (exactly 3 rows)
   const rows = [];
@@ -205,7 +248,11 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
       <div className="flex flex-col px-4 pt-[8px] flex-1 min-h-0">
         {/* 2. Identity - 30px */}
         <div className="flex items-center h-[30px] gap-2">
-          <span className="h-[7px] w-[7px] shrink-0 rounded-[2px]" style={{ background: spec.accent }} />
+          {cardModule ? (
+             <ModuleAppTile type={cardModule.type} />
+          ) : (
+             <span className="h-[7px] w-[7px] shrink-0 rounded-[2px]" style={{ background: spec.accent }} />
+          )}
           <span className="font-mono text-[10px] font-[700] tracking-[0.08em] text-[#6E6C63]">{cardCode(card, spec)}</span>
           <div className="flex-1" />
           <span
@@ -340,16 +387,16 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
           <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
             {primaryBtn ? (
               primaryBtn.href ? (
-                <a href={primaryBtn.href} target="_blank" rel="noreferrer" className="flex-1 h-full rounded-[8px] bg-[#D8F84E] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#C8EC33] transition-colors">
+                <a href={primaryBtn.href} target="_blank" rel="noreferrer" className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] transition-colors">
                   {primaryBtn.label}
                 </a>
               ) : (
-                <button disabled={isDispatching || readOnly} onClick={(e) => handleAction(e, primaryBtn.key)} className="flex-1 h-full rounded-[8px] bg-[#D8F84E] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#C8EC33] disabled:opacity-50 transition-colors">
+                <button disabled={isDispatching || readOnly} onClick={(e) => handleAction(e, primaryBtn.key)} className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] disabled:opacity-50 transition-colors">
                   {primaryBtn.label}
                 </button>
               )
             ) : (
-              <div className="flex-1 h-full rounded-[8px] bg-[#D8F84E] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-30 pointer-events-none">
+              <div className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-30 pointer-events-none">
                 —
               </div>
             )}

@@ -6,9 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ClientCardQuickPickInvoice } from './clientCardQuickPickInvoice';
+import type { ClientCardQuickPickPhotoJob } from './clientCardQuickPickPhotoJob';
+import type { ClientCardQuickPickSummary } from './clientCardQuickPickSummary';
 import type { ClientCardQuickPickTracker } from './clientCardQuickPickTracker';
 
 export interface ClientCardQuickPicksRec {
   invoices: ClientCardQuickPickInvoice[];
   trackers: ClientCardQuickPickTracker[];
+  summaries: ClientCardQuickPickSummary[];
+  photoJobs: ClientCardQuickPickPhotoJob[];
 }

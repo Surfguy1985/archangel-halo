@@ -477,6 +477,12 @@ export interface OfficeClientBoardCardEditInput {
      * @nullable
      */
   dueDate?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  actionLabel?: string | null;
+  /** Rebuild the module snapshot from the card's original source; client action state is preserved */
+  refreshModule?: boolean;
   links?: ClientBoardFeedCardLink[];
 }
 
@@ -786,9 +792,37 @@ export interface ClientCardQuickPickTracker {
   trackerUrl: string;
 }
 
+export interface ClientCardQuickPickSummary {
+  id: string;
+  title: string;
+  /** @nullable */
+  unitNo: string | null;
+  /**
+     * YYYY-MM-DD
+     * @nullable
+     */
+  serviceDate: string | null;
+  /** exceeded | met | followup */
+  result: string;
+  /** draft | sent */
+  status: string;
+}
+
+export interface ClientCardQuickPickPhotoJob {
+  jobId: string;
+  jobNo: string;
+  /** @nullable */
+  unitNo: string | null;
+  /** @nullable */
+  description: string | null;
+  photoCount: number;
+}
+
 export interface ClientCardQuickPicksRec {
   invoices: ClientCardQuickPickInvoice[];
   trackers: ClientCardQuickPickTracker[];
+  summaries: ClientCardQuickPickSummary[];
+  photoJobs: ClientCardQuickPickPhotoJob[];
 }
 
 export interface OnboardingSendInput {

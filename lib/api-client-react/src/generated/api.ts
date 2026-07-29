@@ -19124,7 +19124,7 @@ export const getUpdateOfficeClientBoardCardUrl = (propertyId: string,
 }
 
 /**
- * @summary Edit a manual card the office sent to the client's board
+ * @summary Edit any card the office sent to the client's board (optionally refreshing its module snapshot)
  */
 export const updateOfficeClientBoardCard = async (propertyId: string,
     cardId: string,
@@ -19175,7 +19175,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateOfficeClientBoardCardMutationError = ErrorType<Error>
 
     /**
- * @summary Edit a manual card the office sent to the client's board
+ * @summary Edit any card the office sent to the client's board (optionally refreshing its module snapshot)
  */
 export const useUpdateOfficeClientBoardCard = <TError = ErrorType<Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeClientBoardCard>>, TError,{propertyId: string;cardId: string;data: BodyType<OfficeClientBoardCardEditInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -19198,7 +19198,7 @@ export const getDeleteOfficeClientBoardCardUrl = (propertyId: string,
 }
 
 /**
- * @summary Take back a manual card sent to the client's board
+ * @summary Take back any card sent to the client's board
  */
 export const deleteOfficeClientBoardCard = async (propertyId: string,
     cardId: string, options?: RequestInit): Promise<OkResponse> => {
@@ -19248,7 +19248,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteOfficeClientBoardCardMutationError = ErrorType<Error>
 
     /**
- * @summary Take back a manual card sent to the client's board
+ * @summary Take back any card sent to the client's board
  */
 export const useDeleteOfficeClientBoardCard = <TError = ErrorType<Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeClientBoardCard>>, TError,{propertyId: string;cardId: string}, TContext>, request?: SecondParameter<typeof customFetch>}

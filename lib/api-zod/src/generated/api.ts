@@ -7789,6 +7789,21 @@ export const GetClientBoardPushQuickPicksResponse = zod.object({
   "description": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "trackerUrl": zod.string().describe('Absolute live tracker link')
+})),
+  "summaries": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "unitNo": zod.string().nullable(),
+  "serviceDate": zod.string().nullable().describe('YYYY-MM-DD'),
+  "result": zod.string().describe('exceeded | met | followup'),
+  "status": zod.string().describe('draft | sent')
+})),
+  "photoJobs": zod.array(zod.object({
+  "jobId": zod.string(),
+  "jobNo": zod.string(),
+  "unitNo": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "photoCount": zod.number()
 }))
 })
 
@@ -7894,7 +7909,7 @@ export const CreateOfficeClientBoardCardResponse = zod.object({
 
 
 /**
- * @summary Edit a manual card the office sent to the client's board
+ * @summary Edit any card the office sent to the client's board (optionally refreshing its module snapshot)
  */
 export const UpdateOfficeClientBoardCardParams = zod.object({
   "propertyId": zod.coerce.string(),
@@ -7905,6 +7920,9 @@ export const UpdateOfficeClientBoardCardBody = zod.object({
   "title": zod.string(),
   "body": zod.string().nullish(),
   "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
+  "amount": zod.number().nullish(),
+  "actionLabel": zod.string().nullish(),
+  "refreshModule": zod.boolean().optional().describe('Rebuild the module snapshot from the card\'s original source; client action state is preserved'),
   "links": zod.array(zod.object({
   "label": zod.string(),
   "url": zod.string(),
@@ -7935,7 +7953,7 @@ export const UpdateOfficeClientBoardCardResponse = zod.object({
 
 
 /**
- * @summary Take back a manual card sent to the client's board
+ * @summary Take back any card sent to the client's board
  */
 export const DeleteOfficeClientBoardCardParams = zod.object({
   "propertyId": zod.coerce.string(),

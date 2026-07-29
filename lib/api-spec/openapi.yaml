@@ -5795,7 +5795,7 @@ paths:
     patch:
       operationId: updateOfficeClientBoardCard
       tags: [admin]
-      summary: Edit a manual card the office sent to the client's board
+      summary: Edit any card the office sent to the client's board (optionally refreshing its module snapshot)
       parameters:
         - name: propertyId
           in: path
@@ -5831,7 +5831,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "409":
-          description: Only manual cards can be edited
+          description: Conflict
           content:
             application/json:
               schema:
@@ -5839,7 +5839,7 @@ paths:
     delete:
       operationId: deleteOfficeClientBoardCard
       tags: [admin]
-      summary: Take back a manual card sent to the client's board
+      summary: Take back any card sent to the client's board
       parameters:
         - name: propertyId
           in: path
@@ -5863,7 +5863,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "409":
-          description: Only manual cards can be removed
+          description: Conflict
           content:
             application/json:
               schema:
@@ -7821,6 +7821,9 @@ components:
         title: { type: string }
         body: { type: ["string", "null"] }
         dueDate: { type: ["string", "null"], description: "YYYY-MM-DD" }
+        amount: { type: ["number", "null"] }
+        actionLabel: { type: ["string", "null"] }
+        refreshModule: { type: "boolean", description: "Rebuild the module snapshot from the card's original source; client action state is preserved" }
         links:
           type: array
           items:
@@ -8066,7 +8069,7 @@ components:
         trackerUrl: { type: string, description: "Absolute live tracker link" }
     ClientCardQuickPicksRec:
       type: object
-      required: [invoices, trackers]
+      required: [invoices, trackers, summaries, photoJobs]
       properties:
         invoices:
           type: array
@@ -8076,6 +8079,33 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ClientCardQuickPickTracker"
+        summaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientCardQuickPickSummary"
+        photoJobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientCardQuickPickPhotoJob"
+    ClientCardQuickPickSummary:
+      type: object
+      required: [id, title, unitNo, serviceDate, result, status]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        unitNo: { type: ["string", "null"] }
+        serviceDate: { type: ["string", "null"], description: "YYYY-MM-DD" }
+        result: { type: string, description: "exceeded | met | followup" }
+        status: { type: string, description: "draft | sent" }
+    ClientCardQuickPickPhotoJob:
+      type: object
+      required: [jobId, jobNo, unitNo, description, photoCount]
+      properties:
+        jobId: { type: string }
+        jobNo: { type: string }
+        unitNo: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        photoCount: { type: number }
     OnboardingSendInput:
       type: object
       required: [channel, to]

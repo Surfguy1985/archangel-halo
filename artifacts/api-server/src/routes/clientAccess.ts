@@ -33,8 +33,15 @@ import {
   ClientBoardCardActionResponse,
 } from "@workspace/api-zod";
 import { randomUUID } from "node:crypto";
-import { raiseClientCard, webhookUrlProblem } from "../lib/clientBoard";
+import { raiseClientCard, webhookUrlProblem, ACTION_STATE_KEYS } from "../lib/clientBoard";
 import { resolveViewer } from "./clientBoard";
+import {
+  buildInvoiceModule,
+  buildTrackerModule,
+  buildFlagsModule,
+  buildSummaryModule,
+  buildPhotosModule,
+} from "../lib/cardModules";
 
 const router: IRouter = Router();
 
@@ -959,8 +966,9 @@ router.post(
   },
 );
 
-// Fix a typo or take back a card sent by mistake — manual cards only, so the
-// office can't touch cards that mirror real records (invoices, recaps, …).
+// Edit any office-pushed card in place. Content fields only — module data can
+// be refreshed from the card's original source (refreshModule), and the
+// client's action state (approvedAt, requestedAt, …) is never touched.
 router.patch(
   "/admin/accounts/:propertyId/board/cards/:cardId",
   async (req, res): Promise<void> => {
@@ -1016,9 +1024,29 @@ router.patch(
       res.status(404).json({ error: "Card not found" });
       return;
     }
-    if (existing.kind !== "manual") {
-      res.status(409).json({ error: "Only manual cards can be edited" });
-      return;
+    // Optionally rebuild the module snapshot from the card's original source,
+    // preserving the client's action state — same contract as a re-push.
+    let module = existing.module;
+    if (body.refreshModule) {
+      let fresh: Record<string, unknown> | null = null;
+      if (existing.sourceType === "invoice" && existing.sourceId) {
+        fresh = await buildInvoiceModule(existing.propertyId, existing.sourceId);
+      } else if (existing.sourceType === "tracker" && existing.sourceId) {
+        fresh = await buildTrackerModule(existing.propertyId, existing.sourceId);
+      } else if (existing.sourceType === "summary" && existing.sourceId) {
+        fresh = await buildSummaryModule(existing.propertyId, existing.sourceId);
+      } else if (existing.sourceType === "photos" && existing.sourceId) {
+        fresh = await buildPhotosModule(existing.propertyId, existing.sourceId);
+      } else if (existing.kind === "flag") {
+        fresh = await buildFlagsModule(existing.propertyId);
+      }
+      if (fresh) {
+        const state = (existing.module ?? {}) as Record<string, unknown>;
+        for (const key of ACTION_STATE_KEYS) {
+          if (state[key] !== undefined) fresh[key] = state[key];
+        }
+        module = fresh;
+      }
     }
     const [card] = await db
       .update(clientBoardCardsTable)
@@ -1026,7 +1054,10 @@ router.patch(
         title,
         body: body.body?.trim() || null,
         dueDate: body.dueDate || null,
+        ...(body.amount !== undefined ? { amount: body.amount } : {}),
+        ...(body.actionLabel !== undefined ? { actionLabel: body.actionLabel?.trim() || null } : {}),
         links,
+        module,
         updatedAt: new Date(),
       })
       .where(eq(clientBoardCardsTable.id, existing.id))
@@ -1062,10 +1093,6 @@ router.delete(
       .limit(1);
     if (!existing) {
       res.status(404).json({ error: "Card not found" });
-      return;
-    }
-    if (existing.kind !== "manual") {
-      res.status(409).json({ error: "Only manual cards can be removed" });
       return;
     }
     await db

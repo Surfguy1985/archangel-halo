@@ -1,9 +1,12 @@
 import { Router, type IRouter } from "express";
 import { randomBytes, scryptSync } from "crypto";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import {
   db,
   clientAccountsTable,
+  crewPhotosTable,
+  jobSummariesTable,
   clientUsersTable,
   clientOnboardingSendsTable,
   propertiesTable,
@@ -42,6 +45,8 @@ import {
   buildInvoiceModule,
   buildTrackerModule,
   buildFlagsModule,
+  buildSummaryModule,
+  buildPhotosModule,
   buildLinkModule,
   buildReferralModule,
 } from "../lib/cardModules";
@@ -623,6 +628,10 @@ router.post(
       module = await buildFlagsModule(property.id);
     } else if (body.kind === "referral") {
       module = buildReferralModule();
+    } else if (body.kind === "summary" && body.sourceType === "summary" && body.sourceId) {
+      module = await buildSummaryModule(property.id, body.sourceId);
+    } else if (body.kind === "photos" && body.sourceType === "photos" && body.sourceId) {
+      module = await buildPhotosModule(property.id, body.sourceId);
     } else if (body.kind === "photos" || body.kind === "summary") {
       module = buildLinkModule("link", links[0]?.url ?? null, links[0]?.label ?? null);
     }
@@ -762,8 +771,49 @@ router.get(
       });
     }
 
+    // Sent job recaps — pushable as interactive summary cards.
+    const summaryRows = await db
+      .select()
+      .from(jobSummariesTable)
+      .where(eq(jobSummariesTable.propertyId, property.id))
+      .orderBy(desc(jobSummariesTable.updatedAt))
+      .limit(20);
+    const summaries = summaryRows.map((s) => ({
+      id: s.id,
+      title: s.title,
+      unitNo: s.unitNumber ?? null,
+      serviceDate: s.serviceDate ?? null,
+      result: s.overallResult,
+      status: s.status,
+    }));
+
+    // Jobs that have crew photos — pushable as photo-set cards.
+    const photoCounts = await db
+      .select({ jobId: crewPhotosTable.jobId, count: sql<number>`count(*)::int` })
+      .from(crewPhotosTable)
+      .innerJoin(jobsTable, eq(crewPhotosTable.jobId, jobsTable.id))
+      .where(eq(jobsTable.propertyId, property.id))
+      .groupBy(crewPhotosTable.jobId);
+    const photoJobIds = photoCounts.map((p) => p.jobId).filter((x): x is string => !!x);
+    const photoJobRows = photoJobIds.length
+      ? await db.select().from(jobsTable).where(inArray(jobsTable.id, photoJobIds))
+      : [];
+    const countByJob = new Map(photoCounts.map((p) => [p.jobId, p.count]));
+    const photoJobs = photoJobRows
+      .sort((a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0))
+      .slice(0, 20)
+      .map((j) => ({
+        jobId: j.id,
+        jobNo: j.jobNo,
+        unitNo: j.unitNo ?? null,
+        description: j.description ?? null,
+        photoCount: countByJob.get(j.id) ?? 0,
+      }));
+
     res.json(
       GetClientBoardPushQuickPicksResponse.parse({
+        summaries,
+        photoJobs,
         invoices: invoices.map((inv) => ({
           id: inv.id,
           invoiceNo: inv.invoiceNo,
