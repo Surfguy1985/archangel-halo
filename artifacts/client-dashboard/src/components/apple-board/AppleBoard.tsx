@@ -48,7 +48,7 @@ export function AppleBoard({ token, viewer, boardKey, onLoginRequired, onOpenBir
   const pmQuery = useGetClientPmBoard(token, {
     query: {
       queryKey: getGetClientPmBoardQueryKey(token),
-      refetchInterval: 4000,
+      refetchInterval: 30000,
       enabled: isPm,
     }
   });
@@ -56,7 +56,7 @@ export function AppleBoard({ token, viewer, boardKey, onLoginRequired, onOpenBir
   const vendorQuery = useGetClientBoard(token, {
     query: {
       queryKey: getGetClientBoardQueryKey(token),
-      refetchInterval: 4000,
+      refetchInterval: 30000,
       enabled: !isPm,
     }
   });

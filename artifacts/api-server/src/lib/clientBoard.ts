@@ -6,6 +6,7 @@ import {
   type ClientBoardCard,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
+import { emitBoardEvent } from "./boardEvents";
 
 // ---------------------------------------------------------------------------
 // Client board pipeline
@@ -213,6 +214,7 @@ export async function raiseClientCard(input: RaiseCardInput): Promise<ClientBoar
     } catch (err) {
       console.error("client board notification failed:", err);
     }
+    emitBoardEvent(input.propertyId);
     return card;
   } catch (err) {
     // The board is a mirror of sends — a card failure must never fail the send.
@@ -245,6 +247,7 @@ export async function completeClientCard(
       .returning();
     for (const card of rows) {
       void postWebhook(card.propertyId, "card.completed", card);
+      emitBoardEvent(card.propertyId);
     }
   } catch (err) {
     console.error("completeClientCard failed:", err);

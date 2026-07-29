@@ -1649,6 +1649,9 @@ export default function ClientBoardOffice() {
     query: {
       queryKey: getGetOfficeBoardFullQueryKey(propertyId!),
       enabled: view === "board" && !!propertyId,
+      // Live sync is pushed over SSE (see the EventSource effect below);
+      // this slow poll is only a fallback if the stream drops.
+      refetchInterval: 30000,
     },
   });
 
@@ -1656,13 +1659,31 @@ export default function ClientBoardOffice() {
     query: {
       queryKey: getGetClientBoardInboxQueryKey(propertyId!),
       enabled: !!propertyId,
-      refetchInterval: 10000,
+      // SSE pings refresh this too; slow poll is only a fallback.
+      refetchInterval: 30000,
     },
   });
 
   const del = useDeleteOfficeClientBoardCard();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Live push: the API pings this stream whenever the client's board changes
+  // (client drags a card, a send raises a card, ...) so the office mirror
+  // updates within ~1s instead of waiting for the fallback poll.
+  useEffect(() => {
+    if (!propertyId) return;
+    // Manual /api URLs must be absolute — never BASE_URL-prefixed.
+    const es = new EventSource(`/api/admin/accounts/${propertyId}/board/events`);
+    const refetch = () => {
+      queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId!) });
+      queryClient.invalidateQueries({ queryKey: getGetClientBoardInboxQueryKey(propertyId!) });
+    };
+    es.addEventListener("board", refetch);
+    // On reconnect after a drop, catch up on anything missed.
+    es.onopen = refetch;
+    return () => es.close();
+  }, [propertyId, queryClient]);
 
   const handleRemove = (cardId: string) => {
     if (!confirm("Remove this card from the client's board?")) return;

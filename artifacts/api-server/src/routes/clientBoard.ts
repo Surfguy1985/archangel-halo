@@ -56,6 +56,7 @@ import {
 } from "../lib/cardModules";
 import { bidsTable } from "@workspace/db";
 import { computeUnitStatuses, normUnit } from "./clientCms";
+import { emitBoardEvent } from "../lib/boardEvents";
 
 const router: IRouter = Router();
 
@@ -1101,6 +1102,7 @@ router.post("/client/:token/board/cards", async (req, res): Promise<void> => {
       createdBy: viewer.name,
     })
     .returning();
+  emitBoardEvent(account.propertyId, "dashboard");
   res.status(201).json(
     CreateClientBoardCardResponse.parse({
       cardKey: row!.cardKey,
@@ -1192,6 +1194,7 @@ router.patch(
         .set({ ...overlay, updatedAt: new Date() })
         .where(eq(clientDashboardCardsTable.id, existing.id))
         .returning();
+      emitBoardEvent(account.propertyId, "dashboard");
       res.json(
         UpdateClientBoardCardResponse.parse({
           cardKey: row!.cardKey,
@@ -1213,6 +1216,7 @@ router.patch(
         createdBy: viewer.name,
       })
       .returning();
+    emitBoardEvent(account.propertyId, "dashboard");
     res.json(
       UpdateClientBoardCardResponse.parse({
         cardKey: row!.cardKey,
@@ -1640,6 +1644,11 @@ router.post("/client/:token/board/actions", async (req, res): Promise<void> => {
   if (denied) {
     res.status(403).json({ error: denied });
     return;
+  }
+  // A successful write action changed the board — ping every open stream
+  // (the client's own tabs AND the office mirror pick up the move live).
+  if (outcome.ok && def.requiresWrite) {
+    emitBoardEvent(account.propertyId, "dashboard");
   }
   res.json(
     DispatchClientBoardActionResponse.parse({

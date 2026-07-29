@@ -40,6 +40,7 @@ import {
   AddOfficeCardCommentResponse,
 } from "@workspace/api-zod";
 import { randomUUID } from "node:crypto";
+import { attachBoardStream, emitBoardEvent } from "../lib/boardEvents";
 import { raiseClientCard, webhookUrlProblem, ACTION_STATE_KEYS } from "../lib/clientBoard";
 import { resolveViewer, notifyClientBoard } from "./clientBoard";
 import {
@@ -626,6 +627,7 @@ router.patch("/client/:token/board/feed/cards/:cardId", async (req, res): Promis
     res.status(404).json({ error: "Card not found" });
     return;
   }
+  emitBoardEvent(account.propertyId);
   res.json(UpdateClientBoardFeedCardResponse.parse(serCard(card)));
 });
 
@@ -814,7 +816,19 @@ router.post("/client/:token/board/cards/:cardId/action", async (req, res): Promi
       .returning();
     payload = ClientBoardCardActionResponse.parse(serCard(updated!));
   });
+  if (status === 200) emitBoardEvent(account.propertyId);
   res.status(status).json(payload);
+});
+
+// Live push: one SSE stream per open client board. Events are content-free
+// pings — the client refetches its board query when one arrives.
+router.get("/client/:token/board/events", async (req, res): Promise<void> => {
+  const account = await accountByToken(String(req.params.token));
+  if (!account || account.status !== "active") {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  attachBoardStream(account.propertyId, res);
 });
 
 router.patch("/client/:token/board/feed/webhook", async (req, res): Promise<void> => {
@@ -864,6 +878,19 @@ function officeDashboardUrl(token: string): string {
   const path = `/board/${token}`;
   return domain ? `https://${domain}${path}` : path;
 }
+
+// Live push for the office mirror of a client's board.
+router.get(
+  "/admin/accounts/:propertyId/board/events",
+  async (req, res): Promise<void> => {
+    const propertyId = String(req.params.propertyId);
+    if (!UUID_RE.test(propertyId)) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    attachBoardStream(propertyId, res);
+  },
+);
 
 router.get("/admin/accounts/:propertyId/board", async (req, res): Promise<void> => {
   const propertyId = String(req.params.propertyId);
@@ -1085,6 +1112,7 @@ router.patch(
       kind: "note",
       body: `Client-board card edited: ${title}`,
     });
+    emitBoardEvent(propertyId);
     res.json(UpdateOfficeClientBoardCardResponse.parse(serCard(card)));
   },
 );
@@ -1121,6 +1149,7 @@ router.delete(
       kind: "note",
       body: `Card taken back from the client board: ${existing.title}`,
     });
+    emitBoardEvent(propertyId);
     res.json(DeleteOfficeClientBoardCardResponse.parse({ ok: true }));
   },
 );

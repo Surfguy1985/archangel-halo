@@ -5,7 +5,6 @@ import { useToast } from '@/hooks/use-toast';
 import { CommandPalette } from '@/components/kanban/CommandPalette';
 import { MapPin, User, Loader2, LayoutGrid, BookOpen, Headphones, Search, LogOut } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { DashboardTour } from '@/components/DashboardTour';
 import { motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
@@ -13,6 +12,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { CardDetailDialog } from '@/components/kanban/CardDetailDialog';
 import { BirdseyeMapDialog } from '@/components/BirdseyeMapDialog';
 import { AppleBoard } from '@workspace/board-ui';
+import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 
 function Board() {
   const { token } = useParams<{ token: string }>();
@@ -60,9 +60,28 @@ function Board() {
   const { data: board, isLoading, error } = useGetClientBoard(token, {
     query: {
       queryKey: getGetClientBoardQueryKey(token),
-      refetchInterval: 4000,
+      // Live updates arrive over SSE (EventSource effect below); this slow
+      // poll is only a fallback if the stream drops.
+      refetchInterval: 30000,
     }
   });
+
+  // Live push: the API pings this stream whenever anything on this board
+  // changes (office pushes a card, an invoice is sent, another tab moves a
+  // card, ...) so the board updates within ~1s without a manual refresh.
+  useEffect(() => {
+    if (!token) return;
+    // Manual /api URLs must be absolute — never BASE_URL-prefixed.
+    const es = new EventSource(`/api/client/${token}/board/events`);
+    const refetch = () => {
+      queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+      queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
+    };
+    es.addEventListener('board', refetch);
+    // On reconnect after a drop, catch up on anything missed.
+    es.onopen = refetch;
+    return () => es.close();
+  }, [token, queryClient]);
 
   const dispatchAction = useDispatchClientBoardAction();
   const createAiCard = useCreateClientBoardAiCard();
