@@ -10,6 +10,8 @@ export interface ClientBoardCardInput {
   title: string;
   lane: string;
   /** @nullable */
+  template?: string | null;
+  /** @nullable */
   description?: string | null;
   /** @nullable */
   notes?: string | null;

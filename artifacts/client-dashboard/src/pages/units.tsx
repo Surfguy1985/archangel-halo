@@ -4,7 +4,7 @@ import {
   useGetUnitMap,
   useUpdateUnitBox,
   useDeleteUnitBox,
-  useCreateUnitBox,
+
   useGetUnitSummary,
   getGetUnitMapQueryKey,
   getGetUnitSummaryQueryKey,
@@ -304,7 +304,6 @@ export default function UnitsPage() {
 
   const updateBox = useUpdateUnitBox();
   const deleteBox = useDeleteUnitBox();
-  const createBox = useCreateUnitBox();
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getGetUnitMapQueryKey(token) });
@@ -364,21 +363,6 @@ export default function UnitsPage() {
     );
   };
 
-  const addBox = () => {
-    // Generate a default name like "Unit 4" based on existing counts
-    const nextNum = units.length + 1;
-    createBox.mutate(
-      { token, data: { label: `Unit ${nextNum}` } },
-      {
-        onSuccess: () => {
-          invalidate();
-          toast({ title: 'Unit added' });
-        },
-        onError: () => toast({ title: 'Could not add unit', variant: 'destructive' })
-      }
-    );
-  };
-
   // Fill the fixed template in label order; extra slots stay empty.
   const sorted = [...units].sort((a, b) => labelCompare.compare(a.label, b.label));
   const slots: (UnitStatusRec | null)[] = Array.from(
@@ -433,16 +417,6 @@ export default function UnitsPage() {
               onClick={() => setEditing((v) => !v)}
             >
               <Pencil className="h-4 w-4" /> {editing ? 'Done Editing' : 'Edit Map'}
-            </Button>
-          )}
-          {canEdit && editing && filled < TEMPLATE_SLOTS && (
-            <Button
-              size="sm"
-              onClick={addBox}
-              disabled={createBox.isPending}
-              className="h-10 gap-2 text-[12px] font-[800] rounded-[10px] bg-[#d8f84e] text-[#101c33] hover:bg-[#c8e83e] hover:shadow-md px-4 shadow-sm"
-            >
-              <Plus className="h-4 w-4" /> Add Box
             </Button>
           )}
         </div>

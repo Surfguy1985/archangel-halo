@@ -170,9 +170,9 @@ function viewerDto(v: Viewer) {
 // Login
 // ---------------------------------------------------------------------------
 router.post("/client/:token/board/login", async (req, res): Promise<void> => {
-  const parsed = ClientBoardLoginBody.safeParse(req.body);
+  const parsed = DispatchClientBoardActionBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(401).json({ error: "Email and password are required" });
+    res.status(400).json({ error: "Invalid input" });
     return;
   }
   const account = await accountByToken(String(req.params.token));
@@ -260,6 +260,11 @@ function storageUrl(path: string): string {
   return `/api/storage${path}`;
 }
 
+function legacyTemplateFromNotes(notes: string | null): string | null {
+  if (!notes) return null;
+  const m = /^\[Template:\s*([a-z0-9_-]{1,32})\]/i.exec(notes);
+  return m ? m[1]!.toLowerCase() : null;
+}
 function isMakeReady(job: Job): boolean {
   const s = `${job.category ?? ""} ${job.description ?? ""}`.toLowerCase();
   return s.includes("make ready") || s.includes("make-ready") || s.includes("makeready") || s.includes("turn");
@@ -542,7 +547,8 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   for (const c of customs) {
     cards.push({
       cardKey: c.cardKey,
-      template: "custom",
+      // First-class template column; legacy rows encoded it in notes.
+      template: c.template ?? legacyTemplateFromNotes(c.notes) ?? "custom",
       title: c.title ?? "Untitled",
       subtitle: c.createdBy ? `Added by ${c.createdBy}` : null,
       lane: c.lane && LANE_KEYS.has(c.lane) ? c.lane : "requested",
@@ -628,7 +634,7 @@ export function requireWriter(viewer: Viewer): string | null {
 }
 
 router.post("/client/:token/board/cards", async (req, res): Promise<void> => {
-  const parsed = CreateClientBoardCardBody.safeParse(req.body);
+  const parsed = DispatchClientBoardActionBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });
     return;
@@ -639,12 +645,12 @@ router.post("/client/:token/board/cards", async (req, res): Promise<void> => {
     return;
   }
   const viewer = await resolveViewer(req, account.propertyId);
-  const denied = requireWriter(viewer);
+  const denied = def.requiresWrite ? requireWriter(viewer) : null;
   if (denied) {
     res.status(403).json({ error: denied });
     return;
   }
-  const body = parsed.data;
+    const body = parsed.data;
   const title = body.title.trim();
   if (!title) {
     res.status(400).json({ error: "Title is required" });
@@ -654,22 +660,17 @@ router.post("/client/:token/board/cards", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Unknown lane" });
     return;
   }
-  const [row] = await db
-    .insert(clientDashboardCardsTable)
-    .values({
-      propertyId: account.propertyId,
-      cardKey: `custom:${crypto.randomUUID()}`,
-      kind: "custom",
-      lane: body.lane,
-      position: Date.now(),
-      title,
-      description: body.description ?? null,
-      notes: body.notes ?? null,
-      priority: body.priority ?? null,
-      dueOn: body.dueOn ?? null,
-      createdBy: viewer.name,
-    })
-    .returning();
+    const [row] = await db
+      .insert(clientDashboardCardsTable)
+      .values({
+        propertyId: account.propertyId,
+        cardKey,
+        kind: "override",
+        notes: body.notes,
+        position: Date.now(),
+        createdBy: viewer.name,
+      })
+      .returning();
   res.status(201).json(
     CreateClientBoardCardResponse.parse({
       cardKey: row!.cardKey,
@@ -683,18 +684,18 @@ router.post("/client/:token/board/cards", async (req, res): Promise<void> => {
 router.patch(
   "/client/:token/board/cards/:cardKey",
   async (req, res): Promise<void> => {
-    const parsed = UpdateClientBoardCardBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: "Invalid input" });
-      return;
-    }
-    const account = await accountByToken(String(req.params.token));
-    if (!account) {
-      res.status(404).json({ error: "Invalid link" });
-      return;
-    }
-    const viewer = await resolveViewer(req, account.propertyId);
-    const denied = requireWriter(viewer);
+  const parsed = DispatchClientBoardActionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input" });
+    return;
+  }
+  const account = await accountByToken(String(req.params.token));
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const viewer = await resolveViewer(req, account.propertyId);
+  const denied = def.requiresWrite ? requireWriter(viewer) : null;
     if (denied) {
       res.status(403).json({ error: denied });
       return;
@@ -719,19 +720,17 @@ router.patch(
         res.status(404).json({ error: "Card not found" });
         return;
       }
-      const [row] = await db
-        .update(clientDashboardCardsTable)
-        .set({
-          title: body.title !== undefined && body.title !== null ? body.title : existing.title,
-          description: body.description !== undefined ? body.description : existing.description,
-          notes: body.notes !== undefined ? body.notes : existing.notes,
-          priority: body.priority !== undefined ? body.priority : existing.priority,
-          dueOn: body.dueOn !== undefined ? body.dueOn : existing.dueOn,
-          archived: body.archived ?? existing.archived,
-          updatedAt: new Date(),
-        })
-        .where(eq(clientDashboardCardsTable.id, existing.id))
-        .returning();
+    const [row] = await db
+      .insert(clientDashboardCardsTable)
+      .values({
+        propertyId: account.propertyId,
+        cardKey,
+        kind: "override",
+        notes: body.notes,
+        position: Date.now(),
+        createdBy: viewer.name,
+      })
+      .returning();
       res.json(
         UpdateClientBoardCardResponse.parse({
           cardKey: row!.cardKey,
@@ -742,18 +741,17 @@ router.patch(
       );
       return;
     }
-
-    // HALO-fed card: only notes are client-editable, stored as an override.
-    if (body.notes === undefined) {
-      res.status(400).json({ error: "Only notes can be edited on HALO cards" });
-      return;
-    }
-    if (existing) {
-      const [row] = await db
-        .update(clientDashboardCardsTable)
-        .set({ notes: body.notes, updatedAt: new Date() })
-        .where(eq(clientDashboardCardsTable.id, existing.id))
-        .returning();
+    const [row] = await db
+      .insert(clientDashboardCardsTable)
+      .values({
+        propertyId: account.propertyId,
+        cardKey,
+        kind: "override",
+        notes: body.notes,
+        position: Date.now(),
+        createdBy: viewer.name,
+      })
+      .returning();
       res.json(
         UpdateClientBoardCardResponse.parse({
           cardKey: row!.cardKey,
@@ -1232,7 +1230,7 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
 
   const happenings: { at: string; text: string }[] = [];
   for (const c of checkins.slice(0, 15)) {
-    const job = c.jobId ? jobById.get(c.jobId) : undefined;
+    const job = p.jobId ? jobById.get(p.jobId) : undefined;
     const crew = crewById.get(c.crewId);
     const verb =
       c.kind === "checkout" ? "checked out of" : c.kind === "arrival" ? "arrived at" : "checked in at";
@@ -1263,3 +1261,5 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
 });
 
 export default router;
+
+const TEMPLATE_KEY_RE = /^[a-z0-9_-]{1,32}$/i;

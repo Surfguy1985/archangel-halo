@@ -6,13 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ClientBoardCardButton } from './clientBoardCardButton';
-import type { ClientBoardCardViewTemplate } from './clientBoardCardViewTemplate';
 import type { ClientBoardCrew } from './clientBoardCrew';
 import type { ClientBoardPhoto } from './clientBoardPhoto';
 
 export interface ClientBoardCardView {
   cardKey: string;
-  template: ClientBoardCardViewTemplate;
+  template: string;
   title: string;
   /** @nullable */
   subtitle?: string | null;

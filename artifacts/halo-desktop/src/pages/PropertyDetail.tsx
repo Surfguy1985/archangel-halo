@@ -9,7 +9,6 @@ import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Penc
 import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { Skeleton} from "@/components/ui/skeleton";
 import { useState} from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useToast} from "@/hooks/use-toast";
 import { JobLineItemsPanel} from "@/components/JobLineItemsPanel";
 import { JobSummaryDialog} from "@/components/JobSummaryDialog";
@@ -40,7 +39,6 @@ export default function PropertyDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [jobTab, setJobTab] = useState<"active" | "history">("active");
-  const [expandedInvoiceGroup, setExpandedInvoiceGroup] = useState<string | null>(null);
   const [expenseJobId, setExpenseJobId] = useState<string | null>(null);
   const [rateJobId, setRateJobId] = useState<string | null>(null);
   const [assignJobId, setAssignJobId] = useState<string | null>(null);
@@ -142,7 +140,6 @@ export default function PropertyDetail() {
 
   const renderJobCard = (job: Job, invoice: Invoice | undefined) => {
     const isComplete = job.status === "complete";
-    const jobInvoices = invoices.filter((inv) => inv.jobId === job.id);
     const STAGES = [
       { label: "Crew", done: !!job.crewLeaderId },
       { label: "Work", done: isComplete },
@@ -414,43 +411,6 @@ export default function PropertyDetail() {
             />
           </div>
         )}
-      </div>
-      {/* Invoices stacked with the job they belong to */}
-      {jobInvoices.length > 0 && (
-        <div className="mx-4 -mt-3 relative z-0">
-          <div className="bg-card border border-[var(--hairline)] border-t-0 rounded-b-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] divide-y divide-[var(--hairline)] pt-3">
-            {jobInvoices.map((inv) => (
-              <div key={inv.id} className="flex items-center gap-3 px-4 py-2.5">
-                <Receipt className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                <Link href={`/invoices/${inv.id}`} className="flex-1 min-w-0 hover:opacity-70 transition-opacity">
-                  <span className="text-sm font-semibold">{inv.invoiceNo || "Invoice"}</span>
-                  <span className={`ml-2 text-xs font-semibold ${invoiceStatusCls[inv.status] ?? "text-muted-foreground"}`}>
-                    {invoiceStatusLabel[inv.status] ?? inv.status}
-                  </span>
-                </Link>
-                <div className="font-mono font-bold text-sm shrink-0 tabular-nums">${inv.amount.toLocaleString()}</div>
-                {inv.status === "paid" ? (
-                  <button
-                    disabled={setStatus.isPending}
-                    onClick={() => toggleInvoice(inv.id, "sent")}
-                    className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-black/[0.05] text-muted-foreground hover:bg-black/[0.08] transition-colors disabled:opacity-50"
-                  >
-                    Mark pending
-                  </button>
-                ) : (
-                  <button
-                    disabled={setStatus.isPending}
-                    onClick={() => toggleInvoice(inv.id, "paid")}
-                    className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full text-[var(--ink)] bg-[var(--primary)] hover:brightness-105 transition-all disabled:opacity-50"
-                  >
-                    Mark paid
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       </div>
     );
   };

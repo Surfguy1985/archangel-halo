@@ -25,7 +25,6 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 
-// hint: Logic changed on both sides. Requires understanding intent of each change.
 function Board() {
   const { token } = useParams<{ token: string }>();
   const [, setLocation] = useLocation();
@@ -1158,3 +1157,4 @@ function Board() {
 }
 
 export default Board;
+

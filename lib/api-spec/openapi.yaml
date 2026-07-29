@@ -11549,7 +11549,9 @@ components:
       required: [cardKey, template, title, lane, position, editable, pipeline, stageIndex, actions, photos]
       properties:
         cardKey: { type: string }
-        template: { type: string, enum: [job, makeready, invoice, crew, request, custom] }
+        # HALO-fed ids (job, makeready, invoice, crew, request), "custom", or a
+        # template-library key chosen by the client at create time.
+        template: { type: string }
         title: { type: string }
         subtitle: { type: ["string", "null"] }
         lane: { type: string }
@@ -11627,6 +11629,8 @@ components:
       properties:
         title: { type: string }
         lane: { type: string }
+        # Template-library key the card was created from (e.g. "wo", "invoice").
+        template: { type: ["string", "null"] }
         description: { type: ["string", "null"] }
         notes: { type: ["string", "null"] }
         priority: { type: ["string", "null"] }

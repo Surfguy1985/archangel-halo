@@ -4,7 +4,6 @@ import { useDispatchClientBoardAction } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
-import { User, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   specFor,
@@ -15,6 +14,7 @@ import {
   TONES,
   MetricTone,
 } from './templateSpec';
+import { Camera, User, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
 
 interface BoardCardProps {
   card: ClientBoardCardView;

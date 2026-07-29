@@ -89,7 +89,6 @@ export * from './clientBoardCardInput';
 export * from './clientBoardCardRec';
 export * from './clientBoardCardUpdate';
 export * from './clientBoardCardView';
-export * from './clientBoardCardViewTemplate';
 export * from './clientBoardCrew';
 export * from './clientBoardFeedCard';
 export * from './clientBoardFeedCardLink';

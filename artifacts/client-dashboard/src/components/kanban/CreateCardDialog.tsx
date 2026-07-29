@@ -51,16 +51,14 @@ export function CreateCardDialog({ token, defaultLaneKey, defaultLaneLabel, avai
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Encode template into notes
-    const finalNotes = selectedTemplate ? `[Template: ${selectedTemplate.key}]\n${notes}` : notes;
-
     createCard.mutate({
       token,
       data: {
         title,
         lane: laneKey,
+        template: selectedTemplate?.key ?? undefined,
         description: description || undefined,
-        notes: finalNotes || undefined,
+        notes: notes || undefined,
         dueOn: dueOn || undefined,
       }
     }, {

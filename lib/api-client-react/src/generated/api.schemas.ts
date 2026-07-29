@@ -4759,22 +4759,9 @@ export interface ClientBoardCrew {
   /** @nullable */
   lastSeenAt?: string | null;
 }
-
-export type ClientBoardCardViewTemplate = typeof ClientBoardCardViewTemplate[keyof typeof ClientBoardCardViewTemplate];
-
-
-export const ClientBoardCardViewTemplate = {
-  job: 'job',
-  makeready: 'makeready',
-  invoice: 'invoice',
-  crew: 'crew',
-  request: 'request',
-  custom: 'custom',
-} as const;
-
 export interface ClientBoardCardView {
   cardKey: string;
-  template: ClientBoardCardViewTemplate;
+  template: string;
   title: string;
   /** @nullable */
   subtitle?: string | null;
@@ -4846,6 +4833,8 @@ export interface ClientBoardView {
 export interface ClientBoardCardInput {
   title: string;
   lane: string;
+  /** @nullable */
+  template?: string | null;
   /** @nullable */
   description?: string | null;
   /** @nullable */
@@ -5302,4 +5291,3 @@ jobId?: string;
 export type ListWorkRequestsParams = {
 status?: string;
 };
-

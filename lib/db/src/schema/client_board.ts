@@ -24,6 +24,8 @@ export const clientDashboardCardsTable = pgTable(
     lane: text("lane"), // board lane the client placed the card in
     position: doublePrecision("position").notNull().default(0),
     title: text("title"),
+    // Template-library key the client created the card from (null = plain custom).
+    template: text("template"),
     description: text("description"),
     notes: text("notes"),
     priority: text("priority"), // low | normal | high | urgent
