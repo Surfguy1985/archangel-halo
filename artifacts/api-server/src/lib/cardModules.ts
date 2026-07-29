@@ -106,6 +106,26 @@ function localDate(d: Date | null | undefined): string | null {
 }
 
 /** Invoice module: real invoice snapshot + pay link + approve action. */
+// Pick the invoice an office "invoice" card push most likely refers to when
+// the office didn't explicitly link one: unpaid (sent) invoices only, prefer
+// an exact amount match, else the most recent.
+export async function pickInvoiceForPush(
+  propertyId: string,
+  amount: number | null,
+): Promise<typeof invoicesTable.$inferSelect | null> {
+  const rows = await db
+    .select()
+    .from(invoicesTable)
+    .where(and(eq(invoicesTable.propertyId, propertyId), eq(invoicesTable.status, "sent")))
+    .orderBy(desc(invoicesTable.createdAt));
+  if (rows.length === 0) return null;
+  if (amount != null) {
+    const match = rows.find((r) => Math.abs(r.amount + (r.taxAmount ?? 0) - amount) < 0.005);
+    if (match) return match;
+  }
+  return rows[0]!;
+}
+
 export async function buildInvoiceModule(
   propertyId: string,
   invoiceId: string,

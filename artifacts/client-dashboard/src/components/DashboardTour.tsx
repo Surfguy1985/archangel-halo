@@ -79,17 +79,22 @@ export function DashboardTour({ onClose }: { onClose: () => void }) {
     if (timerRef.current) clearTimeout(timerRef.current);
   }, []);
 
+  // Track the current step in a ref so advance() can decide "past the end →
+  // close" OUTSIDE the setStep updater. Calling the parent's onClose inside
+  // the updater triggers React's "cannot update a component while rendering
+  // a different component" error.
+  const stepRef = useRef(step);
+  stepRef.current = step;
+
   const advance = useCallback(
     (dir: 1 | -1) => {
       stop();
-      setStep((s) => {
-        const n = s + dir;
-        if (n >= DASHBOARD_TOUR_STEPS.length) {
-          onCloseRef.current();
-          return s;
-        }
-        return Math.max(0, n);
-      });
+      const n = stepRef.current + dir;
+      if (n >= DASHBOARD_TOUR_STEPS.length) {
+        onCloseRef.current();
+        return;
+      }
+      setStep(Math.max(0, n));
       setPlaying(true);
     },
     [stop],

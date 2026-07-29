@@ -390,9 +390,16 @@ export function AppleBoard({
                     {laneCards.length}
                   </span>
                 </div>
-                {!viewer.readOnly && (
+                {(!viewer.readOnly || !viewer.authenticated) && (
                   <button
                     onClick={() => {
+                      // Guests see the button too — tapping it prompts sign-in
+                      // instead of silently hiding the ability to add cards.
+                      if (viewer.readOnly) {
+                        if (!viewer.authenticated && onLoginRequired) onLoginRequired();
+                        else if (showToast) showToast({ title: 'Read-only access', description: 'Ask your property manager for edit access.' });
+                        return;
+                      }
                       setDefaultLane(lane.key);
                       setTemplateGalleryOpen(true);
                     }}

@@ -10,6 +10,7 @@ import { motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CardDetailDialog } from '@/components/kanban/CardDetailDialog';
+import { NewCardSpotlight } from '@/components/NewCardSpotlight';
 import { BirdseyeMapDialog } from '@/components/BirdseyeMapDialog';
 import { AppleBoard } from '@workspace/board-ui';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
@@ -380,6 +381,17 @@ function Board() {
       />
 
       {tourOpen && <DashboardTour onClose={() => setTourOpen(false)} />}
+
+      {/* Front-and-center popups for cards the viewer hasn't seen yet. Held
+          back while the tour runs so the two never fight for the screen. */}
+      {boardLoaded && !tourOpen && (
+        <NewCardSpotlight
+          token={token}
+          cards={board?.cards || []}
+          readOnly={viewer.readOnly}
+          onOpenDetails={(card) => setDetailCard(card)}
+        />
+      )}
 
       <CardDetailDialog
         token={token}

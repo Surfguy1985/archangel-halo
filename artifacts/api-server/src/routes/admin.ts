@@ -44,6 +44,7 @@ import {
 import { raiseClientCard } from "../lib/clientBoard";
 import {
   buildInvoiceModule,
+  pickInvoiceForPush,
   buildInvoiceBatchModule,
   buildTrackerModule,
   buildFlagsModule,
@@ -709,6 +710,18 @@ router.post(
       module = await buildPhotosModule(property.id, body.sourceId);
     } else if (body.kind === "photos" || body.kind === "summary") {
       module = buildLinkModule("link", links[0]?.url ?? null, links[0]?.label ?? null);
+    } else if (body.kind === "invoice") {
+      // Office pushed an invoice card without explicitly linking an invoice —
+      // auto-link the unpaid invoice it most likely refers to (amount match,
+      // else most recent) so the client gets the full approve/pay flow.
+      const inv = await pickInvoiceForPush(property.id, body.amount ?? null);
+      if (inv) {
+        module = await buildInvoiceModule(property.id, inv.id);
+        if (module) {
+          sourceType = "invoice";
+          sourceId = inv.id;
+        }
+      }
     }
     const card = await raiseClientCard({
       propertyId: property.id,

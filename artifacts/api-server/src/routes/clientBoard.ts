@@ -48,6 +48,7 @@ import { raiseClientCard } from "../lib/clientBoard";
 import {
   buildCrewMapModule,
   buildInvoiceModule,
+  pickInvoiceForPush,
   buildInvoiceBatchModule,
   buildBidModule,
   buildTrackerModule,
@@ -524,6 +525,39 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
           updatedAt: (lastCheckin?.createdAt ?? job.createdAt).toISOString(),
         }),
       );
+    }
+  }
+
+  // Self-repair: invoice-kind pushed cards that were sent without a linked
+  // invoice have no module (plain dumb card). Lazily link them to the unpaid
+  // invoice they most likely mean (amount match, else most recent) and
+  // persist — one-time fix per card, makes old cards interactive.
+  for (const c of pushed) {
+    if (c.kind !== "invoice" || c.module || c.sourceType === "invoice") continue;
+    const inv = await pickInvoiceForPush(propertyId, c.amount ?? null);
+    if (!inv) continue;
+    const module = await buildInvoiceModule(propertyId, inv.id);
+    if (!module) continue;
+    // (sourceType, sourceId) is unique — only claim the invoice identity if
+    // no other card already has it; otherwise just attach the module so the
+    // card becomes interactive without violating the constraint.
+    const taken = pushed.some(
+      (o) => o.id !== c.id && o.sourceType === "invoice" && o.sourceId === inv.id,
+    );
+    try {
+      const [updated] = await db
+        .update(clientBoardCardsTable)
+        .set(
+          taken
+            ? { module, updatedAt: new Date() }
+            : { module, sourceType: "invoice", sourceId: inv.id, updatedAt: new Date() },
+        )
+        .where(eq(clientBoardCardsTable.id, c.id))
+        .returning();
+      if (updated) Object.assign(c, updated);
+    } catch {
+      // Never let a repair attempt break the board read.
+      c.module = module;
     }
   }
 

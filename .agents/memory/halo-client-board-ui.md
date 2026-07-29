@@ -26,3 +26,8 @@ Board now follows the uploaded fixed-seed spec (attached_assets/REPLIT_PROMPT_17
 - Header buttons `button-map-view`, `button-site-map`, `button-board-tour` are a test/tour contract (DashboardTour anchors) — restyles must keep them.
 - Category chips/counts must derive from templateSpec specFor()/API_TEMPLATE_ALIASES, never hardcoded template lists.
 - Card internal margins must sum to exactly 430 with the 38px footer — overflow:hidden clips the footer silently if any mt-* is padded out.
+
+## New-card spotlight & guest add-card
+- Board open pops unseen cards front-and-center (NewCardSpotlight): seen-set in localStorage per token with in-memory fallback; first visit baselines quietly except pushed cards still in Sent stage. Keep it gated behind the tour so they never overlap.
+- Add-card button is intentionally visible to guests; unauthenticated click opens the sign-in dialog instead of hiding the affordance ("clients can't create" complaints were guests with no visible entry point).
+- Never call the parent's onClose/setState inside a React setState updater (DashboardTour advance) — triggers "cannot update a component while rendering".
