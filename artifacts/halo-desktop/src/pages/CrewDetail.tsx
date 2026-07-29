@@ -1,6 +1,6 @@
-import { useMemo, useState} from "react";
-import { Link, useParams, useLocation} from "wouter";
-import { useQueryClient} from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { Link, useParams, useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetCrewDetail,
   useGenerateCrewPortalLink,
@@ -29,7 +29,7 @@ import {
   type CrewPhoto,
   type CrewInvoice,
 } from "@workspace/api-client-react";
-import { useUpload} from "@workspace/object-storage-web";
+import { useUpload } from "@workspace/object-storage-web";
 import {
   ChevronLeft,
   FileDown,
@@ -51,11 +51,13 @@ import {
   Camera,
   Share2,
   Receipt,
+  Navigation,
 } from "lucide-react";
-import { useToast} from "@/hooks/use-toast";
-import { Skeleton} from "@/components/ui/skeleton";
-import { downloadW9Pdf} from "@/lib/w9pdf";
-import { EditCrewDialog} from "@/components/CrewDialogs";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { downloadW9Pdf } from "@/lib/w9pdf";
+import { EditCrewDialog } from "@/components/CrewDialogs";
+import { CrewCommandCenter } from "@/components/CrewCommandCenter";
 
 function paymentTermsLabel(v?: string | null): string {
   switch (v) {
@@ -64,7 +66,7 @@ function paymentTermsLabel(v?: string | null): string {
     case "net30": return "Net 30";
     case "net45": return "Net 45";
     default: return "Not set";
- }
+  }
 }
 
 function formatWhen(iso?: string | null): string {
@@ -74,7 +76,23 @@ function formatWhen(iso?: string | null): string {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
- });
+  });
+}
+
+function formatCheckinWhen(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const time = d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${date} · ${time}`;
 }
 
 const sectionTitle =
@@ -87,7 +105,433 @@ function formatDayLabel(day: string): string {
     month: "short",
     day: "numeric",
     year: "numeric",
- });
+  });
+}
+
+const THUMB_W = 88;
+const THUMB_H = 64;
+const TILE = 256;
+const MAP_ZOOM = 15;
+
+function MapThumb({ lat, lng }: { lat: number; lng: number }) {
+  const n = 2 ** MAP_ZOOM;
+  const xF = ((lng + 180) / 360) * n;
+  const latR = (lat * Math.PI) / 180;
+  const yF =
+    ((1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2) * n;
+  const xTile = Math.floor(xF);
+  const yTile = Math.floor(yF);
+  const clamp = (v: number, min: number, max: number) =>
+    Math.min(max, Math.max(min, v));
+  const left = clamp((xF - xTile) * TILE - THUMB_W / 2, 0, TILE - THUMB_W);
+  const top = clamp((yF - yTile) * TILE - THUMB_H / 2, 0, TILE - THUMB_H);
+  return (
+    <div
+      className="relative overflow-hidden rounded-[12px] border border-border shrink-0 bg-muted"
+      style={{ width: THUMB_W, height: THUMB_H }}
+    >
+      <img
+        src={`https://tile.openstreetmap.org/${MAP_ZOOM}/${xTile}/${yTile}.png`}
+        alt="Check-in location map"
+        width={TILE}
+        height={TILE}
+        loading="lazy"
+        className="absolute max-w-none"
+        style={{ left: -left, top: -top }}
+      />
+      <MapPin
+        className="absolute w-4 h-4 text-red-600 drop-shadow"
+        style={{
+          left: (xF - xTile) * TILE - left - 8,
+          top: (yF - yTile) * TILE - top - 16,
+        }}
+      />
+    </div>
+  );
+}
+
+type CheckinItem = {
+  id: string;
+  label?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  createdAt?: string | null;
+};
+
+function CheckinRow({ checkin: c }: { checkin: CheckinItem }) {
+  const hasCoords = c.lat != null && c.lng != null;
+  const params = { lat: c.lat ?? 0, lng: c.lng ?? 0 };
+  const { data: geo } = useReverseGeocode(params, {
+    query: {
+      queryKey: getReverseGeocodeQueryKey(params),
+      enabled: hasCoords,
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
+    },
+  });
+  return (
+    <div className="flex items-center gap-4 py-3">
+      {hasCoords ? (
+        <MapThumb lat={c.lat!} lng={c.lng!} />
+      ) : (
+        <div className="w-[88px] h-[64px] rounded-[12px] bg-black/5 flex items-center justify-center shrink-0">
+          <MapPin className="w-5 h-5 text-muted-foreground opacity-50" />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-bold text-[var(--ink)] truncate">{c.label || "Check-in"}</div>
+        <div className="text-[11px] font-medium text-muted-foreground mt-0.5">
+          {formatCheckinWhen(c.createdAt)}
+        </div>
+        {hasCoords && geo?.address && (
+          <div className="text-xs text-muted-foreground mt-1 line-clamp-1">
+            {geo.address}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CrewInvoicesReview({
+  crewId,
+  invoices,
+}: {
+  crewId: string;
+  invoices?: CrewInvoice[];
+}) {
+  const queryClient = useQueryClient();
+  const review = useReviewCrewInvoice();
+  const { toast } = useToast();
+
+  const handleAction = (invId: string, action: "approve" | "send_back") => {
+    let note: string | undefined;
+    if (action === "send_back") {
+      const input = window.prompt("What should the crew fix? (required)");
+      if (!input || !input.trim()) return;
+      note = input.trim();
+    }
+    review.mutate(
+      { id: invId, data: note ? { action, note } : { action } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            queryKey: getListCrewInvoicesQueryKey(crewId),
+          });
+          toast({
+            title: action === "approve" ? "Invoice approved" : "Invoice rejected",
+          });
+        },
+      },
+    );
+  };
+
+  if (!invoices || invoices.length === 0) {
+    return <div className="text-sm text-muted-foreground py-2 text-center">No invoices yet.</div>;
+  }
+
+  return (
+    <div className="flex flex-col divide-y divide-[var(--hairline)]">
+      {invoices.map((inv) => (
+        <div key={inv.id} className="py-3 flex items-start justify-between gap-4 group">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-bold text-[var(--ink)] truncate">{inv.jobLabel || "General Invoice"}</span>
+              {inv.status === "needs_corrections" && (
+                <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-[10px] font-bold uppercase tracking-wider">Rejected</span>
+              )}
+              {inv.status === "submitted" && (
+                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold uppercase tracking-wider">Review needed</span>
+              )}
+              {inv.status === "approved" && (
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">Approved</span>
+              )}
+              {inv.status === "paid" && (
+                <span className="px-2 py-0.5 rounded-full bg-black/[0.05] text-muted-foreground text-[10px] font-bold uppercase tracking-wider">Paid</span>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Submitted {formatWhen(inv.createdAt)}
+            </div>
+            {inv.adminNote && (
+              <div className="text-sm text-[var(--ink)] mt-2 italic bg-black/5 px-3 py-2 rounded-lg">"{inv.adminNote}"</div>
+            )}
+          </div>
+          <div className="shrink-0 flex flex-col items-end gap-2">
+            <div className="font-mono font-bold text-base text-[var(--ink)]">${inv.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+            {inv.status === "submitted" && (
+              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => handleAction(inv.id, "approve")}
+                  disabled={review.isPending}
+                  className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => handleAction(inv.id, "send_back")}
+                  disabled={review.isPending}
+                  className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                >
+                  Reject
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+function W9Readout({ data }: { data: Record<string, unknown> }) {
+  const rows: [string, string][] = [];
+  const push = (label: string, key: string) => {
+    const v = data[key];
+    if (v != null && v !== "") rows.push([label, String(v)]);
+  };
+  push("Name", "name");
+  push("Business name", "businessName");
+  push("Tax classification", "taxClassification");
+  push("Address", "address");
+  push("City", "city");
+  push("State", "state");
+  push("ZIP", "zip");
+  if (data.tinType === "ein") push("EIN", "ein");
+  else push("SSN", "ssn");
+  push("Signature", "signature");
+  push("Signed", "signedDate");
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 mt-4 bg-black/5 rounded-xl p-4">
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex flex-col gap-0.5 text-sm">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+          <span className="font-medium text-[var(--ink)] break-words">{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DailyActivitySection({
+  crewId,
+  crewName,
+}: {
+  crewId: string;
+  crewName: string;
+}) {
+  const { toast } = useToast();
+  const { data: photos } = useListCrewPhotos(crewId, {
+    query: {
+      queryKey: getListCrewPhotosQueryKey(crewId),
+      refetchInterval: 8000,
+    },
+  });
+  const createShare = useCreatePhotoShare();
+  const updateNotes = useUpdatePhotoShareNotes();
+  const [sharingDay, setSharingDay] = useState<string | null>(null);
+  const [reportDay, setReportDay] = useState<string | null>(null);
+  const [reportToken, setReportToken] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
+
+  const jobGroups = useMemo(() => {
+    const map = new Map<
+      string,
+      { label: string; days: Map<string, CrewPhoto[]> }
+    >();
+    for (const p of photos ?? []) {
+      const key = p.jobId ?? "none";
+      const g = map.get(key) ?? {
+        label: p.jobLabel ?? (p.jobId ? "Job" : "General photos"),
+        days: new Map<string, CrewPhoto[]>(),
+      };
+      const arr = g.days.get(p.takenOn) ?? [];
+      arr.push(p);
+      g.days.set(p.takenOn, arr);
+      map.set(key, g);
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => {
+        if (a[0] === "none") return 1;
+        if (b[0] === "none") return -1;
+        return a[1].label.localeCompare(b[1].label);
+      })
+      .map(([jobId, { label, days }]) => ({
+        jobId,
+        label,
+        days: Array.from(days.entries())
+          .sort((a, b) => b[0].localeCompare(a[0]))
+          .map(([date, list]) => ({ date, photos: list })),
+      }));
+  }, [photos]);
+
+  const handleSharePhotos = (takenOn: string) => {
+    setSharingDay(takenOn);
+    createShare.mutate(
+      { id: crewId, data: { day: takenOn } },
+      {
+        onSuccess: async (res) => {
+          setSharingDay(null);
+          const url = `${window.location.origin}/photos/${res.token}`;
+          const message = `Photos from ${crewName} — ${formatDayLabel(takenOn)}: ${url}`;
+          try {
+            await navigator.clipboard.writeText(url);
+            toast({ title: "Share link copied", description: "Opening Messages with a prefilled text…" });
+          } catch {
+            toast({ title: "Share link ready", description: url });
+          }
+          window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
+        },
+        onError: () => {
+          setSharingDay(null);
+          toast({ title: "Couldn't create share link", description: "Please try again.", variant: "destructive" });
+        },
+      },
+    );
+  };
+
+  const handleCreateShare = (takenOn: string) => {
+    createShare.mutate(
+      { id: crewId, data: { day: takenOn } },
+      {
+        onSuccess: (res) => {
+          setSharingDay(null);
+          setNotesDraft("");
+          setReportDay(takenOn);
+          setReportToken(res.token);
+          toast({ title: "Report link generated" });
+        },
+        onError: (err) =>
+          toast({ title: "Failed", description: err.message, variant: "destructive" }),
+      },
+    );
+  };
+
+  const handleUpdateNotes = (token: string, newNotes: string, day: string) => {
+    updateNotes.mutate(
+      { id: token, data: { day, notes: newNotes } },
+      {
+        onSuccess: () => {
+          setSharingDay(null);
+          setNotesDraft("");
+          toast({ title: "Notes updated" });
+        },
+        onError: (err) =>
+          toast({ title: "Failed", description: err.message, variant: "destructive" }),
+      },
+    );
+  };
+
+  return (
+    <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6 lg:col-span-2">
+      <div className={sectionTitle}><Camera className="w-3.5 h-3.5" /> Daily Activity Photos</div>
+      {!photos || photos.length === 0 ? (
+        <div className="text-sm text-muted-foreground py-2 text-center">No photos uploaded yet.</div>
+      ) : (
+        <div className="space-y-8">
+          {jobGroups.map((group) => (
+            <div key={group.jobId}>
+              <h3 className="font-display font-bold text-base text-[var(--ink)] mb-4">{group.label}</h3>
+              <div className="space-y-6 pl-4 border-l-2 border-black/5">
+                {group.days.map((dayGroup) => (
+                  <div key={dayGroup.date} className="relative">
+                    <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[var(--gold)]" />
+                    <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                      <div className="text-sm font-semibold text-muted-foreground">
+                        {formatDayLabel(dayGroup.date)}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleSharePhotos(dayGroup.date)}
+                          disabled={sharingDay === dayGroup.date}
+                          className="flex items-center gap-1.5 text-xs font-bold rounded-full border border-border px-3 py-1.5 text-foreground hover:bg-[var(--paper)] transition-colors disabled:opacity-60"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                          {sharingDay === dayGroup.date ? "Preparing…" : "Share link to photos"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (reportDay === dayGroup.date) {
+                              setReportDay(null);
+                              setReportToken(null);
+                              return;
+                            }
+                            handleCreateShare(dayGroup.date);
+                          }}
+                          disabled={createShare.isPending && reportDay !== dayGroup.date}
+                          className={`flex items-center gap-1.5 text-xs font-bold rounded-full px-3 py-1.5 transition-colors disabled:opacity-60 ${
+                            reportDay === dayGroup.date
+                              ? "bg-[var(--ink)] text-white"
+                              : "border border-border text-foreground hover:bg-[var(--paper)]"
+                          }`}
+                        >
+                          <FileDown className="w-3.5 h-3.5" /> Full report
+                        </button>
+                      </div>
+                    </div>
+                    {reportDay === dayGroup.date && reportToken && (
+                      <div className="mb-3 rounded-lg border border-border bg-[var(--paper)] p-3">
+                        <div className="text-[11px] font-display font-bold tracking-[0.1em] text-muted-foreground mb-1.5">
+                          Notes for the report
+                        </div>
+                        <textarea
+                          value={notesDraft}
+                          onChange={(e) => setNotesDraft(e.target.value)}
+                          rows={3}
+                          placeholder="Anything the property manager should know — scope notes, follow-ups, scheduling…"
+                          className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm resize-y outline-none focus:border-[var(--gold)]"
+                        />
+                        <div className="flex items-center gap-2 mt-2">
+                          <button
+                            onClick={() => handleUpdateNotes(crewId, notesDraft, dayGroup.date)}
+                            disabled={updateNotes.isPending}
+                            className="text-xs font-bold rounded-full border border-border px-3.5 py-1.5 text-foreground hover:bg-card transition-colors disabled:opacity-60"
+                          >
+                            {updateNotes.isPending ? "Saving…" : "Save notes"}
+                          </button>
+                          <a
+                            href={`/api/photo-shares/${reportToken}/report`}
+                            className="flex items-center gap-1.5 text-xs font-bold rounded-full px-3.5 py-1.5 text-[var(--ink)] bg-[var(--primary)] hover:opacity-90 transition-opacity"
+                          >
+                            <FileDown className="w-3.5 h-3.5" /> Download PDF
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {dayGroup.photos.map((p) => (
+                        <div key={p.id} className="group relative aspect-[4/3] rounded-xl overflow-hidden bg-black/5">
+                          <img
+                            src={`/api/storage${p.storagePath}`}
+                            alt="Activity"
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
+                            {p.note && <div className="text-[10px] text-white line-clamp-2 leading-tight">{p.note}</div>}
+                            <div className="text-[9px] text-white/70 mt-0.5">
+                              {new Date(p.takenOn + "T00:00:00").toLocaleDateString()}
+                            </div>
+                          </div>
+                          {p.phase && (
+                            <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm">
+                              {p.phase}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function CrewDetail() {
@@ -122,6 +566,7 @@ export default function CrewDetail() {
   const [copied, setCopied] = useState(false);
   const [copiedGuide, setCopiedGuide] = useState<"en" | "es" | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [, navigate] = useLocation();
   const [templateKey, setTemplateKey] = useState("");
 
@@ -232,46 +677,57 @@ export default function CrewDetail() {
   const packetLabel = (key: string) => packetTemplates?.find((t) => t.key === key)?.label ?? key;
   const card = "bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6";
   const goldBtn =
-    "flex items-center justify-center gap-2 rounded-full py-2.5 px-4 text-sm font-display font-bold text-black bg-[var(--gold-light)] hover:brightness-95 transition-all disabled:opacity-50";
+    "flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-sm font-display font-bold text-black bg-[var(--gold-light)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:brightness-95 transition-all disabled:opacity-50";
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <Link href="/crews" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground w-fit">
-        <ChevronLeft className="w-4 h-4" /> Crews
+      <Link href="/crews" className="flex items-center gap-2 text-muted-foreground text-sm font-semibold mb-4 w-fit hover:text-foreground">
+        <ChevronLeft className="w-4 h-4" /> Back to Crews
       </Link>
 
-      <header className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-full bg-[var(--ink)] text-[var(--gold-light)] font-display font-bold text-2xl grid place-items-center shrink-0 overflow-hidden">
-          {crew.selfiePath ? (
-            <img
-              src={`/api/storage${crew.selfiePath}`}
-              alt={crew.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            crew.name.substring(0, 1)
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)] truncate">{crew.name}</h1>
-          <div className="text-sm text-muted-foreground flex items-center gap-3 flex-wrap">
-            <span>{crew.trade || "General"}</span>
-            {crew.phone && (
-              <span className="inline-flex items-center gap-1"><Phone className="w-3.5 h-3.5" /> {crew.phone}</span>
-            )}
-            {crew.email && (
-              <span className="inline-flex items-center gap-1 truncate"><Mail className="w-3.5 h-3.5" /> {crew.email}</span>
+      <header className="flex justify-between items-start">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-[var(--ink)] text-[var(--gold-light)] font-display font-bold text-2xl grid place-items-center shrink-0 overflow-hidden shadow-sm">
+            {crew.selfiePath ? (
+              <img
+                src={`/api/storage${crew.selfiePath}`}
+                alt={crew.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              crew.name.substring(0, 1)
             )}
           </div>
+          <div>
+            <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)] leading-tight">{crew.name}</h1>
+            <div className="text-muted-foreground mt-1 text-sm flex items-center gap-3 flex-wrap font-medium">
+              <span>{crew.trade || "General"}</span>
+              {crew.phone && (
+                <span className="inline-flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> {crew.phone}</span>
+              )}
+              {crew.email && (
+                <span className="inline-flex items-center gap-1.5 truncate"><Mail className="w-3.5 h-3.5" /> {crew.email}</span>
+              )}
+            </div>
+          </div>
         </div>
-        <button
-          onClick={() => setEditOpen(true)}
-          className="flex items-center gap-2 rounded-full py-2 px-4 text-sm font-display font-semibold text-[var(--ink)] bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-[var(--ink)] transition-colors shrink-0"
-        >
-          <Pencil className="w-4 h-4" /> Edit
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMapOpen(true)}
+            className="flex items-center gap-2 bg-[var(--ink)] text-white px-5 py-2.5 rounded-full font-bold shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:opacity-90 transition-opacity"
+          >
+            <Navigation className="w-4 h-4 text-[var(--gold-light)]" /> Command Center
+          </button>
+          <button
+            onClick={() => setEditOpen(true)}
+            className="flex items-center gap-2 bg-card text-[var(--ink)] px-5 py-2.5 rounded-full font-medium border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-[var(--ink)] transition-colors"
+          >
+            <Pencil className="w-4 h-4" /> Edit
+          </button>
+        </div>
       </header>
 
+      {mapOpen && <CrewCommandCenter onClose={() => setMapOpen(false)} />}
       <EditCrewDialog
         open={editOpen}
         onOpenChange={setEditOpen}
@@ -279,812 +735,229 @@ export default function CrewDetail() {
         onDeleted={() => navigate("/crews")}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Live portal link */}
-        <div className={card}>
-          <div className={sectionTitle}><Link2 className="w-3.5 h-3.5" /> Live portal link</div>
-          {portalUrl ? (
-            <>
-              <div className="text-xs font-mono bg-[var(--paper)] border border-[var(--hairline)] rounded-[12px] px-3 py-2.5 break-all mb-3">{portalUrl}</div>
-              <button onClick={handleCopy} className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-display font-semibold text-[var(--ink)] bg-card border border-[var(--hairline)] hover:border-[var(--ink)] transition-colors">
-                {copied ? <><Check className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy live link</>}
-              </button>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <button
-                  onClick={() => copyGuideLink("en")}
-                  data-testid="button-copy-guide-en"
-                  className="flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-display font-semibold text-[var(--ink)] bg-card border border-[var(--hairline)] hover:border-[var(--ink)] transition-colors"
-                >
-                  {copiedGuide === "en" ? <><Check className="w-4 h-4" /> Copied</> : <><BookOpen className="w-4 h-4" /> Guide link (English)</>}
-                </button>
-                <button
-                  onClick={() => copyGuideLink("es")}
-                  data-testid="button-copy-guide-es"
-                  className="flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-display font-semibold text-[var(--ink)] bg-card border border-[var(--hairline)] hover:border-[var(--ink)] transition-colors"
-                >
-                  {copiedGuide === "es" ? <><Check className="w-4 h-4" /> Copiado</> : <><BookOpen className="w-4 h-4" /> Guía (Español)</>}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-3 leading-relaxed">Anyone with this link can open the crew's onboarding portal. The guide links open the same portal on its how-to guide, in English or Spanish — send whichever your crew prefers.</p>
-            </>
-          ) : (
-            <button onClick={handleGenerate} disabled={genLink.isPending} className={`w-full ${goldBtn}`}>
-              <Link2 className="w-4 h-4" /> Generate live link
-            </button>
-          )}
-        </div>
-
-        {/* Onboarding welcome kit */}
-        <div className={card}>
-          <div className={sectionTitle}><PackageCheck className="w-3.5 h-3.5" /> Onboarding Welcome Kit</div>
-          <div className="flex flex-col gap-2">
-            <select
-              value={templateKey}
-              onChange={(e) => setTemplateKey(e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              <option value="">Choose a packet to send…</option>
-              {(packetTemplates ?? []).map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-            </select>
-            <button onClick={handleSendPacket} disabled={!templateKey || sendPacket.isPending} className={`w-full ${goldBtn}`}>
-              <Send className="w-4 h-4" /> {sendPacket.isPending ? "Sending…" : "Send packet to crew"}
-            </button>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        {[
+          ["Paid", `$${(crew.paidTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0 })}`],
+          ["Outstanding", `$${(crew.outstandingTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0 })}`],
+          ["Invoices", String(crewInvoices?.length || 0)],
+          ["Check-ins today", String(checkins?.filter(c => c.createdAt && new Date(c.createdAt).toDateString() === new Date().toDateString()).length || 0)],
+        ].map(([label, value]) => (
+          <div key={label} className="bg-[var(--ink)] rounded-[20px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+            <div className="text-white/60 uppercase text-[11px] font-bold tracking-[0.1em] mb-1">{label}</div>
+            <div className="font-display font-bold text-[28px] text-white tabular-nums">{value}</div>
           </div>
-          {packets && packets.length > 0 && (
-            <div className="flex flex-col mt-4 divide-y divide-border">
-              {packets.map((p) => {
-                const submitted = p.status === "submitted";
-                const label = submitted ? "Completed" : p.status === "in_progress" ? "In progress" : "Sent";
-                return (
-                  <div key={p.id} className="flex items-center gap-3 py-3">
-                    <PackageCheck className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold truncate">{packetLabel(p.templateKey)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {submitted ? `Submitted ${formatWhen(p.submittedAt)}` : `Sent ${formatWhen(p.sentAt)}`}
-                      </div>
-                    </div>
-                    <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 ${submitted ? "bg-emerald-100 text-emerald-800" : p.status === "in_progress" ? "bg-[var(--gold-tint)] text-[var(--gold-dark)]" : "bg-black/5 text-muted-foreground"}`}>{label}</span>
-                    {submitted && (
-                      <a href={`/api/packets/${p.id}/pdf`} download className="shrink-0 w-8 h-8 grid place-items-center rounded-full bg-[var(--paper)] border border-border text-muted-foreground hover:text-foreground" aria-label="Download packet PDF">
-                        <Download className="w-4 h-4" />
-                      </a>
-                    )}
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Main Column */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Messages */}
+          <div className={card}>
+            <div className={sectionTitle}><Send className="w-3.5 h-3.5" /> Messages</div>
+            <div className="flex flex-col gap-3 max-h-96 overflow-y-auto mb-4 p-2 custom-scrollbar">
+              {!messages || messages.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-8 text-center bg-black/5 rounded-xl">No messages yet. Say hi!</div>
+              ) : (
+                messages.map((m) => (
+                  <div key={m.id} className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${m.sender === "admin" ? "self-end bg-[var(--ink)] text-white rounded-br-sm" : "self-start bg-white border border-[var(--hairline)] text-[var(--ink)] rounded-bl-sm"}`}>
+                    <div>{m.body}</div>
+                    <div className={`text-[10px] mt-1.5 font-medium ${m.sender === "admin" ? "text-white/60" : "text-muted-foreground"}`}>{formatWhen(m.createdAt)}</div>
                   </div>
-                );
-              })}
+                ))
+              )}
             </div>
-          )}
+            <div className="flex items-end gap-2 bg-black/5 p-2 rounded-2xl">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Message the crew…"
+                rows={1}
+                className="flex-1 resize-none bg-transparent px-3 py-2 text-sm focus:outline-none placeholder:text-muted-foreground font-medium text-[var(--ink)]"
+              />
+              <button onClick={handleSend} disabled={sendMessage.isPending || !draft.trim()} aria-label="Send message" className="w-10 h-10 shrink-0 rounded-full grid place-items-center bg-[var(--gold-light)] text-black disabled:opacity-40 hover:brightness-95 transition-all shadow-sm">
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <DailyActivitySection crewId={id} crewName={crew.name} />
+
+          {/* Invoices from crew */}
+          <div className={card}>
+            <div className={sectionTitle}><Receipt className="w-3.5 h-3.5" /> Invoices from crew</div>
+            <CrewInvoicesReview crewId={id} invoices={crewInvoices} />
+          </div>
         </div>
 
-        {/* Messages */}
-        <div className={card}>
-          <div className={sectionTitle}><Send className="w-3.5 h-3.5" /> Messages</div>
-          <div className="flex flex-col gap-2 max-h-72 overflow-y-auto mb-3">
-            {!messages || messages.length === 0 ? (
-              <div className="text-sm text-muted-foreground py-3 text-center">No messages yet.</div>
-            ) : (
-              messages.map((m) => (
-                <div key={m.id} className={`max-w-[82%] rounded-xl px-3 py-2 text-sm leading-relaxed ${m.sender === "admin" ? "self-end bg-[var(--ink)] text-white rounded-br-sm" : "self-start bg-black/5 text-foreground rounded-bl-sm"}`}>
-                  <div>{m.body}</div>
-                  <div className={`text-[10px] mt-1 ${m.sender === "admin" ? "text-white/60" : "text-muted-foreground"}`}>{formatWhen(m.createdAt)}</div>
+        {/* Secondary Column */}
+        <div className="space-y-6">
+          {/* Live portal link (Compact) */}
+          <div className={card}>
+            <div className={sectionTitle}><Link2 className="w-3.5 h-3.5" /> Portal Link</div>
+            {portalUrl ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 text-[10px] font-mono bg-[var(--paper)] border border-[var(--hairline)] rounded-lg px-2 py-1.5 truncate text-muted-foreground">{portalUrl}</div>
+                  <button onClick={handleCopy} className="shrink-0 w-8 h-8 rounded-full bg-card border border-[var(--hairline)] hover:border-[var(--ink)] flex items-center justify-center transition-colors text-[var(--ink)]">
+                    {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
                 </div>
-              ))
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => copyGuideLink("en")}
+                    className="flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold text-[var(--ink)] bg-card border border-[var(--hairline)] hover:border-[var(--ink)] transition-colors"
+                  >
+                    {copiedGuide === "en" ? <Check className="w-3.5 h-3.5" /> : <BookOpen className="w-3.5 h-3.5" />} Guide EN
+                  </button>
+                  <button
+                    onClick={() => copyGuideLink("es")}
+                    className="flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold text-[var(--ink)] bg-card border border-[var(--hairline)] hover:border-[var(--ink)] transition-colors"
+                  >
+                    {copiedGuide === "es" ? <Check className="w-3.5 h-3.5" /> : <BookOpen className="w-3.5 h-3.5" />} Guía ES
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={handleGenerate} disabled={genLink.isPending} className={`w-full ${goldBtn}`}>
+                <Link2 className="w-4 h-4" /> Generate link
+              </button>
             )}
           </div>
-          <div className="flex items-end gap-2">
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Message the crew…"
-              rows={1}
-              className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <button onClick={handleSend} disabled={sendMessage.isPending || !draft.trim()} aria-label="Send message" className="w-10 h-10 shrink-0 rounded-full grid place-items-center bg-[var(--ink)] text-white disabled:opacity-40 hover:opacity-90 transition-opacity">
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
 
-        {/* Invoices from crew */}
-        <div className={card}>
-          <div className={sectionTitle}><Receipt className="w-3.5 h-3.5" /> Invoices from crew</div>
-          <CrewInvoicesReview crewId={id} invoices={crewInvoices} />
-        </div>
-
-        {/* Documents */}
-        <div className={card}>
-          <div className={sectionTitle}><FileText className="w-3.5 h-3.5" /> Documents</div>
-          <label className="w-full mb-3 flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-display font-bold bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] cursor-pointer hover:border-[var(--ink)] transition-colors">
-            <FileUp className="w-4 h-4" />
-            {isUploading ? "Uploading…" : "Send document to crew"}
-            <input type="file" className="hidden" onChange={onFilePicked} disabled={isUploading} />
-          </label>
-          {!documents || documents.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-2 text-center">No documents yet.</div>
-          ) : (
-            <div className="flex flex-col divide-y divide-border">
-              {documents.map((d) => {
-                const url = `/api/storage${d.storagePath}`;
-                return (
-                  <div key={d.id} className="flex items-center gap-3 py-3">
-                    <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <a href={url} target="_blank" rel="noreferrer" className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold truncate">{d.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {d.direction === "from_crew" ? "From crew" : "Sent to crew"} · {formatWhen(d.createdAt)}
-                      </div>
-                    </a>
-                    {d.direction === "from_crew" && (
-                      <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 shrink-0">New</span>
-                    )}
-                    <a href={url} download={d.name} className="shrink-0 w-8 h-8 grid place-items-center rounded-full bg-[var(--paper)] border border-border text-muted-foreground hover:text-foreground" aria-label={`Download ${d.name}`}>
-                      <Download className="w-4 h-4" />
-                    </a>
+          {/* Paperwork & payment (Merged compact) */}
+          <div className={card}>
+            <div className={sectionTitle}><ClipboardCheck className="w-3.5 h-3.5" /> Paperwork & Payment</div>
+            
+            <div className="space-y-4">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Payment Method</div>
+                {crew.preferredPaymentMethod ? (
+                  <div>
+                    <div className="text-sm font-bold text-[var(--ink)]">{crew.preferredPaymentMethod}</div>
+                    {crew.paymentDetails && <div className="text-xs text-muted-foreground mt-0.5 break-words font-mono bg-black/5 px-2 py-1 rounded inline-block">{crew.paymentDetails}</div>}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Check-ins */}
-        <div className={card}>
-          <div className={sectionTitle}><MapPin className="w-3.5 h-3.5" /> GPS check-ins</div>
-          {!checkins || checkins.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-2 text-center">No check-ins yet.</div>
-          ) : (
-            <div className="flex flex-col divide-y divide-border">
-              {checkins.map((c) => (
-                <CheckinRow key={c.id} checkin={c} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Daily activity */}
-        <DailyActivitySection crewId={id} crewName={crew.name} />
-
-        {/* Terms & money */}
-        <div className={card}>
-          <div className={sectionTitle}><Wallet className="w-3.5 h-3.5" /> Terms & money</div>
-          <div className="flex gap-3 mb-4">
-            <div className="flex-1 rounded-lg bg-emerald-50 p-3">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Paid</div>
-              <div className="font-display font-bold text-lg tabular-nums text-emerald-700">
-                ${(crew.paidTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                ) : (
+                  <div className="text-sm text-muted-foreground italic">Not set</div>
+                )}
               </div>
-            </div>
-            <div className="flex-1 rounded-lg bg-amber-50 p-3">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Outstanding</div>
-              <div className="font-display font-bold text-lg tabular-nums text-amber-700">
-                ${(crew.outstandingTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Terms</div>
+                <div className="text-sm font-bold text-[var(--ink)]">{paymentTermsLabel(crew.paymentTerms)}</div>
+              </div>
+
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">W-9 Form</div>
+                {crew.w9Submitted && crew.w9 ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-semibold">
+                      <Check className="w-3.5 h-3.5" /> Submitted {formatWhen(crew.w9SubmittedAt)}
+                    </div>
+                    <button onClick={() => downloadW9Pdf(crew.w9 as Record<string, unknown>, crew.name)} className="w-full flex items-center justify-center gap-2 rounded-lg py-1.5 text-xs font-bold bg-card border border-[var(--hairline)] hover:border-[var(--ink)] transition-colors text-[var(--ink)]">
+                      <Download className="w-3.5 h-3.5" /> Download PDF
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground italic">Not submitted</div>
+                )}
               </div>
             </div>
           </div>
-          <div className="text-sm mb-3">
-            <span className="text-muted-foreground">Payment terms: </span>
-            <span className="font-semibold">{paymentTermsLabel(crew.paymentTerms)}</span>
-          </div>
-          {crew.services && crew.services.length > 0 ? (
-            <div className="rounded-lg bg-[var(--paper)] overflow-hidden">
-              {crew.services.map((s, i) => (
-                <div key={i} className={`flex items-center justify-between px-3 py-2 text-sm ${i > 0 ? "border-t border-black/5" : ""}`}>
-                  <span className="font-semibold">{s.name}</span>
-                  <span className="font-mono font-semibold">{s.rate != null ? `$${s.rate.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">No services on file. Add them from Edit.</div>
-          )}
-        </div>
 
-        {/* Payment method */}
-        <div className={card}>
-          <div className={sectionTitle}><Wallet className="w-3.5 h-3.5" /> Preferred payment</div>
-          {crew.preferredPaymentMethod ? (
-            <div>
-              <div className="text-sm font-semibold">{crew.preferredPaymentMethod}</div>
-              {crew.paymentDetails && <div className="text-sm text-muted-foreground mt-1 break-words">{crew.paymentDetails}</div>}
-            </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">Crew hasn't set a payment method yet.</div>
-          )}
-        </div>
-
-        {/* W-9 */}
-        <div className={`${card} lg:col-span-2`}>
-          <div className={sectionTitle}><ClipboardCheck className="w-3.5 h-3.5" /> IRS Form W-9</div>
-          {crew.w9Submitted && crew.w9 ? (
-            <div className="text-sm">
-              <div className="flex items-center gap-2 text-emerald-700 mb-3">
-                <Check className="w-4 h-4" />
-                <span className="font-semibold">Submitted {formatWhen(crew.w9SubmittedAt)}</span>
-              </div>
-              <W9Readout data={crew.w9 as Record<string, unknown>} />
-              <button onClick={() => downloadW9Pdf(crew.w9 as Record<string, unknown>, crew.name)} className="mt-4 flex items-center justify-center gap-2 rounded-full py-2.5 px-4 text-sm font-display font-bold bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-[var(--ink)] transition-colors">
-                <Download className="w-4 h-4" /> Download W-9 (PDF)
+          {/* Onboarding welcome kit */}
+          <div className={card}>
+            <div className={sectionTitle}><PackageCheck className="w-3.5 h-3.5" /> Packets</div>
+            <div className="flex flex-col gap-2 mb-3">
+              <select
+                value={templateKey}
+                onChange={(e) => setTemplateKey(e.target.value)}
+                className="w-full rounded-lg border border-[var(--hairline)] bg-card px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--ink)] text-[var(--ink)] font-medium"
+              >
+                <option value="">Choose a packet…</option>
+                {(packetTemplates ?? []).map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+              </select>
+              <button onClick={handleSendPacket} disabled={!templateKey || sendPacket.isPending} className={`w-full ${goldBtn} !py-2`}>
+                <Send className="w-3.5 h-3.5" /> {sendPacket.isPending ? "Sending…" : "Send"}
               </button>
             </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">Crew hasn't submitted a W-9 yet.</div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function formatCheckinWhen(iso?: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const date = d.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
- });
-  const time = d.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
- });
-  return`${date} · ${time}`;
-}
-
-const THUMB_W = 88;
-const THUMB_H = 64;
-const TILE = 256;
-const MAP_ZOOM = 15;
-
-function MapThumb({ lat, lng}: { lat: number; lng: number}) {
-  const n = 2 ** MAP_ZOOM;
-  const xF = ((lng + 180) / 360) * n;
-  const latR = (lat * Math.PI) / 180;
-  const yF =
-    ((1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2) * n;
-  const xTile = Math.floor(xF);
-  const yTile = Math.floor(yF);
-  const clamp = (v: number, min: number, max: number) =>
-    Math.min(max, Math.max(min, v));
-  const left = clamp((xF - xTile) * TILE - THUMB_W / 2, 0, TILE - THUMB_W);
-  const top = clamp((yF - yTile) * TILE - THUMB_H / 2, 0, TILE - THUMB_H);
-  return (
-    <div
-      className="relative overflow-hidden rounded-md border border-border shrink-0 bg-muted"
-      style={{ width: THUMB_W, height: THUMB_H}}
-    >
-      <img
-        src={`https://tile.openstreetmap.org/${MAP_ZOOM}/${xTile}/${yTile}.png`}
-        alt="Check-in location map"
-        width={TILE}
-        height={TILE}
-        loading="lazy"
-        className="absolute max-w-none"
-        style={{ left: -left, top: -top}}
-      />
-      <MapPin
-        className="absolute w-4 h-4 text-red-600 drop-shadow"
-        style={{
-          left: (xF - xTile) * TILE - left - 8,
-          top: (yF - yTile) * TILE - top - 16,
-       }}
-      />
-    </div>
-  );
-}
-
-type CheckinItem = {
-  id: string;
-  label?: string | null;
-  lat?: number | null;
-  lng?: number | null;
-  createdAt?: string | null;
-};
-
-function CheckinRow({ checkin: c}: { checkin: CheckinItem}) {
-  const hasCoords = c.lat != null && c.lng != null;
-  const params = { lat: c.lat ?? 0, lng: c.lng ?? 0};
-  const { data: geo} = useReverseGeocode(params, {
-    query: {
-      queryKey: getReverseGeocodeQueryKey(params),
-      enabled: hasCoords,
-      staleTime: Infinity,
-      refetchOnWindowFocus: false,
-   },
- });
-  return (
-    <div className="flex items-center gap-3 py-3">
-      {hasCoords ? (
-        <MapThumb lat={c.lat!} lng={c.lng!} />
-      ) : (
-        <MapPin className="w-4 h-4 text-[var(--gold)] shrink-0" />
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold truncate">{c.label || "Check-in"}</div>
-        <div className="text-xs font-medium text-foreground/80">
-          {formatCheckinWhen(c.createdAt)}
-        </div>
-        <div className="text-xs text-muted-foreground truncate">
-          {hasCoords ?`${c.lat!.toFixed(5)}, ${c.lng!.toFixed(5)}` : "No coordinates"}
-        </div>
-        {hasCoords && geo?.address && (
-          <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-            {geo.address}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function W9Readout({ data}: { data: Record<string, unknown>}) {
-  const rows: [string, string][] = [];
-  const push = (label: string, key: string) => {
-    const v = data[key];
-    if (v != null && v !== "") rows.push([label, String(v)]);
- };
-  push("Name", "name");
-  push("Business name", "businessName");
-  push("Tax classification", "taxClassification");
-  push("Address", "address");
-  push("City", "city");
-  push("State", "state");
-  push("ZIP", "zip");
-  if (data.tinType === "ein") push("EIN", "ein");
-  else push("SSN", "ssn");
-  push("Signature", "signature");
-  push("Signed", "signedDate");
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
-      {rows.map(([label, value]) => (
-        <div key={label} className="flex gap-3 text-sm">
-          <span className="text-muted-foreground w-28 shrink-0">{label}</span>
-          <span className="font-medium break-words">{value}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DailyActivitySection({
-  crewId,
-  crewName,
-}: {
-  crewId: string;
-  crewName: string;
-}) {
-  const { toast} = useToast();
-  const { data: photos} = useListCrewPhotos(crewId, {
-    query: {
-      queryKey: getListCrewPhotosQueryKey(crewId),
-      refetchInterval: 8000,
-   },
- });
-  const createShare = useCreatePhotoShare();
-  const updateNotes = useUpdatePhotoShareNotes();
-  const [sharingDay, setSharingDay] = useState<string | null>(null);
-  const [reportDay, setReportDay] = useState<string | null>(null);
-  const [reportToken, setReportToken] = useState<string | null>(null);
-  const [notesDraft, setNotesDraft] = useState("");
-
-  const jobGroups = useMemo(() => {
-    const map = new Map<
-      string,
-      { label: string; days: Map<string, CrewPhoto[]>}
-    >();
-    for (const p of photos ?? []) {
-      const key = p.jobId ?? "none";
-      const g = map.get(key) ?? {
-        label: p.jobLabel ?? (p.jobId ? "Job" : "General photos"),
-        days: new Map<string, CrewPhoto[]>(),
-     };
-      const arr = g.days.get(p.takenOn) ?? [];
-      arr.push(p);
-      g.days.set(p.takenOn, arr);
-      map.set(key, g);
-   }
-    return Array.from(map.entries())
-      .sort((a, b) => {
-        if (a[0] === "none") return 1;
-        if (b[0] === "none") return -1;
-        return 0;
-     })
-      .map(([key, g]) => ({
-        key,
-        label: g.label,
-        count: Array.from(g.days.values()).reduce((n, arr) => n + arr.length, 0),
-        days: Array.from(g.days.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1)),
-     }));
- }, [photos]);
-
-  const onShare = async (day: string) => {
-    setSharingDay(day);
-    try {
-      const res = await createShare.mutateAsync({ id: crewId, data: { day}});
-      const url =`${window.location.origin}/photos/${res.token}`;
-      const message =`Photos from ${crewName} — ${formatDayLabel(day)}: ${url}`;
-      try {
-        await navigator.clipboard.writeText(url);
-        toast({
-          title: "Share link copied",
-          description: "Opening Messages with a prefilled text…",
-       });
-     } catch {
-        toast({ title: "Share link ready", description: url});
-     }
-      window.location.href =`sms:?&body=${encodeURIComponent(message)}`;
-   } catch {
-      toast({
-        title: "Couldn't create share link",
-        description: "Please try again.",
-        variant: "destructive",
-     });
-   } finally {
-      setSharingDay(null);
-   }
- };
-
-  const onToggleReport = async (day: string) => {
-    if (reportDay === day) {
-      setReportDay(null);
-      setReportToken(null);
-      return;
-   }
-    try {
-      const res = await createShare.mutateAsync({ id: crewId, data: { day}});
-      setReportDay(day);
-      setReportToken(res.token);
-      setNotesDraft(res.notes ?? "");
-   } catch {
-      toast({
-        title: "Couldn't prepare the report",
-        description: "Please try again.",
-        variant: "destructive",
-     });
-   }
- };
-
-  const onSaveNotes = async () => {
-    if (!reportDay) return;
-    try {
-      await updateNotes.mutateAsync({
-        id: crewId,
-        data: { day: reportDay, notes: notesDraft},
-     });
-      toast({ title: "Notes saved", description: "They'll appear in the report PDF."});
-   } catch {
-      toast({
-        title: "Couldn't save notes",
-        description: "Please try again.",
-        variant: "destructive",
-     });
-   }
- };
-
-  return (
-    <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6">
-      <div className={sectionTitle}>
-        <Camera className="w-3.5 h-3.5" /> Daily activity
-      </div>
-      {jobGroups.length === 0 ? (
-        <div className="text-sm text-muted-foreground py-2 text-center">
-          No photos yet. Photos the crew sends from their portal show up here.
-        </div>
-      ) : (
-        <div className="flex flex-col gap-6">
-          {jobGroups.map((jg) => (
-            <div key={jg.key}>
-              <div className="text-sm font-display font-bold mb-2.5">
-                {jg.label}
-                <span className="text-muted-foreground font-normal font-sans">
-                  {" "}
-                  · {jg.count} photo{jg.count === 1 ? "" : "s"}
-                </span>
-              </div>
-              <div className="flex flex-col gap-4">
-                {jg.days.map(([day, dayPhotos]) => (
-                  <div key={`${jg.key}-${day}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-semibold text-muted-foreground">
-                        {formatDayLabel(day)}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => onShare(day)}
-                          disabled={sharingDay === day}
-                          className="flex items-center gap-1.5 text-xs font-bold rounded-full border border-border px-3 py-1.5 text-foreground hover:bg-[var(--paper)] transition-colors disabled:opacity-60"
-                        >
-                          <Share2 className="w-3.5 h-3.5" />
-                          {sharingDay === day ? "Preparing…" : "Share link to photos"}
-                        </button>
-                        <button
-                          onClick={() => onToggleReport(day)}
-                          disabled={createShare.isPending && reportDay !== day}
-                          className={`flex items-center gap-1.5 text-xs font-bold rounded-full px-3 py-1.5 transition-colors disabled:opacity-60 ${
-                            reportDay === day
-                              ? "bg-[var(--ink)] text-white"
-                              : "border border-border text-foreground hover:bg-[var(--paper)]"
-                         }`}
-                        >
-                          <FileDown className="w-3.5 h-3.5" />
-                          Full report
-                        </button>
-                      </div>
-                    </div>
-                    {reportDay === day && reportToken && (
-                      <div className="mb-3 rounded-lg border border-border bg-[var(--paper)] p-3">
-                        <div className="text-[11px] font-display font-bold tracking-[0.1em] text-muted-foreground mb-1.5">
-                          Notes for the report
-                        </div>
-                        <textarea
-                          value={notesDraft}
-                          onChange={(e) => setNotesDraft(e.target.value)}
-                          rows={3}
-                          placeholder="Anything the property manager should know — scope notes, follow-ups, scheduling…"
-                          className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm resize-y outline-none focus:border-[var(--gold)]"
-                        />
-                        <div className="flex items-center gap-2 mt-2">
-                          <button
-                            onClick={onSaveNotes}
-                            disabled={updateNotes.isPending}
-                            className="text-xs font-bold rounded-full border border-border px-3.5 py-1.5 text-foreground hover:bg-card transition-colors disabled:opacity-60"
-                          >
-                            {updateNotes.isPending ? "Saving…" : "Save notes"}
-                          </button>
-                          <a
-                            href={`/api/photo-shares/${reportToken}/report`}
-                            className="flex items-center gap-1.5 text-xs font-bold rounded-full px-3.5 py-1.5 text-[var(--ink)] bg-[var(--primary)] hover:opacity-90 transition-opacity"
-                          >
-                            <FileDown className="w-3.5 h-3.5" /> Download PDF
-                          </a>
+            {packets && packets.length > 0 && (
+              <div className="flex flex-col mt-4 divide-y divide-[var(--hairline)] border-t border-[var(--hairline)] pt-2">
+                {packets.map((p) => {
+                  const submitted = p.status === "submitted";
+                  return (
+                    <div key={p.id} className="flex items-center gap-2 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold text-[var(--ink)] truncate">{packetLabel(p.templateKey)}</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                          {submitted ? `Done ${formatWhen(p.submittedAt)}` : `Sent ${formatWhen(p.sentAt)}`}
                         </div>
                       </div>
-                    )}
-                    <div className="grid grid-cols-4 gap-2">
-                      {dayPhotos.map((p) => (
-                        <a
-                          key={p.id}
-                          href={`/api/storage${p.storagePath}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block aspect-square rounded-lg overflow-hidden bg-[var(--paper)] border border-border"
-                        >
-                          <img
-                            src={`/api/storage${p.storagePath}`}
-                            alt={p.note || "Crew photo"}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
+                      <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded flex-shrink-0 ${submitted ? "bg-emerald-100 text-emerald-800" : p.status === "in_progress" ? "bg-[var(--gold-tint)] text-[var(--gold-dark)]" : "bg-black/5 text-muted-foreground"}`}>
+                        {submitted ? "Done" : p.status === "in_progress" ? "Working" : "Sent"}
+                      </span>
+                      {submitted && (
+                        <a href={`/api/packets/${p.id}/pdf`} download className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 transition-colors text-[var(--ink)]" aria-label="Download">
+                          <Download className="w-3 h-3" />
                         </a>
-                      ))}
+                      )}
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Documents */}
+          <div className={card}>
+            <div className={sectionTitle}><FileText className="w-3.5 h-3.5" /> Documents</div>
+            <label className="w-full mb-3 flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-bold bg-card border border-[var(--hairline)] cursor-pointer hover:border-[var(--ink)] transition-colors text-[var(--ink)]">
+              <FileUp className="w-3.5 h-3.5" />
+              {isUploading ? "Uploading…" : "Upload file"}
+              <input type="file" className="hidden" onChange={onFilePicked} disabled={isUploading} />
+            </label>
+            {!documents || documents.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-2 text-center bg-black/5 rounded-lg">No docs yet.</div>
+            ) : (
+              <div className="flex flex-col divide-y divide-[var(--hairline)]">
+                {documents.map((d) => {
+                  const url = `/api/storage${d.storagePath}`;
+                  return (
+                    <div key={d.id} className="flex items-center gap-3 py-2.5">
+                      <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <a href={url} target="_blank" rel="noreferrer" className="flex-1 min-w-0 hover:underline decoration-muted-foreground">
+                        <div className="text-xs font-bold text-[var(--ink)] truncate">{d.name}</div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5">
+                          {d.direction === "from_crew" ? "From crew" : "Sent"} · {formatWhen(d.createdAt)}
+                        </div>
+                      </a>
+                      <a href={url} download={d.name} className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 transition-colors text-[var(--ink)]" aria-label={`Download ${d.name}`}>
+                        <Download className="w-3 h-3" />
+                      </a>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Check-ins */}
+          <div className={card}>
+            <div className={sectionTitle}><MapPin className="w-3.5 h-3.5" /> GPS Check-ins</div>
+            {!checkins || checkins.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-4 text-center bg-black/5 rounded-xl">No check-ins.</div>
+            ) : (
+              <div className="flex flex-col divide-y divide-[var(--hairline)]">
+                {checkins.map((c) => (
+                  <CheckinRow key={c.id} checkin={c} />
                 ))}
               </div>
-            </div>
-          ))}
+            )}
+          </div>
+
         </div>
-      )}
-    </div>
-  );
-}
-
-const invoiceStatusChip = (s: string) =>
-  ((
-    {
-      submitted: "bg-blue-100 text-blue-800",
-      approved: "bg-emerald-100 text-emerald-700",
-      paid: "bg-emerald-100 text-emerald-700",
-      needs_corrections: "bg-amber-100 text-amber-800",
-   } as Record<string, string>
-  )[s] ?? "bg-muted text-muted-foreground");
-
-function CrewInvoicesReview({
-  crewId,
-  invoices,
-}: {
-  crewId: string;
-  invoices: CrewInvoice[] | undefined;
-}) {
-  const queryClient = useQueryClient();
-  const { toast} = useToast();
-  const review = useReviewCrewInvoice();
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [noteFor, setNoteFor] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-  const [showHistory, setShowHistory] = useState(false);
-
-  const all = invoices ?? [];
-  const active = all.filter((i) => !i.clearedAt);
-  const history = all.filter((i) => i.clearedAt);
-
-  const act = async (
-    invId: string,
-    action: "approve" | "send_back" | "mark_paid" | "clear",
-    n?: string,
-  ) => {
-    try {
-      await review.mutateAsync({ id: invId, data: { action, note: n ?? null}});
-      queryClient.invalidateQueries({ queryKey: getListCrewInvoicesQueryKey(crewId)});
-      setNoteFor(null);
-      setNote("");
-      toast({
-        title:
-          action === "approve"
-            ? "Invoice approved"
-            : action === "send_back"
-              ? "Sent back for corrections"
-              : action === "mark_paid"
-                ? "Invoice marked paid"
-                : "Invoice cleared to history",
-     });
-   } catch (e) {
-      const err = e as { data?: { error?: string}};
-      toast({
-        title: "Couldn't update invoice",
-        description: err.data?.error ?? "Please try again",
-        variant: "destructive",
-     });
-   }
- };
-
-  const renderRow = (inv: CrewInvoice, cleared: boolean) => {
-    const isOpen = openId === inv.id;
-    return (
-      <div key={inv.id} className="py-3">
-        <button
-          type="button"
-          onClick={() => setOpenId(isOpen ? null : inv.id)}
-          className="w-full flex items-center justify-between gap-3 text-left"
-        >
-          <div className="min-w-0">
-            <div className="text-sm font-semibold truncate">
-              {inv.invoiceNo ?`#${inv.invoiceNo} ·` : ""}
-              {inv.propertyAddress}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {inv.fromCompany} · {formatWhen(inv.createdAt)}
-              {inv.terms ?` · ${inv.terms}` : ""}
-              {inv.dueDate ?` · Due ${inv.dueDate}` : ""}
-              {inv.jobLabel ?` · ${inv.jobLabel}` : ""}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-sm font-bold tabular-nums">
-              ${inv.total.toLocaleString("en-US", { minimumFractionDigits: 2})}
-            </span>
-            <span
-              className={`text-[10px] font-bold   px-2 py-0.5 rounded-full ${invoiceStatusChip(inv.status)}`}
-            >
-              {inv.status.replace(/_/g, " ")}
-            </span>
-          </div>
-        </button>
-        {isOpen && (
-          <div className="mt-2">
-            <div className="flex flex-col gap-1">
-              {inv.items.map((it) => (
-                <div key={it.id} className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="truncate">
-                    {it.dateOfWork}
-                    {it.unitNo ?` · Unit ${it.unitNo}` : ""} · {it.typeOfWork}
-                  </span>
-                  <span className="tabular-nums shrink-0 ml-2">
-                    {it.qty} × ${it.unitPrice.toLocaleString("en-US", { minimumFractionDigits: 2})} = $
-                    {it.amount.toLocaleString("en-US", { minimumFractionDigits: 2})}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-1.5 text-xs text-muted-foreground italic">
-              Signed by {inv.signatureName}
-              {inv.signedAt ?` on ${formatWhen(inv.signedAt)}` : ""}
-            </div>
-            {inv.status === "needs_corrections" && inv.adminNote && (
-              <div className="mt-2 text-xs rounded-md bg-amber-50 border border-amber-200 text-amber-800 px-2.5 py-1.5">
-                Sent back: {inv.adminNote}
-              </div>
-            )}
-            {!cleared && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {(inv.status === "submitted" || inv.status === "needs_corrections") && (
-                  <button
-                    type="button"
-                    disabled={review.isPending}
-                    onClick={() => act(inv.id, "approve")}
-                    className="px-3 py-1.5 rounded-md text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                  >
-                    Approve
-                  </button>
-                )}
-                {inv.status === "submitted" && (
-                  <button
-                    type="button"
-                    disabled={review.isPending}
-                    onClick={() => {
-                      setNoteFor(noteFor === inv.id ? null : inv.id);
-                      setNote("");
-                   }}
-                    className="px-3 py-1.5 rounded-md text-xs font-bold bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 disabled:opacity-50 transition-colors"
-                  >
-                    Send back for corrections
-                  </button>
-                )}
-                {inv.status === "approved" && (
-                  <button
-                    type="button"
-                    disabled={review.isPending}
-                    onClick={() => act(inv.id, "mark_paid")}
-                    className="px-3 py-1.5 rounded-md text-xs font-bold bg-[var(--ink)] text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
-                  >
-                    Mark paid
-                  </button>
-                )}
-                {inv.status !== "submitted" && (
-                  <button
-                    type="button"
-                    disabled={review.isPending}
-                    onClick={() => act(inv.id, "clear")}
-                    className="px-3 py-1.5 rounded-md text-xs font-bold bg-black/5 text-foreground hover:bg-black/10 disabled:opacity-50 transition-colors"
-                  >
-                    Clear to history
-                  </button>
-                )}
-              </div>
-            )}
-            {!cleared && noteFor === inv.id && (
-              <div className="mt-2 flex items-end gap-2">
-                <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="What should the crew fix?"
-                  rows={2}
-                  className="flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-                <button
-                  type="button"
-                  disabled={review.isPending || !note.trim()}
-                  onClick={() => act(inv.id, "send_back", note.trim())}
-                  className="px-3 py-2 rounded-md text-xs font-bold bg-amber-600 text-white disabled:opacity-40 hover:bg-amber-700 transition-colors"
-                >
-                  Send back
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </div>
-    );
- };
-
-  if (all.length === 0) {
-    return <div className="text-sm text-muted-foreground py-2 text-center">No invoices submitted yet.</div>;
- }
-
-  return (
-    <div>
-      {active.length === 0 ? (
-        <div className="text-sm text-muted-foreground py-2 text-center">No open invoices.</div>
-      ) : (
-        <div className="flex flex-col divide-y divide-border">{active.map((inv) => renderRow(inv, false))}</div>
-      )}
-      {history.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-border">
-          <button
-            type="button"
-            onClick={() => setShowHistory(!showHistory)}
-            className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {showHistory ? "Hide" : "Show"} history ({history.length})
-          </button>
-          {showHistory && (
-            <div className="flex flex-col divide-y divide-border opacity-70">
-              {history.map((inv) => renderRow(inv, true))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

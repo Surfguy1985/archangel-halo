@@ -2444,6 +2444,27 @@ export const CreateCrewResponse = zod.object({
 })
 
 
+/**
+ * @summary All crews with today's status and last known GPS position for the command-center map
+ */
+export const GetCrewMapPinsResponseItem = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "trade": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "selfiePath": zod.string().nullish(),
+  "todayStatus": zod.string().nullish().describe('route | site | done | idle'),
+  "todayJob": zod.string().nullish(),
+  "todayProperty": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "lastCheckinKind": zod.string().nullish().describe('checkin | checkout'),
+  "lastCheckinLabel": zod.string().nullish(),
+  "lastCheckinAt": zod.string().nullish()
+})
+export const GetCrewMapPinsResponse = zod.array(GetCrewMapPinsResponseItem)
+
+
 export const UpdateCrewParams = zod.object({
   "id": zod.coerce.string()
 })

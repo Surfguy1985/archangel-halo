@@ -52,7 +52,7 @@
 }
 
 :root {
-  --background: 220 10% 97%;
+  --background: 44 25% 95%; /* Warm paper */
   --foreground: 220 40% 10%;
 
   --card: 0 0% 100%;
@@ -63,17 +63,17 @@
   --popover-foreground: 220 40% 10%;
   --popover-border: 220 15% 92%;
 
-  --primary: 69 92% 64%;
+  --primary: 69 92% 64%; /* lime button */
   --primary-foreground: 220 50% 10%;
   --primary-border: 69 92% 55%;
 
-  --secondary: 220 15% 96%;
+  --secondary: 44 15% 90%;
   --secondary-foreground: 220 40% 10%;
-  --secondary-border: 220 15% 90%;
+  --secondary-border: 44 15% 86%;
 
-  --muted: 220 15% 94%;
+  --muted: 44 10% 90%;
   --muted-foreground: 220 15% 45%;
-  --muted-border: 220 15% 88%;
+  --muted-border: 44 10% 86%;
 
   --accent: 69 92% 85%;
   --accent-foreground: 220 40% 10%;
@@ -83,11 +83,11 @@
   --destructive-foreground: 0 0% 100%;
   --destructive-border: 348 83% 45%;
 
-  --border: 220 15% 92%;
-  --input: 220 15% 92%;
+  --border: 220 15% 90%;
+  --input: 220 15% 90%;
   --ring: 69 92% 64%;
 
-  --radius: 1.25rem;
+  --radius: 1rem;
 }
 
 .dark {
@@ -134,8 +134,8 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
-    background-image: radial-gradient(at 0% 0%, hsla(69, 92%, 64%, 0.06) 0px, transparent 40%),
-                      radial-gradient(at 100% 100%, hsla(220, 40%, 10%, 0.04) 0px, transparent 50%);
+    /* Adding subtle grain to make it more "warm paper" */
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
     background-attachment: fixed;
   }
 }
@@ -156,7 +156,6 @@
   background: hsl(var(--muted-foreground) / 0.3);
 }
 
-/* Framer motion handles the physical layout changes now, but keeping class for back-compat */
 .card-snap {
   /* empty */
 }

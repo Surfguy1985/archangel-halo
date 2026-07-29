@@ -1634,6 +1634,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Crew"
+  /crews/map:
+    get:
+      operationId: getCrewMapPins
+      tags: [jobs]
+      summary: All crews with today's status and last known GPS position for the command-center map
+      responses:
+        "200":
+          description: Crew map pins
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewMapPin"
   /crews/{id}:
     patch:
       operationId: updateCrew
@@ -8824,6 +8838,23 @@ components:
         todayStatus: { type: ["string", "null"], description: "route | site | done | idle" }
         todayJob: { type: ["string", "null"] }
         todayProperty: { type: ["string", "null"] }
+    CrewMapPin:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        trade: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        selfiePath: { type: ["string", "null"] }
+        todayStatus: { type: ["string", "null"], description: "route | site | done | idle" }
+        todayJob: { type: ["string", "null"] }
+        todayProperty: { type: ["string", "null"] }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        lastCheckinKind: { type: ["string", "null"], description: "checkin | checkout" }
+        lastCheckinLabel: { type: ["string", "null"] }
+        lastCheckinAt: { type: ["string", "null"] }
     CrewInput:
       type: object
       required: [name]

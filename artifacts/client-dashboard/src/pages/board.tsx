@@ -6,14 +6,22 @@ import { BoardCard } from '@/components/kanban/BoardCard';
 import { CardDetailDialog } from '@/components/kanban/CardDetailDialog';
 import { CreateCardDialog } from '@/components/kanban/CreateCardDialog';
 import { Button } from '@/components/ui/button';
-import { MapPin, User, Loader2, Info, Plus, LayoutGrid, BookOpen, Headphones, Layers, LayoutList } from 'lucide-react';
+import { MapPin, User, Loader2, Info, Plus, LayoutGrid, BookOpen, Headphones, Layers, LayoutList, AlertCircle, X, Check, Calendar, ArrowRight } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, isBefore, parseISO, startOfDay } from 'date-fns';
 import { DashboardTour } from '@/components/DashboardTour';
 import { motion, AnimatePresence } from 'framer-motion';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
 
 export default function KanbanBoard() {
   const { token } = useParams<{ token: string }>();
@@ -26,17 +34,12 @@ export default function KanbanBoard() {
   const [dragOverLane, setDragOverLane] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<ClientBoardCardView | null>(null);
   const [hoveredLane, setHoveredLane] = useState<string | null>(null);
-  // Touch devices have no hover: first tap on a stacked lane expands it.
-  // Taps also emit synthetic mouseenter events, so hover is ignored entirely
-  // on coarse pointers or the tap would fall through to a buried card.
   const [expandedLane, setExpandedLane] = useState<string | null>(null);
   const isCoarsePointer = React.useMemo(
     () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches,
     [],
   );
 
-  // Touch-drag state (see handleTouchStart below). Declared up here so hook
-  // order stays stable across the loading/error early returns.
   const touchDrag = useRef<{
     cardKey: string;
     startX: number;
@@ -50,13 +53,15 @@ export default function KanbanBoard() {
     cleanup: () => void;
   } | null>(null);
   const suppressClick = useRef(false);
-  // Latest values for native listeners without re-binding.
   const moveCardRef = useRef<(cardKey: string, laneKey: string) => void>(() => {});
   const readOnlyRef = useRef(false);
   
+  const [createCardOpen, setCreateCardOpen] = useState(false);
   const [createLaneKey, setCreateLaneKey] = useState<string | null>(null);
   const [createLaneLabel, setCreateLaneLabel] = useState<string>('');
+  
   const [tourOpen, setTourOpen] = useState(false);
+  const [triageOpen, setTriageOpen] = useState(false);
 
   const [viewMode, setViewMode] = useState<'stacked' | 'unstacked'>(() => {
     try {
@@ -109,9 +114,46 @@ export default function KanbanBoard() {
     }
   }, [boardLoaded, viewerAuthenticated, viewerTourSeen, token]);
 
+  // Derived Triage List
+  // A card needs a decision if: priority is urgent/high OR it is past dueOn OR it is in the "requested" lane
+  const [localDismissedTriage, setLocalDismissedTriage] = useState<Set<string>>(new Set());
+
+  const triageCards = useMemo(() => {
+    if (!board?.cards) return [];
+    
+    return board.cards.filter(c => {
+      if (localDismissedTriage.has(c.cardKey)) return false;
+      if (c.lane === 'done') return false; // Ignore closed cards
+      
+      const isUrgent = c.priority === 'urgent' || c.priority === 'high';
+      let isPastDue = false;
+      if (c.dueOn) {
+        // Only past due if it's strictly before today
+        isPastDue = isBefore(parseISO(c.dueOn), startOfDay(new Date()));
+      }
+      const isRequested = c.lane === 'requested' || c.lane === 'inbox'; // check both
+      
+      return isUrgent || isPastDue || isRequested;
+    }).sort((a, b) => {
+      // Sort most-urgent first. 'urgent' > 'high' > everything else
+      const pMap: Record<string, number> = { urgent: 3, high: 2, medium: 1, normal: 1, low: 0, none: 0 };
+      const pA = pMap[a.priority ?? 'none'] ?? 0;
+      const pB = pMap[b.priority ?? 'none'] ?? 0;
+      if (pA !== pB) return pB - pA;
+      // Then oldest due date
+      if (a.dueOn && b.dueOn) {
+        return parseISO(a.dueOn).getTime() - parseISO(b.dueOn).getTime();
+      }
+      if (a.dueOn) return -1;
+      if (b.dueOn) return 1;
+      return 0;
+    });
+  }, [board?.cards, localDismissedTriage]);
+
+
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex h-screen items-center justify-center bg-[#f4f3f0]">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }} 
           animate={{ opacity: 1, scale: 1 }} 
@@ -126,7 +168,7 @@ export default function KanbanBoard() {
 
   if (error || !board) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex h-screen items-center justify-center bg-[#f4f3f0]">
         <div className="max-w-md text-center p-8 bg-white rounded-[24px] shadow-xl border border-black/5">
           <h1 className="text-2xl font-bold text-foreground">Invalid or Expired Link</h1>
           <p className="mt-2 text-muted-foreground">We couldn't load the operations board. Please check your link or contact your property manager.</p>
@@ -180,8 +222,6 @@ export default function KanbanBoard() {
     moveCard(draggedCard, laneKey);
   };
 
-  // Shared by both the HTML5 drop handler (desktop) and the touch drag
-  // handler (phones/tablets): optimistic move + dispatch + revert on failure.
   const moveCard = (cardKey: string, laneKey: string) => {
     const card = cards.find(c => c.cardKey === cardKey);
     if (!card || card.lane === laneKey) return;
@@ -248,12 +288,6 @@ export default function KanbanBoard() {
     });
   };
 
-  // -------------------------------------------------------------------------
-  // Touch drag (phones/tablets). HTML5 drag events never fire on touch
-  // screens, so a long-press (200ms) picks the card up, a floating ghost
-  // follows the finger, and elementFromPoint finds the lane under it.
-  // Short swipes still scroll the lane; taps still open the card detail.
-  // -------------------------------------------------------------------------
   moveCardRef.current = moveCard;
   readOnlyRef.current = viewer.readOnly;
 
@@ -291,7 +325,6 @@ export default function KanbanBoard() {
       if (!s || ev.touches.length !== 1) return;
       const t = ev.touches[0]!;
       if (!s.active) {
-        // Finger moved before the long-press fired — it's a scroll, not a drag.
         if (Math.hypot(t.clientX - s.startX, t.clientY - s.startY) > 10) {
           if (s.timer) clearTimeout(s.timer);
           s.cleanup();
@@ -299,7 +332,7 @@ export default function KanbanBoard() {
         }
         return;
       }
-      ev.preventDefault(); // block page/lane scrolling while dragging
+      ev.preventDefault();
       if (s.ghost) {
         s.ghost.style.left = `${t.clientX - s.offsetX}px`;
         s.ghost.style.top = `${t.clientY - s.offsetY}px`;
@@ -330,8 +363,6 @@ export default function KanbanBoard() {
       const s = touchDrag.current;
       if (!s) return;
       if (readOnlyRef.current) {
-        // Guests get the same sign-in prompt as on desktop when they try
-        // to pick a card up.
         toast({
           title: "Sign in required",
           description: "You are viewing as a guest. Sign in to make changes.",
@@ -343,7 +374,6 @@ export default function KanbanBoard() {
       }
       s.active = true;
       setDraggedCard(cardKey);
-      // Floating ghost that follows the finger.
       const rect = s.el.getBoundingClientRect();
       const ghost = s.el.cloneNode(true) as HTMLElement;
       ghost.id = '';
@@ -385,20 +415,148 @@ export default function KanbanBoard() {
     toast({ title: "Signed out", description: "You are now viewing as a guest." });
   };
 
+  const renderTriageSheet = () => {
+    return (
+      <Sheet open={triageOpen} onOpenChange={setTriageOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto bg-[#fdfdfc] p-0 border-l border-black/10">
+          <div className="p-6 border-b border-black/5 bg-white sticky top-0 z-10 shadow-sm">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2 text-xl font-[800] text-[#101c33]">
+                <AlertCircle className="h-5 w-5 text-[#e11d48]" />
+                Triage Queue
+              </SheetTitle>
+              <SheetDescription className="text-[13px] font-[600] text-muted-foreground">
+                These {triageCards.length} cards require your attention.
+              </SheetDescription>
+            </SheetHeader>
+          </div>
+          
+          <div className="p-6 flex flex-col gap-4">
+            <AnimatePresence>
+              {triageCards.length === 0 ? (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center p-8 text-center bg-black/[0.02] border border-black/5 rounded-xl">
+                  <Check className="h-10 w-10 text-[#1f7a52] mb-3" />
+                  <p className="text-[14px] font-[800] text-[#101c33]">All caught up</p>
+                  <p className="text-[12px] font-[600] text-muted-foreground mt-1">No urgent decisions needed.</p>
+                </motion.div>
+              ) : (
+                triageCards.map((c) => {
+                  const isUrgent = c.priority === 'urgent' || c.priority === 'high';
+                  
+                  // Primary action
+                  const actionBtns = (c.actions ?? []).filter((a) => a.kind !== 'link');
+                  const linkBtns = (c.actions ?? []).filter((a) => a.kind === 'link');
+                  const primaryBtn = actionBtns.find((a) => a.kind === 'primary') ?? linkBtns[0] ?? actionBtns[0];
+
+                  return (
+                    <motion.div
+                      layout
+                      key={c.cardKey}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="flex flex-col gap-3 p-4 bg-white border border-black/10 shadow-sm rounded-[16px] hover:shadow-md transition-shadow relative overflow-hidden"
+                    >
+                      {isUrgent && <div className="absolute top-0 left-0 w-1 h-full bg-[#e11d48]" />}
+                      
+                      <div className="flex justify-between items-start pl-2">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-[800] uppercase tracking-wider text-muted-foreground mb-1">
+                            {c.template} • {c.lane}
+                          </span>
+                          <h4 className="text-[14px] font-[800] text-[#101c33] leading-tight line-clamp-2">
+                            {c.title}
+                          </h4>
+                          {c.subtitle && (
+                            <p className="text-[11px] font-[600] text-muted-foreground mt-1 line-clamp-1">{c.subtitle}</p>
+                          )}
+                        </div>
+                        {c.dueOn && (
+                          <div className="flex items-center gap-1 text-[10px] font-[800] px-2 py-1 bg-black/5 rounded-[6px] text-muted-foreground shrink-0">
+                            <Calendar className="h-3 w-3" />
+                            {formatDistanceToNow(parseISO(c.dueOn), { addSuffix: true })}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-2 pl-2">
+                        {primaryBtn ? (
+                          primaryBtn.href ? (
+                            <a href={primaryBtn.href} target="_blank" rel="noreferrer" className="flex-1 h-9 flex items-center justify-center bg-[#d8f84e] text-[#101c33] text-[11px] font-[800] uppercase tracking-wider rounded-[8px] shadow-sm hover:brightness-105 transition-all">
+                              {primaryBtn.label}
+                            </a>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                if (viewer.readOnly) {
+                                  setTriageOpen(false);
+                                  setLoginOpen(true);
+                                  return;
+                                }
+                                dispatchAction.mutate({ token, data: { action: primaryBtn.key, cardKey: c.cardKey, payload: {} } }, {
+                                  onSuccess: () => {
+                                    toast({ title: 'Done', description: `Action executed for ${c.title}` });
+                                    queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+                                  },
+                                  onError: () => {
+                                    toast({ title: 'Action failed', description: 'Could not complete this action.', variant: 'destructive' });
+                                  },
+                                });
+                              }}
+                              className="flex-1 h-9 flex items-center justify-center bg-[#d8f84e] text-[#101c33] text-[11px] font-[800] uppercase tracking-wider rounded-[8px] shadow-sm hover:brightness-105 transition-all"
+                            >
+                              {primaryBtn.label}
+                            </button>
+                          )
+                        ) : null}
+                        <button
+                          onClick={() => {
+                            setSelectedCard(c);
+                            setTriageOpen(false);
+                          }}
+                          className={`h-9 flex items-center justify-center px-3 bg-[#101c33] text-white text-[11px] font-[800] uppercase tracking-wider rounded-[8px] shadow-sm hover:bg-[#101c33]/90 transition-colors ${primaryBtn ? '' : 'flex-1'}`}
+                        >
+                          Open
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setLocalDismissedTriage(prev => {
+                              const next = new Set(prev);
+                              next.add(c.cardKey);
+                              return next;
+                            });
+                          }}
+                          className="h-9 px-3 flex items-center justify-center border border-black/10 bg-white text-muted-foreground text-[11px] font-[800] uppercase tracking-wider rounded-[8px] shadow-sm hover:bg-black/5 transition-colors"
+                        >
+                          Defer
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )}
+            </AnimatePresence>
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="flex h-screen flex-col bg-background font-sans relative overflow-hidden"
+      className="flex h-screen flex-col bg-[#f4f3f0] font-sans relative overflow-hidden"
     >
       {/* Header */}
-      <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-black/5 bg-white/60 backdrop-blur-2xl px-6 shadow-sm z-50">
+      <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-black/5 bg-[#fdfdfc] px-6 shadow-sm z-50">
         <div className="flex items-center gap-5">
           {logoUrl ? (
             <img src={logoUrl} alt={propertyName} className="h-9 max-w-[140px] object-contain drop-shadow-sm" />
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#d8f84e] text-[#101c33] font-black text-lg shadow-[0_2px_12px_rgba(216,248,78,0.5)]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[#d8f84e] text-[#101c33] font-[900] text-lg shadow-sm border border-black/5">
               {propertyName.charAt(0).toUpperCase()}
             </div>
           )}
@@ -422,13 +580,50 @@ export default function KanbanBoard() {
 
           <div className="h-5 w-[1px] bg-black/10 mx-1" />
 
+          {/* Triage Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setTriageOpen(true)}
+            className="h-10 rounded-[10px] gap-2 text-[12px] font-[800] border-black/10 bg-white hover:bg-black/[0.02] shadow-sm text-[#101c33] px-4 relative"
+          >
+            <AlertCircle className={`h-4 w-4 ${triageCards.length > 0 ? 'text-[#e11d48]' : 'text-muted-foreground'}`} />
+            Triage
+            {triageCards.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#e11d48] text-[9px] font-bold text-white shadow-sm border border-white">
+                {triageCards.length}
+              </span>
+            )}
+          </Button>
+
+          {/* Big Create Button — visible to guests too; prompts sign-in */}
+          {(
+            <Button
+              size="sm"
+              onClick={() => {
+                if (viewer.readOnly) {
+                  setLoginOpen(true);
+                  return;
+                }
+                setCreateLaneKey(null);
+                setCreateCardOpen(true);
+              }}
+              className="h-10 rounded-[10px] gap-2 text-[12px] font-[800] bg-[#d8f84e] hover:bg-[#d8f84e]/90 text-[#101c33] px-5 shadow-sm hover:shadow-md transition-all active:scale-95"
+            >
+              <Plus className="h-4 w-4" />
+              Create Card
+            </Button>
+          )}
+
+          <div className="h-5 w-[1px] bg-black/10 mx-1" />
+
           {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 rounded-full bg-black/5 p-1 shadow-inner">
+          <div className="flex items-center gap-1 rounded-[10px] bg-black/5 p-1 shadow-inner">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={() => { setViewMode('stacked'); setExpandedLane(null); }}
-                  className={`flex h-[28px] w-[28px] items-center justify-center rounded-full transition-all duration-300 ${viewMode === 'stacked' ? 'bg-white shadow-sm text-foreground scale-105' : 'text-muted-foreground hover:text-foreground hover:bg-black/5'}`}
+                  className={`flex h-[30px] w-[30px] items-center justify-center rounded-[8px] transition-all duration-300 ${viewMode === 'stacked' ? 'bg-white shadow-sm text-foreground scale-105' : 'text-muted-foreground hover:text-foreground hover:bg-black/5'}`}
                 >
                   <Layers className="h-4 w-4" />
                 </button>
@@ -439,7 +634,7 @@ export default function KanbanBoard() {
               <TooltipTrigger asChild>
                 <button
                   onClick={() => { setViewMode('unstacked'); setExpandedLane(null); }}
-                  className={`flex h-[28px] w-[28px] items-center justify-center rounded-full transition-all duration-300 ${viewMode === 'unstacked' ? 'bg-white shadow-sm text-foreground scale-105' : 'text-muted-foreground hover:text-foreground hover:bg-black/5'}`}
+                  className={`flex h-[30px] w-[30px] items-center justify-center rounded-[8px] transition-all duration-300 ${viewMode === 'unstacked' ? 'bg-white shadow-sm text-foreground scale-105' : 'text-muted-foreground hover:text-foreground hover:bg-black/5'}`}
                 >
                   <LayoutList className="h-4 w-4" />
                 </button>
@@ -450,25 +645,24 @@ export default function KanbanBoard() {
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full hover:bg-black/5" onClick={() => setTourOpen(true)} data-testid="button-board-tour">
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-[10px] hover:bg-black/5" onClick={() => setTourOpen(true)} data-testid="button-board-tour">
                 <Headphones className="h-4 w-4 text-muted-foreground" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs font-bold"><p>Take the guided tour</p></TooltipContent>
           </Tooltip>
 
-          <Button variant="outline" size="sm" className="h-9 rounded-xl gap-2 text-xs font-[800] border-black/10 hover:bg-black/5 shadow-sm text-[#101c33]" onClick={() => setLocation(`/${token}/map`)} data-testid="button-map-view">
-            <MapPin className="h-4 w-4" /> Map View
-          </Button>
-
-          {viewer.permissions?.includes('unit_map') && (
-            <Button variant="outline" size="sm" className="h-9 rounded-xl gap-2 text-xs font-[800] border-black/10 hover:bg-black/5 shadow-sm text-[#101c33]" onClick={() => setLocation(`/${token}/units`)}>
-              <LayoutGrid className="h-4 w-4" /> Units
+          {viewer.permissions?.includes('unit_map') && (<>
+            <Button variant="outline" size="sm" data-testid="button-map-view" className="h-10 rounded-[10px] gap-2 text-xs font-[800] border-black/10 bg-white hover:bg-black/[0.02] shadow-sm text-[#101c33]" onClick={() => setLocation(`/${token}/map`)}>
+              <MapPin className="h-4 w-4" /> Map View
             </Button>
-          )}
+            <Button variant="outline" size="sm" data-testid="button-site-map" className="h-10 rounded-[10px] gap-2 text-xs font-[800] border-black/10 bg-white hover:bg-black/[0.02] shadow-sm text-[#101c33]" onClick={() => setLocation(`/${token}/units`)}>
+              <LayoutGrid className="h-4 w-4" /> Site Map
+            </Button>
+          </>)}
 
           {viewer.permissions?.includes('hub') && (
-            <Button variant="outline" size="sm" className="h-9 rounded-xl gap-2 text-xs font-[800] border-black/10 hover:bg-black/5 shadow-sm text-[#101c33]" onClick={() => setLocation(`/${token}/hub`)}>
+            <Button variant="outline" size="sm" className="h-10 rounded-[10px] gap-2 text-xs font-[800] border-black/10 bg-white hover:bg-black/[0.02] shadow-sm text-[#101c33]" onClick={() => setLocation(`/${token}/hub`)}>
               <BookOpen className="h-4 w-4" /> Hub
             </Button>
           )}
@@ -476,8 +670,8 @@ export default function KanbanBoard() {
           {viewer.authenticated ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full ml-1" onClick={handleLogout}>
-                  <div className="flex h-full w-full items-center justify-center rounded-full bg-[#101c33] text-white shadow-sm hover:scale-105 transition-transform">
+                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-[10px] ml-1" onClick={handleLogout}>
+                  <div className="flex h-full w-full items-center justify-center rounded-[8px] bg-[#101c33] text-white shadow-sm hover:scale-105 transition-transform">
                     {viewer.name?.charAt(0).toUpperCase() || <User className="h-4 w-4" />}
                   </div>
                 </Button>
@@ -490,7 +684,7 @@ export default function KanbanBoard() {
               </TooltipContent>
             </Tooltip>
           ) : (
-            <Button variant="ghost" size="sm" className="h-9 rounded-xl gap-1.5 text-xs font-[800] text-muted-foreground hover:text-[#101c33] hover:bg-black/5 ml-1" onClick={() => setLoginOpen(true)}>
+            <Button variant="ghost" size="sm" className="h-10 rounded-[10px] gap-1.5 text-xs font-[800] text-muted-foreground hover:text-[#101c33] hover:bg-black/5 ml-1" onClick={() => setLoginOpen(true)}>
               <User className="h-4 w-4" /> Sign In
             </Button>
           )}
@@ -498,13 +692,13 @@ export default function KanbanBoard() {
       </header>
 
       {/* Main Board */}
-      <main className="flex-1 overflow-x-auto overflow-y-hidden">
+      <main className="flex-1 overflow-x-auto overflow-y-hidden pt-6">
         
         {viewer.readOnly && (
           <motion.div 
             initial={{ opacity: 0, height: 0, y: -10 }}
             animate={{ opacity: 1, height: 'auto', y: 0 }}
-            className="mx-6 mt-6 flex items-center justify-center rounded-[20px] border border-primary/30 bg-[#d8f84e]/10 px-5 py-3.5 text-sm font-[700] text-[#101c33] shadow-sm backdrop-blur-md"
+            className="mx-6 mb-6 flex items-center justify-center rounded-[16px] border border-primary/30 bg-[#d8f84e]/10 px-5 py-3.5 text-sm font-[700] text-[#101c33] shadow-sm backdrop-blur-md"
           >
             <Info className="mr-2 h-5 w-5 text-[#b6d338]" />
             You are viewing this board as a guest. 
@@ -514,7 +708,7 @@ export default function KanbanBoard() {
           </motion.div>
         )}
 
-        <div className={`flex h-full items-start gap-6 px-6 pb-6 min-w-max ${viewer.readOnly ? 'pt-4' : 'pt-6'}`}>
+        <div className={`flex h-full items-start gap-4 px-6 pb-6 min-w-max`}>
           {lanes.map((lane, index) => {
             const laneCards = cards.filter(c => c.lane === lane.key).sort((a, b) => (a.position || 0) - (b.position || 0));
             const isLaneHovered =
@@ -528,15 +722,13 @@ export default function KanbanBoard() {
                 key={lane.key} 
                 data-testid={`lane-${lane.key}`}
                 data-lane-key={lane.key}
-                className={`flex h-full w-[360px] shrink-0 flex-col rounded-[32px] transition-all duration-300 relative ${
+                className={`flex h-full w-[360px] shrink-0 flex-col rounded-[20px] transition-all duration-300 relative bg-[#fdfdfc] border border-black/10 shadow-[0_2px_8px_rgba(0,0,0,0.02)] ${
                   dragOverLane === lane.key && draggedCard
-                    ? 'bg-primary/10 border-2 border-[#d8f84e]/60 shadow-[0_0_40px_rgba(216,248,78,0.25)]'
-                    : 'bg-black/[0.015] border border-black/[0.04] shadow-[inset_0_1px_2px_rgba(255,255,255,1)] dark:shadow-none hover:bg-black/[0.025]'
+                    ? 'ring-2 ring-primary ring-offset-4 ring-offset-[#f4f3f0] shadow-xl'
+                    : 'hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)]'
                 }`}
                 onMouseEnter={() => {
                   if (!isCoarsePointer) setHoveredLane(lane.key);
-                  // Expansion is exclusive: entering another lane collapses the
-                  // previously tap-expanded one (mouseleave isn't reliable).
                   setExpandedLane((prev) => (prev === lane.key ? prev : null));
                 }}
                 onMouseLeave={() => {
@@ -548,10 +740,11 @@ export default function KanbanBoard() {
                 onDrop={(e) => handleDrop(e, lane.key)}
               >
                 {/* Lane Header */}
-                <div className="flex items-center justify-between px-5 py-4 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-[800] uppercase tracking-widest text-[#101c33]/80">{lane.label}</span>
-                    <span className="flex h-5 min-w-[22px] items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-[800] text-[#101c33]/60 shadow-sm border border-black/5">
+                <div className="flex items-center justify-between px-4 pt-4 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#101c33' }}></span>
+                    <span className="text-[13px] font-[800] uppercase tracking-widest text-[#101c33] leading-none">{lane.label}</span>
+                    <span className="flex h-5 min-w-[20px] items-center justify-center rounded-[6px] bg-black/5 px-1.5 text-[10px] font-[800] text-muted-foreground ml-1">
                       {laneCards.length}
                     </span>
                   </div>
@@ -566,32 +759,18 @@ export default function KanbanBoard() {
                         </TooltipContent>
                       </Tooltip>
                     )}
-                    {!viewer.readOnly && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button 
-                            className="flex h-7 w-7 items-center justify-center rounded-full bg-white border border-black/5 shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all text-[#101c33]" 
-                            onClick={() => {
-                              setCreateLaneKey(lane.key);
-                              setCreateLaneLabel(lane.label);
-                            }}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent className="rounded-xl border-black/10 font-bold text-xs"><p>Add Card</p></TooltipContent>
-                      </Tooltip>
-                    )}
                   </div>
                 </div>
+                {lane.hint && (
+                  <div className="px-4 pb-3">
+                    <p className="text-[11px] font-[600] text-muted-foreground line-clamp-1">{lane.hint}</p>
+                  </div>
+                )}
 
                 {/* Lane Cards Scroll Area */}
                 <div
                   className="kanban-lane-scroll flex-1 overflow-y-auto overflow-x-hidden px-3 pt-1 pb-16"
                   onClickCapture={(e) => {
-                    // Touch-safe stacked mode: with no hover available, the first
-                    // tap expands the stack instead of activating a buried card.
-                    // Expansion is exclusive — claiming it collapses other lanes.
                     if (viewMode !== 'stacked' || laneCards.length <= 1) return;
                     const laneOpen =
                       hoveredLane === lane.key ||
@@ -610,9 +789,9 @@ export default function KanbanBoard() {
                         const isStackedMode = viewMode === 'stacked';
                         const isStacked = isStackedMode && !isLaneHovered;
                         
-                        // Overlap determines how much of the underlying card is hidden.
-                        // 430 height - 364 overlap = 66px exposed per card. Plus 12px gap = 78px total exposed.
-                        const overlap = 364; 
+                        // We want dense cards so overlap is quite a lot
+                        // the card is around ~260px high maybe.
+                        const overlap = 220; 
                         const mt = i === 0 ? 0 : (isStacked ? -overlap : 0);
                         const scale = isStacked ? Math.max(0.9, 1 - (laneCards.length - 1 - i) * 0.015) : 1;
                         
@@ -662,9 +841,10 @@ export default function KanbanBoard() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.2 }}
-                        className="flex flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-black/10 py-16 text-center bg-black/[0.01] mt-2"
+                        className="flex flex-col items-center justify-center py-10 opacity-40 border-2 border-dashed border-black/10 rounded-[16px] bg-black/[0.02] h-[200px]"
                       >
-                        <span className="text-[11px] font-[800] text-muted-foreground/50 uppercase tracking-widest">Drop a card here</span>
+                        <Layers className="h-6 w-6 text-muted-foreground mb-2" />
+                        <p className="text-[12px] font-[800] text-muted-foreground uppercase tracking-widest">Empty</p>
                       </motion.div>
                     )}
                   </div>
@@ -675,32 +855,38 @@ export default function KanbanBoard() {
         </div>
       </main>
 
-      <AnimatePresence>
-        {tourOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <DashboardTour onClose={() => setTourOpen(false)} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {renderTriageSheet()}
 
-      <LoginDialog token={token} open={loginOpen} onOpenChange={setLoginOpen} />
+      {/* Modals */}
+      <CreateCardDialog 
+        token={token}
+        availableLanes={lanes}
+        defaultLaneKey={createLaneKey || undefined}
+        defaultLaneLabel={createLaneLabel}
+        open={createCardOpen || createLaneKey !== null} 
+        onOpenChange={(open) => {
+          setCreateCardOpen(open);
+          if (!open) setCreateLaneKey(null);
+        }} 
+      />
       
       <CardDetailDialog 
         card={selectedCard} 
         token={token} 
-        readOnly={viewer.readOnly} 
+        readOnly={viewer.readOnly}
         onClose={() => setSelectedCard(null)} 
       />
 
-      {createLaneKey && (
-        <CreateCardDialog
-          token={token}
-          laneKey={createLaneKey}
-          laneLabel={createLaneLabel}
-          open={!!createLaneKey}
-          onOpenChange={(open) => !open && setCreateLaneKey(null)}
-        />
-      )}
+      <LoginDialog
+        open={loginOpen}
+        onOpenChange={setLoginOpen}
+        token={token}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+        }}
+      />
+      
+      {tourOpen && <DashboardTour onClose={() => setTourOpen(false)} />}
     </motion.div>
   );
 }

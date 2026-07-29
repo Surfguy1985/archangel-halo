@@ -55,4 +55,5 @@
 - [HALO client dashboard board](halo-client-dashboard.md) — /dashboard/:token PWA; HALO cards recomputed on read, client edits/overrides in client_board_cards; Bearer HMAC sessions; blocked actions audited, not errors.
 - [HALO client board UI](halo-client-board-ui.md) — stacked/unstacked modes: touch taps fire synthetic mouseenter, so hover is ignored on coarse pointers; units page is a fixed 50-box template auto-filled from HALO data.
 - [HALO unit map + hub CMS](halo-unit-map-cms.md) — unit boxes use fractional coords; statuses keyed by normalized unit label; new endpoints must hit both client-token and office mounts.
+- [HALO crew command center](halo-crew-command-center.md) — live crew map rules: per-crew last-checkin lookup, escape divIcon HTML, invoice send_back needs a note, keep photo-share UI reachable in restyles.
 - [HALO job timeline](halo-job-timeline.md) — JobFunnel 5-stage pipeline: /jobs/:id/events feed, manual-assign board sync is server-side + transactional, recap-then-close needs no-email fallback.

@@ -111,6 +111,7 @@ import type {
   CrewInvoice,
   CrewInvoiceInput,
   CrewInvoiceReviewInput,
+  CrewMapPin,
   CrewMessage,
   CrewPacket,
   CrewPayment,
@@ -5694,6 +5695,83 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getCreateCrewMutationOptions(options));
     }
+
+export const getGetCrewMapPinsUrl = () => {
+
+
+
+
+  return `/api/crews/map`
+}
+
+/**
+ * @summary All crews with today's status and last known GPS position for the command-center map
+ */
+export const getCrewMapPins = async ( options?: RequestInit): Promise<CrewMapPin[]> => {
+
+  return customFetch<CrewMapPin[]>(getGetCrewMapPinsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrewMapPinsQueryKey = () => {
+    return [
+    `/api/crews/map`
+    ] as const;
+    }
+
+
+export const getGetCrewMapPinsQueryOptions = <TData = Awaited<ReturnType<typeof getCrewMapPins>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewMapPins>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrewMapPinsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrewMapPins>>> = ({ signal }) => getCrewMapPins({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrewMapPins>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCrewMapPinsQueryResult = NonNullable<Awaited<ReturnType<typeof getCrewMapPins>>>
+export type GetCrewMapPinsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary All crews with today's status and last known GPS position for the command-center map
+ */
+
+export function useGetCrewMapPins<TData = Awaited<ReturnType<typeof getCrewMapPins>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewMapPins>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCrewMapPinsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getUpdateCrewUrl = (id: string,) => {
 

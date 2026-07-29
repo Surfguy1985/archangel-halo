@@ -144,6 +144,7 @@ export * from './crewInvoiceItemInput';
 export * from './crewInvoiceReviewInput';
 export * from './crewInvoiceReviewInputAction';
 export * from './crewJobPhoto';
+export * from './crewMapPin';
 export * from './crewMessage';
 export * from './crewPacket';
 export * from './crewPacketAttachments';

@@ -9,6 +9,7 @@ import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Penc
 import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { Skeleton} from "@/components/ui/skeleton";
 import { useState} from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useToast} from "@/hooks/use-toast";
 import { JobLineItemsPanel} from "@/components/JobLineItemsPanel";
 import { JobSummaryDialog} from "@/components/JobSummaryDialog";
@@ -39,6 +40,7 @@ export default function PropertyDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [jobTab, setJobTab] = useState<"active" | "history">("active");
+  const [expandedInvoiceGroup, setExpandedInvoiceGroup] = useState<string | null>(null);
   const [expenseJobId, setExpenseJobId] = useState<string | null>(null);
   const [rateJobId, setRateJobId] = useState<string | null>(null);
   const [assignJobId, setAssignJobId] = useState<string | null>(null);
@@ -140,6 +142,7 @@ export default function PropertyDetail() {
 
   const renderJobCard = (job: Job, invoice: Invoice | undefined) => {
     const isComplete = job.status === "complete";
+    const jobInvoices = invoices.filter((inv) => inv.jobId === job.id);
     const STAGES = [
       { label: "Crew", done: !!job.crewLeaderId },
       { label: "Work", done: isComplete },
@@ -205,7 +208,8 @@ export default function PropertyDetail() {
     };
 
     return (
-      <div key={job.id} className="bg-[var(--ink)] text-white rounded-2xl p-6 shadow-sm flex flex-col gap-5">
+      <div key={job.id}>
+      <div className="bg-[var(--ink)] text-white rounded-2xl p-6 shadow-sm flex flex-col gap-5 relative z-10">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <Link href={`/jobs/${job.id}`} className="block hover:opacity-80 transition-opacity">
@@ -410,6 +414,43 @@ export default function PropertyDetail() {
             />
           </div>
         )}
+      </div>
+      {/* Invoices stacked with the job they belong to */}
+      {jobInvoices.length > 0 && (
+        <div className="mx-4 -mt-3 relative z-0">
+          <div className="bg-card border border-[var(--hairline)] border-t-0 rounded-b-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] divide-y divide-[var(--hairline)] pt-3">
+            {jobInvoices.map((inv) => (
+              <div key={inv.id} className="flex items-center gap-3 px-4 py-2.5">
+                <Receipt className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <Link href={`/invoices/${inv.id}`} className="flex-1 min-w-0 hover:opacity-70 transition-opacity">
+                  <span className="text-sm font-semibold">{inv.invoiceNo || "Invoice"}</span>
+                  <span className={`ml-2 text-xs font-semibold ${invoiceStatusCls[inv.status] ?? "text-muted-foreground"}`}>
+                    {invoiceStatusLabel[inv.status] ?? inv.status}
+                  </span>
+                </Link>
+                <div className="font-mono font-bold text-sm shrink-0 tabular-nums">${inv.amount.toLocaleString()}</div>
+                {inv.status === "paid" ? (
+                  <button
+                    disabled={setStatus.isPending}
+                    onClick={() => toggleInvoice(inv.id, "sent")}
+                    className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-black/[0.05] text-muted-foreground hover:bg-black/[0.08] transition-colors disabled:opacity-50"
+                  >
+                    Mark pending
+                  </button>
+                ) : (
+                  <button
+                    disabled={setStatus.isPending}
+                    onClick={() => toggleInvoice(inv.id, "paid")}
+                    className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full text-[var(--ink)] bg-[var(--primary)] hover:brightness-105 transition-all disabled:opacity-50"
+                  >
+                    Mark paid
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       </div>
     );
   };
@@ -630,6 +671,104 @@ export default function PropertyDetail() {
             </div>
           )}
 
+          <section>
+            <h2 className="text-xl font-display font-bold text-[var(--ink)] mb-4">Invoices</h2>
+            <div className="space-y-3">
+              {(() => {
+                const groups: { key: string; label: string; sub: string | null; items: Invoice[] }[] = [];
+                for (const job of jobs) {
+                  const items = invoices.filter((inv) => inv.jobId === job.id);
+                  if (items.length) {
+                    groups.push({
+                      key: job.id,
+                      label: `${job.category || "General"} · ${job.unitNo || "Common"}`,
+                      sub: job.description || null,
+                      items,
+                    });
+                  }
+                }
+                const unassigned = invoices.filter((inv) => !inv.jobId || !jobs.some((j) => j.id === inv.jobId));
+                if (unassigned.length) groups.push({ key: "unassigned", label: "Not tied to a job", sub: null, items: unassigned });
+                if (!groups.length) {
+                  return (
+                    <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6 text-center text-sm text-muted-foreground">
+                      No invoices for this property.
+                    </div>
+                  );
+                }
+                return groups.map((g) => {
+                  const open = expandedInvoiceGroup === g.key;
+                  const total = g.items.reduce((s, inv) => s + inv.amount, 0);
+                  const unpaid = g.items.filter((inv) => inv.status !== "paid").length;
+                  return (
+                    <div key={g.key} className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] overflow-hidden">
+                      <button
+                        onClick={() => setExpandedInvoiceGroup(open ? null : g.key)}
+                        data-testid={`invoice-group-${g.key}`}
+                        aria-expanded={open}
+                        className="w-full flex items-center gap-3 p-4 text-left hover:bg-black/[0.02] transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold truncate">{g.label}</div>
+                          <div className="text-sm text-muted-foreground truncate">
+                            {g.items.length} invoice{g.items.length === 1 ? "" : "s"}
+                            {unpaid > 0 ? ` · ${unpaid} unpaid` : " · all paid"}
+                            {g.sub ? ` · ${g.sub}` : ""}
+                          </div>
+                        </div>
+                        <div className="font-mono font-bold shrink-0 tabular-nums">${total.toLocaleString()}</div>
+                        <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {open && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                          >
+                            <div className="divide-y divide-[var(--hairline)] border-t border-[var(--hairline)]">
+                              {g.items.map((inv) => (
+                                <div key={inv.id} className="flex items-center gap-3 p-4 pl-6">
+                                  <Link href={`/invoices/${inv.id}`} className="flex-1 min-w-0 hover:opacity-70 transition-opacity">
+                                    <div className="font-semibold">{inv.invoiceNo || "Invoice"}</div>
+                                    <div className={`text-sm font-medium ${invoiceStatusCls[inv.status] ?? "text-muted-foreground"}`}>
+                                      {inv.status === "past_due"
+                                        ? `Past due${inv.daysLate ? ` · ${inv.daysLate}d late` : ""}`
+                                        : invoiceStatusLabel[inv.status] ?? inv.status}
+                                    </div>
+                                  </Link>
+                                  <div className="font-mono font-bold shrink-0 tabular-nums">${inv.amount.toLocaleString()}</div>
+                                  {inv.status === "paid" ? (
+                                    <button
+                                      disabled={setStatus.isPending}
+                                      onClick={() => toggleInvoice(inv.id, "sent")}
+                                      className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-muted-foreground hover:bg-black/[0.08] transition-colors disabled:opacity-50"
+                                    >
+                                      Mark pending
+                                    </button>
+                                  ) : (
+                                    <button
+                                      disabled={setStatus.isPending}
+                                      onClick={() => toggleInvoice(inv.id, "paid")}
+                                      className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full text-[var(--ink)] bg-[var(--primary)] hover:brightness-105 transition-all disabled:opacity-50"
+                                    >
+                                      Mark paid
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </section>
+
           <MarginSection
             title="Margin & Price List"
             currentPct={stats.marginPct ?? null}
@@ -719,47 +858,6 @@ export default function PropertyDetail() {
                 </div>
               ))}
               {!upcomingVisits.length && <div className="p-6 text-center text-sm text-muted-foreground">No upcoming visits scheduled.</div>}
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-xl font-display font-bold text-[var(--ink)] mb-4">Invoices</h2>
-            <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
-              {invoices.map((inv) => (
-                <div key={inv.id} className="flex items-center gap-3 p-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold">{inv.invoiceNo || "Invoice"}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {inv.status === "paid"
-                        ? "Paid"
-                        : inv.status === "past_due"
-                          ? `Past due${inv.daysLate ? ` · ${inv.daysLate}d late` : ""}`
-                          : inv.status === "sent"
-                            ? "Sent"
-                            : "Draft"}
-                    </div>
-                  </div>
-                  <div className="font-mono font-bold shrink-0">${inv.amount.toLocaleString()}</div>
-                  {inv.status === "paid" ? (
-                    <button
-                      disabled={setStatus.isPending}
-                      onClick={() => toggleInvoice(inv.id, "sent")}
-                      className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-muted-foreground hover:bg-black/[0.08] transition-colors disabled:opacity-50"
-                    >
-                      Mark pending
-                    </button>
-                  ) : (
-                    <button
-                      disabled={setStatus.isPending}
-                      onClick={() => toggleInvoice(inv.id, "paid")}
-                      className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full text-[var(--ink)] bg-[var(--primary)] hover:brightness-105 transition-all disabled:opacity-50"
-                    >
-                      Mark paid
-                    </button>
-                  )}
-                </div>
-              ))}
-              {!invoices.length && <div className="p-6 text-center text-sm text-muted-foreground">No invoices for this property.</div>}
             </div>
           </section>
 

@@ -1,13 +1,15 @@
 import { useListCrews} from "@workspace/api-client-react";
 import { Skeleton} from "@/components/ui/skeleton";
 import { Link} from "wouter";
-import { Users, Plus, Search, MapPin, CheckCircle, Clock, Pencil} from "lucide-react";
+import { Users, Plus, Search, MapPin, CheckCircle, Clock, Pencil, Navigation} from "lucide-react";
 import { useState} from "react";
 import { AddCrewDialog, EditCrewDialog, type EditableCrew} from "@/components/CrewDialogs";
+import { CrewCommandCenter } from "@/components/CrewCommandCenter";
 
 export default function Crews() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const [editing, setEditing] = useState<EditableCrew | null>(null);
   const { data: crews, isLoading } = useListCrews();
 
@@ -23,13 +25,23 @@ export default function Crews() {
           <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">Crews</h1>
           <p className="text-muted-foreground mt-1 text-sm">{crews?.length || 0} active crews</p>
         </div>
-        <button
-          onClick={() => setAddOpen(true)}
-          className="btn-gold px-5 py-2.5 flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" /> Add Crew
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMapOpen(true)}
+            className="flex items-center gap-2 bg-[var(--ink)] text-white px-5 py-2.5 rounded-full font-bold shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:opacity-90 transition-opacity"
+          >
+            <Navigation className="w-4 h-4 text-[var(--gold-light)]" /> Command Center
+          </button>
+          <button
+            onClick={() => setAddOpen(true)}
+            className="btn-gold px-5 py-2.5 flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Add Crew
+          </button>
+        </div>
       </header>
+
+      {mapOpen && <CrewCommandCenter onClose={() => setMapOpen(false)} />}
 
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

@@ -1,6 +1,54 @@
-// Distilled from attached_assets/halo-board-templates_*.json — the shared
-// card anatomy and palette every board card must follow. Accent comes from
-// the template; every card surface is derived from it.
+import { TEMPLATES } from './ref-templates';
+
+// Reference color system: each category has an oklch hue; the accent and every
+// card surface tint are derived from it (matches the fixed-seed reference).
+const CATEGORY_HUES: Record<string, number> = {
+  maintenance: 250,
+  money: 155,
+  vendor: 300,
+  compliance: 32,
+  leasing: 212,
+  access: 112,
+  people: 335,
+  intel: 277,
+};
+
+const accentFor = (h: number) => `oklch(0.54 0.14 ${h})`;
+
+const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(CATEGORY_HUES).map(([k, h]) => [k, accentFor(h)]),
+);
+
+/** Mix the accent into white at pct% — the reference's card surface scale. */
+export const mixp = (accent: string, pct: number) =>
+  `color-mix(in oklab, ${accent} ${pct}%, #ffffff)`;
+
+export interface CardTint {
+  bg: string;
+  bd: string;
+  track: string;
+  chip: string;
+  foot: string;
+  hair: string;
+  stageBg: string;
+  stageFg: string;
+}
+
+/** Full-card tint set per the reference: bg 7%, border 20%, track 22%, chip 16%, footer 11%, hairline 12%, stage 15%. */
+export function cardTint(spec: TemplateSpec): CardTint {
+  const a = spec.accent;
+  const h = CATEGORY_HUES[spec.categoryLabel] ?? 277;
+  return {
+    bg: mixp(a, 7),
+    bd: mixp(a, 20),
+    track: mixp(a, 22),
+    chip: mixp(a, 16),
+    foot: mixp(a, 11),
+    hair: mixp(a, 12),
+    stageBg: mixp(a, 15),
+    stageFg: `oklch(0.40 0.11 ${h})`,
+  };
+}
 
 export const TONES = {
   good: '#1f7a52',
@@ -10,7 +58,6 @@ export const TONES = {
   mute: '#6e6c63',
 } as const;
 
-// SLA heat ramp: green under 62%, amber to 85%, orange to 100%, red past it.
 export function heatColor(pct: number): string {
   if (pct < 62) return '#1f7a52';
   if (pct < 85) return '#b8891a';
@@ -31,69 +78,57 @@ export type MetricTone = 'good' | 'warn' | 'bad' | 'ink' | 'mute';
 
 export interface TemplateSpec {
   key: string;
+  name: string;
   categoryLabel: string;
-  accent: string; // category color from the template palette
+  accent: string;
   codePrefix: string;
-  slaTargetDays: number; // drives the heat rail against dueOn/scheduledOn
-  primaryActionLabel?: string;
-  secondaryActionLabel?: string;
+  slaTargetDays: number;
+  pipeline: string[];
 }
 
-// Template mapping: job→work_order, makeready→make_ready, invoice→invoice,
-// crew→vendor_crew_live, request→work_order intake, custom→daily_operations.
-export const TEMPLATE_SPECS: Record<string, TemplateSpec> = {
-  job: {
-    key: 'work_order',
-    categoryLabel: 'Maintenance',
-    accent: '#33639f',
-    codePrefix: 'WO',
-    slaTargetDays: 3,
-  },
-  makeready: {
-    key: 'make_ready',
-    categoryLabel: 'Maintenance',
-    accent: '#33639f',
-    codePrefix: 'TURN',
-    slaTargetDays: 7,
-  },
-  invoice: {
-    key: 'invoice',
-    categoryLabel: 'Money',
-    accent: '#1f7a52',
-    codePrefix: 'INV',
-    slaTargetDays: 30,
-  },
-  crew: {
-    key: 'vendor_crew_live',
-    categoryLabel: 'Vendor',
-    accent: '#7a4a9e',
-    codePrefix: 'CREW',
-    slaTargetDays: 1,
-  },
-  request: {
-    key: 'work_order',
-    categoryLabel: 'Maintenance',
-    accent: '#33639f',
-    codePrefix: 'REQ',
-    slaTargetDays: 2,
-  },
-  custom: {
-    key: 'daily_operations',
-    categoryLabel: 'Ops',
-    accent: '#101c33',
-    codePrefix: 'CARD',
-    slaTargetDays: 7,
-  },
+export const TEMPLATE_SPECS: Record<string, TemplateSpec> = {};
+
+for (const [k, v] of Object.entries(TEMPLATES)) {
+  TEMPLATE_SPECS[k] = {
+    key: k,
+    name: v.name,
+    categoryLabel: v.category,
+    accent: CATEGORY_COLORS[v.category] ?? '#101c33',
+    codePrefix: k.substring(0, 4).toUpperCase(),
+    slaTargetDays: (v.sla || 1440) / 1440, // convert minutes to days roughly
+    pipeline: v.pipeline,
+  };
+}
+
+// The API emits its own template ids — map them onto the reference registry.
+const API_TEMPLATE_ALIASES: Record<string, string> = {
+  job: 'wo',
+  request: 'wo',
+  makeready: 'makeready',
+  invoice: 'invoice',
+  crew: 'crew',
+};
+
+// Client-created custom cards have a simple Open/Done pipeline.
+TEMPLATE_SPECS['custom'] = {
+  key: 'custom',
+  name: 'Custom Card',
+  categoryLabel: 'intel',
+  accent: CATEGORY_COLORS['intel'],
+  codePrefix: 'CARD',
+  slaTargetDays: 3,
+  pipeline: ['Open', 'Done'],
 };
 
 export function specFor(template: string | null | undefined): TemplateSpec {
-  return TEMPLATE_SPECS[template ?? 'custom'] ?? TEMPLATE_SPECS.custom;
+  const key = template ?? 'wo';
+  return (
+    TEMPLATE_SPECS[key] ?? TEMPLATE_SPECS[API_TEMPLATE_ALIASES[key] ?? 'wo'] ?? TEMPLATE_SPECS['wo']
+  );
 }
 
-/** "accent 7% on white" style derivations from the anatomy colour rules. */
 export function derived(accent: string) {
-  const mix = (pct: number) =>
-    `color-mix(in srgb, ${accent} ${pct}%, #ffffff)`;
+  const mix = (pct: number) => `color-mix(in srgb, ${accent} ${pct}%, #ffffff)`;
   return {
     cardBg: mix(7),
     border: mix(20),

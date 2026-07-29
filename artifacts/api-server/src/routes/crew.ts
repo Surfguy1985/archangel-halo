@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
-import { and, desc, eq, gte, lt, ne } from "drizzle-orm";
+import { and, desc, eq, gte, lt, ne, sql } from "drizzle-orm";
 import {
   db,
   crewsTable,
@@ -13,6 +13,9 @@ import {
   crewInvoiceItemsTable,
   photoSharesTable,
   notificationsTable,
+  schedulesTable,
+  jobsTable,
+  propertiesTable,
 } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 import {
@@ -27,6 +30,7 @@ import {
   SendCrewMessageResponse,
   ListCrewCheckinsParams,
   ListCrewCheckinsResponse,
+  GetCrewMapPinsResponse,
   ListCrewDocumentsParams,
   ListCrewDocumentsResponse,
   SendCrewDocumentParams,
@@ -317,6 +321,65 @@ router.get("/photo-shares/:token/report", async (req, res): Promise<void> => {
     `attachment; filename="daily-report-${data.crewName.replace(/[^\w.-]+/g, "_")}-${data.day}.pdf"`,
   );
   res.send(Buffer.from(pdf));
+});
+
+router.get("/crews/map", async (_req, res): Promise<void> => {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, "0");
+  const d = String(today.getDate()).padStart(2, "0");
+  const todayStr = `${y}-${m}-${d}`;
+  const [crews, schedules, jobs, props, checkins] = await Promise.all([
+    db.select().from(crewsTable),
+    db.select().from(schedulesTable).where(eq(schedulesTable.scheduledOn, todayStr)),
+    db.select().from(jobsTable),
+    db.select().from(propertiesTable),
+    db.execute(sql`
+      SELECT DISTINCT ON (crew_id)
+        crew_id AS "crewId", kind, lat, lng, label, created_at AS "createdAt"
+      FROM crew_checkins
+      WHERE lat IS NOT NULL AND lng IS NOT NULL
+      ORDER BY crew_id, created_at DESC
+    `),
+  ]);
+  const propName = new Map(props.map((p) => [p.id, p.name]));
+  const jobById = new Map(jobs.map((j) => [j.id, j]));
+  type LastCheckin = {
+    crewId: string;
+    kind: string;
+    lat: number | string;
+    lng: number | string;
+    label: string | null;
+    createdAt: string | Date | null;
+  };
+  const lastRows = (checkins.rows ?? []) as unknown as LastCheckin[];
+  const lastByCrew = new Map(lastRows.map((c) => [c.crewId, c]));
+  res.json(
+    GetCrewMapPinsResponse.parse(
+      crews
+        .filter((c) => c.active !== false)
+        .map((c) => {
+          const sched = schedules.find((s) => s.crewLeaderId === c.id);
+          const job = sched ? jobById.get(sched.jobId) : undefined;
+          const last = lastByCrew.get(c.id);
+          return {
+            id: c.id,
+            name: c.name,
+            trade: c.trade ?? null,
+            phone: c.phone ?? null,
+            selfiePath: c.selfiePath ?? null,
+            todayStatus: sched ? (sched.status === "done" ? "done" : "site") : "idle",
+            todayJob: job?.jobNo ?? null,
+            todayProperty: job ? (propName.get(job.propertyId) ?? null) : null,
+            lat: last?.lat != null ? Number(last.lat) : null,
+            lng: last?.lng != null ? Number(last.lng) : null,
+            lastCheckinKind: last?.kind ?? null,
+            lastCheckinLabel: last?.label ?? null,
+            lastCheckinAt: last?.createdAt ? new Date(last.createdAt).toISOString() : null,
+          };
+        }),
+    ),
+  );
 });
 
 router.get("/crews/:id/checkins", async (req, res): Promise<void> => {

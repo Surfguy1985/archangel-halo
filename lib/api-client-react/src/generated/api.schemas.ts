@@ -1844,6 +1844,39 @@ export interface CrewToday {
   todayProperty?: string | null;
 }
 
+export interface CrewMapPin {
+  id: string;
+  name: string;
+  /** @nullable */
+  trade?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  selfiePath?: string | null;
+  /**
+     * route | site | done | idle
+     * @nullable
+     */
+  todayStatus?: string | null;
+  /** @nullable */
+  todayJob?: string | null;
+  /** @nullable */
+  todayProperty?: string | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /**
+     * checkin | checkout
+     * @nullable
+     */
+  lastCheckinKind?: string | null;
+  /** @nullable */
+  lastCheckinLabel?: string | null;
+  /** @nullable */
+  lastCheckinAt?: string | null;
+}
+
 export interface CrewInput {
   /** @minLength 1 */
   name: string;
