@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { useGetClientBoard, useDispatchClientBoardAction, ClientBoardCardView } from '@workspace/api-client-react';
 import { LoginDialog } from '@/components/LoginDialog';
@@ -12,6 +11,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow } from 'date-fns';
+import React, { useEffect, useState } from 'react';
+import { MapPin, User, Loader2, Info, Plus, Headphones } from 'lucide-react';
+import { DashboardTour } from '@/components/DashboardTour';
 
 export default function KanbanBoard() {
   const { token } = useParams<{ token: string }>();
@@ -25,6 +27,7 @@ export default function KanbanBoard() {
   
   const [createLaneKey, setCreateLaneKey] = useState<string | null>(null);
   const [createLaneLabel, setCreateLaneLabel] = useState<string>('');
+  const [tourOpen, setTourOpen] = useState(false);
 
   const { data: board, isLoading, error } = useGetClientBoard(token, {
     query: {
@@ -34,6 +37,23 @@ export default function KanbanBoard() {
   });
 
   const dispatchAction = useDispatchClientBoardAction();
+
+  // Offer the guided tour once per browser per board link.
+  const boardLoaded = !isLoading && !error && !!board;
+  useEffect(() => {
+    if (!boardLoaded) return;
+    const tourSeenKey = `halo_dashboard_tour_seen_${token}`;
+    let seen = true;
+    try {
+      seen = localStorage.getItem(tourSeenKey) === '1';
+    } catch {
+      // storage unavailable — don't auto-open
+    }
+    if (!seen) {
+      try { localStorage.setItem(tourSeenKey, '1'); } catch { /* ignore */ }
+      setTourOpen(true);
+    }
+  }, [boardLoaded, token]);
 
   if (isLoading) {
     return (
@@ -197,7 +217,16 @@ export default function KanbanBoard() {
             <span className="text-[10px] font-bold tracking-widest text-foreground uppercase">Live</span>
           </div>
 
-          <Button variant="outline" size="sm" className="h-8 gap-2 text-xs font-semibold" onClick={() => setLocation(`/${token}/map`)}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setTourOpen(true)} data-testid="button-board-tour">
+                <Headphones className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom"><p>Take the guided tour</p></TooltipContent>
+          </Tooltip>
+
+          <Button variant="outline" size="sm" className="h-8 gap-2 text-xs font-semibold" onClick={() => setLocation(`/${token}/map`)} data-testid="button-map-view">
             <MapPin className="h-3.5 w-3.5" /> Map View
           </Button>
 
@@ -255,6 +284,7 @@ export default function KanbanBoard() {
             return (
               <div 
                 key={lane.key} 
+                data-testid={`lane-${lane.key}`}
                 className="flex h-full w-[356px] shrink-0 flex-col rounded-xl border bg-secondary/30"
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, lane.key)}
@@ -323,6 +353,8 @@ export default function KanbanBoard() {
           })}
         </div>
       </main>
+
+      {tourOpen && <DashboardTour onClose={() => setTourOpen(false)} />}
 
       <LoginDialog token={token} open={loginOpen} onOpenChange={setLoginOpen} />
       
