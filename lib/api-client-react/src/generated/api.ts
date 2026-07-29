@@ -17988,6 +17988,83 @@ export function useGetPublicJobSummary<TData = Awaited<ReturnType<typeof getPubl
 
 
 
+export const getGetJobSummaryPdfUrl = (token: string,) => {
+
+
+
+
+  return `/api/job-summaries/${token}/pdf`
+}
+
+/**
+ * @summary Download the job summary as a printable recap-sheet PDF
+ */
+export const getJobSummaryPdf = async (token: string, options?: RequestInit): Promise<Blob> => {
+
+  return customFetch<Blob>(getGetJobSummaryPdfUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetJobSummaryPdfQueryKey = (token: string,) => {
+    return [
+    `/api/job-summaries/${token}/pdf`
+    ] as const;
+    }
+
+
+export const getGetJobSummaryPdfQueryOptions = <TData = Awaited<ReturnType<typeof getJobSummaryPdf>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobSummaryPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJobSummaryPdfQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJobSummaryPdf>>> = ({ signal }) => getJobSummaryPdf(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJobSummaryPdf>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetJobSummaryPdfQueryResult = NonNullable<Awaited<ReturnType<typeof getJobSummaryPdf>>>
+export type GetJobSummaryPdfQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Download the job summary as a printable recap-sheet PDF
+ */
+
+export function useGetJobSummaryPdf<TData = Awaited<ReturnType<typeof getJobSummaryPdf>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobSummaryPdf>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetJobSummaryPdfQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getListClientAccountsUrl = () => {
 
 

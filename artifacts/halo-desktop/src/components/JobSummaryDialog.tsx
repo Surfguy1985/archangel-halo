@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Send, Copy, Flag, Check, ImageIcon } from "lucide-react";
+import { X, Send, Copy, Flag, Check, ImageIcon, Download } from "lucide-react";
 import {
   useGetJobSummary,
   useSaveJobSummary,
@@ -306,6 +306,16 @@ export function JobSummaryDialog({
                 >
                   <Copy className="w-4 h-4" />
                 </button>
+                {/* Manual /api asset link — must stay absolute, never BASE_URL-prefixed. */}
+                <a
+                  href={`/api/job-summaries/${doc.token}/pdf`}
+                  className="p-2 rounded-lg hover:bg-background"
+                  aria-label="Download PDF"
+                  title="Download PDF"
+                  data-testid="button-summary-download-pdf"
+                >
+                  <Download className="w-4 h-4" />
+                </a>
                 {doc.status === "sent" && (
                   <span className="text-xs font-bold text-[var(--gold,#4a7000)]">Sent to {doc.sentTo}</span>
                 )}

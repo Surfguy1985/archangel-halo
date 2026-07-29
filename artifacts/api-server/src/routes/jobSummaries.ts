@@ -26,6 +26,7 @@ import { crewPhotosForJobs } from "../lib/jobPhotos";
 import { sendEmail } from "../lib/email";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { raiseClientCard } from "../lib/clientBoard";
+import { buildSummaryPdf } from "../lib/summaryPdf";
 
 const router: IRouter = Router();
 
@@ -467,6 +468,51 @@ router.get("/job-summaries/:token", async (req, res): Promise<void> => {
       hasBoard: false,
     }),
   );
+});
+
+router.get("/job-summaries/:token/pdf", async (req, res): Promise<void> => {
+  const [summary] = await db
+    .select()
+    .from(jobSummariesTable)
+    .where(eq(jobSummariesTable.token, req.params.token));
+  if (!summary) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const full = await serDoc(summary, summary.jobId);
+  if (!full) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const pdf = await buildSummaryPdf({
+    title: full.title,
+    unitNumber: full.unitNumber,
+    serviceDate: full.serviceDate,
+    crewLead: full.crewLead,
+    timeIn: full.timeIn,
+    timeOut: full.timeOut,
+    checklist: full.checklist,
+    flags: summary.flags,
+    observations: full.observations,
+    touchUpNotes: full.touchUpNotes,
+    overallResult: full.overallResult,
+    photos: summary.photos,
+    propertyName: full.propertyName,
+    propertyAddress: full.propertyAddress,
+    business: full.business,
+  });
+  const nameBits = [
+    "job-summary",
+    full.propertyName,
+    full.unitNumber ? `unit-${full.unitNumber}` : null,
+    full.serviceDate,
+  ]
+    .filter(Boolean)
+    .join("-")
+    .replace(/[^\w.-]+/g, "_");
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${nameBits}.pdf"`);
+  res.send(Buffer.from(pdf));
 });
 
 export default router;

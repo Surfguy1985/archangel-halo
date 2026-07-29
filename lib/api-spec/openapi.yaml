@@ -5404,6 +5404,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /job-summaries/{token}/pdf:
+    get:
+      operationId: getJobSummaryPdf
+      tags: [jobs]
+      summary: Download the job summary as a printable recap-sheet PDF
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: PDF job summary
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /admin/accounts:
     get:
       operationId: listClientAccounts

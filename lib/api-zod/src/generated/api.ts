@@ -7359,6 +7359,16 @@ export const GetPublicJobSummaryResponse = zod.object({
 
 
 /**
+ * @summary Download the job summary as a printable recap-sheet PDF
+ */
+export const GetJobSummaryPdfParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetJobSummaryPdfResponse = zod.unknown()
+
+
+/**
  * @summary Every active property as a managed client account
  */
 export const ListClientAccountsResponseItem = zod.object({

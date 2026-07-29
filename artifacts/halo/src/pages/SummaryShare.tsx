@@ -3,7 +3,7 @@ import {
   useGetPublicJobSummary,
   getGetPublicJobSummaryQueryKey,
 } from "@workspace/api-client-react";
-import { CheckCircle2, Flag, Loader2, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Download, Flag, Loader2, ShieldCheck } from "lucide-react";
 import { FalkonBadge } from "@/components/FalkonBadge";
 
 function formatDate(d: string): string {
@@ -131,6 +131,13 @@ export default function SummaryShare() {
             {where}
             {doc.serviceDate ? ` · ${formatDate(doc.serviceDate)}` : ""}
           </div>
+          <a
+            href={`/api/job-summaries/${token}/pdf`}
+            className="inline-flex items-center gap-[6px] mt-[12px] px-4 py-2 rounded-[10px] bg-[var(--gold-light,#B4FF44)] text-black text-[12px] font-bold"
+            data-testid="button-download-pdf"
+          >
+            <Download className="w-[14px] h-[14px]" /> Download PDF
+          </a>
         </div>
       </header>
 
