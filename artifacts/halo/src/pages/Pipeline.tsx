@@ -34,13 +34,13 @@ function Bids() {
     <div className="animate-in fade-in duration-200">
       <button
         onClick={() => setAddOpen(true)}
-        className="w-full mb-[12px] flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+        className="w-full mb-[12px] flex items-center justify-center gap-[7px] rounded-[14px] py-[12px] font-display font-bold text-[14px] text-[var(--ink)] bg-[var(--gold-light)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98] hover:brightness-105"
         data-testid="button-new-bid"
       >
         <Plus className="w-[17px] h-[17px]" /> New bid
       </button>
       {isLoading ? (
-        <div className="animate-pulse h-32 bg-card rounded-[16px]" />
+        <div className="animate-pulse h-32 bg-card rounded-[20px] border border-[var(--hairline)]" />
       ) : !bids || bids.length === 0 ? (
         <div className="text-center text-[13px] text-muted-foreground py-[40px]">No bids yet.</div>
       ) : (
@@ -49,7 +49,7 @@ function Bids() {
             <button
               key={b.id}
               onClick={() => setDetailId(b.id)}
-              className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px] text-left w-full transition-transform active:scale-[0.99]"
+              className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-[14px] text-left w-full transition-transform active:scale-[0.99]"
               data-testid={`card-bid-${b.id}`}
             >
               <div className="flex items-start gap-[10px]">
@@ -93,13 +93,13 @@ function Leads() {
     <div className="animate-in fade-in duration-200">
       <button
         onClick={() => setAddOpen(true)}
-        className="w-full mb-[12px] flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+        className="w-full mb-[12px] flex items-center justify-center gap-[7px] rounded-[14px] py-[12px] font-display font-bold text-[14px] text-[var(--ink)] bg-[var(--gold-light)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98] hover:brightness-105"
         data-testid="button-new-lead"
       >
         <Plus className="w-[17px] h-[17px]" /> New lead
       </button>
       {isLoading ? (
-        <div className="animate-pulse h-32 bg-card rounded-[16px]" />
+        <div className="animate-pulse h-32 bg-card rounded-[20px] border border-[var(--hairline)]" />
       ) : !leads || leads.length === 0 ? (
         <div className="text-center text-[13px] text-muted-foreground py-[40px]">No leads yet.</div>
       ) : (
@@ -108,7 +108,7 @@ function Leads() {
             <button
               key={l.id}
               onClick={() => setDetailLead(l as MobileLeadRow)}
-              className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px] text-left w-full transition-transform active:scale-[0.99]"
+              className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-[14px] text-left w-full transition-transform active:scale-[0.99]"
               data-testid={`card-lead-${l.id}`}
             >
               <div className="flex items-center gap-[8px] mb-[4px]">
@@ -154,7 +154,7 @@ export default function Pipeline() {
     <div className="pt-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
       <div className="font-display font-bold text-[26px] tracking-[-0.015em] leading-[1.1] mb-[2px]">Pipeline</div>
       <div className="text-[13px] text-muted-foreground mb-[14px]">Leads become bids. Bids become jobs.</div>
-      <div className="flex gap-[4px] bg-card rounded-[13px] p-[4px] shadow-[var(--shadow)] mb-[16px]">
+      <div className="flex gap-[4px] bg-card border border-[var(--hairline)] rounded-[13px] p-[4px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] mb-[16px]">
         {tabs.map((t) => (
           <button
             key={t.key}

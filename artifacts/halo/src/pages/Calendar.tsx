@@ -148,11 +148,11 @@ export default function Calendar() {
           });
 
   return (
-    <div className="pt-[6px]">
+    <div className="pt-[6px] px-2">
       {/* Header */}
       <div className="flex items-center gap-[10px] mb-[12px]">
         <div className="flex-1 min-w-0">
-          <div className="font-display font-bold text-[22px] leading-[1.1] truncate">
+          <div className="font-display font-bold text-[24px] tracking-[-0.02em] leading-[1.1] truncate text-[var(--ink)]">
             {headerTitle}
           </div>
           <div className="text-[12px] uppercase tracking-[0.14em] text-muted-foreground mt-[2px]">
@@ -161,20 +161,20 @@ export default function Calendar() {
         </div>
         <button
           onClick={() => setCursor(new Date())}
-          className="text-[12.5px] font-bold px-[12px] py-[8px] rounded-full bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.96]"
+          className="text-[12.5px] font-bold px-[14px] py-[8px] rounded-full bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] transition-transform active:scale-[0.96]"
         >
           Today
         </button>
         <button
           onClick={() => step(-1)}
-          className="w-[36px] h-[36px] rounded-full grid place-items-center bg-card border border-border shadow-[var(--shadow)]"
+          className="w-[36px] h-[36px] rounded-full grid place-items-center bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)]"
           aria-label="Previous"
         >
           <ChevronLeft className="w-[18px] h-[18px]" />
         </button>
         <button
           onClick={() => step(1)}
-          className="w-[36px] h-[36px] rounded-full grid place-items-center bg-card border border-border shadow-[var(--shadow)]"
+          className="w-[36px] h-[36px] rounded-full grid place-items-center bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)]"
           aria-label="Next"
         >
           <ChevronRight className="w-[18px] h-[18px]" />
@@ -182,15 +182,15 @@ export default function Calendar() {
       </div>
 
       {/* View switch */}
-      <div className="flex gap-[4px] p-[4px] bg-card border border-border rounded-[13px] shadow-[var(--shadow)] mb-[14px]">
+      <div className="flex gap-[8px] mb-[14px]">
         {(["day", "week", "month"] as ViewMode[]).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
-            className={`flex-1 py-[8px] rounded-[10px] text-[13.5px] font-semibold capitalize transition-colors ${
+            className={`flex-1 py-[9px] rounded-full text-[13.5px] font-display font-bold capitalize transition-colors ${
               view === v
-                ? "bg-[var(--ink)] text-[var(--paper)]"
-                : "text-muted-foreground"
+                ? "bg-[var(--ink)] text-white"
+                : "bg-card border border-[var(--hairline)] text-muted-foreground"
             }`}
           >
             {v}
@@ -240,7 +240,7 @@ export default function Calendar() {
       {/* FAB */}
       <button
         onClick={() => setChooserOpen(true)}
-        className="fixed sm:absolute right-[18px] bottom-[102px] w-[54px] h-[54px] rounded-full grid place-items-center text-[var(--ink)] bg-[var(--primary)] shadow-[0_8px_24px_rgba(143,106,31,0.42)] z-20 transition-transform active:scale-[0.94]"
+        className="fixed sm:absolute right-[18px] bottom-[102px] w-[54px] h-[54px] rounded-full grid place-items-center btn-gold z-20 transition-transform active:scale-[0.94]"
         aria-label="Add to calendar"
       >
         <Plus className="w-[26px] h-[26px]" strokeWidth={2.2} />
@@ -263,13 +263,13 @@ export default function Calendar() {
                 setChooserOpen(false);
                 setScheduleOpen(true);
               }}
-              className="w-full flex items-center gap-[13px] rounded-[15px] p-[14px] bg-card border border-border shadow-[var(--shadow)] text-left transition-transform active:scale-[0.98]"
+              className="w-full flex items-center gap-[13px] rounded-[16px] p-[14px] bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-left transition-transform active:scale-[0.98]"
             >
-              <div className="w-[40px] h-[40px] shrink-0 rounded-[11px] grid place-items-center text-[var(--ink)] bg-[var(--primary)]">
+              <div className="w-[40px] h-[40px] shrink-0 rounded-[12px] grid place-items-center text-[var(--ink)] bg-[var(--gold-light)]">
                 <Briefcase className="w-[19px] h-[19px]" />
               </div>
               <div>
-                <div className="font-display font-bold text-[15px]">
+                <div className="font-display font-bold text-[15px] text-[var(--ink)]">
                   Schedule a job
                 </div>
                 <div className="text-[12.5px] text-muted-foreground">
@@ -282,13 +282,13 @@ export default function Calendar() {
                 setChooserOpen(false);
                 openAdd(ymd(cursor), null);
               }}
-              className="w-full flex items-center gap-[13px] rounded-[15px] p-[14px] bg-card border border-border shadow-[var(--shadow)] text-left transition-transform active:scale-[0.98]"
+              className="w-full flex items-center gap-[13px] rounded-[16px] p-[14px] bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-left transition-transform active:scale-[0.98]"
             >
-              <div className="w-[40px] h-[40px] shrink-0 rounded-[11px] grid place-items-center bg-[var(--ink)] text-[var(--paper)]">
+              <div className="w-[40px] h-[40px] shrink-0 rounded-[12px] grid place-items-center bg-[var(--ink)] text-white">
                 <StickyNote className="w-[19px] h-[19px]" />
               </div>
               <div>
-                <div className="font-display font-bold text-[15px]">
+                <div className="font-display font-bold text-[15px] text-[var(--ink)]">
                   Add a note
                 </div>
                 <div className="text-[12.5px] text-muted-foreground">
@@ -357,14 +357,14 @@ function DayView({
             <button
               key={e.id}
               onClick={() => onEvent(e)}
-              className="flex items-center gap-[10px] w-full text-left rounded-[12px] p-[11px_13px] border border-border shadow-[var(--shadow)]"
+              className="flex items-center gap-[10px] w-full text-left rounded-[14px] p-[11px_13px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
               style={{ background: `color-mix(in srgb, ${colorVar(e.color)} 12%, var(--card))` }}
             >
               <span
                 className="w-[8px] h-[8px] rounded-full shrink-0"
                 style={{ background: colorVar(e.color) }}
               />
-              <span className="font-semibold text-[14px] truncate">{e.title}</span>
+              <span className="font-semibold text-[14px] truncate text-[var(--ink)]">{e.title}</span>
               <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground ml-auto shrink-0">
                 All-day
               </span>
@@ -375,14 +375,14 @@ function DayView({
 
       <div
         ref={scrollRef}
-        className="relative overflow-y-auto rounded-[16px] border border-border bg-card shadow-[var(--shadow)]"
+        className="relative overflow-y-auto rounded-[20px] border border-[var(--hairline)] bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
         style={{ height: "calc(100dvh - 340px)", minHeight: "360px" }}
       >
         <div className="relative" style={{ height: `${24 * HOUR_H}px` }}>
           {Array.from({ length: 24 }, (_, h) => (
             <div
               key={h}
-              className="absolute left-0 right-0 border-t border-border/70"
+              className="absolute left-0 right-0 border-t border-[var(--hairline)]"
               style={{ top: `${h * HOUR_H}px` }}
             >
               <span className="absolute -top-[8px] left-[10px] text-[10.5px] font-semibold text-muted-foreground w-[42px]">
@@ -427,7 +427,7 @@ function DayView({
                 <button
                   key={e.id}
                   onClick={() => onEvent(e)}
-                  className="absolute rounded-[10px] p-[6px_9px] text-left overflow-hidden shadow-[0_2px_8px_rgba(23,24,28,0.12)] transition-transform active:scale-[0.98]"
+                  className="absolute rounded-[10px] p-[6px_9px] text-left overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-transform active:scale-[0.98]"
                   style={{
                     top: `${top}px`,
                     height: `${height}px`,
@@ -438,7 +438,7 @@ function DayView({
                     zIndex: 5 + idx,
                   }}
                 >
-                  <div className="font-bold text-[12.5px] leading-[1.15] truncate">
+                  <div className="font-bold text-[12.5px] leading-[1.15] truncate text-[var(--ink)]">
                     {e.title}
                   </div>
                   {height > 34 && (
@@ -473,7 +473,7 @@ function WeekView({
   const todayStr = ymd(new Date());
 
   return (
-    <div className="rounded-[16px] border border-border bg-card shadow-[var(--shadow)] overflow-hidden">
+    <div className="rounded-[20px] border border-[var(--hairline)] bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
       {days.map((d) => {
         const key = ymd(d);
         const dayEvents = byDate.get(key) ?? [];
@@ -481,20 +481,20 @@ function WeekView({
         return (
           <div
             key={key}
-            className={`flex border-b border-border last:border-b-0 ${
+            className={`flex border-b border-[var(--hairline)] last:border-b-0 ${
               isToday ? "bg-[var(--gold-tint)]" : ""
             }`}
           >
             <button
               onClick={() => onPickDay(d)}
-              className="w-[54px] shrink-0 flex flex-col items-center justify-start pt-[11px] pb-[8px] border-r border-border"
+              className="w-[54px] shrink-0 flex flex-col items-center justify-start pt-[11px] pb-[8px] border-r border-[var(--hairline)]"
             >
               <span className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
                 {DAY_LETTERS[d.getDay()]}
               </span>
               <span
                 className={`mt-[3px] w-[28px] h-[28px] grid place-items-center rounded-full font-display font-bold text-[15px] ${
-                  isToday ? "bg-[var(--ink)] text-[var(--paper)]" : ""
+                  isToday ? "bg-[var(--ink)] text-white" : "text-[var(--ink)]"
                 }`}
               >
                 {d.getDate()}
@@ -524,7 +524,7 @@ function WeekView({
                         {e.start}
                       </span>
                     )}
-                    <span className="text-[12.5px] font-semibold truncate">
+                    <span className="text-[12.5px] font-semibold truncate text-[var(--ink)]">
                       {e.title}
                     </span>
                   </button>
@@ -554,8 +554,8 @@ function MonthView({
   const month = cursor.getMonth();
 
   return (
-    <div className="rounded-[16px] border border-border bg-card shadow-[var(--shadow)] overflow-hidden">
-      <div className="grid grid-cols-7 border-b border-border">
+    <div className="rounded-[20px] border border-[var(--hairline)] bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
+      <div className="grid grid-cols-7 border-b border-[var(--hairline)]">
         {DAY_LETTERS.map((l, i) => (
           <div
             key={i}
@@ -575,13 +575,13 @@ function MonthView({
             <button
               key={key}
               onClick={() => onPickDay(d)}
-              className={`min-h-[64px] border-b border-r border-border p-[5px_4px] flex flex-col items-center ${
+              className={`min-h-[64px] border-b border-r border-[var(--hairline)] p-[5px_4px] flex flex-col items-center ${
                 i % 7 === 6 ? "border-r-0" : ""
               } ${inMonth ? "" : "opacity-35"}`}
             >
               <span
                 className={`w-[24px] h-[24px] grid place-items-center rounded-full text-[13px] font-display font-bold ${
-                  isToday ? "bg-[var(--ink)] text-[var(--paper)]" : ""
+                  isToday ? "bg-[var(--ink)] text-white" : "text-[var(--ink)]"
                 }`}
               >
                 {d.getDate()}

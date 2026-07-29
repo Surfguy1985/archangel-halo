@@ -124,35 +124,35 @@ function MembershipBadge({ status}: { status?: string}) {
 const TABS = ["Overview", "Crews", "Quality", "Overrides & Reserve", "Incidents", "Activity"] as const;
 type WingsTab = (typeof TABS)[number];
 
-const card = "bg-card border border-border rounded-md shadow-sm";
+const card = "bg-card border border-[var(--hairline)] rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]";
 
 export default function Wings() {
   const [tab, setTab] = useState<WingsTab>("Overview");
   const [guideOpen, setGuideOpen] = useState(false);
   const queryClient = useQueryClient();
-  const { toast} = useToast();
+  const { toast } = useToast();
   const runSweep = useRunWingsAutomationNow();
 
   const handleSweep = () => {
     runSweep.mutate(undefined, {
       onSuccess: () => {
         queryClient.invalidateQueries();
-        toast({ title: "AI sweep complete", description: "Founding Wings program updated."});
-     },
+        toast({ title: "AI sweep complete", description: "Founding Wings program updated." });
+      },
       onError: (e: any) =>
-        toast({ title: "Sweep failed", description: e?.message ?? "Try again", variant: "destructive"}),
-   });
- };
+        toast({ title: "Sweep failed", description: e?.message ?? "Try again", variant: "destructive" }),
+    });
+  };
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-md bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center">
+          <div className="w-11 h-11 rounded-full bg-[var(--gold-light)] text-[var(--ink)] flex items-center justify-center">
             <Feather className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-display font-bold text-[var(--ink)]">Founding Wings</h1>
+            <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">Founding Wings</h1>
             <p className="text-muted-foreground text-sm">Crew scores, overrides & AI quality reviews</p>
           </div>
         </div>
@@ -160,7 +160,7 @@ export default function Wings() {
           <button
             onClick={() => setGuideOpen(true)}
             data-testid="button-wings-guide"
-            className="flex items-center gap-2 border border-border bg-card px-4 py-2 rounded-md font-medium text-sm hover:border-[var(--primary)] transition-colors"
+            className="flex items-center gap-2 border border-[var(--hairline)] bg-card px-4 py-2 rounded-full font-medium text-sm hover:border-[var(--ink)] transition-colors"
           >
             <BookOpen className="w-4 h-4" /> Program guide
           </button>
@@ -168,7 +168,7 @@ export default function Wings() {
             onClick={handleSweep}
             disabled={runSweep.isPending}
             data-testid="button-run-sweep"
-            className="flex items-center gap-2 bg-[var(--primary)] text-[var(--primary-foreground)] px-4 py-2 rounded-md font-display font-bold text-sm hover:bg-[var(--gold-light)] transition-colors disabled:opacity-60"
+            className="btn-gold flex items-center gap-2 px-4 py-2 text-sm uppercase tracking-wider !rounded-full disabled:opacity-60"
           >
             {runSweep.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             {runSweep.isPending ? "Running…" : "Run AI sweep now"}
@@ -177,23 +177,23 @@ export default function Wings() {
       </header>
 
       {runSweep.isPending && (
-        <div className="text-sm text-muted-foreground flex items-center gap-2 bg-[var(--muted)] rounded-md px-4 py-3">
+        <div className="text-sm text-muted-foreground flex items-center gap-2 bg-[var(--muted)] rounded-[20px] px-4 py-3">
           <Loader2 className="w-4 h-4 animate-spin" />
           The AI sweep is running — this can take about 30 seconds. Reviewing photos, accruing overrides, settling the reserve…
         </div>
       )}
 
-      <div className="flex gap-1 overflow-x-auto border-b border-border">
+      <div className="flex gap-1 overflow-x-auto border-b border-[var(--hairline)]">
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             data-testid={`tab-${t.replace(/\W+/g, "-").toLowerCase()}`}
-            className={`whitespace-nowrap px-4 py-2.5 text-sm font-display font-bold   border-b-2 -mb-px transition-colors ${
+            className={`whitespace-nowrap px-4 py-2.5 text-sm font-display font-bold uppercase tracking-wide border-b-2 -mb-px transition-colors ${
               tab === t
-                ? "border-[var(--primary)] text-foreground"
+                ? "border-[var(--gold)] text-[var(--ink)]"
                 : "border-transparent text-muted-foreground hover:text-foreground"
-           }`}
+            }`}
           >
             {t}
           </button>
@@ -212,10 +212,10 @@ export default function Wings() {
   );
 }
 
-function StatCard({ label, value, icon: Icon, highlight}: { label: string; value: React.ReactNode; icon: any; highlight?: boolean}) {
+function StatCard({ label, value, icon: Icon, highlight }: { label: string; value: React.ReactNode; icon: any; highlight?: boolean }) {
   return (
-    <div className={`${highlight ? "bg-amber-50 border border-amber-300 rounded-md shadow-sm" : card} p-4`}>
-      <div className={`flex items-center gap-2 text-xs font-display font-bold   ${highlight ? "text-amber-700" : "text-muted-foreground"}`}>
+    <div className={`${highlight ? "bg-amber-50 border border-amber-300 rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]" : card} p-4`}>
+      <div className={`flex items-center gap-2 text-xs font-display font-bold uppercase tracking-wider ${highlight ? "text-amber-700" : "text-muted-foreground"}`}>
         <Icon className="w-4 h-4" /> {label}
       </div>
       <div className={`text-2xl font-display font-bold mt-1.5 ${highlight ? "text-amber-800" : "text-[var(--ink)]"}`}>{value}</div>
@@ -224,8 +224,8 @@ function StatCard({ label, value, icon: Icon, highlight}: { label: string; value
 }
 
 function OverviewTab() {
-  const { data: overview, isLoading} = useGetWingsOverview();
-  const { data: runs} = useListWingsAutomationRuns();
+  const { data: overview, isLoading } = useGetWingsOverview();
+  const { data: runs } = useListWingsAutomationRuns();
 
   const brief = runs?.find((r) => (r.result as any)?.operatorBrief)?.result as any;
   const ob = brief?.operatorBrief;
@@ -233,10 +233,10 @@ function OverviewTab() {
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {Array.from({ length: 6}).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
+        {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
       </div>
     );
- }
+  }
 
   return (
     <div className="space-y-6">
@@ -252,8 +252,8 @@ function OverviewTab() {
 
       <div className={`${card} p-5`}>
         <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="w-5 h-5 text-[var(--primary)]" />
-          <h2 className="font-display font-bold text-lg">Latest operator brief</h2>
+          <Sparkles className="w-5 h-5 text-[var(--gold)]" />
+          <h2 className="font-display font-bold uppercase tracking-wide text-lg">Latest operator brief</h2>
         </div>
         {!ob ? (
           <p className="text-sm text-muted-foreground">
@@ -266,13 +266,13 @@ function OverviewTab() {
             )}
             {Array.isArray(ob.risks) && ob.risks.length > 0 && (
               <div>
-                <h3 className="text-xs font-display font-bold text-muted-foreground mb-2">Risks</h3>
+                <h3 className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground mb-2">Risks</h3>
                 <div className="space-y-2">
                   {ob.risks.map((r: any, i: number) => (
                     <div key={i} className="flex items-start gap-2 text-sm">
-                      <span className={`shrink-0 mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold  ${
+                      <span className={`shrink-0 mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                         (r.severity ?? 0) >= 4 ? "bg-red-100 text-red-700" : (r.severity ?? 0) >= 2 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"
-                     }`}>
+                      }`}>
                         Sev {r.severity ?? "?"}
                       </span>
                       <div>
@@ -286,13 +286,13 @@ function OverviewTab() {
             )}
             {Array.isArray(ob.recommendedActions) && ob.recommendedActions.length > 0 && (
               <div>
-                <h3 className="text-xs font-display font-bold text-muted-foreground mb-2">Recommended actions</h3>
+                <h3 className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground mb-2">Recommended actions</h3>
                 <ol className="space-y-2 list-decimal list-inside">
                   {ob.recommendedActions.map((a: any, i: number) => (
                     <li key={i} className="text-sm">
                       <span className="font-semibold">{a.action}</span>
                       {a.reason ? <span className="text-muted-foreground"> — {a.reason}</span> : null}
-                      {a.priority ? <span className="text-[10px] font-bold text-muted-foreground ml-1">({a.priority})</span> : null}
+                      {a.priority ? <span className="text-[10px] uppercase font-bold text-muted-foreground ml-1">({a.priority})</span> : null}
                     </li>
                   ))}
                 </ol>
@@ -300,7 +300,7 @@ function OverviewTab() {
             )}
             {Array.isArray(ob.celebration) && ob.celebration.length > 0 && (
               <div>
-                <h3 className="text-xs font-display font-bold text-muted-foreground mb-2">Celebrate 🎉</h3>
+                <h3 className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground mb-2">Celebrate 🎉</h3>
                 <ul className="space-y-1">
                   {ob.celebration.map((c: string, i: number) => (
                     <li key={i} className="text-sm text-[var(--green,#2e7d32)] flex items-start gap-2">
@@ -391,7 +391,7 @@ function CrewsTab() {
             <>
               <tr key={m.crewId} className="border-b border-border/60 hover:bg-[var(--muted)]/40" data-testid={`row-member-${m.crewId}`}>
                 <td className="px-4 py-3 font-semibold">
-                  <button className="flex items-center gap-1.5 hover:text-[var(--primary)]" onClick={() => setExpanded(expanded === m.crewId ? null : m.crewId)}>
+                  <button className="flex items-center gap-1.5 hover:text-[var(--gold)]" onClick={() => setExpanded(expanded === m.crewId ? null : m.crewId)}>
                     <ChevronDown className={`w-4 h-4 transition-transform ${expanded === m.crewId ? "rotate-180" : ""}`} />
                     {m.crewName}
                   </button>
@@ -424,7 +424,7 @@ function CrewsTab() {
                     onClick={() => doRecalc(m)}
                     disabled={recalc.isPending}
                     data-testid={`button-recalc-${m.crewId}`}
-                    className="flex items-center gap-1.5 text-xs font-medium border border-border rounded-md px-2.5 py-1.5 hover:border-[var(--primary)] disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-xs font-medium border border-border rounded-md px-2.5 py-1.5 hover:border-[var(--ink)] disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${recalc.isPending ? "animate-spin" : ""}`} /> Recalculate
                   </button>
@@ -582,7 +582,7 @@ function QualityTab() {
                 onClick={() => doReview(item)}
                 disabled={runReview.isPending}
                 data-testid={`button-run-review-${item.id}`}
-                className="flex items-center gap-1.5 text-xs font-medium border border-border rounded-md px-3 py-1.5 hover:border-[var(--primary)] disabled:opacity-50"
+                className="flex items-center gap-1.5 text-xs font-medium border border-border rounded-md px-3 py-1.5 hover:border-[var(--ink)] disabled:opacity-50"
               >
                 {runReview.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Run AI review
               </button>
@@ -734,12 +734,12 @@ function OverridesTab() {
 }
 
 function IncidentsTab() {
-  const { data: incidents, isLoading} = useListWingsIncidents();
-  const { data: members} = useListWingsMembers();
+  const { data: incidents, isLoading } = useListWingsIncidents();
+  const { data: members } = useListWingsMembers();
   const create = useCreateWingsIncident();
   const resolve = useResolveWingsIncident();
   const queryClient = useQueryClient();
-  const { toast} = useToast();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<string>(WingsIncidentInputType.CALLBACK);
   const [severity, setSeverity] = useState("3");
@@ -750,7 +750,7 @@ function IncidentsTab() {
   const invalidate = () => queryClient.invalidateQueries();
 
   const submit = () => {
-    if (!description.trim()) { toast({ title: "Description required", variant: "destructive"}); return;}
+    if (!description.trim()) { toast({ title: "Description required", variant: "destructive" }); return; }
     create.mutate(
       {
         data: {
@@ -759,23 +759,23 @@ function IncidentsTab() {
           description: description.trim(),
           cost: cost ? Number(cost) : null,
           crewId: crewId === "none" ? null : crewId,
-       },
-     },
+        },
+      },
       {
         onSuccess: () => {
           invalidate();
           setOpen(false);
           setDescription(""); setCost(""); setCrewId("none"); setSeverity("3"); setType(WingsIncidentInputType.CALLBACK);
-          toast({ title: "Incident logged"});
-       },
-        onError: (e: any) => toast({ title: "Failed", description: e?.message, variant: "destructive"}),
-     }
+          toast({ title: "Incident logged" });
+        },
+        onError: (e: any) => toast({ title: "Failed", description: e?.message, variant: "destructive" }),
+      }
     );
- };
+  };
 
   const doResolve = (id: string) => {
-    resolve.mutate({ id}, { onSuccess: () => { invalidate(); toast({ title: "Incident resolved"});}, onError: (e: any) => toast({ title: "Failed", description: e?.message, variant: "destructive"})});
- };
+    resolve.mutate({ id }, { onSuccess: () => { invalidate(); toast({ title: "Incident resolved" }); }, onError: (e: any) => toast({ title: "Failed", description: e?.message, variant: "destructive" }) });
+  };
 
   return (
     <div className="space-y-4">
@@ -783,14 +783,14 @@ function IncidentsTab() {
         <button
           onClick={() => setOpen(true)}
           data-testid="button-log-incident"
-          className="flex items-center gap-2 bg-[var(--primary)] text-[var(--primary-foreground)] px-4 py-2 rounded-md font-display font-bold text-sm hover:bg-[var(--gold-light)] transition-colors"
+          className="btn-gold flex items-center gap-2 px-4 py-2 text-sm uppercase tracking-wider !rounded-full"
         >
           <Plus className="w-4 h-4" /> Log incident
         </button>
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">{Array.from({ length: 3}).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+        <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : !incidents || incidents.length === 0 ? (
         <div className={`${card} p-10 text-center text-muted-foreground`}>No incidents logged.</div>
       ) : (
@@ -800,20 +800,20 @@ function IncidentsTab() {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-display font-bold text-[var(--ink)]">{inc.type}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold  ${inc.severity >= 4 ? "bg-red-100 text-red-700" : inc.severity >= 3 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"}`}>Sev {inc.severity}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${inc.severity >= 4 ? "bg-red-100 text-red-700" : inc.severity >= 3 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"}`}>Sev {inc.severity}</span>
                   {inc.crewName ? <span className="text-xs text-muted-foreground">{inc.crewName}</span> : null}
                   {inc.jobNo ? <span className="text-xs text-muted-foreground">· {inc.jobNo}</span> : null}
                   {inc.cost != null ? <span className="text-xs text-muted-foreground">· {money2(inc.cost)}</span> : null}
                 </div>
                 <p className="text-sm mt-1">{inc.description}</p>
-                <div className="text-[10px] text-muted-foreground mt-1">{relTime(inc.occurredAt)}{inc.resolvedAt ?` · resolved ${relTime(inc.resolvedAt)}` : ""}</div>
+                <div className="text-[10px] text-muted-foreground mt-1">{relTime(inc.occurredAt)}{inc.resolvedAt ? ` · resolved ${relTime(inc.resolvedAt)}` : ""}</div>
               </div>
               {!inc.resolvedAt && (
                 <button
                   onClick={() => doResolve(inc.id)}
                   disabled={resolve.isPending}
                   data-testid={`button-resolve-${inc.id}`}
-                  className="shrink-0 text-xs font-medium border border-border rounded-md px-3 py-1.5 hover:border-[var(--primary)] disabled:opacity-50"
+                  className="shrink-0 text-xs font-medium border border-border rounded-md px-3 py-1.5 hover:border-[var(--ink)] disabled:opacity-50"
                 >
                   Resolve
                 </button>
@@ -826,7 +826,7 @@ function IncidentsTab() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="font-display">Log incident</DialogTitle>
+            <DialogTitle className="font-display uppercase tracking-wide">Log incident</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">

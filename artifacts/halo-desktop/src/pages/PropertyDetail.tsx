@@ -8,6 +8,7 @@ import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Penc
 import { Skeleton} from "@/components/ui/skeleton";
 import { useState} from "react";
 import { JobLineItemsPanel} from "@/components/JobLineItemsPanel";
+import { JobFunnel} from "@/components/JobFunnel";
 import { ImportFromCatalogDialog} from "@/components/ImportFromCatalogDialog";
 import {
   EditPropertyDialog,
@@ -42,67 +43,67 @@ export default function PropertyDetail() {
   const restartJob = useRestartJob();
   const completeJob = useCompleteJob();
   const updateProperty = useUpdateProperty();
-  const { data, isLoading} = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id), refetchInterval: 15000}});
+  const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id), refetchInterval: 15000 } });
 
   if (isLoading) {
     return <div className="p-8 max-w-6xl mx-auto"><Skeleton className="h-64 w-full" /></div>;
- }
+  }
 
   if (!data) return <div className="p-8 text-center text-muted-foreground">Property not found</div>;
 
-  const { property, stats, jobs, priceItems, contacts, expenses, invoices, upcomingVisits, crewPhotos} = data;
+  const { property, stats, jobs, priceItems, contacts, expenses, invoices, upcomingVisits, crewPhotos } = data;
   const activeJobs = jobs.filter((j) => !j.clearedAt);
   const historyJobs = jobs.filter((j) => !!j.clearedAt);
-  const invoiceStatusRank: Record<string, number> = { paid: 0, past_due: 1, sent: 2, draft: 3};
+  const invoiceStatusRank: Record<string, number> = { paid: 0, past_due: 1, sent: 2, draft: 3 };
   const invoiceForJob = (jobId: string) => {
     const matches = invoices.filter((inv) => inv.jobId === jobId);
     if (matches.length <= 1) return matches[0];
     return [...matches].sort(
       (a, b) => (invoiceStatusRank[a.status] ?? 9) - (invoiceStatusRank[b.status] ?? 9),
     )[0];
- };
+  };
   const invoiceStatusLabel: Record<string, string> = {
     draft: "Invoice drafted",
     sent: "Invoice sent",
     past_due: "Invoice past due",
     paid: "Invoice paid",
- };
+  };
   const invoiceStatusCls: Record<string, string> = {
     draft: "bg-black/[0.05] text-muted-foreground",
     sent: "bg-sky-50 text-sky-700 border border-sky-200",
     past_due: "bg-red-50 text-red-700 border border-red-200",
     paid: "bg-emerald-50 text-emerald-700 border border-emerald-200",
- };
+  };
 
   const invalidateJobLists = () => {
-    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id)});
-    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey()});
-    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
-    queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey()});
- };
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey() });
+  };
 
   const invalidateMoney = (jobId?: string) => {
-    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id)});
-    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
-    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
-    queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey()});
-    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
-    if (jobId) queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(jobId)});
- };
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+    if (jobId) queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(jobId) });
+  };
 
   const saveRate = (jobId: string) => {
     const parsed = rateDraft.trim() === "" ? null : Number(rateDraft);
     if (parsed != null && (Number.isNaN(parsed) || parsed < 0)) return;
     updateJob.mutate(
-      { id: jobId, data: { crewRate: parsed}},
+      { id: jobId, data: { crewRate: parsed } },
       {
         onSuccess: () => {
           setRateJobId(null);
           invalidateMoney(jobId);
-       },
-     },
+        },
+      },
     );
- };
+  };
 
   const marginBadge = (pct: number | null | undefined) => {
     if (pct == null) return null;
@@ -112,19 +113,19 @@ export default function PropertyDetail() {
         ? "bg-red-50 text-red-700 border border-red-200"
         : "bg-emerald-50 text-emerald-700 border border-emerald-200";
     return (
-      <span className={`inline-flex items-center text-[10px] font-bold   rounded-full px-2 py-0.5 ${cls}`}>
+      <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5 ${cls}`}>
         {val}% margin
       </span>
     );
- };
+  };
 
   const toggleInvoice = (invoiceId: string, next: "paid" | "sent") => {
     const jobId = invoices.find((inv) => inv.id === invoiceId)?.jobId ?? undefined;
     setStatus.mutate(
-      { id: invoiceId, data: { status: next}},
-      { onSuccess: () => invalidateMoney(jobId)},
+      { id: invoiceId, data: { status: next } },
+      { onSuccess: () => invalidateMoney(jobId) },
     );
- };
+  };
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -134,12 +135,12 @@ export default function PropertyDetail() {
       
       <header className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)]">{property.name}</h1>
-          <p className="text-muted-foreground">{property.pmcName || property.city || "No location data"} {property.units ?`· ${property.units} units` : ''}</p>
+          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">{property.name}</h1>
+          <p className="text-muted-foreground mt-1">{property.pmcName || property.city || "No location data"} {property.units ? `· ${property.units} units` : ''}</p>
         </div>
         <button
           onClick={() => setEditOpen(true)}
-          className="flex items-center gap-2 bg-card text-[var(--ink)] px-4 py-2 rounded-md font-medium border border-border shadow-sm hover:bg-black/[0.03] transition-colors"
+          className="flex items-center gap-2 bg-card text-[var(--ink)] px-5 py-2.5 rounded-full font-medium border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-[var(--ink)] transition-colors"
         >
           <Pencil className="w-4 h-4" /> Edit
         </button>
@@ -154,7 +155,7 @@ export default function PropertyDetail() {
         <AddExpenseDialog
           key={expenseJobId}
           open={!!expenseJobId}
-          onOpenChange={(o) => { if (!o) setExpenseJobId(null);}}
+          onOpenChange={(o) => { if (!o) setExpenseJobId(null); }}
           propertyId={id}
           jobId={expenseJobId}
         />
@@ -169,7 +170,7 @@ export default function PropertyDetail() {
             propertyId={id}
           />
         ) : null;
-     })()}
+      })()}
       {(() => {
         const c = contacts.find((x) => x.id === editContactId);
         return c ? (
@@ -180,7 +181,7 @@ export default function PropertyDetail() {
             propertyId={id}
           />
         ) : null;
-     })()}
+      })()}
       {(() => {
         const p = priceItems.find((x) => x.id === editPriceId);
         return p ? (
@@ -191,19 +192,19 @@ export default function PropertyDetail() {
             propertyId={id}
           />
         ) : null;
-     })()}
+      })()}
 
-      <div className="bg-card rounded-xl shadow-sm border border-border grid grid-cols-2 md:grid-cols-5 divide-x divide-border mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
         {([
-          ["Owed",`$${stats.owed.toLocaleString()}`],
-          ["Collected",`$${stats.collectedTotal.toLocaleString()}`],
-          ["Invoiced",`$${stats.invoicedTotal.toLocaleString()}`],
-          ["Expenses",`$${stats.expensesTotal.toLocaleString()}`],
+          ["Owed", `$${stats.owed.toLocaleString()}`],
+          ["Collected", `$${stats.collectedTotal.toLocaleString()}`],
+          ["Invoiced", `$${stats.invoicedTotal.toLocaleString()}`],
+          ["Expenses", `$${stats.expensesTotal.toLocaleString()}`],
           ["Open Jobs", String(stats.openJobs)],
         ] as const).map(([label, value]) => (
-          <div key={label} className="p-4">
-            <div className="text-[11px] font-semibold text-muted-foreground mb-1">{label}</div>
-            <div className="text-xl font-mono font-bold text-[var(--ink)] tabular-nums">{value}</div>
+          <div key={label} className="bg-[var(--ink)] rounded-[20px] p-4">
+            <div className="text-white/60 uppercase text-[11px] font-bold tracking-[0.1em] mb-1">{label}</div>
+            <div className="font-display font-bold text-[28px] text-white tabular-nums">{value}</div>
           </div>
         ))}
       </div>
@@ -220,7 +221,7 @@ export default function PropertyDetail() {
                 <Plus className="w-4 h-4" /> Add
               </button>
             </div>
-            <div className="flex items-center gap-1 mb-3 bg-black/[0.04] rounded-full p-1 w-fit">
+            <div className="flex items-center gap-2 mb-3 w-fit">
               {([
                 ["active", "Active", activeJobs.length],
                 ["history", "History", historyJobs.length],
@@ -231,88 +232,62 @@ export default function PropertyDetail() {
                   data-testid={`tab-jobs-${key}`}
                   className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
                     jobTab === key
-                      ? "bg-card text-[var(--ink)] shadow-sm border border-border"
-                      : "text-muted-foreground hover:text-[var(--ink)]"
-                 }`}
+                      ? "bg-[var(--ink)] text-white"
+                      : "bg-card border border-[var(--hairline)] text-muted-foreground hover:text-[var(--ink)]"
+                  }`}
                 >
                   {label}
-                  {count > 0 && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{count}</span>}
+                  {count > 0 && <span className={`ml-1.5 text-xs font-normal ${jobTab === key ? "text-white/60" : "text-muted-foreground"}`}>{count}</span>}
                 </button>
               ))}
             </div>
             {jobTab !== "history" && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {activeJobs.map(job => (
-                <div key={job.id} className="bg-[var(--secondary)] rounded-2xl shadow-sm p-5 text-white">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex-1 min-w-0 pr-4">
-                      <div className="font-display font-bold text-xl truncate">
-                        {job.category || 'General'} · {job.unitNo || 'Common'}
+                <div key={job.id} className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] border-l-4 border-l-[var(--gold-light)] p-4 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] transition-shadow">
+                  <div className="flex items-center gap-3">
+                    <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
+                      <div className="font-semibold flex items-center gap-2">
+                        <span className="truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</span>
+                        {job.status === "complete" && (
+                          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                            <Check className="w-2.5 h-2.5" /> Completed
+                          </span>
+                        )}
                       </div>
-                    </div>
-                    {job.status === "complete" ? (
-                      <span className="shrink-0 inline-flex items-center text-[10px] font-bold text-black bg-[var(--primary)] rounded-full px-3 py-1">
-                        Completed
-                      </span>
-                    ) : (
-                      <span className="shrink-0 inline-flex items-center text-[10px] font-bold text-white border border-white/20 rounded-full px-3 py-1 bg-white/5">
-                        {job.status.replace('_', ' ')}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Progress Track */}
-                  <div className="mb-6">
-                    <div className="flex items-center gap-1 mb-2">
-                      <div className={`h-1 flex-1 rounded-full ${job.crewsFilled ? 'bg-[var(--primary)]' : 'bg-white/10'}`} />
-                      <div className={`h-1 flex-1 rounded-full ${job.status === 'in_progress' || job.status === 'complete' || job.status === 'invoiced' || job.status === 'paid' ? 'bg-[var(--primary)]' : 'bg-white/10'}`} />
-                      <div className={`h-1 flex-1 rounded-full ${job.status === 'invoiced' || job.status === 'paid' ? 'bg-[var(--primary)]' : 'bg-white/10'}`} />
-                      <div className={`h-1 flex-1 rounded-full ${job.status === 'paid' || job.status === 'complete' ? 'bg-[var(--primary)]' : 'bg-white/10'}`} />
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-white/50">
-                      <span className={job.crewsFilled ? 'text-white' : ''}>Crew</span>
-                      <span className={job.status === 'in_progress' || job.status === 'complete' || job.status === 'invoiced' || job.status === 'paid' ? 'text-white text-center flex-1' : 'text-center flex-1'}>Work</span>
-                      <span className={job.status === 'invoiced' || job.status === 'paid' ? 'text-white text-center flex-1' : 'text-center flex-1'}>Invoice</span>
-                      <span className={job.status === 'paid' || job.status === 'complete' ? 'text-white' : ''}>Close</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 mb-4 text-white/80 text-sm border-b border-white/10 pb-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="truncate">{job.description}</div>
+                      <div className="text-sm text-muted-foreground">{job.description}</div>
                       {job.isRecurring && (
-                        <div className="flex items-center gap-1.5 mt-1 text-[var(--primary)]">
+                        <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--gold-dark)]">
                           <Repeat className="w-3 h-3" />
-                          {{ daily: "Daily", weekly: "Weekly", biweekly: "Bi-weekly", monthly: "Monthly", quarterly: "Quarterly"}[job.recurrence ?? ""] ?? "Recurring"}
-                          <span className="text-white/50">
-                            · {job.crewLeaderName ?`${job.crewLeaderName} goes` : "No crew assigned"}
+                          {{ daily: "Daily", weekly: "Weekly", biweekly: "Bi-weekly", monthly: "Monthly", quarterly: "Quarterly" }[job.recurrence ?? ""] ?? "Recurring"}
+                          <span className="text-muted-foreground font-normal">
+                            · {job.crewLeaderName ? `${job.crewLeaderName} goes` : "No crew assigned"}
                           </span>
                         </div>
                       )}
-                    </div>
+                    </Link>
                     <div className="text-right shrink-0">
-                      <div className="font-mono text-white/50">{job.jobNo}</div>
+                      <div className="font-mono text-sm text-muted-foreground">{job.jobNo}</div>
                       {!job.isRecurring && job.crewLeaderName && (
-                        <div>{job.crewLeaderName}</div>
+                        <div className="text-xs text-muted-foreground">{job.crewLeaderName}</div>
                       )}
                     </div>
                     <button
                       aria-label="Edit job"
                       onClick={() => setEditJobId(job.id)}
-                      className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white/50 hover:bg-white/10 transition-colors"
+                      className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                   </div>
-
                   <button
                     onClick={() => setOpenLineItemsJobId(openLineItemsJobId === job.id ? null : job.id)}
-                    className="flex items-center gap-1.5 mb-4 text-xs font-bold text-[var(--primary)] hover:opacity-80 transition-colors"
+                    className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
                   >
                     <ChevronDown className={`w-3.5 h-3.5 transition-transform ${openLineItemsJobId === job.id ? 'rotate-180' : ''}`} />
                     Line items
                     {(job.lineItems?.length ?? 0) > 0 && (
-                      <span className="text-white/50 font-normal">
+                      <span className="text-muted-foreground font-normal">
                         · {job.lineItems!.length} · ${(job.lineTotal ?? 0).toLocaleString()}
                       </span>
                     )}
@@ -325,7 +300,7 @@ export default function PropertyDetail() {
                       priceItems={priceItems}
                     />
                   )}
-                  <div className="flex items-center flex-wrap gap-x-4 gap-y-2 mb-6 text-xs text-white/60">
+                  <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 mt-2 text-xs text-muted-foreground">
                     {rateJobId === job.id ? (
                       <span className="inline-flex items-center gap-1.5">
                         Crew $
@@ -334,92 +309,59 @@ export default function PropertyDetail() {
                           inputMode="decimal"
                           value={rateDraft}
                           onChange={(e) => setRateDraft(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") saveRate(job.id); if (e.key === "Escape") setRateJobId(null);}}
-                          className="w-20 px-2 py-1 rounded-md bg-white/10 border border-white/20 text-white tabular-nums outline-none focus:border-[var(--primary)]"
+                          onKeyDown={(e) => { if (e.key === "Enter") saveRate(job.id); if (e.key === "Escape") setRateJobId(null); }}
+                          className="w-20 px-1.5 py-0.5 rounded-md border border-border bg-background text-xs tabular-nums"
                         />
                         <button
                           disabled={updateJob.isPending}
                           onClick={() => saveRate(job.id)}
-                          className="font-bold text-[var(--primary)] hover:opacity-80 disabled:opacity-50"
+                          className="font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] disabled:opacity-50"
                         >
                           Save
                         </button>
                       </span>
                     ) : (
                       <button
-                        onClick={() => { setRateJobId(job.id); setRateDraft(job.crewRate != null ? String(job.crewRate) : "");}}
-                        className="inline-flex items-center gap-1 font-bold text-white hover:opacity-70"
+                        onClick={() => { setRateJobId(job.id); setRateDraft(job.crewRate != null ? String(job.crewRate) : ""); }}
+                        className="inline-flex items-center gap-1 font-semibold text-[var(--ink)] hover:opacity-70"
                       >
-                        Crew {job.crewRate != null ?`$${job.crewRate.toLocaleString()}` : "rate —"}
-                        <Pencil className="w-2.5 h-2.5 text-white/40" />
+                        Crew {job.crewRate != null ? `$${job.crewRate.toLocaleString()}` : "rate —"}
+                        <Pencil className="w-2.5 h-2.5 text-muted-foreground" />
                       </button>
                     )}
-                    <span>Invoiced <b className="text-white tabular-nums">${(job.invoicedTotal ?? 0).toLocaleString()}</b></span>
-                    <span>Paid <b className="text-[var(--primary)] tabular-nums">${(job.paidTotal ?? 0).toLocaleString()}</b></span>
-                    <span>Expenses <b className="text-white tabular-nums">${(job.expensesTotal ?? 0).toLocaleString()}</b></span>
-                    {job.marginPct != null && (
-                      <span className={`inline-flex items-center font-bold px-2 py-0.5 rounded-full ${
-                        job.marginPct < (property.marginMin ?? 0.25)
-                          ? "bg-rose-500/20 text-rose-300"
-                          : "bg-emerald-500/20 text-emerald-300"
-                      }`}>
-                        {Math.round(job.marginPct * 100)}% margin
-                      </span>
-                    )}
+                    <span>Invoiced <b className="text-[var(--ink)] tabular-nums">${(job.invoicedTotal ?? 0).toLocaleString()}</b></span>
+                    <span>Paid <b className="text-emerald-700 tabular-nums">${(job.paidTotal ?? 0).toLocaleString()}</b></span>
+                    <span>Expenses <b className="text-[var(--ink)] tabular-nums">${(job.expensesTotal ?? 0).toLocaleString()}</b></span>
+                    {marginBadge(job.marginPct)}
                   </div>
-                  
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                      const inv = invoiceForJob(job.id);
-                      if (inv && (inv.status === "draft" || inv.status === "sent" || inv.status === "past_due")) {
-                        return (
-                          <Link href={`/invoices/${inv.id}`}>
-                            <button className="flex-1 whitespace-nowrap px-5 py-3 rounded-xl bg-white text-[var(--secondary)] font-bold hover:bg-white/90 transition-colors">
-                              Open invoice
-                            </button>
-                          </Link>
-                        );
-                      }
-                      if (job.status === "complete") {
-                         return (
-                          <button
-                            disabled={restartJob.isPending}
-                            onClick={() => restartJob.mutate({ id: job.id}, { onSuccess: invalidateJobLists})}
-                            className="flex-1 whitespace-nowrap px-5 py-3 rounded-xl bg-white/10 text-white font-bold hover:bg-white/20 transition-colors disabled:opacity-50"
-                          >
-                            Reopen for corrections
-                          </button>
-                         );
-                      }
-                      if (job.status === "paid" || (inv && inv.status === "paid")) {
-                         return (
-                          <button disabled className="flex-1 whitespace-nowrap px-5 py-3 rounded-xl bg-white/5 text-white/50 font-bold">
-                            Fully paid
-                          </button>
-                         );
-                      }
-                      return (
-                        <button
-                          disabled={completeJob.isPending}
-                          onClick={() => completeJob.mutate({ id: job.id}, { onSuccess: () => invalidateJobLists()})}
-                          className="flex-1 whitespace-nowrap px-5 py-3 rounded-xl bg-[var(--primary)] text-black font-bold hover:bg-[var(--primary)]/90 transition-colors disabled:opacity-50"
-                        >
-                          {completeJob.isPending ? "Completing..." : "Complete work"}
-                        </button>
-                      );
-                    })()}
-                    
+                  <JobFunnel
+                    job={job}
+                    invoice={invoiceForJob(job.id)}
+                    propertyId={id}
+                    onCompleteWork={() => completeJob.mutate({ id: job.id }, { onSuccess: () => invalidateJobLists() })}
+                    completePending={completeJob.isPending}
+                  />
+                  <div className="flex items-center gap-2 mt-2">
                     <button
                       onClick={() => setExpenseJobId(job.id)}
-                      className="px-5 py-3 rounded-xl border border-white/20 text-white font-bold hover:bg-white/10 transition-colors"
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-[var(--ink)] hover:bg-black/[0.08] transition-colors"
                     >
-                      Log expense
+                      <Plus className="w-3 h-3" /> Expense
                     </button>
+                    {job.status === "complete" && (
+                      <button
+                        disabled={restartJob.isPending}
+                        onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[var(--gold-tint)] text-[var(--ink)] hover:brightness-95 transition-colors disabled:opacity-50"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Reopen for corrections
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
               {!activeJobs.length && (
-                <div className="bg-card rounded-xl shadow-sm border border-border p-6 text-center text-sm text-muted-foreground">
+                <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6 text-center text-sm text-muted-foreground">
                   No active jobs — closed-out jobs live in History.
                 </div>
               )}
@@ -428,11 +370,11 @@ export default function PropertyDetail() {
             {jobTab === "history" && (
               <div className="space-y-3">
                 {historyJobs.map((job) => (
-                  <div key={job.id} className="bg-card rounded-xl shadow-sm border border-border border-l-4 border-l-[rgba(180,255,68,0.45)] flex items-center gap-3 p-4">
+                  <div key={job.id} className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] border-l-4 border-l-[rgba(180,255,68,0.55)] flex items-center gap-3 p-4">
                     <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
                       <div className="font-semibold text-muted-foreground truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
                       <div className="text-sm text-muted-foreground truncate">
-                        {job.jobNo}{job.completedAt ?` · Completed ${new Date(job.completedAt).toLocaleDateString()}` : ''}
+                        {job.jobNo}{job.completedAt ? ` · Completed ${new Date(job.completedAt).toLocaleDateString()}` : ''}
                       </div>
                     </Link>
                     {(() => {
@@ -445,18 +387,18 @@ export default function PropertyDetail() {
                           <Receipt className="w-3 h-3" /> {invoiceStatusLabel[inv.status] ?? "Invoice"}
                         </Link>
                       ) : null;
-                   })()}
+                    })()}
                     <button
                       disabled={restartJob.isPending}
-                      onClick={() => restartJob.mutate({ id: job.id}, { onSuccess: invalidateJobLists})}
-                      className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[rgba(143,106,31,0.1)] text-[var(--gold-dark)] hover:bg-[rgba(143,106,31,0.16)] transition-colors disabled:opacity-50"
+                      onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
+                      className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[var(--gold-tint)] text-[var(--ink)] hover:brightness-95 transition-colors disabled:opacity-50"
                     >
                       <RotateCcw className="w-3 h-3" /> Restart
                     </button>
                   </div>
                 ))}
                 {!historyJobs.length && (
-                  <div className="bg-card rounded-xl shadow-sm border border-border p-6 text-center text-sm text-muted-foreground">
+                  <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6 text-center text-sm text-muted-foreground">
                     No cleared jobs yet — completed jobs you clear land here.
                   </div>
                 )}
@@ -476,7 +418,7 @@ export default function PropertyDetail() {
                 <Plus className="w-4 h-4" /> Add
               </button>
             </div>
-            <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
+            <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
               {contacts.map(contact => (
                 <div key={contact.id} className="flex items-center gap-3 p-4">
                   <div className="flex-1 min-w-0">
@@ -503,8 +445,10 @@ export default function PropertyDetail() {
 
         <div className="space-y-6">
            {property.brief && (
-            <div className="bg-[linear-gradient(135deg,#FFFDF8,#FBF6EA)] border border-[var(--gold-tint)] rounded-xl p-6 shadow-sm">
-              <div className="font-display font-semibold text-xs text-[var(--gold-dark)] mb-2">Property Brief</div>
+            <div className="bg-[var(--gold-tint)] border border-[var(--hairline)] rounded-[20px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+              <div className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--ink)] mb-2 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[var(--gold-light)]" /> Property Brief
+              </div>
               <div className="text-sm text-[var(--ink2)] leading-relaxed whitespace-pre-line">{property.brief}</div>
             </div>
           )}
@@ -515,22 +459,22 @@ export default function PropertyDetail() {
             minFrac={property.marginMin}
             targetFrac={property.marginTarget}
             saving={updateProperty.isPending}
-            onSave={({ minFrac, targetFrac}) =>
+            onSave={({ minFrac, targetFrac }) =>
               updateProperty.mutate(
-                { id, data: { marginMin: minFrac, marginTarget: targetFrac}},
+                { id, data: { marginMin: minFrac, marginTarget: targetFrac } },
                 {
                   onSuccess: () => {
-                    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id)});
-                    queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey()});
-                    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
-                 },
-               },
+                    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+                    queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
+                    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+                  },
+                },
               )
-           }
+            }
           >
             <div className="mt-4 pt-4 border-t border-border">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-semibold text-muted-foreground">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Agreed rates{priceItems.length > 0 && <span className="font-normal"> · {priceItems.length}</span>}
                 </div>
                 <div className="flex items-center gap-4">
@@ -582,16 +526,16 @@ export default function PropertyDetail() {
                 <CalendarDays className="w-4 h-4" /> Schedule
               </Link>
             </div>
-            <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
+            <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
               {upcomingVisits.map((v) => (
                 <div key={v.id} className="flex items-center gap-3 p-4">
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold">
-                      {new Date(`${v.scheduledOn}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric"})}
-                      {v.windowStart ?` · ${v.windowStart}` : ""}
+                      {new Date(`${v.scheduledOn}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                      {v.windowStart ? ` · ${v.windowStart}` : ""}
                     </div>
                     <div className="text-sm text-muted-foreground truncate">
-                      {[v.jobDescription, v.unitNo ?`Unit ${v.unitNo}` : null].filter(Boolean).join(" · ") || "Scheduled visit"}
+                      {[v.jobDescription, v.unitNo ? `Unit ${v.unitNo}` : null].filter(Boolean).join(" · ") || "Scheduled visit"}
                     </div>
                   </div>
                   {v.crewLeaderName && <div className="text-sm text-muted-foreground shrink-0">{v.crewLeaderName}</div>}
@@ -603,7 +547,7 @@ export default function PropertyDetail() {
 
           <section>
             <h2 className="text-xl font-display font-bold text-[var(--ink)] mb-4">Invoices</h2>
-            <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
+            <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
               {invoices.map((inv) => (
                 <div key={inv.id} className="flex items-center gap-3 p-4">
                   <div className="flex-1 min-w-0">
@@ -612,7 +556,7 @@ export default function PropertyDetail() {
                       {inv.status === "paid"
                         ? "Paid"
                         : inv.status === "past_due"
-                          ?`Past due${inv.daysLate ?` · ${inv.daysLate}d late` : ""}`
+                          ? `Past due${inv.daysLate ? ` · ${inv.daysLate}d late` : ""}`
                           : inv.status === "sent"
                             ? "Sent"
                             : "Draft"}
@@ -644,7 +588,7 @@ export default function PropertyDetail() {
 
           <section>
             <h2 className="text-xl font-display font-bold text-[var(--ink)] mb-4">Expenses</h2>
-            <div className="bg-card rounded-xl shadow-sm border border-border divide-y divide-border">
+            <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
               {expenses.map((e) => (
                 <div key={e.id} className="flex items-center gap-3 p-4">
                   <div className="flex-1 min-w-0">

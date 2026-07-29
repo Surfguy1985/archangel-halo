@@ -311,7 +311,7 @@ export default function CrewDetail() {
       />
 
       {/* Live link */}
-      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+      <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px] mb-[12px]">
         <div className={sectionTitle}>
           <Link2 className="w-[13px] h-[13px]" /> Live portal link
         </div>
@@ -322,7 +322,7 @@ export default function CrewDetail() {
             </div>
             <a
               href={smsHref}
-              className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]"
             >
               <MessageSquare className="w-[16px] h-[16px]" /> Text the link
             </a>
@@ -369,7 +369,7 @@ export default function CrewDetail() {
           <button
             onClick={handleGenerate}
             disabled={genLink.isPending}
-            className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 transition-transform active:scale-[0.98]"
           >
             <Link2 className="w-[16px] h-[16px]" /> Generate live link
           </button>
@@ -377,7 +377,7 @@ export default function CrewDetail() {
       </div>
 
       {/* Onboarding Welcome Kit */}
-      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+      <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px] mb-[12px]">
         <div className={sectionTitle}>
           <PackageCheck className="w-[13px] h-[13px]" /> Onboarding Welcome Kit
         </div>
@@ -397,7 +397,7 @@ export default function CrewDetail() {
           <button
             onClick={handleSendPacket}
             disabled={!templateKey || sendPacket.isPending}
-            className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13.5px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 transition-transform active:scale-[0.98]"
           >
             <SendIcon className="w-[16px] h-[16px]" />
             {sendPacket.isPending ? "Sending…" : "Send packet to crew"}
@@ -458,7 +458,7 @@ export default function CrewDetail() {
       </div>
 
       {/* Messaging */}
-      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+      <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px] mb-[12px]">
         <div className={sectionTitle}>
           <Send className="w-[13px] h-[13px]" /> Messages
         </div>
@@ -507,7 +507,7 @@ export default function CrewDetail() {
       </div>
 
       {/* Invoices from crew */}
-      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+      <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px] mb-[12px]">
         <div className={sectionTitle}>
           <Receipt className="w-[13px] h-[13px]" /> Invoices from crew
         </div>
@@ -515,11 +515,11 @@ export default function CrewDetail() {
       </div>
 
       {/* Documents */}
-      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+      <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px] mb-[12px]">
         <div className={sectionTitle}>
           <FileText className="w-[13px] h-[13px]" /> Documents
         </div>
-        <label className="w-full mb-[12px] flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] cursor-pointer transition-transform active:scale-[0.98]">
+        <label className="w-full mb-[12px] flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13px] font-display font-bold bg-card border border-border shadow-[0_2px_8px_rgba(0,0,0,0.04)] cursor-pointer transition-transform active:scale-[0.98]">
           <FileUp className="w-[16px] h-[16px]" />
           {isUploading ? "Uploading…" : "Send document to crew"}
           <input
@@ -576,7 +576,7 @@ export default function CrewDetail() {
       </div>
 
       {/* Check-ins */}
-      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+      <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px] mb-[12px]">
         <div className={sectionTitle}>
           <MapPin className="w-[13px] h-[13px]" /> GPS check-ins
         </div>
@@ -625,7 +625,7 @@ export default function CrewDetail() {
       <DailyActivitySection crewId={id} crewName={crew.name} />
 
       {/* Terms & money */}
-      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+      <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px] mb-[12px]">
         <div className={sectionTitle}>
           <Wallet className="w-[13px] h-[13px]" /> Terms & money
         </div>
@@ -662,7 +662,7 @@ export default function CrewDetail() {
       </div>
 
       {/* Payment method */}
-      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+      <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px] mb-[12px]">
         <div className={sectionTitle}>
           <Wallet className="w-[13px] h-[13px]" /> Preferred payment
         </div>
@@ -685,7 +685,7 @@ export default function CrewDetail() {
       </div>
 
       {/* W-9 */}
-      <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px]">
+      <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px]">
         <div className={sectionTitle}>
           <ClipboardCheck className="w-[13px] h-[13px]" /> IRS Form W-9
         </div>
@@ -702,7 +702,7 @@ export default function CrewDetail() {
               onClick={() =>
                 downloadW9Pdf(crew.w9 as Record<string, unknown>, crew.name)
               }
-              className="w-full mt-[12px] flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+              className="w-full mt-[12px] flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13px] font-display font-bold bg-card border border-border shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]"
             >
               <Download className="w-[15px] h-[15px]" /> Download W-9 (PDF)
             </button>
@@ -854,7 +854,7 @@ function DailyActivitySection({
   };
 
   return (
-    <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] mb-[12px]">
+    <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px] mb-[12px]">
       <div className={sectionTitle}>
         <Camera className="w-[13px] h-[13px]" /> Daily activity
       </div>
@@ -925,7 +925,7 @@ function DailyActivitySection({
                           </button>
                           <a
                             href={`${base}/api/photo-shares/${reportToken}/report`}
-                            className="flex items-center gap-[5px] text-[11.5px] font-bold rounded-full px-[12px] py-[7px] text-[var(--ink)] bg-[var(--primary)] transition-transform active:scale-[0.96]"
+                            className="flex items-center gap-[5px] text-[11.5px] font-bold rounded-full px-[12px] py-[7px] text-[var(--ink)] bg-[var(--gold-light)] transition-transform active:scale-[0.96]"
                           >
                             <FileDown className="w-[12px] h-[12px]" /> Download PDF
                           </a>

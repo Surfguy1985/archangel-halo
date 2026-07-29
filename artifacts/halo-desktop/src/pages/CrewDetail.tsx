@@ -78,7 +78,7 @@ function formatWhen(iso?: string | null): string {
 }
 
 const sectionTitle =
-  "font-display font-semibold text-xs   text-muted-foreground mb-4 flex items-center gap-2";
+  "font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--ink)] mb-4 flex items-center gap-2";
 
 function formatDayLabel(day: string): string {
   const [y, m, d] = day.split("-").map(Number);
@@ -91,27 +91,27 @@ function formatDayLabel(day: string): string {
 }
 
 export default function CrewDetail() {
-  const { id} = useParams<{ id: string}>();
+  const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const { toast} = useToast();
+  const { toast } = useToast();
 
-  const { data: crew, isLoading} = useGetCrewDetail(id);
-  const { data: messages} = useListCrewMessages(id, {
-    query: { queryKey: getListCrewMessagesQueryKey(id), refetchInterval: 8000},
- });
-  const { data: checkins} = useListCrewCheckins(id, {
-    query: { queryKey: getListCrewCheckinsQueryKey(id), refetchInterval: 8000},
- });
-  const { data: documents} = useListCrewDocuments(id, {
-    query: { queryKey: getListCrewDocumentsQueryKey(id), refetchInterval: 8000},
- });
-  const { data: crewInvoices} = useListCrewInvoices(id, {
-    query: { queryKey: getListCrewInvoicesQueryKey(id), refetchInterval: 8000},
- });
-  const { data: packetTemplates} = useListPacketTemplates();
-  const { data: packets} = useListCrewPackets(id, {
-    query: { queryKey: getListCrewPacketsQueryKey(id), refetchInterval: 8000},
- });
+  const { data: crew, isLoading } = useGetCrewDetail(id);
+  const { data: messages } = useListCrewMessages(id, {
+    query: { queryKey: getListCrewMessagesQueryKey(id), refetchInterval: 8000 },
+  });
+  const { data: checkins } = useListCrewCheckins(id, {
+    query: { queryKey: getListCrewCheckinsQueryKey(id), refetchInterval: 8000 },
+  });
+  const { data: documents } = useListCrewDocuments(id, {
+    query: { queryKey: getListCrewDocumentsQueryKey(id), refetchInterval: 8000 },
+  });
+  const { data: crewInvoices } = useListCrewInvoices(id, {
+    query: { queryKey: getListCrewInvoicesQueryKey(id), refetchInterval: 8000 },
+  });
+  const { data: packetTemplates } = useListPacketTemplates();
+  const { data: packets } = useListCrewPackets(id, {
+    query: { queryKey: getListCrewPacketsQueryKey(id), refetchInterval: 8000 },
+  });
 
   const genLink = useGenerateCrewPortalLink();
   const sendMessage = useSendCrewMessage();
@@ -125,7 +125,7 @@ export default function CrewDetail() {
   const [, navigate] = useLocation();
   const [templateKey, setTemplateKey] = useState("");
 
-  const { uploadFile, isUploading} = useUpload({
+  const { uploadFile, isUploading } = useUpload({
     onSuccess: async (res) => {
       try {
         await sendDocument.mutateAsync({
@@ -135,20 +135,20 @@ export default function CrewDetail() {
             storagePath: res.objectPath,
             contentType: res.metadata.contentType,
             size: res.metadata.size,
-         },
-       });
-        queryClient.invalidateQueries({ queryKey: getListCrewDocumentsQueryKey(id)});
-        toast({ title: "Document sent to crew"});
-     } catch (e) {
+          },
+        });
+        queryClient.invalidateQueries({ queryKey: getListCrewDocumentsQueryKey(id) });
+        toast({ title: "Document sent to crew" });
+      } catch (e) {
         toast({
           title: "Couldn't send document",
           description: e instanceof Error ? e.message : "The file uploaded but saving failed. Try again.",
           variant: "destructive",
-       });
-     }
-   },
-    onError: (e) => toast({ title: "Upload failed", description: e.message, variant: "destructive"}),
- });
+        });
+      }
+    },
+    onError: (e) => toast({ title: "Upload failed", description: e.message, variant: "destructive" }),
+  });
 
   if (isLoading || !crew) {
     return (
@@ -157,27 +157,27 @@ export default function CrewDetail() {
         <Skeleton className="h-64 w-full" />
       </div>
     );
- }
+  }
 
   const portalToken = crew.portalToken;
   // Always share the mobile-friendly portal (served at the site root) — crews open this on their phones.
   const portalUrl = portalToken
-    ?`${window.location.origin}/portal/${portalToken}`
+    ? `${window.location.origin}/portal/${portalToken}`
     : null;
 
   const handleGenerate = () =>
     genLink.mutate(
-      { id},
-      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCrewDetailQueryKey(id)})},
+      { id },
+      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCrewDetailQueryKey(id) }) },
     );
 
   const handleCopy = async () => {
     if (!portalUrl) return;
     await navigator.clipboard.writeText(portalUrl);
     setCopied(true);
-    toast({ title: "Live link copied", description: "Send it to the crew manually."});
+    toast({ title: "Live link copied", description: "Send it to the crew manually." });
     setTimeout(() => setCopied(false), 1800);
- };
+  };
 
   const copyGuideLink = async (lang: "en" | "es") => {
     if (!portalUrl) return;
@@ -189,50 +189,50 @@ export default function CrewDetail() {
         lang === "es"
           ? "Abre el portal del equipo en la guía en español."
           : "Opens the crew's portal on the English how-to guide.",
-   });
+    });
     setTimeout(() => setCopiedGuide(null), 1800);
- };
+  };
 
   const handleSend = () => {
     const body = draft.trim();
     if (!body) return;
     sendMessage.mutate(
-      { id, data: { body}},
+      { id, data: { body } },
       {
         onSuccess: () => {
           setDraft("");
-          queryClient.invalidateQueries({ queryKey: getListCrewMessagesQueryKey(id)});
-       },
-     },
+          queryClient.invalidateQueries({ queryKey: getListCrewMessagesQueryKey(id) });
+        },
+      },
     );
- };
+  };
 
   const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) uploadFile(file);
     e.target.value = "";
- };
+  };
 
   const handleSendPacket = () => {
     if (!templateKey) return;
     sendPacket.mutate(
-      { id, data: { templateKey}},
+      { id, data: { templateKey } },
       {
         onSuccess: () => {
           setTemplateKey("");
-          queryClient.invalidateQueries({ queryKey: getListCrewPacketsQueryKey(id)});
-          queryClient.invalidateQueries({ queryKey: getListCrewMessagesQueryKey(id)});
-          toast({ title: "Packet sent", description: "The crew can now complete it in their portal."});
-       },
-        onError: (e) => toast({ title: "Couldn't send packet", description: e.message, variant: "destructive"}),
-     },
+          queryClient.invalidateQueries({ queryKey: getListCrewPacketsQueryKey(id) });
+          queryClient.invalidateQueries({ queryKey: getListCrewMessagesQueryKey(id) });
+          toast({ title: "Packet sent", description: "The crew can now complete it in their portal." });
+        },
+        onError: (e) => toast({ title: "Couldn't send packet", description: e.message, variant: "destructive" }),
+      },
     );
- };
+  };
 
   const packetLabel = (key: string) => packetTemplates?.find((t) => t.key === key)?.label ?? key;
-  const card = "bg-card rounded-xl shadow-sm border border-border p-6";
+  const card = "bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6";
   const goldBtn =
-    "flex items-center justify-center gap-2 rounded-md py-2.5 px-4 text-sm font-display font-bold text-black bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] transition-colors disabled:opacity-50";
+    "flex items-center justify-center gap-2 rounded-full py-2.5 px-4 text-sm font-display font-bold text-black bg-[var(--gold-light)] hover:brightness-95 transition-all disabled:opacity-50";
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -253,7 +253,7 @@ export default function CrewDetail() {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="font-display font-bold text-3xl text-[var(--ink)] truncate">{crew.name}</h1>
+          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)] truncate">{crew.name}</h1>
           <div className="text-sm text-muted-foreground flex items-center gap-3 flex-wrap">
             <span>{crew.trade || "General"}</span>
             {crew.phone && (
@@ -266,7 +266,7 @@ export default function CrewDetail() {
         </div>
         <button
           onClick={() => setEditOpen(true)}
-          className="flex items-center gap-2 rounded-md py-2 px-4 text-sm font-display font-semibold text-muted-foreground bg-black/5 hover:bg-black/10 transition-colors shrink-0"
+          className="flex items-center gap-2 rounded-full py-2 px-4 text-sm font-display font-semibold text-[var(--ink)] bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-[var(--ink)] transition-colors shrink-0"
         >
           <Pencil className="w-4 h-4" /> Edit
         </button>
@@ -285,22 +285,22 @@ export default function CrewDetail() {
           <div className={sectionTitle}><Link2 className="w-3.5 h-3.5" /> Live portal link</div>
           {portalUrl ? (
             <>
-              <div className="text-xs font-mono bg-black/5 rounded-md px-3 py-2.5 break-all mb-3">{portalUrl}</div>
-              <button onClick={handleCopy} className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-display font-semibold text-muted-foreground bg-black/5 hover:bg-black/10 transition-colors">
+              <div className="text-xs font-mono bg-[var(--paper)] border border-[var(--hairline)] rounded-[12px] px-3 py-2.5 break-all mb-3">{portalUrl}</div>
+              <button onClick={handleCopy} className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-display font-semibold text-[var(--ink)] bg-card border border-[var(--hairline)] hover:border-[var(--ink)] transition-colors">
                 {copied ? <><Check className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy live link</>}
               </button>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <button
                   onClick={() => copyGuideLink("en")}
                   data-testid="button-copy-guide-en"
-                  className="flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-display font-semibold text-muted-foreground bg-black/5 hover:bg-black/10 transition-colors"
+                  className="flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-display font-semibold text-[var(--ink)] bg-card border border-[var(--hairline)] hover:border-[var(--ink)] transition-colors"
                 >
                   {copiedGuide === "en" ? <><Check className="w-4 h-4" /> Copied</> : <><BookOpen className="w-4 h-4" /> Guide link (English)</>}
                 </button>
                 <button
                   onClick={() => copyGuideLink("es")}
                   data-testid="button-copy-guide-es"
-                  className="flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-display font-semibold text-muted-foreground bg-black/5 hover:bg-black/10 transition-colors"
+                  className="flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-display font-semibold text-[var(--ink)] bg-card border border-[var(--hairline)] hover:border-[var(--ink)] transition-colors"
                 >
                   {copiedGuide === "es" ? <><Check className="w-4 h-4" /> Copiado</> : <><BookOpen className="w-4 h-4" /> Guía (Español)</>}
                 </button>
@@ -341,10 +341,10 @@ export default function CrewDetail() {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold truncate">{packetLabel(p.templateKey)}</div>
                       <div className="text-xs text-muted-foreground">
-                        {submitted ?`Submitted ${formatWhen(p.submittedAt)}` :`Sent ${formatWhen(p.sentAt)}`}
+                        {submitted ? `Submitted ${formatWhen(p.submittedAt)}` : `Sent ${formatWhen(p.sentAt)}`}
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold   px-2 py-0.5 rounded-full shrink-0 ${submitted ? "bg-emerald-100 text-emerald-800" : p.status === "in_progress" ? "bg-[var(--gold-tint)] text-[var(--gold-dark)]" : "bg-black/5 text-muted-foreground"}`}>{label}</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 ${submitted ? "bg-emerald-100 text-emerald-800" : p.status === "in_progress" ? "bg-[var(--gold-tint)] text-[var(--gold-dark)]" : "bg-black/5 text-muted-foreground"}`}>{label}</span>
                     {submitted && (
                       <a href={`/api/packets/${p.id}/pdf`} download className="shrink-0 w-8 h-8 grid place-items-center rounded-full bg-[var(--paper)] border border-border text-muted-foreground hover:text-foreground" aria-label="Download packet PDF">
                         <Download className="w-4 h-4" />
@@ -352,7 +352,7 @@ export default function CrewDetail() {
                     )}
                   </div>
                 );
-             })}
+              })}
             </div>
           )}
         </div>
@@ -395,7 +395,7 @@ export default function CrewDetail() {
         {/* Documents */}
         <div className={card}>
           <div className={sectionTitle}><FileText className="w-3.5 h-3.5" /> Documents</div>
-          <label className="w-full mb-3 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-display font-bold bg-card border border-border shadow-sm cursor-pointer hover:bg-black/[0.03] transition-colors">
+          <label className="w-full mb-3 flex items-center justify-center gap-2 rounded-full py-2.5 text-sm font-display font-bold bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] cursor-pointer hover:border-[var(--ink)] transition-colors">
             <FileUp className="w-4 h-4" />
             {isUploading ? "Uploading…" : "Send document to crew"}
             <input type="file" className="hidden" onChange={onFilePicked} disabled={isUploading} />
@@ -405,7 +405,7 @@ export default function CrewDetail() {
           ) : (
             <div className="flex flex-col divide-y divide-border">
               {documents.map((d) => {
-                const url =`/api/storage${d.storagePath}`;
+                const url = `/api/storage${d.storagePath}`;
                 return (
                   <div key={d.id} className="flex items-center gap-3 py-3">
                     <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -416,14 +416,14 @@ export default function CrewDetail() {
                       </div>
                     </a>
                     {d.direction === "from_crew" && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 shrink-0">New</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 shrink-0">New</span>
                     )}
                     <a href={url} download={d.name} className="shrink-0 w-8 h-8 grid place-items-center rounded-full bg-[var(--paper)] border border-border text-muted-foreground hover:text-foreground" aria-label={`Download ${d.name}`}>
                       <Download className="w-4 h-4" />
                     </a>
                   </div>
                 );
-             })}
+              })}
             </div>
           )}
         </div>
@@ -450,15 +450,15 @@ export default function CrewDetail() {
           <div className={sectionTitle}><Wallet className="w-3.5 h-3.5" /> Terms & money</div>
           <div className="flex gap-3 mb-4">
             <div className="flex-1 rounded-lg bg-emerald-50 p-3">
-              <div className="text-[11px] font-bold text-emerald-700">Paid</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Paid</div>
               <div className="font-display font-bold text-lg tabular-nums text-emerald-700">
-                ${(crew.paidTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2})}
+                ${(crew.paidTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
             </div>
             <div className="flex-1 rounded-lg bg-amber-50 p-3">
-              <div className="text-[11px] font-bold text-amber-700">Outstanding</div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Outstanding</div>
               <div className="font-display font-bold text-lg tabular-nums text-amber-700">
-                ${(crew.outstandingTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2})}
+                ${(crew.outstandingTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
             </div>
           </div>
@@ -471,7 +471,7 @@ export default function CrewDetail() {
               {crew.services.map((s, i) => (
                 <div key={i} className={`flex items-center justify-between px-3 py-2 text-sm ${i > 0 ? "border-t border-black/5" : ""}`}>
                   <span className="font-semibold">{s.name}</span>
-                  <span className="font-mono font-semibold">{s.rate != null ?`$${s.rate.toLocaleString(undefined, { minimumFractionDigits: 2})}` : "—"}</span>
+                  <span className="font-mono font-semibold">{s.rate != null ? `$${s.rate.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
                 </div>
               ))}
             </div>
@@ -503,7 +503,7 @@ export default function CrewDetail() {
                 <span className="font-semibold">Submitted {formatWhen(crew.w9SubmittedAt)}</span>
               </div>
               <W9Readout data={crew.w9 as Record<string, unknown>} />
-              <button onClick={() => downloadW9Pdf(crew.w9 as Record<string, unknown>, crew.name)} className="mt-4 flex items-center justify-center gap-2 rounded-md py-2.5 px-4 text-sm font-display font-bold bg-card border border-border shadow-sm hover:bg-black/[0.03] transition-colors">
+              <button onClick={() => downloadW9Pdf(crew.w9 as Record<string, unknown>, crew.name)} className="mt-4 flex items-center justify-center gap-2 rounded-full py-2.5 px-4 text-sm font-display font-bold bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-[var(--ink)] transition-colors">
                 <Download className="w-4 h-4" /> Download W-9 (PDF)
               </button>
             </div>
@@ -763,7 +763,7 @@ function DailyActivitySection({
  };
 
   return (
-    <div className="bg-card rounded-xl shadow-sm border border-border p-6">
+    <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6">
       <div className={sectionTitle}>
         <Camera className="w-3.5 h-3.5" /> Daily activity
       </div>

@@ -62,20 +62,20 @@ export default function Calendar() {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const dayScrollRef = useRef<HTMLDivElement>(null);
 
-  const { from, to} = useMemo(() => {
+  const { from, to } = useMemo(() => {
     if (view === "month") {
       const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1, 12);
       const gridStart = startOfWeek(first);
-      return { from: ymd(gridStart), to: ymd(addDays(gridStart, 41))};
-   }
+      return { from: ymd(gridStart), to: ymd(addDays(gridStart, 41)) };
+    }
     if (view === "week") {
       const ws = startOfWeek(cursor);
-      return { from: ymd(ws), to: ymd(addDays(ws, 6))};
-   }
-    return { from: ymd(cursor), to: ymd(cursor)};
- }, [view, cursor]);
+      return { from: ymd(ws), to: ymd(addDays(ws, 6)) };
+    }
+    return { from: ymd(cursor), to: ymd(cursor) };
+  }, [view, cursor]);
 
-  const { data, isLoading} = useGetCalendar({ from, to});
+  const { data, isLoading } = useGetCalendar({ from, to });
   const events = data?.events ?? [];
 
   const byDate = useMemo(() => {
@@ -84,62 +84,62 @@ export default function Calendar() {
       const arr = map.get(e.date) ?? [];
       arr.push(e);
       map.set(e.date, arr);
-   }
+    }
     for (const arr of map.values()) {
       arr.sort((a, b) => (toMin(a.start) ?? -1) - (toMin(b.start) ?? -1));
-   }
+    }
     return map;
- }, [events]);
+  }, [events]);
 
   const openDetail = (e: CalendarEvent) => {
     setSelected(e);
     setDetailOpen(true);
- };
+  };
   const openAdd = (date: string, start: string | null) => {
     setEditEvent(null);
     setAddDate(date);
     setAddStart(start);
     setEditOpen(true);
- };
+  };
   const openEdit = (e: CalendarEvent) => {
     setDetailOpen(false);
     setEditEvent(e);
     setAddDate(e.date);
     setAddStart(e.start ?? null);
     setEditOpen(true);
- };
+  };
 
   const step = (dir: number) => {
     if (view === "day") setCursor(addDays(cursor, dir));
     else if (view === "week") setCursor(addDays(cursor, dir * 7));
     else setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + dir, 1, 12));
- };
+  };
 
   const headerTitle =
     view === "month"
-      ? cursor.toLocaleDateString(undefined, { month: "long", year: "numeric"})
+      ? cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" })
       : view === "week"
         ? (() => {
             const ws = startOfWeek(cursor);
             const we = addDays(ws, 6);
             const sameMonth = ws.getMonth() === we.getMonth();
             return sameMonth
-              ?`${ws.toLocaleDateString(undefined, { month: "long", year: "numeric"})}`
-              :`${ws.toLocaleDateString(undefined, { month: "short", day: "numeric"})} – ${we.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric"})}`;
-         })()
+              ? `${ws.toLocaleDateString(undefined, { month: "long", year: "numeric" })}`
+              : `${ws.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${we.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+          })()
         : cursor.toLocaleDateString(undefined, {
             weekday: "long",
             month: "long",
             day: "numeric",
             year: "numeric",
-         });
+          });
 
   return (
     <div className="p-8 h-screen flex flex-col animate-in fade-in duration-500">
       {/* Header */}
       <header className="flex items-center gap-4 mb-5 shrink-0">
         <div className="min-w-0">
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)] truncate">
+          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)] truncate">
             {headerTitle}
           </h1>
           <p className="text-muted-foreground text-sm">Unified schedule &amp; jobs</p>
@@ -148,16 +148,16 @@ export default function Calendar() {
         <div className="flex-1" />
 
         {/* View switch */}
-        <div className="flex p-1 bg-card border border-border rounded-lg shadow-sm">
+        <div className="flex p-1 bg-card border border-[var(--hairline)] rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
           {(["day", "week", "month"] as ViewMode[]).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`px-4 py-1.5 rounded-md text-sm font-semibold capitalize transition-colors ${
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold capitalize transition-colors ${
                 view === v
-                  ? "bg-[var(--ink)] text-[var(--paper)]"
+                  ? "bg-[var(--ink)] text-white"
                   : "text-muted-foreground hover:text-foreground"
-             }`}
+              }`}
             >
               {v}
             </button>
@@ -167,20 +167,20 @@ export default function Calendar() {
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => step(-1)}
-            className="w-9 h-9 grid place-items-center border border-border rounded-md bg-card hover:bg-black/5 transition-colors"
+            className="w-9 h-9 grid place-items-center border border-[var(--hairline)] rounded-full bg-card hover:bg-black/5 transition-colors"
             aria-label="Previous"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             onClick={() => setCursor(new Date())}
-            className="px-4 h-9 text-sm font-semibold border border-border rounded-md bg-card hover:bg-black/5 transition-colors"
+            className="px-4 h-9 text-sm font-semibold border border-[var(--hairline)] rounded-full bg-card hover:bg-black/5 transition-colors"
           >
             Today
           </button>
           <button
             onClick={() => step(1)}
-            className="w-9 h-9 grid place-items-center border border-border rounded-md bg-card hover:bg-black/5 transition-colors"
+            className="w-9 h-9 grid place-items-center border border-[var(--hairline)] rounded-full bg-card hover:bg-black/5 transition-colors"
             aria-label="Next"
           >
             <ChevronRight className="w-5 h-5" />
@@ -190,13 +190,13 @@ export default function Calendar() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setScheduleOpen(true)}
-            className="inline-flex items-center gap-2 px-4 h-9 text-sm font-semibold border border-border rounded-md bg-card hover:bg-black/5 transition-colors"
+            className="inline-flex items-center gap-2 px-4 h-9 text-sm font-semibold border border-[var(--hairline)] rounded-full bg-card hover:bg-black/5 transition-colors"
           >
-            <CalendarDays className="w-4 h-4 text-[var(--gold-dark)]" /> Schedule job
+            <CalendarDays className="w-4 h-4 text-[var(--gold)]" /> Schedule job
           </button>
           <button
             onClick={() => openAdd(ymd(cursor), null)}
-            className="inline-flex items-center gap-1.5 px-4 h-9 text-sm font-semibold rounded-md text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_10px_rgba(180,255,68,0.35)] hover:opacity-90 transition-opacity"
+            className="btn-gold inline-flex items-center gap-1.5 px-4 h-9 text-sm !rounded-full"
           >
             <Plus className="w-4 h-4" strokeWidth={2.4} /> New event
           </button>
@@ -204,7 +204,7 @@ export default function Calendar() {
       </header>
 
       {isLoading ? (
-        <Skeleton className="flex-1 w-full rounded-xl" />
+        <Skeleton className="flex-1 w-full rounded-[20px]" />
       ) : view === "month" ? (
         <MonthView
           cursor={cursor}
@@ -214,7 +214,7 @@ export default function Calendar() {
           onPickDay={(d) => {
             setCursor(d);
             setView("day");
-         }}
+          }}
         />
       ) : view === "week" ? (
         <WeekView
@@ -225,7 +225,7 @@ export default function Calendar() {
           onPickDay={(d) => {
             setCursor(d);
             setView("day");
-         }}
+          }}
         />
       ) : (
         <DayView
@@ -281,9 +281,9 @@ function MonthView({
   const month = cursor.getMonth();
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
       {/* Weekday header */}
-      <div className="grid grid-cols-7 border-b border-border shrink-0">
+      <div className="grid grid-cols-7 border-b border-[var(--hairline)] shrink-0">
         {DAY_NAMES.map((l, i) => (
           <div
             key={l}
@@ -397,23 +397,23 @@ function WeekView({
   onPickDay: (d: Date) => void;
 }) {
   const ws = startOfWeek(cursor);
-  const days = Array.from({ length: 7}, (_, i) => addDays(ws, i));
+  const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
   const todayStr = ymd(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = 7 * HOUR_H - 20;
-   }
- }, [ymd(ws)]);
+    }
+  }, [ymd(ws)]);
 
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
       {/* Day headers + all-day row */}
-      <div className="grid shrink-0 border-b border-border" style={{ gridTemplateColumns: "64px repeat(7, 1fr)"}}>
+      <div className="grid shrink-0 border-b border-[var(--hairline)]" style={{ gridTemplateColumns: "64px repeat(7, 1fr)" }}>
         <div />
         {days.map((d) => {
           const key = ymd(d);
@@ -427,13 +427,13 @@ function WeekView({
                 onClick={() => onPickDay(d)}
                 className="flex items-center gap-1.5 mx-auto"
               >
-                <span className="text-[11px] font-semibold text-muted-foreground">
+                <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
                   {DAY_NAMES[d.getDay()]}
                 </span>
                 <span
                   className={`w-7 h-7 grid place-items-center rounded-full text-[13px] font-display font-bold ${
                     isToday ? "bg-[var(--red)] text-white" : "text-[var(--ink)]"
-                 }`}
+                  }`}
                 >
                   {d.getDate()}
                 </span>
@@ -446,8 +446,8 @@ function WeekView({
                       onClick={() => onEvent(e)}
                       className="text-left rounded-[4px] px-1.5 py-[2px] text-[10.5px] font-semibold truncate"
                       style={{
-                        background:`color-mix(in srgb, ${colorVar(e.color)} 18%, var(--card))`,
-                     }}
+                        background: `color-mix(in srgb, ${colorVar(e.color)} 18%, var(--card))`,
+                      }}
                       title={e.title}
                     >
                       {e.title}
@@ -462,22 +462,22 @@ function WeekView({
               )}
             </div>
           );
-       })}
+        })}
       </div>
 
       {/* Time grid */}
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
         <div
           className="grid relative"
-          style={{ gridTemplateColumns: "64px repeat(7, 1fr)", height:`${24 * HOUR_H}px`}}
+          style={{ gridTemplateColumns: "64px repeat(7, 1fr)", height: `${24 * HOUR_H}px` }}
         >
           {/* Hour labels */}
           <div className="relative">
-            {Array.from({ length: 24}, (_, h) => (
+            {Array.from({ length: 24 }, (_, h) => (
               <span
                 key={h}
                 className="absolute right-2 -translate-y-1/2 text-[10.5px] font-semibold text-muted-foreground"
-                style={{ top:`${h * HOUR_H}px`}}
+                style={{ top: `${h * HOUR_H}px` }}
               >
                 {h === 0 ? "" : fmtHour(h)}
               </span>
@@ -495,20 +495,20 @@ function WeekView({
                 key={key}
                 className={`relative border-l border-border ${isToday ? "bg-[var(--gold-tint,rgba(212,175,55,0.05))]" : ""}`}
               >
-                {Array.from({ length: 24}, (_, h) => (
+                {Array.from({ length: 24 }, (_, h) => (
                   <button
                     key={h}
-                    onClick={() => onAddAt(key,`${pad(h)}:00`)}
+                    onClick={() => onAddAt(key, `${pad(h)}:00`)}
                     aria-label={`Add on ${key} at ${fmtHour(h)}`}
                     className="absolute left-0 right-0 border-t border-border/60 hover:bg-black/[0.02] transition-colors"
-                    style={{ top:`${h * HOUR_H}px`, height:`${HOUR_H}px`}}
+                    style={{ top: `${h * HOUR_H}px`, height: `${HOUR_H}px` }}
                   />
                 ))}
 
                 {isToday && (
                   <div
                     className="absolute left-0 right-0 z-10 pointer-events-none"
-                    style={{ top:`${(nowMin / 60) * HOUR_H}px`}}
+                    style={{ top: `${(nowMin / 60) * HOUR_H}px` }}
                   >
                     <div className="relative">
                       <span className="absolute -left-[4px] -top-[3px] w-[8px] h-[8px] rounded-full bg-[var(--red)]" />
@@ -540,14 +540,14 @@ function WeekView({
                       onClick={() => onEvent(e)}
                       className="absolute rounded-md px-1.5 py-1 text-left overflow-hidden shadow-[0_1px_5px_rgba(23,24,28,0.12)] hover:brightness-[0.97] transition-[filter]"
                       style={{
-                        top:`${top}px`,
-                        height:`${height}px`,
-                        left:`calc(${col * widthPct}% + 2px)`,
-                        width:`calc(${widthPct}% - 4px)`,
-                        background:`color-mix(in srgb, ${colorVar(e.color)} 16%, var(--card))`,
-                        borderLeft:`3px solid ${colorVar(e.color)}`,
+                        top: `${top}px`,
+                        height: `${height}px`,
+                        left: `calc(${col * widthPct}% + 2px)`,
+                        width: `calc(${widthPct}% - 4px)`,
+                        background: `color-mix(in srgb, ${colorVar(e.color)} 16%, var(--card))`,
+                        borderLeft: `3px solid ${colorVar(e.color)}`,
                         zIndex: 5 + idx,
-                     }}
+                      }}
                       title={e.title}
                     >
                       <div className="font-bold text-[11.5px] leading-tight truncate">
@@ -556,15 +556,15 @@ function WeekView({
                       {height > 34 && e.start && (
                         <div className="text-[10px] text-muted-foreground truncate">
                           {fmtTimeShort(e.start)}
-                          {e.subtitle ?` · ${e.subtitle}` : ""}
+                          {e.subtitle ? ` · ${e.subtitle}` : ""}
                         </div>
                       )}
                     </button>
                   );
-               })}
+                })}
               </div>
             );
-         })}
+          })}
         </div>
       </div>
     </div>
@@ -631,7 +631,7 @@ function DayView({
 
       <div
         ref={scrollRef}
-        className="flex-1 min-h-0 relative overflow-y-auto rounded-xl border border-border bg-card shadow-sm"
+        className="flex-1 min-h-0 relative overflow-y-auto rounded-[20px] border border-[var(--hairline)] bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
       >
         <div className="relative" style={{ height:`${24 * HOUR_H}px`}}>
           {Array.from({ length: 24}, (_, h) => (

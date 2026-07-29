@@ -9,7 +9,7 @@ export default function Crews() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<EditableCrew | null>(null);
-  const { data: crews, isLoading} = useListCrews();
+  const { data: crews, isLoading } = useListCrews();
 
   const filtered = crews?.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -20,12 +20,12 @@ export default function Crews() {
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-display font-bold text-[var(--secondary)]">Crews</h1>
-          <p className="text-muted-foreground">{crews?.length || 0} active crews</p>
+          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">Crews</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{crews?.length || 0} active crews</p>
         </div>
         <button
           onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 bg-[var(--primary)] text-black px-6 py-3 rounded-full font-bold hover:opacity-90 transition-colors shadow-sm"
+          className="btn-gold px-5 py-2.5 flex items-center gap-2"
         >
           <Plus className="w-4 h-4" /> Add Crew
         </button>
@@ -37,8 +37,8 @@ export default function Crews() {
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search crews..."
-          className="w-full max-w-md pl-12 pr-4 py-3 rounded-full border border-border bg-card text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-1 focus-visible:ring-[var(--primary)] font-mono text-foreground"
+          placeholder="Search crews by name or trade…"
+          className="w-full max-w-md pl-12 pr-4 py-3 rounded-full border border-[var(--hairline)] bg-card text-sm shadow-[0_2px_8px_rgba(0,0,0,0.04)] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-[var(--ink)] focus-visible:ring-1 focus-visible:ring-[var(--ink)]"
         />
       </div>
 
@@ -52,10 +52,10 @@ export default function Crews() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map(crew => (
             <Link key={crew.id} href={`/crews/${crew.id}`} className="block">
-              <div className="bg-card rounded-3xl border border-border shadow-sm p-6 hover:border-[var(--primary)] transition-colors group h-full flex flex-col">
+              <div className="bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-1 transition-all group h-full flex flex-col">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-[var(--primary)]/20 flex items-center justify-center text-[var(--secondary)] group-hover:bg-[var(--primary)] group-hover:text-black transition-colors overflow-hidden shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[var(--ink)] flex items-center justify-center text-[var(--gold-light)] group-hover:bg-[var(--gold-light)] group-hover:text-black transition-colors overflow-hidden">
                       {crew.selfiePath ? (
                         <img
                           src={`/api/storage${crew.selfiePath}`}
@@ -63,17 +63,17 @@ export default function Crews() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <Users className="w-6 h-6" />
+                        <Users className="w-5 h-5" />
                       )}
                     </div>
                     <div>
-                      <h3 className="font-display font-bold text-[var(--secondary)] text-xl leading-tight transition-colors">{crew.name}</h3>
-                      <p className="text-muted-foreground text-xs font-bold">{crew.trade || 'General'}</p>
+                      <h3 className="font-display font-bold text-[var(--ink)] text-lg leading-tight tracking-tight">{crew.name}</h3>
+                      <p className="text-muted-foreground text-sm">{crew.trade || 'General'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
                     {crew.isLeader && (
-                      <span className="text-[10px] font-bold text-black px-3 py-1 rounded-full bg-[var(--primary)]">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)]">
                         Leader
                       </span>
                     )}
@@ -82,7 +82,7 @@ export default function Crews() {
                         e.preventDefault();
                         e.stopPropagation();
                         setEditing(crew);
-                     }}
+                      }}
                       aria-label={`Edit ${crew.name}`}
                       className="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-black/5 hover:text-foreground transition-all"
                     >
@@ -91,10 +91,10 @@ export default function Crews() {
                   </div>
                 </div>
 
-                <div className="mt-auto pt-4 border-t border-border flex items-center gap-2 text-sm">
+                <div className="mt-auto pt-4 border-t border-[var(--hairline)] flex items-center gap-2 text-sm">
                   {crew.todayStatus === 'site' && (
                     <>
-                      <MapPin className="w-4 h-4 text-[var(--gold-dark)]" />
+                      <MapPin className="w-4 h-4 text-[var(--gold)]" />
                       <span className="text-[var(--ink)] font-medium truncate">At {crew.todayProperty}</span>
                     </>
                   )}
@@ -118,7 +118,7 @@ export default function Crews() {
             </Link>
           ))}
           {filtered.length === 0 && (
-            <div className="col-span-full p-12 text-center border border-dashed border-border rounded-xl text-muted-foreground">
+            <div className="col-span-full p-12 text-center border border-dashed border-[var(--hairline)] rounded-[20px] text-muted-foreground bg-card">
               No crews found.
             </div>
           )}
@@ -129,7 +129,7 @@ export default function Crews() {
       {editing && (
         <EditCrewDialog
           open={!!editing}
-          onOpenChange={(o) => { if (!o) setEditing(null);}}
+          onOpenChange={(o) => { if (!o) setEditing(null); }}
           crew={editing}
         />
       )}

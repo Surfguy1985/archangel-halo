@@ -43,13 +43,13 @@ export default function Properties() {
       {/* Header Area */}
       <div className="px-[6px] mb-[20px]">
         <div className="flex items-center justify-between mb-[16px]">
-          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-foreground leading-none drop-shadow-[0_0_8px_rgba(255,255,255,0.1)]">
+          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)] leading-none">
             Properties
           </h1>
           <button
             onClick={() => setAddOpen(true)}
             aria-label="Add property"
-            className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--gold-light)] text-primary-foreground shadow-[0_0_20px_rgba(180,255,68,0.4)] transition-all hover:brightness-110 hover:scale-105 active:scale-[0.9]"
+            className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--gold-light)] text-[var(--ink)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all hover:brightness-105 active:scale-[0.9]"
           >
             <Plus className="w-[20px] h-[20px]" strokeWidth={3} />
           </button>
@@ -58,19 +58,19 @@ export default function Properties() {
         {/* Global Stats - hidden when searching */}
         {!search && properties && properties.length > 0 && (
           <div className="grid grid-cols-2 gap-[12px] mb-[20px]">
-            <div className="bg-card rounded-[20px] p-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] border border-border flex flex-col justify-between hover:border-primary/30 transition-colors">
-              <div className="text-[11px] font-display font-bold text-primary uppercase tracking-[0.1em] mb-[8px] drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">
+            <div className="bg-card rounded-[20px] p-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] flex flex-col justify-between">
+              <div className="text-[11px] font-display font-bold text-muted-foreground uppercase tracking-[0.1em] mb-[8px]">
                 Total Owed
               </div>
-              <div className="font-display font-bold text-[24px] text-foreground tracking-tight tabular-nums">
+              <div className="font-display font-bold text-[24px] text-[var(--ink)] tracking-tight tabular-nums">
                 ${totalOwed.toLocaleString()}
               </div>
             </div>
-            <div className="bg-card rounded-[20px] p-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] border border-border flex flex-col justify-between hover:border-primary/30 transition-colors">
-              <div className="text-[11px] font-display font-bold text-primary uppercase tracking-[0.1em] mb-[8px] drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">
+            <div className="bg-card rounded-[20px] p-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] flex flex-col justify-between">
+              <div className="text-[11px] font-display font-bold text-muted-foreground uppercase tracking-[0.1em] mb-[8px]">
                 Active Jobs
               </div>
-              <div className="font-display font-bold text-[24px] text-foreground tracking-tight tabular-nums">
+              <div className="font-display font-bold text-[24px] text-[var(--ink)] tracking-tight tabular-nums">
                 {activeJobs}
               </div>
             </div>
@@ -87,14 +87,14 @@ export default function Properties() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Find property, city, or PMC" 
-            className="w-full bg-card/80 backdrop-blur-md border border-border rounded-[18px] py-[14px] pl-[42px] pr-[16px] text-[15px] font-medium shadow-[0_4px_12px_rgba(0,0,0,0.2)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:bg-card focus:border-primary focus:ring-1 focus:ring-primary/50 transition-all"
+            className="w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[14px] pl-[42px] pr-[16px] text-[15px] font-medium shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:border-[var(--gold)] focus:ring-1 focus:ring-[var(--gold)]/40 transition-all"
           />
         </div>
       </div>
 
       {isLoading ? (
         <div className="animate-pulse space-y-[16px] px-[6px]">
-          {[1, 2, 3].map(i => <div key={i} className="h-[240px] bg-card rounded-[28px] border border-border/50"></div>)}
+          {[1, 2, 3].map(i => <div key={i} className="h-[240px] bg-card rounded-[20px] border border-[var(--hairline)]"></div>)}
         </div>
       ) : (
         <div className="flex flex-col gap-[16px] px-[6px]">
@@ -106,7 +106,7 @@ export default function Properties() {
               <Link
                 key={p.id}
                 href={`/properties/${p.id}`}
-                className="group relative block rounded-[28px] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)] cursor-pointer transition-transform active:scale-[0.98] bg-card border border-border hover:border-primary/50"
+                className="group relative block rounded-[20px] overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.04)] cursor-pointer transition-transform active:scale-[0.98] bg-card border border-[var(--hairline)]"
               >
                 {/* Full-bleed hero image */}
                 <div className="relative w-full aspect-[3/2]">
@@ -118,12 +118,12 @@ export default function Properties() {
                       className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                     />
                   ) : (
-                    <div className="absolute inset-0 bg-background flex flex-col items-center justify-center gap-[10px]">
-                      <div className="w-[52px] h-[52px] rounded-[18px] bg-primary/5 border border-primary/10 grid place-items-center group-hover:bg-primary/10 transition-colors">
-                        <Building2 className="w-[24px] h-[24px] text-primary/40 group-hover:text-primary/70 transition-colors" />
+                    <div className="absolute inset-0 bg-[var(--paper)] flex flex-col items-center justify-center gap-[10px]">
+                      <div className="w-[52px] h-[52px] rounded-[18px] bg-[var(--gold-tint)] border border-[var(--hairline)] grid place-items-center">
+                        <Building2 className="w-[24px] h-[24px] text-[var(--gold-dark)]" />
                       </div>
                       <div className="flex items-center gap-[6px] text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.1em]">
-                        <Sparkles className="w-[12px] h-[12px] animate-pulse text-primary" />
+                        <Sparkles className="w-[12px] h-[12px] animate-pulse text-[var(--gold-dark)]" />
                         Creating photo
                       </div>
                     </div>
@@ -135,13 +135,13 @@ export default function Properties() {
                   {/* Top-right badges */}
                   <div className="absolute top-[14px] right-[14px] flex flex-col items-end gap-[6px]">
                     {hasOwed && (
-                      <span className="px-[12px] py-[5px] rounded-full bg-background/80 backdrop-blur-md border border-primary/30 text-primary text-[13px] font-display font-bold tabular-nums shadow-[0_0_10px_rgba(180,255,68,0.2)]">
+                      <span className="px-[12px] py-[5px] rounded-full bg-[var(--ink)] text-white text-[13px] font-display font-bold tabular-nums shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
                         ${p.owed.toLocaleString()} owed
                       </span>
                     )}
                     {hasJobs && (
-                      <span className="inline-flex items-center gap-[5px] px-[12px] py-[5px] rounded-full bg-background/80 backdrop-blur-md border border-border text-foreground text-[12px] font-display font-bold shadow-sm">
-                        <Briefcase className="w-[11px] h-[11px] text-primary" />
+                      <span className="inline-flex items-center gap-[5px] px-[12px] py-[5px] rounded-full bg-white text-[var(--ink)] text-[12px] font-display font-bold shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
+                        <Briefcase className="w-[11px] h-[11px] text-[var(--gold-dark)]" />
                         {p.openJobs} active
                       </span>
                     )}
@@ -149,13 +149,13 @@ export default function Properties() {
 
                   {/* Bottom text block */}
                   <div className="absolute inset-x-0 bottom-0 p-[18px]">
-                    <div className="font-display font-bold text-[24px] leading-[1.1] tracking-[-0.02em] text-white drop-shadow-md mb-[6px] group-hover:text-primary transition-colors">
+                    <div className="font-display font-bold text-[24px] leading-[1.1] tracking-[-0.02em] text-white drop-shadow-md mb-[6px]">
                       {p.name}
                     </div>
                     <div className="flex items-center gap-[6px] text-[13px] font-medium text-white/80">
                       {p.city && (
                         <span className="flex items-center gap-[4px] shrink-0">
-                          <MapPin className="w-[12px] h-[12px] text-primary" />
+                          <MapPin className="w-[12px] h-[12px] text-[var(--gold-light)]" />
                           <span className="text-white drop-shadow-sm">{p.city}</span>
                         </span>
                       )}
@@ -170,11 +170,11 @@ export default function Properties() {
           })}
           
           {properties?.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-[60px] text-center bg-card rounded-[28px] border border-border shadow-[0_0_20px_rgba(0,0,0,0.3)]">
-              <div className="w-[64px] h-[64px] rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-[16px] shadow-[0_0_15px_rgba(180,255,68,0.1)]">
-                <Building2 className="w-[28px] h-[28px] text-primary" />
+            <div className="flex flex-col items-center justify-center py-[60px] text-center bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+              <div className="w-[64px] h-[64px] rounded-full bg-[var(--gold-tint)] border border-[var(--hairline)] flex items-center justify-center mb-[16px]">
+                <Building2 className="w-[28px] h-[28px] text-[var(--gold-dark)]" />
               </div>
-              <div className="font-display font-bold text-[18px] text-foreground mb-[6px]">
+              <div className="font-display font-bold text-[18px] text-[var(--ink)] mb-[6px]">
                 {search ? "No matches found" : "No properties yet"}
               </div>
               <div className="text-[14px] text-muted-foreground max-w-[260px] leading-relaxed">

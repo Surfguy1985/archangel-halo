@@ -357,7 +357,7 @@ export default function Import() {
       >
         <ChevronLeft className="w-[15px] h-[15px]" /> Back
       </Link>
-      <div className="font-display font-bold text-[24px] tracking-[-0.02em] leading-none">
+      <div className="font-display font-bold text-[32px] tracking-[-0.02em] leading-none text-[var(--ink)]">
         Import
       </div>
       <div className="text-[13px] text-muted-foreground mt-[6px] mb-[16px]">
@@ -366,7 +366,7 @@ export default function Import() {
         files each record where it belongs.
       </div>
 
-      <label className="w-full mb-[10px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] cursor-pointer transition-transform active:scale-[0.98]">
+      <label className="w-full mb-[10px] flex items-center justify-center gap-[8px] rounded-full py-[13px] text-[15px] font-display font-bold btn-gold cursor-pointer transition-transform active:scale-[0.98]">
         <Camera className="w-[18px] h-[18px]" />
         {busy ? "Working…" : "Scan a receipt"}
         <input
@@ -379,8 +379,8 @@ export default function Import() {
         />
       </label>
 
-      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] text-[14px] font-display font-bold text-[var(--ink)] bg-card border border-border shadow-[var(--shadow)] cursor-pointer transition-transform active:scale-[0.98]">
-        <FileUp className="w-[17px] h-[17px] text-[var(--gold-dark)]" />
+      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-full py-[12px] text-[14px] font-display font-bold text-[var(--ink)] bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] cursor-pointer transition-transform active:scale-[0.98]">
+        <FileUp className="w-[17px] h-[17px] text-[var(--gold)]" />
         {busy ? "Reading…" : "Choose a file"}
         <input
           type="file"
@@ -398,15 +398,15 @@ export default function Import() {
       )}
 
       {done && (
-        <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px] text-[13.5px] flex items-center gap-[8px]">
-          <Check className="w-[16px] h-[16px] text-[var(--green,#3c7a4e)] shrink-0" />
+        <div className="bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px] text-[13.5px] flex items-center gap-[8px] text-[var(--ink)]">
+          <Check className="w-[16px] h-[16px] text-[var(--green)] shrink-0" />
           <span>{done}</span>
         </div>
       )}
 
       {summary && records.length > 0 && (
         <div className="flex items-start gap-[7px] text-[12.5px] text-muted-foreground mb-[12px]">
-          <Sparkles className="w-[14px] h-[14px] text-[var(--gold-dark)] shrink-0 mt-[1px]" />
+          <Sparkles className="w-[14px] h-[14px] text-[var(--gold)] shrink-0 mt-[1px]" />
           <span>{summary}</span>
         </div>
       )}
@@ -420,8 +420,8 @@ export default function Import() {
                 <button
                   key={i}
                   onClick={() => toggle(i)}
-                  className={`text-left bg-card rounded-[14px] shadow-[var(--shadow)] p-[13px] border transition-colors ${
-                    isSel ? "border-[var(--gold)]" : "border-border opacity-60"
+                  className={`text-left bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[13px] border transition-colors ${
+                    isSel ? "border-[var(--gold)]" : "border-[var(--hairline)] opacity-60"
                   }`}
                 >
                   <div className="flex items-center gap-[8px] mb-[4px]">
@@ -429,16 +429,16 @@ export default function Import() {
                       className={`w-[18px] h-[18px] rounded-[6px] grid place-items-center shrink-0 border ${
                         isSel
                           ? "bg-[var(--gold-light)] border-[var(--gold)]"
-                          : "border-border"
+                          : "border-[var(--hairline)]"
                       }`}
                     >
                       {isSel && <Check className="w-[12px] h-[12px] text-[var(--ink)]" />}
                     </span>
-                    <span className="text-[10.5px] font-bold uppercase tracking-[0.06em] px-[7px] py-[2px] rounded-full bg-[var(--paper)] border border-border">
+                    <span className="text-[10.5px] font-bold uppercase tracking-[0.06em] px-[8px] py-[3px] rounded-full bg-[var(--paper)] border border-[var(--hairline)] text-muted-foreground">
                       {targetLabels[r.target] || r.target}
                     </span>
                     {r.label && (
-                      <span className="font-semibold text-[13.5px] truncate">
+                      <span className="font-semibold text-[13.5px] truncate text-[var(--ink)]">
                         {r.label}
                       </span>
                     )}
@@ -453,7 +453,7 @@ export default function Import() {
           <button
             onClick={onCommit}
             disabled={commit.isPending || selected.size === 0}
-            className="w-full mt-[14px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full mt-[14px] rounded-full py-[13px] font-display font-bold text-[15px] btn-gold disabled:opacity-50 transition-transform active:scale-[0.98]"
           >
             {commit.isPending
               ? "Importing…"
@@ -463,7 +463,9 @@ export default function Import() {
       )}
 
       <div className="mt-[22px]">
-        <div className="font-display font-bold text-[16px] mb-[10px]">Upload History</div>
+        <div className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-muted-foreground mb-[10px] flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-[var(--gold)]" /> Upload History
+        </div>
         {(history.data?.uploads ?? []).length === 0 ? (
           <div className="text-[12.5px] text-muted-foreground">
             No imports yet. Your uploaded documents will appear here.
@@ -473,17 +475,17 @@ export default function Import() {
             {history.data!.uploads.map((u) => (
               <div
                 key={u.id}
-                className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[13px] border border-border"
+                className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[13px] border border-[var(--hairline)]"
               >
                 <div className="flex items-center gap-[8px]">
-                  <FileText className="w-[15px] h-[15px] text-[var(--gold-dark)] shrink-0" />
-                  <span className="font-semibold text-[13.5px] truncate flex-1">{u.filename}</span>
+                  <FileText className="w-[15px] h-[15px] text-[var(--gold)] shrink-0" />
+                  <span className="font-semibold text-[13.5px] truncate flex-1 text-[var(--ink)]">{u.filename}</span>
                   {u.objectPath && (
                     <a
                       href={`/api/storage${u.objectPath}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="shrink-0 inline-flex items-center gap-[4px] text-[12px] font-semibold text-[var(--gold-dark)]"
+                      className="shrink-0 inline-flex items-center gap-[4px] text-[12px] font-semibold text-[var(--gold)]"
                     >
                       View <ExternalLink className="w-[12px] h-[12px]" />
                     </a>

@@ -90,8 +90,8 @@ type FilterKey = "all" | CoiStatus;
 type SortKey = "name" | "trade" | "coi";
 
 export default function Vendors() {
-  const { data: vendors, isLoading, isError, refetch} = useListVendors();
-  const { data: pos} = useListPurchaseOrders();
+  const { data: vendors, isLoading, isError, refetch } = useListVendors();
+  const { data: pos } = useListPurchaseOrders();
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -105,10 +105,10 @@ export default function Vendors() {
     for (const po of pos ?? []) {
       if (po.vendorId && po.status !== "received") {
         map.set(po.vendorId, (map.get(po.vendorId) ?? 0) + 1);
-     }
-   }
+      }
+    }
     return map;
- }, [pos]);
+  }, [pos]);
 
   const counts = useMemo(() => {
     const all = vendors ?? [];
@@ -117,8 +117,8 @@ export default function Vendors() {
       compliant: all.filter((v) => coiStatus(v) === "compliant").length,
       expiring: all.filter((v) => coiStatus(v) === "expiring").length,
       lapsed: all.filter((v) => coiStatus(v) === "lapsed").length,
-   };
- }, [vendors]);
+    };
+  }, [vendors]);
 
   const visible = useMemo(() => {
     let list = vendors ?? [];
@@ -130,7 +130,7 @@ export default function Vendors() {
           .filter(Boolean)
           .some((s) => String(s).toLowerCase().includes(q)),
       );
-   }
+    }
     const dir = sortDir;
     return [...list].sort((a, b) => {
       if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
@@ -140,18 +140,18 @@ export default function Vendors() {
       const av = a.coiExpiresOn ?? "9999-99-99";
       const bv = b.coiExpiresOn ?? "9999-99-99";
       return av.localeCompare(bv) * dir;
-   });
- }, [vendors, filter, query, sortKey, sortDir]);
+    });
+  }, [vendors, filter, query, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === 1 ? -1 : 1));
     else {
       setSortKey(key);
       setSortDir(1);
-   }
- };
+    }
+  };
 
-  const SortIcon = ({ col}: { col: SortKey}) =>
+  const SortIcon = ({ col }: { col: SortKey }) =>
     sortKey !== col ? (
       <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
     ) : sortDir === 1 ? (
@@ -163,23 +163,23 @@ export default function Vendors() {
   const openAdd = () => {
     setEditing(null);
     setDialogOpen(true);
- };
+  };
   const openEdit = (v: Vendor) => {
     setEditing(v);
     setDialogOpen(true);
- };
+  };
 
   const doExport = () => {
     exportCsv(
-     `vendors-${todayLocal()}.csv`,
+      `vendors-${todayLocal()}.csv`,
       [
-        { key: "name", label: "Name"},
-        { key: "trade", label: "Trade"},
-        { key: "email", label: "Email"},
-        { key: "phone", label: "Phone"},
-        { key: "coiExpiresOn", label: "COI expires"},
-        { key: "status", label: "Status"},
-        { key: "openPos", label: "Open POs"},
+        { key: "name", label: "Name" },
+        { key: "trade", label: "Trade" },
+        { key: "email", label: "Email" },
+        { key: "phone", label: "Phone" },
+        { key: "coiExpiresOn", label: "COI expires" },
+        { key: "status", label: "Status" },
+        { key: "openPos", label: "Open POs" },
       ],
       visible.map((v) => ({
         name: v.name,
@@ -194,22 +194,22 @@ export default function Vendors() {
               ? "Expiring soon"
               : "Lapsed",
         openPos: openPoCount.get(v.id) ?? 0,
-     })),
+      })),
     );
- };
+  };
 
-  const filters: { key: FilterKey; label: string; count: number}[] = [
-    { key: "all", label: "All", count: counts.total},
-    { key: "compliant", label: "Compliant", count: counts.compliant},
-    { key: "expiring", label: "Expiring soon", count: counts.expiring},
-    { key: "lapsed", label: "Lapsed", count: counts.lapsed},
+  const filters: { key: FilterKey; label: string; count: number }[] = [
+    { key: "all", label: "All", count: counts.total },
+    { key: "compliant", label: "Compliant", count: counts.compliant },
+    { key: "expiring", label: "Expiring soon", count: counts.expiring },
+    { key: "lapsed", label: "Lapsed", count: counts.lapsed },
   ];
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)]">
+          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">
             Vendors
           </h1>
           <p className="text-muted-foreground">
@@ -226,7 +226,7 @@ export default function Vendors() {
           </button>
           <button
             onClick={openAdd}
-            className="inline-flex items-center gap-1.5 px-4 h-9 text-sm font-semibold rounded-md text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_10px_rgba(180,255,68,0.35)] hover:opacity-90 transition-opacity"
+            className="btn-gold inline-flex items-center gap-1.5 px-4 h-9 text-sm"
           >
             <Plus className="w-4 h-4" strokeWidth={2.4} /> Add vendor
           </button>
@@ -238,7 +238,7 @@ export default function Vendors() {
         <SummaryCard
           label="Vendors"
           value={counts.total}
-          icon={<Truck className="w-5 h-5 text-[var(--gold-dark)]" />}
+          icon={<Truck className="w-5 h-5 text-[var(--gold)]" />}
         />
         <SummaryCard
           label="Compliant"
@@ -265,7 +265,7 @@ export default function Vendors() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, trade, or contact…"
-            className="w-full bg-card border border-input rounded-md py-2 pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="w-full bg-card border border-[var(--hairline)] rounded-full py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ink)]/20"
           />
         </div>
         <div className="flex gap-1.5">
@@ -275,9 +275,9 @@ export default function Vendors() {
               onClick={() => setFilter(f.key)}
               className={`px-3 py-1.5 rounded-full text-[13px] font-semibold border transition-colors ${
                 filter === f.key
-                  ? "bg-[var(--ink)] text-[var(--paper)] border-[var(--ink)]"
-                  : "bg-card text-muted-foreground border-border hover:text-foreground"
-             }`}
+                  ? "bg-[var(--ink)] text-white border-[var(--ink)]"
+                  : "bg-card text-muted-foreground border-[var(--hairline)] hover:text-foreground"
+              }`}
             >
               {f.label}
               <span className="ml-1.5 opacity-70">{f.count}</span>
@@ -293,17 +293,17 @@ export default function Vendors() {
           <Skeleton className="h-20 w-full" />
         </div>
       ) : isError ? (
-        <div className="text-center py-12 bg-card rounded-xl border border-border">
+        <div className="text-center py-12 bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
           <p className="text-muted-foreground mb-3">Couldn't load vendors.</p>
           <button
             onClick={() => refetch()}
-            className="text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+            className="text-sm font-semibold text-[var(--gold)] hover:opacity-80 transition-opacity"
           >
             Try again
           </button>
         </div>
       ) : !vendors?.length ? (
-        <div className="text-center py-16 bg-card rounded-xl border border-border">
+        <div className="text-center py-16 bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
           <Truck className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
           <p className="font-display font-bold text-lg text-[var(--ink)] mb-1">
             No vendors yet
@@ -313,19 +313,19 @@ export default function Vendors() {
           </p>
           <button
             onClick={openAdd}
-            className="inline-flex items-center gap-1.5 px-4 h-9 text-sm font-semibold rounded-md text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_10px_rgba(180,255,68,0.35)] hover:opacity-90 transition-opacity"
+            className="btn-gold inline-flex items-center gap-1.5 px-4 h-9 text-sm"
           >
             <Plus className="w-4 h-4" strokeWidth={2.4} /> Add vendor
           </button>
         </div>
       ) : !visible.length ? (
-        <div className="text-center py-12 text-muted-foreground bg-card rounded-xl border border-border">
+        <div className="text-center py-12 text-muted-foreground bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
           No vendors match your search.
         </div>
       ) : (
-        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
           <table className="w-full text-left text-sm">
-            <thead className="bg-[var(--paper)] border-b border-border">
+            <thead className="bg-[var(--paper)] border-b border-[var(--hairline)]">
               <tr>
                 <Th onClick={() => toggleSort("name")}>
                   Name <SortIcon col="name" />
@@ -342,7 +342,7 @@ export default function Vendors() {
                 <Th className="w-12"> </Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-[var(--hairline)]">
               {visible.map((v) => (
                 <tr
                   key={v.id}
@@ -372,7 +372,7 @@ export default function Vendors() {
                       onClick={(e) => {
                         e.stopPropagation();
                         openEdit(v);
-                     }}
+                      }}
                       aria-label={`Edit ${v.name}`}
                       className="w-8 h-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors"
                     >
@@ -422,7 +422,7 @@ function SummaryCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="bg-card rounded-xl border border-border shadow-sm p-5 flex items-center gap-4">
+    <div className="bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-5 flex items-center gap-4">
       <div className="w-10 h-10 rounded-lg bg-black/[0.03] grid place-items-center shrink-0">
         {icon}
       </div>

@@ -167,7 +167,7 @@ export default function Settings() {
         Manage your workspace.
       </p>
 
-      <div className="rounded-[16px] border border-border bg-card p-[16px] mb-[16px] shadow-[var(--shadow)]">
+      <div className="rounded-[20px] border border-[var(--hairline)] bg-card p-[16px] mb-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
         <div className="flex items-center gap-[10px]">
           <div className="w-[36px] h-[36px] rounded-full grid place-items-center bg-[var(--ink)] shrink-0">
             <GraduationCap className="w-[19px] h-[19px] text-[var(--gold-light)]" strokeWidth={2} />
@@ -188,7 +188,7 @@ export default function Settings() {
         </button>
       </div>
 
-      <div className="rounded-[16px] border border-border bg-card p-[16px] mb-[16px] shadow-[var(--shadow)]">
+      <div className="rounded-[20px] border border-[var(--hairline)] bg-card p-[16px] mb-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
         <div className="flex items-center gap-[10px]">
           <div className="w-[36px] h-[36px] rounded-full grid place-items-center bg-[var(--ink)] shrink-0">
             <MapPin className="w-[19px] h-[19px] text-[var(--gold-light)]" strokeWidth={2} />
@@ -219,8 +219,8 @@ export default function Settings() {
           onClick={toggleOnsite}
           className={`mt-[12px] w-full flex items-center justify-center gap-[8px] rounded-[12px] font-display font-bold text-[14px] py-[12px] transition-transform active:scale-[0.98] ${
             onsiteEnabled
-              ? "bg-card border border-border text-muted-foreground shadow-[var(--shadow)]"
-              : "text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)]"
+              ? "bg-card border border-[var(--hairline)] text-muted-foreground shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+              : "text-[var(--ink)] bg-[var(--gold-light)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
           }`}
         >
           <MapPin className="w-[16px] h-[16px]" strokeWidth={2} />
@@ -243,7 +243,7 @@ export default function Settings() {
         </p>
       </div>
 
-      <div className="rounded-[16px] border border-border bg-card p-[16px] mb-[16px] shadow-[var(--shadow)]">
+      <div className="rounded-[20px] border border-[var(--hairline)] bg-card p-[16px] mb-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
         <div className="flex items-center gap-[10px]">
           <div className="w-[36px] h-[36px] rounded-full grid place-items-center bg-[var(--ink)] shrink-0">
             <Sparkles className="w-[19px] h-[19px] text-[var(--gold-light)]" strokeWidth={2} />

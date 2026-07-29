@@ -174,42 +174,42 @@ export default function PropertyDetail() {
         <button
           onClick={() => setEditOpen(true)}
           aria-label="Edit property"
-          className="w-[36px] h-[36px] shrink-0 rounded-full grid place-items-center bg-card border border-border shadow-[var(--shadow)] text-muted-foreground transition-transform active:scale-[0.9]"
+          className="w-[36px] h-[36px] shrink-0 rounded-full grid place-items-center bg-card border border-border shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-muted-foreground transition-transform active:scale-[0.9]"
         >
           <Pencil className="w-[16px] h-[16px]" />
         </button>
       </div>
 
       <div className="grid grid-cols-3 gap-[9px] mb-[16px]">
-        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+        <div className="bg-card rounded-[14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[11px_12px]">
           <b className="block font-display font-bold text-[18px] tabular-nums">${stats.owed.toLocaleString()}</b>
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Owed</span>
         </div>
-        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+        <div className="bg-card rounded-[14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[11px_12px]">
           <b className="block font-display font-bold text-[18px] tabular-nums">${stats.collectedTotal.toLocaleString()}</b>
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Collected</span>
         </div>
-        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+        <div className="bg-card rounded-[14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[11px_12px]">
           <b className="block font-display font-bold text-[18px] tabular-nums">${stats.invoicedTotal.toLocaleString()}</b>
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Invoiced</span>
         </div>
-        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+        <div className="bg-card rounded-[14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[11px_12px]">
           <b className="block font-display font-bold text-[18px] tabular-nums">${stats.expensesTotal.toLocaleString()}</b>
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Expenses</span>
         </div>
-        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+        <div className="bg-card rounded-[14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[11px_12px]">
           <b className="block font-display font-bold text-[18px] tabular-nums">{stats.openJobs}</b>
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Open Jobs</span>
         </div>
-        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+        <div className="bg-card rounded-[14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[11px_12px]">
           <b className="block font-display font-bold text-[18px] tabular-nums">{stats.marginPct ?? 0}%</b>
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Margin</span>
         </div>
-        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+        <div className="bg-card rounded-[14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[11px_12px]">
           <b className="block font-display font-bold text-[18px] tabular-nums">{stats.activeMarginPct != null ? `${stats.activeMarginPct}%` : "—"}</b>
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Active Margin</span>
         </div>
-        <div className="bg-card rounded-[14px] shadow-[var(--shadow)] p-[11px_12px]">
+        <div className="bg-card rounded-[14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[11px_12px]">
           <b className="block font-display font-bold text-[18px] tabular-nums">{stats.historicalMarginPct != null ? `${stats.historicalMarginPct}%` : "—"}</b>
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Past Margin</span>
         </div>
@@ -236,7 +236,7 @@ export default function PropertyDetail() {
       />
 
       {property.brief && (
-        <div className="bg-[linear-gradient(135deg,#FFFDF8,#FBF6EA)] border border-[rgba(185,138,47,0.28)] rounded-[16px] p-[14px_15px] shadow-[var(--shadow)] mb-[18px]">
+        <div className="bg-[linear-gradient(135deg,#FFFDF8,#FBF6EA)] border border-[rgba(185,138,47,0.28)] rounded-[16px] p-[14px_15px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] mb-[18px]">
           <div className="font-display font-semibold text-[11px] tracking-[0.18em] uppercase text-[var(--gold-dark)] mb-[6px]">Property Brief</div>
           <div className="text-[14px] text-[var(--ink2)] leading-relaxed whitespace-pre-line">{property.brief}</div>
         </div>
@@ -254,7 +254,7 @@ export default function PropertyDetail() {
         {sectionJobs.length > 0 ? (
           <div className="space-y-[10px]">
             {sectionJobs.map((job) => (
-              <div key={job.id} className="bg-card rounded-[16px] shadow-[var(--shadow)] border border-border border-l-[4px] border-l-[var(--primary)] overflow-hidden transition-all duration-200">
+              <div key={job.id} className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-border border-l-[4px] border-l-[var(--primary)] overflow-hidden transition-all duration-200">
                 {/* Header / collapsed state */}
                 <div 
                   className="p-[12px_14px] flex items-center gap-[10px] cursor-pointer active:bg-[rgba(23,24,28,0.02)]"
@@ -299,7 +299,7 @@ export default function PropertyDetail() {
                     
                     {/* Primary actions row */}
                     <div className="flex items-center gap-[8px] mt-[14px]">
-                      <Link href={`/jobs/${job.id}`} className="flex-1 flex items-center justify-center gap-[6px] text-[13.5px] font-display font-bold px-[12px] py-[8px] rounded-[10px] bg-[var(--ink)] text-background active:scale-[0.98]">
+                      <Link href={`/jobs/${job.id}`} className="flex-1 flex items-center justify-center gap-[6px] text-[13.5px] font-display font-bold px-[12px] py-[8px] rounded-[10px] bg-[var(--ink)] text-white active:scale-[0.98]">
                         Open Job
                         <ArrowRight className="w-[14px] h-[14px]" />
                       </Link>
@@ -471,7 +471,7 @@ export default function PropertyDetail() {
             ))}
           </div>
         ) : (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px] text-[13px] text-muted-foreground text-center">
             {sectionTitle === "Active Jobs"
               ? "No active jobs. Tap Add to create one."
               : "Nothing completed yet — once a job is verified finished, mark it complete and it moves here."}
@@ -493,7 +493,7 @@ export default function PropertyDetail() {
           {historyOpen && (
             <div className="space-y-[10px]">
               {historyJobs.map((job) => (
-                <div key={job.id} className="bg-card rounded-[16px] shadow-[var(--shadow)] border border-border border-l-[4px] border-l-[rgba(180,255,68,0.45)] flex items-center gap-[10px] p-[12px_14px] text-[14px]">
+                <div key={job.id} className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-border border-l-[4px] border-l-[var(--gold-light)] flex items-center gap-[10px] p-[12px_14px] text-[14px]">
                   <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
                     <div className="font-semibold truncate text-muted-foreground">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
                     <div className="text-[12px] text-muted-foreground truncate">
@@ -535,7 +535,7 @@ export default function PropertyDetail() {
           </Link>
         </div>
         {upcomingVisits.length > 0 ? (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[6px_14px]">
             {upcomingVisits.map((v, idx) => (
               <div key={v.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
                 <div className="flex-1 min-w-0">
@@ -552,14 +552,14 @@ export default function PropertyDetail() {
             ))}
           </div>
         ) : (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No upcoming visits scheduled.</div>
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px] text-[13px] text-muted-foreground text-center">No upcoming visits scheduled.</div>
         )}
       </div>
 
       <div className="mb-[18px]">
         <SectionHeader title="Invoices" />
         {invoices.length > 0 ? (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[6px_14px]">
             {invoices.map((inv, idx) => (
               <div key={inv.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
                 <div className="flex-1 min-w-0">
@@ -587,7 +587,7 @@ export default function PropertyDetail() {
                   <button
                     disabled={setStatus.isPending}
                     onClick={() => toggleInvoice(inv.id, "paid")}
-                    className="shrink-0 text-[12px] font-display font-bold px-[10px] py-[6px] rounded-full text-[var(--ink)] bg-[var(--primary)] active:scale-[0.95] disabled:opacity-50"
+                    className="shrink-0 text-[12px] font-display font-bold px-[10px] py-[6px] rounded-full text-[var(--ink)] bg-[var(--gold-light)] active:scale-[0.95] disabled:opacity-50"
                   >
                     Mark paid
                   </button>
@@ -596,7 +596,7 @@ export default function PropertyDetail() {
             ))}
           </div>
         ) : (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No invoices for this property.</div>
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px] text-[13px] text-muted-foreground text-center">No invoices for this property.</div>
         )}
       </div>
 
@@ -606,12 +606,12 @@ export default function PropertyDetail() {
         </div>
         <button
           onClick={() => setImportCatalogOpen(true)}
-          className="w-full mb-[10px] rounded-[13px] py-[10px] text-[13.5px] font-display font-bold text-[var(--gold-dark)] bg-card border border-[var(--gold-tint,rgba(143,106,31,0.25))] shadow-[var(--shadow)] active:scale-[0.98] transition-transform"
+          className="w-full mb-[10px] rounded-[13px] py-[10px] text-[13.5px] font-display font-bold text-[var(--gold-dark)] bg-card border border-[var(--gold-tint,rgba(143,106,31,0.25))] shadow-[0_2px_8px_rgba(0,0,0,0.04)] active:scale-[0.98] transition-transform"
         >
           Add from Price Book
         </button>
         {priceItems.length > 0 ? (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[6px_14px]">
             {priceItems.map((item, idx) => (
               <div key={item.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
                 <div className="flex-1 min-w-0">
@@ -633,14 +633,14 @@ export default function PropertyDetail() {
             ))}
           </div>
         ) : (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No agreed rates yet.</div>
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px] text-[13px] text-muted-foreground text-center">No agreed rates yet.</div>
         )}
       </div>
 
       <div className="mb-[18px]">
         <SectionHeader title="Contacts" onAdd={() => setContactOpen(true)} />
         {contacts.length > 0 ? (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[6px_14px]">
             {contacts.map((contact, idx) => (
               <div key={contact.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
                 <div className="flex-1 min-w-0">
@@ -662,14 +662,14 @@ export default function PropertyDetail() {
             ))}
           </div>
         ) : (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No contacts yet.</div>
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px] text-[13px] text-muted-foreground text-center">No contacts yet.</div>
         )}
       </div>
 
       <div className="mb-[18px]">
         <SectionHeader title="Expenses" onAdd={() => setExpenseOpen(true)} />
         {expenses.length > 0 ? (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[6px_14px]">
             {expenses.map((e, idx) => (
               <div key={e.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
                 <div className="flex-1 min-w-0">
@@ -683,14 +683,14 @@ export default function PropertyDetail() {
             ))}
           </div>
         ) : (
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[16px] text-[13px] text-muted-foreground text-center">No expenses logged.</div>
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px] text-[13px] text-muted-foreground text-center">No expenses logged.</div>
         )}
       </div>
 
       {agreements.length > 0 && (
         <div className="mb-[18px]">
           <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-muted-foreground mb-[8px] mx-[2px]">Agreements</div>
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[6px_14px]">
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[6px_14px]">
             {agreements.map((a, idx) => (
               <div key={a.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
                 <div className="flex-1 min-w-0">

@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 const fieldCls =
-  "w-full bg-card border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] shadow-[var(--shadow)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
+  "w-full bg-card border border-[var(--hairline)] rounded-[13px] py-[11px] px-[14px] text-[14.5px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
 
 const SERVICE_CATEGORIES = [
   "Make Ready",
@@ -107,7 +107,7 @@ function CatalogItemSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="rounded-t-[26px] bg-[var(--paper)] p-0 flex flex-col max-h-[86vh] border-none shadow-[0_-12px_44px_rgba(23,24,28,0.24)]"
+        className="rounded-t-[26px] bg-[var(--paper)] p-0 flex flex-col max-h-[86vh] border-none shadow-[0_-8px_32px_rgba(0,0,0,0.12)]"
       >
         <div className="w-[40px] h-[4.5px] rounded-[3px] bg-[rgba(23,24,28,0.16)] mx-auto mt-[10px] mb-[4px] shrink-0" />
         <div className="p-[8px_20px_26px] overflow-y-auto">
@@ -138,7 +138,7 @@ function CatalogItemSheet({
             <input className={fieldCls} placeholder="Category (optional)" value={category} onChange={(e) => setCategory(e.target.value)} />
           </div>
           <button
-            className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full mt-[18px] rounded-full py-[13px] font-display font-bold text-[15px] btn-gold disabled:opacity-50 transition-transform active:scale-[0.98]"
             onClick={submit}
             disabled={!service.trim() || pending}
           >
@@ -186,17 +186,17 @@ export default function Catalog() {
   return (
     <div className="px-[18px] pb-[110px] pt-[14px] max-w-[560px] mx-auto">
       <div className="flex items-center gap-[10px] mb-[14px]">
-        <Link href="/" className="w-[36px] h-[36px] rounded-full grid place-items-center bg-card border border-border shadow-[var(--shadow)]">
+        <Link href="/" className="w-[36px] h-[36px] rounded-full grid place-items-center bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
           <ChevronLeft className="w-[19px] h-[19px]" />
         </Link>
         <div className="flex-1 min-w-0">
-          <h1 className="font-display font-bold text-[21px] leading-tight">Price Book</h1>
+          <h1 className="font-display font-bold text-[24px] tracking-[-0.02em] leading-tight text-[var(--ink)]">Price Book</h1>
           <div className="text-[12.5px] text-muted-foreground">Master list of services & prices</div>
         </div>
         <button
           onClick={() => setAddOpen(true)}
           aria-label="Add service"
-          className="w-[36px] h-[36px] rounded-full grid place-items-center text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] active:scale-[0.95] transition-transform"
+          className="w-[36px] h-[36px] rounded-full grid place-items-center btn-gold active:scale-[0.95] transition-transform"
         >
           <Plus className="w-[19px] h-[19px]" />
         </button>
@@ -205,7 +205,7 @@ export default function Catalog() {
       <div className="relative mb-[12px]">
         <Search className="w-[16px] h-[16px] absolute left-[13px] top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
-          className="w-full bg-card border border-border rounded-[13px] py-[10px] pl-[38px] pr-[14px] text-[14px] shadow-[var(--shadow)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
+          className="w-full bg-card border border-[var(--hairline)] rounded-full py-[10px] pl-[38px] pr-[14px] text-[14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
           placeholder="Search services…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -213,19 +213,19 @@ export default function Catalog() {
       </div>
 
       {isLoading ? (
-        <Skeleton className="h-40 w-full rounded-[16px]" />
+        <Skeleton className="h-40 w-full rounded-[20px]" />
       ) : (
-        <div className="bg-card rounded-[16px] shadow-[var(--shadow)] border border-border divide-y divide-border">
+        <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
           {filtered.map((item) => (
             <div key={item.id} className="flex items-center gap-[12px] p-[14px]">
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[14.5px]">{item.service}</div>
+                <div className="font-semibold text-[14.5px] text-[var(--ink)]">{item.service}</div>
                 <div className="text-[12.5px] text-muted-foreground truncate">
                   {[item.detail, item.category].filter(Boolean).join(" · ")}
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <div className="font-mono font-bold text-[14.5px]">{item.rate != null ? `$${item.rate}` : "—"}</div>
+                <div className="font-mono font-bold text-[14.5px] text-[var(--ink)]">{item.rate != null ? `$${item.rate}` : "—"}</div>
                 {item.unit && <div className="text-[11px] text-muted-foreground">/{item.unit}</div>}
               </div>
               <button

@@ -74,7 +74,7 @@ function guideRequested(): boolean {
   return new URLSearchParams(window.location.search).get("guide") === "1";
 }
 
-const card = "bg-card rounded-[16px] border border-border shadow-[var(--shadow)] p-[15px]";
+const card = "bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[15px]";
 
 export default function Wings() {
   const queryClient = useQueryClient();
@@ -113,14 +113,14 @@ export default function Wings() {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both pb-24">
       <div className="px-[6px] mb-[16px]">
         <div className="flex items-center justify-between mb-[8px] gap-[8px]">
-          <h1 className="font-display font-bold text-[30px] tracking-[-0.02em] text-[var(--ink)] leading-none flex items-center gap-[8px]">
-            <Feather className="w-[26px] h-[26px] text-[var(--gold-dark)]" /> Wings
+          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)] leading-none flex items-center gap-[8px]">
+            <Feather className="w-[26px] h-[26px] text-[var(--gold)]" /> Wings
           </h1>
           <button
             onClick={() => setGuideOpen(true)}
             aria-label="Wings program guide"
             data-testid="button-wings-guide"
-            className="w-[38px] h-[38px] rounded-full grid place-items-center bg-card border border-border text-[var(--ink)] shadow-sm transition-transform active:scale-[0.9]"
+            className="w-[38px] h-[38px] rounded-full grid place-items-center bg-card border border-[var(--hairline)] text-[var(--ink)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.9]"
           >
             <BookOpen className="w-[18px] h-[18px]" />
           </button>
@@ -132,7 +132,7 @@ export default function Wings() {
           onClick={handleSweep}
           disabled={runSweep.isPending}
           data-testid="button-run-sweep"
-          className="mt-[12px] w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] text-[14px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_16px_rgba(143,106,31,0.25)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+          className="mt-[12px] w-full flex items-center justify-center gap-[8px] rounded-full py-[12px] text-[14px] font-display font-bold btn-gold disabled:opacity-60 transition-transform active:scale-[0.98]"
         >
           {runSweep.isPending ? (
             <>
@@ -146,7 +146,7 @@ export default function Wings() {
         </button>
       </div>
 
-      <div className="sticky top-0 z-10 bg-background/85 backdrop-blur-md px-[6px] py-[8px] -mx-[2px]">
+      <div className="sticky top-0 z-10 bg-[var(--paper)]/90 backdrop-blur-md px-[6px] py-[8px] -mx-[2px]">
         <div className="flex gap-[6px] overflow-x-auto no-scrollbar">
           {pills.map((p) => {
             const Icon = p.Icon;
@@ -157,8 +157,8 @@ export default function Wings() {
                 data-testid={`pill-${p.key}`}
                 className={`flex items-center gap-[5px] whitespace-nowrap rounded-full px-[14px] py-[8px] text-[12.5px] font-display font-bold transition-all ${
                   pill === p.key
-                    ? "bg-[var(--ink)] text-white shadow-sm"
-                    : "bg-card border border-border text-muted-foreground"
+                    ? "bg-[var(--ink)] text-white"
+                    : "bg-card border border-[var(--hairline)] text-muted-foreground"
                 }`}
               >
                 <Icon className="w-[13px] h-[13px]" /> {p.label}
@@ -204,8 +204,8 @@ function StatCard({
 }) {
   return (
     <div
-      className={`rounded-[16px] border shadow-[var(--shadow)] p-[14px] ${
-        highlight ? "bg-amber-50 border-amber-300" : "bg-card border-border"
+      className={`rounded-[20px] border shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[14px] ${
+        highlight ? "bg-amber-50 border-amber-300" : "bg-card border-[var(--hairline)]"
       }`}
     >
       <div
@@ -564,7 +564,7 @@ function CrewsPill() {
                 onClick={() => toggleAvailable(m)}
                 data-testid={`toggle-available-${m.crewId}`}
                 className={`relative w-[42px] h-[24px] rounded-full transition-colors ${
-                  m.isAvailable ? "bg-[var(--primary)]" : "bg-muted"
+                  m.isAvailable ? "bg-[var(--gold-light)]" : "bg-muted"
                 }`}
               >
                 <span
@@ -581,7 +581,7 @@ function CrewsPill() {
                 value={m.sponsorCrewId ?? ""}
                 onChange={(e) => setSponsor(m, e.target.value)}
                 data-testid={`sponsor-${m.crewId}`}
-                className="flex-1 min-w-0 text-[12.5px] rounded-[10px] border border-border bg-[var(--paper)] px-[10px] py-[7px] text-right"
+                className="flex-1 min-w-0 text-[12.5px] rounded-[10px] border border-[var(--hairline)] bg-[var(--paper)] px-[10px] py-[7px] text-right"
               >
                 <option value="">None</option>
                 {members
@@ -691,7 +691,7 @@ function QualityPill() {
           </div>
 
           {it.review && (
-            <div className="mt-[10px] bg-[var(--paper)] rounded-[12px] border border-border p-[12px]">
+            <div className="mt-[10px] bg-[var(--paper)] rounded-[12px] border border-[var(--hairline)] p-[12px]">
               <div className="flex items-center justify-between">
                 <div className="text-[12px] font-bold text-muted-foreground uppercase tracking-[0.06em]">
                   AI review
@@ -763,14 +763,14 @@ function QualityPill() {
             onChange={(e) => setReason(e.target.value)}
             rows={3}
             data-testid="input-decision-reason"
-            className="mt-[6px] w-full rounded-[12px] border border-border bg-[var(--paper)] px-[12px] py-[10px] text-[13px]"
+            className="mt-[6px] w-full rounded-[12px] border border-[var(--hairline)] bg-[var(--paper)] px-[12px] py-[10px] text-[13px]"
             placeholder="Add a short reason for this decision"
           />
           <button
             onClick={submitDecision}
             disabled={decide.isPending}
             data-testid="button-submit-decision"
-            className="mt-[12px] w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] text-[14px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] disabled:opacity-60 active:scale-[0.98] transition-transform"
+            className="mt-[12px] w-full flex items-center justify-center gap-[8px] rounded-full py-[12px] text-[14px] font-display font-bold btn-gold disabled:opacity-60 active:scale-[0.98] transition-transform"
           >
             {decide.isPending ? <Loader2 className="w-[16px] h-[16px] animate-spin" /> : null}
             Save decision
@@ -802,7 +802,7 @@ function MoneyPill() {
         ) : (
           <div className="space-y-[10px]">
             {overrides.map((o) => (
-              <div key={o.id} className="border-b border-border last:border-0 pb-[10px] last:pb-0" data-testid={`override-${o.id}`}>
+              <div key={o.id} className="border-b border-[var(--hairline)] last:border-0 pb-[10px] last:pb-0" data-testid={`override-${o.id}`}>
                 <div className="flex items-center justify-between gap-[8px]">
                   <div className="font-semibold text-[13.5px] text-[var(--ink)]">{o.jobNo ?? "Job"}</div>
                   <StatusBadge status={o.status} />
@@ -848,7 +848,7 @@ function MoneyPill() {
           </div>
         )}
         {reserve && reserve.transactions.length > 0 && (
-          <div className="mt-[12px] pt-[10px] border-t border-border">
+          <div className="mt-[12px] pt-[10px] border-t border-[var(--hairline)]">
             <div className="text-[11.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-[6px]">
               Recent transactions
             </div>
@@ -973,7 +973,7 @@ function IncidentsSection() {
                       resolve.mutate({ id: inc.id }, { onSuccess: invalidate })
                     }
                     data-testid={`resolve-${inc.id}`}
-                    className="shrink-0 rounded-[10px] px-[10px] py-[6px] text-[11.5px] font-display font-bold bg-[var(--primary)] text-[var(--ink)] active:scale-[0.97] transition-transform"
+                    className="shrink-0 rounded-full px-[12px] py-[6px] text-[11.5px] font-display font-bold btn-gold active:scale-[0.97] transition-transform"
                   >
                     Resolve
                   </button>
@@ -993,7 +993,7 @@ function IncidentsSection() {
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value as any })}
                 data-testid="select-incident-type"
-                className="mt-[6px] w-full rounded-[12px] border border-border bg-[var(--paper)] px-[12px] py-[10px] text-[13px]"
+                className="mt-[6px] w-full rounded-[12px] border border-[var(--hairline)] bg-[var(--paper)] px-[12px] py-[10px] text-[13px]"
               >
                 {Object.values(WingsIncidentInputType).map((t) => (
                   <option key={t} value={t}>
@@ -1013,7 +1013,7 @@ function IncidentsSection() {
                 value={form.severity}
                 onChange={(e) => setForm({ ...form, severity: Number(e.target.value) })}
                 data-testid="input-incident-severity"
-                className="mt-[6px] w-full accent-[var(--primary)]"
+                className="mt-[6px] w-full accent-[var(--gold)]"
               />
             </div>
             <div>
@@ -1023,7 +1023,7 @@ function IncidentsSection() {
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 rows={3}
                 data-testid="input-incident-description"
-                className="mt-[6px] w-full rounded-[12px] border border-border bg-[var(--paper)] px-[12px] py-[10px] text-[13px]"
+                className="mt-[6px] w-full rounded-[12px] border border-[var(--hairline)] bg-[var(--paper)] px-[12px] py-[10px] text-[13px]"
               />
             </div>
             <div>
@@ -1033,7 +1033,7 @@ function IncidentsSection() {
                 value={form.cost}
                 onChange={(e) => setForm({ ...form, cost: e.target.value })}
                 data-testid="input-incident-cost"
-                className="mt-[6px] w-full rounded-[12px] border border-border bg-[var(--paper)] px-[12px] py-[10px] text-[13px]"
+                className="mt-[6px] w-full rounded-[12px] border border-[var(--hairline)] bg-[var(--paper)] px-[12px] py-[10px] text-[13px]"
               />
             </div>
             <div>
@@ -1042,7 +1042,7 @@ function IncidentsSection() {
                 value={form.crewId}
                 onChange={(e) => setForm({ ...form, crewId: e.target.value })}
                 data-testid="select-incident-crew"
-                className="mt-[6px] w-full rounded-[12px] border border-border bg-[var(--paper)] px-[12px] py-[10px] text-[13px]"
+                className="mt-[6px] w-full rounded-[12px] border border-[var(--hairline)] bg-[var(--paper)] px-[12px] py-[10px] text-[13px]"
               >
                 <option value="">None</option>
                 {crews?.map((c) => (
@@ -1056,7 +1056,7 @@ function IncidentsSection() {
               onClick={submit}
               disabled={create.isPending}
               data-testid="button-submit-incident"
-              className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] text-[14px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] disabled:opacity-60 active:scale-[0.98] transition-transform"
+              className="w-full flex items-center justify-center gap-[8px] rounded-full py-[12px] text-[14px] font-display font-bold btn-gold disabled:opacity-60 active:scale-[0.98] transition-transform"
             >
               {create.isPending ? <Loader2 className="w-[16px] h-[16px] animate-spin" /> : null}
               Log incident
@@ -1107,7 +1107,7 @@ function ActorBadge({ actor }: { actor: string }) {
     a === "AI"
       ? "bg-[var(--ink)] text-[var(--gold-light)]"
       : a === "ADMIN"
-      ? "bg-[var(--primary)] text-[var(--ink)]"
+      ? "bg-[var(--gold-light)] text-[var(--ink)]"
       : "bg-muted text-muted-foreground";
   const Icon = a === "AI" ? Bot : a === "ADMIN" ? UserCog : ClipboardList;
   return (
@@ -1128,7 +1128,7 @@ function StatusBadge({ status }: { status: string }) {
       ? "bg-red-50 text-red-600 border-red-200"
       : s === "NEEDS_REVIEW" || s === "PENDING"
       ? "bg-amber-50 text-amber-700 border-amber-200"
-      : "bg-muted text-muted-foreground border-border";
+      : "bg-muted text-muted-foreground border-[var(--hairline)]";
   return (
     <span
       className={`shrink-0 px-[8px] py-[3px] rounded-full text-[10.5px] font-bold uppercase tracking-[0.05em] border ${style}`}
@@ -1148,8 +1148,8 @@ function Modal({
   title: string;
 }) {
   return (
-    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-[14px]">
-      <div className="bg-card border border-border rounded-[20px] w-full max-w-[440px] max-h-[86vh] overflow-y-auto p-[18px] shadow-[0_0_40px_rgba(0,0,0,0.4)]">
+    <div className="fixed inset-0 z-50 bg-[var(--ink)]/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-[14px]">
+      <div className="bg-card border border-[var(--hairline)] rounded-[20px] w-full max-w-[440px] max-h-[86vh] overflow-y-auto p-[18px] shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
         <div className="flex items-center justify-between mb-[12px]">
           <div className="font-display font-bold text-[17px] text-[var(--ink)]">{title}</div>
           <button onClick={onClose} className="text-muted-foreground p-[2px]" aria-label="Close">

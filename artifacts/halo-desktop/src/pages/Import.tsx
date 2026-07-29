@@ -39,7 +39,7 @@ function fieldPreview(fields: Record<string, unknown>): string {
 
 export default function Import() {
   const queryClient = useQueryClient();
-  const { toast} = useToast();
+  const { toast } = useToast();
   const parse = useParseIngest();
   const scan = useScanIngest();
   const commit = useCommitIngest();
@@ -58,12 +58,12 @@ export default function Import() {
     setSelected(new Set());
     setSummary(null);
     setDone(null);
- };
+  };
 
   const isImageFile = (file: File): boolean => {
     if (file.type.startsWith("image/")) return true;
     return /\.(heic|heif|jpg|jpeg|png|webp|gif|bmp|tiff)$/i.test(file.name);
- };
+  };
 
   const looksReadable = (text: string): boolean => {
     const trimmed = text.trim();
@@ -74,12 +74,12 @@ export default function Import() {
       const code = sample.charCodeAt(i);
       if (code === 9 || code === 10 || code === 13 || (code >= 32 && code !== 127)) {
         printable++;
-     }
-   }
+      }
+    }
     return printable / sample.length >= 0.85;
- };
+  };
 
-  const finishParse = (result: { summary?: string | null; records: IngestRecord[]}) => {
+  const finishParse = (result: { summary?: string | null; records: IngestRecord[] }) => {
     setSummary(result.summary ?? null);
     setRecords(result.records);
     setSelected(new Set(result.records.map((_, i) => i)));
@@ -87,9 +87,9 @@ export default function Import() {
       toast({
         title: "Nothing to import",
         description: "The file was read but no records were detected.",
-     });
-   }
- };
+      });
+    }
+  };
 
   const onFilePicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -107,71 +107,71 @@ export default function Import() {
         let prepared;
         try {
           prepared = await prepareScanImage(file);
-       } catch {
+        } catch {
           toast({
             title: "Couldn't read that photo format",
             description:
               "Couldn't read that photo format — try taking the photo again or export it as JPEG.",
             variant: "destructive",
-         });
+          });
           return;
-       }
-        const { blob, base64, mediaType} = prepared;
-        setFileObj(new File([blob], file.name, { type: mediaType}));
+        }
+        const { blob, base64, mediaType } = prepared;
+        setFileObj(new File([blob], file.name, { type: mediaType }));
         const result = await scan.mutateAsync({
-          data: { image: base64, mediaType, filename: file.name},
-       });
+          data: { image: base64, mediaType, filename: file.name },
+        });
         finishParse(result);
         return;
-     }
+      }
 
       // Excel spreadsheets → CSV per sheet
       if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
         const XLSX = await import("xlsx");
         const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf, { type: "array"});
+        const wb = XLSX.read(buf, { type: "array" });
         const parts: string[] = [];
         for (const sheetName of wb.SheetNames) {
           const csv = XLSX.utils.sheet_to_csv(wb.Sheets[sheetName]);
           if (csv.trim()) parts.push(`# ${sheetName}\n${csv}`);
-       }
+        }
         const content = parts.join("\n\n");
         if (!content.trim()) {
           toast({
             title: "Couldn't read that file",
             description: "No readable content found in the spreadsheet.",
             variant: "destructive",
-         });
+          });
           return;
-       }
+        }
         const result = await parse.mutateAsync({
-          data: { filename: file.name, content, mimeType: "text/plain", target: "auto"},
-       });
+          data: { filename: file.name, content, mimeType: "text/plain", target: "auto" },
+        });
         finishParse(result);
         return;
-     }
+      }
 
       // Word documents → raw text
       if (lowerName.endsWith(".docx")) {
         const mammoth = await import("mammoth");
         const arrayBuffer = await file.arrayBuffer();
-        const { value} = await mammoth.extractRawText({ arrayBuffer});
+        const { value } = await mammoth.extractRawText({ arrayBuffer });
         if (!value.trim()) {
           toast({
             title: "Couldn't read that file",
             description: "No readable text found in the document.",
             variant: "destructive",
-         });
+          });
           return;
-       }
+        }
         const result = await parse.mutateAsync({
-          data: { filename: file.name, content: value, mimeType: "text/plain", target: "auto"},
-       });
+          data: { filename: file.name, content: value, mimeType: "text/plain", target: "auto" },
+        });
         finishParse(result);
         return;
-     }
+      }
 
-      const { content, mimeType, isPdf} = await extractFileText(file);
+      const { content, mimeType, isPdf } = await extractFileText(file);
 
       // Scanned/image-only PDFs have little or no selectable text — OCR the
       // rendered pages instead of giving up.
@@ -182,9 +182,9 @@ export default function Import() {
             title: "Couldn't read that file",
             description: "No readable content found in the PDF.",
             variant: "destructive",
-         });
+          });
           return;
-       }
+        }
         const merged: IngestRecord[] = [];
         const summaries: string[] = [];
         for (let i = 0; i < pages.length; i++) {
@@ -192,15 +192,15 @@ export default function Import() {
             data: {
               image: pages[i],
               mediaType: "image/jpeg",
-              filename:`${file.name} (page ${i + 1})`,
-           },
-         });
+              filename: `${file.name} (page ${i + 1})`,
+            },
+          });
           merged.push(...pageResult.records);
           if (pageResult.summary) summaries.push(pageResult.summary);
-       }
-        finishParse({ summary: summaries[0] ?? null, records: merged});
+        }
+        finishParse({ summary: summaries[0] ?? null, records: merged });
         return;
-     }
+      }
 
       if (!content.trim() || (!isPdf && !looksReadable(content))) {
         toast({
@@ -208,24 +208,24 @@ export default function Import() {
           description:
             "That file format isn't readable. Try a photo, PDF, CSV, text, Excel (.xlsx/.xls), or Word (.docx) file.",
           variant: "destructive",
-       });
+        });
         return;
-     }
+      }
 
       const result = await parse.mutateAsync({
-        data: { filename: file.name, content, mimeType, target: "auto"},
-     });
+        data: { filename: file.name, content, mimeType, target: "auto" },
+      });
       finishParse(result);
-   } catch {
+    } catch {
       toast({
         title: "Import failed",
         description: "Could not parse that file. Please try another.",
         variant: "destructive",
-     });
-   } finally {
+      });
+    } finally {
       setReading(false);
-   }
- };
+    }
+  };
 
   const toggle = (i: number) => {
     setSelected((prev) => {
@@ -233,35 +233,35 @@ export default function Import() {
       if (next.has(i)) next.delete(i);
       else next.add(i);
       return next;
-   });
- };
+    });
+  };
 
   const uploadOriginal = async (file: File): Promise<string | null> => {
     try {
       const resp = await fetch("/api/storage/uploads/request-url", {
         method: "POST",
-        headers: { "Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: file.name,
           size: Math.max(file.size, 1),
           contentType: file.type || "application/octet-stream",
-       }),
-     });
+        }),
+      });
       if (!resp.ok) return null;
-      const { uploadURL, objectPath} = (await resp.json()) as {
+      const { uploadURL, objectPath } = (await resp.json()) as {
         uploadURL: string;
         objectPath: string;
-     };
+      };
       const put = await fetch(uploadURL, {
         method: "PUT",
         body: file,
-        headers: { "Content-Type": file.type || "application/octet-stream"},
-     });
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
       return put.ok ? objectPath : null;
-   } catch {
+    } catch {
       return null;
-   }
- };
+    }
+  };
 
   const onCommit = async () => {
     const chosen = records.filter((_, i) => selected.has(i));
@@ -273,9 +273,9 @@ export default function Import() {
           title: "Couldn't save your document",
           description: "The original file could not be stored, so the import was canceled. Please try again.",
           variant: "destructive",
-       });
+        });
         return;
-     }
+      }
       const result = await commit.mutateAsync({
         data: {
           records: chosen,
@@ -283,8 +283,8 @@ export default function Import() {
           mimeType: fileObj?.type || null,
           objectPath,
           summary,
-       },
-     });
+        },
+      });
       for (const key of [
         getListPropertiesQueryKey(),
         getListJobsQueryKey(),
@@ -295,21 +295,21 @@ export default function Import() {
         getGetTodayQueryKey(),
         getListImportHistoryQueryKey(),
       ]) {
-        queryClient.invalidateQueries({ queryKey: key});
-     }
+        queryClient.invalidateQueries({ queryKey: key });
+      }
       setDone(
-       `Imported ${result.committed} record${result.committed === 1 ? "" : "s"}.` +
+        `Imported ${result.committed} record${result.committed === 1 ? "" : "s"}.` +
           (result.messages && result.messages.length
-            ?` ${result.messages.length} skipped.`
+            ? ` ${result.messages.length} skipped.`
             : ""),
       );
       setRecords([]);
       setSelected(new Set());
-      toast({ title: "Import complete", description:`${result.committed} added.`});
-   } catch {
-      toast({ title: "Import failed", variant: "destructive"});
-   }
- };
+      toast({ title: "Import complete", description: `${result.committed} added.` });
+    } catch {
+      toast({ title: "Import failed", variant: "destructive" });
+    }
+  };
 
   const busy = reading || parse.isPending || scan.isPending;
 
@@ -317,7 +317,7 @@ export default function Import() {
     <div className="p-8 max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)]">Import Data</h1>
+          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">Import Data</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Drop in almost anything — a photo of handwritten field notes or a receipt,
             an Excel or CSV spreadsheet, a Word doc, a PDF, or plain text. HALO reads
@@ -326,8 +326,8 @@ export default function Import() {
         </div>
       </header>
 
-      <label className="w-full flex items-center justify-center gap-2 rounded-xl py-8 border-2 border-dashed border-border hover:border-[var(--gold)] hover:bg-[var(--gold-tint)] text-lg font-display font-bold text-[var(--ink)] cursor-pointer transition-colors">
-        <FileUp className="w-6 h-6 text-[var(--gold-dark)]" />
+      <label className="w-full flex items-center justify-center gap-2 rounded-[20px] py-8 border-2 border-dashed border-[var(--hairline)] hover:border-[var(--gold)] hover:bg-[var(--gold-tint)] text-lg font-display font-bold text-[var(--ink)] cursor-pointer transition-colors">
+        <FileUp className="w-6 h-6 text-[var(--gold)]" />
         {busy ? "Reading file…" : "Choose a file to import"}
         <input
           type="file"
@@ -345,7 +345,7 @@ export default function Import() {
       )}
 
       {done && (
-        <div className="bg-card rounded-xl shadow-sm p-4 text-sm flex items-center gap-3 border border-border">
+        <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-4 text-sm flex items-center gap-3 border border-[var(--hairline)]">
           <div className="w-8 h-8 rounded-full bg-[var(--green)]/10 flex items-center justify-center shrink-0">
             <Check className="w-4 h-4 text-[var(--green)]" />
           </div>
@@ -354,8 +354,8 @@ export default function Import() {
       )}
 
       {summary && records.length > 0 && (
-        <div className="flex items-start gap-2 text-sm text-muted-foreground bg-[var(--gold-tint)]/50 p-4 rounded-xl border border-[var(--gold)]/20">
-          <Sparkles className="w-5 h-5 text-[var(--gold-dark)] shrink-0" />
+        <div className="flex items-start gap-2 text-sm text-muted-foreground bg-[var(--gold-tint)] p-4 rounded-[20px] border border-[var(--gold)]/20">
+          <Sparkles className="w-5 h-5 text-[var(--gold)] shrink-0" />
           <span className="leading-relaxed">{summary}</span>
         </div>
       )}
@@ -363,7 +363,7 @@ export default function Import() {
       {records.length > 0 && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="font-display font-bold text-lg">Detected Records</h2>
+            <h2 className="font-display font-bold text-lg text-[var(--ink)]">Detected Records</h2>
             <span className="text-sm text-muted-foreground">{selected.size} of {records.length} selected</span>
           </div>
           
@@ -374,20 +374,20 @@ export default function Import() {
                 <button
                   key={i}
                   onClick={() => toggle(i)}
-                  className={`text-left bg-card rounded-xl shadow-sm p-4 border transition-colors flex items-start gap-4 ${
-                    isSel ? "border-[var(--gold)] bg-[var(--gold-tint)]/10" : "border-border hover:border-border/80 opacity-70"
-                 }`}
+                  className={`text-left bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-4 border transition-colors flex items-start gap-4 ${
+                    isSel ? "border-[var(--gold)] bg-[var(--gold-tint)]" : "border-[var(--hairline)] hover:border-[var(--hairline2)] opacity-70"
+                  }`}
                 >
                   <div className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center shrink-0 border ${
                       isSel ? "bg-[var(--gold-light)] border-[var(--gold)]" : "border-input bg-background"
-                   }`}
+                    }`}
                   >
                     {isSel && <Check className="w-3.5 h-3.5 text-black" />}
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--paper)] border border-border text-[var(--ink)]">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--paper)] border border-[var(--hairline)] text-[var(--ink)]">
                         {targetLabels[r.target] || r.target}
                       </span>
                       {r.label && (
@@ -402,17 +402,17 @@ export default function Import() {
                   </div>
                 </button>
               );
-           })}
+            })}
           </div>
           
           <button
             onClick={onCommit}
             disabled={commit.isPending || selected.size === 0}
-            className="w-full py-4 rounded-xl font-display font-bold text-lg text-black bg-[var(--primary)] shadow-md disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="btn-gold w-full py-4 rounded-[20px] text-lg disabled:opacity-50 transition-transform active:scale-[0.98]"
           >
             {commit.isPending
               ? "Importing…"
-              :`Import ${selected.size} record${selected.size === 1 ? "" : "s"}`}
+              : `Import ${selected.size} record${selected.size === 1 ? "" : "s"}`}
           </button>
         </div>
       )}
@@ -428,10 +428,10 @@ export default function Import() {
             {history.data!.uploads.map((u) => (
               <div
                 key={u.id}
-                className="bg-card rounded-xl shadow-sm p-4 border border-border flex items-start gap-4"
+                className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-4 border border-[var(--hairline)] flex items-start gap-4"
               >
                 <div className="w-10 h-10 rounded-lg bg-[var(--gold-tint)] flex items-center justify-center shrink-0">
-                  <FileText className="w-5 h-5 text-[var(--gold-dark)]" />
+                  <FileText className="w-5 h-5 text-[var(--gold)]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -443,13 +443,13 @@ export default function Import() {
                         year: "numeric",
                         hour: "numeric",
                         minute: "2-digit",
-                     })}
+                      })}
                     </span>
                   </div>
                   <div className="text-sm text-muted-foreground mt-0.5">
                     {u.committed} imported
-                    {u.skipped ?` · ${u.skipped} skipped` : ""}
-                    {u.summary ?` — ${u.summary}` : ""}
+                    {u.skipped ? ` · ${u.skipped} skipped` : ""}
+                    {u.summary ? ` — ${u.summary}` : ""}
                   </div>
                   {u.messages && u.messages.length > 0 && (
                     <ul className="text-xs text-muted-foreground mt-1 list-disc list-inside space-y-0.5">
@@ -464,7 +464,7 @@ export default function Import() {
                     href={`/api/storage${u.objectPath}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="shrink-0 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:underline"
+                    className="shrink-0 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--gold)] hover:underline"
                   >
                     View document <ExternalLink className="w-3.5 h-3.5" />
                   </a>

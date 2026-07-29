@@ -75,7 +75,7 @@ export default function Crews() {
           <button
             onClick={() => setAddOpen(true)}
             aria-label="Add crew member"
-            className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--primary)] text-[var(--ink)] shadow-[0_6px_16px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.9]"
+            className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--gold-light)] text-[var(--ink)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.9]"
           >
             <Plus className="w-[20px] h-[20px]" strokeWidth={2.5} />
           </button>
@@ -87,7 +87,7 @@ export default function Crews() {
 
       {isLoading ? (
         <div className="animate-pulse space-y-[12px] px-[6px]">
-          {[1, 2, 3].map(i => <div key={i} className="h-[140px] bg-card rounded-[24px]"></div>)}
+          {[1, 2, 3].map(i => <div key={i} className="h-[140px] bg-card rounded-[20px] border border-[var(--hairline)]"></div>)}
         </div>
       ) : (
         <div className="flex flex-col gap-[14px] px-[6px]">
@@ -98,11 +98,8 @@ export default function Crews() {
               <div 
                 key={crew.id} 
                 onClick={() => navigate(`/crews/${crew.id}`)}
-                className="group relative bg-card rounded-[24px] p-[18px] shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-[rgba(23,24,28,0.03)] cursor-pointer overflow-hidden transition-transform active:scale-[0.98]"
+                className="group relative bg-card rounded-[20px] p-[18px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] cursor-pointer overflow-hidden transition-transform active:scale-[0.98]"
               >
-                {/* Decorative status glow */}
-                <div className={`absolute top-0 left-0 w-[80px] h-[80px] opacity-[0.06] pointer-events-none rounded-full blur-2xl transition-colors ${isOnSite ? 'bg-blue-600' : 'bg-muted-foreground'} -translate-x-1/2 -translate-y-1/2`}></div>
-
                 <div className="flex justify-between items-start mb-[16px] relative z-10">
                   <div className="flex items-center gap-[12px]">
                     <div className="relative">
@@ -168,7 +165,7 @@ export default function Crews() {
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex items-center justify-between pt-[14px] border-t border-[rgba(23,24,28,0.06)] relative z-10">
+                <div className="flex items-center justify-between pt-[14px] border-t border-[var(--hairline)] relative z-10">
                   <button
                     onClick={(e) => handleLiveLink(e, crew.id, crew.name)}
                     disabled={genLink.isPending}
@@ -176,7 +173,7 @@ export default function Crews() {
                     className={`flex items-center justify-center gap-[6px] h-[36px] px-[14px] rounded-[12px] text-[13px] font-display font-bold transition-all active:scale-[0.96] disabled:opacity-50 ${
                       copiedId === crew.id
                         ? "bg-green-50 text-green-700 border border-green-200"
-                        : "bg-[linear-gradient(to_bottom,#FFFFFF,#F7F6F2)] border border-[rgba(23,24,28,0.08)] text-[var(--ink)] shadow-[0_2px_4px_rgba(0,0,0,0.02)] hover:bg-card"
+                        : "bg-card border border-[var(--hairline)] text-[var(--ink)] hover:bg-[var(--paper)]"
                     }`}
                   >
                     {copiedId === crew.id ? (
@@ -194,11 +191,11 @@ export default function Crews() {
                     <button
                       onClick={(e) => handleEdit(e, crew)}
                       aria-label={`Edit ${crew.name}`}
-                      className="w-[36px] h-[36px] rounded-[12px] grid place-items-center text-muted-foreground bg-[rgba(23,24,28,0.03)] hover:bg-[rgba(23,24,28,0.06)] transition-colors active:scale-[0.95]"
+                      className="w-[36px] h-[36px] rounded-[12px] grid place-items-center text-muted-foreground bg-[rgba(19,34,58,0.04)] hover:bg-[rgba(19,34,58,0.08)] transition-colors active:scale-[0.95]"
                     >
                       <Pencil className="w-[14px] h-[14px]" />
                     </button>
-                    <div className="w-[36px] h-[36px] rounded-[12px] grid place-items-center text-muted-foreground/40 bg-[rgba(23,24,28,0.01)] transition-colors group-hover:text-muted-foreground/80 group-hover:bg-[rgba(23,24,28,0.04)]">
+                    <div className="w-[36px] h-[36px] rounded-[12px] grid place-items-center text-muted-foreground/40 bg-[rgba(19,34,58,0.02)] transition-colors group-hover:text-muted-foreground/80 group-hover:bg-[rgba(19,34,58,0.06)]">
                       <ChevronRight className="w-[16px] h-[16px]" />
                     </div>
                   </div>
@@ -209,7 +206,7 @@ export default function Crews() {
           
           {crews?.length === 0 && (
             <div className="flex flex-col items-center justify-center py-[60px] text-center">
-              <div className="w-[64px] h-[64px] rounded-full bg-card border border-[rgba(23,24,28,0.05)] flex items-center justify-center mb-[16px] shadow-sm">
+              <div className="w-[64px] h-[64px] rounded-full bg-card border border-[var(--hairline)] flex items-center justify-center mb-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
                 <Briefcase className="w-[28px] h-[28px] text-muted-foreground/40" />
               </div>
               <div className="font-display font-bold text-[18px] text-[var(--ink)] mb-[4px]">

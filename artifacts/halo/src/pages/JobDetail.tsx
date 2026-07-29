@@ -121,36 +121,36 @@ export default function JobDetail() {
 
   return (
     <div className="pt-2 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <Link href={job.propertyId ? `/properties/${job.propertyId}` : "/properties"} className="flex items-center gap-[6px] text-primary text-[13.5px] font-semibold mb-[10px] w-fit hover:brightness-110 transition-all">
+      <Link href={job.propertyId ? `/properties/${job.propertyId}` : "/properties"} className="flex items-center gap-[6px] text-muted-foreground text-[13.5px] font-semibold mb-[10px] w-fit hover:text-[var(--ink)] transition-all">
         <ChevronLeft className="w-[16px] h-[16px]" /> Back
       </Link>
       
       <div className="flex items-start gap-[10px] px-[6px]">
         <div className="flex-1 min-w-0">
-          <div className="font-display font-bold text-[26px] tracking-[-0.015em] leading-[1.1] text-foreground drop-shadow-[0_0_8px_rgba(255,255,255,0.1)]">{job.category || 'General'}</div>
+          <div className="font-display font-bold text-[26px] tracking-[-0.015em] leading-[1.1] text-[var(--ink)]">{job.category || 'General'}</div>
           <div className="text-[13px] text-muted-foreground mt-[3px] mb-[14px]">
-            <span className="text-foreground">{job.propertyName}</span> {job.unitNo ? `· Unit ${job.unitNo}` : ''}
+            <span className="text-[var(--ink)]">{job.propertyName}</span> {job.unitNo ? `· Unit ${job.unitNo}` : ''}
           </div>
         </div>
         <button
           onClick={() => setEditOpen(true)}
           aria-label="Edit job"
-          className="w-[36px] h-[36px] shrink-0 rounded-full grid place-items-center bg-card border border-border shadow-[0_0_10px_rgba(180,255,68,0.1)] text-primary hover:text-primary-foreground hover:bg-[var(--gold-light)] transition-all active:scale-[0.9]"
+          className="w-[36px] h-[36px] shrink-0 rounded-full grid place-items-center bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-muted-foreground hover:text-[var(--ink)] transition-all active:scale-[0.9]"
         >
           <Pencil className="w-[16px] h-[16px]" />
         </button>
       </div>
 
-      <div className="bg-card rounded-[16px] border border-border shadow-[0_0_15px_rgba(0,0,0,0.4)] p-[14px_15px] mb-[18px] mx-[6px]">
+      <div className="bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[14px_15px] mb-[18px] mx-[6px]">
         <div className="flex justify-between items-start mb-[12px]">
           <div>
-            <div className="text-[12px] text-primary uppercase tracking-[0.1em] font-display font-bold mb-[4px]">Status</div>
+            <div className="text-[11px] text-muted-foreground uppercase tracking-[0.1em] font-display font-bold mb-[4px]">Status</div>
             {job.status === "complete" ? (
-              <span className="inline-flex items-center gap-[5px] text-[12px] font-display font-bold uppercase tracking-[0.08em] text-primary bg-primary/10 border border-primary/30 rounded-full px-[10px] py-[4px] shadow-[0_0_10px_rgba(180,255,68,0.2)]">
+              <span className="inline-flex items-center gap-[5px] text-[12px] font-display font-bold uppercase tracking-[0.08em] text-white bg-[var(--green)] rounded-full px-[10px] py-[4px]">
                 <Check className="w-[12px] h-[12px]" /> Completed
               </span>
             ) : (
-              <div className="font-semibold text-[15px] capitalize text-foreground">{job.status.replace('_', ' ')}</div>
+              <div className="font-semibold text-[15px] capitalize text-[var(--ink)]">{job.status.replace('_', ' ')}</div>
             )}
           </div>
           <div className="text-right">
@@ -158,16 +158,16 @@ export default function JobDetail() {
             {job.woNo && <div className="text-[12px] font-mono text-muted-foreground">WO: {job.woNo}</div>}
           </div>
         </div>
-        <div className="text-[14px] text-foreground/90 leading-relaxed">
+        <div className="text-[14px] text-[var(--ink)]/90 leading-relaxed">
           {job.description}
         </div>
         {job.status === "complete" && (
-          <div className="flex items-center gap-[8px] mt-[12px] pt-[12px] border-t border-border">
+          <div className="flex items-center gap-[8px] mt-[12px] pt-[12px] border-t border-[var(--hairline)]">
             {!job.clearedAt && (
               <button
                 disabled={clearJob.isPending}
                 onClick={() => clearJob.mutate({ id }, { onSuccess: invalidateJobLists })}
-                className="flex items-center gap-[5px] text-[12.5px] font-display font-bold px-[12px] py-[8px] rounded-full bg-muted text-muted-foreground active:scale-[0.95] disabled:opacity-50 hover:text-foreground transition-colors"
+                className="flex items-center gap-[5px] text-[12.5px] font-display font-bold px-[12px] py-[8px] rounded-full bg-[rgba(19,34,58,0.05)] text-muted-foreground active:scale-[0.95] disabled:opacity-50 hover:text-[var(--ink)] transition-colors"
               >
                 <Archive className="w-[13px] h-[13px]" /> Clear to history
               </button>
@@ -178,7 +178,7 @@ export default function JobDetail() {
             <button
               disabled={restartJob.isPending}
               onClick={() => restartJob.mutate({ id }, { onSuccess: invalidateJobLists })}
-              className="ml-auto flex items-center gap-[5px] text-[12.5px] font-display font-bold px-[12px] py-[8px] rounded-full bg-primary/10 text-primary active:scale-[0.95] disabled:opacity-50 hover:bg-primary/20 transition-colors border border-primary/20"
+              className="ml-auto flex items-center gap-[5px] text-[12.5px] font-display font-bold px-[12px] py-[8px] rounded-full bg-[var(--gold-tint)] text-[var(--gold-dark)] active:scale-[0.95] disabled:opacity-50 transition-colors border border-[var(--hairline)]"
             >
               <RotateCcw className="w-[13px] h-[13px]" /> Restart job
             </button>
@@ -230,23 +230,26 @@ export default function JobDetail() {
       <div className="px-[6px]">
         <button
           onClick={() => setScheduleOpen(true)}
-          className="w-full mb-[18px] flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border shadow-[0_0_15px_rgba(180,255,68,0.05)] text-primary hover:border-primary/50 transition-all active:scale-[0.98]"
+          className="w-full mb-[18px] flex items-center justify-center gap-[8px] rounded-[14px] py-[12px] font-display font-bold text-[14px] bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] hover:border-[var(--gold)]/40 transition-all active:scale-[0.98]"
         >
-          <CalendarDays className="w-[17px] h-[17px]" />
+          <CalendarDays className="w-[17px] h-[17px] text-[var(--gold-dark)]" />
           {schedules.length > 0 ? "Reschedule / add date" : "Schedule job"}
         </button>
 
         {schedules.length > 0 && (
           <div className="mb-[18px]">
-            <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-primary mb-[8px] mx-[2px] drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">Schedule</div>
-            <div className="bg-card border border-border rounded-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] p-[6px_14px]">
+            <div className="flex items-center gap-[7px] mb-[8px] mx-[2px]">
+              <div className="w-1.5 h-1.5 rounded-full bg-[var(--gold)]" />
+              <span className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--ink)]">Schedule</span>
+            </div>
+            <div className="bg-card border border-[var(--hairline)] rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[6px_14px]">
               {schedules.map((schedule, idx) => (
-                <div key={schedule.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
+                <div key={schedule.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-[var(--hairline)]' : ''}`}>
                   <div className="flex-1">
-                    <div className="font-semibold text-foreground">{new Date(schedule.scheduledOn).toLocaleDateString()}</div>
+                    <div className="font-semibold text-[var(--ink)]">{new Date(schedule.scheduledOn).toLocaleDateString()}</div>
                     {schedule.windowStart && <div className="text-[12px] text-muted-foreground">{schedule.windowStart}</div>}
                   </div>
-                  <div className="text-[12px] font-medium capitalize text-primary bg-primary/10 px-[8px] py-[2px] rounded-full border border-primary/20">
+                  <div className="text-[12px] font-medium capitalize text-[var(--gold-dark)] bg-[var(--gold-tint)] px-[8px] py-[2px] rounded-full border border-[var(--hairline)]">
                     {schedule.status}
                   </div>
                 </div>
@@ -257,16 +260,19 @@ export default function JobDetail() {
 
         {expenses.length > 0 && (
           <div className="mb-[18px]">
-            <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-primary mb-[8px] mx-[2px] drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">Expenses</div>
-            <div className="bg-card border border-border rounded-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] p-[6px_14px]">
+            <div className="flex items-center gap-[7px] mb-[8px] mx-[2px]">
+              <div className="w-1.5 h-1.5 rounded-full bg-[var(--gold)]" />
+              <span className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--ink)]">Expenses</span>
+            </div>
+            <div className="bg-card border border-[var(--hairline)] rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[6px_14px]">
               {expenses.map((expense, idx) => (
-                <div key={expense.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-border' : ''}`}>
+                <div key={expense.id} className={`flex items-center gap-[10px] py-[10px] text-[14px] ${idx !== 0 ? 'border-t border-[var(--hairline)]' : ''}`}>
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold truncate text-foreground">{expense.vendor || expense.category}</div>
+                    <div className="font-semibold truncate text-[var(--ink)]">{expense.vendor || expense.category}</div>
                     <div className="text-[12px] text-muted-foreground truncate">{expense.source || 'Manual entry'}</div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="font-display font-semibold tabular-nums text-foreground">${expense.amount.toLocaleString()}</div>
+                    <div className="font-display font-semibold tabular-nums text-[var(--ink)]">${expense.amount.toLocaleString()}</div>
                   </div>
                 </div>
               ))}
@@ -277,8 +283,11 @@ export default function JobDetail() {
         <CrewPhotosSection photos={crewPhotos ?? []} />
 
         <div className="mb-[18px]">
-          <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-primary mb-[8px] mx-[2px] drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">Live tracker & evidence</div>
-          <div className="bg-card border border-border rounded-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] p-[14px_15px] flex flex-col gap-[10px]">
+          <div className="flex items-center gap-[7px] mb-[8px] mx-[2px]">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--gold)]" />
+            <span className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--ink)]">Live tracker & evidence</span>
+          </div>
+          <div className="bg-card border border-[var(--hairline)] rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[14px_15px] flex flex-col gap-[10px]">
             <p className="text-[12.5px] text-muted-foreground">
               Share a live link with the property manager — it shows GPS check-ins,
               before &amp; after photos, and work notes in real time. The PDF report
@@ -287,7 +296,7 @@ export default function JobDetail() {
             <button
               onClick={copyTrackerLink}
               disabled={trackerShare.isPending}
-              className="w-full flex items-center justify-center gap-[8px] py-[11px] rounded-[12px] bg-[var(--gold-light)] text-primary-foreground text-[14px] font-bold disabled:opacity-60 transition-all hover:brightness-110 active:scale-[0.98] shadow-[0_0_15px_rgba(180,255,68,0.3)]"
+              className="w-full flex items-center justify-center gap-[8px] py-[11px] rounded-[14px] bg-[var(--gold-light)] text-[var(--ink)] text-[14px] font-bold disabled:opacity-60 transition-all hover:brightness-105 active:scale-[0.98]"
             >
               {trackerCopied ? (
                 <>
@@ -302,24 +311,27 @@ export default function JobDetail() {
             </button>
             <a
               href={`/api/jobs/${id}/report`}
-              className="w-full flex items-center justify-center gap-[8px] py-[11px] rounded-[12px] bg-background border border-border text-[14px] font-semibold text-foreground transition-all hover:bg-muted active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-[8px] py-[11px] rounded-[14px] bg-[var(--paper)] border border-[var(--hairline)] text-[14px] font-semibold text-[var(--ink)] transition-all hover:bg-[rgba(19,34,58,0.04)] active:scale-[0.98]"
             >
-              <FileDown className="w-[16px] h-[16px] text-primary" /> Download job report (PDF)
+              <FileDown className="w-[16px] h-[16px] text-[var(--gold-dark)]" /> Download job report (PDF)
             </a>
           </div>
         </div>
 
         {(job.status === "complete" || job.recapSentAt) && (
           <div className="mb-[18px]">
-            <div className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-primary mb-[8px] mx-[2px] drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">Client recap</div>
-            <div className="bg-card border border-border rounded-[16px] shadow-[0_0_20px_rgba(0,0,0,0.4)] p-[14px_15px]">
+            <div className="flex items-center gap-[7px] mb-[8px] mx-[2px]">
+              <div className="w-1.5 h-1.5 rounded-full bg-[var(--gold)]" />
+              <span className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--ink)]">Client recap</span>
+            </div>
+            <div className="bg-card border border-[var(--hairline)] rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[14px_15px]">
               {job.recapSentAt && !recapOpen ? (
                 <div className="flex items-center gap-[8px] text-[14px] text-muted-foreground">
-                  <Check className="w-[16px] h-[16px] text-primary drop-shadow-[0_0_8px_rgba(180,255,68,0.5)]" />
-                  <span className="text-foreground">Recap sent</span> {new Date(job.recapSentAt).toLocaleDateString()}
+                  <Check className="w-[16px] h-[16px] text-[var(--green)]" />
+                  <span className="text-[var(--ink)]">Recap sent</span> {new Date(job.recapSentAt).toLocaleDateString()}
                   <button
                     onClick={generateRecap}
-                    className="ml-auto text-[13px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                    className="ml-auto text-[13px] font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
                   >
                     Draft again
                   </button>
@@ -327,14 +339,14 @@ export default function JobDetail() {
               ) : !recapOpen ? (
                 <button
                   onClick={generateRecap}
-                  className="w-full flex items-center justify-center gap-[8px] py-[10px] rounded-[12px] bg-background border border-primary/50 text-primary text-[14px] font-bold transition-all hover:bg-primary/10 active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-[8px] py-[10px] rounded-[14px] bg-[var(--paper)] border border-[var(--gold)]/40 text-[var(--gold-dark)] text-[14px] font-bold transition-all hover:bg-[var(--gold-tint)] active:scale-[0.98]"
                 >
                   <Sparkles className="w-[16px] h-[16px]" /> Draft recap with AI
                 </button>
               ) : (
                 <div className="space-y-[12px]">
                   {draft.isPending ? (
-                    <div className="py-[20px] text-center text-[14px] text-primary animate-pulse font-display font-bold">
+                    <div className="py-[20px] text-center text-[14px] text-[var(--gold-dark)] animate-pulse font-display font-bold">
                       Writing the recap…
                     </div>
                   ) : (
@@ -344,7 +356,7 @@ export default function JobDetail() {
                         <input
                           value={subject}
                           onChange={(e) => setSubject(e.target.value)}
-                          className="w-full text-[14px] bg-background border border-border rounded-[10px] px-[12px] py-[9px] outline-none focus:border-primary text-foreground focus:ring-1 focus:ring-primary/50 transition-all"
+                          className="w-full text-[14px] bg-[var(--paper)] border border-[var(--hairline)] rounded-[10px] px-[12px] py-[9px] outline-none focus:border-[var(--gold)] text-[var(--ink)] focus:ring-1 focus:ring-[var(--gold)]/40 transition-all"
                         />
                       </div>
                       <div>
@@ -353,25 +365,25 @@ export default function JobDetail() {
                           value={recapBody}
                           onChange={(e) => setRecapBody(e.target.value)}
                           rows={8}
-                          className="w-full text-[14px] leading-relaxed bg-background border border-border rounded-[10px] px-[12px] py-[9px] outline-none focus:border-primary text-foreground focus:ring-1 focus:ring-primary/50 transition-all resize-y"
+                          className="w-full text-[14px] leading-relaxed bg-[var(--paper)] border border-[var(--hairline)] rounded-[10px] px-[12px] py-[9px] outline-none focus:border-[var(--gold)] text-[var(--ink)] focus:ring-1 focus:ring-[var(--gold)]/40 transition-all resize-y"
                         />
                       </div>
                       {(crewPhotos?.length ?? 0) > 0 && (
-                        <div className="text-[12px] text-muted-foreground bg-muted/50 p-3 rounded-[10px] border border-border">
-                          <span className="text-foreground font-semibold">{crewPhotos!.length} photo{crewPhotos!.length === 1 ? "" : "s"}</span> from the crew will be included on the branded recap page automatically.
+                        <div className="text-[12px] text-muted-foreground bg-[var(--paper)] p-3 rounded-[10px] border border-[var(--hairline)]">
+                          <span className="text-[var(--ink)] font-semibold">{crewPhotos!.length} photo{crewPhotos!.length === 1 ? "" : "s"}</span> from the crew will be included on the branded recap page automatically.
                         </div>
                       )}
                       <div className="flex items-center gap-[8px] pt-[4px]">
                         <button
                           onClick={() => setRecapOpen(false)}
-                          className="text-[13px] font-semibold text-muted-foreground px-[12px] py-[9px] hover:text-foreground transition-colors"
+                          className="text-[13px] font-semibold text-muted-foreground px-[12px] py-[9px] hover:text-[var(--ink)] transition-colors"
                         >
                           Cancel
                         </button>
                         <button
                           onClick={send}
                           disabled={createShare.isPending || !subject || !recapBody}
-                          className="ml-auto flex items-center gap-[7px] px-[16px] py-[9px] rounded-[12px] bg-[var(--gold-light)] text-primary-foreground text-[14px] font-bold disabled:opacity-50 transition-all hover:brightness-110 active:scale-[0.98] shadow-[0_0_15px_rgba(180,255,68,0.3)] disabled:shadow-none"
+                          className="ml-auto flex items-center gap-[7px] px-[16px] py-[9px] rounded-[14px] bg-[var(--gold-light)] text-[var(--ink)] text-[14px] font-bold disabled:opacity-50 transition-all hover:brightness-105 active:scale-[0.98]"
                         >
                           <Send className="w-[15px] h-[15px]" />
                           {createShare.isPending ? "Preparing…" : "Send recap"}

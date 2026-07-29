@@ -18,12 +18,12 @@ import {
 } from "@/components/PipelineDialogs";
 
 export default function Pipeline() {
-  const { data: leads, isLoading: loadingLeads} = useListLeads({
-    query: { queryKey: getListLeadsQueryKey(), refetchInterval: 10_000},
- });
-  const { data: bids, isLoading: loadingBids} = useListBids(undefined, {
-    query: { queryKey: getListBidsQueryKey(), refetchInterval: 10_000},
- });
+  const { data: leads, isLoading: loadingLeads } = useListLeads({
+    query: { queryKey: getListLeadsQueryKey(), refetchInterval: 10_000 },
+  });
+  const { data: bids, isLoading: loadingBids } = useListBids(undefined, {
+    query: { queryKey: getListBidsQueryKey(), refetchInterval: 10_000 },
+  });
 
   const [addLeadOpen, setAddLeadOpen] = useState(false);
   const [leadDetail, setLeadDetail] = useState<LeadRow | null>(null);
@@ -38,13 +38,13 @@ export default function Pipeline() {
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 h-screen flex flex-col">
       <header className="flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)]">Pipeline</h1>
-          <p className="text-muted-foreground">Leads & Active Bids</p>
+          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">Pipeline</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Leads & Active Bids</p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setAddLeadOpen(true)}
-            className="flex items-center gap-2 bg-card border border-border text-[var(--ink)] px-4 py-2 rounded-md font-medium hover:bg-black/5 transition-colors shadow-sm"
+            className="flex items-center gap-2 bg-card border border-[var(--hairline)] text-[var(--ink)] px-5 py-2.5 rounded-full font-medium hover:border-[var(--ink)] transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
             data-testid="button-new-lead"
           >
             <Plus className="w-4 h-4" /> New Lead
@@ -53,8 +53,8 @@ export default function Pipeline() {
             onClick={() => {
               setEditBidId(null);
               setBuilderOpen(true);
-           }}
-            className="flex items-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm"
+            }}
+            className="btn-gold px-5 py-2.5 flex items-center gap-2"
             data-testid="button-new-bid"
           >
             <Plus className="w-4 h-4" /> New Bid
@@ -64,13 +64,14 @@ export default function Pipeline() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-1 overflow-hidden pb-8">
         {/* Leads Column */}
-        <div className="flex flex-col h-full bg-card rounded-xl border border-border shadow-sm">
-          <div className="p-4 border-b border-border flex items-center justify-between bg-[var(--paper)] rounded-t-xl">
-            <h2 className="font-display font-bold text-lg flex items-center gap-2">
-              <Target className="w-5 h-5 text-[var(--gold-dark)]" />
+        <div className="flex flex-col h-full bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+          <div className="p-4 border-b border-[var(--hairline)] flex items-center justify-between bg-[var(--paper)] rounded-t-[20px]">
+            <h2 className="font-display font-bold text-[11px] tracking-[0.2em] uppercase flex items-center gap-2 text-[var(--ink)]">
+              <span className="w-2 h-2 rounded-full bg-[var(--gold)]" />
+              <Target className="w-4 h-4 text-[var(--gold)]" />
               Leads
             </h2>
-            <span className="text-xs font-bold bg-white px-2 py-1 rounded-full border border-border">{leads?.length || 0}</span>
+            <span className="text-xs font-bold bg-card px-2.5 py-1 rounded-full border border-[var(--hairline)]">{leads?.length || 0}</span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -83,22 +84,22 @@ export default function Pipeline() {
               <Card
                 key={lead.id}
                 onClick={() => setLeadDetail(lead as LeadRow)}
-                className="cursor-pointer hover:border-[var(--gold)]/50 transition-colors shadow-sm"
+                className="cursor-pointer rounded-[16px] border-[var(--hairline)] hover:border-[var(--ink)] transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
                 data-testid={`card-lead-${lead.id}`}
               >
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-[var(--ink)] px-2 py-0.5 rounded-full bg-black/5 border border-border">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--ink)] px-2 py-0.5 rounded-full bg-[var(--paper)] border border-[var(--hairline)]">
                         {lead.status}
                       </span>
                       {lead.source === "phone" && (
-                        <span className="text-[10px] font-bold text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] border border-[var(--gold)]/20 flex items-center gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] flex items-center gap-1">
                           <Phone className="w-2.5 h-2.5" /> call
                         </span>
                       )}
                       {lead.campaignStatus === "active" && (
-                        <span className="text-[10px] font-bold text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] border border-[var(--gold)]/20 flex items-center gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] flex items-center gap-1">
                           <Zap className="w-2.5 h-2.5" /> drip
                         </span>
                       )}
@@ -121,7 +122,7 @@ export default function Pipeline() {
               </Card>
             ))}
             {leads?.length === 0 && (
-              <div className="text-center p-8 text-muted-foreground text-sm border border-dashed border-border rounded-lg">
+              <div className="text-center p-8 text-muted-foreground text-sm border border-dashed border-[var(--hairline)] rounded-[16px]">
                 No active leads.
               </div>
             )}
@@ -129,13 +130,14 @@ export default function Pipeline() {
         </div>
 
         {/* Bids Column */}
-        <div className="flex flex-col h-full bg-card rounded-xl border border-border shadow-sm">
-          <div className="p-4 border-b border-border flex items-center justify-between bg-[var(--paper)] rounded-t-xl">
-            <h2 className="font-display font-bold text-lg flex items-center gap-2">
-              <FileText className="w-5 h-5 text-[var(--gold-dark)]" />
+        <div className="flex flex-col h-full bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+          <div className="p-4 border-b border-[var(--hairline)] flex items-center justify-between bg-[var(--paper)] rounded-t-[20px]">
+            <h2 className="font-display font-bold text-[11px] tracking-[0.2em] uppercase flex items-center gap-2 text-[var(--ink)]">
+              <span className="w-2 h-2 rounded-full bg-[var(--gold)]" />
+              <FileText className="w-4 h-4 text-[var(--gold)]" />
               Active Bids
             </h2>
-            <span className="text-xs font-bold bg-white px-2 py-1 rounded-full border border-border">{bids?.length || 0}</span>
+            <span className="text-xs font-bold bg-card px-2.5 py-1 rounded-full border border-[var(--hairline)]">{bids?.length || 0}</span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -148,19 +150,19 @@ export default function Pipeline() {
               <Card
                 key={bid.id}
                 onClick={() => setDetailBidId(bid.id)}
-                className="cursor-pointer hover:border-[var(--gold)]/50 transition-colors shadow-sm"
+                className="cursor-pointer rounded-[16px] border-[var(--hairline)] hover:border-[var(--ink)] transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
                 data-testid={`card-bid-${bid.id}`}
               >
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs font-medium text-muted-foreground">{bid.bidNo}</span>
-                      <span className={`text-[10px] font-bold   px-2 py-0.5 rounded-full border ${
-                        bid.status === 'won' ? 'bg-[var(--green)]/10 text-[var(--green)] border-[var(--green)]/20' :
-                        bid.status === 'lost' ? 'bg-destructive/10 text-destructive border-destructive/20' :
-                        bid.status === 'draft' ? 'bg-black/5 text-muted-foreground border-border' :
-                        'bg-[var(--gold-tint)] text-[var(--gold-dark)] border-[var(--gold)]/20'
-                     }`}>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                        bid.status === 'won' ? 'bg-emerald-100 text-emerald-800' :
+                        bid.status === 'lost' ? 'bg-red-100 text-red-800' :
+                        bid.status === 'draft' ? 'bg-[var(--paper)] text-muted-foreground border border-[var(--hairline)]' :
+                        'bg-[var(--gold-tint)] text-[var(--gold)]'
+                      }`}>
                         {bid.status}
                       </span>
                     </div>
@@ -175,7 +177,7 @@ export default function Pipeline() {
               </Card>
             ))}
             {bids?.length === 0 && (
-              <div className="text-center p-8 text-muted-foreground text-sm border border-dashed border-border rounded-lg">
+              <div className="text-center p-8 text-muted-foreground text-sm border border-dashed border-[var(--hairline)] rounded-[16px]">
                 No active bids.
               </div>
             )}
@@ -202,7 +204,7 @@ export default function Pipeline() {
         onEdit={(id) => {
           setEditBidId(id);
           setBuilderOpen(true);
-       }}
+        }}
       />
     </div>
   );

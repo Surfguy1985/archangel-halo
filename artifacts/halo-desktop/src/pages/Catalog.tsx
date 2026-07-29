@@ -156,7 +156,7 @@ function CatalogItemDialog({
           <button
             onClick={submit}
             disabled={!service.trim() || pending}
-            className="bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50"
+            className="btn-gold px-4 py-2 text-sm disabled:opacity-50"
           >
             {pending ? "Saving…" : item ? "Save changes" : "Add service"}
           </button>
@@ -168,7 +168,7 @@ function CatalogItemDialog({
 
 export default function Catalog() {
   const queryClient = useQueryClient();
-  const { data: items, isLoading} = useListCatalogItems();
+  const { data: items, isLoading } = useListCatalogItems();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editItem, setEditItem] = useState<CatalogItem | null>(null);
@@ -188,21 +188,21 @@ export default function Catalog() {
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)]">Master Price List</h1>
+          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">Master Price List</h1>
           <p className="text-muted-foreground">Your services and standard prices — every property can pull from here.</p>
         </div>
         <button
           onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm"
+          className="btn-gold inline-flex items-center gap-2 px-4 py-2 text-sm"
         >
-          <Plus className="w-4 h-4" /> Add Service
+          <Plus className="w-4 h-4" strokeWidth={2.4} /> Add Service
         </button>
       </header>
 
       <div className="relative max-w-sm">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
-          className="w-full bg-card border border-border rounded-md py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
+          className="w-full bg-card border border-[var(--hairline)] rounded-full py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ink)]/20"
           placeholder="Search services…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -210,19 +210,19 @@ export default function Catalog() {
       </div>
 
       {isLoading ? (
-        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-40 w-full rounded-[20px]" />
       ) : (
-        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
           <table className="w-full text-left text-sm">
-            <thead className="bg-[var(--paper)] border-b border-border">
+            <thead className="bg-[var(--paper)] border-b border-[var(--hairline)]">
               <tr>
-                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs">Service</th>
-                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs">Category</th>
-                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs text-right">Rate</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Service</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Category</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs text-right">Rate</th>
                 <th className="px-6 py-3 w-24"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-[var(--hairline)]">
               {filtered.map((item) => (
                 <tr key={item.id} className="hover:bg-black/[0.02] transition-colors">
                   <td className="px-6 py-4">
@@ -231,7 +231,7 @@ export default function Catalog() {
                   </td>
                   <td className="px-6 py-4 text-muted-foreground">{item.category || "—"}</td>
                   <td className="px-6 py-4 text-right font-mono font-bold">
-                    {item.rate != null ?`$${item.rate}` : "—"}
+                    {item.rate != null ? `$${item.rate}` : "—"}
                     {item.unit && <span className="text-xs text-muted-foreground font-sans font-normal"> /{item.unit}</span>}
                   </td>
                   <td className="px-6 py-4">
@@ -290,15 +290,15 @@ export default function Catalog() {
               onClick={() => {
                 if (!deleteItem) return;
                 del.mutate(
-                  { id: deleteItem.id},
+                  { id: deleteItem.id },
                   {
                     onSuccess: () => {
-                      queryClient.invalidateQueries({ queryKey: getListCatalogItemsQueryKey()});
+                      queryClient.invalidateQueries({ queryKey: getListCatalogItemsQueryKey() });
                       setDeleteItem(null);
-                   },
-                 },
+                    },
+                  },
                 );
-             }}
+              }}
               disabled={del.isPending}
               className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
             >
