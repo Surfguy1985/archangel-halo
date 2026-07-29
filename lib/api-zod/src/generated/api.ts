@@ -8907,6 +8907,28 @@ export const GetOfficeBoardFullResponse = zod.object({
 
 
 /**
+ * @summary Dispatch a board action (e.g. card move) on the client board as the office
+ */
+export const DispatchOfficeBoardActionParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const DispatchOfficeBoardActionBody = zod.object({
+  "action": zod.string(),
+  "cardKey": zod.string().nullish(),
+  "payload": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+export const DispatchOfficeBoardActionResponse = zod.object({
+  "ok": zod.boolean(),
+  "blocked": zod.boolean(),
+  "action": zod.string(),
+  "reason": zod.string().nullish(),
+  "message": zod.string().nullish()
+})
+
+
+/**
  * @summary AI builds an interactive board card from live HALO data (invoices, pay links, crews, jobs, bids)
  */
 export const CreateClientBoardAiCardParams = zod.object({

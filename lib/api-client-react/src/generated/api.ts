@@ -21069,6 +21069,78 @@ export function useGetOfficeBoardFull<TData = Awaited<ReturnType<typeof getOffic
 
 
 
+export const getDispatchOfficeBoardActionUrl = (propertyId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/actions`
+}
+
+/**
+ * @summary Dispatch a board action (e.g. card move) on the client board as the office
+ */
+export const dispatchOfficeBoardAction = async (propertyId: string,
+    clientBoardActionInput: ClientBoardActionInput, options?: RequestInit): Promise<ClientBoardActionOutcome> => {
+
+  return customFetch<ClientBoardActionOutcome>(getDispatchOfficeBoardActionUrl(propertyId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientBoardActionInput)
+  }
+);}
+
+
+
+
+
+export const getDispatchOfficeBoardActionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dispatchOfficeBoardAction>>, TError,{propertyId: string;data: BodyType<ClientBoardActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof dispatchOfficeBoardAction>>, TError,{propertyId: string;data: BodyType<ClientBoardActionInput>}, TContext> => {
+
+const mutationKey = ['dispatchOfficeBoardAction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof dispatchOfficeBoardAction>>, {propertyId: string;data: BodyType<ClientBoardActionInput>}> = (props) => {
+          const {propertyId,data} = props ?? {};
+
+          return  dispatchOfficeBoardAction(propertyId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DispatchOfficeBoardActionMutationResult = NonNullable<Awaited<ReturnType<typeof dispatchOfficeBoardAction>>>
+    export type DispatchOfficeBoardActionMutationBody = BodyType<ClientBoardActionInput>
+    export type DispatchOfficeBoardActionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Dispatch a board action (e.g. card move) on the client board as the office
+ */
+export const useDispatchOfficeBoardAction = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dispatchOfficeBoardAction>>, TError,{propertyId: string;data: BodyType<ClientBoardActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof dispatchOfficeBoardAction>>,
+        TError,
+        {propertyId: string;data: BodyType<ClientBoardActionInput>},
+        TContext
+      > => {
+      return useMutation(getDispatchOfficeBoardActionMutationOptions(options));
+    }
+
 export const getCreateClientBoardAiCardUrl = (token: string,) => {
 
 

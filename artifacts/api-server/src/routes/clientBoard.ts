@@ -662,7 +662,9 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
     if (c.completedAt && now - c.completedAt.getTime() > 30 * DAY) continue;
     const links = (c.links ?? []) as { label: string; url: string; kind?: string | null }[];
     const module = (c.module ?? null) as Record<string, unknown> | null;
-    cards.push({
+    // applyOverride so client/office drags stick — pushed cards were the one
+    // card family skipping it, which made their moves silently snap back.
+    cards.push(applyOverride({
       cardKey: `push:${c.id}`,
       template: `push_${c.kind}`,
       title: c.title,
@@ -690,7 +692,7 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       updatedAt: c.updatedAt.toISOString(),
       snoozedUntil: null,
       commentCount: commentCountByKey.get(`push:${c.id}`) ?? 0,
-    });
+    }));
   }
 
   cards.sort((a, b) => (a.position as number) - (b.position as number));
@@ -1593,6 +1595,79 @@ const ACTIONS: Record<
     },
   },
 };
+
+// Office dispatch — the admin apps move/act on client-board cards as the
+// office. Same ACTIONS table as the client route, but with a synthetic
+// office viewer (full write, no client session needed — no-auth posture).
+router.post(
+  "/admin/accounts/:propertyId/board/actions",
+  async (req, res): Promise<void> => {
+    const parsed = DispatchClientBoardActionBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid input" });
+      return;
+    }
+    const propertyId = String(req.params.propertyId);
+    const [account] = await db
+      .select()
+      .from(clientAccountsTable)
+      .where(eq(clientAccountsTable.propertyId, propertyId))
+      .limit(1);
+    if (!account) {
+      res.status(404).json({ error: "No client account for this property yet" });
+      return;
+    }
+    const viewer: Viewer = {
+      authenticated: true,
+      name: "Office",
+      email: null,
+      role: "office",
+      permissions: [],
+      readOnly: false,
+    };
+    const { action, cardKey, payload } = parsed.data;
+    const def = ACTIONS[action];
+    if (!def) {
+      res.status(400).json({ error: `Unknown action: ${action}` });
+      return;
+    }
+    let outcome: ActionOutcome;
+    try {
+      outcome = await def.run({
+        account,
+        viewer,
+        cardKey: cardKey ?? null,
+        payload: (payload ?? {}) as Record<string, unknown>,
+      });
+    } catch (e) {
+      outcome = { ok: false, blocked: false, reason: (e as Error).message };
+    }
+    await db.insert(clientDashboardActionsTable).values({
+      propertyId,
+      action,
+      cardKey: cardKey ?? null,
+      actorName: "Office",
+      actorRole: "office",
+      payload: payload ?? null,
+      ok: outcome.ok,
+      blocked: outcome.blocked,
+      reason: outcome.reason ?? null,
+      result: outcome.result ?? null,
+    });
+    if (outcome.ok && def.requiresWrite) {
+      emitBoardEvent(propertyId, "dashboard");
+    }
+    res.json(
+      DispatchClientBoardActionResponse.parse({
+        ok: outcome.ok,
+        blocked: outcome.blocked,
+        action,
+        reason: outcome.reason ?? null,
+        message: outcome.message ?? null,
+      }),
+    );
+  },
+);
 
 router.post("/client/:token/board/actions", async (req, res): Promise<void> => {
   const parsed = DispatchClientBoardActionBody.safeParse(req.body);

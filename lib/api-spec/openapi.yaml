@@ -6636,6 +6636,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/accounts/{propertyId}/board/actions:
+    post:
+      operationId: dispatchOfficeBoardAction
+      tags: [admin]
+      summary: Dispatch a board action (e.g. card move) on the client board as the office
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientBoardActionInput"
+      responses:
+        "200":
+          description: Action outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBoardActionOutcome"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /client/{token}/board/ai-card:
     post:
       operationId: createClientBoardAiCard

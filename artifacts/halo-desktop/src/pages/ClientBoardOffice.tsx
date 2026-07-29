@@ -15,6 +15,7 @@ import {
   useListClientAccounts,
   useGetClientBoardInbox,
   getGetClientBoardInboxQueryKey,
+  useDispatchOfficeBoardAction,
   useRespondClientInboxCard,
   useListOfficeCardComments,
   getListOfficeCardCommentsQueryKey,
@@ -1665,8 +1666,65 @@ export default function ClientBoardOffice() {
   });
 
   const del = useDeleteOfficeClientBoardCard();
+  const dispatchAction = useDispatchOfficeBoardAction();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Drag a card between lanes as the office — same "card.moved" action the
+  // client uses, so guards (e.g. invoices auto-move on payment) still apply.
+  const handleCardMove = (cardKey: string, laneKey: string, dropIndex?: number) => {
+    const cards = boardFull?.board?.cards ?? [];
+    const card = cards.find((c: any) => c.cardKey === cardKey);
+    if (!card || !propertyId) return;
+
+    const targetLaneKeys = cards
+      .filter((c: any) => c.lane === laneKey && c.cardKey !== cardKey)
+      .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
+      .map((c: any) => c.cardKey);
+    const insertAt = Math.max(0, Math.min(dropIndex ?? 0, targetLaneKeys.length));
+    if (card.lane === laneKey) {
+      const currentOrder = cards
+        .filter((c: any) => c.lane === laneKey)
+        .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
+        .map((c: any) => c.cardKey);
+      if (currentOrder.indexOf(cardKey) === insertAt) return;
+    }
+    const orderedCardKeys = [...targetLaneKeys];
+    orderedCardKeys.splice(insertAt, 0, cardKey);
+
+    const qKey = getGetOfficeBoardFullQueryKey(propertyId);
+    // Optimistic: reflect the drop immediately, server confirms via invalidate.
+    queryClient.setQueryData(qKey, (old: any) => {
+      if (!old?.board?.cards) return old;
+      return {
+        ...old,
+        board: {
+          ...old.board,
+          cards: old.board.cards.map((c: any) =>
+            c.cardKey === cardKey
+              ? { ...c, lane: laneKey, position: insertAt }
+              : c,
+          ),
+        },
+      };
+    });
+    dispatchAction.mutate(
+      {
+        propertyId,
+        data: { action: "card.moved", cardKey, payload: { lane: laneKey, position: insertAt, orderedCardKeys } },
+      },
+      {
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qKey }),
+        onError: (e: any) =>
+          toast({ title: "Move failed", description: e?.data?.error ?? e?.message, variant: "destructive" }),
+        onSuccess: (r: any) => {
+          if (r?.blocked || r?.ok === false) {
+            toast({ title: "Card can't move there", description: r?.reason ?? r?.message ?? undefined });
+          }
+        },
+      },
+    );
+  };
 
   // Live push: the API pings this stream whenever the client's board changes
   // (client drags a card, a send raises a card, ...) so the office mirror
@@ -1677,6 +1735,7 @@ export default function ClientBoardOffice() {
     const es = new EventSource(`/api/admin/accounts/${propertyId}/board/events`);
     const refetch = () => {
       queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId!) });
+      queryClient.invalidateQueries({ queryKey: getGetOfficeBoardFullQueryKey(propertyId!) });
       queryClient.invalidateQueries({ queryKey: getGetClientBoardInboxQueryKey(propertyId!) });
     };
     es.addEventListener("board", refetch);
@@ -1796,11 +1855,12 @@ export default function ClientBoardOffice() {
             <AppleBoard
               board={boardFull?.board as any}
               isLoading={boardLoading}
-              viewer={{ readOnly: true, authenticated: true, permissions: [] }}
+              viewer={{ readOnly: false, authenticated: true, permissions: [] }}
               boardKey={undefined}
               onLoginRequired={() => {}}
               onCardClick={() => {}}
-              onCardMove={() => {}}
+              onCardMove={handleCardMove}
+              showToast={toast}
             />
           </div>
         </div>
