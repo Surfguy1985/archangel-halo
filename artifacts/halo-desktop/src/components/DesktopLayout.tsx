@@ -41,13 +41,13 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex text-foreground">
       {/* Sidebar Navigation */}
-      <aside className="w-[240px] border-r border-border bg-[var(--secondary)] text-[var(--secondary-foreground)] flex flex-col fixed inset-y-0 left-0 shadow-2xl z-40">
-        <div data-tour="brand" className="p-6 pb-5 border-b border-[var(--ink2)] flex flex-col gap-2">
-          <img src={haloLogo} alt="HALO" className="h-9 w-auto self-start filter brightness-0 invert" />
-          <span className="text-[10px] tracking-[0.2em] uppercase text-[var(--hairline2)] pl-0.5 font-display font-medium">Archangel Operations</span>
+      <aside className="group/side w-[76px] hover:w-[240px] transition-[width] duration-200 ease-out border-r border-border bg-[var(--secondary)] text-[var(--secondary-foreground)] flex flex-col fixed inset-y-0 left-0 shadow-2xl z-40 overflow-hidden">
+        <div data-tour="brand" className="p-4 pb-4 group-hover/side:p-6 group-hover/side:pb-5 border-b border-[var(--ink2)] flex flex-col gap-2 transition-all duration-200">
+          <img src={haloLogo} alt="HALO" className="h-9 w-auto max-w-[44px] group-hover/side:max-w-none object-contain object-left self-start filter brightness-0 invert transition-all duration-200" />
+          <span className="text-[10px] tracking-[0.2em] uppercase text-[var(--hairline2)] pl-0.5 font-display font-medium whitespace-nowrap opacity-0 group-hover/side:opacity-100 transition-opacity duration-200 h-0 group-hover/side:h-auto overflow-hidden">Archangel Operations</span>
         </div>
 
-        <nav data-tour="sidebar" className="flex-1 py-6 px-4 flex flex-col gap-2 overflow-y-auto">
+        <nav data-tour="sidebar" className="flex-1 py-6 px-4 flex flex-col gap-2 overflow-y-auto overflow-x-hidden">
           <NavItem href="/" icon={Home} label="Today" active={location === "/"} tourId="nav-today" />
           <NavItem href="/jobboard" icon={ClipboardList} label="Job Board" active={location.startsWith("/jobboard")} tourId="nav-jobboard" />
           <NavItem href="/properties" icon={Building} label="Properties" active={location.startsWith("/properties")} tourId="nav-properties" />
@@ -62,20 +62,20 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
           <NavItem href="/import" icon={ImportIcon} label="Import" active={location.startsWith("/import")} tourId="nav-import" />
         </nav>
 
-        <div className="p-4 border-t border-[var(--ink2)] flex gap-2">
+        <div className="p-4 border-t border-[var(--ink2)] flex flex-col group-hover/side:flex-row gap-2">
            <button
             data-tour="talk"
             onClick={() => setVoiceOpen(true)}
             title="Talk to HALO"
             className="flex-1 h-10 rounded-md flex items-center justify-center bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(180,255,68,0.3)] transition-all font-display font-bold uppercase tracking-wider"
           >
-            <Mic className="w-4 h-4 mr-2" />
-            Talk
+            <Mic className="w-4 h-4 group-hover/side:mr-2" />
+            <span className="hidden group-hover/side:inline">Talk</span>
           </button>
           <NotificationsPopover>
             <button
               data-tour="notifications"
-              className="relative w-10 h-10 rounded-md flex items-center justify-center bg-[var(--ink2)] text-white shadow-sm border border-[var(--ink2)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+              className="relative w-full group-hover/side:w-10 h-10 rounded-md flex items-center justify-center bg-[var(--ink2)] text-white shadow-sm border border-[var(--ink2)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
@@ -90,7 +90,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
             <DropdownMenuTrigger asChild>
               <button
                 data-tour="more"
-                className="w-10 h-10 rounded-md flex items-center justify-center bg-[var(--ink2)] text-white shadow-sm border border-[var(--ink2)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+                className="w-full group-hover/side:w-10 h-10 rounded-md flex items-center justify-center bg-[var(--ink2)] text-white shadow-sm border border-[var(--ink2)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
                 title="More"
               >
                 <LayoutGrid className="w-4 h-4" />
@@ -121,7 +121,7 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content */}
-      <main className="ml-[240px] flex-1 bg-background flex flex-col min-h-screen">
+      <main className="ml-[76px] flex-1 bg-background flex flex-col min-h-screen">
         <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md px-8 pt-6 pb-4 border-b border-border/50">
           <div data-tour="ask-halo" className="relative max-w-2xl">
             <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--primary)]" />
@@ -170,11 +170,11 @@ export function DesktopLayout({ children }: { children: React.ReactNode }) {
 
 function NavItem({ href, icon: Icon, label, active, tourId }: { href: string, icon: any, label: string, active: boolean, tourId?: string }) {
   return (
-    <Link href={href} data-tour={tourId} className={`group flex items-center gap-3 px-3 py-2.5 rounded-none transition-all border-l-2 ${active ? "border-[var(--primary)] bg-[var(--muted)] text-foreground" : "border-transparent text-muted-foreground hover:bg-[var(--muted)]/50 hover:text-foreground hover:border-[var(--border)]"}`}>
-      <span className={`custom-icon ${active ? "bg-[var(--primary)] text-black" : "bg-[var(--border)] text-muted-foreground group-hover:text-[var(--primary)] group-hover:bg-[var(--muted)]"}`}>
+    <Link href={href} data-tour={tourId} title={label} className={`group flex items-center gap-3 px-3 py-2.5 rounded-none transition-all border-l-2 ${active ? "border-[var(--primary)] bg-[var(--muted)] text-foreground" : "border-transparent text-muted-foreground hover:bg-[var(--muted)]/50 hover:text-foreground hover:border-[var(--border)]"}`}>
+      <span className={`custom-icon shrink-0 ${active ? "bg-[var(--primary)] text-black" : "bg-[var(--border)] text-muted-foreground group-hover:text-[var(--primary)] group-hover:bg-[var(--muted)]"}`}>
         <Icon className="w-4 h-4" />
       </span>
-      <span className="font-medium text-sm font-display tracking-wide">{label}</span>
+      <span className="font-medium text-sm font-display tracking-wide whitespace-nowrap opacity-0 group-hover/side:opacity-100 transition-opacity duration-150">{label}</span>
     </Link>
   );
 }
