@@ -19,6 +19,7 @@ import RecapShare from "./pages/RecapShare";
 import SummaryShare from "./pages/SummaryShare";
 import ClientAdmin from "./pages/ClientAdmin";
 import ClientBoard from "./pages/ClientBoard";
+import ClientBoardOffice from "./pages/ClientBoardOffice";
 import ClientRequest from "./pages/ClientRequest";
 import JobTracker from "./pages/JobTracker";
 import Pipeline from "./pages/Pipeline";
@@ -57,6 +58,7 @@ function AdminRouter() {
         <Route path="/" component={Today} />
         <Route path="/properties" component={Properties} />
         <Route path="/properties/:id" component={PropertyDetail} />
+        <Route path="/properties/:id/board" component={ClientBoardOffice} />
         <Route path="/jobs/:id" component={JobDetail} />
         <Route path="/money" component={Money} />
         <Route path="/money/payments" component={PaymentsHub} />

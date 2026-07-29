@@ -3,7 +3,7 @@ import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, ChevronDown, ChevronRight, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History, Receipt, ArrowRight } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronRight, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History, Receipt, ArrowRight, LayoutGrid } from "lucide-react";
 import { useState } from "react";
 import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
 import { EditPropertySheet } from "@/components/EditPropertySheet";
@@ -214,6 +214,21 @@ export default function PropertyDetail() {
           <span className="text-[11px] text-muted-foreground tracking-[0.04em] uppercase">Past Margin</span>
         </div>
       </div>
+
+      <Link
+        href={`/properties/${id}/board`}
+        className="flex items-center justify-between bg-card rounded-[14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-border p-[12px_14px] mb-[16px] active:scale-[0.99] transition-transform"
+        data-testid="link-client-board"
+      >
+        <div className="flex items-center gap-[10px]">
+          <LayoutGrid className="w-[18px] h-[18px] text-[var(--gold-dark)]" />
+          <div>
+            <div className="font-display font-bold text-[14.5px] leading-tight">Client board</div>
+            <div className="text-[12px] text-muted-foreground">See what the client sees · send a card</div>
+          </div>
+        </div>
+        <ArrowRight className="w-[16px] h-[16px] text-muted-foreground" />
+      </Link>
 
       <MarginSection
         currentPct={stats.marginPct ?? null}
