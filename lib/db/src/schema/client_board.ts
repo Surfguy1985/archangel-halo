@@ -34,6 +34,13 @@ export const clientDashboardCardsTable = pgTable(
     archived: boolean("archived").notNull().default(false),
     // Triage "Defer": hide from the triage queue until this instant passes.
     snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
+    // Wekan-style card fields.
+    labels: jsonb("labels"), // string[] of label keys (e.g. "maintenance","billing")
+    checklist: jsonb("checklist"), // [{ id, text, done }]
+    // Client -> office card sending. null = not sent.
+    sentToOfficeAt: timestamp("sent_to_office_at", { withTimezone: true }),
+    officeStatus: text("office_status"), // pending | accepted | declined
+    officeNote: text("office_note"), // office response note back to client
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -65,5 +72,36 @@ export const clientDashboardActionsTable = pgTable("client_dashboard_actions", {
     .defaultNow(),
 });
 
+// Two-way comment threads on any board card (pushed or client-created).
+// cardKey matches client_dashboard_cards.cardKey / pushed card "pushed:<id>".
+export const clientCardCommentsTable = pgTable("client_card_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  propertyId: uuid("property_id").notNull(),
+  cardKey: text("card_key").notNull(),
+  authorType: text("author_type").notNull(), // office | client
+  authorName: text("author_name").notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// Live in-app notification feed for both surfaces. audience scopes delivery.
+export const clientBoardNotificationsTable = pgTable("client_board_notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  propertyId: uuid("property_id").notNull(),
+  audience: text("audience").notNull(), // client | office
+  type: text("type").notNull(), // comment | card_sent | card_response | card_pushed | card_updated
+  title: text("title").notNull(),
+  body: text("body"),
+  cardKey: text("card_key"),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type ClientCardComment = typeof clientCardCommentsTable.$inferSelect;
+export type ClientBoardNotification = typeof clientBoardNotificationsTable.$inferSelect;
 export type ClientDashboardCard = typeof clientDashboardCardsTable.$inferSelect;
 export type ClientDashboardAction = typeof clientDashboardActionsTable.$inferSelect;

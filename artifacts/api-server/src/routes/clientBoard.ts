@@ -1,9 +1,11 @@
 import { Router, type IRouter } from "express";
 import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   db,
   clientAccountsTable,
+  clientCardCommentsTable,
+  clientBoardNotificationsTable,
   clientUsersTable,
   clientDashboardCardsTable,
   clientDashboardActionsTable,
@@ -32,6 +34,12 @@ import {
   DispatchClientBoardActionBody,
   DispatchClientBoardActionResponse,
   GetClientBoardMapResponse,
+  AddClientCardCommentBody,
+  AddClientCardCommentResponse,
+  ListClientCardCommentsResponse,
+  SendClientCardToOfficeResponse,
+  ListClientBoardNotificationsResponse,
+  GetClientBoardKpisResponse,
 } from "@workspace/api-zod";
 import { effectivePermissions } from "./clientAccess";
 
@@ -288,6 +296,17 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   );
   const customs = boardRows.filter((r) => r.kind === "custom" && !r.archived);
 
+  // Comment counts per card, one grouped query.
+  const commentRows = await db
+    .select({
+      cardKey: clientCardCommentsTable.cardKey,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(clientCardCommentsTable)
+    .where(eq(clientCardCommentsTable.propertyId, propertyId))
+    .groupBy(clientCardCommentsTable.cardKey);
+  const commentCountByKey = new Map(commentRows.map((r) => [r.cardKey, r.n]));
+
   const now = Date.now();
   const DAY = 86_400_000;
   const activeJobs = jobs.filter(
@@ -335,6 +354,7 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
 
   const applyOverride = (card: CardRow) => {
     card.snoozedUntil = null;
+    card.commentCount = commentCountByKey.get(card.cardKey) ?? 0;
     const o = overrides.get(card.cardKey);
     if (o) {
       if (o.lane && LANE_KEYS.has(o.lane)) card.lane = o.lane;
@@ -342,6 +362,9 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       if (o.notes != null) card.notes = o.notes;
       if (o.snoozedUntil && o.snoozedUntil.getTime() > now)
         card.snoozedUntil = o.snoozedUntil.toISOString();
+      // Wekan-style overlays are client-editable even on HALO-fed cards.
+      if (Array.isArray(o.labels)) card.labels = o.labels;
+      if (Array.isArray(o.checklist)) card.checklist = o.checklist;
     }
     return card;
   };
@@ -577,6 +600,16 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       updatedAt: c.updatedAt.toISOString(),
       snoozedUntil:
         c.snoozedUntil && c.snoozedUntil.getTime() > now ? c.snoozedUntil.toISOString() : null,
+      labels: Array.isArray(c.labels) ? c.labels : [],
+      checklist: Array.isArray(c.checklist) ? c.checklist : [],
+      commentCount: commentCountByKey.get(c.cardKey) ?? 0,
+      sentToOffice: c.sentToOfficeAt
+        ? {
+            sentAt: c.sentToOfficeAt.toISOString(),
+            status: c.officeStatus ?? "pending",
+            note: c.officeNote ?? null,
+          }
+        : null,
     });
   }
 
@@ -626,6 +659,7 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       module,
       updatedAt: c.updatedAt.toISOString(),
       snoozedUntil: null,
+      commentCount: commentCountByKey.get(`push:${c.id}`) ?? 0,
     });
   }
 
@@ -790,6 +824,8 @@ router.patch(
           priority: body.priority !== undefined ? body.priority : existing.priority,
           dueOn: body.dueOn !== undefined ? body.dueOn : existing.dueOn,
           archived: body.archived ?? existing.archived,
+          labels: body.labels !== undefined ? body.labels : existing.labels,
+          checklist: body.checklist !== undefined ? body.checklist : existing.checklist,
           updatedAt: new Date(),
         })
         .where(eq(clientDashboardCardsTable.id, existing.id))
@@ -805,15 +841,20 @@ router.patch(
       return;
     }
 
-    // HALO-fed card: only notes are client-editable, stored as an override.
-    if (body.notes === undefined) {
-      res.status(400).json({ error: "Only notes can be edited on HALO cards" });
+    // HALO-fed card: notes, labels, and checklist are client-editable,
+    // stored as an override. Everything else is HALO's to compute.
+    if (body.notes === undefined && body.labels === undefined && body.checklist === undefined) {
+      res.status(400).json({ error: "Only notes, labels, and checklist can be edited on HALO cards" });
       return;
     }
+    const overlay: Partial<typeof clientDashboardCardsTable.$inferInsert> = {};
+    if (body.notes !== undefined) overlay.notes = body.notes;
+    if (body.labels !== undefined) overlay.labels = body.labels;
+    if (body.checklist !== undefined) overlay.checklist = body.checklist;
     if (existing) {
       const [row] = await db
         .update(clientDashboardCardsTable)
-        .set({ notes: body.notes, updatedAt: new Date() })
+        .set({ ...overlay, updatedAt: new Date() })
         .where(eq(clientDashboardCardsTable.id, existing.id))
         .returning();
       res.json(
@@ -832,7 +873,7 @@ router.patch(
         propertyId: account.propertyId,
         cardKey,
         kind: "override",
-        notes: body.notes,
+        ...overlay,
         position: Date.now(),
         createdBy: viewer.name,
       })
@@ -1366,6 +1407,336 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
       lng: prop?.longitude ?? null,
       crews: crewsOut,
       happenings: happenings.slice(0, 20),
+    }),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Wekan-style layer: comments, send-to-office, live notifications, KPIs
+// ---------------------------------------------------------------------------
+
+/** Raise a live notification on the client board bell. Never breaks the caller. */
+export async function notifyClientBoard(
+  propertyId: string,
+  type: string,
+  title: string,
+  body: string | null,
+  cardKey: string | null,
+): Promise<void> {
+  try {
+    await db.insert(clientBoardNotificationsTable).values({
+      propertyId,
+      audience: "client",
+      type,
+      title,
+      body,
+      cardKey,
+    });
+  } catch {
+    /* notification must never break the action that raised it */
+  }
+}
+
+const CARD_KEY_RE = /^[a-z_]+:[A-Za-z0-9-]{1,64}$/;
+
+router.get(
+  "/client/:token/board/cards/:cardKey/comments",
+  async (req, res): Promise<void> => {
+    const account = await accountByToken(String(req.params.token));
+    if (!account) {
+      res.status(404).json({ error: "Invalid link" });
+      return;
+    }
+    const cardKey = String(req.params.cardKey);
+    const comments = await db
+      .select()
+      .from(clientCardCommentsTable)
+      .where(
+        and(
+          eq(clientCardCommentsTable.propertyId, account.propertyId),
+          eq(clientCardCommentsTable.cardKey, cardKey),
+        ),
+      )
+      .orderBy(clientCardCommentsTable.createdAt);
+    res.json(
+      ListClientCardCommentsResponse.parse({
+        comments: comments.map((c) => ({
+          id: c.id,
+          authorType: c.authorType,
+          authorName: c.authorName,
+          body: c.body,
+          createdAt: c.createdAt.toISOString(),
+        })),
+      }),
+    );
+  },
+);
+
+router.post(
+  "/client/:token/board/cards/:cardKey/comments",
+  async (req, res): Promise<void> => {
+    const parsed = AddClientCardCommentBody.safeParse(req.body);
+    const body = parsed.success ? parsed.data.body.trim() : "";
+    if (!body || body.length > 4000) {
+      res.status(400).json({ error: "Comment text is required (max 4000 chars)" });
+      return;
+    }
+    const account = await accountByToken(String(req.params.token));
+    if (!account) {
+      res.status(404).json({ error: "Invalid link" });
+      return;
+    }
+    const viewer = await resolveViewer(req, account.propertyId);
+    const denied = requireWriter(viewer);
+    if (denied) {
+      res.status(403).json({ error: denied });
+      return;
+    }
+    const cardKey = String(req.params.cardKey);
+    if (!CARD_KEY_RE.test(cardKey)) {
+      res.status(400).json({ error: "Invalid card" });
+      return;
+    }
+    const [row] = await db
+      .insert(clientCardCommentsTable)
+      .values({
+        propertyId: account.propertyId,
+        cardKey,
+        authorType: "client",
+        authorName: viewer.name ?? "Client",
+        body,
+      })
+      .returning();
+    // Office bell (existing office notification center) — never fail the post.
+    try {
+      await db.insert(notificationsTable).values({
+        kind: "client_dashboard",
+        title: `${viewer.name ?? "Client"} commented on a board card`,
+        body: body.slice(0, 300),
+        entityType: "property",
+        entityId: account.propertyId,
+      });
+    } catch (err) {
+      console.error("office comment notification failed:", err);
+    }
+    res.status(201).json(
+      AddClientCardCommentResponse.parse({
+        id: row!.id,
+        authorType: row!.authorType,
+        authorName: row!.authorName,
+        body: row!.body,
+        createdAt: row!.createdAt.toISOString(),
+      }),
+    );
+  },
+);
+
+router.post(
+  "/client/:token/board/cards/:cardKey/send-to-office",
+  async (req, res): Promise<void> => {
+    const account = await accountByToken(String(req.params.token));
+    if (!account) {
+      res.status(404).json({ error: "Invalid link" });
+      return;
+    }
+    const viewer = await resolveViewer(req, account.propertyId);
+    const denied = requireWriter(viewer);
+    if (denied) {
+      res.status(403).json({ error: denied });
+      return;
+    }
+    const cardKey = String(req.params.cardKey);
+    if (!cardKey.startsWith("custom:")) {
+      res.status(404).json({ error: "Only your own cards can be sent to the office" });
+      return;
+    }
+    // Guarded claim: first send wins; re-sends after a decline re-open it.
+    const updated = await db
+      .update(clientDashboardCardsTable)
+      .set({
+        sentToOfficeAt: new Date(),
+        officeStatus: "pending",
+        officeNote: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(clientDashboardCardsTable.propertyId, account.propertyId),
+          eq(clientDashboardCardsTable.cardKey, cardKey),
+          eq(clientDashboardCardsTable.kind, "custom"),
+          sql`(${clientDashboardCardsTable.officeStatus} IS DISTINCT FROM 'pending')`,
+        ),
+      )
+      .returning();
+    if (!updated.length) {
+      const [existing] = await db
+        .select()
+        .from(clientDashboardCardsTable)
+        .where(
+          and(
+            eq(clientDashboardCardsTable.propertyId, account.propertyId),
+            eq(clientDashboardCardsTable.cardKey, cardKey),
+          ),
+        )
+        .limit(1);
+      if (!existing) {
+        res.status(404).json({ error: "Card not found" });
+        return;
+      }
+      res.status(409).json({ error: "This card is already with the office" });
+      return;
+    }
+    const card = updated[0]!;
+    try {
+      await db.insert(notificationsTable).values({
+        kind: "client_dashboard",
+        title: `Client sent you a card: ${card.title ?? "Untitled"}`,
+        body: `${viewer.name ?? "A client"} sent "${card.title ?? "Untitled"}" to the office from their board.`,
+        entityType: "property",
+        entityId: account.propertyId,
+      });
+    } catch (err) {
+      console.error("send-to-office notification failed:", err);
+    }
+    res.json(
+      SendClientCardToOfficeResponse.parse({
+        ok: true,
+        blocked: false,
+        action: "card.sent_to_office",
+        reason: null,
+        message: "Sent to the office — you'll hear back here",
+      }),
+    );
+  },
+);
+
+router.get("/client/:token/board/notifications", async (req, res): Promise<void> => {
+  const account = await accountByToken(String(req.params.token));
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const [rows, [unread]] = await Promise.all([
+    db
+      .select()
+      .from(clientBoardNotificationsTable)
+      .where(
+        and(
+          eq(clientBoardNotificationsTable.propertyId, account.propertyId),
+          eq(clientBoardNotificationsTable.audience, "client"),
+        ),
+      )
+      .orderBy(desc(clientBoardNotificationsTable.createdAt))
+      .limit(50),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(clientBoardNotificationsTable)
+      .where(
+        and(
+          eq(clientBoardNotificationsTable.propertyId, account.propertyId),
+          eq(clientBoardNotificationsTable.audience, "client"),
+          isNull(clientBoardNotificationsTable.readAt),
+        ),
+      ),
+  ]);
+  res.json(
+    ListClientBoardNotificationsResponse.parse({
+      notifications: rows.map((n) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        cardKey: n.cardKey,
+        read: n.readAt != null,
+        createdAt: n.createdAt.toISOString(),
+      })),
+      unreadCount: unread?.n ?? 0,
+    }),
+  );
+});
+
+router.post("/client/:token/board/notifications/read", async (req, res): Promise<void> => {
+  const account = await accountByToken(String(req.params.token));
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  await db
+    .update(clientBoardNotificationsTable)
+    .set({ readAt: new Date() })
+    .where(
+      and(
+        eq(clientBoardNotificationsTable.propertyId, account.propertyId),
+        eq(clientBoardNotificationsTable.audience, "client"),
+        isNull(clientBoardNotificationsTable.readAt),
+      ),
+    );
+  res.json({ ok: true });
+});
+
+// Property-management KPI strip (Open Property style) for the board header.
+router.get("/client/:token/board/kpis", async (req, res): Promise<void> => {
+  const account = await accountByToken(String(req.params.token));
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const propertyId = account.propertyId;
+  const [jobs, requests, invoices, prop] = await Promise.all([
+    db.select().from(jobsTable).where(eq(jobsTable.propertyId, propertyId)),
+    db.select().from(workRequestsTable).where(eq(workRequestsTable.propertyId, propertyId)),
+    db.select().from(invoicesTable).where(eq(invoicesTable.propertyId, propertyId)),
+    db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, propertyId))
+      .limit(1)
+      .then((r) => r[0]),
+  ]);
+  const now = Date.now();
+  const DAY = 86_400_000;
+  const open = jobs.filter((j) => j.status !== "complete" && !j.completedAt && !j.clearedAt);
+  const scheduled = open.filter((j) => j.scheduledOn);
+  const nextVisit =
+    scheduled
+      .map((j) => j.scheduledOn!)
+      .filter((d) => d >= new Date(now).toISOString().slice(0, 10))
+      .sort()[0] ?? null;
+  const unpaid = invoices.filter((i) => i.status !== "paid" && i.status !== "cancelled");
+  const outstanding = unpaid.reduce((s, i) => s + i.amount + (i.taxAmount ?? 0), 0);
+  const overdue = unpaid
+    .filter((i) => i.dueAt && i.dueAt.getTime() < now)
+    .reduce((s, i) => s + i.amount + (i.taxAmount ?? 0), 0);
+  const paidLast30 = invoices
+    .filter((i) => i.status === "paid" && i.paidAt && now - i.paidAt.getTime() < 30 * DAY)
+    .reduce((s, i) => s + i.amount + (i.taxAmount ?? 0), 0);
+  // Unit health from the live unit-status map (normalized labels).
+  const unitCount = prop?.units ?? 0;
+  const openByUnit = new Set(
+    open.map((j) => (j.unitNo ?? "").trim().toLowerCase()).filter(Boolean),
+  );
+  const urgentByUnit = new Set(
+    open
+      .filter((j) => !j.scheduledOn)
+      .map((j) => (j.unitNo ?? "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const unitsTotal = Math.max(unitCount, openByUnit.size);
+  const unitsUrgent = urgentByUnit.size;
+  const unitsAttention = Math.max(openByUnit.size - unitsUrgent, 0);
+  res.json(
+    GetClientBoardKpisResponse.parse({
+      unitsTotal,
+      unitsOk: Math.max(unitsTotal - openByUnit.size, 0),
+      unitsAttention,
+      unitsUrgent,
+      openJobs: open.length,
+      scheduledJobs: scheduled.length,
+      pendingRequests: requests.filter((r) => r.status === "pending").length,
+      invoicesOutstanding: outstanding,
+      invoicesOverdue: overdue,
+      paidLast30,
+      nextVisit,
     }),
   );
 });

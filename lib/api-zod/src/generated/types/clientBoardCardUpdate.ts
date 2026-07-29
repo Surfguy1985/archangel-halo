@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { BoardChecklistItem } from './boardChecklistItem';
 
 export interface ClientBoardCardUpdate {
   /** @nullable */
@@ -19,4 +20,6 @@ export interface ClientBoardCardUpdate {
   dueOn?: string | null;
   /** @nullable */
   archived?: boolean | null;
+  labels?: string[];
+  checklist?: BoardChecklistItem[];
 }

@@ -2,6 +2,7 @@ import {
   db,
   clientAccountsTable,
   clientBoardCardsTable,
+  clientBoardNotificationsTable,
   type ClientBoardCard,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
@@ -196,6 +197,21 @@ export async function raiseClientCard(input: RaiseCardInput): Promise<ClientBoar
         .returning();
       card = c!;
       void postWebhook(input.propertyId, "card.created", card);
+    }
+    // Live bell on the client board — must never break the send.
+    try {
+      await db.insert(clientBoardNotificationsTable).values({
+        propertyId: input.propertyId,
+        audience: "client",
+        type: existing ? "card_updated" : "card_pushed",
+        title: existing
+          ? `Card updated: ${input.title}`
+          : `New card from Archangel: ${input.title}`,
+        body: input.body ?? null,
+        cardKey: `push:${card.id}`,
+      });
+    } catch (err) {
+      console.error("client board notification failed:", err);
     }
     return card;
   } catch (err) {

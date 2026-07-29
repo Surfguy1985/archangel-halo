@@ -14,8 +14,9 @@ import {
   TONES,
   MetricTone,
 } from './templateSpec';
-import { Camera, User, CheckCircle2, Circle, AlertCircle, FileText, MapPin, ClipboardCheck, AlertTriangle, Gift, CheckSquare, Receipt, CreditCard, ExternalLink } from 'lucide-react';
+import { Camera, User, CheckCircle2, Circle, AlertCircle, FileText, MapPin, ClipboardCheck, AlertTriangle, Gift, CheckSquare, Receipt, CreditCard, ExternalLink, MessageSquare, Tag } from 'lucide-react';
 import { ModuleMetrics, ModuleEvidence, ModuleDecision } from './BoardCardModules';
+import { SendToOfficeButton } from '@/components/SendToOfficeButton';
 
 interface BoardCardProps {
   card: ClientBoardCardView;
@@ -155,6 +156,16 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
   const prio = PRIORITY_CHIP[card.priority ?? 'none'] ?? PRIORITY_CHIP.none;
   const labels = alertLabels(card, spec);
   const draggable = !readOnly;
+
+  // New indicators from extended card data
+  const commentCount = (card as any).commentCount || 0;
+  const cardLabels = (card as any).labels || [];
+  const checklist = (card as any).checklist || [];
+  const checklistComplete = checklist.length > 0 
+    ? checklist.filter((item: any) => item.done).length
+    : 0;
+  const checklistTotal = checklist.length;
+  const sentToOffice = (card as any).sentToOffice;
 
   const handleAction = (e: React.MouseEvent, action: string) => {
     e.stopPropagation();
@@ -353,7 +364,7 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
           </div>
         )}
 
-        {/* 7. Labels - 26px */}
+        {/* 7. Labels + Indicators - 26px */}
         <div className="flex items-center h-[26px] gap-1.5 mt-[6px] overflow-hidden">
           <span
             className="rounded-[20px] px-[8px] py-[3px] text-[8.5px] font-[700] uppercase tracking-wider whitespace-nowrap border"
@@ -378,6 +389,33 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
               {l.name}
             </span>
           ))}
+          {cardLabels.length > 0 && (
+            <span className="flex items-center gap-1 rounded-[20px] px-[8px] py-[3px] text-[8.5px] font-[700] uppercase tracking-wider whitespace-nowrap border border-gold bg-[#fef9f0]">
+              <Tag className="w-2.5 h-2.5" />
+              {cardLabels.length}
+            </span>
+          )}
+          {checklistTotal > 0 && (
+            <span className="flex items-center gap-1 rounded-[20px] px-[8px] py-[3px] text-[8.5px] font-[700] tracking-wider whitespace-nowrap border border-primary/30 bg-primary/10">
+              <CheckSquare className="w-2.5 h-2.5" />
+              {checklistComplete}/{checklistTotal}
+            </span>
+          )}
+          {commentCount > 0 && (
+            <span className="flex items-center gap-1 rounded-[20px] px-[8px] py-[3px] text-[8.5px] font-[700] tracking-wider whitespace-nowrap border border-[#33639f]/30 bg-[#33639f]/10">
+              <MessageSquare className="w-2.5 h-2.5" />
+              {commentCount}
+            </span>
+          )}
+          {sentToOffice && (
+            <span className={`rounded-[20px] px-[8px] py-[3px] text-[8.5px] font-[700] uppercase tracking-wider whitespace-nowrap border ${
+              sentToOffice.status === 'accepted' ? 'bg-[#1f7a52]/10 border-[#1f7a52]/30 text-[#1f7a52]' :
+              sentToOffice.status === 'declined' ? 'bg-[#b23a2e]/10 border-[#b23a2e]/30 text-[#b23a2e]' :
+              'bg-[#c25a1e]/10 border-[#c25a1e]/30 text-[#c25a1e]'
+            }`}>
+              {sentToOffice.status === 'accepted' ? 'ACCEPTED' : sentToOffice.status === 'declined' ? 'DECLINED' : 'PENDING'}
+            </span>
+          )}
         </div>
 
         {/* 8. Decision - 36px */}

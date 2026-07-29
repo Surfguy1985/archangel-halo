@@ -16,6 +16,9 @@ import { DashboardTour } from '@/components/DashboardTour';
 import { motion, AnimatePresence } from 'framer-motion';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { specFor, CATEGORY_COLORS } from '@/components/kanban/templateSpec';
+import { KpiStrip } from '@/components/KpiStrip';
+import { NotificationBell } from '@/components/NotificationBell';
+import { CardDetailPanel } from '@/components/CardDetailPanel';
 
 import {
   Sheet,
@@ -39,6 +42,7 @@ function Board() {
   const [selectedCard, setSelectedCard] = useState<ClientBoardCardView | null>(null);
   const [hoveredLane, setHoveredLane] = useState<string | null>(null);
   const [expandedLane, setExpandedLane] = useState<string | null>(null);
+  const [detailPanelCard, setDetailPanelCard] = useState<ClientBoardCardView | null>(null);
   const isCoarsePointer = React.useMemo(
     () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches,
     [],
@@ -772,6 +776,16 @@ function Board() {
         </div>
 
         <div className="flex items-center gap-[16px]">
+          <NotificationBell 
+            token={token} 
+            onCardClick={(cardKey) => {
+              const card = cards.find(c => c.cardKey === cardKey);
+              if (card) {
+                setDetailPanelCard(card);
+              }
+            }}
+          />
+
           <div className="flex items-center h-[32px] gap-2 rounded-[8px] bg-[#101c33] px-3 border border-[#101c33]/20 shadow-sm overflow-hidden group">
             <span className="relative flex h-[6px] w-[6px]">
               <span className="absolute inline-flex h-full w-full rounded-full bg-[#D8F84E] opacity-75" style={{ animation: 'pulseDot 1.6s infinite' }}></span>
@@ -845,6 +859,9 @@ function Board() {
           )}
         </div>
       </header>
+
+      {/* KPI Strip */}
+      <KpiStrip token={token} />
 
       {/* Pulse rail */}
       <div className="flex h-[56px] shrink-0 bg-[#101c33] overflow-x-auto kanban-lane-scroll hide-scrollbar items-center gap-[1px]">
@@ -1130,7 +1147,7 @@ function Board() {
 
               <div className="flex-1 overflow-y-auto kanban-lane-scroll hide-scrollbar px-1 flex flex-col gap-[14px] min-h-[100px] relative pb-[10px]">
                 {laneCards.map((card) => (
-                  <div key={card.cardKey} className="card-snap" onTouchStart={(e) => handleTouchStart(e, card.cardKey)} onClick={() => { if (!draggedCard) setSelectedCard(card); }}>
+                  <div key={card.cardKey} className="card-snap" onTouchStart={(e) => handleTouchStart(e, card.cardKey)} onClick={() => { if (!draggedCard) setDetailPanelCard(card); }}>
                     <BoardCard
                       card={card}
                       token={token}
@@ -1183,6 +1200,15 @@ function Board() {
 
       {tourOpen && <DashboardTour onClose={() => setTourOpen(false)} />}
       {renderTriageSheet()}
+
+      {detailPanelCard && (
+        <CardDetailPanel
+          card={detailPanelCard}
+          token={token}
+          readOnly={viewer.readOnly}
+          onClose={() => setDetailPanelCard(null)}
+        />
+      )}
     </motion.div>
   );
 }

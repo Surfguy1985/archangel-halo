@@ -5,6 +5,8 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { BoardCardOfficeSendState } from './boardCardOfficeSendState';
+import type { BoardChecklistItem } from './boardChecklistItem';
 import type { ClientBoardCardButton } from './clientBoardCardButton';
 import type { ClientBoardCardViewModule } from './clientBoardCardViewModule';
 import type { ClientBoardCrew } from './clientBoardCrew';
@@ -55,4 +57,8 @@ export interface ClientBoardCardView {
   updatedAt?: string | null;
   /** @nullable */
   snoozedUntil?: string | null;
+  labels?: string[];
+  checklist?: BoardChecklistItem[];
+  commentCount?: number;
+  sentToOffice?: BoardCardOfficeSendState | null;
 }

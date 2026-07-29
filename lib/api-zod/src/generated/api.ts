@@ -7966,6 +7966,93 @@ export const DeleteOfficeClientBoardCardResponse = zod.object({
 
 
 /**
+ * @summary Cards the client sent to the office, newest first
+ */
+export const GetClientBoardInboxParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const GetClientBoardInboxResponse = zod.object({
+  "cards": zod.array(zod.object({
+  "cardKey": zod.string(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "priority": zod.string().nullish(),
+  "dueOn": zod.string().nullish(),
+  "createdBy": zod.string().nullish(),
+  "labels": zod.array(zod.string()).optional(),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})).optional(),
+  "sentAt": zod.string(),
+  "status": zod.string().describe('pending | accepted | declined'),
+  "note": zod.string().nullish(),
+  "commentCount": zod.number().optional()
+}))
+})
+
+
+/**
+ * @summary Accept or decline a client-sent card — the client is notified live
+ */
+export const RespondClientInboxCardParams = zod.object({
+  "propertyId": zod.coerce.string(),
+  "cardKey": zod.coerce.string()
+})
+
+export const RespondClientInboxCardBody = zod.object({
+  "status": zod.string().describe('accepted | declined'),
+  "note": zod.string().nullish()
+})
+
+export const RespondClientInboxCardResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Comment thread on a client board card (office view)
+ */
+export const ListOfficeCardCommentsParams = zod.object({
+  "propertyId": zod.coerce.string(),
+  "cardKey": zod.coerce.string()
+})
+
+export const ListOfficeCardCommentsResponse = zod.object({
+  "comments": zod.array(zod.object({
+  "id": zod.string(),
+  "authorType": zod.string().describe('office | client'),
+  "authorName": zod.string(),
+  "body": zod.string(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Office posts a comment on a client board card — client is notified live
+ */
+export const AddOfficeCardCommentParams = zod.object({
+  "propertyId": zod.coerce.string(),
+  "cardKey": zod.coerce.string()
+})
+
+export const AddOfficeCardCommentBody = zod.object({
+  "body": zod.string()
+})
+
+export const AddOfficeCardCommentResponse = zod.object({
+  "id": zod.string(),
+  "authorType": zod.string().describe('office | client'),
+  "authorName": zod.string(),
+  "body": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary Client dashboard admin — team members and their feature access
  */
 export const GetClientAccessParams = zod.object({
@@ -8589,7 +8676,19 @@ export const GetClientBoardResponse = zod.object({
   "editable": zod.boolean(),
   "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Interactive module payload for cards pushed from the office (invoice pay\/approve, tracker GPS, flagged items, referral)'),
   "updatedAt": zod.string().nullish(),
-  "snoozedUntil": zod.string().nullish()
+  "snoozedUntil": zod.string().nullish(),
+  "labels": zod.array(zod.string()).optional(),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})).optional(),
+  "commentCount": zod.number().optional(),
+  "sentToOffice": zod.union([zod.object({
+  "sentAt": zod.string(),
+  "status": zod.string().describe('pending | accepted | declined'),
+  "note": zod.string().nullish().describe('Office response note')
+}),zod.null()]).optional()
 })),
   "audit": zod.array(zod.object({
   "action": zod.string(),
@@ -8618,7 +8717,13 @@ export const CreateClientBoardCardBody = zod.object({
   "description": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "priority": zod.string().nullish(),
-  "dueOn": zod.string().nullish()
+  "dueOn": zod.string().nullish(),
+  "labels": zod.array(zod.string()).optional(),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})).optional()
 })
 
 export const CreateClientBoardCardResponse = zod.object({
@@ -8643,7 +8748,13 @@ export const UpdateClientBoardCardBody = zod.object({
   "notes": zod.string().nullish(),
   "priority": zod.string().nullish(),
   "dueOn": zod.string().nullish(),
-  "archived": zod.boolean().nullish()
+  "archived": zod.boolean().nullish(),
+  "labels": zod.array(zod.string()).optional(),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})).optional()
 })
 
 export const UpdateClientBoardCardResponse = zod.object({
@@ -8709,6 +8820,118 @@ export const GetClientBoardMapResponse = zod.object({
   "at": zod.string(),
   "text": zod.string()
 }))
+})
+
+
+/**
+ * @summary Comment thread on a board card (client view)
+ */
+export const ListClientCardCommentsParams = zod.object({
+  "token": zod.coerce.string(),
+  "cardKey": zod.coerce.string()
+})
+
+export const ListClientCardCommentsResponse = zod.object({
+  "comments": zod.array(zod.object({
+  "id": zod.string(),
+  "authorType": zod.string().describe('office | client'),
+  "authorName": zod.string(),
+  "body": zod.string(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Client posts a comment on a card — office is notified live
+ */
+export const AddClientCardCommentParams = zod.object({
+  "token": zod.coerce.string(),
+  "cardKey": zod.coerce.string()
+})
+
+export const AddClientCardCommentBody = zod.object({
+  "body": zod.string()
+})
+
+export const AddClientCardCommentResponse = zod.object({
+  "id": zod.string(),
+  "authorType": zod.string().describe('office | client'),
+  "authorName": zod.string(),
+  "body": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Send one of the client's own cards to the office for action
+ */
+export const SendClientCardToOfficeParams = zod.object({
+  "token": zod.coerce.string(),
+  "cardKey": zod.coerce.string()
+})
+
+export const SendClientCardToOfficeResponse = zod.object({
+  "ok": zod.boolean(),
+  "blocked": zod.boolean(),
+  "action": zod.string(),
+  "reason": zod.string().nullish(),
+  "message": zod.string().nullish()
+})
+
+
+/**
+ * @summary Live notification feed for the client board bell
+ */
+export const ListClientBoardNotificationsParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ListClientBoardNotificationsResponse = zod.object({
+  "notifications": zod.array(zod.object({
+  "id": zod.string(),
+  "type": zod.string().describe('comment | card_sent | card_response | card_pushed | card_updated'),
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "cardKey": zod.string().nullish(),
+  "read": zod.boolean(),
+  "createdAt": zod.string()
+})),
+  "unreadCount": zod.number()
+})
+
+
+/**
+ * @summary Mark all client board notifications read
+ */
+export const MarkClientBoardNotificationsReadParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const MarkClientBoardNotificationsReadResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Property-management KPIs for the client dashboard header
+ */
+export const GetClientBoardKpisParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientBoardKpisResponse = zod.object({
+  "unitsTotal": zod.number(),
+  "unitsOk": zod.number(),
+  "unitsAttention": zod.number(),
+  "unitsUrgent": zod.number(),
+  "openJobs": zod.number(),
+  "scheduledJobs": zod.number(),
+  "pendingRequests": zod.number(),
+  "invoicesOutstanding": zod.number().describe('Unpaid invoice total incl. tax'),
+  "invoicesOverdue": zod.number(),
+  "paidLast30": zod.number(),
+  "nextVisit": zod.string().nullish().describe('YYYY-MM-DD of next scheduled job')
 })
 
 

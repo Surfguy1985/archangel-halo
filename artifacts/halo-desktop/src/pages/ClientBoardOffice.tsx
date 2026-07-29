@@ -11,7 +11,15 @@ import {
   useGetClientBoardPushQuickPicks,
   getGetClientBoardPushQuickPicksQueryKey,
   useListClientAccounts,
+  useGetClientBoardInbox,
+  getGetClientBoardInboxQueryKey,
+  useRespondClientInboxCard,
+  useListOfficeCardComments,
+  getListOfficeCardCommentsQueryKey,
+  useAddOfficeCardComment,
   type ClientBoardFeedCard,
+  type ClientInboxCard,
+  type BoardCardComment,
 } from "@workspace/api-client-react";
 import {
   ChevronLeft,
@@ -39,6 +47,7 @@ import {
   BellRing,
   Users,
   Image as ImageIcon,
+  MessageSquare,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -46,8 +55,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
-// Mirrors the client-facing board (halo /client/:token/board) — same columns,
-// same card anatomy — so the office sees exactly what the client sees.
 const COLUMNS = [
   { key: "inbox", label: "From Archangel", icon: Inbox },
   { key: "todo", label: "To do", icon: ListTodo },
@@ -55,12 +62,11 @@ const COLUMNS = [
   { key: "done", label: "Done", icon: CheckCircle2 },
 ] as const;
 
-// Apple app tile aesthetic — kind color identity + icon
 type KindMeta = {
   label: string;
   icon: typeof FileText;
-  gradient: string; // squircle icon chip bg
-  textColor: string; // icon color inside chip
+  gradient: string;
+  textColor: string;
 };
 
 const KIND_META: Record<string, KindMeta> = {
@@ -126,11 +132,13 @@ function CardView({
   onEdit,
   onRemove,
   removing,
+  onComment,
 }: {
   card: ClientBoardFeedCard;
   onEdit?: () => void;
   onRemove?: () => void;
   removing?: boolean;
+  onComment?: () => void;
 }) {
   const meta = KIND_META[card.kind] ?? KIND_META.manual;
   const Icon = meta.icon;
@@ -146,11 +154,8 @@ function CardView({
       className="group flex flex-col h-[220px] rounded-2xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
       data-testid={`card-${card.id}`}
     >
-      {/* Apple tile header: squircle icon chip + kind + actions */}
       <div className="flex items-start gap-3 mb-3 shrink-0">
-        <div
-          className={`flex items-center justify-center w-10 h-10 rounded-2xl shadow-sm ${meta.gradient} shrink-0`}
-        >
+        <div className={`flex items-center justify-center w-10 h-10 rounded-2xl shadow-sm ${meta.gradient} shrink-0`}>
           <Icon className={`w-5 h-5 ${meta.textColor}`} />
         </div>
         <div className="flex-1 min-w-0">
@@ -163,8 +168,17 @@ function CardView({
             </div>
           )}
         </div>
-        {/* CRUD actions on ALL cards now */}
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          {onComment && (
+            <button
+              onClick={onComment}
+              title="Thread"
+              className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors"
+              data-testid={`button-comment-card-${card.id}`}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+            </button>
+          )}
           {onEdit && (
             <button
               onClick={onEdit}
@@ -189,7 +203,6 @@ function CardView({
         </div>
       </div>
 
-      {/* Title + body */}
       <div className="flex-1 min-h-0 flex flex-col space-y-1.5 mb-2">
         <div className="text-[13px] font-bold leading-snug line-clamp-2 shrink-0">{card.title}</div>
         {card.body && (
@@ -198,10 +211,8 @@ function CardView({
           </div>
         )}
 
-        {/* Module snapshots */}
         {mod && (
           <div className="mt-auto pt-2 overflow-hidden">
-            {/* Invoice module */}
             {card.kind === "invoice" && (
               <div className="rounded-xl bg-amber-50/80 border border-amber-200/60 p-2.5 text-xs space-y-1.5">
                 <div className="flex justify-between items-center">
@@ -219,8 +230,6 @@ function CardView({
                 )}
               </div>
             )}
-
-            {/* Tracker module */}
             {card.kind === "tracker" && (
               <div className="rounded-xl bg-violet-50/80 border border-violet-200/60 p-2.5 text-xs space-y-1.5">
                 <div className="font-semibold text-violet-900">
@@ -239,25 +248,17 @@ function CardView({
                 )}
               </div>
             )}
-
-            {/* Summary module (NEW) */}
             {card.kind === "summary" && (
               <div className="rounded-xl bg-sky-50/80 border border-sky-200/60 p-2.5 text-xs space-y-1.5">
                 <div className="flex items-center gap-2">
                   {mod.result === "exceeded" && (
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                      Exceeded
-                    </span>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Exceeded</span>
                   )}
                   {mod.result === "met" && (
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">
-                      Met
-                    </span>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">Met</span>
                   )}
                   {mod.result === "followup" && (
-                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
-                      Follow-up
-                    </span>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">Follow-up</span>
                   )}
                   <span className="text-[10px] text-sky-600">
                     {mod.unitNo ? `Unit ${mod.unitNo}` : ""} {mod.serviceDate ? `· ${mod.serviceDate}` : ""}
@@ -278,19 +279,12 @@ function CardView({
                 )}
               </div>
             )}
-
-            {/* Photos module (NEW) */}
             {card.kind === "photos" && (
               <div className="rounded-xl bg-pink-50/80 border border-pink-200/60 p-2.5 text-xs space-y-1.5">
                 {mod.photoUrls && mod.photoUrls.length > 0 && (
                   <div className="flex gap-1.5 overflow-hidden">
                     {mod.photoUrls.slice(0, 4).map((url: string, i: number) => (
-                      <img
-                        key={i}
-                        src={url}
-                        alt=""
-                        className="w-12 h-12 rounded-lg object-cover border border-pink-200/40"
-                      />
+                      <img key={i} src={url} alt="" className="w-12 h-12 rounded-lg object-cover border border-pink-200/40" />
                     ))}
                   </div>
                 )}
@@ -299,8 +293,6 @@ function CardView({
                 </div>
               </div>
             )}
-
-            {/* Flag module */}
             {card.kind === "flag" && (
               <div className="rounded-xl bg-red-50/80 border border-red-200/60 p-2.5 text-xs space-y-1.5">
                 {mod.requestedAt ? (
@@ -319,8 +311,6 @@ function CardView({
                 )}
               </div>
             )}
-
-            {/* Referral module */}
             {(card.kind === "referral" || (card.module as any)?.type === "referral") && (
               <div className="rounded-xl bg-teal-50/80 border border-teal-200/60 p-2.5 text-xs space-y-1.5">
                 {mod.referredAt ? (
@@ -334,8 +324,6 @@ function CardView({
                 )}
               </div>
             )}
-
-            {/* Link module */}
             {card.kind === "link" && (
               <a
                 href={mod.url}
@@ -350,13 +338,11 @@ function CardView({
         )}
       </div>
 
-      {/* Footer: links, due date, action label */}
       {hasFooter && (
         <div className="shrink-0 flex flex-col gap-1.5 border-t border-border pt-2">
           {showDueDate && (
             <div className="text-[11px] font-medium text-muted-foreground">Due {card.dueDate}</div>
           )}
-
           {showLinks && (
             <div className="flex flex-wrap gap-1.5">
               {card.links.map((l, i) => {
@@ -376,7 +362,6 @@ function CardView({
               })}
             </div>
           )}
-
           {showActionLabel && (
             <div className="text-[10px] font-semibold text-muted-foreground truncate">{card.actionLabel}</div>
           )}
@@ -386,9 +371,303 @@ function CardView({
   );
 }
 
+function InboxCardView({
+  card,
+  onRespond,
+  onComment,
+}: {
+  card: ClientInboxCard;
+  onRespond: (status: "accepted" | "declined") => void;
+  onComment: () => void;
+}) {
+  const isPending = card.status === "pending";
+
+  return (
+    <div className="group flex flex-col p-5 rounded-2xl border border-border bg-card shadow-sm hover:shadow-md transition-shadow relative">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          {isPending ? (
+            <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-bold uppercase tracking-wider">
+              Pending
+            </span>
+          ) : card.status === "accepted" ? (
+            <span className="px-2 py-0.5 rounded-md bg-[#B4FF44]/30 text-[#041029] text-[10px] font-bold uppercase tracking-wider">
+              Accepted
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-md bg-red-100 text-red-800 text-[10px] font-bold uppercase tracking-wider">
+              Declined
+            </span>
+          )}
+          {card.priority === "high" && (
+            <span className="px-2 py-0.5 rounded-md bg-orange-100 text-orange-800 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+              <Flag className="w-3 h-3" /> High Priority
+            </span>
+          )}
+        </div>
+        <button
+          onClick={onComment}
+          className="text-muted-foreground hover:text-foreground relative p-1.5 rounded-lg hover:bg-muted transition-colors"
+          title="Thread"
+        >
+          <MessageSquare className="w-5 h-5" />
+          {card.commentCount != null && card.commentCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-[#041029] text-[#B4FF44] text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] flex items-center justify-center border border-card shadow-sm">
+              {card.commentCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      <div className="text-base font-bold text-foreground mb-1.5 leading-snug">
+        {card.title}
+      </div>
+
+      {card.description && (
+        <div className="text-sm text-muted-foreground mb-4 whitespace-pre-line">
+          {card.description}
+        </div>
+      )}
+
+      {card.checklist && card.checklist.length > 0 && (
+        <div className="mb-4 space-y-1.5 bg-muted/30 p-3 rounded-xl border border-border/50">
+          {card.checklist.map((item) => (
+            <div key={item.id} className="flex items-start gap-2 text-sm">
+              {item.done ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+              ) : (
+                <div className="w-4 h-4 rounded-full border-2 border-border shrink-0 mt-0.5" />
+              )}
+              <span className={item.done ? "text-muted-foreground line-through" : "text-foreground"}>
+                {item.text}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-1.5 mb-5">
+        {card.labels?.map((l, i) => (
+          <span key={i} className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 uppercase tracking-wider border border-slate-200">
+            {l}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-auto border-t border-border pt-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+          <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-[10px]">
+            {card.createdBy ? card.createdBy.substring(0, 2).toUpperCase() : "CL"}
+          </span>
+          <span>
+            {card.createdBy || "Client"} • {new Date(card.sentAt).toLocaleDateString()}
+            {card.dueOn && ` • Due ${new Date(card.dueOn).toLocaleDateString()}`}
+          </span>
+        </div>
+
+        {isPending && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => onRespond("declined")}
+              className="px-4 py-2 rounded-xl text-sm font-bold text-red-600 hover:bg-red-50 transition-colors border border-transparent hover:border-red-200"
+            >
+              Decline
+            </button>
+            <button
+              onClick={() => onRespond("accepted")}
+              className="px-5 py-2 rounded-xl text-sm font-bold bg-[#041029] text-[#B4FF44] hover:opacity-90 transition-opacity"
+            >
+              Accept Request
+            </button>
+          </div>
+        )}
+
+        {!isPending && card.note && (
+          <div className="w-full mt-2 p-3 rounded-xl bg-muted/50 border border-border text-sm text-muted-foreground flex gap-2">
+            <span className="font-bold text-foreground">Note:</span> {card.note}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CommentsDialog({
+  propertyId,
+  cardKey,
+  title,
+  onClose,
+}: {
+  propertyId: string;
+  cardKey: string;
+  title: string;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useListOfficeCardComments(propertyId, cardKey, {
+    query: {
+      queryKey: getListOfficeCardCommentsQueryKey(propertyId, cardKey),
+      refetchInterval: 5000,
+    },
+  });
+  const addComment = useAddOfficeCardComment();
+  const [body, setBody] = useState("");
+
+  const submit = () => {
+    if (!body.trim()) return;
+    addComment.mutate(
+      { propertyId, cardKey, data: { body: body.trim() } },
+      {
+        onSuccess: () => {
+          setBody("");
+          queryClient.invalidateQueries({
+            queryKey: getListOfficeCardCommentsQueryKey(propertyId, cardKey),
+          });
+        },
+      }
+    );
+  };
+
+  const comments = data?.comments ?? [];
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md p-0 overflow-hidden bg-background h-[600px] flex flex-col sm:rounded-3xl">
+        <div className="p-5 border-b border-border bg-card shrink-0">
+          <DialogTitle className="text-lg font-display font-bold truncate pr-6">{title}</DialogTitle>
+          <div className="text-xs font-medium text-muted-foreground mt-1">Internal & Client Thread</div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5 bg-slate-50">
+          {isLoading && <Loader2 className="w-6 h-6 animate-spin mx-auto mt-10 text-muted-foreground" />}
+          {!isLoading && comments.length === 0 && (
+            <div className="text-center text-sm font-medium text-muted-foreground mt-10">
+              No comments yet. Start the conversation.
+            </div>
+          )}
+          {comments.map((c: BoardCardComment) => {
+            const isOffice = c.authorType === "office";
+            return (
+              <div
+                key={c.id}
+                className={`flex flex-col max-w-[85%] ${isOffice ? "ml-auto items-end" : "mr-auto items-start"}`}
+              >
+                <div className="text-[10px] font-bold text-muted-foreground mb-1.5 px-1 tracking-wide">
+                  {c.authorName} • {new Date(c.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </div>
+                <div
+                  className={`px-4 py-2.5 text-sm shadow-sm ${
+                    isOffice
+                      ? "bg-[#B4FF44] text-[#041029] rounded-2xl rounded-tr-sm font-medium"
+                      : "bg-white border border-border text-foreground rounded-2xl rounded-tl-sm"
+                  }`}
+                >
+                  {c.body}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="p-4 bg-card border-t border-border shrink-0">
+          <div className="flex gap-2">
+            <input
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Write a reply..."
+              className="flex-1 px-4 py-3 rounded-xl border border-border bg-background text-sm font-medium outline-none focus:ring-2 focus:ring-[#B4FF44] transition-shadow"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submit();
+              }}
+            />
+            <button
+              onClick={submit}
+              disabled={!body.trim() || addComment.isPending}
+              className="p-3 bg-[#041029] text-[#B4FF44] rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center shrink-0"
+            >
+              {addComment.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RespondDialog({
+  propertyId,
+  cardKey,
+  status,
+  onClose,
+}: {
+  propertyId: string;
+  cardKey: string;
+  status: "accepted" | "declined";
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const respond = useRespondClientInboxCard();
+  const [note, setNote] = useState("");
+
+  const submit = () => {
+    respond.mutate(
+      { propertyId, cardKey, data: { status, note: note.trim() || undefined } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetClientBoardInboxQueryKey(propertyId) });
+          toast({ title: `Request ${status}` });
+          onClose();
+        },
+        onError: (err: any) => {
+          toast({ title: "Error", description: err.message || "Failed to respond", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-sm p-6 sm:rounded-3xl">
+        <DialogHeader className="mb-4">
+          <DialogTitle className="text-xl font-display font-bold">
+            {status === "accepted" ? "Accept Request" : "Decline Request"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Optional Note
+            </label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={`Tell the client why it was ${status}...`}
+              rows={3}
+              className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm font-medium outline-none focus:ring-2 focus:ring-[#B4FF44]"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={onClose} className="px-4 py-2 font-bold text-sm text-muted-foreground hover:text-foreground">
+              Cancel
+            </button>
+            <button
+              onClick={submit}
+              disabled={respond.isPending}
+              className={`px-5 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-opacity ${
+                status === "accepted" ? "bg-[#B4FF44] text-[#041029]" : "bg-red-600 text-white"
+              }`}
+            >
+              {respond.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {status === "accepted" ? "Accept" : "Decline"}
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 type DraftLink = { label: string; url: string };
 
-// Edit dialog for ANY card (not just manual)
 function EditCardDialog({
   propertyId,
   card,
@@ -461,7 +740,6 @@ function EditCardDialog({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Short and clear"
               className={inputCls}
-              data-testid="input-edit-title"
             />
           </div>
 
@@ -473,7 +751,6 @@ function EditCardDialog({
               placeholder="Optional details"
               rows={3}
               className={inputCls}
-              data-testid="input-edit-body"
             />
           </div>
 
@@ -491,7 +768,6 @@ function EditCardDialog({
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"
                   className={`${inputCls} pl-7`}
-                  data-testid="input-edit-amount"
                 />
               </div>
             </div>
@@ -504,7 +780,6 @@ function EditCardDialog({
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
                 className={inputCls}
-                data-testid="input-edit-due"
               />
             </div>
           </div>
@@ -518,18 +793,15 @@ function EditCardDialog({
               onChange={(e) => setActionLabel(e.target.value)}
               placeholder='e.g. "Pay by Friday"'
               className={inputCls}
-              data-testid="input-edit-action-label"
             />
           </div>
 
-          {/* Refresh module toggle (for cards with source data) */}
           {hasSourceModule && (
             <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50 border border-border">
               <Switch
                 id="refresh-module"
                 checked={refreshModule}
                 onCheckedChange={setRefreshModule}
-                data-testid="toggle-refresh-module"
               />
               <div className="flex-1">
                 <Label htmlFor="refresh-module" className="text-sm font-semibold cursor-pointer">
@@ -542,7 +814,6 @@ function EditCardDialog({
             </div>
           )}
 
-          {/* Links */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -551,7 +822,6 @@ function EditCardDialog({
               <button
                 onClick={() => setLinks((ls) => [...ls, { label: "", url: "" }])}
                 className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
-                data-testid="button-add-link-edit"
               >
                 <Plus className="w-3.5 h-3.5" /> Add link
               </button>
@@ -567,7 +837,6 @@ function EditCardDialog({
                       }
                       placeholder="Link label"
                       className={`${inputCls} max-w-[140px]`}
-                      data-testid={`input-edit-link-label-${i}`}
                     />
                     <input
                       value={l.url}
@@ -576,12 +845,10 @@ function EditCardDialog({
                       }
                       placeholder="https://…"
                       className={inputCls}
-                      data-testid={`input-edit-link-url-${i}`}
                     />
                     <button
                       onClick={() => setLinks((ls) => ls.filter((_, j) => j !== i))}
                       className="text-muted-foreground hover:text-red-600 shrink-0 transition-colors"
-                      data-testid={`button-remove-link-edit-${i}`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -594,8 +861,7 @@ function EditCardDialog({
           <button
             onClick={submit}
             disabled={update.isPending || !title.trim()}
-            className="w-full py-3 bg-[#B4FF44] text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-            data-testid="button-save-edit"
+            className="w-full py-3 bg-[#B4FF44] text-[#041029] text-sm font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {update.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
             Save changes
@@ -606,7 +872,6 @@ function EditCardDialog({
   );
 }
 
-// Apple-tile push templates
 type PushTemplate = {
   id: string;
   kind: string;
@@ -790,87 +1055,40 @@ function PushCardDialog({
     }
   }, [open, propertyId]);
 
-  const chooseTemplate = (t: PushTemplate) => {
-    resetFields();
+  const handleTemplate = (t: PushTemplate) => {
     setTemplate(t);
+    resetFields();
     setTitle(t.titlePrefill ?? "");
-    if (t.linkLabel) setLinkLabel(t.linkLabel);
+    setLinkLabel(t.linkLabel ?? "Open");
   };
 
-  const pickInvoice = (inv: NonNullable<typeof quickPicks>["invoices"][number]) => {
-    setTitle(`Invoice ${inv.invoiceNo}`);
-    setAmount(String(inv.amount));
-    setDueDate(inv.dueDate ?? "");
-    setLinkUrl(inv.payUrl ?? "");
-    setLinkLabel(inv.payUrl ? "Pay now" : "Open");
-    setSource({ type: "invoice", id: inv.id });
-  };
+  const submit = () => {
+    const data = {
+      kind: template!.kind,
+      title: title.trim(),
+      body: body.trim() || null,
+      amount: amount ? Number(amount) : null,
+      dueDate: dueDate || null,
+      linkUrl: linkUrl.trim() || null,
+      linkLabel: linkUrl.trim() ? linkLabel.trim() : null,
+      sourceType: source?.type || null,
+      sourceId: source?.id || null,
+      jobId: source?.jobId || null,
+    };
 
-  const pickTracker = (t: NonNullable<typeof quickPicks>["trackers"][number]) => {
-    const base = template?.titlePrefill;
-    setTitle(base ? `${base} — Job ${t.jobNo}` : `Live tracker — Job ${t.jobNo}`);
-    if (template?.id === "crew_on_site") {
-      setBody(t.description || "");
-      setLinkUrl(t.trackerUrl);
-      setLinkLabel("Watch live");
-    } else if (template?.id === "new_job") {
-      setBody(t.description || "");
-    } else {
-      setLinkUrl(t.trackerUrl);
-      setLinkLabel("Watch live");
-    }
-    setSource({ type: "tracker", id: t.jobId, jobId: t.jobId });
-  };
-
-  const pickSummary = (s: NonNullable<typeof quickPicks>["summaries"][number]) => {
-    setTitle(`Service recap — Unit ${s.unitNo ?? "?"}`);
-    setSource({ type: "summary", id: s.id });
-  };
-
-  const pickPhotoJob = (pj: NonNullable<typeof quickPicks>["photoJobs"][number]) => {
-    setTitle(`Job photos — ${pj.jobNo} (${pj.photoCount} photo${pj.photoCount === 1 ? "" : "s"})`);
-    setSource({ type: "photos", id: pj.jobId, jobId: pj.jobId });
-  };
-
-  const handleSubmit = () => {
-    if (!template) return;
-    const kind = template.kind;
     push.mutate(
-      {
-        propertyId: targetId,
-        data: {
-          kind,
-          title: title.trim(),
-          body: body.trim() || null,
-          amount: template.money && amount ? Number(amount) : null,
-          dueDate: (template.money || template.due) && dueDate ? dueDate : null,
-          linkUrl: linkUrl.trim() || null,
-          linkLabel: linkUrl.trim() ? linkLabel.trim() || "Open" : null,
-          sourceType: source?.type ?? null,
-          sourceId: source?.id ?? null,
-          jobId: source?.jobId ?? null,
-        },
-      },
+      { propertyId: targetId, data },
       {
         onSuccess: (res) => {
           queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(targetId) });
-
-          let desc = "Card added to board";
-          if (res.notified) {
-            desc = `Card sent — client notified at ${res.notifiedTo || "their contact info"}`;
-          } else {
-            if (res.notifySkippedReason === "off") desc = "Card added to board (client notifications are off)";
-            else if (res.notifySkippedReason === "no_contact") desc = "Card added — no client email on file yet";
-            else if (res.notifySkippedReason === "send_failed")
-              desc = "Card added — email failed, will retry hourly";
-          }
-
-          toast({ title: "Card pushed", description: desc });
+          toast({
+            title: "Card pushed",
+            description: res.notified ? "Instant email sent to client." : "Added silently to the board.",
+          });
           onOpenChange(false);
         },
-        onError: (err: Error) => {
-          toast({ title: "Couldn't push card", description: err.message, variant: "destructive" });
-        },
+        onError: (err: Error) =>
+          toast({ title: "Failed to push", description: err.message, variant: "destructive" }),
       }
     );
   };
@@ -878,290 +1096,261 @@ function PushCardDialog({
   const inputCls =
     "w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm font-medium outline-none focus:ring-2 focus:ring-[#B4FF44] transition-shadow";
 
-  const showQuick =
-    template?.quick === "invoices"
-      ? (quickPicks?.invoices ?? []).length > 0
-      : template?.quick === "trackers"
-        ? (quickPicks?.trackers ?? []).length > 0
-        : template?.quick === "summaries"
-          ? (quickPicks?.summaries ?? []).length > 0
-          : template?.quick === "photos"
-            ? (quickPicks?.photoJobs ?? []).length > 0
-            : false;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-6 sm:rounded-3xl">
-        <DialogHeader className="mb-3">
-          <DialogTitle className="text-xl font-display font-bold flex items-center gap-2">
-            {template && (
-              <button
-                type="button"
-                onClick={() => setTemplate(null)}
-                className="text-muted-foreground hover:text-foreground -ml-1"
-                data-testid="button-push-back"
-                aria-label="Back to card types"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            )}
-            {template ? template.label : "Push a card"}
-          </DialogTitle>
-        </DialogHeader>
-
-        {/* Property picker */}
-        <div className="mb-4">
-          <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-            To
-          </label>
-          <select
-            value={targetId}
-            onChange={(e) => {
-              setTargetId(e.target.value);
-              resetFields();
-              if (template) {
-                setTitle(template.titlePrefill ?? "");
-                if (template.linkLabel) setLinkLabel(template.linkLabel);
-              }
-            }}
-            className={inputCls}
-            data-testid="select-push-property"
-          >
-            {(accounts ?? []).map((a) => (
-              <option key={a.propertyId} value={a.propertyId}>
-                {a.propertyName}
-              </option>
-            ))}
-            {(accounts ?? []).every((a) => a.propertyId !== targetId) && (
-              <option value={targetId}>This property</option>
-            )}
-          </select>
+      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background flex flex-col sm:rounded-3xl h-[85vh] sm:h-auto">
+        <div className="p-6 border-b border-border bg-card shrink-0">
+          <DialogTitle className="text-xl font-display font-bold">Push a new card</DialogTitle>
+          <div className="text-sm font-medium text-muted-foreground mt-1">
+            Send an interactive module to the client's board immediately.
+          </div>
         </div>
 
-        {!template ? (
-          /* Apple tile template grid */
-          <div className="grid grid-cols-3 gap-2.5" data-testid="grid-push-templates">
-            {TEMPLATES.map((t) => {
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => chooseTemplate(t)}
-                  className="group rounded-2xl border border-border bg-card p-3 text-left hover:border-[#101c33]/30 hover:shadow-md transition-all active:scale-[0.97]"
-                  data-testid={`tile-push-${t.id}`}
-                >
-                  <span
-                    className={`inline-flex items-center justify-center w-9 h-9 rounded-2xl shadow-sm mb-2 ${t.gradient}`}
+        <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-50/50">
+          {!template ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {TEMPLATES.map((t) => {
+                const Icon = t.icon;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => handleTemplate(t)}
+                    className="flex flex-col items-center text-center p-4 rounded-2xl border border-border bg-card hover:border-[#B4FF44] hover:shadow-sm transition-all group"
                   >
-                    <Icon className={`w-4.5 h-4.5 ${t.textColor}`} />
-                  </span>
-                  <div className="text-[13px] font-bold leading-tight">{t.label}</div>
-                  <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">{t.desc}</div>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 shadow-sm ${t.gradient} group-hover:scale-105 transition-transform`}>
+                      <Icon className={`w-6 h-6 ${t.textColor}`} />
+                    </div>
+                    <div className="text-sm font-bold text-foreground mb-1">{t.label}</div>
+                    <div className="text-[11px] font-medium text-muted-foreground">{t.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="max-w-xl mx-auto space-y-6">
+              <div className="flex items-center justify-between bg-card p-3 rounded-2xl border border-border">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${template.gradient}`}>
+                    <template.icon className={`w-5 h-5 ${template.textColor}`} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold">{template.label}</div>
+                    <div className="text-xs text-muted-foreground font-medium">Configure payload</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setTemplate(null)}
+                  className="px-3 py-1.5 text-xs font-bold text-muted-foreground hover:bg-muted rounded-lg transition-colors"
+                >
+                  Change type
                 </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {/* Quick-pick library */}
-            {showQuick && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    {template.quick === "invoices"
-                      ? "Pick an unpaid invoice"
-                      : template.quick === "trackers"
-                        ? "Pick a job"
-                        : template.quick === "summaries"
-                          ? "Pick a recap"
-                          : "Pick a photo job"}
-                  </label>
-                  {source && (
-                    <button
-                      type="button"
-                      onClick={() => setSource(null)}
-                      className="text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
-                      data-testid="button-clear-quick-pick"
-                    >
-                      Clear
-                    </button>
+              </div>
+
+              {accounts && accounts.length > 1 && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Target account</label>
+                  <select
+                    value={targetId}
+                    onChange={(e) => setTargetId(e.target.value)}
+                    className={inputCls}
+                  >
+                    {accounts.map((a) => (
+                      <option key={a.propertyId} value={a.propertyId}>
+                        {a.propertyName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {template.quick && quickPicks && (
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Quick pick from {template.quick}</label>
+                  {template.quick === "invoices" && quickPicks.invoices.length === 0 && (
+                    <div className="text-sm text-muted-foreground italic">No open invoices to pick from.</div>
+                  )}
+                  {template.quick === "invoices" && (
+                    <div className="flex flex-wrap gap-2">
+                      {quickPicks.invoices.map((inv) => (
+                        <button
+                          key={inv.id}
+                          onClick={() => {
+                            setSource({ type: "invoice", id: inv.id });
+                            setTitle(`Invoice ${inv.invoiceNo}`);
+                            setAmount(inv.amount.toString());
+                            setDueDate(inv.dueDate ?? "");
+                            if (inv.payUrl) setLinkUrl(inv.payUrl);
+                          }}
+                          className={`px-3 py-2 rounded-xl border text-left transition-colors ${
+                            source?.id === inv.id ? "bg-[#B4FF44]/20 border-[#B4FF44]" : "bg-card border-border hover:bg-muted"
+                          }`}
+                        >
+                          <div className="text-sm font-bold">Inv {inv.invoiceNo}</div>
+                          <div className="text-xs text-muted-foreground">
+                            ${inv.amount.toFixed(2)} {inv.dueDate && ` • Due ${inv.dueDate}`}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {template.quick === "trackers" && quickPicks.trackers.length === 0 && (
+                    <div className="text-sm text-muted-foreground italic">No active trackers today.</div>
+                  )}
+                  {template.quick === "trackers" && (
+                    <div className="flex flex-wrap gap-2">
+                      {quickPicks.trackers.map((tr) => (
+                        <button
+                          key={tr.jobId}
+                          onClick={() => {
+                            setSource({ type: "tracker", id: tr.jobId, jobId: tr.jobId });
+                            setTitle(`Job ${tr.jobNo}`);
+                            if (tr.description) setBody(tr.description);
+                            setLinkUrl(tr.trackerUrl);
+                          }}
+                          className={`px-3 py-2 rounded-xl border text-left transition-colors ${
+                            source?.id === tr.jobId ? "bg-[#B4FF44]/20 border-[#B4FF44]" : "bg-card border-border hover:bg-muted"
+                          }`}
+                        >
+                          <div className="text-sm font-bold">Job {tr.jobNo} {tr.unitNo && ` • Unit ${tr.unitNo}`}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {template.quick === "summaries" && quickPicks.summaries.length === 0 && (
+                    <div className="text-sm text-muted-foreground italic">No recent summaries available.</div>
+                  )}
+                  {template.quick === "summaries" && (
+                    <div className="flex flex-wrap gap-2">
+                      {quickPicks.summaries.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => {
+                            setSource({ type: "summary", id: s.id });
+                            setTitle(s.title);
+                          }}
+                          className={`px-3 py-2 rounded-xl border text-left transition-colors ${
+                            source?.id === s.id ? "bg-[#B4FF44]/20 border-[#B4FF44]" : "bg-card border-border hover:bg-muted"
+                          }`}
+                        >
+                          <div className="text-sm font-bold">{s.title}</div>
+                          <div className="text-xs text-muted-foreground">{s.serviceDate} • {s.status}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {template.quick === "photos" && quickPicks.photoJobs.length === 0 && (
+                    <div className="text-sm text-muted-foreground italic">No recent photos.</div>
+                  )}
+                  {template.quick === "photos" && (
+                    <div className="flex flex-wrap gap-2">
+                      {quickPicks.photoJobs.map((p) => (
+                        <button
+                          key={p.jobId}
+                          onClick={() => {
+                            setSource({ type: "photos", id: p.jobId, jobId: p.jobId });
+                            setTitle(`Photos: Job ${p.jobNo}`);
+                            if (p.description) setBody(p.description);
+                          }}
+                          className={`px-3 py-2 rounded-xl border text-left transition-colors ${
+                            source?.id === p.jobId ? "bg-[#B4FF44]/20 border-[#B4FF44]" : "bg-card border-border hover:bg-muted"
+                          }`}
+                        >
+                          <div className="text-sm font-bold">Job {p.jobNo} {p.unitNo && ` • Unit ${p.unitNo}`}</div>
+                          <div className="text-xs text-muted-foreground">{p.photoCount} photos</div>
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto">
-                  {template.quick === "invoices" &&
-                    (quickPicks?.invoices ?? []).map((inv) => (
-                      <button
-                        key={inv.id}
-                        type="button"
-                        onClick={() => pickInvoice(inv)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors flex items-center gap-1.5 ${
-                          source?.type === "invoice" && source.id === inv.id
-                            ? "bg-[#B4FF44] border-[#B4FF44] text-black"
-                            : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                        }`}
-                        data-testid={`button-quick-pick-invoice-${inv.invoiceNo}`}
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        {inv.invoiceNo} · $
-                        {inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </button>
-                    ))}
-                  {template.quick === "trackers" &&
-                    (quickPicks?.trackers ?? []).map((t) => (
-                      <button
-                        key={t.jobId}
-                        type="button"
-                        onClick={() => pickTracker(t)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors flex items-center gap-1.5 ${
-                          source?.type === "tracker" && source.id === t.jobId
-                            ? "bg-[#B4FF44] border-[#B4FF44] text-black"
-                            : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                        }`}
-                        data-testid={`button-quick-pick-tracker-${t.jobNo}`}
-                      >
-                        <MapPin className="w-3.5 h-3.5" />
-                        Job {t.jobNo}
-                        {t.unitNo ? ` · Unit ${t.unitNo}` : ""}
-                      </button>
-                    ))}
-                  {template.quick === "summaries" &&
-                    (quickPicks?.summaries ?? []).map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => pickSummary(s)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors flex items-center gap-1.5 ${
-                          source?.type === "summary" && source.id === s.id
-                            ? "bg-[#B4FF44] border-[#B4FF44] text-black"
-                            : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                        }`}
-                        data-testid={`button-quick-pick-summary-${s.id}`}
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        {s.unitNo ? `Unit ${s.unitNo}` : s.title}
-                      </button>
-                    ))}
-                  {template.quick === "photos" &&
-                    (quickPicks?.photoJobs ?? []).map((pj) => (
-                      <button
-                        key={pj.jobId}
-                        type="button"
-                        onClick={() => pickPhotoJob(pj)}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors flex items-center gap-1.5 ${
-                          source?.type === "photos" && source.id === pj.jobId
-                            ? "bg-[#B4FF44] border-[#B4FF44] text-black"
-                            : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                        }`}
-                        data-testid={`button-quick-pick-photos-${pj.jobId}`}
-                      >
-                        <ImageIcon className="w-3.5 h-3.5" />
-                        {pj.jobNo} ({pj.photoCount})
-                      </button>
-                    ))}
-                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Title</label>
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Short and punchy"
+                  className={inputCls}
+                />
               </div>
-            )}
 
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Title</label>
-              <input
-                className={inputCls}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                data-testid="input-push-title"
-                placeholder="Short and clear"
-              />
-            </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Message</label>
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder={template.bodyPlaceholder ?? "Optional details..."}
+                  rows={3}
+                  className={inputCls}
+                />
+              </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Message</label>
-              <textarea
-                className={`${inputCls} min-h-[72px] resize-none`}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                data-testid="input-push-body"
-                placeholder={template.bodyPlaceholder ?? "Optional details…"}
-              />
-            </div>
-
-            {(template.money || template.due) && (
               <div className="grid grid-cols-2 gap-4">
-                {template.money && (
+                {(template.money || amount !== "") && (
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Amount
-                    </label>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Amount</label>
                     <div className="relative">
                       <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-medium">$</span>
                       <input
                         type="number"
                         step="0.01"
-                        className={`${inputCls} pl-7`}
                         value={amount}
-                        onChange={(e) => {
-                          setAmount(e.target.value);
-                          setSource(null);
-                        }}
-                        data-testid="input-push-amount"
+                        onChange={(e) => setAmount(e.target.value)}
                         placeholder="0.00"
+                        className={`${inputCls} pl-7`}
                       />
                     </div>
                   </div>
                 )}
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    {template.due ? "Date" : "Due date"}
-                  </label>
+                {(template.due || template.money || dueDate !== "") && (
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Due date</label>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Link (optional)</label>
+                <div className="flex gap-2">
                   <input
-                    type="date"
+                    value={linkLabel}
+                    onChange={(e) => setLinkLabel(e.target.value)}
+                    placeholder="Label"
+                    className={`${inputCls} max-w-[120px]`}
+                  />
+                  <input
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    placeholder="https://"
                     className={inputCls}
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    data-testid="input-push-due-date"
                   />
                 </div>
               </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Link (optional)
-                </label>
-                <input
-                  className={inputCls}
-                  value={linkUrl}
-                  onChange={(e) => {
-                    setLinkUrl(e.target.value);
-                    setSource(null);
-                  }}
-                  data-testid="input-push-link-url"
-                  placeholder="https://…"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Link label
-                </label>
-                <input
-                  className={inputCls}
-                  value={linkLabel}
-                  onChange={(e) => setLinkLabel(e.target.value)}
-                  data-testid="input-push-link-label"
-                  placeholder="Open"
-                />
-              </div>
             </div>
+          )}
+        </div>
 
+        {template && (
+          <div className="p-6 bg-card border-t border-border shrink-0 flex items-center justify-between">
+            <div className="text-sm font-medium text-muted-foreground">
+              Client will receive an instant email if notifications are on.
+            </div>
             <button
-              onClick={handleSubmit}
-              disabled={!title.trim() || push.isPending}
-              className="w-full mt-1 py-3 bg-[#B4FF44] text-black text-sm font-bold uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-              data-testid="button-push-submit"
+              onClick={submit}
+              disabled={push.isPending || !title.trim() || !targetId}
+              className="px-6 py-2.5 bg-[#B4FF44] text-[#041029] text-sm font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
             >
-              {push.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <BellRing className="w-5 h-5" />}
-              Push to their board
+              {push.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              Push to board
             </button>
           </div>
         )}
@@ -1171,135 +1360,224 @@ function PushCardDialog({
 }
 
 export default function ClientBoardOffice() {
-  const { propertyId = "" } = useParams<{ propertyId: string }>();
-  const [pushOpen, setPushOpen] = useState(false);
+  const { propertyId } = useParams();
+  const [view, setView] = useState<"board" | "inbox">("board");
+  const [showPush, setShowPush] = useState(false);
   const [editCard, setEditCard] = useState<ClientBoardFeedCard | null>(null);
-  const { data: board, isLoading } = useGetOfficeClientBoard(propertyId, {
+
+  const [commentTarget, setCommentTarget] = useState<{ cardKey: string; title: string } | null>(null);
+  const [respondTarget, setRespondTarget] = useState<{ cardKey: string; status: "accepted" | "declined" } | null>(null);
+
+  const { data: board, isLoading: boardLoading } = useGetOfficeClientBoard(propertyId!, {
     query: {
-      queryKey: getGetOfficeClientBoardQueryKey(propertyId),
-      refetchInterval: 4000,
-      refetchOnWindowFocus: true,
+      queryKey: getGetOfficeClientBoardQueryKey(propertyId!),
+      enabled: view === "board" && !!propertyId,
     },
   });
+
+  const { data: inbox, isLoading: inboxLoading } = useGetClientBoardInbox(propertyId!, {
+    query: {
+      queryKey: getGetClientBoardInboxQueryKey(propertyId!),
+      enabled: !!propertyId,
+      refetchInterval: 10000,
+    },
+  });
+
+  const del = useDeleteOfficeClientBoardCard();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const remove = useDeleteOfficeClientBoardCard();
 
-  const removeCard = (card: ClientBoardFeedCard) => {
-    if (!window.confirm(`Take back "${card.title}"? It disappears from the client's board.`)) return;
-    remove.mutate(
-      { propertyId, cardId: card.id },
+  const handleRemove = (cardId: string) => {
+    if (!confirm("Remove this card from the client's board?")) return;
+    del.mutate(
+      { propertyId: propertyId!, cardId },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId) });
-          toast({ title: "Card taken back", description: "It's off the client's board." });
+          queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId!) });
+          toast({ title: "Card removed", description: "The card was removed from the board." });
         },
-        onError: (err: Error) =>
-          toast({ title: "Couldn't remove the card", description: err.message, variant: "destructive" }),
       }
     );
   };
 
-  if (isLoading || !board) {
-    return (
-      <div className="p-8 max-w-6xl mx-auto space-y-4">
-        <Skeleton className="h-10 w-64 rounded-xl" />
-        <Skeleton className="h-64 rounded-2xl" />
-      </div>
-    );
-  }
+  const pendingCount = inbox?.cards.filter((c) => c.status === "pending").length || 0;
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <Link
-        href={`/admin/${propertyId}`}
-        className="flex items-center gap-2 text-muted-foreground text-sm font-semibold w-fit hover:text-foreground transition-colors"
-      >
-        <ChevronLeft className="w-4 h-4" /> Back to account
-      </Link>
-
-      <div className="bg-[var(--ink)] text-white rounded-2xl p-6 flex flex-wrap items-center gap-4">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-display font-bold truncate">{board.propertyName} — client board</h1>
-          <p className="text-white/60 text-sm font-medium mt-0.5">
-            This is exactly what the client sees on their board. Cards you send land in their "From Archangel" column.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {board.webhookConnected && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium rounded-lg border border-emerald-400/40 text-emerald-300 px-2.5 py-1.5">
-              <Webhook className="h-3.5 w-3.5" /> Client webhook connected
-            </span>
-          )}
-          {board.dashboardUrl && (
-            <a
-              href={board.dashboardUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-bold rounded-lg bg-white/10 hover:bg-white/20 px-3 py-2 transition-colors"
-              data-testid="link-open-client-board"
+    <div className="h-full flex flex-col bg-[#F1F5F9] min-h-0">
+      <div className="flex-none p-6 pb-0 border-b border-border bg-card">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Link
+              href={`/admin/${propertyId}`}
+              className="p-2 -ml-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             >
-              <ExternalLink className="h-3.5 w-3.5" /> Open their board
-            </a>
-          )}
-          <button
-            onClick={() => setPushOpen(true)}
-            className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider rounded-lg bg-[#B4FF44] text-black px-4 py-2 hover:opacity-90 transition-opacity shadow-sm"
-            data-testid="button-push-card"
-          >
-            <BellRing className="h-3.5 w-3.5" /> Push Card
-          </button>
+              <ChevronLeft className="w-5 h-5" />
+            </Link>
+            <div>
+              <h1 className="text-2xl font-display font-bold text-foreground">
+                {board?.propertyName || "Client Collaboration"}
+              </h1>
+              <p className="text-sm font-medium text-muted-foreground mt-0.5">
+                What the client sees and sends
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex p-1.5 bg-muted rounded-xl">
+              <button
+                onClick={() => setView("board")}
+                className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${
+                  view === "board"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Board View
+              </button>
+              <button
+                onClick={() => setView("inbox")}
+                className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
+                  view === "inbox"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Client Inbox
+                {pendingCount > 0 && (
+                  <span className="bg-[#B4FF44] text-[#041029] px-2 py-0.5 rounded-full text-[10px] min-w-[22px] flex items-center justify-center shadow-sm">
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {view === "board" && (
+              <button
+                onClick={() => setShowPush(true)}
+                className="px-4 py-2 bg-[#041029] text-[#B4FF44] text-sm font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm"
+              >
+                <Plus className="w-4 h-4" /> Push card
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {board.accountStatus !== "active" && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm font-medium px-4 py-3">
-          This client account is {board.accountStatus} — the client can't open their dashboard link right now, but
-          cards you send will be waiting when it's active again.
+      {view === "inbox" ? (
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-4xl mx-auto space-y-4 pb-10">
+            {inboxLoading && !inbox ? (
+              <div className="space-y-4">
+                <Skeleton className="h-[200px] w-full rounded-2xl" />
+                <Skeleton className="h-[200px] w-full rounded-2xl" />
+              </div>
+            ) : inbox?.cards.length === 0 ? (
+              <div className="text-center py-32 text-muted-foreground">
+                <Inbox className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                <p className="font-bold text-lg text-foreground">Inbox is empty</p>
+                <p className="text-sm mt-1">Cards sent by the client will appear here.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {inbox?.cards.map((card) => (
+                  <InboxCardView
+                    key={card.cardKey}
+                    card={card}
+                    onRespond={(status) => setRespondTarget({ cardKey: card.cardKey, status })}
+                    onComment={() => setCommentTarget({ cardKey: card.cardKey, title: card.title })}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 overflow-x-auto pb-6 mt-6">
+          <div className="flex h-full gap-6 px-6 min-w-max">
+            {COLUMNS.map((col) => {
+              const colCards = board?.cards.filter((c) => c.column === col.key) || [];
+              const ColIcon = col.icon;
+              return (
+                <div
+                  key={col.key}
+                  className="w-[320px] flex flex-col h-full bg-muted/30 rounded-2xl p-4 border border-border"
+                >
+                  <div className="flex items-center gap-2 mb-4 px-2 shrink-0">
+                    <ColIcon className="w-4 h-4 text-muted-foreground" />
+                    <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">
+                      {col.label}
+                    </h3>
+                    <span className="ml-auto bg-card px-2 py-0.5 rounded-full text-xs font-bold text-muted-foreground shadow-sm">
+                      {colCards.length}
+                    </span>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-3 px-1 pb-4">
+                    {boardLoading && !board ? (
+                      <>
+                        <Skeleton className="h-32 w-full rounded-2xl" />
+                        <Skeleton className="h-32 w-full rounded-2xl" />
+                      </>
+                    ) : colCards.length === 0 ? (
+                      <div className="h-full flex items-center justify-center">
+                        <div className="text-xs font-medium text-muted-foreground/50 border border-dashed border-border/50 rounded-xl px-4 py-8 w-full text-center">
+                          Drop cards here
+                        </div>
+                      </div>
+                    ) : (
+                      colCards.map((card) => (
+                        <CardView
+                          key={card.id}
+                          card={card}
+                          onEdit={() => setEditCard(card)}
+                          onRemove={() => handleRemove(card.id)}
+                          removing={del.isPending && del.variables?.cardId === card.id}
+                          onComment={() => setCommentTarget({ cardKey: `push:${card.id}`, title: card.title })}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      <PushCardDialog propertyId={propertyId} open={pushOpen} onOpenChange={setPushOpen} />
+      {showPush && (
+        <PushCardDialog
+          propertyId={propertyId!}
+          open={showPush}
+          onOpenChange={setShowPush}
+        />
+      )}
 
       {editCard && (
         <EditCardDialog
-          key={editCard.id}
-          propertyId={propertyId}
+          propertyId={propertyId!}
           card={editCard}
           onClose={() => setEditCard(null)}
         />
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {COLUMNS.map((col) => {
-          const cards = board.cards.filter((c) => c.column === col.key);
-          const Icon = col.icon;
-          return (
-            <section key={col.key} className="space-y-3" data-testid={`column-${col.key}`}>
-              <div className="flex items-center gap-2 px-1">
-                <Icon className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-sm font-bold">{col.label}</h2>
-                <span className="text-xs text-muted-foreground font-medium">{cards.length}</span>
-              </div>
-              {cards.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                  Empty
-                </div>
-              ) : (
-                cards.map((card) => (
-                  <CardView
-                    key={card.id}
-                    card={card}
-                    onEdit={() => setEditCard(card)}
-                    onRemove={() => removeCard(card)}
-                    removing={remove.isPending && remove.variables?.cardId === card.id}
-                  />
-                ))
-              )}
-            </section>
-          );
-        })}
-      </div>
+      {commentTarget && (
+        <CommentsDialog
+          propertyId={propertyId!}
+          cardKey={commentTarget.cardKey}
+          title={commentTarget.title}
+          onClose={() => setCommentTarget(null)}
+        />
+      )}
+
+      {respondTarget && (
+        <RespondDialog
+          propertyId={propertyId!}
+          cardKey={respondTarget.cardKey}
+          status={respondTarget.status}
+          onClose={() => setRespondTarget(null)}
+        />
+      )}
     </div>
   );
 }

@@ -45,6 +45,10 @@ import type {
   BidSendInput,
   BidSendResult,
   BidUpdate,
+  BoardCardComment,
+  BoardCardCommentInput,
+  BoardCardCommentList,
+  BoardNotificationList,
   BoardSettingsInput,
   Brief,
   BroadcastInput,
@@ -79,6 +83,7 @@ import type {
   ClientBoardFeedCard,
   ClientBoardFeedCardUpdateInput,
   ClientBoardFeedView,
+  ClientBoardKpis,
   ClientBoardLoginInput,
   ClientBoardMapView,
   ClientBoardSession,
@@ -91,6 +96,8 @@ import type {
   ClientCardQuickPicksRec,
   ClientCredentialIssued,
   ClientHubView,
+  ClientInboxRespondInput,
+  ClientInboxView,
   ClientPasswordResetInput,
   ClientPaymentMethodInput,
   ClientRequestOptions,
@@ -205,6 +212,7 @@ import type {
   ListWorkRequestsParams,
   MaintenancePingInput,
   MaintenancePingResult,
+  MarkClientBoardNotificationsRead200,
   MessageInput,
   MoneySummary,
   NewCalendarEvent,
@@ -19261,6 +19269,313 @@ export const useDeleteOfficeClientBoardCard = <TError = ErrorType<Error>,
       return useMutation(getDeleteOfficeClientBoardCardMutationOptions(options));
     }
 
+export const getGetClientBoardInboxUrl = (propertyId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/inbox`
+}
+
+/**
+ * @summary Cards the client sent to the office, newest first
+ */
+export const getClientBoardInbox = async (propertyId: string, options?: RequestInit): Promise<ClientInboxView> => {
+
+  return customFetch<ClientInboxView>(getGetClientBoardInboxUrl(propertyId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientBoardInboxQueryKey = (propertyId: string,) => {
+    return [
+    `/api/admin/accounts/${propertyId}/board/inbox`
+    ] as const;
+    }
+
+
+export const getGetClientBoardInboxQueryOptions = <TData = Awaited<ReturnType<typeof getClientBoardInbox>>, TError = ErrorType<Error>>(propertyId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBoardInbox>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientBoardInboxQueryKey(propertyId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientBoardInbox>>> = ({ signal }) => getClientBoardInbox(propertyId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: propertyId !== null && propertyId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientBoardInbox>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientBoardInboxQueryResult = NonNullable<Awaited<ReturnType<typeof getClientBoardInbox>>>
+export type GetClientBoardInboxQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Cards the client sent to the office, newest first
+ */
+
+export function useGetClientBoardInbox<TData = Awaited<ReturnType<typeof getClientBoardInbox>>, TError = ErrorType<Error>>(
+ propertyId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBoardInbox>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientBoardInboxQueryOptions(propertyId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRespondClientInboxCardUrl = (propertyId: string,
+    cardKey: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/inbox/${cardKey}/respond`
+}
+
+/**
+ * @summary Accept or decline a client-sent card — the client is notified live
+ */
+export const respondClientInboxCard = async (propertyId: string,
+    cardKey: string,
+    clientInboxRespondInput: ClientInboxRespondInput, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getRespondClientInboxCardUrl(propertyId,cardKey),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientInboxRespondInput)
+  }
+);}
+
+
+
+
+
+export const getRespondClientInboxCardMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondClientInboxCard>>, TError,{propertyId: string;cardKey: string;data: BodyType<ClientInboxRespondInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondClientInboxCard>>, TError,{propertyId: string;cardKey: string;data: BodyType<ClientInboxRespondInput>}, TContext> => {
+
+const mutationKey = ['respondClientInboxCard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondClientInboxCard>>, {propertyId: string;cardKey: string;data: BodyType<ClientInboxRespondInput>}> = (props) => {
+          const {propertyId,cardKey,data} = props ?? {};
+
+          return  respondClientInboxCard(propertyId,cardKey,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondClientInboxCardMutationResult = NonNullable<Awaited<ReturnType<typeof respondClientInboxCard>>>
+    export type RespondClientInboxCardMutationBody = BodyType<ClientInboxRespondInput>
+    export type RespondClientInboxCardMutationError = ErrorType<Error>
+
+    /**
+ * @summary Accept or decline a client-sent card — the client is notified live
+ */
+export const useRespondClientInboxCard = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondClientInboxCard>>, TError,{propertyId: string;cardKey: string;data: BodyType<ClientInboxRespondInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof respondClientInboxCard>>,
+        TError,
+        {propertyId: string;cardKey: string;data: BodyType<ClientInboxRespondInput>},
+        TContext
+      > => {
+      return useMutation(getRespondClientInboxCardMutationOptions(options));
+    }
+
+export const getListOfficeCardCommentsUrl = (propertyId: string,
+    cardKey: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/comments/${cardKey}`
+}
+
+/**
+ * @summary Comment thread on a client board card (office view)
+ */
+export const listOfficeCardComments = async (propertyId: string,
+    cardKey: string, options?: RequestInit): Promise<BoardCardCommentList> => {
+
+  return customFetch<BoardCardCommentList>(getListOfficeCardCommentsUrl(propertyId,cardKey),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOfficeCardCommentsQueryKey = (propertyId: string,
+    cardKey: string,) => {
+    return [
+    `/api/admin/accounts/${propertyId}/board/comments/${cardKey}`
+    ] as const;
+    }
+
+
+export const getListOfficeCardCommentsQueryOptions = <TData = Awaited<ReturnType<typeof listOfficeCardComments>>, TError = ErrorType<Error>>(propertyId: string,
+    cardKey: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeCardComments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOfficeCardCommentsQueryKey(propertyId,cardKey);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOfficeCardComments>>> = ({ signal }) => listOfficeCardComments(propertyId,cardKey, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: propertyId !== null && propertyId !== undefined && cardKey !== null && cardKey !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOfficeCardComments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOfficeCardCommentsQueryResult = NonNullable<Awaited<ReturnType<typeof listOfficeCardComments>>>
+export type ListOfficeCardCommentsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Comment thread on a client board card (office view)
+ */
+
+export function useListOfficeCardComments<TData = Awaited<ReturnType<typeof listOfficeCardComments>>, TError = ErrorType<Error>>(
+ propertyId: string,
+    cardKey: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOfficeCardComments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOfficeCardCommentsQueryOptions(propertyId,cardKey,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddOfficeCardCommentUrl = (propertyId: string,
+    cardKey: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/comments/${cardKey}`
+}
+
+/**
+ * @summary Office posts a comment on a client board card — client is notified live
+ */
+export const addOfficeCardComment = async (propertyId: string,
+    cardKey: string,
+    boardCardCommentInput: BoardCardCommentInput, options?: RequestInit): Promise<BoardCardComment> => {
+
+  return customFetch<BoardCardComment>(getAddOfficeCardCommentUrl(propertyId,cardKey),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(boardCardCommentInput)
+  }
+);}
+
+
+
+
+
+export const getAddOfficeCardCommentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addOfficeCardComment>>, TError,{propertyId: string;cardKey: string;data: BodyType<BoardCardCommentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addOfficeCardComment>>, TError,{propertyId: string;cardKey: string;data: BodyType<BoardCardCommentInput>}, TContext> => {
+
+const mutationKey = ['addOfficeCardComment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addOfficeCardComment>>, {propertyId: string;cardKey: string;data: BodyType<BoardCardCommentInput>}> = (props) => {
+          const {propertyId,cardKey,data} = props ?? {};
+
+          return  addOfficeCardComment(propertyId,cardKey,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddOfficeCardCommentMutationResult = NonNullable<Awaited<ReturnType<typeof addOfficeCardComment>>>
+    export type AddOfficeCardCommentMutationBody = BodyType<BoardCardCommentInput>
+    export type AddOfficeCardCommentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Office posts a comment on a client board card — client is notified live
+ */
+export const useAddOfficeCardComment = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addOfficeCardComment>>, TError,{propertyId: string;cardKey: string;data: BodyType<BoardCardCommentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addOfficeCardComment>>,
+        TError,
+        {propertyId: string;cardKey: string;data: BodyType<BoardCardCommentInput>},
+        TContext
+      > => {
+      return useMutation(getAddOfficeCardCommentMutationOptions(options));
+    }
+
 export const getGetClientAccessUrl = (token: string,) => {
 
 
@@ -20880,6 +21195,460 @@ export function useGetClientBoardMap<TData = Awaited<ReturnType<typeof getClient
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetClientBoardMapQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListClientCardCommentsUrl = (token: string,
+    cardKey: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/cards/${cardKey}/comments`
+}
+
+/**
+ * @summary Comment thread on a board card (client view)
+ */
+export const listClientCardComments = async (token: string,
+    cardKey: string, options?: RequestInit): Promise<BoardCardCommentList> => {
+
+  return customFetch<BoardCardCommentList>(getListClientCardCommentsUrl(token,cardKey),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientCardCommentsQueryKey = (token: string,
+    cardKey: string,) => {
+    return [
+    `/api/client/${token}/board/cards/${cardKey}/comments`
+    ] as const;
+    }
+
+
+export const getListClientCardCommentsQueryOptions = <TData = Awaited<ReturnType<typeof listClientCardComments>>, TError = ErrorType<Error>>(token: string,
+    cardKey: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientCardComments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientCardCommentsQueryKey(token,cardKey);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientCardComments>>> = ({ signal }) => listClientCardComments(token,cardKey, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined && cardKey !== null && cardKey !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientCardComments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientCardCommentsQueryResult = NonNullable<Awaited<ReturnType<typeof listClientCardComments>>>
+export type ListClientCardCommentsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Comment thread on a board card (client view)
+ */
+
+export function useListClientCardComments<TData = Awaited<ReturnType<typeof listClientCardComments>>, TError = ErrorType<Error>>(
+ token: string,
+    cardKey: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientCardComments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientCardCommentsQueryOptions(token,cardKey,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddClientCardCommentUrl = (token: string,
+    cardKey: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/cards/${cardKey}/comments`
+}
+
+/**
+ * @summary Client posts a comment on a card — office is notified live
+ */
+export const addClientCardComment = async (token: string,
+    cardKey: string,
+    boardCardCommentInput: BoardCardCommentInput, options?: RequestInit): Promise<BoardCardComment> => {
+
+  return customFetch<BoardCardComment>(getAddClientCardCommentUrl(token,cardKey),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(boardCardCommentInput)
+  }
+);}
+
+
+
+
+
+export const getAddClientCardCommentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addClientCardComment>>, TError,{token: string;cardKey: string;data: BodyType<BoardCardCommentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addClientCardComment>>, TError,{token: string;cardKey: string;data: BodyType<BoardCardCommentInput>}, TContext> => {
+
+const mutationKey = ['addClientCardComment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addClientCardComment>>, {token: string;cardKey: string;data: BodyType<BoardCardCommentInput>}> = (props) => {
+          const {token,cardKey,data} = props ?? {};
+
+          return  addClientCardComment(token,cardKey,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddClientCardCommentMutationResult = NonNullable<Awaited<ReturnType<typeof addClientCardComment>>>
+    export type AddClientCardCommentMutationBody = BodyType<BoardCardCommentInput>
+    export type AddClientCardCommentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Client posts a comment on a card — office is notified live
+ */
+export const useAddClientCardComment = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addClientCardComment>>, TError,{token: string;cardKey: string;data: BodyType<BoardCardCommentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addClientCardComment>>,
+        TError,
+        {token: string;cardKey: string;data: BodyType<BoardCardCommentInput>},
+        TContext
+      > => {
+      return useMutation(getAddClientCardCommentMutationOptions(options));
+    }
+
+export const getSendClientCardToOfficeUrl = (token: string,
+    cardKey: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/cards/${cardKey}/send-to-office`
+}
+
+/**
+ * @summary Send one of the client's own cards to the office for action
+ */
+export const sendClientCardToOffice = async (token: string,
+    cardKey: string, options?: RequestInit): Promise<ClientBoardActionOutcome> => {
+
+  return customFetch<ClientBoardActionOutcome>(getSendClientCardToOfficeUrl(token,cardKey),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSendClientCardToOfficeMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendClientCardToOffice>>, TError,{token: string;cardKey: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendClientCardToOffice>>, TError,{token: string;cardKey: string}, TContext> => {
+
+const mutationKey = ['sendClientCardToOffice'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendClientCardToOffice>>, {token: string;cardKey: string}> = (props) => {
+          const {token,cardKey} = props ?? {};
+
+          return  sendClientCardToOffice(token,cardKey,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendClientCardToOfficeMutationResult = NonNullable<Awaited<ReturnType<typeof sendClientCardToOffice>>>
+
+    export type SendClientCardToOfficeMutationError = ErrorType<Error>
+
+    /**
+ * @summary Send one of the client's own cards to the office for action
+ */
+export const useSendClientCardToOffice = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendClientCardToOffice>>, TError,{token: string;cardKey: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendClientCardToOffice>>,
+        TError,
+        {token: string;cardKey: string},
+        TContext
+      > => {
+      return useMutation(getSendClientCardToOfficeMutationOptions(options));
+    }
+
+export const getListClientBoardNotificationsUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/notifications`
+}
+
+/**
+ * @summary Live notification feed for the client board bell
+ */
+export const listClientBoardNotifications = async (token: string, options?: RequestInit): Promise<BoardNotificationList> => {
+
+  return customFetch<BoardNotificationList>(getListClientBoardNotificationsUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientBoardNotificationsQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/board/notifications`
+    ] as const;
+    }
+
+
+export const getListClientBoardNotificationsQueryOptions = <TData = Awaited<ReturnType<typeof listClientBoardNotifications>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientBoardNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientBoardNotificationsQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientBoardNotifications>>> = ({ signal }) => listClientBoardNotifications(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientBoardNotifications>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientBoardNotificationsQueryResult = NonNullable<Awaited<ReturnType<typeof listClientBoardNotifications>>>
+export type ListClientBoardNotificationsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Live notification feed for the client board bell
+ */
+
+export function useListClientBoardNotifications<TData = Awaited<ReturnType<typeof listClientBoardNotifications>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientBoardNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientBoardNotificationsQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkClientBoardNotificationsReadUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/notifications/read`
+}
+
+/**
+ * @summary Mark all client board notifications read
+ */
+export const markClientBoardNotificationsRead = async (token: string, options?: RequestInit): Promise<MarkClientBoardNotificationsRead200> => {
+
+  return customFetch<MarkClientBoardNotificationsRead200>(getMarkClientBoardNotificationsReadUrl(token),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkClientBoardNotificationsReadMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markClientBoardNotificationsRead>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markClientBoardNotificationsRead>>, TError,{token: string}, TContext> => {
+
+const mutationKey = ['markClientBoardNotificationsRead'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markClientBoardNotificationsRead>>, {token: string}> = (props) => {
+          const {token} = props ?? {};
+
+          return  markClientBoardNotificationsRead(token,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkClientBoardNotificationsReadMutationResult = NonNullable<Awaited<ReturnType<typeof markClientBoardNotificationsRead>>>
+
+    export type MarkClientBoardNotificationsReadMutationError = ErrorType<Error>
+
+    /**
+ * @summary Mark all client board notifications read
+ */
+export const useMarkClientBoardNotificationsRead = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markClientBoardNotificationsRead>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markClientBoardNotificationsRead>>,
+        TError,
+        {token: string},
+        TContext
+      > => {
+      return useMutation(getMarkClientBoardNotificationsReadMutationOptions(options));
+    }
+
+export const getGetClientBoardKpisUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/kpis`
+}
+
+/**
+ * @summary Property-management KPIs for the client dashboard header
+ */
+export const getClientBoardKpis = async (token: string, options?: RequestInit): Promise<ClientBoardKpis> => {
+
+  return customFetch<ClientBoardKpis>(getGetClientBoardKpisUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientBoardKpisQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/board/kpis`
+    ] as const;
+    }
+
+
+export const getGetClientBoardKpisQueryOptions = <TData = Awaited<ReturnType<typeof getClientBoardKpis>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBoardKpis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientBoardKpisQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientBoardKpis>>> = ({ signal }) => getClientBoardKpis(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientBoardKpis>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientBoardKpisQueryResult = NonNullable<Awaited<ReturnType<typeof getClientBoardKpis>>>
+export type GetClientBoardKpisQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Property-management KPIs for the client dashboard header
+ */
+
+export function useGetClientBoardKpis<TData = Awaited<ReturnType<typeof getClientBoardKpis>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBoardKpis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientBoardKpisQueryOptions(token,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -7,19 +7,23 @@
  */
 import type { BoardChecklistItem } from './boardChecklistItem';
 
-export interface ClientBoardCardInput {
+export interface ClientInboxCard {
+  cardKey: string;
   title: string;
-  lane: string;
-  /** @nullable */
-  template?: string | null;
   /** @nullable */
   description?: string | null;
-  /** @nullable */
-  notes?: string | null;
   /** @nullable */
   priority?: string | null;
   /** @nullable */
   dueOn?: string | null;
+  /** @nullable */
+  createdBy?: string | null;
   labels?: string[];
   checklist?: BoardChecklistItem[];
+  sentAt: string;
+  /** pending | accepted | declined */
+  status: string;
+  /** @nullable */
+  note?: string | null;
+  commentCount?: number;
 }

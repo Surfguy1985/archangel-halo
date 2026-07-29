@@ -1,10 +1,12 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, isNotNull, sql } from "drizzle-orm";
 import {
   db,
   clientAccountsTable,
   clientUsersTable,
   clientBoardCardsTable,
+  clientDashboardCardsTable,
+  clientCardCommentsTable,
   propertiesTable,
   activitiesTable,
   notificationsTable,
@@ -31,10 +33,15 @@ import {
   DeleteOfficeClientBoardCardResponse,
   ClientBoardCardActionBody,
   ClientBoardCardActionResponse,
+  GetClientBoardInboxResponse,
+  RespondClientInboxCardBody,
+  ListOfficeCardCommentsResponse,
+  AddOfficeCardCommentBody,
+  AddOfficeCardCommentResponse,
 } from "@workspace/api-zod";
 import { randomUUID } from "node:crypto";
 import { raiseClientCard, webhookUrlProblem, ACTION_STATE_KEYS } from "../lib/clientBoard";
-import { resolveViewer } from "./clientBoard";
+import { resolveViewer, notifyClientBoard } from "./clientBoard";
 import {
   buildInvoiceModule,
   buildTrackerModule,
@@ -1105,6 +1112,200 @@ router.delete(
       body: `Card taken back from the client board: ${existing.title}`,
     });
     res.json(DeleteOfficeClientBoardCardResponse.parse({ ok: true }));
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Client → office inbox: cards the client sent from their board, plus the
+// two-way comment threads on any board card.
+// ---------------------------------------------------------------------------
+router.get(
+  "/admin/accounts/:propertyId/board/inbox",
+  async (req, res): Promise<void> => {
+    const propertyId = String(req.params.propertyId);
+    if (!UUID_RE.test(propertyId)) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const rows = await db
+      .select()
+      .from(clientDashboardCardsTable)
+      .where(
+        and(
+          eq(clientDashboardCardsTable.propertyId, propertyId),
+          eq(clientDashboardCardsTable.kind, "custom"),
+          isNotNull(clientDashboardCardsTable.sentToOfficeAt),
+        ),
+      )
+      .orderBy(desc(clientDashboardCardsTable.sentToOfficeAt))
+      .limit(50);
+    const keys = rows.map((r) => r.cardKey);
+    const counts = keys.length
+      ? await db
+          .select({
+            cardKey: clientCardCommentsTable.cardKey,
+            n: sql<number>`count(*)::int`,
+          })
+          .from(clientCardCommentsTable)
+          .where(
+            and(
+              eq(clientCardCommentsTable.propertyId, propertyId),
+              inArray(clientCardCommentsTable.cardKey, keys),
+            ),
+          )
+          .groupBy(clientCardCommentsTable.cardKey)
+      : [];
+    const countByKey = new Map(counts.map((c) => [c.cardKey, c.n]));
+    res.json(
+      GetClientBoardInboxResponse.parse({
+        cards: rows.map((r) => ({
+          cardKey: r.cardKey,
+          title: r.title ?? "Untitled",
+          description: r.description ?? null,
+          priority: r.priority ?? null,
+          dueOn: r.dueOn ?? null,
+          createdBy: r.createdBy ?? null,
+          labels: Array.isArray(r.labels) ? (r.labels as string[]) : [],
+          checklist: Array.isArray(r.checklist)
+            ? (r.checklist as { id: string; text: string; done: boolean }[])
+            : [],
+          sentAt: r.sentToOfficeAt!.toISOString(),
+          status: r.officeStatus ?? "pending",
+          note: r.officeNote ?? null,
+          commentCount: countByKey.get(r.cardKey) ?? 0,
+        })),
+      }),
+    );
+  },
+);
+
+router.post(
+  "/admin/accounts/:propertyId/board/inbox/:cardKey/respond",
+  async (req, res): Promise<void> => {
+    const parsed = RespondClientInboxCardBody.safeParse(req.body);
+    if (!parsed.success || !["accepted", "declined"].includes(parsed.data.status)) {
+      res.status(400).json({ error: "status must be accepted or declined" });
+      return;
+    }
+    const propertyId = String(req.params.propertyId);
+    const cardKey = String(req.params.cardKey);
+    if (!UUID_RE.test(propertyId)) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const { status, note } = parsed.data;
+    // Guarded transition: only a pending send can be decided (first decision wins).
+    const updated = await db
+      .update(clientDashboardCardsTable)
+      .set({ officeStatus: status, officeNote: note ?? null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(clientDashboardCardsTable.propertyId, propertyId),
+          eq(clientDashboardCardsTable.cardKey, cardKey),
+          eq(clientDashboardCardsTable.officeStatus, "pending"),
+        ),
+      )
+      .returning();
+    if (!updated.length) {
+      res.status(409).json({ error: "This card was already decided or was never sent" });
+      return;
+    }
+    const card = updated[0]!;
+    // Side effects after the decision commits must never turn it into a 500.
+    await notifyClientBoard(
+      propertyId,
+      "card_response",
+      `Office ${status} your card "${card.title ?? "Untitled"}"`,
+      note ?? null,
+      cardKey,
+    );
+    try {
+      await db.insert(activitiesTable).values({
+        entityType: "property",
+        entityId: propertyId,
+        kind: "note",
+        body: `Office ${status} client card "${card.title ?? "Untitled"}"${note ? ` — ${note}` : ""}`,
+      });
+    } catch (err) {
+      console.error("inbox respond activity log failed:", err);
+    }
+    res.json({ ok: true });
+  },
+);
+
+router.get(
+  "/admin/accounts/:propertyId/board/comments/:cardKey",
+  async (req, res): Promise<void> => {
+    const propertyId = String(req.params.propertyId);
+    if (!UUID_RE.test(propertyId)) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const comments = await db
+      .select()
+      .from(clientCardCommentsTable)
+      .where(
+        and(
+          eq(clientCardCommentsTable.propertyId, propertyId),
+          eq(clientCardCommentsTable.cardKey, String(req.params.cardKey)),
+        ),
+      )
+      .orderBy(clientCardCommentsTable.createdAt);
+    res.json(
+      ListOfficeCardCommentsResponse.parse({
+        comments: comments.map((c) => ({
+          id: c.id,
+          authorType: c.authorType,
+          authorName: c.authorName,
+          body: c.body,
+          createdAt: c.createdAt.toISOString(),
+        })),
+      }),
+    );
+  },
+);
+
+router.post(
+  "/admin/accounts/:propertyId/board/comments/:cardKey",
+  async (req, res): Promise<void> => {
+    const parsed = AddOfficeCardCommentBody.safeParse(req.body);
+    const body = parsed.success ? parsed.data.body.trim() : "";
+    if (!body || body.length > 4000) {
+      res.status(400).json({ error: "Comment text is required (max 4000 chars)" });
+      return;
+    }
+    const propertyId = String(req.params.propertyId);
+    if (!UUID_RE.test(propertyId)) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const cardKey = String(req.params.cardKey);
+    const [row] = await db
+      .insert(clientCardCommentsTable)
+      .values({
+        propertyId,
+        cardKey,
+        authorType: "office",
+        authorName: "Archangel",
+        body,
+      })
+      .returning();
+    await notifyClientBoard(
+      propertyId,
+      "comment",
+      "New reply from Archangel",
+      body.slice(0, 300),
+      cardKey,
+    );
+    res.status(201).json(
+      AddOfficeCardCommentResponse.parse({
+        id: row!.id,
+        authorType: row!.authorType,
+        authorName: row!.authorName,
+        body: row!.body,
+        createdAt: row!.createdAt.toISOString(),
+      }),
+    );
   },
 );
 

@@ -4871,6 +4871,23 @@ export interface ClientBoardCrew {
  */
 export type ClientBoardCardViewModule = { [key: string]: unknown } | null;
 
+export interface BoardChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+export interface BoardCardOfficeSendState {
+  sentAt: string;
+  /** pending | accepted | declined */
+  status: string;
+  /**
+     * Office response note
+     * @nullable
+     */
+  note?: string | null;
+}
+
 export interface ClientBoardCardView {
   cardKey: string;
   template: string;
@@ -4916,6 +4933,96 @@ export interface ClientBoardCardView {
   updatedAt?: string | null;
   /** @nullable */
   snoozedUntil?: string | null;
+  labels?: string[];
+  checklist?: BoardChecklistItem[];
+  commentCount?: number;
+  sentToOffice?: BoardCardOfficeSendState | null;
+}
+
+export interface BoardCardComment {
+  id: string;
+  /** office | client */
+  authorType: string;
+  authorName: string;
+  body: string;
+  createdAt: string;
+}
+
+export interface BoardCardCommentInput {
+  body: string;
+}
+
+export interface BoardCardCommentList {
+  comments: BoardCardComment[];
+}
+
+export interface BoardNotificationRec {
+  id: string;
+  /** comment | card_sent | card_response | card_pushed | card_updated */
+  type: string;
+  title: string;
+  /** @nullable */
+  body?: string | null;
+  /** @nullable */
+  cardKey?: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface BoardNotificationList {
+  notifications: BoardNotificationRec[];
+  unreadCount: number;
+}
+
+export interface ClientBoardKpis {
+  unitsTotal: number;
+  unitsOk: number;
+  unitsAttention: number;
+  unitsUrgent: number;
+  openJobs: number;
+  scheduledJobs: number;
+  pendingRequests: number;
+  /** Unpaid invoice total incl. tax */
+  invoicesOutstanding: number;
+  invoicesOverdue: number;
+  paidLast30: number;
+  /**
+     * YYYY-MM-DD of next scheduled job
+     * @nullable
+     */
+  nextVisit?: string | null;
+}
+
+export interface ClientInboxCard {
+  cardKey: string;
+  title: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  priority?: string | null;
+  /** @nullable */
+  dueOn?: string | null;
+  /** @nullable */
+  createdBy?: string | null;
+  labels?: string[];
+  checklist?: BoardChecklistItem[];
+  sentAt: string;
+  /** pending | accepted | declined */
+  status: string;
+  /** @nullable */
+  note?: string | null;
+  commentCount?: number;
+}
+
+export interface ClientInboxView {
+  cards: ClientInboxCard[];
+}
+
+export interface ClientInboxRespondInput {
+  /** accepted | declined */
+  status: string;
+  /** @nullable */
+  note?: string | null;
 }
 
 export interface ClientBoardAuditEntry {
@@ -4962,6 +5069,8 @@ export interface ClientBoardCardInput {
   priority?: string | null;
   /** @nullable */
   dueOn?: string | null;
+  labels?: string[];
+  checklist?: BoardChecklistItem[];
 }
 
 export interface ClientBoardCardUpdate {
@@ -4977,6 +5086,8 @@ export interface ClientBoardCardUpdate {
   dueOn?: string | null;
   /** @nullable */
   archived?: boolean | null;
+  labels?: string[];
+  checklist?: BoardChecklistItem[];
 }
 
 export interface ClientBoardCardRec {
@@ -5409,5 +5520,9 @@ jobId?: string;
 
 export type ListWorkRequestsParams = {
 status?: string;
+};
+
+export type MarkClientBoardNotificationsRead200 = {
+  ok: boolean;
 };
 

@@ -5869,6 +5869,142 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/accounts/{propertyId}/board/inbox:
+    get:
+      operationId: getClientBoardInbox
+      tags: [admin]
+      summary: Cards the client sent to the office, newest first
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Inbox
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientInboxView"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/accounts/{propertyId}/board/inbox/{cardKey}/respond:
+    post:
+      operationId: respondClientInboxCard
+      tags: [admin]
+      summary: Accept or decline a client-sent card — the client is notified live
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cardKey
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientInboxRespondInput"
+      responses:
+        "200":
+          description: Responded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already decided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/accounts/{propertyId}/board/comments/{cardKey}:
+    get:
+      operationId: listOfficeCardComments
+      tags: [admin]
+      summary: Comment thread on a client board card (office view)
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cardKey
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Thread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardCardCommentList"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: addOfficeCardComment
+      tags: [admin]
+      summary: Office posts a comment on a client board card — client is notified live
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cardKey
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BoardCardCommentInput"
+      responses:
+        "201":
+          description: Posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardCardComment"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /client/{token}/access:
     get:
       operationId: getClientAccess
@@ -6599,6 +6735,193 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClientBoardMapView"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/cards/{cardKey}/comments:
+    get:
+      operationId: listClientCardComments
+      tags: [admin]
+      summary: Comment thread on a board card (client view)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cardKey
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Thread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardCardCommentList"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: addClientCardComment
+      tags: [admin]
+      summary: Client posts a comment on a card — office is notified live
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cardKey
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BoardCardCommentInput"
+      responses:
+        "201":
+          description: Posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardCardComment"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/cards/{cardKey}/send-to-office:
+    post:
+      operationId: sendClientCardToOffice
+      tags: [admin]
+      summary: Send one of the client's own cards to the office for action
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cardKey
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBoardActionOutcome"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/notifications:
+    get:
+      operationId: listClientBoardNotifications
+      tags: [admin]
+      summary: Live notification feed for the client board bell
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Feed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoardNotificationList"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/notifications/read:
+    post:
+      operationId: markClientBoardNotificationsRead
+      tags: [admin]
+      summary: Mark all client board notifications read
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Marked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/kpis:
+    get:
+      operationId: getClientBoardKpis
+      tags: [admin]
+      summary: Property-management KPIs for the client dashboard header
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: KPIs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBoardKpis"
         "404":
           description: Invalid link
           content:
@@ -11730,6 +12053,135 @@ components:
           additionalProperties: true
         updatedAt: { type: ["string", "null"] }
         snoozedUntil: { type: ["string", "null"] }
+        labels:
+          type: array
+          items: { type: string }
+        checklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/BoardChecklistItem"
+        commentCount: { type: integer }
+        sentToOffice:
+          oneOf:
+            - $ref: "#/components/schemas/BoardCardOfficeSendState"
+            - type: "null"
+
+    BoardChecklistItem:
+      type: object
+      required: [id, text, done]
+      properties:
+        id: { type: string }
+        text: { type: string }
+        done: { type: boolean }
+
+    BoardCardOfficeSendState:
+      type: object
+      required: [sentAt, status]
+      properties:
+        sentAt: { type: string }
+        status: { type: string, description: "pending | accepted | declined" }
+        note: { type: ["string", "null"], description: "Office response note" }
+
+    BoardCardComment:
+      type: object
+      required: [id, authorType, authorName, body, createdAt]
+      properties:
+        id: { type: string }
+        authorType: { type: string, description: "office | client" }
+        authorName: { type: string }
+        body: { type: string }
+        createdAt: { type: string }
+
+    BoardCardCommentInput:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string }
+
+    BoardCardCommentList:
+      type: object
+      required: [comments]
+      properties:
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/BoardCardComment"
+
+    BoardNotificationRec:
+      type: object
+      required: [id, type, title, createdAt, read]
+      properties:
+        id: { type: string }
+        type: { type: string, description: "comment | card_sent | card_response | card_pushed | card_updated" }
+        title: { type: string }
+        body: { type: ["string", "null"] }
+        cardKey: { type: ["string", "null"] }
+        read: { type: boolean }
+        createdAt: { type: string }
+
+    BoardNotificationList:
+      type: object
+      required: [notifications, unreadCount]
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/BoardNotificationRec"
+        unreadCount: { type: integer }
+
+    ClientBoardKpis:
+      type: object
+      required: [unitsTotal, unitsOk, unitsAttention, unitsUrgent, openJobs, scheduledJobs, pendingRequests, invoicesOutstanding, invoicesOverdue, paidLast30]
+      properties:
+        unitsTotal: { type: integer }
+        unitsOk: { type: integer }
+        unitsAttention: { type: integer }
+        unitsUrgent: { type: integer }
+        openJobs: { type: integer }
+        scheduledJobs: { type: integer }
+        pendingRequests: { type: integer }
+        invoicesOutstanding: { type: number, description: "Unpaid invoice total incl. tax" }
+        invoicesOverdue: { type: number }
+        paidLast30: { type: number }
+        nextVisit: { type: ["string", "null"], description: "YYYY-MM-DD of next scheduled job" }
+
+    ClientInboxCard:
+      type: object
+      required: [cardKey, title, sentAt, status]
+      properties:
+        cardKey: { type: string }
+        title: { type: string }
+        description: { type: ["string", "null"] }
+        priority: { type: ["string", "null"] }
+        dueOn: { type: ["string", "null"] }
+        createdBy: { type: ["string", "null"] }
+        labels:
+          type: array
+          items: { type: string }
+        checklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/BoardChecklistItem"
+        sentAt: { type: string }
+        status: { type: string, description: "pending | accepted | declined" }
+        note: { type: ["string", "null"] }
+        commentCount: { type: integer }
+
+    ClientInboxView:
+      type: object
+      required: [cards]
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientInboxCard"
+
+    ClientInboxRespondInput:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, description: "accepted | declined" }
+        note: { type: ["string", "null"] }
 
     ClientBoardAuditEntry:
       type: object
@@ -11780,6 +12232,13 @@ components:
         notes: { type: ["string", "null"] }
         priority: { type: ["string", "null"] }
         dueOn: { type: ["string", "null"] }
+        labels:
+          type: array
+          items: { type: string }
+        checklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/BoardChecklistItem"
 
     ClientBoardCardUpdate:
       type: object
@@ -11790,6 +12249,13 @@ components:
         priority: { type: ["string", "null"] }
         dueOn: { type: ["string", "null"] }
         archived: { type: ["boolean", "null"] }
+        labels:
+          type: array
+          items: { type: string }
+        checklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/BoardChecklistItem"
 
     ClientBoardCardRec:
       type: object
