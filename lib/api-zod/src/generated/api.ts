@@ -7500,6 +7500,7 @@ export const GetClientAccountResponse = zod.object({
   "servicesOverview": zod.string().nullish(),
   "dashboardToken": zod.string(),
   "dashboardUrl": zod.string().nullish().describe('Full public URL to the client dashboard'),
+  "notifyNewCards": zod.boolean().optional().describe('Email the billing contact a batched digest when new cards land on the board'),
   "onboardingStatus": zod.string().describe('not_sent | sent'),
   "onboardingSentAt": zod.string().nullish()
 }),
@@ -7567,7 +7568,8 @@ export const UpsertClientAccountBody = zod.object({
   "status": zod.string().optional(),
   "notes": zod.string().nullish(),
   "logoPath": zod.string().nullish(),
-  "servicesOverview": zod.string().nullish()
+  "servicesOverview": zod.string().nullish(),
+  "notifyNewCards": zod.boolean().optional()
 })
 
 export const UpsertClientAccountResponse = zod.object({
@@ -7582,6 +7584,7 @@ export const UpsertClientAccountResponse = zod.object({
   "servicesOverview": zod.string().nullish(),
   "dashboardToken": zod.string(),
   "dashboardUrl": zod.string().nullish().describe('Full public URL to the client dashboard'),
+  "notifyNewCards": zod.boolean().optional().describe('Email the billing contact a batched digest when new cards land on the board'),
   "onboardingStatus": zod.string().describe('not_sent | sent'),
   "onboardingSentAt": zod.string().nullish()
 })
@@ -7695,6 +7698,7 @@ export const RegenerateDashboardTokenResponse = zod.object({
   "servicesOverview": zod.string().nullish(),
   "dashboardToken": zod.string(),
   "dashboardUrl": zod.string().nullish().describe('Full public URL to the client dashboard'),
+  "notifyNewCards": zod.boolean().optional().describe('Email the billing contact a batched digest when new cards land on the board'),
   "onboardingStatus": zod.string().describe('not_sent | sent'),
   "onboardingSentAt": zod.string().nullish()
 })

@@ -271,6 +271,41 @@ export default function AdminAccount() {
           <button onClick={saveSubscription} disabled={upsert.isPending || !sub} className={btnPrimary} data-testid="button-save-subscription">
             {upsert.isPending ? "Saving…" : "Save subscription"}
           </button>
+          <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+            <div className="min-w-0">
+              <p className="text-sm font-bold">New-card email pings</p>
+              <p className="text-xs text-muted-foreground">
+                Email their billing contact a batched digest (at most hourly) when new cards land on their board.
+              </p>
+            </div>
+            <button
+              role="switch"
+              aria-checked={account.notifyNewCards ?? true}
+              onClick={() =>
+                upsert.mutate(
+                  { propertyId, data: { notifyNewCards: !(account.notifyNewCards ?? true) } },
+                  {
+                    onSuccess: () => {
+                      refresh();
+                      toast({
+                        title: (account.notifyNewCards ?? true)
+                          ? "New-card pings turned off"
+                          : "New-card pings turned on",
+                      });
+                    },
+                    onError,
+                  },
+                )
+              }
+              disabled={upsert.isPending}
+              className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${(account.notifyNewCards ?? true) ? "bg-[var(--gold-light,#B4FF44)]" : "bg-muted-foreground/30"} disabled:opacity-50`}
+              data-testid="switch-notify-new-cards"
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${(account.notifyNewCards ?? true) ? "translate-x-5" : ""}`}
+              />
+            </button>
+          </div>
         </Section>
 
         {/* Onboarding */}

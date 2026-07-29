@@ -6561,6 +6561,7 @@ components:
         servicesOverview: { type: ["string", "null"] }
         dashboardToken: { type: string }
         dashboardUrl: { type: ["string", "null"], description: "Full public URL to the client dashboard" }
+        notifyNewCards: { type: boolean, description: "Email the billing contact a batched digest when new cards land on the board" }
         onboardingStatus: { type: string, description: "not_sent | sent" }
         onboardingSentAt: { type: ["string", "null"] }
     ClientAccountSummary:
@@ -6937,6 +6938,7 @@ components:
         notes: { type: ["string", "null"] }
         logoPath: { type: ["string", "null"] }
         servicesOverview: { type: ["string", "null"] }
+        notifyNewCards: { type: boolean }
     ClientUserCreate:
       type: object
       required: [name, email]

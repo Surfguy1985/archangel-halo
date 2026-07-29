@@ -45,6 +45,9 @@ export const clientAccountsTable = pgTable("client_accounts", {
   // Optional outbound webhook: every board-card event is POSTed here so the
   // client can mirror cards into their own tools (Trello, Slack, Zapier...).
   webhookUrl: text("webhook_url"),
+  // Per-account toggle: email the billing/primary contact a batched digest
+  // when new cards land on their board (deduped hourly by the scheduler).
+  notifyNewCards: boolean("notify_new_cards").notNull().default(true),
   onboardingStatus: text("onboarding_status").notNull().default("not_sent"), // not_sent | sent
   onboardingSentAt: timestamp("onboarding_sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -122,6 +125,9 @@ export const clientBoardCardsTable = pgTable(
     sourceId: text("source_id").notNull(),
     jobId: uuid("job_id"),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    // When this card was included in a client notification digest. NULL means
+    // "not yet notified" — the scheduler sweeps these hourly.
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

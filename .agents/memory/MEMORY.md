@@ -50,6 +50,7 @@
 - [HALO SOP Invoice Wizard](halo-sop-invoice-wizard.md) — per-property AI-extracted billing rules; every invoice-create path must call applySopToInvoice (user values win, missing PO → 400).
 - [HALO job summary](halo-job-summary.md) — close-out opens prefilled recap form; public /summary/:token must serve the redacted public DTO, never the internal serializer.
 - [HALO client board](halo-client-board.md) — every client-facing send must raiseClientCard (dedupe by source, never break the send); webhook mirror is SSRF-guarded at save and dispatch.
+- [HALO client card digest](halo-client-card-digest.md) — new-card pings are an hourly scheduler sweep on notifiedAt, claim-before-send; per-account notifyNewCards toggle; email only (no Twilio helper yet).
 - [HALO client access control](halo-client-access.md) — client dashboard gates by effectivePermissions (NULL=role defaults); feature catalog+defaults server-side; seat-cap changes need FOR UPDATE tx.
 - [HALO client dashboard board](halo-client-dashboard.md) — /dashboard/:token PWA; HALO cards recomputed on read, client edits/overrides in client_board_cards; Bearer HMAC sessions; blocked actions audited, not errors.
 - [HALO job timeline](halo-job-timeline.md) — JobFunnel 5-stage pipeline: /jobs/:id/events feed, manual-assign board sync is server-side + transactional, recap-then-close needs no-email fallback.

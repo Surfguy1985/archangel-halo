@@ -17,4 +17,5 @@ export interface ClientAccountUpsert {
   logoPath?: string | null;
   /** @nullable */
   servicesOverview?: string | null;
+  notifyNewCards?: boolean;
 }

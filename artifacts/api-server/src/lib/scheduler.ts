@@ -10,6 +10,7 @@ import {
 } from "./notifications";
 import { campaignByKind } from "./leadTemplates";
 import { runAutopilot } from "./autopilot";
+import { sendClientCardDigests } from "./clientCardDigest";
 import { runWingsAutomation } from "../wings/services/automation";
 import { sendCampaignStepEmail } from "../routes/pipeline";
 import { logger } from "./logger";
@@ -33,6 +34,9 @@ let lastUrgentCheck = 0;
 let lastAutopilotCheck = 0;
 const WINGS_CHECK_MS = 15 * 60 * 1000;
 let lastWingsCheck = 0;
+// New-card digests to clients: at most one email per account per hour.
+const CLIENT_CARD_DIGEST_MS = 60 * 60 * 1000;
+let lastClientCardDigest = 0;
 let lastWingsBriefDate: string | null = null;
 
 function nowInEastern(): {
@@ -264,6 +268,12 @@ async function tick(): Promise<void> {
     } catch (err) {
       logger.warn({ err }, "Founding Wings automation failed");
     }
+  }
+
+  if (stamp - lastClientCardDigest >= CLIENT_CARD_DIGEST_MS) {
+    lastClientCardDigest = stamp;
+    // sendClientCardDigests never throws; it logs its own failures.
+    await sendClientCardDigests();
   }
 
   if (stamp - lastUrgentCheck >= URGENT_CHECK_MS) {

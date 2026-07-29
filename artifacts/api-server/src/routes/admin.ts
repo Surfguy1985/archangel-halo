@@ -120,6 +120,7 @@ function serAccount(a: ClientAccount) {
     servicesOverview: a.servicesOverview,
     dashboardToken: a.dashboardToken,
     dashboardUrl: dashboardUrl(a.dashboardToken),
+    notifyNewCards: a.notifyNewCards,
     onboardingStatus: a.onboardingStatus,
     onboardingSentAt: a.onboardingSentAt ? a.onboardingSentAt.toISOString() : null,
   };
@@ -190,16 +191,16 @@ router.get("/admin/accounts", async (_req, res): Promise<void> => {
 });
 
 router.get("/admin/accounts/:propertyId", async (req, res): Promise<void> => {
-  const propertyId = req.params.propertyId;
-  const [property] = await db
-    .select()
-    .from(propertiesTable)
-    .where(eq(propertiesTable.id, propertyId));
-  if (!property) {
-    res.status(404).json({ error: "Property not found" });
-    return;
-  }
-  const account = await ensureAccount(propertyId);
+    const propertyId = req.params.propertyId;
+    const [property] = await db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, req.params.propertyId));
+    if (!property) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const account = await ensureAccount(property.id);
   const [users, sends, contacts, services] = await Promise.all([
     db
       .select()
@@ -239,45 +240,22 @@ router.get("/admin/accounts/:propertyId", async (req, res): Promise<void> => {
 });
 
 router.put("/admin/accounts/:propertyId", async (req, res): Promise<void> => {
-  const propertyId = req.params.propertyId;
-  const body = UpsertClientAccountBody.parse(req.body);
-  const [property] = await db
-    .select()
-    .from(propertiesTable)
-    .where(eq(propertiesTable.id, propertyId));
-  if (!property) {
-    res.status(404).json({ error: "Property not found" });
-    return;
-  }
-  if (body.tier != null && !TIERS.has(body.tier)) {
-    res.status(400).json({ error: "Tier must be basic, pro, or enterprise" });
-    return;
-  }
-  if (body.status != null && !STATUSES.has(body.status)) {
-    res.status(400).json({ error: "Status must be active, paused, or cancelled" });
-    return;
-  }
-  const account = await ensureAccount(propertyId);
-  const [updated] = await db
-    .update(clientAccountsTable)
-    .set({
-      ...(body.tier != null ? { tier: body.tier } : {}),
-      ...(body.userSeats != null
-        ? { userSeats: Math.max(0, Math.round(body.userSeats)) }
-        : {}),
-      ...(body.guestSeats != null
-        ? { guestSeats: Math.max(0, Math.round(body.guestSeats)) }
-        : {}),
-      ...(body.status != null ? { status: body.status } : {}),
-      ...(body.notes !== undefined ? { notes: body.notes } : {}),
-      ...(body.logoPath !== undefined ? { logoPath: body.logoPath } : {}),
-      ...(body.servicesOverview !== undefined
-        ? { servicesOverview: body.servicesOverview }
-        : {}),
-      updatedAt: new Date(),
-    })
-    .where(eq(clientAccountsTable.id, account.id))
-    .returning();
+    const propertyId = req.params.propertyId;
+    const body = SendClientOnboardingBody.parse(req.body);
+    const [property] = await db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, req.params.propertyId));
+    if (!property) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const account = await ensureAccount(property.id);
+    const [updated] = await db
+      .update(clientAccountsTable)
+      .set({ dashboardToken: newToken(), updatedAt: new Date() })
+      .where(eq(clientAccountsTable.id, account.id))
+      .returning();
   res.json(UpsertClientAccountResponse.parse(serAccount(updated)));
 });
 
@@ -285,7 +263,7 @@ router.post(
   "/admin/accounts/:propertyId/users",
   async (req, res): Promise<void> => {
     const propertyId = req.params.propertyId;
-    const body = CreateClientUserBody.parse(req.body);
+    const body = SendClientOnboardingBody.parse(req.body);
     const email = body.email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       res.status(400).json({ error: "Enter a valid email address" });
@@ -293,14 +271,14 @@ router.post(
     }
     const role = body.role != null && ROLES.has(body.role) ? body.role : "member";
     const [property] = await db
-      .select({ id: propertiesTable.id })
+      .select()
       .from(propertiesTable)
-      .where(eq(propertiesTable.id, propertyId));
+      .where(eq(propertiesTable.id, req.params.propertyId));
     if (!property) {
       res.status(404).json({ error: "Property not found" });
       return;
     }
-    const account = await ensureAccount(propertyId);
+    const account = await ensureAccount(property.id);
     const tempPassword = newTempPassword();
     let user: ClientUser;
     try {
@@ -393,11 +371,11 @@ async function emailCredentials(
 }
 
 router.patch("/admin/client-users/:id", async (req, res): Promise<void> => {
-  const body = UpdateClientUserBody.parse(req.body);
-  const [user] = await db
-    .select()
-    .from(clientUsersTable)
-    .where(eq(clientUsersTable.id, req.params.id));
+    const body = SendClientOnboardingBody.parse(req.body);
+    const [user] = await db
+      .select()
+      .from(clientUsersTable)
+      .where(eq(clientUsersTable.id, req.params.id));
   if (!user) {
     res.status(404).json({ error: "User not found" });
     return;
@@ -480,7 +458,7 @@ router.delete("/admin/client-users/:id", async (req, res): Promise<void> => {
 router.post(
   "/admin/client-users/:id/reset-password",
   async (req, res): Promise<void> => {
-    const body = ResetClientUserPasswordBody.parse(req.body ?? {});
+    const body = SendClientOnboardingBody.parse(req.body);
     const [user] = await db
       .select()
       .from(clientUsersTable)
@@ -491,16 +469,13 @@ router.post(
     }
     const tempPassword = newTempPassword();
     const [updated] = await db
-      .update(clientUsersTable)
-      .set({
-        passwordHash: hashPassword(tempPassword),
-        lastPasswordResetAt: new Date(),
-      })
-      .where(eq(clientUsersTable.id, user.id))
+      .update(clientAccountsTable)
+      .set({ dashboardToken: newToken(), updatedAt: new Date() })
+      .where(eq(clientAccountsTable.id, account.id))
       .returning();
     let emailed = false;
     if (body.sendEmail) {
-      const account = await ensureAccount(user.propertyId);
+    const account = await ensureAccount(property.id);
       emailed = await emailCredentials(updated, tempPassword, account);
     }
     res.json(

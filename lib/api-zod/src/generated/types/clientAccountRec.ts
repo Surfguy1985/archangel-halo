@@ -27,6 +27,8 @@ export interface ClientAccountRec {
      * @nullable
      */
   dashboardUrl?: string | null;
+  /** Email the billing contact a batched digest when new cards land on the board */
+  notifyNewCards?: boolean;
   /** not_sent | sent */
   onboardingStatus: string;
   /** @nullable */
