@@ -7,7 +7,7 @@ import { BoardCard } from '@/components/kanban/BoardCard';
 import { CardDetailDialog } from '@/components/kanban/CardDetailDialog';
 import { CreateCardDialog } from '@/components/kanban/CreateCardDialog';
 import { Button } from '@/components/ui/button';
-import { MapPin, User, Loader2, Info, Plus } from 'lucide-react';
+import { MapPin, User, Loader2, Info, Plus, LayoutGrid, BookOpen } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -200,6 +200,18 @@ export default function KanbanBoard() {
           <Button variant="outline" size="sm" className="h-8 gap-2 text-xs font-semibold" onClick={() => setLocation(`/${token}/map`)}>
             <MapPin className="h-3.5 w-3.5" /> Map View
           </Button>
+
+          {viewer.permissions?.includes('unit_map') && (
+            <Button variant="outline" size="sm" className="h-8 gap-2 text-xs font-semibold" onClick={() => setLocation(`/${token}/units`)}>
+              <LayoutGrid className="h-3.5 w-3.5" /> Units
+            </Button>
+          )}
+
+          {viewer.permissions?.includes('hub') && (
+            <Button variant="outline" size="sm" className="h-8 gap-2 text-xs font-semibold" onClick={() => setLocation(`/${token}/hub`)}>
+              <BookOpen className="h-3.5 w-3.5" /> Hub
+            </Button>
+          )}
 
           {viewer.authenticated ? (
             <Tooltip>

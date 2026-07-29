@@ -240,22 +240,48 @@ router.get("/admin/accounts/:propertyId", async (req, res): Promise<void> => {
 });
 
 router.put("/admin/accounts/:propertyId", async (req, res): Promise<void> => {
-    const propertyId = req.params.propertyId;
-    const body = UpsertClientAccountBody.parse(req.body);
-    const [property] = await db
-      .select()
-      .from(propertiesTable)
-      .where(eq(propertiesTable.id, req.params.propertyId));
-    if (!property) {
-      res.status(404).json({ error: "Property not found" });
-      return;
-    }
-    const account = await ensureAccount(property.id);
-    const [updated] = await db
-      .update(clientAccountsTable)
-      .set({ dashboardToken: newToken(), updatedAt: new Date() })
-      .where(eq(clientAccountsTable.id, account.id))
-      .returning();
+  const propertyId = req.params.propertyId;
+  const body = UpsertClientAccountBody.parse(req.body);
+  const [property] = await db
+    .select()
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, propertyId));
+  if (!property) {
+    res.status(404).json({ error: "Property not found" });
+    return;
+  }
+  if (body.tier != null && !TIERS.has(body.tier)) {
+    res.status(400).json({ error: "Tier must be basic, pro, or enterprise" });
+    return;
+  }
+  if (body.status != null && !STATUSES.has(body.status)) {
+    res.status(400).json({ error: "Status must be active, paused, or cancelled" });
+    return;
+  }
+  const account = await ensureAccount(propertyId);
+  // Token rotation lives ONLY in /admin/accounts/:propertyId/token/regenerate —
+  // an ordinary save must never invalidate the client's dashboard link.
+  const [updated] = await db
+    .update(clientAccountsTable)
+    .set({
+      ...(body.tier != null ? { tier: body.tier } : {}),
+      ...(body.userSeats != null
+        ? { userSeats: Math.max(0, Math.round(body.userSeats)) }
+        : {}),
+      ...(body.guestSeats != null
+        ? { guestSeats: Math.max(0, Math.round(body.guestSeats)) }
+        : {}),
+      ...(body.status != null ? { status: body.status } : {}),
+      ...(body.notes !== undefined ? { notes: body.notes } : {}),
+      ...(body.logoPath !== undefined ? { logoPath: body.logoPath } : {}),
+      ...(body.servicesOverview !== undefined
+        ? { servicesOverview: body.servicesOverview }
+        : {}),
+      ...(body.notifyNewCards != null ? { notifyNewCards: body.notifyNewCards } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(clientAccountsTable.id, account.id))
+    .returning();
   res.json(UpsertClientAccountResponse.parse(serAccount(updated)));
 });
 

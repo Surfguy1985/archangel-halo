@@ -87,7 +87,6 @@ export const GetQueuesResponse = zod.array(GetQueuesResponseItem)
  */
 
 
-
 export const DismissFeedItemBody = zod.object({
   "itemId": zod.string().min(1)
 })
@@ -100,7 +99,6 @@ export const DismissFeedItemResponse = zod.object({
 /**
  * @summary Ask HALO a natural-language question about the business
  */
-
 
 
 export const AskHaloBody = zod.object({
@@ -149,7 +147,6 @@ export const createPropertyBodyLatitudeMax = 90;
 
 export const createPropertyBodyLongitudeMin = -180;
 export const createPropertyBodyLongitudeMax = 180;
-
 
 
 export const CreatePropertyBody = zod.object({
@@ -371,7 +368,6 @@ export const updatePropertyBodyMarginTargetMin = 0;
 export const updatePropertyBodyMarginTargetMax = 1;
 
 
-
 export const UpdatePropertyBody = zod.object({
   "name": zod.string().min(1).optional(),
   "pmcName": zod.string().optional(),
@@ -521,9 +517,6 @@ export const UploadPropertySopDocumentParams = zod.object({
 })
 
 
-
-
-
 export const UploadPropertySopDocumentBody = zod.object({
   "fileName": zod.string().min(1),
   "mediaType": zod.enum(['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif']),
@@ -589,9 +582,6 @@ export const ListCatalogItemsResponseItem = zod.object({
 export const ListCatalogItemsResponse = zod.array(ListCatalogItemsResponseItem)
 
 
-
-
-
 export const CreateCatalogItemBody = zod.object({
   "service": zod.string().min(1),
   "detail": zod.string().optional(),
@@ -613,8 +603,6 @@ export const CreateCatalogItemResponse = zod.object({
 export const UpdateCatalogItemParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const UpdateCatalogItemBody = zod.object({
@@ -652,8 +640,6 @@ export const ImportPriceItemsParams = zod.object({
 })
 
 
-
-
 export const ImportPriceItemsBody = zod.object({
   "catalogItemIds": zod.array(zod.string()).min(1)
 })
@@ -677,8 +663,6 @@ export const CreatePriceItemParams = zod.object({
 })
 
 
-
-
 export const CreatePriceItemBody = zod.object({
   "service": zod.string().min(1),
   "detail": zod.string().optional(),
@@ -696,9 +680,6 @@ export const CreatePriceItemResponse = zod.object({
   "rate": zod.number(),
   "marginFloor": zod.number().nullish()
 })
-
-
-
 
 
 export const CreateContactBody = zod.object({
@@ -724,8 +705,6 @@ export const CreateContactResponse = zod.object({
 export const UpdateContactParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const UpdateContactBody = zod.object({
@@ -759,8 +738,6 @@ export const DeleteContactResponse = zod.object({
 export const UpdatePriceItemParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const UpdatePriceItemBody = zod.object({
@@ -810,9 +787,6 @@ export const ListLeadsResponseItem = zod.object({
   "createdAt": zod.string().nullish()
 })
 export const ListLeadsResponse = zod.array(ListLeadsResponseItem)
-
-
-
 
 
 export const CreateLeadBody = zod.object({
@@ -1017,10 +991,6 @@ export const ListBidsResponseItem = zod.object({
 export const ListBidsResponse = zod.array(ListBidsResponseItem)
 
 
-
-
-
-
 export const CreateBidBody = zod.object({
   "propertyId": zod.string().optional(),
   "unitNo": zod.string().optional(),
@@ -1094,8 +1064,6 @@ export const GetBidResponse = zod.object({
 export const UpdateBidParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const UpdateBidBody = zod.object({
@@ -1263,10 +1231,6 @@ export const ListJobsResponseItem = zod.object({
   "lineTotal": zod.number().nullish()
 })
 export const ListJobsResponse = zod.array(ListJobsResponseItem)
-
-
-
-
 
 
 export const CreateJobBody = zod.object({
@@ -1451,7 +1415,6 @@ export const updateJobBodyMarginPctMin = 0;
 export const updateJobBodyMarginPctMax = 1;
 
 export const updateJobBodyCrewRateMin = 0;
-
 
 
 export const UpdateJobBody = zod.object({
@@ -1789,7 +1752,6 @@ export const AddJobLineItemParams = zod.object({
 export const addJobLineItemBodyQtyMin = 0;
 
 
-
 export const AddJobLineItemBody = zod.object({
   "priceItemId": zod.string(),
   "qty": zod.number().min(addJobLineItemBodyQtyMin).optional()
@@ -1815,7 +1777,6 @@ export const UpdateJobLineItemParams = zod.object({
 })
 
 export const updateJobLineItemBodyQtyMin = 0;
-
 
 
 export const UpdateJobLineItemBody = zod.object({
@@ -2383,7 +2344,6 @@ export const DeleteCalendarEventResponse = zod.object({
  */
 
 
-
 export const ListCrewsResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
@@ -2407,10 +2367,6 @@ export const ListCrewsResponseItem = zod.object({
 export const ListCrewsResponse = zod.array(ListCrewsResponseItem)
 
 
-
-
-
-
 export const CreateCrewBody = zod.object({
   "name": zod.string().min(1),
   "trade": zod.string().optional(),
@@ -2423,8 +2379,6 @@ export const CreateCrewBody = zod.object({
   "rate": zod.number().nullish()
 })).optional()
 })
-
-
 
 
 export const CreateCrewResponse = zod.object({
@@ -2449,9 +2403,6 @@ export const UpdateCrewParams = zod.object({
 })
 
 
-
-
-
 export const UpdateCrewBody = zod.object({
   "name": zod.string().min(1).optional(),
   "trade": zod.string().optional(),
@@ -2465,8 +2416,6 @@ export const UpdateCrewBody = zod.object({
   "rate": zod.number().nullish()
 })).nullish()
 })
-
-
 
 
 export const UpdateCrewResponse = zod.object({
@@ -2750,7 +2699,6 @@ export const listBankTransactionsQueryDaysDefault = 30;
 export const listBankTransactionsQueryDaysMax = 90;
 
 
-
 export const ListBankTransactionsQueryParams = zod.object({
   "days": zod.coerce.number().min(1).max(listBankTransactionsQueryDaysMax).default(listBankTransactionsQueryDaysDefault)
 })
@@ -2774,7 +2722,6 @@ export const ListBankTransactionsResponse = zod.array(ListBankTransactionsRespon
  */
 export const getBankAnalysisQueryDaysDefault = 30;
 export const getBankAnalysisQueryDaysMax = 90;
-
 
 
 export const GetBankAnalysisQueryParams = zod.object({
@@ -2857,7 +2804,6 @@ export const applyBankAnalysisQueryDaysDefault = 30;
 export const applyBankAnalysisQueryDaysMax = 90;
 
 
-
 export const ApplyBankAnalysisQueryParams = zod.object({
   "days": zod.coerce.number().min(1).max(applyBankAnalysisQueryDaysMax).default(applyBankAnalysisQueryDaysDefault)
 })
@@ -2876,7 +2822,6 @@ export const ApplyBankAnalysisResponse = zod.object({
  */
 export const categorizeBankTransactionQueryDaysDefault = 30;
 export const categorizeBankTransactionQueryDaysMax = 90;
-
 
 
 export const CategorizeBankTransactionQueryParams = zod.object({
@@ -3568,9 +3513,6 @@ export const ListInventoryResponseItem = zod.object({
 export const ListInventoryResponse = zod.array(ListInventoryResponseItem)
 
 
-
-
-
 export const CreateInventoryItemBody = zod.object({
   "name": zod.string().min(1),
   "qty": zod.number().optional(),
@@ -3625,9 +3567,6 @@ export const ListVendorsResponseItem = zod.object({
 export const ListVendorsResponse = zod.array(ListVendorsResponseItem)
 
 
-
-
-
 export const CreateVendorBody = zod.object({
   "name": zod.string().min(1),
   "trade": zod.string().optional(),
@@ -3653,8 +3592,6 @@ export const CreateVendorResponse = zod.object({
 export const UpdateVendorParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const UpdateVendorBody = zod.object({
@@ -3791,7 +3728,6 @@ export const DeleteNotificationResponse = zod.void()
 export const listActivitiesQueryLimitMax = 200;
 
 
-
 export const ListActivitiesQueryParams = zod.object({
   "entityType": zod.coerce.string().optional(),
   "entityId": zod.coerce.string().optional(),
@@ -3831,7 +3767,6 @@ export const CreateActivityResponse = zod.object({
 /**
  * @summary Parse a spoken transcript into structured, confirmable actions
  */
-
 
 
 export const ParseVoiceBody = zod.object({
@@ -3991,18 +3926,11 @@ export const ListImportHistoryResponse = zod.object({
  */
 
 
-
-
-
 export const RequestUploadUrlBody = zod.object({
   "name": zod.string().min(1),
   "size": zod.number().min(1),
   "contentType": zod.string().min(1)
 })
-
-
-
-
 
 
 export const RequestUploadUrlResponse = zod.object({
@@ -4042,8 +3970,6 @@ export const GetStorageObjectResponse = zod.unknown()
 export const GetCrewDetailParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const GetCrewDetailResponse = zod.object({
@@ -4126,8 +4052,6 @@ export const SendCrewMessageParams = zod.object({
 })
 
 
-
-
 export const SendCrewMessageBody = zod.object({
   "body": zod.string().min(1)
 })
@@ -4185,9 +4109,6 @@ export const ListCrewDocumentsResponse = zod.array(ListCrewDocumentsResponseItem
 export const SendCrewDocumentParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
-
 
 
 export const SendCrewDocumentBody = zod.object({
@@ -4339,8 +4260,6 @@ export const UpdateCrewPaymentMethodBody = zod.object({
   "preferredPaymentMethod": zod.string().nullish(),
   "paymentDetails": zod.string().nullish()
 })
-
-
 
 
 export const UpdateCrewPaymentMethodResponse = zod.object({
@@ -4555,8 +4474,6 @@ export const SendPortalMessageParams = zod.object({
 })
 
 
-
-
 export const SendPortalMessageBody = zod.object({
   "body": zod.string().min(1)
 })
@@ -4626,9 +4543,6 @@ export const ListPortalDocumentsResponse = zod.array(ListPortalDocumentsResponse
 export const UploadPortalDocumentParams = zod.object({
   "token": zod.coerce.string()
 })
-
-
-
 
 
 export const UploadPortalDocumentBody = zod.object({
@@ -6595,7 +6509,6 @@ export const ListPaymentRequestsResponse = zod.array(ListPaymentRequestsResponse
  */
 
 
-
 export const CreatePaymentRequestBody = zod.object({
   "propertyId": zod.string(),
   "jobIds": zod.array(zod.string()),
@@ -7023,7 +6936,6 @@ export const ListCrewPayoutsResponse = zod.array(ListCrewPayoutsResponseItem)
 export const createCrewPayoutBodyAmountExclusiveMin = 0;
 
 
-
 export const CreateCrewPayoutBody = zod.object({
   "crewId": zod.string(),
   "jobId": zod.string(),
@@ -7071,8 +6983,6 @@ export const GetPayoutQueueResponse = zod.array(GetPayoutQueueResponseItem)
  * @summary One-tap ACH payouts to multiple crews (Cybrid rails stubbed)
  */
 export const createCrewPayoutBatchBodyItemsItemAmountExclusiveMin = 0;
-
-
 
 
 export const CreateCrewPayoutBatchBody = zod.object({
@@ -7182,7 +7092,6 @@ export const submitPortalBankBodyRoutingNumberMin = 9;
 export const submitPortalBankBodyRoutingNumberMax = 9;
 
 export const submitPortalBankBodyAccountNumberMin = 4;
-
 
 
 export const SubmitPortalBankBody = zod.object({
@@ -8101,7 +8010,6 @@ export const UpdateClientBillingParams = zod.object({
 export const updateClientBillingBodyBillingDayMax = 28;
 
 
-
 export const UpdateClientBillingBody = zod.object({
   "billingDay": zod.number().min(1).max(updateClientBillingBodyBillingDayMax).optional(),
   "status": zod.string().optional().describe('active | paused'),
@@ -8543,4 +8451,587 @@ export const GetClientBoardMapResponse = zod.object({
 }))
 })
 
+/**
+ * @summary Unit status map — box layout with live red/yellow/green statuses
+ */
+export const GetUnitMapParams = zod.object({
+  "token": zod.coerce.string()
+})
 
+
+export const CreateHubItemResponse = zod.object({
+  "id": zod.string(),
+  "section": zod.string().describe('link | doc | card | employee | maintenance'),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "fileUrl": zod.string().nullish().describe('Served URL for an uploaded doc'),
+  "body": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+export const DeleteUnitBoxResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+/**
+ * @summary Office generates a plain unit box grid
+ */
+export const OfficeGenerateUnitGridParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+/**
+ * @summary Attach an uploaded property map image and AI-extract unit boxes from it
+ */
+export const UploadUnitMapImageParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const OfficeCreateUnitBoxResponse = zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "x": zod.number().describe('Fraction of canvas width (0..1)'),
+  "y": zod.number(),
+  "w": zod.number(),
+  "h": zod.number()
+})
+
+export const GetClientHubResponse = zod.object({
+  "propertyName": zod.string(),
+  "canEdit": zod.boolean(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "section": zod.string().describe('link | doc | card | employee | maintenance'),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "fileUrl": zod.string().nullish().describe('Served URL for an uploaded doc'),
+  "body": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.string()
+}))
+})
+
+/**
+ * @summary Live AI-composed summary of a unit with smart links
+ */
+export const GetUnitSummaryParams = zod.object({
+  "token": zod.coerce.string(),
+  "unitId": zod.coerce.string()
+})
+
+export const GetUnitSummaryResponse = zod.object({
+  "unitLabel": zod.string(),
+  "status": zod.string().describe('red | yellow | green'),
+  "summary": zod.string().describe('AI-composed plain-language summary of current activity'),
+  "facts": zod.array(zod.string()),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().describe('tracker | summary | recap | photos | invoice | board')
+})),
+  "photos": zod.array(zod.object({
+  "url": zod.string(),
+  "phase": zod.string().nullable()
+}))
+})
+
+export const GetOfficeClientHubResponse = zod.object({
+  "propertyName": zod.string(),
+  "canEdit": zod.boolean(),
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "section": zod.string().describe('link | doc | card | employee | maintenance'),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "fileUrl": zod.string().nullish().describe('Served URL for an uploaded doc'),
+  "body": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.string()
+}))
+})
+
+export const CreateHubItemBody = zod.object({
+  "section": zod.string(),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "storagePath": zod.string().nullish(),
+  "body": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish()
+})
+
+export const GetUnitMapResponse = zod.object({
+  "propertyName": zod.string(),
+  "imageUrl": zod.string().nullable().describe('Uploaded map image, null = plain grid'),
+  "canEdit": zod.boolean(),
+  "unitTarget": zod.number().nullable().describe('The property\'s known unit count'),
+  "extracted": zod.number().nullish().describe('Boxes AI-extracted on the last image upload'),
+  "units": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "x": zod.number(),
+  "y": zod.number(),
+  "w": zod.number(),
+  "h": zod.number(),
+  "status": zod.string().describe('red | yellow | green'),
+  "reasons": zod.array(zod.string()),
+  "openJobs": zod.number(),
+  "openInvoices": zod.number()
+}))
+})
+
+export const GenerateUnitGridResponse = zod.object({
+  "propertyName": zod.string(),
+  "imageUrl": zod.string().nullable().describe('Uploaded map image, null = plain grid'),
+  "canEdit": zod.boolean(),
+  "unitTarget": zod.number().nullable().describe('The property\'s known unit count'),
+  "extracted": zod.number().nullish().describe('Boxes AI-extracted on the last image upload'),
+  "units": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "x": zod.number(),
+  "y": zod.number(),
+  "w": zod.number(),
+  "h": zod.number(),
+  "status": zod.string().describe('red | yellow | green'),
+  "reasons": zod.array(zod.string()),
+  "openJobs": zod.number(),
+  "openInvoices": zod.number()
+}))
+})
+
+export const CreateUnitBoxResponse = zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "x": zod.number().describe('Fraction of canvas width (0..1)'),
+  "y": zod.number(),
+  "w": zod.number(),
+  "h": zod.number()
+})
+
+export const UpdateHubItemResponse = zod.object({
+  "id": zod.string(),
+  "section": zod.string().describe('link | doc | card | employee | maintenance'),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "fileUrl": zod.string().nullish().describe('Served URL for an uploaded doc'),
+  "body": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+export const officeGenerateUnitGridBodyReplaceDefault = false;
+
+export const OfficeUpdateUnitBoxResponse = zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "x": zod.number().describe('Fraction of canvas width (0..1)'),
+  "y": zod.number(),
+  "w": zod.number(),
+  "h": zod.number()
+})
+
+/**
+ * @summary Office view of a property's unit status map (read-write)
+ */
+export const GetOfficeUnitMapParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const GetOfficeUnitMapResponse = zod.object({
+  "propertyName": zod.string(),
+  "imageUrl": zod.string().nullable().describe('Uploaded map image, null = plain grid'),
+  "canEdit": zod.boolean(),
+  "unitTarget": zod.number().nullable().describe('The property\'s known unit count'),
+  "extracted": zod.number().nullish().describe('Boxes AI-extracted on the last image upload'),
+  "units": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "x": zod.number(),
+  "y": zod.number(),
+  "w": zod.number(),
+  "h": zod.number(),
+  "status": zod.string().describe('red | yellow | green'),
+  "reasons": zod.array(zod.string()),
+  "openJobs": zod.number(),
+  "openInvoices": zod.number()
+}))
+})
+
+/**
+ * @summary Office removes a hub item
+ */
+export const OfficeDeleteHubItemParams = zod.object({
+  "propertyId": zod.coerce.string(),
+  "itemId": zod.coerce.string()
+})
+
+/**
+ * @summary Office removes a unit box
+ */
+export const OfficeDeleteUnitBoxParams = zod.object({
+  "propertyId": zod.coerce.string(),
+  "unitId": zod.coerce.string()
+})
+
+export const CreateUnitBoxBody = zod.object({
+  "label": zod.string(),
+  "x": zod.number().nullish(),
+  "y": zod.number().nullish(),
+  "w": zod.number().nullish(),
+  "h": zod.number().nullish()
+})
+
+export const OfficeDeleteUnitBoxResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+/**
+ * @summary Office view of the live unit summary
+ */
+export const GetOfficeUnitSummaryParams = zod.object({
+  "propertyId": zod.coerce.string(),
+  "unitId": zod.coerce.string()
+})
+
+/**
+ * @summary Remove a hub item
+ */
+export const DeleteHubItemParams = zod.object({
+  "token": zod.coerce.string(),
+  "itemId": zod.coerce.string()
+})
+
+export const UpdateHubItemBody = zod.object({
+  "title": zod.string().nullish(),
+  "subtitle": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "storagePath": zod.string().nullish(),
+  "body": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish()
+})
+
+export const OfficeCreateHubItemBody = zod.object({
+  "section": zod.string(),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "storagePath": zod.string().nullish(),
+  "body": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish()
+})
+
+export const OfficeGenerateUnitGridBody = zod.object({
+  "count": zod.number().nullish().describe('Units to generate; defaults to the property\'s unit count'),
+  "startAt": zod.number().nullish().describe('First unit number, default 101'),
+  "replace": zod.boolean().default(officeGenerateUnitGridBodyReplaceDefault).describe('Replace the existing layout')
+})
+
+export const OfficeCreateUnitBoxBody = zod.object({
+  "label": zod.string(),
+  "x": zod.number().nullish(),
+  "y": zod.number().nullish(),
+  "w": zod.number().nullish(),
+  "h": zod.number().nullish()
+})
+
+/**
+ * @summary Office adds a hub item
+ */
+export const OfficeCreateHubItemParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+/**
+ * @summary Edit a hub item
+ */
+export const UpdateHubItemParams = zod.object({
+  "token": zod.coerce.string(),
+  "itemId": zod.coerce.string()
+})
+
+export const ContactMaintenanceBody = zod.object({
+  "message": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "contactName": zod.string().nullish()
+})
+
+export const UpdateUnitBoxResponse = zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "x": zod.number().describe('Fraction of canvas width (0..1)'),
+  "y": zod.number(),
+  "w": zod.number(),
+  "h": zod.number()
+})
+
+/**
+ * @summary Move, resize, or rename a unit box
+ */
+export const UpdateUnitBoxParams = zod.object({
+  "token": zod.coerce.string(),
+  "unitId": zod.coerce.string()
+})
+
+/**
+ * @summary Office edits a hub item
+ */
+export const OfficeUpdateHubItemParams = zod.object({
+  "propertyId": zod.coerce.string(),
+  "itemId": zod.coerce.string()
+})
+
+export const officeUploadUnitMapImageBodyExtractDefault = true;
+
+/**
+ * @summary Add a hub item (link, doc, card, employee, or maintenance contact)
+ */
+export const CreateHubItemParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const OfficeGenerateUnitGridResponse = zod.object({
+  "propertyName": zod.string(),
+  "imageUrl": zod.string().nullable().describe('Uploaded map image, null = plain grid'),
+  "canEdit": zod.boolean(),
+  "unitTarget": zod.number().nullable().describe('The property\'s known unit count'),
+  "extracted": zod.number().nullish().describe('Boxes AI-extracted on the last image upload'),
+  "units": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "x": zod.number(),
+  "y": zod.number(),
+  "w": zod.number(),
+  "h": zod.number(),
+  "status": zod.string().describe('red | yellow | green'),
+  "reasons": zod.array(zod.string()),
+  "openJobs": zod.number(),
+  "openInvoices": zod.number()
+}))
+})
+
+export const uploadUnitMapImageBodyExtractDefault = true;
+
+/**
+ * @summary Office view of a property's hub CMS (read-write)
+ */
+export const GetOfficeClientHubParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+/**
+ * @summary Office adds a unit box
+ */
+export const OfficeCreateUnitBoxParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const UploadUnitMapImageResponse = zod.object({
+  "propertyName": zod.string(),
+  "imageUrl": zod.string().nullable().describe('Uploaded map image, null = plain grid'),
+  "canEdit": zod.boolean(),
+  "unitTarget": zod.number().nullable().describe('The property\'s known unit count'),
+  "extracted": zod.number().nullish().describe('Boxes AI-extracted on the last image upload'),
+  "units": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "x": zod.number(),
+  "y": zod.number(),
+  "w": zod.number(),
+  "h": zod.number(),
+  "status": zod.string().describe('red | yellow | green'),
+  "reasons": zod.array(zod.string()),
+  "openJobs": zod.number(),
+  "openInvoices": zod.number()
+}))
+})
+
+export const generateUnitGridBodyReplaceDefault = false;
+
+export const OfficeCreateHubItemResponse = zod.object({
+  "id": zod.string(),
+  "section": zod.string().describe('link | doc | card | employee | maintenance'),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "fileUrl": zod.string().nullish().describe('Served URL for an uploaded doc'),
+  "body": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+export const ContactMaintenanceResponse = zod.object({
+  "ok": zod.boolean(),
+  "message": zod.string()
+})
+
+export const OfficeUploadUnitMapImageResponse = zod.object({
+  "propertyName": zod.string(),
+  "imageUrl": zod.string().nullable().describe('Uploaded map image, null = plain grid'),
+  "canEdit": zod.boolean(),
+  "unitTarget": zod.number().nullable().describe('The property\'s known unit count'),
+  "extracted": zod.number().nullish().describe('Boxes AI-extracted on the last image upload'),
+  "units": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "x": zod.number(),
+  "y": zod.number(),
+  "w": zod.number(),
+  "h": zod.number(),
+  "status": zod.string().describe('red | yellow | green'),
+  "reasons": zod.array(zod.string()),
+  "openJobs": zod.number(),
+  "openInvoices": zod.number()
+}))
+})
+
+/**
+ * @summary Office attaches a property map image and AI-extracts unit boxes
+ */
+export const OfficeUploadUnitMapImageParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const DeleteHubItemResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+/**
+ * @summary Generate a plain box grid of units (fallback when no map image)
+ */
+export const GenerateUnitGridParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GenerateUnitGridBody = zod.object({
+  "count": zod.number().nullish().describe('Units to generate; defaults to the property\'s unit count'),
+  "startAt": zod.number().nullish().describe('First unit number, default 101'),
+  "replace": zod.boolean().default(generateUnitGridBodyReplaceDefault).describe('Replace the existing layout')
+})
+
+/**
+ * @summary Office moves, resizes, or renames a unit box
+ */
+export const OfficeUpdateUnitBoxParams = zod.object({
+  "propertyId": zod.coerce.string(),
+  "unitId": zod.coerce.string()
+})
+
+export const OfficeDeleteHubItemResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+export const GetOfficeUnitSummaryResponse = zod.object({
+  "unitLabel": zod.string(),
+  "status": zod.string().describe('red | yellow | green'),
+  "summary": zod.string().describe('AI-composed plain-language summary of current activity'),
+  "facts": zod.array(zod.string()),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().describe('tracker | summary | recap | photos | invoice | board')
+})),
+  "photos": zod.array(zod.object({
+  "url": zod.string(),
+  "phase": zod.string().nullable()
+}))
+})
+
+/**
+ * @summary Property Hub CMS — links, docs, cards, employees, maintenance contacts
+ */
+export const GetClientHubParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const OfficeUpdateUnitBoxBody = zod.object({
+  "label": zod.string().nullish(),
+  "x": zod.number().nullish(),
+  "y": zod.number().nullish(),
+  "w": zod.number().nullish(),
+  "h": zod.number().nullish()
+})
+
+/**
+ * @summary Client pings our office for maintenance — raises a notification
+ */
+export const ContactMaintenanceParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const OfficeUploadUnitMapImageBody = zod.object({
+  "objectPath": zod.string().describe('Object storage path from the upload flow (\/objects\/...)'),
+  "contentType": zod.string().nullish(),
+  "extract": zod.boolean().default(officeUploadUnitMapImageBodyExtractDefault).describe('Run AI unit extraction on the image')
+})
+
+/**
+ * @summary Remove a unit box from the layout
+ */
+export const DeleteUnitBoxParams = zod.object({
+  "token": zod.coerce.string(),
+  "unitId": zod.coerce.string()
+})
+
+export const UploadUnitMapImageBody = zod.object({
+  "objectPath": zod.string().describe('Object storage path from the upload flow (\/objects\/...)'),
+  "contentType": zod.string().nullish(),
+  "extract": zod.boolean().default(uploadUnitMapImageBodyExtractDefault).describe('Run AI unit extraction on the image')
+})
+
+export const OfficeUpdateHubItemResponse = zod.object({
+  "id": zod.string(),
+  "section": zod.string().describe('link | doc | card | employee | maintenance'),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "fileUrl": zod.string().nullish().describe('Served URL for an uploaded doc'),
+  "body": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "createdBy": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+/**
+ * @summary Add a unit box to the layout
+ */
+export const CreateUnitBoxParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const UpdateUnitBoxBody = zod.object({
+  "label": zod.string().nullish(),
+  "x": zod.number().nullish(),
+  "y": zod.number().nullish(),
+  "w": zod.number().nullish(),
+  "h": zod.number().nullish()
+})
+
+export const OfficeUpdateHubItemBody = zod.object({
+  "title": zod.string().nullish(),
+  "subtitle": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "storagePath": zod.string().nullish(),
+  "body": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish()
+})

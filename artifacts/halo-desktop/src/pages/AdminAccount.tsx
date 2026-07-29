@@ -28,6 +28,8 @@ import {
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import AdminUnitMap from "@/components/AdminUnitMap";
+import AdminPropertyHub from "@/components/AdminPropertyHub";
 
 const TIERS = [
   { value: "basic", label: "Basic" },
@@ -536,6 +538,12 @@ export default function AdminAccount() {
           </div>
         </div>
       </Section>
+
+      {/* Unit Status Map */}
+      <AdminUnitMap propertyId={propertyId} />
+
+      {/* Property Hub (client CMS) */}
+      <AdminPropertyHub propertyId={propertyId} />
     </div>
   );
 }

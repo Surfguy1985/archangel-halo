@@ -18,3 +18,4 @@ export * from "./clients";
 export * from "./job_summaries";
 export * from "./work_requests";
 export * from "./client_board";
+export * from "./client_cms";

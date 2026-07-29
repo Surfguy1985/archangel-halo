@@ -4,6 +4,8 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import KanbanBoard from '@/pages/board';
 import MapView from '@/pages/map';
+import UnitsPage from '@/pages/units';
+import HubPage from '@/pages/hub';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import './auth-init';
 
@@ -14,6 +16,8 @@ function Router() {
     <Switch>
       <Route path="/:token" component={KanbanBoard} />
       <Route path="/:token/map" component={MapView} />
+      <Route path="/:token/units" component={UnitsPage} />
+      <Route path="/:token/hub" component={HubPage} />
       <Route component={NotFound} />
     </Switch>
   );

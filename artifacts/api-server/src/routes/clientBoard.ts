@@ -103,7 +103,7 @@ async function accountByToken(token: string) {
   return account;
 }
 
-type Viewer = {
+export type Viewer = {
   authenticated: boolean;
   name: string | null;
   email: string | null;
@@ -118,11 +118,11 @@ const GUEST_VIEWER: Viewer = {
   name: null,
   email: null,
   role: "guest",
-  permissions: ["overview", "live_jobs", "photos"],
+  permissions: ["overview", "live_jobs", "photos", "unit_map", "hub"],
   readOnly: true,
 };
 
-async function resolveViewer(
+export async function resolveViewer(
   req: { headers: Record<string, unknown> },
   propertyId: string,
 ): Promise<Viewer> {
@@ -593,7 +593,7 @@ router.get("/client/:token/board", async (req, res): Promise<void> => {
 // ---------------------------------------------------------------------------
 // Custom cards
 // ---------------------------------------------------------------------------
-function requireWriter(viewer: Viewer): string | null {
+export function requireWriter(viewer: Viewer): string | null {
   if (!viewer.authenticated) return "Sign in to make changes";
   if (viewer.readOnly) return "Your access is view-only";
   return null;

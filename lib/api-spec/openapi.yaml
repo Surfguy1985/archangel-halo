@@ -6470,6 +6470,818 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /client/{token}/unit-map:
+    get:
+      operationId: getUnitMap
+      tags: [admin]
+      summary: Unit status map — box layout with live red/yellow/green statuses
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Unit map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitMapView"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/unit-map/image:
+    post:
+      operationId: uploadUnitMapImage
+      tags: [admin]
+      summary: Attach an uploaded property map image and AI-extract unit boxes from it
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnitMapImageInput"
+      responses:
+        "200":
+          description: Map saved (extraction best-effort)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitMapView"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/unit-map/grid:
+    post:
+      operationId: generateUnitGrid
+      tags: [admin]
+      summary: Generate a plain box grid of units (fallback when no map image)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnitGridInput"
+      responses:
+        "200":
+          description: Grid generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitMapView"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/unit-map/units:
+    post:
+      operationId: createUnitBox
+      tags: [admin]
+      summary: Add a unit box to the layout
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnitBoxInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitBoxRec"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Duplicate label
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/unit-map/units/{unitId}:
+    patch:
+      operationId: updateUnitBox
+      tags: [admin]
+      summary: Move, resize, or rename a unit box
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: unitId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnitBoxUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitBoxRec"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Duplicate label
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteUnitBox
+      tags: [admin]
+      summary: Remove a unit box from the layout
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: unitId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/unit-map/units/{unitId}/summary:
+    get:
+      operationId: getUnitSummary
+      tags: [admin]
+      summary: Live AI-composed summary of a unit with smart links
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: unitId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Unit summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitSummaryView"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/hub:
+    get:
+      operationId: getClientHub
+      tags: [admin]
+      summary: Property Hub CMS — links, docs, cards, employees, maintenance contacts
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Hub content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientHubView"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/hub/items:
+    post:
+      operationId: createHubItem
+      tags: [admin]
+      summary: Add a hub item (link, doc, card, employee, or maintenance contact)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HubItemInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubItemRec"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/hub/items/{itemId}:
+    patch:
+      operationId: updateHubItem
+      tags: [admin]
+      summary: Edit a hub item
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HubItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubItemRec"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteHubItem
+      tags: [admin]
+      summary: Remove a hub item
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/hub/contact-maintenance:
+    post:
+      operationId: contactMaintenance
+      tags: [admin]
+      summary: Client pings our office for maintenance — raises a notification
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MaintenancePingInput"
+      responses:
+        "200":
+          description: Office notified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenancePingResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/accounts/{propertyId}/unit-map:
+    get:
+      operationId: getOfficeUnitMap
+      tags: [admin]
+      summary: Office view of a property's unit status map (read-write)
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Unit map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitMapView"
+        "404":
+          description: Property not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/accounts/{propertyId}/unit-map/image:
+    post:
+      operationId: officeUploadUnitMapImage
+      tags: [admin]
+      summary: Office attaches a property map image and AI-extracts unit boxes
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnitMapImageInput"
+      responses:
+        "200":
+          description: Map saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitMapView"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Property not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/accounts/{propertyId}/unit-map/grid:
+    post:
+      operationId: officeGenerateUnitGrid
+      tags: [admin]
+      summary: Office generates a plain unit box grid
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnitGridInput"
+      responses:
+        "200":
+          description: Grid generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitMapView"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Property not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/accounts/{propertyId}/unit-map/units:
+    post:
+      operationId: officeCreateUnitBox
+      tags: [admin]
+      summary: Office adds a unit box
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnitBoxInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitBoxRec"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Property not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Duplicate label
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/accounts/{propertyId}/unit-map/units/{unitId}:
+    patch:
+      operationId: officeUpdateUnitBox
+      tags: [admin]
+      summary: Office moves, resizes, or renames a unit box
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: unitId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnitBoxUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitBoxRec"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Duplicate label
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: officeDeleteUnitBox
+      tags: [admin]
+      summary: Office removes a unit box
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: unitId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/accounts/{propertyId}/unit-map/units/{unitId}/summary:
+    get:
+      operationId: getOfficeUnitSummary
+      tags: [admin]
+      summary: Office view of the live unit summary
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: unitId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Unit summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitSummaryView"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/accounts/{propertyId}/hub:
+    get:
+      operationId: getOfficeClientHub
+      tags: [admin]
+      summary: Office view of a property's hub CMS (read-write)
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Hub content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientHubView"
+        "404":
+          description: Property not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/accounts/{propertyId}/hub/items:
+    post:
+      operationId: officeCreateHubItem
+      tags: [admin]
+      summary: Office adds a hub item
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HubItemInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubItemRec"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Property not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /admin/accounts/{propertyId}/hub/items/{itemId}:
+    patch:
+      operationId: officeUpdateHubItem
+      tags: [admin]
+      summary: Office edits a hub item
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HubItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HubItemRec"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: officeDeleteHubItem
+      tags: [admin]
+      summary: Office removes a hub item
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   schemas:
     SummaryChecklistSection:
@@ -10780,3 +11592,161 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ClientBoardHappening"
+    UnitBoxRec:
+      type: object
+      required: [id, label, x, y, w, h]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        x: { type: number, description: "Fraction of canvas width (0..1)" }
+        y: { type: number }
+        w: { type: number }
+        h: { type: number }
+    UnitStatusRec:
+      type: object
+      required: [id, label, x, y, w, h, status, reasons, openJobs, openInvoices]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        x: { type: number }
+        y: { type: number }
+        w: { type: number }
+        h: { type: number }
+        status: { type: string, description: "red | yellow | green" }
+        reasons:
+          type: array
+          items: { type: string }
+        openJobs: { type: number }
+        openInvoices: { type: number }
+    UnitMapView:
+      type: object
+      required: [propertyName, imageUrl, canEdit, unitTarget, units]
+      properties:
+        propertyName: { type: string }
+        imageUrl: { type: ["string", "null"], description: "Uploaded map image, null = plain grid" }
+        canEdit: { type: boolean }
+        unitTarget: { type: ["number", "null"], description: "The property's known unit count" }
+        extracted: { type: ["number", "null"], description: "Boxes AI-extracted on the last image upload" }
+        units:
+          type: array
+          items:
+            $ref: "#/components/schemas/UnitStatusRec"
+    UnitMapImageInput:
+      type: object
+      required: [objectPath]
+      properties:
+        objectPath: { type: string, description: "Object storage path from the upload flow (/objects/...)" }
+        contentType: { type: ["string", "null"] }
+        extract: { type: boolean, default: true, description: "Run AI unit extraction on the image" }
+    UnitGridInput:
+      type: object
+      properties:
+        count: { type: ["number", "null"], description: "Units to generate; defaults to the property's unit count" }
+        startAt: { type: ["number", "null"], description: "First unit number, default 101" }
+        replace: { type: boolean, default: false, description: "Replace the existing layout" }
+    UnitBoxInput:
+      type: object
+      required: [label]
+      properties:
+        label: { type: string }
+        x: { type: ["number", "null"] }
+        y: { type: ["number", "null"] }
+        w: { type: ["number", "null"] }
+        h: { type: ["number", "null"] }
+    UnitBoxUpdate:
+      type: object
+      properties:
+        label: { type: ["string", "null"] }
+        x: { type: ["number", "null"] }
+        y: { type: ["number", "null"] }
+        w: { type: ["number", "null"] }
+        h: { type: ["number", "null"] }
+    UnitSmartLink:
+      type: object
+      required: [label, url, kind]
+      properties:
+        label: { type: string }
+        url: { type: string }
+        kind: { type: string, description: "tracker | summary | recap | photos | invoice | board" }
+    UnitSummaryView:
+      type: object
+      required: [unitLabel, status, summary, facts, links, photos]
+      properties:
+        unitLabel: { type: string }
+        status: { type: string, description: "red | yellow | green" }
+        summary: { type: string, description: "AI-composed plain-language summary of current activity" }
+        facts:
+          type: array
+          items: { type: string }
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/UnitSmartLink"
+        photos:
+          type: array
+          items:
+            type: object
+            required: [url, phase]
+            properties:
+              url: { type: string }
+              phase: { type: ["string", "null"] }
+    HubItemRec:
+      type: object
+      required: [id, section, title, createdAt]
+      properties:
+        id: { type: string }
+        section: { type: string, description: "link | doc | card | employee | maintenance" }
+        title: { type: string }
+        subtitle: { type: ["string", "null"] }
+        url: { type: ["string", "null"] }
+        fileUrl: { type: ["string", "null"], description: "Served URL for an uploaded doc" }
+        body: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        createdBy: { type: ["string", "null"] }
+        createdAt: { type: string }
+    ClientHubView:
+      type: object
+      required: [propertyName, canEdit, items]
+      properties:
+        propertyName: { type: string }
+        canEdit: { type: boolean }
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/HubItemRec"
+    HubItemInput:
+      type: object
+      required: [section, title]
+      properties:
+        section: { type: string }
+        title: { type: string }
+        subtitle: { type: ["string", "null"] }
+        url: { type: ["string", "null"] }
+        storagePath: { type: ["string", "null"] }
+        body: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+    HubItemUpdate:
+      type: object
+      properties:
+        title: { type: ["string", "null"] }
+        subtitle: { type: ["string", "null"] }
+        url: { type: ["string", "null"] }
+        storagePath: { type: ["string", "null"] }
+        body: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+    MaintenancePingInput:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        unitNo: { type: ["string", "null"] }
+        contactName: { type: ["string", "null"] }
+    MaintenancePingResult:
+      type: object
+      required: [ok, message]
+      properties:
+        ok: { type: boolean }
+        message: { type: string }

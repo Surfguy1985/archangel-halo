@@ -32,6 +32,7 @@ import clientAccessRouter from "./clientAccess";
 import workRequestsRouter from "./workRequests";
 import invoiceJobDraftRouter from "./invoiceJobDraft";
 import clientBoardRouter from "./clientBoard";
+import clientCmsRouter from "./clientCms";
 
 const router: IRouter = Router();
 
@@ -66,6 +67,7 @@ router.use(adminRouter);
 router.use(jobSummariesRouter);
 router.use(clientAccessRouter);
 router.use(clientBoardRouter);
+router.use(clientCmsRouter);
 router.use(workRequestsRouter);
 router.use(invoiceJobDraftRouter);
 

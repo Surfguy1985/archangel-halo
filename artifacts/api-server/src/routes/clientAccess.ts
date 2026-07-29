@@ -47,6 +47,7 @@ export const CLIENT_FEATURES = [
   { key: "requests", label: "Submit work requests", description: "Request new work or report an issue" },
   { key: "documents", label: "Documents", description: "Contracts, W-9s, and shared files" },
   { key: "board", label: "Archangel board", description: "Trello-style cards for everything we send — invoices, pay links, recaps, live trackers" },
+  { key: "hub", label: "Property Hub", description: "Client-managed links, docs, info cards, employees, and maintenance contacts" },
   { key: "team_admin", label: "Admin — team access", description: "Manage users, roles, and permissions" },
 ] as const;
 
@@ -65,8 +66,9 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
     "requests",
     "documents",
     "board",
+    "hub",
   ],
-  guest: ["overview", "photos", "summaries", "board"],
+  guest: ["overview", "photos", "summaries", "board", "unit_map", "hub"],
 };
 
 const ROLES = new Set(["admin", "member", "guest"]);
