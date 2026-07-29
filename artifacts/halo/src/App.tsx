@@ -16,6 +16,10 @@ import CrewDetail from "./pages/CrewDetail";
 import CrewPortal from "./pages/CrewPortal";
 import PhotoShare from "./pages/PhotoShare";
 import RecapShare from "./pages/RecapShare";
+import SummaryShare from "./pages/SummaryShare";
+import ClientAdmin from "./pages/ClientAdmin";
+import ClientBoard from "./pages/ClientBoard";
+import ClientRequest from "./pages/ClientRequest";
 import JobTracker from "./pages/JobTracker";
 import Pipeline from "./pages/Pipeline";
 import PaymentsHub from "./pages/PaymentsHub";
@@ -84,6 +88,10 @@ function App() {
             <Route path="/portal/:token" component={CrewPortal} />
             <Route path="/photos/:token" component={PhotoShare} />
             <Route path="/recap/:token" component={RecapShare} />
+            <Route path="/summary/:token" component={SummaryShare} />
+            <Route path="/client/:token/admin" component={ClientAdmin} />
+            <Route path="/client/:token/board" component={ClientBoard} />
+            <Route path="/client/:token/requests" component={ClientRequest} />
             <Route path="/track/:token" component={JobTracker} />
             <Route path="/pay/:token" component={PublicPayment} />
             <Route component={AdminRouter} />

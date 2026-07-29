@@ -89,6 +89,7 @@ import { crewPhotosForJobs, type CrewJobPhoto } from "../lib/jobPhotos";
 import { gatherJobReport, buildJobReportPdf } from "../lib/jobReportPdf";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import { syncJobLaborLedger, removeEntriesForRef } from "../lib/ledger";
+import { raiseClientCard } from "../lib/clientBoard";
 
 const router: IRouter = Router();
 
@@ -916,6 +917,18 @@ async function autoSendLiveLink(
       kind: "email",
       body: `Live job link auto-sent to ${contact.name} (${to}) — job ${event}.`,
     });
+    // Mirror the auto-send onto the client board too.
+    await raiseClientCard({
+      propertyId: job.propertyId,
+      kind: "tracker",
+      title: `Live job link — Job ${job.jobNo} ${event === "scheduled" ? "scheduled" : "completed"}`,
+      body: job.description || `Follow job ${job.jobNo} live — arrivals, progress, and photos.`,
+      actionLabel: event === "scheduled" ? "Watch live" : "See the finished work",
+      links: [{ label: "Open live job link", url: link, kind: "tracker" }],
+      sourceType: "recap_link",
+      sourceId: `${jobId}`,
+      jobId,
+    });
   } catch (err) {
     logger.warn({ err, jobId, event }, "Auto live-link send failed");
   }
@@ -1054,6 +1067,18 @@ router.post("/jobs/:id/recap/share", async (req, res): Promise<void> => {
     kind: "note",
     body: `Recap live link created: ${body.subject}`,
   });
+  // Mirror the shared recap link onto the client board.
+  await raiseClientCard({
+    propertyId: job.propertyId,
+    kind: "summary",
+    title: body.subject || `Recap — Job ${job.jobNo}`,
+    body: `Live recap from Archangel Contractors — notes and photos, updated as the job progresses.`,
+    actionLabel: "View recap",
+    links: [{ label: "Open live recap", url: `${publicBaseUrl()}/recap/${row.token}`, kind: "summary" }],
+    sourceType: "recap_share",
+    sourceId: row.id,
+    jobId: id,
+  });
   res.status(201).json(CreateRecapShareResponse.parse({ token: row.token }));
 });
 
@@ -1091,6 +1116,18 @@ router.post("/jobs/:id/tracker/share", async (req, res): Promise<void> => {
     }
   }
   const link = `${publicBaseUrl()}/track/${token}`;
+  // Mirror onto the client board so the live link is always one click away.
+  await raiseClientCard({
+    propertyId: job.propertyId,
+    kind: "tracker",
+    title: `Live tracker — Job ${job.jobNo}`,
+    body: job.description || `Watch crew arrivals, GPS check-ins, and photos live for job ${job.jobNo}.`,
+    actionLabel: "Watch live",
+    links: [{ label: "Open live tracker", url: link, kind: "tracker" }],
+    sourceType: "tracker",
+    sourceId: job.id,
+    jobId: job.id,
+  });
   res.status(201).json(CreateJobTrackerShareResponse.parse({ token, link }));
 });
 
@@ -1202,6 +1239,18 @@ router.post("/jobs/:id/recap/send", async (req, res): Promise<void> => {
     .set({ recapSentAt: new Date() })
     .where(eq(jobsTable.id, id))
     .returning();
+  // Mirror the recap email onto the client board.
+  await raiseClientCard({
+    propertyId: job.propertyId,
+    kind: "summary",
+    title: `Recap — Job ${job.jobNo}${job.unitNo ? ` (Unit ${job.unitNo})` : ""}`,
+    body: body.subject,
+    actionLabel: "Review recap",
+    links: [],
+    sourceType: "recap_email",
+    sourceId: job.id,
+    jobId: job.id,
+  });
   await db.insert(activitiesTable).values({
     entityType: "job",
     entityId: id,

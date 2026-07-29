@@ -16,5 +16,6 @@ export interface PublicPaymentInput {
   zip?: string;
   routingNumber?: string;
   accountNumber?: string;
+  checkNumber?: string;
   email?: string;
 }

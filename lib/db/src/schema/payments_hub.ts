@@ -6,7 +6,9 @@ import {
   integer,
   timestamp,
   jsonb,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // A branded payment request sent to a property, covering one or more jobs.
 export const paymentRequestsTable = pgTable("payment_requests", {
@@ -29,6 +31,11 @@ export const paymentRequestsTable = pgTable("payment_requests", {
   returnReason: text("return_reason"),
   // OCR-extracted payer payment info (verified by the office before sending)
   payerInfo: jsonb("payer_info"),
+  // Attached PDFs shown on the request: generated invoice PDFs and/or
+  // documents uploaded by the office. URLs are ready-to-open /api paths.
+  attachments: jsonb("attachments").$type<
+    { kind: "invoice" | "upload"; invoiceId?: string | null; label: string; url: string }[] | null
+  >(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -68,7 +75,9 @@ export const crewBankAccountsTable = pgTable("crew_bank_accounts", {
 });
 
 // Crew payouts distributed from received property payments (Cybrid ACH stub).
-export const crewPayoutsTable = pgTable("crew_payouts", {
+export const crewPayoutsTable = pgTable(
+  "crew_payouts",
+  {
   id: uuid("id").primaryKey().defaultRandom(),
   crewId: uuid("crew_id").notNull(),
   jobId: uuid("job_id").notNull(),
@@ -80,7 +89,14 @@ export const crewPayoutsTable = pgTable("crew_payouts", {
   paidAt: timestamp("paid_at", { withTimezone: true }).notNull().defaultNow(),
   returnedAt: timestamp("returned_at", { withTimezone: true }),
   returnReason: text("return_reason"),
-});
+  },
+  (t) => [
+    // DB-level double-pay guard: at most one live ("paid") payout per crew+job.
+    uniqueIndex("crew_payouts_paid_crew_job_uq")
+      .on(t.crewId, t.jobId)
+      .where(sql`${t.status} = 'paid'`),
+  ],
+);
 
 export type PaymentRequest = typeof paymentRequestsTable.$inferSelect;
 export type PaymentRequestJob = typeof paymentRequestJobsTable.$inferSelect;

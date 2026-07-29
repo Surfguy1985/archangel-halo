@@ -8,6 +8,7 @@
 import type { PayerInfo } from './payerInfo';
 import type { PaymentRequestCustomItem } from './paymentRequestCustomItem';
 import type { PaymentRequestInputJobAmounts } from './paymentRequestInputJobAmounts';
+import type { PaymentRequestUploadInput } from './paymentRequestUploadInput';
 
 export interface PaymentRequestInput {
   propertyId: string;
@@ -16,6 +17,10 @@ export interface PaymentRequestInput {
   jobAmounts?: PaymentRequestInputJobAmounts;
   /** Extra type-in line items not tied to a job */
   customItems?: PaymentRequestCustomItem[];
+  /** Specific invoices to bill — each becomes its own line and attaches its PDF */
+  invoiceIds?: string[];
+  /** PDF documents from us to attach (object storage paths) */
+  uploads?: PaymentRequestUploadInput[];
   memo?: string;
   payerInfo?: PayerInfo;
 }

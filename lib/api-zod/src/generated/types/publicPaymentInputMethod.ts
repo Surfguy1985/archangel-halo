@@ -14,4 +14,5 @@ export const PublicPaymentInputMethod = {
   ach: 'ach',
   wire: 'wire',
   echeck: 'echeck',
+  check: 'check',
 } as const;

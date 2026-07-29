@@ -11,6 +11,7 @@ import { Skeleton} from "@/components/ui/skeleton";
 import { useState} from "react";
 import { useToast} from "@/hooks/use-toast";
 import { JobLineItemsPanel} from "@/components/JobLineItemsPanel";
+import { JobSummaryDialog} from "@/components/JobSummaryDialog";
 import { ImportFromCatalogDialog} from "@/components/ImportFromCatalogDialog";
 import {
   EditPropertyDialog,
@@ -42,6 +43,7 @@ export default function PropertyDetail() {
   const [rateJobId, setRateJobId] = useState<string | null>(null);
   const [assignJobId, setAssignJobId] = useState<string | null>(null);
   const [broadcastJobId, setBroadcastJobId] = useState<string | null>(null);
+  const [summaryJobId, setSummaryJobId] = useState<string | null>(null);
   const broadcast = useBroadcastJob();
   const [rateDraft, setRateDraft] = useState("");
   const updateJob = useUpdateJob();
@@ -188,20 +190,8 @@ export default function PropertyDetail() {
         action = () => setStatus.mutate({ id: invoice.id, data: { status: "paid" } }, { onSuccess: () => invalidateMoney(job.id) });
       } else if (invoice.status === "paid") {
         label = "Close out";
-        action = () =>
-          clearJob.mutate(
-            { id: job.id },
-            {
-              onSuccess: () => {
-                invalidateJobLists();
-                // Move the whole card to the History tab right away.
-                setJobTab("history");
-                toast({ title: "Job closed out", description: "Moved to History." });
-              },
-              onError: (err) =>
-                toast({ title: "Can't close out yet", description: err.message, variant: "destructive" }),
-            },
-          );
+        // Close-out first opens the job summary form (prefilled recap for the PM).
+        action = () => setSummaryJobId(job.id);
       }
 
       return (
@@ -453,6 +443,29 @@ export default function PropertyDetail() {
       </header>
 
       <InvoiceWizardDialog open={wizardOpen} onOpenChange={setWizardOpen} propertyId={id} propertyName={property.name} />
+      {summaryJobId && (
+        <JobSummaryDialog
+          jobId={summaryJobId}
+          onClose={() => setSummaryJobId(null)}
+          closeOutPending={clearJob.isPending}
+          onCloseOut={() =>
+            clearJob.mutate(
+              { id: summaryJobId },
+              {
+                onSuccess: () => {
+                  invalidateJobLists();
+                  setSummaryJobId(null);
+                  // Move the whole card to the History tab right away.
+                  setJobTab("history");
+                  toast({ title: "Job closed out", description: "Moved to History." });
+                },
+                onError: (err) =>
+                  toast({ title: "Can't close out yet", description: err.message, variant: "destructive" }),
+              },
+            )
+          }
+        />
+      )}
       <EditPropertyDialog open={editOpen} onOpenChange={setEditOpen} property={property} />
       <AddPriceItemDialog open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
       <ImportFromCatalogDialog open={importOpen} onOpenChange={setImportOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />

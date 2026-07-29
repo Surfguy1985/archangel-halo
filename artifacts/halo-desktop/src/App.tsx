@@ -24,6 +24,8 @@ import JobBoard from "@/pages/JobBoard";
 import Catalog from "@/pages/Catalog";
 import Wings from "@/pages/Wings";
 import Payments from "@/pages/Payments";
+import Admin from "@/pages/Admin";
+import AdminAccount from "@/pages/AdminAccount";
 
 // Live cross-device sync: every device polls the shared server every 15s,
 // refetches when the app regains focus or reconnects, so updates made on any
@@ -69,6 +71,8 @@ function App() {
                   <Route path="/vendors" component={Vendors} />
                   <Route path="/import" component={Import} />
                   <Route path="/jobboard" component={JobBoard} />
+                  <Route path="/admin" component={Admin} />
+                  <Route path="/admin/:propertyId" component={AdminAccount} />
                   <Route component={NotFound} />
                 </Switch>
               </DesktopLayout>

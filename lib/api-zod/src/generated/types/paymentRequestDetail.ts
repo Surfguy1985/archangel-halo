@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PayerInfo } from './payerInfo';
+import type { PaymentRequestAttachment } from './paymentRequestAttachment';
 import type { PaymentRequestJobLine } from './paymentRequestJobLine';
 
 export interface PaymentRequestDetail {
@@ -42,4 +43,5 @@ export interface PaymentRequestDetail {
   payerInfo?: PayerInfo;
   createdAt: string;
   jobs: PaymentRequestJobLine[];
+  attachments?: PaymentRequestAttachment[];
 }

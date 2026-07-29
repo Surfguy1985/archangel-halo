@@ -1,6 +1,6 @@
 import { useState} from "react";
 import { Link, useLocation} from "wouter";
-import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather} from "lucide-react";
+import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather, ShieldCheck} from "lucide-react";
 import { useGetToday, getGetTodayQueryKey} from "@workspace/api-client-react";
 import haloLogo from "../assets/halo-logo.png";
 import { NotificationsPopover} from "./NotificationsPopover";
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function DesktopLayout({ children}: { children: React.ReactNode}) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [cmdText, setCmdText] = useState("");
   const [cmdInitial, setCmdInitial] = useState<string | undefined>(undefined);
@@ -53,13 +53,11 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
           <NavItem href="/properties" icon={Building} label="Properties" active={location.startsWith("/properties")} tourId="nav-properties" />
           <NavItem href="/money" icon={DollarSign} label="Money" active={location.startsWith("/money") || location.startsWith("/invoices")} tourId="nav-money" />
           <NavItem href="/crews" icon={Users} label="Crews" active={location.startsWith("/crews")} tourId="nav-crews" />
-          <NavItem href="/wings" icon={Feather} label="Wings" active={location.startsWith("/wings")} tourId="nav-wings" />
           <NavItem href="/pipeline" icon={Target} label="Pipeline" active={location.startsWith("/pipeline")} tourId="nav-pipeline" />
-          <NavItem href="/catalog" icon={BookOpen} label="Price Book" active={location.startsWith("/catalog")} tourId="nav-catalog" />
           <NavItem href="/supply" icon={Package} label="Supply" active={location.startsWith("/supply")} tourId="nav-supply" />
-          <NavItem href="/vendors" icon={Truck} label="Vendors" active={location.startsWith("/vendors")} tourId="nav-vendors" />
           <NavItem href="/calendar" icon={CalendarDays} label="Calendar" active={location.startsWith("/calendar")} tourId="nav-calendar" />
           <NavItem href="/import" icon={ImportIcon} label="Import" active={location.startsWith("/import")} tourId="nav-import" />
+          <NavItem href="/admin" icon={ShieldCheck} label="Admin" active={location.startsWith("/admin")} tourId="nav-admin" />
         </nav>
 
         <div className="p-4 border-t border-[var(--ink2)] flex flex-col group-hover/side:flex-row gap-2">
@@ -98,6 +96,19 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" align="end" className="w-60 rounded-md border-[var(--border)] bg-card text-foreground">
               <DropdownMenuLabel className="font-display text-xs">Workspace</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-[var(--border)]" />
+              <DropdownMenuItem onSelect={() => navigate("/catalog")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-pricebook">
+                <BookOpen className="w-4 h-4 mr-2" />
+                Price Book
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => navigate("/vendors")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-vendors">
+                <Truck className="w-4 h-4 mr-2" />
+                Vendors
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => navigate("/wings")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-wings">
+                <Feather className="w-4 h-4 mr-2" />
+                Wings
+              </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-[var(--border)]" />
               <DropdownMenuItem onSelect={() => setTourOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]">
                 <GraduationCap className="w-4 h-4 mr-2" />

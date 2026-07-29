@@ -3,9 +3,13 @@ import { useQueryClient} from "@tanstack/react-query";
 import {
   useListCrewPayouts,
   useReturnCrewPayout,
+  useGetPayoutQueue,
+  useCreateCrewPayoutBatch,
   CrewPayoutView,
+  PayoutQueueCrew,
   getListCrewPayoutsQueryKey,
   getGetPayHubOverviewQueryKey,
+  getGetPayoutQueueQueryKey,
 } from "@workspace/api-client-react";
 import { Card} from "@/components/ui/card";
 import { Button} from "@/components/ui/button";
@@ -21,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label} from "@/components/ui/label";
 import { Input} from "@/components/ui/input";
-import { CheckCircle2, XCircle, RotateCcw, AlertTriangle} from "lucide-react";
+import { CheckCircle2, XCircle, RotateCcw, AlertTriangle, Banknote, Landmark} from "lucide-react";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2});
@@ -33,9 +37,11 @@ const fmtDate = (s?: string | null) => {
 
 export function OutboundTab() {
   const { data: payouts, isLoading} = useListCrewPayouts();
+  const { data: queue, isLoading: queueLoading} = useGetPayoutQueue();
   const [returnPayout, setReturnPayout] = useState<CrewPayoutView | null>(null);
+  const [payOpen, setPayOpen] = useState(false);
 
-  if (isLoading) {
+  if (isLoading || queueLoading) {
     return <Skeleton className="h-64 w-full rounded-none bg-muted" />;
  }
 
@@ -43,10 +49,58 @@ export function OutboundTab() {
     new Date(b.paidAt || 0).getTime() - new Date(a.paidAt || 0).getTime()
   );
 
+  const readyCrews = queue ?? [];
+
   return (
     <div className="space-y-4">
+      {/* Ready to pay — crews whose completed jobs landed here automatically */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-display font-bold text-[var(--secondary)]">Crew Payouts</h2>
+        <h2 className="text-lg font-display font-bold text-[var(--secondary)]">Ready to Pay</h2>
+        <Button
+          onClick={() => setPayOpen(true)}
+          disabled={readyCrews.length === 0}
+          className="rounded-none bg-[var(--secondary)] text-white font-bold text-xs px-6 hover:opacity-90"
+          data-testid="button-pay-crews"
+        >
+          <Banknote className="w-4 h-4 mr-2" /> Pay Crews
+        </Button>
+      </div>
+
+      {readyCrews.length === 0 ? (
+        <div className="p-8 text-center border border-dashed border-border rounded-none bg-white text-muted-foreground text-sm">
+          No crews awaiting payout. Crews land here automatically once their jobs are verified complete.
+        </div>
+      ) : (
+        <div className="bg-white rounded-none border border-border shadow-sm divide-y divide-border overflow-hidden">
+          {readyCrews.map((c) => (
+            <div key={c.crewId} className="p-4 flex items-center justify-between gap-4" data-testid={`row-queue-${c.crewId}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-[var(--secondary)]">{c.crewName}</h3>
+                  {c.bankVerified ? (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">
+                      <CheckCircle2 className="w-3 h-3" /> Bank verified
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
+                      <Landmark className="w-3 h-3" /> No verified bank
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground truncate mt-0.5">
+                  {c.jobs.length} completed job{c.jobs.length !== 1 ? "s" : ""} — {c.jobs.map((j) => j.jobLabel).join(", ")}
+                </p>
+              </div>
+              <div className="font-display font-bold text-lg tabular-nums text-[var(--secondary)] shrink-0">
+                {c.suggestedAmount > 0 ? money(c.suggestedAmount) : "—"}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between pt-2">
+        <h2 className="text-lg font-display font-bold text-[var(--secondary)]">Payout History</h2>
       </div>
 
       {sorted.length === 0 ? (
@@ -64,7 +118,99 @@ export function OutboundTab() {
       {returnPayout && (
         <ReturnPayoutDialog payout={returnPayout} open={!!returnPayout} onOpenChange={(o) => !o && setReturnPayout(null)} />
       )}
+      {payOpen && (
+        <PayCrewsDialog crews={readyCrews} open={payOpen} onOpenChange={setPayOpen} />
+      )}
     </div>
+  );
+}
+
+function PayCrewsDialog({ crews, open, onOpenChange}: { crews: PayoutQueueCrew[], open: boolean, onOpenChange: (open: boolean) => void}) {
+  const [amounts, setAmounts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(crews.map((c) => [c.crewId, c.suggestedAmount > 0 ? c.suggestedAmount.toFixed(2) : ""]))
+  );
+  const batch = useCreateCrewPayoutBatch();
+  const { toast} = useToast();
+  const queryClient = useQueryClient();
+
+  const items = crews
+    .filter((c) => c.bankVerified)
+    .map((c) => ({ crewId: c.crewId, amount: parseFloat(amounts[c.crewId] || "0")}))
+    .filter((i) => i.amount > 0);
+  const total = items.reduce((s, i) => s + i.amount, 0);
+
+  const handlePay = () => {
+    batch.mutate({ data: { items}}, {
+      onSuccess: (rows) => {
+        toast({ title: "Payouts sent", description: `${rows.length} ACH payout${rows.length !== 1 ? "s" : ""} totaling ${money(total)}.`});
+        queryClient.invalidateQueries({ queryKey: getListCrewPayoutsQueryKey()});
+        queryClient.invalidateQueries({ queryKey: getGetPayoutQueueQueryKey()});
+        queryClient.invalidateQueries({ queryKey: getGetPayHubOverviewQueryKey()});
+        onOpenChange(false);
+     },
+      onError: (err) => {
+        toast({ title: "Payout failed", description: err.message, variant: "destructive"});
+     },
+   });
+ };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[520px] border-none shadow-xl rounded-3xl bg-[var(--background)]">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-display font-bold text-[var(--secondary)] flex items-center gap-2">
+            <Banknote className="w-6 h-6" /> Pay crews via ACH
+          </DialogTitle>
+        </DialogHeader>
+        <div className="py-2 space-y-3 max-h-[50vh] overflow-y-auto">
+          {crews.map((c) => (
+            <div key={c.crewId} className="flex items-center gap-3 bg-white border border-border p-3" data-testid={`row-pay-${c.crewId}`}>
+              {c.bankVerified ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" aria-label="Verified bank account" />
+              ) : (
+                <XCircle className="w-5 h-5 text-amber-500 shrink-0" aria-label="No verified bank account" />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-[var(--secondary)] text-sm">{c.crewName}</div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {c.bankVerified
+                    ? `${c.jobs.length} job${c.jobs.length !== 1 ? "s" : ""}: ${c.jobs.map((j) => j.jobLabel).join(", ")}`
+                    : "Needs a verified bank account in their portal first"}
+                </div>
+              </div>
+              <div className="relative shrink-0 w-28">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                <Input
+                  value={amounts[c.crewId] ?? ""}
+                  onChange={(e) => setAmounts((a) => ({ ...a, [c.crewId]: e.target.value}))}
+                  disabled={!c.bankVerified}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  className="pl-6 h-10 rounded-none border-border text-right tabular-nums"
+                  data-testid={`input-amount-${c.crewId}`}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <DialogFooter className="items-center gap-3 sm:justify-between">
+          <div className="text-sm font-bold text-[var(--secondary)]">
+            Total: <span className="font-display text-lg">{money(total)}</span>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-full font-medium px-6 hover:bg-black/5 text-foreground">Cancel</Button>
+            <Button
+              onClick={handlePay}
+              disabled={batch.isPending || items.length === 0}
+              className="rounded-full bg-[var(--secondary)] text-white font-bold hover:opacity-90 px-6"
+              data-testid="button-send-payouts"
+            >
+              {batch.isPending ? "Sending…" : `Send ${items.length} payout${items.length !== 1 ? "s" : ""}`}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -4,9 +4,16 @@ import {
   useListBids,
   getListLeadsQueryKey,
   getListBidsQueryKey,
+  useListWorkRequests,
+  getListWorkRequestsQueryKey,
+  useAcceptWorkRequest,
+  useDeclineWorkRequest,
+  getListJobsQueryKey,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { Skeleton} from "@/components/ui/skeleton";
-import { Plus, Target, FileText, Zap, Mail, Phone} from "lucide-react";
+import { Plus, Target, FileText, Zap, Mail, Phone, Inbox, Check, X, CalendarClock, Loader2} from "lucide-react";
 import { Card, CardContent} from "@/components/ui/card";
 import { format} from "date-fns";
 import {
@@ -16,6 +23,127 @@ import {
   BidDetailDialog,
   type LeadRow,
 } from "@/components/PipelineDialogs";
+
+function WorkRequestsPanel() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: requests, isLoading } = useListWorkRequests(
+    { status: "pending" },
+    {
+      query: {
+        queryKey: getListWorkRequestsQueryKey({ status: "pending" }),
+        refetchInterval: 10_000,
+      },
+    },
+  );
+  const accept = useAcceptWorkRequest();
+  const decline = useDeclineWorkRequest();
+  const [declining, setDeclining] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: getListWorkRequestsQueryKey({ status: "pending" }) });
+    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+  };
+
+  if (isLoading || !requests || requests.length === 0) return null;
+
+  return (
+    <section className="shrink-0">
+      <div className="flex items-center gap-2 mb-3">
+        <Inbox className="w-4 h-4 text-[var(--gold-dark,#4a7000)]" />
+        <h2 className="font-display font-bold text-[16px] text-[var(--ink)]">Client Requests</h2>
+        <span className="text-[11px] font-bold bg-[var(--gold-light,#B4FF44)] text-black rounded-full px-2 py-0.5" data-testid="badge-request-count">
+          {requests.length}
+        </span>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {requests.map((r) => (
+          <Card key={r.id} className="border-[var(--gold-light,#B4FF44)]/60" data-testid={`card-request-${r.id}`}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold text-[14px] text-[var(--ink)] truncate">
+                    {r.serviceLabel}
+                    {r.unitNo ? <span className="text-muted-foreground font-normal"> · Unit {r.unitNo}</span> : null}
+                  </div>
+                  <div className="text-[12px] text-muted-foreground mt-0.5">
+                    {r.propertyName}
+                    {r.requesterName ? ` — ${r.requesterName}` : ""}
+                    {" · "}
+                    {format(new Date(r.createdAt), "MMM d, h:mm a")}
+                  </div>
+                  {r.neededBy && (
+                    <div className="flex items-center gap-1 text-[12px] font-semibold text-[var(--gold-dark,#4a7000)] mt-1">
+                      <CalendarClock className="w-3.5 h-3.5" /> Complete by {format(new Date(`${r.neededBy}T12:00:00`), "MMM d, yyyy")}
+                    </div>
+                  )}
+                  {r.notes && <p className="text-[12.5px] text-[var(--ink)] mt-1.5 whitespace-pre-wrap">{r.notes}</p>}
+                </div>
+                <div className="flex flex-col gap-2 shrink-0">
+                  <button
+                    onClick={() =>
+                      accept.mutate(
+                        { id: r.id },
+                        {
+                          onSuccess: (rec) => {
+                            toast({ title: `Job ${rec.jobNo ?? ""} created`, description: `${rec.serviceLabel} at ${rec.propertyName}` });
+                            refresh();
+                          },
+                          onError: (e) => toast({ title: "Couldn't accept", description: e.message, variant: "destructive" }),
+                        },
+                      )
+                    }
+                    disabled={accept.isPending || decline.isPending}
+                    className="flex items-center gap-1.5 bg-[var(--gold-light,#B4FF44)] text-black text-[12.5px] font-bold rounded-full px-4 py-1.5 disabled:opacity-50"
+                    data-testid={`button-accept-${r.id}`}
+                  >
+                    {accept.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Accept
+                  </button>
+                  <button
+                    onClick={() => { setDeclining(declining === r.id ? null : r.id); setReason(""); }}
+                    disabled={accept.isPending || decline.isPending}
+                    className="flex items-center gap-1.5 border border-[var(--hairline)] text-[12.5px] font-medium rounded-full px-4 py-1.5 text-[var(--ink)] hover:border-destructive hover:text-destructive disabled:opacity-50"
+                    data-testid={`button-decline-${r.id}`}
+                  >
+                    <X className="w-3.5 h-3.5" /> Decline
+                  </button>
+                </div>
+              </div>
+              {declining === r.id && (
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="Reason (optional)"
+                    className="flex-1 border border-[var(--hairline)] rounded-[8px] px-3 py-1.5 text-[12.5px]"
+                    data-testid={`input-decline-reason-${r.id}`}
+                  />
+                  <button
+                    onClick={() =>
+                      decline.mutate(
+                        { id: r.id, data: { reason: reason || null } },
+                        {
+                          onSuccess: () => { toast({ title: "Request declined" }); setDeclining(null); refresh(); },
+                          onError: (e) => toast({ title: "Couldn't decline", description: e.message, variant: "destructive" }),
+                        },
+                      )
+                    }
+                    disabled={decline.isPending}
+                    className="bg-destructive text-destructive-foreground text-[12.5px] font-bold rounded-[8px] px-4 py-1.5 disabled:opacity-50"
+                    data-testid={`button-confirm-decline-${r.id}`}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export default function Pipeline() {
   const { data: leads, isLoading: loadingLeads } = useListLeads({
@@ -36,6 +164,7 @@ export default function Pipeline() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 h-screen flex flex-col">
+      <WorkRequestsPanel />
       <header className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">Pipeline</h1>

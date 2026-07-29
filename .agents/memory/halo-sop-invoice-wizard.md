@@ -15,4 +15,5 @@ One SOP rule per property (unique propertyId), extracted by AI from an uploaded 
 - SOP tax must stay tax-inclusive (`total*r/(1+r)`) to match resolveTaxAmount.
 - Upload route needs the 15mb JSON parser allowlist in app.ts (global limit is 2mb).
 - Table must stay in the Settings reset delete list.
+- "Create invoice from a job" (wizard) is a preview-only draft endpoint: pass 1 AI breakout + pass 2 independent AI audit (corrections applied) + deterministic applySopToInvoice preview; nothing persists — creation goes through the normal POST /invoices path so SOP/tax/ledger enforcement is never duplicated. Keep it that way for any new AI-drafting flow.
 - Desktop: wizard dialog on PropertyDetail header; CreateInvoice shows banner, prefills, and blocks save when SOP requires a PO. Source doc link is absolute `/api/...` (never BASE_URL-prefixed).

@@ -171,9 +171,9 @@ export const tourChapters: TourChapter[] = [
     steps: [
       {
         title: "The Price Book tab",
-        body: "Click Price Book in the sidebar. This is your master list of every service you offer and its standard price. You set it up once, for the whole business.",
+        body: "Open the More menu at the bottom of the sidebar and click Price Book. This is your master list of every service you offer and its standard price. You set it up once, for the whole business.",
         route: "/catalog",
-        target: "nav-catalog",
+        target: "more",
         placement: "right",
      },
       {
@@ -474,9 +474,9 @@ export const tourChapters: TourChapter[] = [
     steps: [
       {
         title: "The Vendors tab",
-        body: "Click Vendors in the sidebar. This is where you keep your subcontractors' insurance certificates, also called COIs, in one place.",
+        body: "Open the More menu at the bottom of the sidebar and click Vendors. This is where you keep your subcontractors' insurance certificates, also called COIs, in one place.",
         route: "/vendors",
-        target: "nav-vendors",
+        target: "more",
         placement: "right",
      },
       {

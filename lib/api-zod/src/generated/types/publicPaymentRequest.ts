@@ -5,7 +5,9 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { PaymentRequestAttachment } from './paymentRequestAttachment';
 import type { PaymentRequestJobLine } from './paymentRequestJobLine';
+import type { PublicPaymentRequestMailingAddress } from './publicPaymentRequestMailingAddress';
 
 export interface PublicPaymentRequest {
   requestNo: string;
@@ -31,5 +33,8 @@ export interface PublicPaymentRequest {
   confirmationNo?: string | null;
   /** @nullable */
   paymentMethod?: string | null;
+  /** Where to mail a paper check */
+  mailingAddress?: PublicPaymentRequestMailingAddress;
   jobs: PaymentRequestJobLine[];
+  attachments?: PaymentRequestAttachment[];
 }

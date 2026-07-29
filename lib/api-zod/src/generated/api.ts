@@ -6576,7 +6576,13 @@ export const ListPaymentRequestsResponseItem = zod.object({
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
-}))
+})),
+  "attachments": zod.array(zod.object({
+  "kind": zod.string().describe('invoice | upload'),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "url": zod.string().describe('Absolute \/api URL to open the PDF')
+})).optional()
 })
 export const ListPaymentRequestsResponse = zod.array(ListPaymentRequestsResponseItem)
 
@@ -6595,6 +6601,11 @@ export const CreatePaymentRequestBody = zod.object({
   "label": zod.string().min(1),
   "amount": zod.number()
 })).optional().describe('Extra type-in line items not tied to a job'),
+  "invoiceIds": zod.array(zod.string()).optional().describe('Specific invoices to bill — each becomes its own line and attaches its PDF'),
+  "uploads": zod.array(zod.object({
+  "label": zod.string(),
+  "objectPath": zod.string().describe('Path returned by the storage upload flow (\/objects\/...)')
+})).optional().describe('PDF documents from us to attach (object storage paths)'),
   "memo": zod.string().optional(),
   "payerInfo": zod.object({
   "routingNumber": zod.string().nullish(),
@@ -6646,7 +6657,13 @@ export const CreatePaymentRequestResponse = zod.object({
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
-}))
+})),
+  "attachments": zod.array(zod.object({
+  "kind": zod.string().describe('invoice | upload'),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "url": zod.string().describe('Absolute \/api URL to open the PDF')
+})).optional()
 })
 
 
@@ -6691,7 +6708,13 @@ export const GetPaymentRequestResponse = zod.object({
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
-}))
+})),
+  "attachments": zod.array(zod.object({
+  "kind": zod.string().describe('invoice | upload'),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "url": zod.string().describe('Absolute \/api URL to open the PDF')
+})).optional()
 })
 
 
@@ -6751,7 +6774,13 @@ export const SendPaymentRequestResponse = zod.object({
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
-}))
+})),
+  "attachments": zod.array(zod.object({
+  "kind": zod.string().describe('invoice | upload'),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "url": zod.string().describe('Absolute \/api URL to open the PDF')
+})).optional()
 })
 
 
@@ -6803,7 +6832,13 @@ export const ReturnPaymentRequestResponse = zod.object({
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
-}))
+})),
+  "attachments": zod.array(zod.object({
+  "kind": zod.string().describe('invoice | upload'),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "url": zod.string().describe('Absolute \/api URL to open the PDF')
+})).optional()
 })
 
 
@@ -6829,13 +6864,25 @@ export const GetPublicPaymentRequestResponse = zod.object({
   "paidAmount": zod.number().nullish(),
   "confirmationNo": zod.string().nullish(),
   "paymentMethod": zod.string().nullish(),
+  "mailingAddress": zod.object({
+  "name": zod.string(),
+  "attn": zod.string().nullish(),
+  "street": zod.string(),
+  "city": zod.string()
+}).optional().describe('Where to mail a paper check'),
   "jobs": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string().nullable(),
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
-}))
+})),
+  "attachments": zod.array(zod.object({
+  "kind": zod.string().describe('invoice | upload'),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "url": zod.string().describe('Absolute \/api URL to open the PDF')
+})).optional()
 })
 
 
@@ -6847,7 +6894,7 @@ export const SubmitPublicPaymentParams = zod.object({
 })
 
 export const SubmitPublicPaymentBody = zod.object({
-  "method": zod.enum(['card', 'ach', 'wire', 'echeck']),
+  "method": zod.enum(['card', 'ach', 'wire', 'echeck', 'check']),
   "payerName": zod.string(),
   "cardNumber": zod.string().optional(),
   "cardExp": zod.string().optional(),
@@ -6855,6 +6902,7 @@ export const SubmitPublicPaymentBody = zod.object({
   "zip": zod.string().optional(),
   "routingNumber": zod.string().optional(),
   "accountNumber": zod.string().optional(),
+  "checkNumber": zod.string().optional(),
   "email": zod.string().optional()
 })
 
@@ -6888,13 +6936,25 @@ export const ApprovePublicInvoiceResponse = zod.object({
   "paidAmount": zod.number().nullish(),
   "confirmationNo": zod.string().nullish(),
   "paymentMethod": zod.string().nullish(),
+  "mailingAddress": zod.object({
+  "name": zod.string(),
+  "attn": zod.string().nullish(),
+  "street": zod.string(),
+  "city": zod.string()
+}).optional().describe('Where to mail a paper check'),
   "jobs": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string().nullable(),
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
-}))
+})),
+  "attachments": zod.array(zod.object({
+  "kind": zod.string().describe('invoice | upload'),
+  "invoiceId": zod.string().nullish(),
+  "label": zod.string(),
+  "url": zod.string().describe('Absolute \/api URL to open the PDF')
+})).optional()
 })
 
 
@@ -6983,6 +7043,58 @@ export const CreateCrewPayoutResponse = zod.object({
   "returnedAt": zod.string().nullish(),
   "returnReason": zod.string().nullish()
 })
+
+
+/**
+ * @summary Crews with verified completed jobs awaiting a payout, grouped per crew
+ */
+export const GetPayoutQueueResponseItem = zod.object({
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "bankVerified": zod.boolean(),
+  "suggestedAmount": zod.number(),
+  "jobs": zod.array(zod.object({
+  "jobId": zod.string(),
+  "jobLabel": zod.string(),
+  "propertyName": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "suggestedAmount": zod.number()
+}))
+})
+export const GetPayoutQueueResponse = zod.array(GetPayoutQueueResponseItem)
+
+
+/**
+ * @summary One-tap ACH payouts to multiple crews (Cybrid rails stubbed)
+ */
+export const createCrewPayoutBatchBodyItemsItemAmountExclusiveMin = 0;
+
+
+
+
+export const CreateCrewPayoutBatchBody = zod.object({
+  "items": zod.array(zod.object({
+  "crewId": zod.string(),
+  "amount": zod.number().gt(createCrewPayoutBatchBodyItemsItemAmountExclusiveMin)
+})).min(1)
+})
+
+export const CreateCrewPayoutBatchResponseItem = zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "jobId": zod.string(),
+  "jobLabel": zod.string(),
+  "paymentRequestId": zod.string().nullish(),
+  "amount": zod.number(),
+  "method": zod.string(),
+  "status": zod.string().describe('paid | returned'),
+  "confirmationNo": zod.string(),
+  "paidAt": zod.string(),
+  "returnedAt": zod.string().nullish(),
+  "returnReason": zod.string().nullish()
+})
+export const CreateCrewPayoutBatchResponse = zod.array(CreateCrewPayoutBatchResponseItem)
 
 
 /**
@@ -7091,6 +7203,989 @@ export const SubmitPortalBankResponse = zod.object({
   "routingLast4": zod.string().nullish(),
   "accountLast4": zod.string().nullish(),
   "verifiedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Saved job summary document, or a prefilled draft if none exists
+ */
+export const GetJobSummaryParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetJobSummaryResponse = zod.object({
+  "doc": zod.object({
+  "jobId": zod.string(),
+  "propertyId": zod.string(),
+  "exists": zod.boolean().describe('false when this is an unsaved prefit draft'),
+  "token": zod.string().nullish(),
+  "shareUrl": zod.string().nullish(),
+  "title": zod.string(),
+  "unitNumber": zod.string().nullish(),
+  "serviceDate": zod.string().nullish(),
+  "crewLead": zod.string().nullish(),
+  "timeIn": zod.string().nullish(),
+  "timeOut": zod.string().nullish(),
+  "checklist": zod.array(zod.object({
+  "section": zod.string(),
+  "items": zod.array(zod.object({
+  "label": zod.string(),
+  "checked": zod.boolean()
+}))
+})),
+  "flags": zod.array(zod.object({
+  "label": zod.string(),
+  "checked": zod.boolean(),
+  "note": zod.string()
+})),
+  "observations": zod.string().nullish(),
+  "touchUpNotes": zod.string().nullish(),
+  "overallResult": zod.string().describe('exceeded | met | followup'),
+  "photos": zod.array(zod.object({
+  "phase": zod.string().describe('before | after | progress'),
+  "path": zod.string(),
+  "url": zod.string()
+})),
+  "status": zod.string().describe('draft | sent'),
+  "sentTo": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "business": zod.object({
+  "companyName": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish()
+}).optional()
+}),
+  "availablePhotos": zod.array(zod.object({
+  "phase": zod.string().describe('before | after | progress'),
+  "path": zod.string(),
+  "url": zod.string()
+})),
+  "suggestedRecipient": zod.string().nullable().describe('Property billing\/contact email to prefill the send field')
+})
+
+
+/**
+ * @summary Save the job summary document (creates its share token on first save)
+ */
+export const SaveJobSummaryParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SaveJobSummaryBody = zod.object({
+  "title": zod.string().optional(),
+  "unitNumber": zod.string().nullish(),
+  "serviceDate": zod.string().nullish(),
+  "crewLead": zod.string().nullish(),
+  "timeIn": zod.string().nullish(),
+  "timeOut": zod.string().nullish(),
+  "checklist": zod.array(zod.object({
+  "section": zod.string(),
+  "items": zod.array(zod.object({
+  "label": zod.string(),
+  "checked": zod.boolean()
+}))
+})).optional(),
+  "flags": zod.array(zod.object({
+  "label": zod.string(),
+  "checked": zod.boolean(),
+  "note": zod.string()
+})).optional(),
+  "observations": zod.string().nullish(),
+  "touchUpNotes": zod.string().nullish(),
+  "overallResult": zod.string().optional(),
+  "photos": zod.array(zod.object({
+  "phase": zod.string(),
+  "path": zod.string()
+})).optional()
+})
+
+export const SaveJobSummaryResponse = zod.object({
+  "jobId": zod.string(),
+  "propertyId": zod.string(),
+  "exists": zod.boolean().describe('false when this is an unsaved prefit draft'),
+  "token": zod.string().nullish(),
+  "shareUrl": zod.string().nullish(),
+  "title": zod.string(),
+  "unitNumber": zod.string().nullish(),
+  "serviceDate": zod.string().nullish(),
+  "crewLead": zod.string().nullish(),
+  "timeIn": zod.string().nullish(),
+  "timeOut": zod.string().nullish(),
+  "checklist": zod.array(zod.object({
+  "section": zod.string(),
+  "items": zod.array(zod.object({
+  "label": zod.string(),
+  "checked": zod.boolean()
+}))
+})),
+  "flags": zod.array(zod.object({
+  "label": zod.string(),
+  "checked": zod.boolean(),
+  "note": zod.string()
+})),
+  "observations": zod.string().nullish(),
+  "touchUpNotes": zod.string().nullish(),
+  "overallResult": zod.string().describe('exceeded | met | followup'),
+  "photos": zod.array(zod.object({
+  "phase": zod.string().describe('before | after | progress'),
+  "path": zod.string(),
+  "url": zod.string()
+})),
+  "status": zod.string().describe('draft | sent'),
+  "sentTo": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "business": zod.object({
+  "companyName": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish()
+}).optional()
+})
+
+
+/**
+ * @summary Email the summary link to the property manager
+ */
+export const SendJobSummaryParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SendJobSummaryBody = zod.object({
+  "to": zod.string(),
+  "message": zod.string().nullish()
+})
+
+export const SendJobSummaryResponse = zod.object({
+  "jobId": zod.string(),
+  "propertyId": zod.string(),
+  "exists": zod.boolean().describe('false when this is an unsaved prefit draft'),
+  "token": zod.string().nullish(),
+  "shareUrl": zod.string().nullish(),
+  "title": zod.string(),
+  "unitNumber": zod.string().nullish(),
+  "serviceDate": zod.string().nullish(),
+  "crewLead": zod.string().nullish(),
+  "timeIn": zod.string().nullish(),
+  "timeOut": zod.string().nullish(),
+  "checklist": zod.array(zod.object({
+  "section": zod.string(),
+  "items": zod.array(zod.object({
+  "label": zod.string(),
+  "checked": zod.boolean()
+}))
+})),
+  "flags": zod.array(zod.object({
+  "label": zod.string(),
+  "checked": zod.boolean(),
+  "note": zod.string()
+})),
+  "observations": zod.string().nullish(),
+  "touchUpNotes": zod.string().nullish(),
+  "overallResult": zod.string().describe('exceeded | met | followup'),
+  "photos": zod.array(zod.object({
+  "phase": zod.string().describe('before | after | progress'),
+  "path": zod.string(),
+  "url": zod.string()
+})),
+  "status": zod.string().describe('draft | sent'),
+  "sentTo": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "business": zod.object({
+  "companyName": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish()
+}).optional()
+})
+
+
+/**
+ * @summary Public summary page data (community box view + full document)
+ */
+export const GetPublicJobSummaryParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPublicJobSummaryResponse = zod.object({
+  "doc": zod.object({
+  "title": zod.string(),
+  "unitNumber": zod.string().nullish(),
+  "serviceDate": zod.string().nullish(),
+  "crewLead": zod.string().nullish(),
+  "timeIn": zod.string().nullish(),
+  "timeOut": zod.string().nullish(),
+  "checklist": zod.array(zod.object({
+  "section": zod.string(),
+  "items": zod.array(zod.object({
+  "label": zod.string(),
+  "checked": zod.boolean()
+}))
+})),
+  "observations": zod.string().nullish(),
+  "touchUpNotes": zod.string().nullish(),
+  "overallResult": zod.string(),
+  "photos": zod.array(zod.object({
+  "phase": zod.string().describe('before | after | progress'),
+  "path": zod.string(),
+  "url": zod.string()
+})),
+  "propertyName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "business": zod.object({
+  "companyName": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish()
+}).optional()
+}),
+  "flaggedItems": zod.array(zod.string()),
+  "hasBoard": zod.boolean().describe('true once the PM\'s own community box view (CMS) is set up')
+})
+
+
+/**
+ * @summary Every active property as a managed client account
+ */
+export const ListClientAccountsResponseItem = zod.object({
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "pmcName": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "units": zod.number().nullish(),
+  "logoPath": zod.string().nullish(),
+  "tier": zod.string(),
+  "status": zod.string(),
+  "userSeatsUsed": zod.number(),
+  "userSeats": zod.number(),
+  "guestSeats": zod.number(),
+  "onboardingStatus": zod.string(),
+  "hasAccount": zod.boolean().describe('false until subscription settings are first saved')
+})
+export const ListClientAccountsResponse = zod.array(ListClientAccountsResponseItem)
+
+
+/**
+ * @summary Full back-office view for one client account
+ */
+export const GetClientAccountParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const GetClientAccountResponse = zod.object({
+  "account": zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "tier": zod.string().describe('basic | pro | enterprise'),
+  "userSeats": zod.number(),
+  "guestSeats": zod.number(),
+  "status": zod.string().describe('active | paused | cancelled'),
+  "notes": zod.string().nullish(),
+  "logoPath": zod.string().nullish(),
+  "servicesOverview": zod.string().nullish(),
+  "dashboardToken": zod.string(),
+  "dashboardUrl": zod.string().nullish().describe('Full public URL to the client dashboard'),
+  "onboardingStatus": zod.string().describe('not_sent | sent'),
+  "onboardingSentAt": zod.string().nullish()
+}),
+  "users": zod.array(zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.string().describe('admin | member | guest'),
+  "active": zod.boolean(),
+  "lastPasswordResetAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})),
+  "sends": zod.array(zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "channel": zod.string(),
+  "sentTo": zod.string(),
+  "link": zod.string(),
+  "status": zod.string(),
+  "detail": zod.string().nullish(),
+  "createdAt": zod.string()
+})),
+  "property": zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "pmcName": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "units": zod.number().nullish(),
+  "brief": zod.string().nullish()
+}),
+  "contacts": zod.array(zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string().nullish(),
+  "name": zod.string(),
+  "role": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "prefers": zod.string().nullish()
+})),
+  "services": zod.array(zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "service": zod.string(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "marginFloor": zod.number().nullish()
+}))
+})
+
+
+/**
+ * @summary Create or update the subscription settings for a property
+ */
+export const UpsertClientAccountParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const UpsertClientAccountBody = zod.object({
+  "tier": zod.string().optional(),
+  "userSeats": zod.number().optional(),
+  "guestSeats": zod.number().optional(),
+  "status": zod.string().optional(),
+  "notes": zod.string().nullish(),
+  "logoPath": zod.string().nullish(),
+  "servicesOverview": zod.string().nullish()
+})
+
+export const UpsertClientAccountResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "tier": zod.string().describe('basic | pro | enterprise'),
+  "userSeats": zod.number(),
+  "guestSeats": zod.number(),
+  "status": zod.string().describe('active | paused | cancelled'),
+  "notes": zod.string().nullish(),
+  "logoPath": zod.string().nullish(),
+  "servicesOverview": zod.string().nullish(),
+  "dashboardToken": zod.string(),
+  "dashboardUrl": zod.string().nullish().describe('Full public URL to the client dashboard'),
+  "onboardingStatus": zod.string().describe('not_sent | sent'),
+  "onboardingSentAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Create a client login (returns the one-time temp password)
+ */
+export const CreateClientUserParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const CreateClientUserBody = zod.object({
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.string().optional().describe('admin | member | guest (default member)'),
+  "sendEmail": zod.boolean().optional().describe('Email the credentials to the user (default false)')
+})
+
+export const CreateClientUserResponse = zod.object({
+  "user": zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.string().describe('admin | member | guest'),
+  "active": zod.boolean(),
+  "lastPasswordResetAt": zod.string().nullish(),
+  "createdAt": zod.string()
+}),
+  "tempPassword": zod.string().describe('Shown once — not retrievable later'),
+  "emailed": zod.boolean()
+})
+
+
+export const UpdateClientUserParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateClientUserBody = zod.object({
+  "name": zod.string().optional(),
+  "email": zod.string().optional(),
+  "role": zod.string().optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateClientUserResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.string().describe('admin | member | guest'),
+  "active": zod.boolean(),
+  "lastPasswordResetAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+export const DeleteClientUserParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteClientUserResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Issue a new temp password; optionally email it to the user
+ */
+export const ResetClientUserPasswordParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ResetClientUserPasswordBody = zod.object({
+  "sendEmail": zod.boolean().optional().describe('Email the new temp password to the user (default false)')
+})
+
+export const ResetClientUserPasswordResponse = zod.object({
+  "user": zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.string().describe('admin | member | guest'),
+  "active": zod.boolean(),
+  "lastPasswordResetAt": zod.string().nullish(),
+  "createdAt": zod.string()
+}),
+  "tempPassword": zod.string().describe('Shown once — not retrievable later'),
+  "emailed": zod.boolean()
+})
+
+
+/**
+ * @summary Rotate the property's client dashboard link token
+ */
+export const RegenerateDashboardTokenParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const RegenerateDashboardTokenResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "tier": zod.string().describe('basic | pro | enterprise'),
+  "userSeats": zod.number(),
+  "guestSeats": zod.number(),
+  "status": zod.string().describe('active | paused | cancelled'),
+  "notes": zod.string().nullish(),
+  "logoPath": zod.string().nullish(),
+  "servicesOverview": zod.string().nullish(),
+  "dashboardToken": zod.string(),
+  "dashboardUrl": zod.string().nullish().describe('Full public URL to the client dashboard'),
+  "onboardingStatus": zod.string().describe('not_sent | sent'),
+  "onboardingSentAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Send the branded onboarding email/SMS with the dashboard link
+ */
+export const SendClientOnboardingParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const SendClientOnboardingBody = zod.object({
+  "channel": zod.string().describe('email | sms'),
+  "to": zod.string().describe('Email address or phone number'),
+  "message": zod.string().nullish().describe('Optional personal note included in the send')
+})
+
+export const SendClientOnboardingResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "channel": zod.string(),
+  "sentTo": zod.string(),
+  "link": zod.string(),
+  "status": zod.string(),
+  "detail": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Client dashboard admin — team members and their feature access
+ */
+export const GetClientAccessParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientAccessResponse = zod.object({
+  "propertyName": zod.string(),
+  "logoUrl": zod.string().nullish(),
+  "features": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "description": zod.string()
+})),
+  "roleDefaults": zod.record(zod.string(), zod.array(zod.string())).describe('Default feature keys per role'),
+  "users": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.string().describe('admin | member | guest'),
+  "active": zod.boolean(),
+  "permissions": zod.array(zod.string()),
+  "customized": zod.boolean().describe('False while the user still follows their role\'s defaults')
+}))
+})
+
+
+/**
+ * @summary Manager toggles a team member's role or feature checkboxes
+ */
+export const UpdateClientAccessUserParams = zod.object({
+  "token": zod.coerce.string(),
+  "userId": zod.coerce.string()
+})
+
+export const UpdateClientAccessUserBody = zod.object({
+  "role": zod.string().optional().describe('admin | member | guest'),
+  "permissions": zod.array(zod.string()).optional().describe('Full replacement set of feature keys; omit to keep current'),
+  "resetToRoleDefaults": zod.boolean().optional().describe('Clear customizations and follow the role\'s defaults again')
+})
+
+export const UpdateClientAccessUserResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.string().describe('admin | member | guest'),
+  "active": zod.boolean(),
+  "permissions": zod.array(zod.string()),
+  "customized": zod.boolean().describe('False while the user still follows their role\'s defaults')
+})
+
+
+/**
+ * @summary Services a property manager can pick when requesting work
+ */
+export const GetClientRequestOptionsParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientRequestOptionsResponse = zod.object({
+  "propertyName": zod.string(),
+  "logoUrl": zod.string().nullish(),
+  "services": zod.array(zod.object({
+  "id": zod.string(),
+  "service": zod.string(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Property manager submits a work request
+ */
+export const CreateClientWorkRequestParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const CreateClientWorkRequestBody = zod.object({
+  "serviceId": zod.string().nullish().describe('price_items id when picked from the dropdown'),
+  "serviceLabel": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "neededBy": zod.string().nullish().describe('YYYY-MM-DD complete-by date'),
+  "requesterName": zod.string().nullish()
+})
+
+export const CreateClientWorkRequestResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "requesterName": zod.string().nullish(),
+  "serviceId": zod.string().nullish(),
+  "serviceLabel": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "neededBy": zod.string().nullish(),
+  "status": zod.string().describe('pending | accepted | declined'),
+  "declineReason": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Office view of client work requests
+ */
+export const ListWorkRequestsQueryParams = zod.object({
+  "status": zod.coerce.string().optional()
+})
+
+export const ListWorkRequestsResponseItem = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "requesterName": zod.string().nullish(),
+  "serviceId": zod.string().nullish(),
+  "serviceLabel": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "neededBy": zod.string().nullish(),
+  "status": zod.string().describe('pending | accepted | declined'),
+  "declineReason": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListWorkRequestsResponse = zod.array(ListWorkRequestsResponseItem)
+
+
+/**
+ * @summary Accept a work request — auto-creates a job under the property
+ */
+export const AcceptWorkRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const AcceptWorkRequestResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "requesterName": zod.string().nullish(),
+  "serviceId": zod.string().nullish(),
+  "serviceLabel": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "neededBy": zod.string().nullish(),
+  "status": zod.string().describe('pending | accepted | declined'),
+  "declineReason": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Decline a work request
+ */
+export const DeclineWorkRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeclineWorkRequestBody = zod.object({
+  "reason": zod.string().nullish()
+})
+
+export const DeclineWorkRequestResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "requesterName": zod.string().nullish(),
+  "serviceId": zod.string().nullish(),
+  "serviceLabel": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "neededBy": zod.string().nullish(),
+  "status": zod.string().describe('pending | accepted | declined'),
+  "declineReason": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "decidedAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Subscription billing view for a client dashboard (admin section)
+ */
+export const GetClientBillingParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientBillingResponse = zod.object({
+  "propertyName": zod.string(),
+  "tier": zod.string(),
+  "status": zod.string().describe('active | paused'),
+  "billingDay": zod.number(),
+  "nextChargeOn": zod.string().nullish().describe('YYYY-MM-DD, null when paused'),
+  "plans": zod.array(zod.object({
+  "tier": zod.string(),
+  "label": zod.string(),
+  "pricePerMonth": zod.number(),
+  "userSeats": zod.number(),
+  "guestSeats": zod.number(),
+  "blurb": zod.string()
+})),
+  "paymentMethod": zod.union([zod.object({
+  "methodType": zod.string().describe('card | ach'),
+  "last4": zod.string(),
+  "brand": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "payerName": zod.string(),
+  "zip": zod.string().nullish(),
+  "updatedAt": zod.string().nullish()
+}),zod.null()]).optional(),
+  "billingContact": zod.union([zod.object({
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "company": zod.string().nullish(),
+  "phone": zod.string().nullish()
+}),zod.null()]).optional(),
+  "seatUsage": zod.object({
+  "usersActive": zod.number(),
+  "guestsActive": zod.number(),
+  "userSeats": zod.number(),
+  "guestSeats": zod.number()
+})
+})
+
+
+/**
+ * @summary Change billing day, pause/resume, billing contact, or plan
+ */
+export const UpdateClientBillingParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const updateClientBillingBodyBillingDayMax = 28;
+
+
+
+export const UpdateClientBillingBody = zod.object({
+  "billingDay": zod.number().min(1).max(updateClientBillingBodyBillingDayMax).optional(),
+  "status": zod.string().optional().describe('active | paused'),
+  "tier": zod.string().optional(),
+  "billingContact": zod.object({
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "company": zod.string().nullish(),
+  "phone": zod.string().nullish()
+}).optional()
+})
+
+export const UpdateClientBillingResponse = zod.object({
+  "propertyName": zod.string(),
+  "tier": zod.string(),
+  "status": zod.string().describe('active | paused'),
+  "billingDay": zod.number(),
+  "nextChargeOn": zod.string().nullish().describe('YYYY-MM-DD, null when paused'),
+  "plans": zod.array(zod.object({
+  "tier": zod.string(),
+  "label": zod.string(),
+  "pricePerMonth": zod.number(),
+  "userSeats": zod.number(),
+  "guestSeats": zod.number(),
+  "blurb": zod.string()
+})),
+  "paymentMethod": zod.union([zod.object({
+  "methodType": zod.string().describe('card | ach'),
+  "last4": zod.string(),
+  "brand": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "payerName": zod.string(),
+  "zip": zod.string().nullish(),
+  "updatedAt": zod.string().nullish()
+}),zod.null()]).optional(),
+  "billingContact": zod.union([zod.object({
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "company": zod.string().nullish(),
+  "phone": zod.string().nullish()
+}),zod.null()]).optional(),
+  "seatUsage": zod.object({
+  "usersActive": zod.number(),
+  "guestsActive": zod.number(),
+  "userSeats": zod.number(),
+  "guestSeats": zod.number()
+})
+})
+
+
+/**
+ * @summary Store the subscription payment method (sanitized — last4 only)
+ */
+export const PutClientPaymentMethodParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const PutClientPaymentMethodBody = zod.object({
+  "methodType": zod.string().describe('card | ach'),
+  "payerName": zod.string(),
+  "cardNumber": zod.string().optional(),
+  "cardExp": zod.string().optional().describe('MM\/YY'),
+  "cardCode": zod.string().optional().describe('CVV — verified only, never stored'),
+  "accountNumber": zod.string().optional(),
+  "routingNumber": zod.string().optional(),
+  "bankName": zod.string().optional(),
+  "zip": zod.string().optional()
+})
+
+export const PutClientPaymentMethodResponse = zod.object({
+  "propertyName": zod.string(),
+  "tier": zod.string(),
+  "status": zod.string().describe('active | paused'),
+  "billingDay": zod.number(),
+  "nextChargeOn": zod.string().nullish().describe('YYYY-MM-DD, null when paused'),
+  "plans": zod.array(zod.object({
+  "tier": zod.string(),
+  "label": zod.string(),
+  "pricePerMonth": zod.number(),
+  "userSeats": zod.number(),
+  "guestSeats": zod.number(),
+  "blurb": zod.string()
+})),
+  "paymentMethod": zod.union([zod.object({
+  "methodType": zod.string().describe('card | ach'),
+  "last4": zod.string(),
+  "brand": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "payerName": zod.string(),
+  "zip": zod.string().nullish(),
+  "updatedAt": zod.string().nullish()
+}),zod.null()]).optional(),
+  "billingContact": zod.union([zod.object({
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "company": zod.string().nullish(),
+  "phone": zod.string().nullish()
+}),zod.null()]).optional(),
+  "seatUsage": zod.object({
+  "usersActive": zod.number(),
+  "guestsActive": zod.number(),
+  "userSeats": zod.number(),
+  "guestSeats": zod.number()
+})
+})
+
+
+/**
+ * @summary Trello-style client board — cards raised by everything we send
+ */
+export const GetClientBoardParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientBoardResponse = zod.object({
+  "propertyName": zod.string(),
+  "webhookUrl": zod.string().nullish(),
+  "cards": zod.array(zod.object({
+  "id": zod.string(),
+  "column": zod.string().describe('inbox | todo | in_progress | done'),
+  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "actionLabel": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "dueDate": zod.string().nullish(),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
+})),
+  "jobId": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Move a board card between columns
+ */
+export const UpdateClientBoardCardParams = zod.object({
+  "token": zod.coerce.string(),
+  "cardId": zod.coerce.string()
+})
+
+export const UpdateClientBoardCardBody = zod.object({
+  "column": zod.string().describe('inbox | todo | in_progress | done')
+})
+
+export const UpdateClientBoardCardResponse = zod.object({
+  "id": zod.string(),
+  "column": zod.string().describe('inbox | todo | in_progress | done'),
+  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "actionLabel": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "dueDate": zod.string().nullish(),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
+})),
+  "jobId": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Connect or remove the outbound webhook that mirrors board cards
+ */
+export const UpdateClientBoardWebhookParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const UpdateClientBoardWebhookBody = zod.object({
+  "webhookUrl": zod.string().nullish()
+})
+
+export const UpdateClientBoardWebhookResponse = zod.object({
+  "webhookUrl": zod.string().nullish()
+})
+
+
+/**
+ * @summary Build an SOP-compliant invoice draft from a job (AI breakout, double-checked against the rule)
+ */
+export const BuildInvoiceJobDraftBody = zod.object({
+  "jobId": zod.string(),
+  "poNumber": zod.string().nullish()
+})
+
+export const BuildInvoiceJobDraftResponse = zod.object({
+  "jobId": zod.string(),
+  "jobLabel": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "issuedOn": zod.string(),
+  "poNumber": zod.string().nullish(),
+  "invoiceNoPreview": zod.string().nullish(),
+  "dueOnPreview": zod.string().nullish(),
+  "terms": zod.string().nullish(),
+  "billToName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "paymentInstructions": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "taxPreview": zod.number().nullish(),
+  "total": zod.number(),
+  "lineItems": zod.array(zod.object({
+  "dateOfWork": zod.string().optional(),
+  "unitNo": zod.string().optional(),
+  "typeOfWork": zod.string(),
+  "description": zod.string().optional(),
+  "qty": zod.number().optional(),
+  "unitPrice": zod.number().optional()
+})),
+  "compliance": zod.array(zod.object({
+  "stage": zod.string().describe('e.g. \'Draft built from SOP\', \'Second pass — audited against the rule\''),
+  "status": zod.string().describe('pass | fixed | warn'),
+  "detail": zod.string()
+}))
 })
 
 

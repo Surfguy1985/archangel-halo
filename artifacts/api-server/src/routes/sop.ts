@@ -165,7 +165,7 @@ export async function applySopToInvoice(
   const rule = await getSopRule(propertyId);
   if (!rule) return null;
   const f = rule.format ?? {};
-  if (f.po_required && !draft.poNumber) {
+  if (f.po_required && !draft.poNumber?.trim()) {
     return {
       ok: false,
       error:

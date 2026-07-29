@@ -14,6 +14,7 @@ import {
   FileText,
 } from "lucide-react";
 import { FalkonBadge } from "@/components/FalkonBadge";
+import { TrackerMap } from "@/components/TrackerMap";
 
 function fmtWhen(iso?: string | null): string {
   if (!iso) return "";
@@ -188,6 +189,23 @@ export default function JobTracker() {
           <div className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--gold-dark)] mb-[16px] flex items-center gap-[8px]">
             <MapPin className="w-[14px] h-[14px]" /> GPS time on site
           </div>
+          {data.checkins.some((c) => c.lat != null && c.lng != null) && (
+            <div className="mb-[16px]">
+              <TrackerMap
+                pins={data.checkins
+                  .filter((c) => c.lat != null && c.lng != null)
+                  .map((c) => ({
+                    id: c.id,
+                    lat: c.lat as number,
+                    lng: c.lng as number,
+                    accuracy: c.accuracy,
+                    kind: c.kind === "checkout" ? ("checkout" as const) : ("checkin" as const),
+                    label: `${c.kind === "checkout" ? "Checked out" : "Checked in"} — ${c.crewName ?? "Crew"}`,
+                    sublabel: fmtWhen(c.createdAt),
+                  }))}
+              />
+            </div>
+          )}
           {data.checkins.length === 0 ? (
             <div className="text-[14px] text-muted-foreground bg-black/[0.02] p-[16px] rounded-[16px] border border-[var(--hairline)] text-center">
               The crew hasn't checked in yet. This page updates automatically.

@@ -1,0 +1,621 @@
+import { Router, type IRouter } from "express";
+import { randomBytes, scryptSync } from "crypto";
+import { desc, eq } from "drizzle-orm";
+import {
+  db,
+  clientAccountsTable,
+  clientUsersTable,
+  clientOnboardingSendsTable,
+  propertiesTable,
+  contactsTable,
+  priceItemsTable,
+  type ClientAccount,
+  type ClientUser,
+  type ClientOnboardingSend,
+} from "@workspace/db";
+import {
+  ListClientAccountsResponse,
+  GetClientAccountResponse,
+  UpsertClientAccountBody,
+  UpsertClientAccountResponse,
+  CreateClientUserBody,
+  CreateClientUserResponse,
+  UpdateClientUserBody,
+  UpdateClientUserResponse,
+  ResetClientUserPasswordBody,
+  ResetClientUserPasswordResponse,
+  DeleteClientUserResponse,
+  RegenerateDashboardTokenResponse,
+  SendClientOnboardingBody,
+  SendClientOnboardingResponse,
+} from "@workspace/api-zod";
+import { sendEmail } from "../lib/email";
+import { getBusinessSettings } from "../lib/businessSettings";
+import { ser } from "../lib/serialize";
+
+const router: IRouter = Router();
+
+const TIERS = new Set(["basic", "pro", "enterprise"]);
+const STATUSES = new Set(["active", "paused", "cancelled"]);
+const ROLES = new Set(["admin", "member", "guest"]);
+
+class SeatError extends Error {}
+
+function isUniqueViolation(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    ("code" in e && (e as { code?: string }).code === "23505" ||
+      /duplicate key/i.test((e as Error).message ?? ""))
+  );
+}
+
+function escHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function newToken(): string {
+  return randomBytes(18).toString("base64url");
+}
+
+function newTempPassword(): string {
+  // Readable, no ambiguous chars, 10 chars.
+  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const bytes = randomBytes(10);
+  let out = "";
+  for (const b of bytes) out += alphabet[b % alphabet.length];
+  return out;
+}
+
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function publicBaseUrl(): string {
+  const domain =
+    process.env.REPLIT_DOMAINS?.split(",")[0] ?? process.env.REPLIT_DEV_DOMAIN;
+  return domain ? `https://${domain}` : "";
+}
+
+function dashboardUrl(token: string): string {
+  const base = publicBaseUrl();
+  return base ? `${base}/client/${token}` : `/client/${token}`;
+}
+
+async function ensureAccount(propertyId: string): Promise<ClientAccount> {
+  const [existing] = await db
+    .select()
+    .from(clientAccountsTable)
+    .where(eq(clientAccountsTable.propertyId, propertyId));
+  if (existing) return existing;
+  const [created] = await db
+    .insert(clientAccountsTable)
+    .values({ propertyId, dashboardToken: newToken() })
+    .onConflictDoNothing({ target: clientAccountsTable.propertyId })
+    .returning();
+  if (created) return created;
+  const [raced] = await db
+    .select()
+    .from(clientAccountsTable)
+    .where(eq(clientAccountsTable.propertyId, propertyId));
+  return raced;
+}
+
+function serAccount(a: ClientAccount) {
+  return {
+    id: a.id,
+    propertyId: a.propertyId,
+    tier: a.tier,
+    userSeats: a.userSeats,
+    guestSeats: a.guestSeats,
+    status: a.status,
+    notes: a.notes,
+    logoPath: a.logoPath,
+    servicesOverview: a.servicesOverview,
+    dashboardToken: a.dashboardToken,
+    dashboardUrl: dashboardUrl(a.dashboardToken),
+    onboardingStatus: a.onboardingStatus,
+    onboardingSentAt: a.onboardingSentAt ? a.onboardingSentAt.toISOString() : null,
+  };
+}
+
+function serUser(u: ClientUser) {
+  return {
+    id: u.id,
+    propertyId: u.propertyId,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    active: u.active,
+    lastPasswordResetAt: u.lastPasswordResetAt
+      ? u.lastPasswordResetAt.toISOString()
+      : null,
+    createdAt: u.createdAt.toISOString(),
+  };
+}
+
+function serSend(s: ClientOnboardingSend) {
+  return {
+    id: s.id,
+    propertyId: s.propertyId,
+    channel: s.channel,
+    sentTo: s.sentTo,
+    link: s.link,
+    status: s.status,
+    detail: s.detail,
+    createdAt: s.createdAt.toISOString(),
+  };
+}
+
+router.get("/admin/accounts", async (_req, res): Promise<void> => {
+  const [props, accounts, users] = await Promise.all([
+    db.select().from(propertiesTable).where(eq(propertiesTable.status, "active")),
+    db.select().from(clientAccountsTable),
+    db.select().from(clientUsersTable),
+  ]);
+  const accountByProp = new Map(accounts.map((a) => [a.propertyId, a]));
+  const seatCount = new Map<string, number>();
+  for (const u of users) {
+    if (u.active && u.role !== "guest") {
+      seatCount.set(u.propertyId, (seatCount.get(u.propertyId) ?? 0) + 1);
+    }
+  }
+  const out = props
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((p) => {
+      const a = accountByProp.get(p.id);
+      return {
+        propertyId: p.id,
+        propertyName: p.name,
+        pmcName: p.pmcName,
+        city: p.city,
+        units: p.units,
+        logoPath: a?.logoPath ?? null,
+        tier: a?.tier ?? "basic",
+        status: a?.status ?? "active",
+        userSeatsUsed: seatCount.get(p.id) ?? 0,
+        userSeats: a?.userSeats ?? 3,
+        guestSeats: a?.guestSeats ?? 5,
+        onboardingStatus: a?.onboardingStatus ?? "not_sent",
+        hasAccount: !!a,
+      };
+    });
+  res.json(ListClientAccountsResponse.parse(out));
+});
+
+router.get("/admin/accounts/:propertyId", async (req, res): Promise<void> => {
+  const propertyId = req.params.propertyId;
+  const [property] = await db
+    .select()
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, propertyId));
+  if (!property) {
+    res.status(404).json({ error: "Property not found" });
+    return;
+  }
+  const account = await ensureAccount(propertyId);
+  const [users, sends, contacts, services] = await Promise.all([
+    db
+      .select()
+      .from(clientUsersTable)
+      .where(eq(clientUsersTable.propertyId, propertyId))
+      .orderBy(desc(clientUsersTable.createdAt)),
+    db
+      .select()
+      .from(clientOnboardingSendsTable)
+      .where(eq(clientOnboardingSendsTable.propertyId, propertyId))
+      .orderBy(desc(clientOnboardingSendsTable.createdAt))
+      .limit(20),
+    db.select().from(contactsTable).where(eq(contactsTable.propertyId, propertyId)),
+    db
+      .select()
+      .from(priceItemsTable)
+      .where(eq(priceItemsTable.propertyId, propertyId)),
+  ]);
+  res.json(
+    GetClientAccountResponse.parse({
+      account: serAccount(account),
+      users: users.map(serUser),
+      sends: sends.map(serSend),
+      property: {
+        id: property.id,
+        name: property.name,
+        pmcName: property.pmcName,
+        address: property.address,
+        city: property.city,
+        units: property.units,
+        brief: property.brief,
+      },
+      contacts: contacts.map((c) => ser(c)),
+      services: services.map((s) => ser(s)),
+    }),
+  );
+});
+
+router.put("/admin/accounts/:propertyId", async (req, res): Promise<void> => {
+  const propertyId = req.params.propertyId;
+  const body = UpsertClientAccountBody.parse(req.body);
+  const [property] = await db
+    .select()
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, propertyId));
+  if (!property) {
+    res.status(404).json({ error: "Property not found" });
+    return;
+  }
+  if (body.tier != null && !TIERS.has(body.tier)) {
+    res.status(400).json({ error: "Tier must be basic, pro, or enterprise" });
+    return;
+  }
+  if (body.status != null && !STATUSES.has(body.status)) {
+    res.status(400).json({ error: "Status must be active, paused, or cancelled" });
+    return;
+  }
+  const account = await ensureAccount(propertyId);
+  const [updated] = await db
+    .update(clientAccountsTable)
+    .set({
+      ...(body.tier != null ? { tier: body.tier } : {}),
+      ...(body.userSeats != null
+        ? { userSeats: Math.max(0, Math.round(body.userSeats)) }
+        : {}),
+      ...(body.guestSeats != null
+        ? { guestSeats: Math.max(0, Math.round(body.guestSeats)) }
+        : {}),
+      ...(body.status != null ? { status: body.status } : {}),
+      ...(body.notes !== undefined ? { notes: body.notes } : {}),
+      ...(body.logoPath !== undefined ? { logoPath: body.logoPath } : {}),
+      ...(body.servicesOverview !== undefined
+        ? { servicesOverview: body.servicesOverview }
+        : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(clientAccountsTable.id, account.id))
+    .returning();
+  res.json(UpsertClientAccountResponse.parse(serAccount(updated)));
+});
+
+router.post(
+  "/admin/accounts/:propertyId/users",
+  async (req, res): Promise<void> => {
+    const propertyId = req.params.propertyId;
+    const body = CreateClientUserBody.parse(req.body);
+    const email = body.email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({ error: "Enter a valid email address" });
+      return;
+    }
+    const role = body.role != null && ROLES.has(body.role) ? body.role : "member";
+    const [property] = await db
+      .select({ id: propertiesTable.id })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, propertyId));
+    if (!property) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const account = await ensureAccount(propertyId);
+    const tempPassword = newTempPassword();
+    let user: ClientUser;
+    try {
+      user = await db.transaction(async (tx) => {
+        // Lock this property's rows for the seat check (serialize concurrent creates).
+        const users = await tx
+          .select()
+          .from(clientUsersTable)
+          .where(eq(clientUsersTable.propertyId, propertyId))
+          .for("update");
+        if (users.some((u) => u.email.toLowerCase() === email)) {
+          throw new SeatError("A login with that email already exists");
+        }
+        const activeSeated = users.filter((u) => u.active && u.role !== "guest").length;
+        const activeGuests = users.filter((u) => u.active && u.role === "guest").length;
+        if (role !== "guest" && activeSeated >= account.userSeats) {
+          throw new SeatError(
+            `All ${account.userSeats} user seats are taken — raise the seat count or deactivate a user first`,
+          );
+        }
+        if (role === "guest" && activeGuests >= account.guestSeats) {
+          throw new SeatError(
+            `All ${account.guestSeats} guest seats are taken — raise the guest seat count first`,
+          );
+        }
+        const [created] = await tx
+          .insert(clientUsersTable)
+          .values({
+            propertyId,
+            name: body.name.trim(),
+            email,
+            role,
+            passwordHash: hashPassword(tempPassword),
+          })
+          .returning();
+        return created;
+      });
+    } catch (e) {
+      if (e instanceof SeatError) {
+        res.status(400).json({ error: e.message });
+        return;
+      }
+      if (isUniqueViolation(e)) {
+        res.status(400).json({ error: "A login with that email already exists" });
+        return;
+      }
+      throw e;
+    }
+    let emailed = false;
+    if (body.sendEmail) {
+      emailed = await emailCredentials(user, tempPassword, account);
+    }
+    res
+      .status(201)
+      .json(
+        CreateClientUserResponse.parse({
+          user: serUser(user),
+          tempPassword,
+          emailed,
+        }),
+      );
+  },
+);
+
+async function emailCredentials(
+  user: ClientUser,
+  tempPassword: string,
+  account: ClientAccount,
+): Promise<boolean> {
+  const settings = await getBusinessSettings();
+  const company = settings.companyName || "ArchAngel Contractors";
+  const link = dashboardUrl(account.dashboardToken);
+  const result = await sendEmail({
+    to: user.email,
+    subject: `Your ${company} dashboard login`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#101318">
+        <h2 style="margin-bottom:4px">Your dashboard login</h2>
+        <p>Hi ${escHtml(user.name)},</p>
+        <p>Here are your login details for the ${escHtml(company)} property dashboard:</p>
+        <p style="background:#f4f5f7;border-radius:8px;padding:14px 16px">
+          <b>Email:</b> ${escHtml(user.email)}<br/>
+          <b>Temporary password:</b> <code>${tempPassword}</code>
+        </p>
+        <p><a href="${link}" style="background:#B4FF44;color:#000;text-decoration:none;font-weight:bold;padding:10px 18px;border-radius:10px;display:inline-block">Open your dashboard</a></p>
+        <p style="color:#667085;font-size:13px">Keep this password safe — you can ask us for a reset any time.</p>
+      </div>`,
+  });
+  return result.ok;
+}
+
+router.patch("/admin/client-users/:id", async (req, res): Promise<void> => {
+  const body = UpdateClientUserBody.parse(req.body);
+  const [user] = await db
+    .select()
+    .from(clientUsersTable)
+    .where(eq(clientUsersTable.id, req.params.id));
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (body.role != null && !ROLES.has(body.role)) {
+    res.status(400).json({ error: "Role must be admin, member, or guest" });
+    return;
+  }
+  const nextRole = body.role ?? user.role;
+  const nextActive = body.active ?? user.active;
+  try {
+    const updated = await db.transaction(async (tx) => {
+      // Re-check seat caps whenever the user would (re)occupy a seat.
+      const becomesSeated =
+        nextActive && (!user.active || user.role !== nextRole);
+      if (becomesSeated) {
+        const account = await ensureAccount(user.propertyId);
+        const others = await tx
+          .select()
+          .from(clientUsersTable)
+          .where(eq(clientUsersTable.propertyId, user.propertyId))
+          .for("update");
+        const activeSeated = others.filter(
+          (u) => u.id !== user.id && u.active && u.role !== "guest",
+        ).length;
+        const activeGuests = others.filter(
+          (u) => u.id !== user.id && u.active && u.role === "guest",
+        ).length;
+        if (nextRole !== "guest" && activeSeated >= account.userSeats) {
+          throw new SeatError(
+            `All ${account.userSeats} user seats are taken — raise the seat count or deactivate a user first`,
+          );
+        }
+        if (nextRole === "guest" && activeGuests >= account.guestSeats) {
+          throw new SeatError(
+            `All ${account.guestSeats} guest seats are taken — raise the guest seat count first`,
+          );
+        }
+      }
+      const [row] = await tx
+        .update(clientUsersTable)
+        .set({
+          ...(body.name != null ? { name: body.name.trim() } : {}),
+          ...(body.email != null
+            ? { email: body.email.trim().toLowerCase() }
+            : {}),
+          ...(body.role != null ? { role: body.role } : {}),
+          ...(body.active != null ? { active: body.active } : {}),
+        })
+        .where(eq(clientUsersTable.id, user.id))
+        .returning();
+      return row;
+    });
+    res.json(UpdateClientUserResponse.parse(serUser(updated)));
+  } catch (e) {
+    if (e instanceof SeatError) {
+      res.status(400).json({ error: e.message });
+      return;
+    }
+    if (isUniqueViolation(e)) {
+      res.status(400).json({ error: "A login with that email already exists" });
+      return;
+    }
+    throw e;
+  }
+});
+
+router.delete("/admin/client-users/:id", async (req, res): Promise<void> => {
+  const [deleted] = await db
+    .delete(clientUsersTable)
+    .where(eq(clientUsersTable.id, req.params.id))
+    .returning();
+  if (!deleted) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json(DeleteClientUserResponse.parse({ ok: true }));
+});
+
+router.post(
+  "/admin/client-users/:id/reset-password",
+  async (req, res): Promise<void> => {
+    const body = ResetClientUserPasswordBody.parse(req.body ?? {});
+    const [user] = await db
+      .select()
+      .from(clientUsersTable)
+      .where(eq(clientUsersTable.id, req.params.id));
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    const tempPassword = newTempPassword();
+    const [updated] = await db
+      .update(clientUsersTable)
+      .set({
+        passwordHash: hashPassword(tempPassword),
+        lastPasswordResetAt: new Date(),
+      })
+      .where(eq(clientUsersTable.id, user.id))
+      .returning();
+    let emailed = false;
+    if (body.sendEmail) {
+      const account = await ensureAccount(user.propertyId);
+      emailed = await emailCredentials(updated, tempPassword, account);
+    }
+    res.json(
+      ResetClientUserPasswordResponse.parse({
+        user: serUser(updated),
+        tempPassword,
+        emailed,
+      }),
+    );
+  },
+);
+
+router.post(
+  "/admin/accounts/:propertyId/token/regenerate",
+  async (req, res): Promise<void> => {
+    const [property] = await db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, req.params.propertyId));
+    if (!property) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const account = await ensureAccount(property.id);
+    const [updated] = await db
+      .update(clientAccountsTable)
+      .set({ dashboardToken: newToken(), updatedAt: new Date() })
+      .where(eq(clientAccountsTable.id, account.id))
+      .returning();
+    res.json(RegenerateDashboardTokenResponse.parse(serAccount(updated)));
+  },
+);
+
+router.post(
+  "/admin/accounts/:propertyId/onboarding/send",
+  async (req, res): Promise<void> => {
+    const body = SendClientOnboardingBody.parse(req.body);
+    const [property] = await db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, req.params.propertyId));
+    if (!property) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    if (body.channel !== "email" && body.channel !== "sms") {
+      res.status(400).json({ error: "Channel must be email or sms" });
+      return;
+    }
+    const to = body.to.trim();
+    if (!to) {
+      res.status(400).json({ error: "Enter where to send the link" });
+      return;
+    }
+    const account = await ensureAccount(property.id);
+    const link = dashboardUrl(account.dashboardToken);
+    const settings = await getBusinessSettings();
+    const company = settings.companyName || "ArchAngel Contractors";
+
+    let ok = false;
+    let detail: string | null = null;
+    if (body.channel === "email") {
+      const note = body.message
+        ? `<p style="background:#f4f5f7;border-radius:8px;padding:12px 14px">${escHtml(body.message)}</p>`
+        : "";
+      const result = await sendEmail({
+        to,
+        subject: `${property.name} — your ${company} property dashboard`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#101318">
+            <h2 style="margin-bottom:4px">Welcome to your property dashboard</h2>
+            <p>${escHtml(company)} set up a live dashboard for <b>${escHtml(property.name)}</b> —
+            track work orders, crews on site, invoices, and photos in real time.
+            Open it on your phone and add it to your home screen to install the app.</p>
+            ${note}
+            <p><a href="${link}" style="background:#B4FF44;color:#000;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:10px;display:inline-block">Open your dashboard</a></p>
+            <p style="color:#667085;font-size:13px">Or copy this link: ${link}</p>
+          </div>`,
+      });
+      ok = result.ok;
+      detail = result.ok ? null : (result.error ?? "Email delivery failed");
+    } else {
+      // SMS delivery is not wired up yet (Twilio helper pending).
+      ok = false;
+      detail = "SMS delivery is not set up yet — send by email for now";
+    }
+
+    const [send] = await db
+      .insert(clientOnboardingSendsTable)
+      .values({
+        propertyId: property.id,
+        channel: body.channel,
+        sentTo: to,
+        link,
+        status: ok ? "sent" : "failed",
+        detail,
+      })
+      .returning();
+
+    if (ok) {
+      await db
+        .update(clientAccountsTable)
+        .set({
+          onboardingStatus: "sent",
+          onboardingSentAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(clientAccountsTable.id, account.id));
+    }
+    if (!ok) {
+      res.status(400).json({ error: detail ?? "Delivery failed" });
+      return;
+    }
+    res.json(SendClientOnboardingResponse.parse(serSend(send)));
+  },
+);
+
+export default router;

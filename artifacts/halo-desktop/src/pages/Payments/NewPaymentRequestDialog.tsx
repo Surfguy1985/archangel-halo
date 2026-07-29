@@ -4,6 +4,7 @@ import {
   useCreatePaymentRequest,
   useListProperties,
   useListJobs,
+  useListInvoices,
   useExtractPaymentInfo,
   getListPaymentRequestsQueryKey,
   getGetPayHubOverviewQueryKey,
@@ -22,7 +23,8 @@ import { Label} from "@/components/ui/label";
 import { Checkbox} from "@/components/ui/checkbox";
 import { useToast} from "@/hooks/use-toast";
 import { prepareScanImage} from "@/lib/scanImage";
-import { Loader2, ScanLine, AlertTriangle, CheckCircle2} from "lucide-react";
+import { Loader2, ScanLine, AlertTriangle, CheckCircle2, FileText, Paperclip, Upload, X} from "lucide-react";
+import { uploadReceiptFile} from "@/components/MoneyDialogs";
 import {
   Select,
   SelectContent,
@@ -39,12 +41,16 @@ export function NewPaymentRequestDialog({ open, onOpenChange}: { open: boolean, 
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [jobAmounts, setJobAmounts] = useState<Record<string, string>>({});
   const [customItems, setCustomItems] = useState<CustomItem[]>([]);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
+  const [uploads, setUploads] = useState<{ label: string, objectPath: string}[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [memo, setMemo] = useState("");
   const [payerInfo, setPayerInfo] = useState<PaymentOcrResult["payerInfo"] | undefined>();
   const [ocrConfidence, setOcrConfidence] = useState("");
 
   const { data: properties} = useListProperties();
   const { data: jobs} = useListJobs({ status: "completed"});
+  const { data: allInvoices} = useListInvoices();
   
   const createReq = useCreatePaymentRequest();
   const extract = useExtractPaymentInfo();
@@ -52,6 +58,14 @@ export function NewPaymentRequestDialog({ open, onOpenChange}: { open: boolean, 
   const queryClient = useQueryClient();
 
   const propertyJobs = jobs?.filter(j => j.propertyId === propertyId && j.status === "completed") || [];
+
+  const invoicesForJob = (jobId: string) =>
+    (allInvoices || []).filter(inv => inv.jobId === jobId && inv.status !== "cancelled" && inv.status !== "paid");
+  const invoiceTotal = (inv: { amount: number, taxAmount?: number | null}) =>
+    inv.amount + (inv.taxAmount ?? 0);
+  // Invoices picked for a job replace that job's single amount line.
+  const pickedForJob = (jobId: string) =>
+    invoicesForJob(jobId).filter(inv => selectedInvoiceIds.has(inv.id));
 
   const jobAmount = (jobId: string, fallback: number) => {
     const raw = jobAmounts[jobId];
@@ -67,7 +81,11 @@ export function NewPaymentRequestDialog({ open, onOpenChange}: { open: boolean, 
 
   const total = propertyJobs
     .filter(j => selectedJobIds.has(j.id))
-    .reduce((sum, j) => sum + jobAmount(j.id, j.lineTotal || 0), 0) + customTotal;
+    .reduce((sum, j) => {
+      const picked = pickedForJob(j.id);
+      if (picked.length > 0) return sum + picked.reduce((s, inv) => s + invoiceTotal(inv), 0);
+      return sum + jobAmount(j.id, j.lineTotal || 0);
+   }, 0) + customTotal;
 
   const validCustomItems = customItems
     .map(c => ({ label: c.label.trim(), amount: parseFloat(c.amount)}))
@@ -86,18 +104,22 @@ export function NewPaymentRequestDialog({ open, onOpenChange}: { open: boolean, 
       toast({ title: "Request total must be greater than $0", variant: "destructive"});
       return;
    }
+    // Always send the amount shown in the dialog so the created request
+    // total can never differ from what the office saw.
     const overrides: Record<string, number> = {};
     for (const id of selectedJobIds) {
-      const raw = jobAmounts[id];
-      if (raw !== undefined && raw !== "") {
-        const n = parseFloat(raw);
-        if (Number.isFinite(n) && n >= 0) overrides[id] = n;
-     }
+      if (pickedForJob(id).length > 0) continue; // invoice lines drive the amount
+      const job = propertyJobs.find(j => j.id === id);
+      overrides[id] = jobAmount(id, job?.lineTotal || 0);
    }
+    // Only send invoice picks that belong to a selected job.
+    const invoiceIds = Array.from(selectedJobIds).flatMap(jobId => pickedForJob(jobId).map(inv => inv.id));
     createReq.mutate({
       data: {
         propertyId,
         jobIds: Array.from(selectedJobIds),
+        ...(invoiceIds.length ? { invoiceIds} : {}),
+        ...(uploads.length ? { uploads} : {}),
         ...(Object.keys(overrides).length ? { jobAmounts: overrides} : {}),
         ...(validCustomItems.length ? { customItems: validCustomItems} : {}),
         memo,
@@ -112,6 +134,8 @@ export function NewPaymentRequestDialog({ open, onOpenChange}: { open: boolean, 
         setSelectedJobIds(new Set());
         setJobAmounts({});
         setCustomItems([]);
+        setSelectedInvoiceIds(new Set());
+        setUploads([]);
         setMemo("");
         setPayerInfo(undefined);
         setOcrConfidence("");
@@ -188,42 +212,93 @@ export function NewPaymentRequestDialog({ open, onOpenChange}: { open: boolean, 
                   {propertyJobs.length === 0 ? (
                     <div className="text-sm text-muted-foreground p-2 text-center">No unbilled completed jobs found.</div>
                   ) : (
-                    propertyJobs.map(job => (
-                      <div key={job.id} className="flex items-center space-x-3 bg-white p-3 border border-border rounded-xl shadow-sm">
-                        <Checkbox 
-                          id={`job-${job.id}`} 
-                          checked={selectedJobIds.has(job.id)}
-                          onCheckedChange={(c) => {
-                            const next = new Set(selectedJobIds);
-                            if (c) next.add(job.id);
-                            else next.delete(job.id);
-                            setSelectedJobIds(next);
-                         }}
-                          className="rounded-sm border-border data-[state=checked]:bg-[var(--primary)] data-[state=checked]:text-black"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <label htmlFor={`job-${job.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
-                            {job.jobNo}: {job.category || job.description?.substring(0, 30)}
-                          </label>
-                        </div>
-                        {selectedJobIds.has(job.id) ? (
-                          <div className="relative w-28">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={jobAmounts[job.id] ?? String(job.lineTotal || 0)}
-                              onChange={e => setJobAmounts(prev => ({ ...prev, [job.id]: e.target.value}))}
-                              className="rounded-lg bg-white border-border h-9 pl-6 text-right font-bold"
-                              data-testid={`input-job-amount-${job.id}`}
-                            />
+                    propertyJobs.map(job => {
+                      const jobInvoices = invoicesForJob(job.id);
+                      const picked = pickedForJob(job.id);
+                      return (
+                      <div key={job.id} className="bg-white p-3 border border-border rounded-xl shadow-sm space-y-2">
+                        <div className="flex items-center space-x-3">
+                          <Checkbox 
+                            id={`job-${job.id}`} 
+                            checked={selectedJobIds.has(job.id)}
+                            onCheckedChange={(c) => {
+                              const next = new Set(selectedJobIds);
+                              if (c) next.add(job.id);
+                              else {
+                                next.delete(job.id);
+                                // Drop any invoice picks for a deselected job.
+                                setSelectedInvoiceIds(prev => {
+                                  const p = new Set(prev);
+                                  for (const inv of jobInvoices) p.delete(inv.id);
+                                  return p;
+                               });
+                             }
+                              setSelectedJobIds(next);
+                           }}
+                            className="rounded-sm border-border data-[state=checked]:bg-[var(--primary)] data-[state=checked]:text-black"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <label htmlFor={`job-${job.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                              {job.jobNo}: {job.category || job.description?.substring(0, 30)}
+                            </label>
                           </div>
-                        ) : (
-                          <div className="text-sm font-bold text-foreground">{moneyFmt(job.lineTotal || 0)}</div>
+                          {selectedJobIds.has(job.id) ? (
+                            picked.length > 0 ? (
+                              <div className="text-sm font-bold text-foreground" data-testid={`text-job-invoice-total-${job.id}`}>
+                                {moneyFmt(picked.reduce((s, inv) => s + invoiceTotal(inv), 0))}
+                              </div>
+                            ) : (
+                            <div className="relative w-28">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={jobAmounts[job.id] ?? String(job.lineTotal || 0)}
+                                onChange={e => setJobAmounts(prev => ({ ...prev, [job.id]: e.target.value}))}
+                                className="rounded-lg bg-white border-border h-9 pl-6 text-right font-bold"
+                                data-testid={`input-job-amount-${job.id}`}
+                              />
+                            </div>
+                            )
+                          ) : (
+                            <div className="text-sm font-bold text-foreground">{moneyFmt(job.lineTotal || 0)}</div>
+                          )}
+                        </div>
+                        {selectedJobIds.has(job.id) && jobInvoices.length > 0 && (
+                          <div className="ml-7 space-y-1 border-l-2 border-border pl-3">
+                            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                              Bill specific invoice{jobInvoices.length > 1 ? "s" : ""} — each shows as its own line + attached PDF
+                            </div>
+                            {jobInvoices.map(inv => (
+                              <div key={inv.id} className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`inv-${inv.id}`}
+                                  checked={selectedInvoiceIds.has(inv.id)}
+                                  onCheckedChange={(c) => {
+                                    setSelectedInvoiceIds(prev => {
+                                      const next = new Set(prev);
+                                      if (c) next.add(inv.id);
+                                      else next.delete(inv.id);
+                                      return next;
+                                   });
+                                 }}
+                                  className="rounded-sm border-border data-[state=checked]:bg-[var(--primary)] data-[state=checked]:text-black"
+                                  data-testid={`checkbox-invoice-${inv.id}`}
+                                />
+                                <label htmlFor={`inv-${inv.id}`} className="flex-1 text-sm cursor-pointer flex items-center gap-1.5 min-w-0">
+                                  <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                  <span className="font-medium">{inv.invoiceNo}</span>
+                                  <span className="text-xs text-muted-foreground capitalize">· {inv.status}</span>
+                                </label>
+                                <span className="text-sm font-bold">{moneyFmt(invoiceTotal(inv))}</span>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                    ))
+                      );
+                   })
                   )}
                 </div>
               </div>
@@ -278,6 +353,65 @@ export function NewPaymentRequestDialog({ open, onOpenChange}: { open: boolean, 
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {propertyId && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-muted-foreground flex items-center gap-1.5"><Paperclip className="w-3.5 h-3.5" /> Attached PDFs</Label>
+                  <div className="relative">
+                    <Input
+                      type="file"
+                      id="attach-upload"
+                      className="sr-only"
+                      accept="application/pdf"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
+                        setUploading(true);
+                        const objectPath = await uploadReceiptFile(file);
+                        setUploading(false);
+                        if (objectPath) {
+                          setUploads(prev => [...prev, { label: file.name, objectPath}]);
+                       } else {
+                          toast({ title: "Upload failed", variant: "destructive"});
+                       }
+                     }}
+                    />
+                    <Label htmlFor="attach-upload" className="cursor-pointer inline-flex items-center text-sm font-bold text-foreground hover:opacity-70">
+                      {uploading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
+                      Upload PDF
+                    </Label>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {Array.from(selectedInvoiceIds).length === 0 && uploads.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">
+                      Select invoices above to attach their PDFs automatically, or upload a PDF from us.
+                    </div>
+                  ) : (
+                    <>
+                      {(allInvoices || []).filter(inv => selectedInvoiceIds.has(inv.id)).map(inv => (
+                        <div key={inv.id} className="flex items-center gap-2 text-sm bg-white border border-border rounded-lg px-3 py-2">
+                          <FileText className="w-4 h-4 text-muted-foreground" />
+                          <span className="flex-1">Invoice {inv.invoiceNo} (PDF)</span>
+                          <span className="text-xs text-muted-foreground">auto-attached</span>
+                        </div>
+                      ))}
+                      {uploads.map((u, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm bg-white border border-border rounded-lg px-3 py-2">
+                          <FileText className="w-4 h-4 text-muted-foreground" />
+                          <span className="flex-1 truncate">{u.label}</span>
+                          <button type="button" aria-label="Remove attachment" onClick={() => setUploads(prev => prev.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-foreground">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
               </div>
             )}
 

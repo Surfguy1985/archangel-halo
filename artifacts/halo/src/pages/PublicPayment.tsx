@@ -16,13 +16,14 @@ import {
   AlertCircle,
   FileText,
   Check,
+  Mail,
 } from "lucide-react";
 
 const fmtMoney = (n: number) => `$${n.toFixed(2)}`;
 const fmtDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString() : "";
 
-type PaymentMethod = "card" | "ach" | "wire" | "echeck";
+type PaymentMethod = "card" | "ach" | "wire" | "echeck" | "check";
 
 export default function PublicPayment() {
   const { token } = useParams<{ token: string }>();
@@ -37,6 +38,7 @@ export default function PublicPayment() {
   const [zip, setZip] = useState("");
   const [routingNumber, setRoutingNumber] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
+  const [checkNumber, setCheckNumber] = useState("");
   const [email, setEmail] = useState("");
   const [success, setSuccess] = useState(false);
   const [receipt, setReceipt] = useState<any>(null);
@@ -52,7 +54,7 @@ export default function PublicPayment() {
     if (method === "ach" || method === "echeck") {
       return !!routingNumber && !!accountNumber;
     }
-    if (method === "wire") {
+    if (method === "wire" || method === "check") {
       return true;
     }
     return false;
@@ -73,6 +75,9 @@ export default function PublicPayment() {
     if (method === "ach" || method === "echeck") {
       data.routingNumber = routingNumber;
       data.accountNumber = accountNumber;
+    }
+    if (method === "check" && checkNumber) {
+      data.checkNumber = checkNumber;
     }
 
     submit.mutate(
@@ -248,6 +253,30 @@ export default function PublicPayment() {
               </div>
             </div>
           )}
+
+          {req.attachments && req.attachments.length > 0 && (
+            <div className="relative z-10 border-t border-border/60 pt-[16px] mt-[8px]">
+              <div className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-[10px]">
+                Documents
+              </div>
+              <div className="space-y-[8px]">
+                {req.attachments.map((a, i) => (
+                  <a
+                    key={i}
+                    href={a.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-[10px] rounded-[12px] border border-border/60 bg-muted/10 px-[14px] py-[10px] text-[13.5px] font-medium text-[var(--ink)] hover:bg-muted/20 transition-colors"
+                    data-testid={`link-attachment-${i}`}
+                  >
+                    <FileText className="w-[16px] h-[16px] text-muted-foreground shrink-0" />
+                    <span className="flex-1 truncate">{a.label}</span>
+                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">PDF</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {!req.approvedAt ? (
@@ -292,6 +321,7 @@ export default function PublicPayment() {
                   { key: "ach" as PaymentMethod, label: "ACH", icon: Building2 },
                   { key: "wire" as PaymentMethod, label: "Wire", icon: DollarSign },
                   { key: "echeck" as PaymentMethod, label: "eCheck", icon: Building2 },
+                  { key: "check" as PaymentMethod, label: "Mail a check", icon: Mail },
                 ].map((m) => {
                   const Icon = m.icon;
                   return (
@@ -414,6 +444,35 @@ export default function PublicPayment() {
                       />
                     </div>
                   </>
+                )}
+
+                {method === "check" && (
+                  <div className="bg-muted/30 rounded-[12px] p-[14px] text-[13px] text-muted-foreground leading-relaxed">
+                    <div className="font-semibold text-foreground mb-[6px]">Mail your check to</div>
+                    <div className="space-y-[2px] font-mono text-[12px]" data-testid="text-mailing-address">
+                      <div>{req.mailingAddress?.name}</div>
+                      {req.mailingAddress?.attn && <div>{req.mailingAddress.attn}</div>}
+                      <div>{req.mailingAddress?.street}</div>
+                      <div>{req.mailingAddress?.city}</div>
+                    </div>
+                    <div className="mt-[10px] text-[12px]">
+                      Write request #{req.requestNo} in the memo line. Click Confirm below once
+                      it's in the mail so we know to watch for it.
+                    </div>
+                    <div className="mt-[12px]">
+                      <label className="block text-[12px] font-semibold text-muted-foreground mb-[6px]">
+                        Check number (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={checkNumber}
+                        onChange={(e) => setCheckNumber(e.target.value)}
+                        placeholder="e.g. 1042"
+                        className="w-full border border-border rounded-[10px] px-[12px] py-[10px] text-[15px] font-mono bg-card"
+                        data-testid="input-check-number"
+                      />
+                    </div>
+                  </div>
                 )}
 
                 {method === "wire" && (

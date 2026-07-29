@@ -31,6 +31,9 @@ import {
   SubmitPublicPaymentResponse,
   CreateCrewPayoutBody,
   CreateCrewPayoutResponse,
+  GetPayoutQueueResponse,
+  CreateCrewPayoutBatchBody,
+  CreateCrewPayoutBatchResponse,
   GetPayoutDistributionResponse,
   GetCrewBankStatusResponse,
 } from "@workspace/api-zod";
@@ -40,8 +43,19 @@ import { getBusinessSettings } from "../lib/businessSettings";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import { syncInvoiceLedger } from "../lib/ledger";
 import { jobLabelMap } from "../lib/jobLabels";
+import { raiseClientCard, completeClientCard } from "../lib/clientBoard";
 
 const router: IRouter = Router();
+
+// Postgres unique-violation guard (crew_payouts_paid_crew_job_uq et al).
+function isUniqueViolation(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    ("code" in e && (e as { code?: string }).code === "23505" ||
+      ("cause" in e && isUniqueViolation((e as { cause?: unknown }).cause)))
+  );
+}
 
 function confirmationNo(prefix: string): string {
   return `${prefix}-${randomBytes(4).toString("hex").toUpperCase()}`;
@@ -124,6 +138,7 @@ async function requestDetail(reqRow: typeof paymentRequestsTable.$inferSelect) {
       label: j.label,
       amount: j.amount,
     })),
+    attachments: reqRow.attachments ?? [],
   };
 }
 
@@ -256,6 +271,39 @@ router.post("/pay-hub/requests", async (req, res): Promise<void> => {
         .from(invoicesTable)
         .where(inArray(invoicesTable.jobId, body.jobIds))
     : [];
+
+  // Specific invoices picked by the office: each becomes its own line with
+  // the invoice's exact amount, and its PDF is attached to the request.
+  const pickedIds = [...new Set(body.invoiceIds ?? [])];
+  const pickedInvoices = pickedIds.length
+    ? await db
+        .select()
+        .from(invoicesTable)
+        .where(inArray(invoicesTable.id, pickedIds))
+    : [];
+  if (pickedInvoices.length !== pickedIds.length) {
+    res.status(400).json({ error: "One or more invoices not found" });
+    return;
+  }
+  for (const inv of pickedInvoices) {
+    // Ownership: the invoice must sit on one of the selected jobs (and
+    // therefore this property) — unchecked refs corrupt data.
+    if (!inv.jobId || !body.jobIds.includes(inv.jobId)) {
+      res.status(400).json({
+        error: `Invoice ${inv.invoiceNo} is not on one of the selected jobs`,
+      });
+      return;
+    }
+    // Only billable invoices can go on a request — cancelled invoices are
+    // dead and paid ones would be double-collected.
+    if (inv.status === "cancelled" || inv.status === "paid") {
+      res.status(400).json({
+        error: `Invoice ${inv.invoiceNo} is ${inv.status} and can't be billed`,
+      });
+      return;
+    }
+  }
+  const jobsWithPicked = new Set(pickedInvoices.map((inv) => inv.jobId as string));
   const lineItems = body.jobIds.length
     ? await db
         .select()
@@ -263,7 +311,19 @@ router.post("/pay-hub/requests", async (req, res): Promise<void> => {
         .where(inArray(jobLineItemsTable.jobId, body.jobIds))
     : [];
   const overrides = body.jobAmounts ?? {};
-  const jobLines = jobs.map((job, i) => {
+  // Jobs where the office picked specific invoices get one line PER INVOICE
+  // (the exact breakdown), not a single job line.
+  const invoiceLines = pickedInvoices
+    .sort((a, b) => a.invoiceNo.localeCompare(b.invoiceNo))
+    .map((inv) => ({
+      jobId: inv.jobId as string | null,
+      invoiceId: inv.id as string | null,
+      label: `Invoice ${inv.invoiceNo} — ${labels.get(inv.jobId!) ?? "Job"}`,
+      amount: inv.amount + (inv.taxAmount ?? 0),
+      sortOrder: 0,
+    }));
+  const plainJobs = jobs.filter((j) => !jobsWithPicked.has(j.id));
+  const jobLines = plainJobs.map((job, i) => {
     const jobInvoices = invoices
       .filter((inv) => inv.jobId === job.id && inv.status === "sent")
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -286,20 +346,45 @@ router.post("/pay-hub/requests", async (req, res): Promise<void> => {
     };
   });
   const lines = [
+    ...invoiceLines,
     ...jobLines,
-    ...customItems.map((c, i) => ({
+    ...customItems.map((c) => ({
       jobId: null as string | null,
-      invoiceId: null,
+      invoiceId: null as string | null,
       label: c.label.trim(),
       amount: c.amount,
-      sortOrder: jobLines.length + i,
+      sortOrder: 0,
     })),
-  ];
+  ].map((l, i) => ({ ...l, sortOrder: i }));
   const total = lines.reduce((s, l) => s + l.amount, 0);
   if (total <= 0) {
     res.status(400).json({ error: "Request total must be greater than $0" });
     return;
   }
+  // Attachments: every picked invoice rides along as its branded PDF, plus
+  // any documents the office uploaded for this request.
+  const uploads = (body.uploads ?? []).filter(
+    (u) => u.label.trim().length > 0 && u.objectPath.startsWith("/objects/"),
+  );
+  if ((body.uploads ?? []).length !== uploads.length) {
+    res.status(400).json({ error: "Invalid attachment upload" });
+    return;
+  }
+  const attachments = [
+    ...pickedInvoices.map((inv) => ({
+      kind: "invoice" as const,
+      invoiceId: inv.id as string | null,
+      label: `Invoice ${inv.invoiceNo} (PDF)`,
+      url: `/api/invoices/${inv.id}/pdf`,
+    })),
+    ...uploads.map((u) => ({
+      kind: "upload" as const,
+      invoiceId: null,
+      label: u.label.trim(),
+      url: `/api/storage${u.objectPath}`,
+    })),
+  ];
+
   const count = (await db.select({ id: paymentRequestsTable.id }).from(paymentRequestsTable)).length;
   const created = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -311,6 +396,7 @@ router.post("/pay-hub/requests", async (req, res): Promise<void> => {
         total,
         memo: body.memo ?? null,
         payerInfo: sanitizePayerInfo(body.payerInfo ?? null),
+        attachments: attachments.length ? attachments : null,
       })
       .returning();
     await tx
@@ -436,6 +522,24 @@ router.post("/pay-hub/requests/:id/send", async (req, res): Promise<void> => {
     kind: "payment",
     body: `Payment link for ${row.requestNo} sent via ${parsed.data.via} to ${parsed.data.to}`,
   });
+  // Mirror onto the client board: pay link + line breakdown + attached PDFs.
+  await raiseClientCard({
+    propertyId: row.propertyId,
+    kind: "payment_request",
+    title: `Payment request ${detail.requestNo} — $${detail.total.toFixed(2)}`,
+    body:
+      detail.jobs.map((j) => `${j.label}: $${j.amount.toFixed(2)}`).join("\n") +
+      (detail.memo ? `\n${detail.memo}` : ""),
+    actionLabel: "Pay now",
+    amount: detail.total,
+    links: [
+      { label: "Pay securely online", url: link, kind: "pay" },
+      ...(detail.attachments ?? []).map((a) => ({ label: a.label, url: a.url, kind: "pdf" })),
+    ],
+    sourceType: "payment_request",
+    sourceId: row.id,
+    jobId: detail.jobs.find((j) => j.jobId)?.jobId ?? null,
+  });
   res.json(GetPaymentRequestResponse.parse(await requestDetail(updated!)));
 });
 
@@ -552,7 +656,14 @@ async function publicPayload(row: typeof paymentRequestsTable.$inferSelect) {
     paidAmount: detail.paidAmount,
     confirmationNo: detail.confirmationNo,
     paymentMethod: detail.paymentMethod,
+    mailingAddress: {
+      name: settings.companyName,
+      attn: settings.attn || null,
+      street: settings.street,
+      city: settings.city,
+    },
     jobs: detail.jobs,
+    attachments: detail.attachments,
   };
 }
 
@@ -654,7 +765,9 @@ router.post("/pay/:token", async (req, res): Promise<void> => {
         .from(invoicesTable)
         .where(eq(invoicesTable.id, link.invoiceId))
         .limit(1);
-      if (!inv || inv.status === "paid") continue;
+      // Skip invoices that are no longer billable — cancelled invoices must
+      // never flip to paid, and paid ones would double-collect.
+      if (!inv || inv.status === "paid" || inv.status === "cancelled") continue;
       await tx.insert(paymentsTable).values({
         invoiceId: link.invoiceId,
         amount: link.amount,
@@ -673,6 +786,11 @@ router.post("/pay/:token", async (req, res): Promise<void> => {
   if (!flipped) {
     res.status(409).json({ error: "This request has already been paid" });
     return;
+  }
+  // Board mirror: the request card and any linked invoice cards complete.
+  await completeClientCard("payment_request", row.id, "Paid — thank you");
+  for (const link of links) {
+    if (link.invoiceId) await completeClientCard("invoice", link.invoiceId, "Paid — thank you");
   }
   for (const link of links) {
     if (link.invoiceId) await syncInvoiceLedger(link.invoiceId);
@@ -846,6 +964,160 @@ router.get("/pay-hub/payouts", async (req, res): Promise<void> => {
   res.json(out.map((r) => CreateCrewPayoutResponse.parse(r)));
 });
 
+// ---------- Payout queue: crews with verified completed jobs awaiting pay ----------
+
+async function computePayoutQueue() {
+  // Completed jobs with a crew attached…
+  const jobs = await db
+    .select()
+    .from(jobsTable)
+    .where(eq(jobsTable.status, "complete"));
+  const crewJobs = jobs.filter((j) => j.crewLeaderId);
+  if (crewJobs.length === 0) return [];
+  // …minus jobs the crew was already paid for.
+  const paid = await db
+    .select({ crewId: crewPayoutsTable.crewId, jobId: crewPayoutsTable.jobId })
+    .from(crewPayoutsTable)
+    .where(eq(crewPayoutsTable.status, "paid"));
+  const paidSet = new Set(paid.map((p) => `${p.crewId}|${p.jobId}`));
+  const pending = crewJobs.filter(
+    (j) => !paidSet.has(`${j.crewLeaderId}|${j.id}`),
+  );
+  if (pending.length === 0) return [];
+
+  const crewIds = [...new Set(pending.map((j) => j.crewLeaderId!))];
+  const [crews, banks, props, labels] = await Promise.all([
+    db.select().from(crewsTable).where(inArray(crewsTable.id, crewIds)),
+    db
+      .select()
+      .from(crewBankAccountsTable)
+      .where(inArray(crewBankAccountsTable.crewId, crewIds)),
+    db
+      .select({ id: propertiesTable.id, name: propertiesTable.name })
+      .from(propertiesTable)
+      .where(inArray(propertiesTable.id, [...new Set(pending.map((j) => j.propertyId))])),
+    jobLabelMap(pending.map((j) => j.id)),
+  ]);
+  const bankVerified = new Set(
+    banks.filter((b) => b.status === "verified").map((b) => b.crewId),
+  );
+  const propName = new Map(props.map((p) => [p.id, p.name]));
+
+  return crews
+    .map((crew) => {
+      const queue = pending
+        .filter((j) => j.crewLeaderId === crew.id)
+        .map((j) => ({
+          jobId: j.id,
+          jobLabel: labels.get(j.id) ?? `#${j.jobNo}`,
+          propertyName: propName.get(j.propertyId) ?? null,
+          completedAt: j.completedAt ? j.completedAt.toISOString() : null,
+          suggestedAmount: j.crewRate ?? 0,
+        }));
+      return {
+        crewId: crew.id,
+        crewName: crew.name,
+        bankVerified: bankVerified.has(crew.id),
+        suggestedAmount: queue.reduce((s, q) => s + q.suggestedAmount, 0),
+        jobs: queue,
+      };
+    })
+    .sort((a, b) => a.crewName.localeCompare(b.crewName));
+}
+
+router.get("/pay-hub/payout-queue", async (_req, res): Promise<void> => {
+  res.json(GetPayoutQueueResponse.parse(await computePayoutQueue()));
+});
+
+// One tap → ACH to every crew in the batch. Amount is per crew; the payout is
+// recorded against their oldest queued completed job (Cybrid rails stubbed).
+router.post("/pay-hub/payouts/batch", async (req, res): Promise<void> => {
+  const parsed = CreateCrewPayoutBatchBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const items = parsed.data.items;
+  const dupCheck = new Set(items.map((i) => i.crewId));
+  if (dupCheck.size !== items.length) {
+    res.status(400).json({ error: "Each crew can only appear once per batch" });
+    return;
+  }
+  const queue = await computePayoutQueue();
+  const byCrew = new Map(queue.map((q) => [q.crewId, q]));
+  // Validate the whole batch up front — pay all or none.
+  for (const item of items) {
+    const q = byCrew.get(item.crewId);
+    if (!q || q.jobs.length === 0) {
+      const [crew] = await db
+        .select({ name: crewsTable.name })
+        .from(crewsTable)
+        .where(eq(crewsTable.id, item.crewId))
+        .limit(1);
+      res.status(409).json({
+        error: `${crew?.name ?? "That crew"} has no completed jobs awaiting payout`,
+      });
+      return;
+    }
+    if (!q.bankVerified) {
+      res.status(409).json({
+        error: `${q.crewName} has no verified bank account connected yet`,
+      });
+      return;
+    }
+  }
+  // NOTE: Cybrid ACH payout rails drop in here. Stubbed to succeed instantly.
+  // Atomic: all payouts in one transaction — any conflict rolls back the batch.
+  // The partial unique index (crew_id, job_id) WHERE status='paid' is the
+  // race-safe double-pay guard; a concurrent payout makes the insert throw.
+  let rows: (typeof crewPayoutsTable.$inferSelect)[];
+  try {
+    rows = await db.transaction(async (tx) => {
+      const inserted: (typeof crewPayoutsTable.$inferSelect)[] = [];
+      for (const item of items) {
+        const q = byCrew.get(item.crewId)!;
+        const oldest = [...q.jobs].sort((a, b) =>
+          (a.completedAt ?? "").localeCompare(b.completedAt ?? ""),
+        )[0]!;
+        const confirmation = confirmationNo("ACH");
+        const [row] = await tx
+          .insert(crewPayoutsTable)
+          .values({
+            crewId: item.crewId,
+            jobId: oldest.jobId,
+            amount: item.amount,
+            method: "ach",
+            status: "paid",
+            confirmationNo: confirmation,
+          })
+          .returning();
+        await tx.insert(activitiesTable).values({
+          entityType: "crew",
+          entityId: item.crewId,
+          kind: "payment",
+          body: `Crew payout sent to ${q.crewName} — $${item.amount.toFixed(2)} for ${oldest.jobLabel} via ACH, confirmation ${confirmation}`,
+        });
+        inserted.push(row!);
+      }
+      return inserted;
+    });
+  } catch (e) {
+    if (isUniqueViolation(e)) {
+      res.status(409).json({
+        error: "A crew in this batch was just paid for that job — refresh and try again",
+      });
+      return;
+    }
+    throw e;
+  }
+  const views = [];
+  for (const row of rows) {
+    await recomputeJobFinancials(row.jobId);
+    views.push(await payoutView(row));
+  }
+  res.status(201).json(CreateCrewPayoutBatchResponse.parse(views));
+});
+
 router.post("/pay-hub/payouts", async (req, res): Promise<void> => {
   const parsed = CreateCrewPayoutBody.safeParse(req.body);
   if (!parsed.success) {
@@ -942,18 +1214,30 @@ router.post("/pay-hub/payouts", async (req, res): Promise<void> => {
   }
   // NOTE: Cybrid ACH payout rails drop in here. Stubbed to succeed instantly.
   const confirmation = confirmationNo("ACH");
-  const [row] = await db
-    .insert(crewPayoutsTable)
-    .values({
-      crewId: body.crewId,
-      jobId: body.jobId,
-      paymentRequestId: body.paymentRequestId ?? null,
-      amount: body.amount,
-      method: "ach",
-      status: "paid",
-      confirmationNo: confirmation,
-    })
-    .returning();
+  let row: typeof crewPayoutsTable.$inferSelect | undefined;
+  try {
+    [row] = await db
+      .insert(crewPayoutsTable)
+      .values({
+        crewId: body.crewId,
+        jobId: body.jobId,
+        paymentRequestId: body.paymentRequestId ?? null,
+        amount: body.amount,
+        method: "ach",
+        status: "paid",
+        confirmationNo: confirmation,
+      })
+      .returning();
+  } catch (e) {
+    // Race-safe double-pay guard via crew_payouts_paid_crew_job_uq.
+    if (isUniqueViolation(e)) {
+      res.status(409).json({
+        error: `${crew.name} was already paid for #${job.jobNo}`,
+      });
+      return;
+    }
+    throw e;
+  }
   await db.insert(activitiesTable).values({
     entityType: "crew",
     entityId: crew.id,

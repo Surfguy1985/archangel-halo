@@ -5,6 +5,650 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+export type SummaryChecklistSectionItemsItem = {
+  label: string;
+  checked: boolean;
+};
+
+export interface SummaryChecklistSection {
+  section: string;
+  items: SummaryChecklistSectionItemsItem[];
+}
+
+export interface SummaryFlagItem {
+  label: string;
+  checked: boolean;
+  note: string;
+}
+
+export interface SummaryPhotoRef {
+  /** before | after | progress */
+  phase: string;
+  path: string;
+  url: string;
+}
+
+export type JobSummaryDocBusiness = {
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+};
+
+export interface JobSummaryDoc {
+  jobId: string;
+  propertyId: string;
+  /** false when this is an unsaved prefit draft */
+  exists: boolean;
+  /** @nullable */
+  token?: string | null;
+  /** @nullable */
+  shareUrl?: string | null;
+  title: string;
+  /** @nullable */
+  unitNumber?: string | null;
+  /** @nullable */
+  serviceDate?: string | null;
+  /** @nullable */
+  crewLead?: string | null;
+  /** @nullable */
+  timeIn?: string | null;
+  /** @nullable */
+  timeOut?: string | null;
+  checklist: SummaryChecklistSection[];
+  flags: SummaryFlagItem[];
+  /** @nullable */
+  observations?: string | null;
+  /** @nullable */
+  touchUpNotes?: string | null;
+  /** exceeded | met | followup */
+  overallResult: string;
+  photos: SummaryPhotoRef[];
+  /** draft | sent */
+  status: string;
+  /** @nullable */
+  sentTo?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  propertyAddress?: string | null;
+  business?: JobSummaryDocBusiness;
+}
+
+export interface JobSummaryEditor {
+  doc: JobSummaryDoc;
+  availablePhotos: SummaryPhotoRef[];
+  /**
+     * Property billing/contact email to prefill the send field
+     * @nullable
+     */
+  suggestedRecipient: string | null;
+}
+
+export type JobSummarySaveInputPhotosItem = {
+  phase: string;
+  path: string;
+};
+
+export interface JobSummarySaveInput {
+  title?: string;
+  /** @nullable */
+  unitNumber?: string | null;
+  /** @nullable */
+  serviceDate?: string | null;
+  /** @nullable */
+  crewLead?: string | null;
+  /** @nullable */
+  timeIn?: string | null;
+  /** @nullable */
+  timeOut?: string | null;
+  checklist?: SummaryChecklistSection[];
+  flags?: SummaryFlagItem[];
+  /** @nullable */
+  observations?: string | null;
+  /** @nullable */
+  touchUpNotes?: string | null;
+  overallResult?: string;
+  photos?: JobSummarySaveInputPhotosItem[];
+}
+
+export interface JobSummarySendInput {
+  to: string;
+  /** @nullable */
+  message?: string | null;
+}
+
+export type JobSummaryPublicDocBusiness = {
+  /** @nullable */
+  companyName?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+};
+
+export interface JobSummaryPublicDoc {
+  title: string;
+  /** @nullable */
+  unitNumber?: string | null;
+  /** @nullable */
+  serviceDate?: string | null;
+  /** @nullable */
+  crewLead?: string | null;
+  /** @nullable */
+  timeIn?: string | null;
+  /** @nullable */
+  timeOut?: string | null;
+  checklist: SummaryChecklistSection[];
+  /** @nullable */
+  observations?: string | null;
+  /** @nullable */
+  touchUpNotes?: string | null;
+  overallResult: string;
+  photos: SummaryPhotoRef[];
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  propertyAddress?: string | null;
+  business?: JobSummaryPublicDocBusiness;
+}
+
+export interface JobSummaryPublicView {
+  doc: JobSummaryPublicDoc;
+  flaggedItems: string[];
+  /** true once the PM's own community box view (CMS) is set up */
+  hasBoard: boolean;
+}
+
+export interface ClientAccountRec {
+  id: string;
+  propertyId: string;
+  /** basic | pro | enterprise */
+  tier: string;
+  userSeats: number;
+  guestSeats: number;
+  /** active | paused | cancelled */
+  status: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  logoPath?: string | null;
+  /** @nullable */
+  servicesOverview?: string | null;
+  dashboardToken: string;
+  /**
+     * Full public URL to the client dashboard
+     * @nullable
+     */
+  dashboardUrl?: string | null;
+  /** not_sent | sent */
+  onboardingStatus: string;
+  /** @nullable */
+  onboardingSentAt?: string | null;
+}
+
+export interface ClientAccountSummary {
+  propertyId: string;
+  propertyName: string;
+  /** @nullable */
+  pmcName?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  units?: number | null;
+  /** @nullable */
+  logoPath?: string | null;
+  tier: string;
+  status: string;
+  userSeatsUsed: number;
+  userSeats: number;
+  guestSeats: number;
+  onboardingStatus: string;
+  /** false until subscription settings are first saved */
+  hasAccount: boolean;
+}
+
+export interface ClientUserRec {
+  id: string;
+  propertyId: string;
+  name: string;
+  email: string;
+  /** admin | member | guest */
+  role: string;
+  active: boolean;
+  /** @nullable */
+  lastPasswordResetAt?: string | null;
+  createdAt: string;
+}
+
+export type ClientAccountDetailProperty = {
+  id: string;
+  name: string;
+  /** @nullable */
+  pmcName?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  units?: number | null;
+  /** @nullable */
+  brief?: string | null;
+};
+
+export interface OnboardingSendRec {
+  id: string;
+  propertyId: string;
+  channel: string;
+  sentTo: string;
+  link: string;
+  status: string;
+  /** @nullable */
+  detail?: string | null;
+  createdAt: string;
+}
+
+export interface Contact {
+  id: string;
+  /** @nullable */
+  propertyId?: string | null;
+  name: string;
+  /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  prefers?: string | null;
+}
+
+export interface PriceItem {
+  id: string;
+  propertyId: string;
+  service: string;
+  /** @nullable */
+  detail?: string | null;
+  /** @nullable */
+  unit?: string | null;
+  rate: number;
+  /** @nullable */
+  marginFloor?: number | null;
+}
+
+export interface ClientAccountDetail {
+  account: ClientAccountRec;
+  users: ClientUserRec[];
+  sends: OnboardingSendRec[];
+  property: ClientAccountDetailProperty;
+  contacts: Contact[];
+  services: PriceItem[];
+}
+
+export interface ClientFeature {
+  key: string;
+  label: string;
+  description: string;
+}
+
+export interface ClientAccessUser {
+  id: string;
+  name: string;
+  email: string;
+  /** admin | member | guest */
+  role: string;
+  active: boolean;
+  permissions: string[];
+  /** False while the user still follows their role's defaults */
+  customized: boolean;
+}
+
+/**
+ * Default feature keys per role
+ */
+export type ClientAccessViewRoleDefaults = {[key: string]: string[]};
+
+export interface ClientAccessView {
+  propertyName: string;
+  /** @nullable */
+  logoUrl?: string | null;
+  features: ClientFeature[];
+  /** Default feature keys per role */
+  roleDefaults: ClientAccessViewRoleDefaults;
+  users: ClientAccessUser[];
+}
+
+export interface ClientAccessUpdateInput {
+  /** admin | member | guest */
+  role?: string;
+  /** Full replacement set of feature keys; omit to keep current */
+  permissions?: string[];
+  /** Clear customizations and follow the role's defaults again */
+  resetToRoleDefaults?: boolean;
+}
+
+export interface ClientPlan {
+  tier: string;
+  label: string;
+  pricePerMonth: number;
+  userSeats: number;
+  guestSeats: number;
+  blurb: string;
+}
+
+export interface ClientStoredPaymentMethod {
+  /** card | ach */
+  methodType: string;
+  last4: string;
+  /** @nullable */
+  brand?: string | null;
+  /** @nullable */
+  bankName?: string | null;
+  /** @nullable */
+  cardExp?: string | null;
+  payerName: string;
+  /** @nullable */
+  zip?: string | null;
+  /** @nullable */
+  updatedAt?: string | null;
+}
+
+export interface ClientBillingContact {
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  company?: string | null;
+  /** @nullable */
+  phone?: string | null;
+}
+
+export interface ClientBoardCardLink {
+  label: string;
+  url: string;
+  /**
+     * pay | pdf | summary | tracker
+     * @nullable
+     */
+  kind?: string | null;
+}
+
+export interface ClientBoardCard {
+  id: string;
+  /** inbox | todo | in_progress | done */
+  column: string;
+  /** invoice | payment_request | summary | tracker | photos | flag | manual */
+  kind: string;
+  title: string;
+  /** @nullable */
+  body?: string | null;
+  /** @nullable */
+  actionLabel?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  dueDate?: string | null;
+  links: ClientBoardCardLink[];
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientBoardView {
+  propertyName: string;
+  /** @nullable */
+  webhookUrl?: string | null;
+  cards: ClientBoardCard[];
+}
+
+export interface ClientBoardCardUpdateInput {
+  /** inbox | todo | in_progress | done */
+  column: string;
+}
+
+export interface ClientBoardWebhookInput {
+  /** @nullable */
+  webhookUrl?: string | null;
+}
+
+export interface ClientBoardWebhookView {
+  /** @nullable */
+  webhookUrl?: string | null;
+}
+
+export type ClientBillingViewSeatUsage = {
+  usersActive: number;
+  guestsActive: number;
+  userSeats: number;
+  guestSeats: number;
+};
+
+export interface ClientBillingView {
+  propertyName: string;
+  tier: string;
+  /** active | paused */
+  status: string;
+  billingDay: number;
+  /**
+     * YYYY-MM-DD, null when paused
+     * @nullable
+     */
+  nextChargeOn?: string | null;
+  plans: ClientPlan[];
+  paymentMethod?: ClientStoredPaymentMethod | null;
+  billingContact?: ClientBillingContact | null;
+  seatUsage: ClientBillingViewSeatUsage;
+}
+
+export interface ClientBillingUpdateInput {
+  /**
+     * @minimum 1
+     * @maximum 28
+     */
+  billingDay?: number;
+  /** active | paused */
+  status?: string;
+  tier?: string;
+  billingContact?: ClientBillingContact;
+}
+
+export interface ClientPaymentMethodInput {
+  /** card | ach */
+  methodType: string;
+  payerName: string;
+  cardNumber?: string;
+  /** MM/YY */
+  cardExp?: string;
+  /** CVV — verified only, never stored */
+  cardCode?: string;
+  accountNumber?: string;
+  routingNumber?: string;
+  bankName?: string;
+  zip?: string;
+}
+
+export interface InvoiceJobDraftInput {
+  jobId: string;
+  /** @nullable */
+  poNumber?: string | null;
+}
+
+export interface SopComplianceCheck {
+  /** e.g. 'Draft built from SOP', 'Second pass — audited against the rule' */
+  stage: string;
+  /** pass | fixed | warn */
+  status: string;
+  detail: string;
+}
+
+export interface InvoiceLineItemInput {
+  dateOfWork?: string;
+  unitNo?: string;
+  typeOfWork: string;
+  description?: string;
+  qty?: number;
+  unitPrice?: number;
+}
+
+export interface InvoiceJobDraft {
+  jobId: string;
+  jobLabel: string;
+  propertyId: string;
+  propertyName: string;
+  issuedOn: string;
+  /** @nullable */
+  poNumber?: string | null;
+  /** @nullable */
+  invoiceNoPreview?: string | null;
+  /** @nullable */
+  dueOnPreview?: string | null;
+  /** @nullable */
+  terms?: string | null;
+  /** @nullable */
+  billToName?: string | null;
+  /** @nullable */
+  propertyAddress?: string | null;
+  /** @nullable */
+  paymentInstructions?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  taxPreview?: number | null;
+  total: number;
+  lineItems: InvoiceLineItemInput[];
+  compliance: SopComplianceCheck[];
+}
+
+export type ClientRequestOptionsServicesItem = {
+  id: string;
+  service: string;
+  /** @nullable */
+  detail?: string | null;
+  /** @nullable */
+  unit?: string | null;
+};
+
+export interface ClientRequestOptions {
+  propertyName: string;
+  /** @nullable */
+  logoUrl?: string | null;
+  services: ClientRequestOptionsServicesItem[];
+}
+
+export interface WorkRequestCreateInput {
+  /**
+     * price_items id when picked from the dropdown
+     * @nullable
+     */
+  serviceId?: string | null;
+  serviceLabel: string;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /**
+     * YYYY-MM-DD complete-by date
+     * @nullable
+     */
+  neededBy?: string | null;
+  /** @nullable */
+  requesterName?: string | null;
+}
+
+export interface WorkRequestRec {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  /** @nullable */
+  requesterName?: string | null;
+  /** @nullable */
+  serviceId?: string | null;
+  serviceLabel: string;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  neededBy?: string | null;
+  /** pending | accepted | declined */
+  status: string;
+  /** @nullable */
+  declineReason?: string | null;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  jobNo?: string | null;
+  /** @nullable */
+  decidedAt?: string | null;
+  createdAt: string;
+}
+
+export interface WorkRequestDeclineInput {
+  /** @nullable */
+  reason?: string | null;
+}
+
+export interface ClientAccountUpsert {
+  tier?: string;
+  userSeats?: number;
+  guestSeats?: number;
+  status?: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  logoPath?: string | null;
+  /** @nullable */
+  servicesOverview?: string | null;
+}
+
+export interface ClientUserCreate {
+  name: string;
+  email: string;
+  /** admin | member | guest (default member) */
+  role?: string;
+  /** Email the credentials to the user (default false) */
+  sendEmail?: boolean;
+}
+
+export interface ClientUserUpdate {
+  name?: string;
+  email?: string;
+  role?: string;
+  active?: boolean;
+}
+
+export interface ClientPasswordResetInput {
+  /** Email the new temp password to the user (default false) */
+  sendEmail?: boolean;
+}
+
+export interface ClientCredentialIssued {
+  user: ClientUserRec;
+  /** Shown once — not retrievable later */
+  tempPassword: string;
+  emailed: boolean;
+}
+
+export interface OnboardingSendInput {
+  /** email | sms */
+  channel: string;
+  /** Email address or phone number */
+  to: string;
+  /**
+     * Optional personal note included in the send
+     * @nullable
+     */
+  message?: string | null;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -137,34 +781,6 @@ export interface PropertySummary {
   imagePath?: string | null;
   /** @nullable */
   address?: string | null;
-}
-
-export interface Contact {
-  id: string;
-  /** @nullable */
-  propertyId?: string | null;
-  name: string;
-  /** @nullable */
-  role?: string | null;
-  /** @nullable */
-  phone?: string | null;
-  /** @nullable */
-  email?: string | null;
-  /** @nullable */
-  prefers?: string | null;
-}
-
-export interface PriceItem {
-  id: string;
-  propertyId: string;
-  service: string;
-  /** @nullable */
-  detail?: string | null;
-  /** @nullable */
-  unit?: string | null;
-  rate: number;
-  /** @nullable */
-  marginFloor?: number | null;
 }
 
 export interface JobLineItem {
@@ -1387,15 +2003,6 @@ export interface InvoiceLineItem {
   amount: number;
   /** @nullable */
   sortOrder?: number | null;
-}
-
-export interface InvoiceLineItemInput {
-  dateOfWork?: string;
-  unitNo?: string;
-  typeOfWork: string;
-  description?: string;
-  qty?: number;
-  unitPrice?: number;
 }
 
 export interface InvoiceDetail {
@@ -3656,6 +4263,12 @@ export interface PaymentRequestCustomItem {
  */
 export type PaymentRequestInputJobAmounts = {[key: string]: number};
 
+export interface PaymentRequestUploadInput {
+  label: string;
+  /** Path returned by the storage upload flow (/objects/...) */
+  objectPath: string;
+}
+
 export interface PaymentRequestInput {
   propertyId: string;
   jobIds: string[];
@@ -3663,8 +4276,22 @@ export interface PaymentRequestInput {
   jobAmounts?: PaymentRequestInputJobAmounts;
   /** Extra type-in line items not tied to a job */
   customItems?: PaymentRequestCustomItem[];
+  /** Specific invoices to bill — each becomes its own line and attaches its PDF */
+  invoiceIds?: string[];
+  /** PDF documents from us to attach (object storage paths) */
+  uploads?: PaymentRequestUploadInput[];
   memo?: string;
   payerInfo?: PayerInfo;
+}
+
+export interface PaymentRequestAttachment {
+  /** invoice | upload */
+  kind: string;
+  /** @nullable */
+  invoiceId?: string | null;
+  label: string;
+  /** Absolute /api URL to open the PDF */
+  url: string;
 }
 
 export interface PaymentRequestDetail {
@@ -3701,6 +4328,7 @@ export interface PaymentRequestDetail {
   payerInfo?: PayerInfo;
   createdAt: string;
   jobs: PaymentRequestJobLine[];
+  attachments?: PaymentRequestAttachment[];
 }
 
 export type PaymentRequestSendVia = typeof PaymentRequestSendVia[keyof typeof PaymentRequestSendVia];
@@ -3719,6 +4347,17 @@ export interface PaymentRequestSend {
 export interface PaymentReturnInput {
   reason: string;
 }
+
+/**
+ * Where to mail a paper check
+ */
+export type PublicPaymentRequestMailingAddress = {
+  name: string;
+  /** @nullable */
+  attn?: string | null;
+  street: string;
+  city: string;
+};
 
 export interface PublicPaymentRequest {
   requestNo: string;
@@ -3744,7 +4383,10 @@ export interface PublicPaymentRequest {
   confirmationNo?: string | null;
   /** @nullable */
   paymentMethod?: string | null;
+  /** Where to mail a paper check */
+  mailingAddress?: PublicPaymentRequestMailingAddress;
   jobs: PaymentRequestJobLine[];
+  attachments?: PaymentRequestAttachment[];
 }
 
 export type PublicPaymentInputMethod = typeof PublicPaymentInputMethod[keyof typeof PublicPaymentInputMethod];
@@ -3755,6 +4397,7 @@ export const PublicPaymentInputMethod = {
   ach: 'ach',
   wire: 'wire',
   echeck: 'echeck',
+  check: 'check',
 } as const;
 
 export interface PublicPaymentInput {
@@ -3766,6 +4409,7 @@ export interface PublicPaymentInput {
   zip?: string;
   routingNumber?: string;
   accountNumber?: string;
+  checkNumber?: string;
   email?: string;
 }
 
@@ -3859,6 +4503,35 @@ export interface CrewPayoutView {
   returnedAt?: string | null;
   /** @nullable */
   returnReason?: string | null;
+}
+
+export interface PayoutQueueJob {
+  jobId: string;
+  jobLabel: string;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  suggestedAmount: number;
+}
+
+export interface PayoutQueueCrew {
+  crewId: string;
+  crewName: string;
+  bankVerified: boolean;
+  suggestedAmount: number;
+  jobs: PayoutQueueJob[];
+}
+
+export type PayoutBatchInputItemsItem = {
+  crewId: string;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+};
+
+export interface PayoutBatchInput {
+  /** @minItems 1 */
+  items: PayoutBatchInputItemsItem[];
 }
 
 export interface PayoutDistributionRow {
@@ -4048,5 +4721,9 @@ limit?: number;
 export type ListCrewPayoutsParams = {
 crewId?: string;
 jobId?: string;
+};
+
+export type ListWorkRequestsParams = {
+status?: string;
 };
 

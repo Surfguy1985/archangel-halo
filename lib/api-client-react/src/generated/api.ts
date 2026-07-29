@@ -62,6 +62,27 @@ import type {
   CategorizeBankTransactionParams,
   CheckScanInput,
   CheckScanResult,
+  ClientAccessUpdateInput,
+  ClientAccessUser,
+  ClientAccessView,
+  ClientAccountDetail,
+  ClientAccountRec,
+  ClientAccountSummary,
+  ClientAccountUpsert,
+  ClientBillingUpdateInput,
+  ClientBillingView,
+  ClientBoardCard,
+  ClientBoardCardUpdateInput,
+  ClientBoardView,
+  ClientBoardWebhookInput,
+  ClientBoardWebhookView,
+  ClientCredentialIssued,
+  ClientPasswordResetInput,
+  ClientPaymentMethodInput,
+  ClientRequestOptions,
+  ClientUserCreate,
+  ClientUserRec,
+  ClientUserUpdate,
   CloseOutBlocked,
   CloseOutJobResult,
   Contact,
@@ -121,6 +142,8 @@ import type {
   Invoice,
   InvoiceDetail,
   InvoiceInput,
+  InvoiceJobDraft,
+  InvoiceJobDraftInput,
   InvoiceStatusInput,
   Job,
   JobBoardCard,
@@ -130,6 +153,11 @@ import type {
   JobLineItem,
   JobLineItemInput,
   JobLineItemUpdate,
+  JobSummaryDoc,
+  JobSummaryEditor,
+  JobSummaryPublicView,
+  JobSummarySaveInput,
+  JobSummarySendInput,
   JobTrackerView,
   JobUpdate,
   JournalEntryFull,
@@ -156,11 +184,14 @@ import type {
   ListPurchaseOrdersParams,
   ListWingsAuditParams,
   ListWingsQualityParams,
+  ListWorkRequestsParams,
   MessageInput,
   MoneySummary,
   NewCalendarEvent,
   Notification,
   OkResponse,
+  OnboardingSendInput,
+  OnboardingSendRec,
   PacketTemplateSummary,
   PayHubOverview,
   Payment,
@@ -172,7 +203,9 @@ import type {
   PaymentRequestInput,
   PaymentRequestSend,
   PaymentReturnInput,
+  PayoutBatchInput,
   PayoutDistribution,
+  PayoutQueueCrew,
   PhotoShare,
   PhotoShareInput,
   PhotoShareNotesInput,
@@ -253,7 +286,10 @@ import type {
   WingsOverview,
   WingsQualityDecisionInput,
   WingsQualityItem,
-  WingsReserveSummary
+  WingsReserveSummary,
+  WorkRequestCreateInput,
+  WorkRequestDeclineInput,
+  WorkRequestRec
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -17208,6 +17244,154 @@ export const useCreateCrewPayout = <TError = ErrorType<Error>,
       return useMutation(getCreateCrewPayoutMutationOptions(options));
     }
 
+export const getGetPayoutQueueUrl = () => {
+
+
+
+
+  return `/api/pay-hub/payout-queue`
+}
+
+/**
+ * @summary Crews with verified completed jobs awaiting a payout, grouped per crew
+ */
+export const getPayoutQueue = async ( options?: RequestInit): Promise<PayoutQueueCrew[]> => {
+
+  return customFetch<PayoutQueueCrew[]>(getGetPayoutQueueUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPayoutQueueQueryKey = () => {
+    return [
+    `/api/pay-hub/payout-queue`
+    ] as const;
+    }
+
+
+export const getGetPayoutQueueQueryOptions = <TData = Awaited<ReturnType<typeof getPayoutQueue>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPayoutQueue>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPayoutQueueQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPayoutQueue>>> = ({ signal }) => getPayoutQueue({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPayoutQueue>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPayoutQueueQueryResult = NonNullable<Awaited<ReturnType<typeof getPayoutQueue>>>
+export type GetPayoutQueueQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Crews with verified completed jobs awaiting a payout, grouped per crew
+ */
+
+export function useGetPayoutQueue<TData = Awaited<ReturnType<typeof getPayoutQueue>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPayoutQueue>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPayoutQueueQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCrewPayoutBatchUrl = () => {
+
+
+
+
+  return `/api/pay-hub/payouts/batch`
+}
+
+/**
+ * @summary One-tap ACH payouts to multiple crews (Cybrid rails stubbed)
+ */
+export const createCrewPayoutBatch = async (payoutBatchInput: PayoutBatchInput, options?: RequestInit): Promise<CrewPayoutView[]> => {
+
+  return customFetch<CrewPayoutView[]>(getCreateCrewPayoutBatchUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(payoutBatchInput)
+  }
+);}
+
+
+
+
+
+export const getCreateCrewPayoutBatchMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCrewPayoutBatch>>, TError,{data: BodyType<PayoutBatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCrewPayoutBatch>>, TError,{data: BodyType<PayoutBatchInput>}, TContext> => {
+
+const mutationKey = ['createCrewPayoutBatch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCrewPayoutBatch>>, {data: BodyType<PayoutBatchInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCrewPayoutBatch(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCrewPayoutBatchMutationResult = NonNullable<Awaited<ReturnType<typeof createCrewPayoutBatch>>>
+    export type CreateCrewPayoutBatchMutationBody = BodyType<PayoutBatchInput>
+    export type CreateCrewPayoutBatchMutationError = ErrorType<Error>
+
+    /**
+ * @summary One-tap ACH payouts to multiple crews (Cybrid rails stubbed)
+ */
+export const useCreateCrewPayoutBatch = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCrewPayoutBatch>>, TError,{data: BodyType<PayoutBatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCrewPayoutBatch>>,
+        TError,
+        {data: BodyType<PayoutBatchInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCrewPayoutBatchMutationOptions(options));
+    }
+
 export const getReturnCrewPayoutUrl = (id: string,) => {
 
 
@@ -17504,5 +17688,1989 @@ export const useSubmitPortalBank = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getSubmitPortalBankMutationOptions(options));
+    }
+
+export const getGetJobSummaryUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/summary`
+}
+
+/**
+ * @summary Saved job summary document, or a prefilled draft if none exists
+ */
+export const getJobSummary = async (id: string, options?: RequestInit): Promise<JobSummaryEditor> => {
+
+  return customFetch<JobSummaryEditor>(getGetJobSummaryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetJobSummaryQueryKey = (id: string,) => {
+    return [
+    `/api/jobs/${id}/summary`
+    ] as const;
+    }
+
+
+export const getGetJobSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getJobSummary>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJobSummaryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJobSummary>>> = ({ signal }) => getJobSummary(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJobSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetJobSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getJobSummary>>>
+export type GetJobSummaryQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Saved job summary document, or a prefilled draft if none exists
+ */
+
+export function useGetJobSummary<TData = Awaited<ReturnType<typeof getJobSummary>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetJobSummaryQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveJobSummaryUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/summary`
+}
+
+/**
+ * @summary Save the job summary document (creates its share token on first save)
+ */
+export const saveJobSummary = async (id: string,
+    jobSummarySaveInput: JobSummarySaveInput, options?: RequestInit): Promise<JobSummaryDoc> => {
+
+  return customFetch<JobSummaryDoc>(getSaveJobSummaryUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(jobSummarySaveInput)
+  }
+);}
+
+
+
+
+
+export const getSaveJobSummaryMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveJobSummary>>, TError,{id: string;data: BodyType<JobSummarySaveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveJobSummary>>, TError,{id: string;data: BodyType<JobSummarySaveInput>}, TContext> => {
+
+const mutationKey = ['saveJobSummary'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveJobSummary>>, {id: string;data: BodyType<JobSummarySaveInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  saveJobSummary(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveJobSummaryMutationResult = NonNullable<Awaited<ReturnType<typeof saveJobSummary>>>
+    export type SaveJobSummaryMutationBody = BodyType<JobSummarySaveInput>
+    export type SaveJobSummaryMutationError = ErrorType<Error>
+
+    /**
+ * @summary Save the job summary document (creates its share token on first save)
+ */
+export const useSaveJobSummary = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveJobSummary>>, TError,{id: string;data: BodyType<JobSummarySaveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveJobSummary>>,
+        TError,
+        {id: string;data: BodyType<JobSummarySaveInput>},
+        TContext
+      > => {
+      return useMutation(getSaveJobSummaryMutationOptions(options));
+    }
+
+export const getSendJobSummaryUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/summary/send`
+}
+
+/**
+ * @summary Email the summary link to the property manager
+ */
+export const sendJobSummary = async (id: string,
+    jobSummarySendInput: JobSummarySendInput, options?: RequestInit): Promise<JobSummaryDoc> => {
+
+  return customFetch<JobSummaryDoc>(getSendJobSummaryUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(jobSummarySendInput)
+  }
+);}
+
+
+
+
+
+export const getSendJobSummaryMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendJobSummary>>, TError,{id: string;data: BodyType<JobSummarySendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendJobSummary>>, TError,{id: string;data: BodyType<JobSummarySendInput>}, TContext> => {
+
+const mutationKey = ['sendJobSummary'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendJobSummary>>, {id: string;data: BodyType<JobSummarySendInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendJobSummary(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendJobSummaryMutationResult = NonNullable<Awaited<ReturnType<typeof sendJobSummary>>>
+    export type SendJobSummaryMutationBody = BodyType<JobSummarySendInput>
+    export type SendJobSummaryMutationError = ErrorType<Error>
+
+    /**
+ * @summary Email the summary link to the property manager
+ */
+export const useSendJobSummary = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendJobSummary>>, TError,{id: string;data: BodyType<JobSummarySendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendJobSummary>>,
+        TError,
+        {id: string;data: BodyType<JobSummarySendInput>},
+        TContext
+      > => {
+      return useMutation(getSendJobSummaryMutationOptions(options));
+    }
+
+export const getGetPublicJobSummaryUrl = (token: string,) => {
+
+
+
+
+  return `/api/job-summaries/${token}`
+}
+
+/**
+ * @summary Public summary page data (community box view + full document)
+ */
+export const getPublicJobSummary = async (token: string, options?: RequestInit): Promise<JobSummaryPublicView> => {
+
+  return customFetch<JobSummaryPublicView>(getGetPublicJobSummaryUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicJobSummaryQueryKey = (token: string,) => {
+    return [
+    `/api/job-summaries/${token}`
+    ] as const;
+    }
+
+
+export const getGetPublicJobSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getPublicJobSummary>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicJobSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicJobSummaryQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicJobSummary>>> = ({ signal }) => getPublicJobSummary(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicJobSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicJobSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicJobSummary>>>
+export type GetPublicJobSummaryQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Public summary page data (community box view + full document)
+ */
+
+export function useGetPublicJobSummary<TData = Awaited<ReturnType<typeof getPublicJobSummary>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicJobSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicJobSummaryQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListClientAccountsUrl = () => {
+
+
+
+
+  return `/api/admin/accounts`
+}
+
+/**
+ * @summary Every active property as a managed client account
+ */
+export const listClientAccounts = async ( options?: RequestInit): Promise<ClientAccountSummary[]> => {
+
+  return customFetch<ClientAccountSummary[]>(getListClientAccountsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientAccountsQueryKey = () => {
+    return [
+    `/api/admin/accounts`
+    ] as const;
+    }
+
+
+export const getListClientAccountsQueryOptions = <TData = Awaited<ReturnType<typeof listClientAccounts>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientAccountsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientAccounts>>> = ({ signal }) => listClientAccounts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientAccounts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientAccountsQueryResult = NonNullable<Awaited<ReturnType<typeof listClientAccounts>>>
+export type ListClientAccountsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Every active property as a managed client account
+ */
+
+export function useListClientAccounts<TData = Awaited<ReturnType<typeof listClientAccounts>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientAccounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientAccountsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetClientAccountUrl = (propertyId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}`
+}
+
+/**
+ * @summary Full back-office view for one client account
+ */
+export const getClientAccount = async (propertyId: string, options?: RequestInit): Promise<ClientAccountDetail> => {
+
+  return customFetch<ClientAccountDetail>(getGetClientAccountUrl(propertyId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientAccountQueryKey = (propertyId: string,) => {
+    return [
+    `/api/admin/accounts/${propertyId}`
+    ] as const;
+    }
+
+
+export const getGetClientAccountQueryOptions = <TData = Awaited<ReturnType<typeof getClientAccount>>, TError = ErrorType<Error>>(propertyId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientAccount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientAccountQueryKey(propertyId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientAccount>>> = ({ signal }) => getClientAccount(propertyId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: propertyId !== null && propertyId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientAccount>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientAccountQueryResult = NonNullable<Awaited<ReturnType<typeof getClientAccount>>>
+export type GetClientAccountQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Full back-office view for one client account
+ */
+
+export function useGetClientAccount<TData = Awaited<ReturnType<typeof getClientAccount>>, TError = ErrorType<Error>>(
+ propertyId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientAccount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientAccountQueryOptions(propertyId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpsertClientAccountUrl = (propertyId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}`
+}
+
+/**
+ * @summary Create or update the subscription settings for a property
+ */
+export const upsertClientAccount = async (propertyId: string,
+    clientAccountUpsert: ClientAccountUpsert, options?: RequestInit): Promise<ClientAccountRec> => {
+
+  return customFetch<ClientAccountRec>(getUpsertClientAccountUrl(propertyId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientAccountUpsert)
+  }
+);}
+
+
+
+
+
+export const getUpsertClientAccountMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertClientAccount>>, TError,{propertyId: string;data: BodyType<ClientAccountUpsert>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof upsertClientAccount>>, TError,{propertyId: string;data: BodyType<ClientAccountUpsert>}, TContext> => {
+
+const mutationKey = ['upsertClientAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof upsertClientAccount>>, {propertyId: string;data: BodyType<ClientAccountUpsert>}> = (props) => {
+          const {propertyId,data} = props ?? {};
+
+          return  upsertClientAccount(propertyId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpsertClientAccountMutationResult = NonNullable<Awaited<ReturnType<typeof upsertClientAccount>>>
+    export type UpsertClientAccountMutationBody = BodyType<ClientAccountUpsert>
+    export type UpsertClientAccountMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create or update the subscription settings for a property
+ */
+export const useUpsertClientAccount = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertClientAccount>>, TError,{propertyId: string;data: BodyType<ClientAccountUpsert>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof upsertClientAccount>>,
+        TError,
+        {propertyId: string;data: BodyType<ClientAccountUpsert>},
+        TContext
+      > => {
+      return useMutation(getUpsertClientAccountMutationOptions(options));
+    }
+
+export const getCreateClientUserUrl = (propertyId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/users`
+}
+
+/**
+ * @summary Create a client login (returns the one-time temp password)
+ */
+export const createClientUser = async (propertyId: string,
+    clientUserCreate: ClientUserCreate, options?: RequestInit): Promise<ClientCredentialIssued> => {
+
+  return customFetch<ClientCredentialIssued>(getCreateClientUserUrl(propertyId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientUserCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateClientUserMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientUser>>, TError,{propertyId: string;data: BodyType<ClientUserCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createClientUser>>, TError,{propertyId: string;data: BodyType<ClientUserCreate>}, TContext> => {
+
+const mutationKey = ['createClientUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createClientUser>>, {propertyId: string;data: BodyType<ClientUserCreate>}> = (props) => {
+          const {propertyId,data} = props ?? {};
+
+          return  createClientUser(propertyId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateClientUserMutationResult = NonNullable<Awaited<ReturnType<typeof createClientUser>>>
+    export type CreateClientUserMutationBody = BodyType<ClientUserCreate>
+    export type CreateClientUserMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create a client login (returns the one-time temp password)
+ */
+export const useCreateClientUser = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientUser>>, TError,{propertyId: string;data: BodyType<ClientUserCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createClientUser>>,
+        TError,
+        {propertyId: string;data: BodyType<ClientUserCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateClientUserMutationOptions(options));
+    }
+
+export const getUpdateClientUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/client-users/${id}`
+}
+
+export const updateClientUser = async (id: string,
+    clientUserUpdate: ClientUserUpdate, options?: RequestInit): Promise<ClientUserRec> => {
+
+  return customFetch<ClientUserRec>(getUpdateClientUserUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientUserUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateClientUserMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientUser>>, TError,{id: string;data: BodyType<ClientUserUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateClientUser>>, TError,{id: string;data: BodyType<ClientUserUpdate>}, TContext> => {
+
+const mutationKey = ['updateClientUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateClientUser>>, {id: string;data: BodyType<ClientUserUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateClientUser(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateClientUserMutationResult = NonNullable<Awaited<ReturnType<typeof updateClientUser>>>
+    export type UpdateClientUserMutationBody = BodyType<ClientUserUpdate>
+    export type UpdateClientUserMutationError = ErrorType<Error>
+
+    export const useUpdateClientUser = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientUser>>, TError,{id: string;data: BodyType<ClientUserUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateClientUser>>,
+        TError,
+        {id: string;data: BodyType<ClientUserUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateClientUserMutationOptions(options));
+    }
+
+export const getDeleteClientUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/client-users/${id}`
+}
+
+export const deleteClientUser = async (id: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getDeleteClientUserUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteClientUserMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteClientUser>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteClientUser>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteClientUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteClientUser>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteClientUser(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteClientUserMutationResult = NonNullable<Awaited<ReturnType<typeof deleteClientUser>>>
+
+    export type DeleteClientUserMutationError = ErrorType<Error>
+
+    export const useDeleteClientUser = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteClientUser>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteClientUser>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteClientUserMutationOptions(options));
+    }
+
+export const getResetClientUserPasswordUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/client-users/${id}/reset-password`
+}
+
+/**
+ * @summary Issue a new temp password; optionally email it to the user
+ */
+export const resetClientUserPassword = async (id: string,
+    clientPasswordResetInput: ClientPasswordResetInput, options?: RequestInit): Promise<ClientCredentialIssued> => {
+
+  return customFetch<ClientCredentialIssued>(getResetClientUserPasswordUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientPasswordResetInput)
+  }
+);}
+
+
+
+
+
+export const getResetClientUserPasswordMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetClientUserPassword>>, TError,{id: string;data: BodyType<ClientPasswordResetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetClientUserPassword>>, TError,{id: string;data: BodyType<ClientPasswordResetInput>}, TContext> => {
+
+const mutationKey = ['resetClientUserPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetClientUserPassword>>, {id: string;data: BodyType<ClientPasswordResetInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  resetClientUserPassword(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetClientUserPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof resetClientUserPassword>>>
+    export type ResetClientUserPasswordMutationBody = BodyType<ClientPasswordResetInput>
+    export type ResetClientUserPasswordMutationError = ErrorType<Error>
+
+    /**
+ * @summary Issue a new temp password; optionally email it to the user
+ */
+export const useResetClientUserPassword = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetClientUserPassword>>, TError,{id: string;data: BodyType<ClientPasswordResetInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetClientUserPassword>>,
+        TError,
+        {id: string;data: BodyType<ClientPasswordResetInput>},
+        TContext
+      > => {
+      return useMutation(getResetClientUserPasswordMutationOptions(options));
+    }
+
+export const getRegenerateDashboardTokenUrl = (propertyId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/token/regenerate`
+}
+
+/**
+ * @summary Rotate the property's client dashboard link token
+ */
+export const regenerateDashboardToken = async (propertyId: string, options?: RequestInit): Promise<ClientAccountRec> => {
+
+  return customFetch<ClientAccountRec>(getRegenerateDashboardTokenUrl(propertyId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRegenerateDashboardTokenMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof regenerateDashboardToken>>, TError,{propertyId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof regenerateDashboardToken>>, TError,{propertyId: string}, TContext> => {
+
+const mutationKey = ['regenerateDashboardToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof regenerateDashboardToken>>, {propertyId: string}> = (props) => {
+          const {propertyId} = props ?? {};
+
+          return  regenerateDashboardToken(propertyId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegenerateDashboardTokenMutationResult = NonNullable<Awaited<ReturnType<typeof regenerateDashboardToken>>>
+
+    export type RegenerateDashboardTokenMutationError = ErrorType<Error>
+
+    /**
+ * @summary Rotate the property's client dashboard link token
+ */
+export const useRegenerateDashboardToken = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof regenerateDashboardToken>>, TError,{propertyId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof regenerateDashboardToken>>,
+        TError,
+        {propertyId: string},
+        TContext
+      > => {
+      return useMutation(getRegenerateDashboardTokenMutationOptions(options));
+    }
+
+export const getSendClientOnboardingUrl = (propertyId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/onboarding/send`
+}
+
+/**
+ * @summary Send the branded onboarding email/SMS with the dashboard link
+ */
+export const sendClientOnboarding = async (propertyId: string,
+    onboardingSendInput: OnboardingSendInput, options?: RequestInit): Promise<OnboardingSendRec> => {
+
+  return customFetch<OnboardingSendRec>(getSendClientOnboardingUrl(propertyId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(onboardingSendInput)
+  }
+);}
+
+
+
+
+
+export const getSendClientOnboardingMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendClientOnboarding>>, TError,{propertyId: string;data: BodyType<OnboardingSendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendClientOnboarding>>, TError,{propertyId: string;data: BodyType<OnboardingSendInput>}, TContext> => {
+
+const mutationKey = ['sendClientOnboarding'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendClientOnboarding>>, {propertyId: string;data: BodyType<OnboardingSendInput>}> = (props) => {
+          const {propertyId,data} = props ?? {};
+
+          return  sendClientOnboarding(propertyId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendClientOnboardingMutationResult = NonNullable<Awaited<ReturnType<typeof sendClientOnboarding>>>
+    export type SendClientOnboardingMutationBody = BodyType<OnboardingSendInput>
+    export type SendClientOnboardingMutationError = ErrorType<Error>
+
+    /**
+ * @summary Send the branded onboarding email/SMS with the dashboard link
+ */
+export const useSendClientOnboarding = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendClientOnboarding>>, TError,{propertyId: string;data: BodyType<OnboardingSendInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendClientOnboarding>>,
+        TError,
+        {propertyId: string;data: BodyType<OnboardingSendInput>},
+        TContext
+      > => {
+      return useMutation(getSendClientOnboardingMutationOptions(options));
+    }
+
+export const getGetClientAccessUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/access`
+}
+
+/**
+ * @summary Client dashboard admin — team members and their feature access
+ */
+export const getClientAccess = async (token: string, options?: RequestInit): Promise<ClientAccessView> => {
+
+  return customFetch<ClientAccessView>(getGetClientAccessUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientAccessQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/access`
+    ] as const;
+    }
+
+
+export const getGetClientAccessQueryOptions = <TData = Awaited<ReturnType<typeof getClientAccess>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientAccess>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientAccessQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientAccess>>> = ({ signal }) => getClientAccess(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientAccess>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientAccessQueryResult = NonNullable<Awaited<ReturnType<typeof getClientAccess>>>
+export type GetClientAccessQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Client dashboard admin — team members and their feature access
+ */
+
+export function useGetClientAccess<TData = Awaited<ReturnType<typeof getClientAccess>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientAccess>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientAccessQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateClientAccessUserUrl = (token: string,
+    userId: string,) => {
+
+
+
+
+  return `/api/client/${token}/access/${userId}`
+}
+
+/**
+ * @summary Manager toggles a team member's role or feature checkboxes
+ */
+export const updateClientAccessUser = async (token: string,
+    userId: string,
+    clientAccessUpdateInput: ClientAccessUpdateInput, options?: RequestInit): Promise<ClientAccessUser> => {
+
+  return customFetch<ClientAccessUser>(getUpdateClientAccessUserUrl(token,userId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientAccessUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateClientAccessUserMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientAccessUser>>, TError,{token: string;userId: string;data: BodyType<ClientAccessUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateClientAccessUser>>, TError,{token: string;userId: string;data: BodyType<ClientAccessUpdateInput>}, TContext> => {
+
+const mutationKey = ['updateClientAccessUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateClientAccessUser>>, {token: string;userId: string;data: BodyType<ClientAccessUpdateInput>}> = (props) => {
+          const {token,userId,data} = props ?? {};
+
+          return  updateClientAccessUser(token,userId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateClientAccessUserMutationResult = NonNullable<Awaited<ReturnType<typeof updateClientAccessUser>>>
+    export type UpdateClientAccessUserMutationBody = BodyType<ClientAccessUpdateInput>
+    export type UpdateClientAccessUserMutationError = ErrorType<Error>
+
+    /**
+ * @summary Manager toggles a team member's role or feature checkboxes
+ */
+export const useUpdateClientAccessUser = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientAccessUser>>, TError,{token: string;userId: string;data: BodyType<ClientAccessUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateClientAccessUser>>,
+        TError,
+        {token: string;userId: string;data: BodyType<ClientAccessUpdateInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateClientAccessUserMutationOptions(options));
+    }
+
+export const getGetClientRequestOptionsUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/request-options`
+}
+
+/**
+ * @summary Services a property manager can pick when requesting work
+ */
+export const getClientRequestOptions = async (token: string, options?: RequestInit): Promise<ClientRequestOptions> => {
+
+  return customFetch<ClientRequestOptions>(getGetClientRequestOptionsUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientRequestOptionsQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/request-options`
+    ] as const;
+    }
+
+
+export const getGetClientRequestOptionsQueryOptions = <TData = Awaited<ReturnType<typeof getClientRequestOptions>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientRequestOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientRequestOptionsQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientRequestOptions>>> = ({ signal }) => getClientRequestOptions(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientRequestOptions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientRequestOptionsQueryResult = NonNullable<Awaited<ReturnType<typeof getClientRequestOptions>>>
+export type GetClientRequestOptionsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Services a property manager can pick when requesting work
+ */
+
+export function useGetClientRequestOptions<TData = Awaited<ReturnType<typeof getClientRequestOptions>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientRequestOptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientRequestOptionsQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateClientWorkRequestUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/requests`
+}
+
+/**
+ * @summary Property manager submits a work request
+ */
+export const createClientWorkRequest = async (token: string,
+    workRequestCreateInput: WorkRequestCreateInput, options?: RequestInit): Promise<WorkRequestRec> => {
+
+  return customFetch<WorkRequestRec>(getCreateClientWorkRequestUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workRequestCreateInput)
+  }
+);}
+
+
+
+
+
+export const getCreateClientWorkRequestMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientWorkRequest>>, TError,{token: string;data: BodyType<WorkRequestCreateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createClientWorkRequest>>, TError,{token: string;data: BodyType<WorkRequestCreateInput>}, TContext> => {
+
+const mutationKey = ['createClientWorkRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createClientWorkRequest>>, {token: string;data: BodyType<WorkRequestCreateInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  createClientWorkRequest(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateClientWorkRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createClientWorkRequest>>>
+    export type CreateClientWorkRequestMutationBody = BodyType<WorkRequestCreateInput>
+    export type CreateClientWorkRequestMutationError = ErrorType<Error>
+
+    /**
+ * @summary Property manager submits a work request
+ */
+export const useCreateClientWorkRequest = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientWorkRequest>>, TError,{token: string;data: BodyType<WorkRequestCreateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createClientWorkRequest>>,
+        TError,
+        {token: string;data: BodyType<WorkRequestCreateInput>},
+        TContext
+      > => {
+      return useMutation(getCreateClientWorkRequestMutationOptions(options));
+    }
+
+export const getListWorkRequestsUrl = (params?: ListWorkRequestsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/work-requests?${stringifiedParams}` : `/api/work-requests`
+}
+
+/**
+ * @summary Office view of client work requests
+ */
+export const listWorkRequests = async (params?: ListWorkRequestsParams, options?: RequestInit): Promise<WorkRequestRec[]> => {
+
+  return customFetch<WorkRequestRec[]>(getListWorkRequestsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWorkRequestsQueryKey = (params?: ListWorkRequestsParams,) => {
+    return [
+    `/api/work-requests`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListWorkRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listWorkRequests>>, TError = ErrorType<unknown>>(params?: ListWorkRequestsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWorkRequestsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorkRequests>>> = ({ signal }) => listWorkRequests(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWorkRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWorkRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listWorkRequests>>>
+export type ListWorkRequestsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Office view of client work requests
+ */
+
+export function useListWorkRequests<TData = Awaited<ReturnType<typeof listWorkRequests>>, TError = ErrorType<unknown>>(
+ params?: ListWorkRequestsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWorkRequestsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAcceptWorkRequestUrl = (id: string,) => {
+
+
+
+
+  return `/api/work-requests/${id}/accept`
+}
+
+/**
+ * @summary Accept a work request — auto-creates a job under the property
+ */
+export const acceptWorkRequest = async (id: string, options?: RequestInit): Promise<WorkRequestRec> => {
+
+  return customFetch<WorkRequestRec>(getAcceptWorkRequestUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAcceptWorkRequestMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptWorkRequest>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acceptWorkRequest>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['acceptWorkRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acceptWorkRequest>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  acceptWorkRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcceptWorkRequestMutationResult = NonNullable<Awaited<ReturnType<typeof acceptWorkRequest>>>
+
+    export type AcceptWorkRequestMutationError = ErrorType<Error>
+
+    /**
+ * @summary Accept a work request — auto-creates a job under the property
+ */
+export const useAcceptWorkRequest = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptWorkRequest>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acceptWorkRequest>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getAcceptWorkRequestMutationOptions(options));
+    }
+
+export const getDeclineWorkRequestUrl = (id: string,) => {
+
+
+
+
+  return `/api/work-requests/${id}/decline`
+}
+
+/**
+ * @summary Decline a work request
+ */
+export const declineWorkRequest = async (id: string,
+    workRequestDeclineInput?: WorkRequestDeclineInput, options?: RequestInit): Promise<WorkRequestRec> => {
+
+  return customFetch<WorkRequestRec>(getDeclineWorkRequestUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workRequestDeclineInput)
+  }
+);}
+
+
+
+
+
+export const getDeclineWorkRequestMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof declineWorkRequest>>, TError,{id: string;data?: BodyType<WorkRequestDeclineInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof declineWorkRequest>>, TError,{id: string;data?: BodyType<WorkRequestDeclineInput>}, TContext> => {
+
+const mutationKey = ['declineWorkRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof declineWorkRequest>>, {id: string;data?: BodyType<WorkRequestDeclineInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  declineWorkRequest(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeclineWorkRequestMutationResult = NonNullable<Awaited<ReturnType<typeof declineWorkRequest>>>
+    export type DeclineWorkRequestMutationBody = BodyType<WorkRequestDeclineInput> | undefined
+    export type DeclineWorkRequestMutationError = ErrorType<Error>
+
+    /**
+ * @summary Decline a work request
+ */
+export const useDeclineWorkRequest = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof declineWorkRequest>>, TError,{id: string;data?: BodyType<WorkRequestDeclineInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof declineWorkRequest>>,
+        TError,
+        {id: string;data?: BodyType<WorkRequestDeclineInput>},
+        TContext
+      > => {
+      return useMutation(getDeclineWorkRequestMutationOptions(options));
+    }
+
+export const getGetClientBillingUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/billing`
+}
+
+/**
+ * @summary Subscription billing view for a client dashboard (admin section)
+ */
+export const getClientBilling = async (token: string, options?: RequestInit): Promise<ClientBillingView> => {
+
+  return customFetch<ClientBillingView>(getGetClientBillingUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientBillingQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/billing`
+    ] as const;
+    }
+
+
+export const getGetClientBillingQueryOptions = <TData = Awaited<ReturnType<typeof getClientBilling>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBilling>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientBillingQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientBilling>>> = ({ signal }) => getClientBilling(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientBilling>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientBillingQueryResult = NonNullable<Awaited<ReturnType<typeof getClientBilling>>>
+export type GetClientBillingQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Subscription billing view for a client dashboard (admin section)
+ */
+
+export function useGetClientBilling<TData = Awaited<ReturnType<typeof getClientBilling>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBilling>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientBillingQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateClientBillingUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/billing`
+}
+
+/**
+ * @summary Change billing day, pause/resume, billing contact, or plan
+ */
+export const updateClientBilling = async (token: string,
+    clientBillingUpdateInput: ClientBillingUpdateInput, options?: RequestInit): Promise<ClientBillingView> => {
+
+  return customFetch<ClientBillingView>(getUpdateClientBillingUrl(token),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientBillingUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateClientBillingMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientBilling>>, TError,{token: string;data: BodyType<ClientBillingUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateClientBilling>>, TError,{token: string;data: BodyType<ClientBillingUpdateInput>}, TContext> => {
+
+const mutationKey = ['updateClientBilling'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateClientBilling>>, {token: string;data: BodyType<ClientBillingUpdateInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  updateClientBilling(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateClientBillingMutationResult = NonNullable<Awaited<ReturnType<typeof updateClientBilling>>>
+    export type UpdateClientBillingMutationBody = BodyType<ClientBillingUpdateInput>
+    export type UpdateClientBillingMutationError = ErrorType<Error>
+
+    /**
+ * @summary Change billing day, pause/resume, billing contact, or plan
+ */
+export const useUpdateClientBilling = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientBilling>>, TError,{token: string;data: BodyType<ClientBillingUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateClientBilling>>,
+        TError,
+        {token: string;data: BodyType<ClientBillingUpdateInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateClientBillingMutationOptions(options));
+    }
+
+export const getPutClientPaymentMethodUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/billing/payment-method`
+}
+
+/**
+ * @summary Store the subscription payment method (sanitized — last4 only)
+ */
+export const putClientPaymentMethod = async (token: string,
+    clientPaymentMethodInput: ClientPaymentMethodInput, options?: RequestInit): Promise<ClientBillingView> => {
+
+  return customFetch<ClientBillingView>(getPutClientPaymentMethodUrl(token),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientPaymentMethodInput)
+  }
+);}
+
+
+
+
+
+export const getPutClientPaymentMethodMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putClientPaymentMethod>>, TError,{token: string;data: BodyType<ClientPaymentMethodInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof putClientPaymentMethod>>, TError,{token: string;data: BodyType<ClientPaymentMethodInput>}, TContext> => {
+
+const mutationKey = ['putClientPaymentMethod'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putClientPaymentMethod>>, {token: string;data: BodyType<ClientPaymentMethodInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  putClientPaymentMethod(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutClientPaymentMethodMutationResult = NonNullable<Awaited<ReturnType<typeof putClientPaymentMethod>>>
+    export type PutClientPaymentMethodMutationBody = BodyType<ClientPaymentMethodInput>
+    export type PutClientPaymentMethodMutationError = ErrorType<Error>
+
+    /**
+ * @summary Store the subscription payment method (sanitized — last4 only)
+ */
+export const usePutClientPaymentMethod = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putClientPaymentMethod>>, TError,{token: string;data: BodyType<ClientPaymentMethodInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof putClientPaymentMethod>>,
+        TError,
+        {token: string;data: BodyType<ClientPaymentMethodInput>},
+        TContext
+      > => {
+      return useMutation(getPutClientPaymentMethodMutationOptions(options));
+    }
+
+export const getGetClientBoardUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/board`
+}
+
+/**
+ * @summary Trello-style client board — cards raised by everything we send
+ */
+export const getClientBoard = async (token: string, options?: RequestInit): Promise<ClientBoardView> => {
+
+  return customFetch<ClientBoardView>(getGetClientBoardUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientBoardQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/board`
+    ] as const;
+    }
+
+
+export const getGetClientBoardQueryOptions = <TData = Awaited<ReturnType<typeof getClientBoard>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientBoardQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientBoard>>> = ({ signal }) => getClientBoard(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientBoard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientBoardQueryResult = NonNullable<Awaited<ReturnType<typeof getClientBoard>>>
+export type GetClientBoardQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Trello-style client board — cards raised by everything we send
+ */
+
+export function useGetClientBoard<TData = Awaited<ReturnType<typeof getClientBoard>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientBoardQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateClientBoardCardUrl = (token: string,
+    cardId: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/cards/${cardId}`
+}
+
+/**
+ * @summary Move a board card between columns
+ */
+export const updateClientBoardCard = async (token: string,
+    cardId: string,
+    clientBoardCardUpdateInput: ClientBoardCardUpdateInput, options?: RequestInit): Promise<ClientBoardCard> => {
+
+  return customFetch<ClientBoardCard>(getUpdateClientBoardCardUrl(token,cardId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientBoardCardUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateClientBoardCardMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientBoardCard>>, TError,{token: string;cardId: string;data: BodyType<ClientBoardCardUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateClientBoardCard>>, TError,{token: string;cardId: string;data: BodyType<ClientBoardCardUpdateInput>}, TContext> => {
+
+const mutationKey = ['updateClientBoardCard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateClientBoardCard>>, {token: string;cardId: string;data: BodyType<ClientBoardCardUpdateInput>}> = (props) => {
+          const {token,cardId,data} = props ?? {};
+
+          return  updateClientBoardCard(token,cardId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateClientBoardCardMutationResult = NonNullable<Awaited<ReturnType<typeof updateClientBoardCard>>>
+    export type UpdateClientBoardCardMutationBody = BodyType<ClientBoardCardUpdateInput>
+    export type UpdateClientBoardCardMutationError = ErrorType<Error>
+
+    /**
+ * @summary Move a board card between columns
+ */
+export const useUpdateClientBoardCard = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientBoardCard>>, TError,{token: string;cardId: string;data: BodyType<ClientBoardCardUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateClientBoardCard>>,
+        TError,
+        {token: string;cardId: string;data: BodyType<ClientBoardCardUpdateInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateClientBoardCardMutationOptions(options));
+    }
+
+export const getUpdateClientBoardWebhookUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/webhook`
+}
+
+/**
+ * @summary Connect or remove the outbound webhook that mirrors board cards
+ */
+export const updateClientBoardWebhook = async (token: string,
+    clientBoardWebhookInput: ClientBoardWebhookInput, options?: RequestInit): Promise<ClientBoardWebhookView> => {
+
+  return customFetch<ClientBoardWebhookView>(getUpdateClientBoardWebhookUrl(token),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientBoardWebhookInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateClientBoardWebhookMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientBoardWebhook>>, TError,{token: string;data: BodyType<ClientBoardWebhookInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateClientBoardWebhook>>, TError,{token: string;data: BodyType<ClientBoardWebhookInput>}, TContext> => {
+
+const mutationKey = ['updateClientBoardWebhook'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateClientBoardWebhook>>, {token: string;data: BodyType<ClientBoardWebhookInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  updateClientBoardWebhook(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateClientBoardWebhookMutationResult = NonNullable<Awaited<ReturnType<typeof updateClientBoardWebhook>>>
+    export type UpdateClientBoardWebhookMutationBody = BodyType<ClientBoardWebhookInput>
+    export type UpdateClientBoardWebhookMutationError = ErrorType<Error>
+
+    /**
+ * @summary Connect or remove the outbound webhook that mirrors board cards
+ */
+export const useUpdateClientBoardWebhook = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientBoardWebhook>>, TError,{token: string;data: BodyType<ClientBoardWebhookInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateClientBoardWebhook>>,
+        TError,
+        {token: string;data: BodyType<ClientBoardWebhookInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateClientBoardWebhookMutationOptions(options));
+    }
+
+export const getBuildInvoiceJobDraftUrl = () => {
+
+
+
+
+  return `/api/invoices/job-draft`
+}
+
+/**
+ * @summary Build an SOP-compliant invoice draft from a job (AI breakout, double-checked against the rule)
+ */
+export const buildInvoiceJobDraft = async (invoiceJobDraftInput: InvoiceJobDraftInput, options?: RequestInit): Promise<InvoiceJobDraft> => {
+
+  return customFetch<InvoiceJobDraft>(getBuildInvoiceJobDraftUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(invoiceJobDraftInput)
+  }
+);}
+
+
+
+
+
+export const getBuildInvoiceJobDraftMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buildInvoiceJobDraft>>, TError,{data: BodyType<InvoiceJobDraftInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof buildInvoiceJobDraft>>, TError,{data: BodyType<InvoiceJobDraftInput>}, TContext> => {
+
+const mutationKey = ['buildInvoiceJobDraft'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof buildInvoiceJobDraft>>, {data: BodyType<InvoiceJobDraftInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  buildInvoiceJobDraft(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BuildInvoiceJobDraftMutationResult = NonNullable<Awaited<ReturnType<typeof buildInvoiceJobDraft>>>
+    export type BuildInvoiceJobDraftMutationBody = BodyType<InvoiceJobDraftInput>
+    export type BuildInvoiceJobDraftMutationError = ErrorType<Error>
+
+    /**
+ * @summary Build an SOP-compliant invoice draft from a job (AI breakout, double-checked against the rule)
+ */
+export const useBuildInvoiceJobDraft = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buildInvoiceJobDraft>>, TError,{data: BodyType<InvoiceJobDraftInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof buildInvoiceJobDraft>>,
+        TError,
+        {data: BodyType<InvoiceJobDraftInput>},
+        TContext
+      > => {
+      return useMutation(getBuildInvoiceJobDraftMutationOptions(options));
     }
 

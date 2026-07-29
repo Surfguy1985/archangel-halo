@@ -26,6 +26,11 @@ import vapiRouter from "./vapi";
 import wingsRouter from "./wings";
 import payhubRouter from "./payhub";
 import sopRouter from "./sop";
+import adminRouter from "./admin";
+import jobSummariesRouter from "./jobSummaries";
+import clientAccessRouter from "./clientAccess";
+import workRequestsRouter from "./workRequests";
+import invoiceJobDraftRouter from "./invoiceJobDraft";
 
 const router: IRouter = Router();
 
@@ -56,5 +61,10 @@ router.use(vapiRouter);
 router.use(wingsRouter);
 router.use(payhubRouter);
 router.use(sopRouter);
+router.use(adminRouter);
+router.use(jobSummariesRouter);
+router.use(clientAccessRouter);
+router.use(workRequestsRouter);
+router.use(invoiceJobDraftRouter);
 
 export default router;

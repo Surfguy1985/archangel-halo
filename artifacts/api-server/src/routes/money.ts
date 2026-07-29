@@ -59,6 +59,7 @@ import { generateInvoicePdf, type InvoicePdfCompany } from "../lib/invoicePdf";
 import { applySopToInvoice, getSopRule } from "./sop";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { getBankMtdCashflow } from "../lib/plaidClient";
+import { raiseClientCard, completeClientCard } from "../lib/clientBoard";
 
 type Settings = Awaited<ReturnType<typeof getBusinessSettings>>;
 
@@ -102,7 +103,7 @@ const router: IRouter = Router();
  * Explicit taxAmount wins; otherwise apply the business tax rate (tax-inclusive
  * total: tax = total * r / (1 + r)) when one is configured.
  */
-async function resolveTaxAmount(
+export async function resolveTaxAmount(
   explicit: number | undefined,
   total: number,
 ): Promise<number> {
@@ -675,6 +676,24 @@ router.post("/invoices/:id/send", async (req, res): Promise<void> => {
     .returning();
   if (row.jobId) await recomputeJobFinancials(row.jobId);
   await syncInvoiceLedger(row.id);
+  // Mirror the send onto the client's board — card lands prepopulated with
+  // the invoice PDF and everything they need to pay it.
+  const invTotal = row.amount + (row.taxAmount ?? 0);
+  await raiseClientCard({
+    propertyId: row.propertyId,
+    kind: "invoice",
+    title: `Invoice ${row.invoiceNo} — ${invTotal.toLocaleString("en-US", { style: "currency", currency: "USD" })}`,
+    body: row.notes || `Invoice ${row.invoiceNo} from Archangel Contractors.`,
+    actionLabel: "Review & pay",
+    amount: invTotal,
+    dueDate: row.dueAt
+      ? `${row.dueAt.getFullYear()}-${String(row.dueAt.getMonth() + 1).padStart(2, "0")}-${String(row.dueAt.getDate()).padStart(2, "0")}`
+      : null,
+    links: [{ label: `Invoice ${row.invoiceNo} (PDF)`, url: `/api/invoices/${row.id}/pdf`, kind: "pdf" }],
+    sourceType: "invoice",
+    sourceId: row.id,
+    jobId: row.jobId ?? null,
+  });
   res.json(SendInvoiceResponse.parse(decorateInvoice(row, names)));
 });
 
@@ -733,6 +752,10 @@ router.post("/invoices/:id/status", async (req, res): Promise<void> => {
   }
   if (row.jobId) await recomputeJobFinancials(row.jobId);
   await syncInvoiceLedger(row.id);
+  // Board mirror: manual paid flips complete the card too.
+  if (body.status === "paid") {
+    await completeClientCard("invoice", row.id, "Paid — thank you");
+  }
   const names = await propertyNames();
   res.json(SetInvoiceStatusResponse.parse(decorateInvoice(row, names)));
 });
@@ -828,6 +851,8 @@ router.post("/payments", async (req, res): Promise<void> => {
     .returning();
   if (inv?.jobId) await recomputeJobFinancials(inv.jobId);
   if (inv) await syncInvoiceLedger(inv.id);
+  // The board mirrors reality: a paid invoice's card completes itself.
+  if (inv) await completeClientCard("invoice", inv.id, "Paid — thank you");
   if (inv && (body.checkNumber || body.checkImagePath)) {
     const names = await propertyNames();
     await db.insert(activitiesTable).values({
