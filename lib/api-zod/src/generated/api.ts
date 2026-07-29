@@ -8406,7 +8406,8 @@ export const GetClientBoardResponse = zod.object({
   "href": zod.string().nullish()
 })),
   "editable": zod.boolean(),
-  "updatedAt": zod.string().nullish()
+  "updatedAt": zod.string().nullish(),
+  "snoozedUntil": zod.string().nullish()
 })),
   "audit": zod.array(zod.object({
   "action": zod.string(),

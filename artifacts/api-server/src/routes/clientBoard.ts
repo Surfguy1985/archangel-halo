@@ -333,11 +333,14 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   const cards: CardRow[] = [];
 
   const applyOverride = (card: CardRow) => {
+    card.snoozedUntil = null;
     const o = overrides.get(card.cardKey);
     if (o) {
       if (o.lane && LANE_KEYS.has(o.lane)) card.lane = o.lane;
       card.position = o.position;
       if (o.notes != null) card.notes = o.notes;
+      if (o.snoozedUntil && o.snoozedUntil.getTime() > now)
+        card.snoozedUntil = o.snoozedUntil.toISOString();
     }
     return card;
   };
@@ -571,6 +574,8 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       actions: [{ key: "card.archive", label: "Archive", kind: "secondary", href: null }],
       editable: true,
       updatedAt: c.updatedAt.toISOString(),
+      snoozedUntil:
+        c.snoozedUntil && c.snoozedUntil.getTime() > now ? c.snoozedUntil.toISOString() : null,
     });
   }
 
@@ -952,6 +957,52 @@ const ACTIONS: Record<
         }
       }
       return { ok: true, blocked: false, message: "Card moved" };
+    },
+  },
+
+  // Triage "Defer" — snooze a card out of the triage queue server-side so it
+  // stays hidden across refreshes and devices, then returns when it expires.
+  "card.snoozed": {
+    requiresWrite: true,
+    run: async (ctx) => {
+      if (!ctx.cardKey) return { ok: false, blocked: false, reason: "cardKey required" };
+      const rawDays = Number(ctx.payload.days ?? 1);
+      const days = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 30) : 1;
+      const until = new Date(Date.now() + days * 86_400_000);
+      if (ctx.cardKey.startsWith("custom:")) {
+        const updated = await db
+          .update(clientDashboardCardsTable)
+          .set({ snoozedUntil: until, updatedAt: new Date() })
+          .where(
+            and(
+              eq(clientDashboardCardsTable.propertyId, ctx.account.propertyId),
+              eq(clientDashboardCardsTable.cardKey, ctx.cardKey),
+            ),
+          )
+          .returning();
+        if (!updated.length) return { ok: false, blocked: false, reason: "Card not found" };
+      } else {
+        // Snooze rides on the same override row used for lane placement.
+        await db
+          .insert(clientDashboardCardsTable)
+          .values({
+            propertyId: ctx.account.propertyId,
+            cardKey: ctx.cardKey,
+            kind: "override",
+            snoozedUntil: until,
+            createdBy: ctx.viewer.name,
+          })
+          .onConflictDoUpdate({
+            target: [clientDashboardCardsTable.propertyId, clientDashboardCardsTable.cardKey],
+            set: { snoozedUntil: until, updatedAt: new Date() },
+          });
+      }
+      return {
+        ok: true,
+        blocked: false,
+        message: `Deferred for ${days} day${days === 1 ? "" : "s"}`,
+        result: { snoozedUntil: until.toISOString() },
+      };
     },
   },
 

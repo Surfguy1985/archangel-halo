@@ -47,4 +47,6 @@ export interface ClientBoardCardView {
   editable: boolean;
   /** @nullable */
   updatedAt?: string | null;
+  /** @nullable */
+  snoozedUntil?: string | null;
 }

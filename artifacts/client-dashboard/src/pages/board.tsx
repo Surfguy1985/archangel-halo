@@ -202,6 +202,8 @@ function Board() {
     return board.cards.filter(c => {
       if (localDismissedTriage.has(c.cardKey)) return false;
       if (c.lane === 'done') return false; // Ignore closed cards
+      // Server-side snooze: deferred cards stay hidden until their snooze expires
+      if (c.snoozedUntil && parseISO(c.snoozedUntil).getTime() > Date.now()) return false;
       
       const isUrgent = c.priority === 'urgent' || c.priority === 'high';
       let isPastDue = false;
@@ -681,10 +683,39 @@ function Board() {
                         
                         <button
                           onClick={() => {
+                            if (viewer.readOnly) {
+                              setTriageOpen(false);
+                              setLoginOpen(true);
+                              return;
+                            }
+                            // Hide immediately, then persist the snooze server-side
                             setLocalDismissedTriage(prev => {
                               const next = new Set(prev);
                               next.add(c.cardKey);
                               return next;
+                            });
+                            dispatchAction.mutate({ token, data: { action: 'card.snoozed', cardKey: c.cardKey, payload: { days: 1 } } }, {
+                              onSuccess: (outcome) => {
+                                if (!outcome.ok) {
+                                  setLocalDismissedTriage(prev => {
+                                    const next = new Set(prev);
+                                    next.delete(c.cardKey);
+                                    return next;
+                                  });
+                                  toast({ title: 'Defer failed', description: outcome.reason || outcome.message || 'Could not defer this card.', variant: 'destructive' });
+                                  return;
+                                }
+                                toast({ title: 'Deferred', description: outcome.message || 'This card will return to triage tomorrow.' });
+                                queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+                              },
+                              onError: () => {
+                                setLocalDismissedTriage(prev => {
+                                  const next = new Set(prev);
+                                  next.delete(c.cardKey);
+                                  return next;
+                                });
+                                toast({ title: 'Defer failed', description: 'Network error while deferring this card.', variant: 'destructive' });
+                              },
                             });
                           }}
                           className="h-9 px-3 flex items-center justify-center border border-black/10 bg-white text-muted-foreground text-[11px] font-[800] uppercase tracking-wider rounded-[8px] shadow-sm hover:bg-black/5 transition-colors"

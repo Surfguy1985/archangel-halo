@@ -11585,6 +11585,7 @@ components:
             $ref: "#/components/schemas/ClientBoardCardButton"
         editable: { type: boolean }
         updatedAt: { type: ["string", "null"] }
+        snoozedUntil: { type: ["string", "null"] }
 
     ClientBoardAuditEntry:
       type: object

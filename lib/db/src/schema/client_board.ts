@@ -32,6 +32,8 @@ export const clientDashboardCardsTable = pgTable(
     dueOn: text("due_on"), // YYYY-MM-DD, local date string
     createdBy: text("created_by"),
     archived: boolean("archived").notNull().default(false),
+    // Triage "Defer": hide from the triage queue until this instant passes.
+    snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
