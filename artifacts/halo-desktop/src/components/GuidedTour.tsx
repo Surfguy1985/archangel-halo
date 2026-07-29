@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { useCallback, useEffect, useMemo, useRef, useState} from "react";
+import { useLocation} from "wouter";
 import {
   Sparkles,
   Mic,
@@ -29,8 +29,8 @@ import {
   ChevronLeft,
   type LucideIcon,
 } from "lucide-react";
-import { tourChapters } from "@/lib/desktopTour";
-import { useTourNarration } from "@/hooks/useTourNarration";
+import { tourChapters} from "@/lib/desktopTour";
+import { useTourNarration} from "@/hooks/useTourNarration";
 
 const ICONS: Record<string, LucideIcon> = {
   Sparkles,
@@ -58,9 +58,9 @@ function loadDone(): Set<string> {
     const raw = localStorage.getItem(DONE_KEY);
     if (!raw) return new Set();
     return new Set(JSON.parse(raw) as string[]);
-  } catch {
+ } catch {
     return new Set();
-  }
+ }
 }
 
 function estimateMs(text: string): number {
@@ -69,7 +69,7 @@ function estimateMs(text: string): number {
   return Math.min(24000, Math.max(3600, ms));
 }
 
-type Rect = { top: number; left: number; width: number; height: number };
+type Rect = { top: number; left: number; width: number; height: number};
 
 const CALLOUT_W = 380;
 const GAP = 18;
@@ -84,28 +84,28 @@ function findTarget(target: string | undefined, timeoutMs = 1400): Promise<Rect 
       if (el) {
         const r = el.getBoundingClientRect();
         if (r.width > 0 && r.height > 0) {
-          return resolve({ top: r.top, left: r.left, width: r.width, height: r.height });
-        }
-      }
+          return resolve({ top: r.top, left: r.left, width: r.width, height: r.height});
+       }
+     }
       if (performance.now() - start > timeoutMs) return resolve(null);
       requestAnimationFrame(tick);
-    };
+   };
     tick();
-  });
+ });
 }
 
 function calloutPosition(
   rect: Rect | null,
   placement: string | undefined,
-): { top: number; left: number; arrow: string } {
+): { top: number; left: number; arrow: string} {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const clampTop = (t: number) => Math.max(GAP, Math.min(t, vh - 220 - GAP));
   const clampLeft = (l: number) => Math.max(GAP, Math.min(l, vw - CALLOUT_W - GAP));
 
   if (!rect || placement === "center") {
-    return { top: Math.round(vh / 2 - 150), left: Math.round(vw / 2 - CALLOUT_W / 2), arrow: "none" };
-  }
+    return { top: Math.round(vh / 2 - 150), left: Math.round(vw / 2 - CALLOUT_W / 2), arrow: "none"};
+ }
 
   switch (placement) {
     case "right":
@@ -113,27 +113,27 @@ function calloutPosition(
         top: clampTop(rect.top + rect.height / 2 - 110),
         left: clampLeft(rect.left + rect.width + GAP),
         arrow: "left",
-      };
+     };
     case "left":
       return {
         top: clampTop(rect.top + rect.height / 2 - 110),
         left: clampLeft(rect.left - CALLOUT_W - GAP),
         arrow: "right",
-      };
+     };
     case "top":
       return {
         top: clampTop(rect.top - 240),
         left: clampLeft(rect.left + rect.width / 2 - CALLOUT_W / 2),
         arrow: "bottom",
-      };
+     };
     case "bottom":
     default:
       return {
         top: clampTop(rect.top + rect.height + GAP),
         left: clampLeft(rect.left + rect.width / 2 - CALLOUT_W / 2),
         arrow: "top",
-      };
-  }
+     };
+ }
 }
 
 export function GuidedTour({
@@ -143,7 +143,7 @@ export function GuidedTour({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { supported, speaking, play, stop, prime } = useTourNarration();
+  const { supported, speaking, play, stop, prime} = useTourNarration();
   const [, navigate] = useLocation();
   const [view, setView] = useState<"menu" | "player">("menu");
   const [ci, setCi] = useState(0);
@@ -158,29 +158,29 @@ export function GuidedTour({
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
-    }
-  }, []);
+   }
+ }, []);
 
   const totalMinutes = useMemo(() => {
     const words = tourChapters
       .flatMap((c) => c.steps)
       .reduce((n, s) => n + (s.title + " " + s.body).split(/\s+/).length, 0);
     return Math.max(1, Math.round(words / 150));
-  }, []);
+ }, []);
 
   const nextPos = useCallback((c: number, s: number) => {
     const chap = tourChapters[c];
     if (!chap) return null;
-    if (s + 1 < chap.steps.length) return { c, s: s + 1 };
-    if (c + 1 < tourChapters.length) return { c: c + 1, s: 0 };
+    if (s + 1 < chap.steps.length) return { c, s: s + 1};
+    if (c + 1 < tourChapters.length) return { c: c + 1, s: 0};
     return null;
-  }, []);
+ }, []);
 
   const prevPos = useCallback((c: number, s: number) => {
-    if (s - 1 >= 0) return { c, s: s - 1 };
-    if (c - 1 >= 0) return { c: c - 1, s: tourChapters[c - 1].steps.length - 1 };
+    if (s - 1 >= 0) return { c, s: s - 1};
+    if (c - 1 >= 0) return { c: c - 1, s: tourChapters[c - 1].steps.length - 1};
     return null;
-  }, []);
+ }, []);
 
   const chapter = tourChapters[ci];
   const step = chapter?.steps[si];
@@ -197,7 +197,7 @@ export function GuidedTour({
     navigate(step.route);
 
     // Steps without a target (generic "page"/center) render a centered callout.
-    if (!step.target) return () => { cancelled = true; };
+    if (!step.target) return () => { cancelled = true;};
 
     const target = step.target;
     const start = performance.now();
@@ -209,13 +209,13 @@ export function GuidedTour({
         const r = el.getBoundingClientRect();
         if (r.width > 0 && r.height > 0) {
           if (!cancelled) {
-            setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-          }
+            setRect({ top: r.top, left: r.left, width: r.width, height: r.height});
+         }
           return true;
-        }
-      }
+       }
+     }
       return false;
-    };
+   };
 
     // Give the route a beat to start rendering, then poll until found.
     const startTimeout = setTimeout(() => {
@@ -224,17 +224,17 @@ export function GuidedTour({
         if (measure()) return; // found — resize/scroll effect keeps it aligned
         if (performance.now() - start > HARD_STOP_MS) return; // give up → centered
         raf = requestAnimationFrame(tick);
-      };
+     };
       tick();
-    }, 260);
+   }, 260);
 
     return () => {
       cancelled = true;
       clearTimeout(startTimeout);
       if (raf) cancelAnimationFrame(raf);
-    };
+   };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, view, ci, si]);
+ }, [open, view, ci, si]);
 
   // Keep the spotlight aligned on resize/scroll.
   useEffect(() => {
@@ -244,16 +244,16 @@ export function GuidedTour({
     const update = async () => {
       const found = await findTarget(target, 200);
       if (!cancelled) setRect(found);
-    };
+   };
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
     return () => {
       cancelled = true;
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
-    };
+   };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, view, ci, si]);
+ }, [open, view, ci, si]);
 
   // Mark a chapter complete once its last step is reached.
   useEffect(() => {
@@ -266,13 +266,13 @@ export function GuidedTour({
         next.add(chap.id);
         try {
           localStorage.setItem(DONE_KEY, JSON.stringify([...next]));
-        } catch {
+       } catch {
           /* no-op */
-        }
+       }
         return next;
-      });
-    }
-  }, [view, ci, si, done]);
+     });
+   }
+ }, [view, ci, si, done]);
 
   // Narration + auto-advance engine.
   useEffect(() => {
@@ -285,34 +285,34 @@ export function GuidedTour({
       if (n) {
         setCi(n.c);
         setSi(n.s);
-      } else {
+     } else {
         setPlaying(false);
-      }
-    };
+     }
+   };
 
-    const stepKey = `${tourChapters[ci]?.id ?? ""}-${si}`;
+    const stepKey =`${tourChapters[ci]?.id ?? ""}-${si}`;
 
     // Small delay so narration starts after the screen navigates in.
     const startDelay = setTimeout(() => {
       if (!muted) {
-        play(stepKey, `${step.title}. ${step.body}`, {
+        play(stepKey,`${step.title}. ${step.body}`, {
           onEnd: advance,
           onError: () => {
             timerRef.current = setTimeout(advance, estimateMs(step.body));
-          },
-        });
-      } else {
+         },
+       });
+     } else {
         timerRef.current = setTimeout(advance, estimateMs(step.body));
-      }
-    }, 420);
+     }
+   }, 420);
 
     return () => {
       clearTimeout(startDelay);
       clearTimer();
       stop();
-    };
+   };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, view, ci, si, playing, muted, supported]);
+ }, [open, view, ci, si, playing, muted, supported]);
 
   // Reset when closed.
   useEffect(() => {
@@ -322,18 +322,18 @@ export function GuidedTour({
       setPlaying(false);
       setView("menu");
       setRect(null);
-    }
-  }, [open, stop, clearTimer]);
+   }
+ }, [open, stop, clearTimer]);
 
   // Escape closes.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onOpenChange(false);
-    };
+   };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onOpenChange]);
+ }, [open, onOpenChange]);
 
   const startTour = () => {
     prime();
@@ -341,7 +341,7 @@ export function GuidedTour({
     setSi(0);
     setView("player");
     setPlaying(true);
-  };
+ };
 
   const openChapter = (index: number) => {
     prime();
@@ -349,12 +349,12 @@ export function GuidedTour({
     setSi(0);
     setView("player");
     setPlaying(true);
-  };
+ };
 
   const togglePlay = () => {
     if (!playing) prime();
     setPlaying((p) => !p);
-  };
+ };
 
   const goNext = () => {
     prime();
@@ -362,8 +362,8 @@ export function GuidedTour({
     if (n) {
       setCi(n.c);
       setSi(n.s);
-    }
-  };
+   }
+ };
 
   const goPrev = () => {
     prime();
@@ -371,8 +371,8 @@ export function GuidedTour({
     if (p) {
       setCi(p.c);
       setSi(p.s);
-    }
-  };
+   }
+ };
 
   if (!open) return null;
 
@@ -425,7 +425,7 @@ export function GuidedTour({
             </button>
 
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.06em]">
+              <div className="text-xs font-semibold text-muted-foreground tracking-[0.06em]">
                 Lessons
               </div>
               <div className="text-xs text-muted-foreground">
@@ -464,13 +464,13 @@ export function GuidedTour({
                     </div>
                   </button>
                 );
-              })}
+             })}
             </div>
           </div>
         </div>
       </div>
     );
-  }
+ }
 
   // ---- Player (spotlight over the live app) ----
   const pos = calloutPosition(rect, step?.placement);
@@ -490,7 +490,7 @@ export function GuidedTour({
             boxShadow: "0 0 0 9999px rgba(17,18,20,0.62)",
             outline: "3px solid var(--gold)",
             outlineOffset: "2px",
-          }}
+         }}
         />
       ) : (
         <div className="absolute inset-0 bg-[rgba(17,18,20,0.62)] pointer-events-none" />
@@ -499,7 +499,7 @@ export function GuidedTour({
       {/* Callout card */}
       <div
         className="absolute w-[380px] pointer-events-auto animate-in fade-in zoom-in-95 duration-200"
-        style={{ top: pos.top, left: pos.left }}
+        style={{ top: pos.top, left: pos.left}}
       >
         <div className="relative bg-card rounded-2xl border border-border shadow-[0_24px_60px_rgba(23,24,28,0.4)] overflow-hidden">
           {/* Header */}
@@ -511,7 +511,7 @@ export function GuidedTour({
               <Icon className="relative w-[18px] h-[18px] text-[var(--gold-light)]" strokeWidth={1.9} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[10.5px] font-semibold text-[var(--gold-dark)] uppercase tracking-[0.08em]">
+              <div className="text-[10.5px] font-semibold text-[var(--gold-dark)] tracking-[0.08em]">
                 Lesson {ci + 1} of {tourChapters.length} · {chapter?.title}
               </div>
             </div>
@@ -542,7 +542,7 @@ export function GuidedTour({
                 key={idx}
                 className={`h-1 flex-1 rounded-full transition-colors ${
                   idx < si ? "bg-[var(--gold-light)]" : idx === si ? "bg-[var(--ink)]" : "bg-[rgba(23,24,28,0.12)]"
-                }`}
+               }`}
               />
             ))}
           </div>
@@ -561,7 +561,7 @@ export function GuidedTour({
                 clearTimer();
                 setPlaying(false);
                 setView("menu");
-              }}
+             }}
               className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-[var(--ink)] transition-colors"
             >
               <ChevronLeft className="w-4 h-4" /> Lessons

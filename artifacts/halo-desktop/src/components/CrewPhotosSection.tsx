@@ -1,5 +1,5 @@
-import type { CrewJobPhoto } from "@workspace/api-client-react";
-import { Camera } from "lucide-react";
+import type { CrewJobPhoto} from "@workspace/api-client-react";
+import { Camera} from "lucide-react";
 
 export function CrewPhotosSection({
   photos,
@@ -35,7 +35,7 @@ export function CrewPhotosSection({
             <div className="p-2.5">
               <div className="text-xs font-semibold truncate">
                 {showJob
-                  ? [p.jobNo, p.unitNo ? `Unit ${p.unitNo}` : null]
+                  ? [p.jobNo, p.unitNo ?`Unit ${p.unitNo}` : null]
                       .filter(Boolean)
                       .join(" · ") || "Job photo"
                   : p.crewName || "Crew photo"}
@@ -46,7 +46,7 @@ export function CrewPhotosSection({
                   new Date(`${p.takenOn}T00:00:00`).toLocaleDateString(undefined, {
                     month: "short",
                     day: "numeric",
-                  }),
+                 }),
                   p.note,
                 ]
                   .filter(Boolean)

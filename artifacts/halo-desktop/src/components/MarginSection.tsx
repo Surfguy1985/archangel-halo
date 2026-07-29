@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Pencil, ShieldCheck, ShieldAlert, Target } from "lucide-react";
+import { useState} from "react";
+import { Pencil, ShieldCheck, ShieldAlert, Target} from "lucide-react";
 
 const DEFAULT_MIN = 0.25;
 
@@ -24,28 +24,28 @@ export function marginStatus(
 
 const STATUS_META: Record<
   MarginStatus,
-  { label: string; color: string; bar: string }
+  { label: string; color: string; bar: string}
 > = {
   below: {
     label: "Below minimum",
     color: "text-[#B23B3B]",
     bar: "linear-gradient(90deg,#D96A6A,#B23B3B)",
-  },
+ },
   between: {
     label: "Above minimum",
     color: "text-[var(--gold-dark)]",
     bar: "var(--primary)",
-  },
+ },
   target: {
     label: "Hitting target",
     color: "text-[#2E7D4F]",
     bar: "linear-gradient(90deg,#5DBA85,#2E7D4F)",
-  },
+ },
   none: {
     label: "No margin data yet",
     color: "text-muted-foreground",
     bar: "linear-gradient(90deg,#C9CBD1,#AEB1B8)",
-  },
+ },
 };
 
 export function MarginSection({
@@ -73,7 +73,7 @@ export function MarginSection({
     minFrac: number | null;
     targetFrac: number | null;
     currentFrac?: number | null;
-  }) => void;
+ }) => void;
   helperText?: string;
   headerExtra?: React.ReactNode;
   children?: React.ReactNode;
@@ -94,22 +94,22 @@ export function MarginSection({
     Math.ceil((minPct + 5) / 10) * 10,
     targetPct != null ? Math.ceil((targetPct + 5) / 10) * 10 : 0,
   );
-  const pos = (v: number) => `${Math.min(100, Math.max(0, (v / scaleMax) * 100))}%`;
+  const pos = (v: number) =>`${Math.min(100, Math.max(0, (v / scaleMax) * 100))}%`;
 
   const startEdit = () => {
     setMinStr(minFrac != null ? String(Math.round(minFrac * 1000) / 10) : "");
     setTargetStr(targetFrac != null ? String(Math.round(targetFrac * 1000) / 10) : "");
     setCurrentStr(currentPct != null ? String(Math.round(currentPct * 10) / 10) : "");
     setEditing(true);
-  };
+ };
 
-  const parsePct = (s: string): { ok: boolean; value: number | null } => {
+  const parsePct = (s: string): { ok: boolean; value: number | null} => {
     const t = s.trim();
-    if (!t) return { ok: true, value: null };
+    if (!t) return { ok: true, value: null};
     const n = Number(t);
-    if (!Number.isFinite(n) || n < 0 || n > 100) return { ok: false, value: null };
-    return { ok: true, value: Math.round(n * 10) / 1000 };
-  };
+    if (!Number.isFinite(n) || n < 0 || n > 100) return { ok: false, value: null};
+    return { ok: true, value: Math.round(n * 10) / 1000};
+ };
 
   const minVal = parsePct(minStr);
   const targetVal = parsePct(targetStr);
@@ -125,10 +125,10 @@ export function MarginSection({
     onSave({
       minFrac: minVal.value,
       targetFrac: targetVal.value,
-      ...(currentEditable ? { currentFrac: currentVal.value } : {}),
-    });
+      ...(currentEditable ? { currentFrac: currentVal.value} : {}),
+   });
     setEditing(false);
-  };
+ };
 
   const StatusIcon =
     status === "below" ? ShieldAlert : status === "target" ? ShieldCheck : Target;
@@ -154,7 +154,7 @@ export function MarginSection({
         <div className="flex items-center justify-between mb-3">
           <div>
             <div className="text-3xl font-mono font-bold text-[var(--ink)] tabular-nums leading-none">
-              {currentPct != null ? `${currentPct}%` : "—"}
+              {currentPct != null ?`${currentPct}%` : "—"}
             </div>
             <div className={`flex items-center gap-1.5 mt-2 text-sm font-semibold ${meta.color}`}>
               <StatusIcon className="w-4 h-4" />
@@ -169,7 +169,7 @@ export function MarginSection({
             <div>
               Target{" "}
               <b className="text-foreground tabular-nums">
-                {targetPct != null ? `${Math.round(targetPct * 10) / 10}%` : "—"}
+                {targetPct != null ?`${Math.round(targetPct * 10) / 10}%` : "—"}
               </b>
             </div>
           </div>
@@ -179,18 +179,18 @@ export function MarginSection({
           {currentPct != null && (
             <div
               className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
-              style={{ width: pos(currentPct), background: meta.bar }}
+              style={{ width: pos(currentPct), background: meta.bar}}
             />
           )}
           <div
             className="absolute -top-1 -bottom-1 w-[2.5px] rounded-full bg-[#B23B3B]"
-            style={{ left: pos(minPct) }}
+            style={{ left: pos(minPct)}}
             title={`Minimum ${minPct}%`}
           />
           {targetPct != null && (
             <div
               className="absolute -top-1 -bottom-1 w-[2.5px] rounded-full bg-[#2E7D4F]"
-              style={{ left: pos(targetPct) }}
+              style={{ left: pos(targetPct)}}
               title={`Target ${targetPct}%`}
             />
           )}
@@ -208,7 +208,7 @@ export function MarginSection({
           <div className="mt-4 pt-4 border-t border-border">
             <div className={`grid ${currentEditable ? "grid-cols-3" : "grid-cols-2"} gap-3`}>
               <label className="block">
-                <span className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                <span className="block text-xs font-semibold text-muted-foreground mb-1.5">
                   Minimum %
                 </span>
                 <input
@@ -220,7 +220,7 @@ export function MarginSection({
                 />
               </label>
               <label className="block">
-                <span className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                <span className="block text-xs font-semibold text-muted-foreground mb-1.5">
                   Target %
                 </span>
                 <input
@@ -233,7 +233,7 @@ export function MarginSection({
               </label>
               {currentEditable && (
                 <label className="block">
-                  <span className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                  <span className="block text-xs font-semibold text-muted-foreground mb-1.5">
                     Current %
                   </span>
                   <input

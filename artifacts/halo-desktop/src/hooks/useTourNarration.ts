@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useSpeech } from "./useSpeech";
+import { useCallback, useEffect, useRef, useState} from "react";
+import { useSpeech} from "./useSpeech";
 
 // Rough spoken duration so we can still auto-advance when neither the audio
 // clip nor SpeechSynthesis is available (e.g. locked-down environments).
@@ -14,16 +14,16 @@ const audioUrls: Record<string, string> = (() => {
     eager: true,
     query: "?url",
     import: "default",
-  }) as Record<string, string>;
+ }) as Record<string, string>;
   const map: Record<string, string> = {};
   for (const [path, url] of Object.entries(files)) {
     const name = path.split("/").pop()?.replace(/\.mp3$/, "");
     if (name) map[name] = url;
-  }
+ }
   return map;
 })();
 
-type PlayOpts = { onEnd?: () => void; onError?: () => void };
+type PlayOpts = { onEnd?: () => void; onError?: () => void};
 
 /**
  * Plays the natural pre-rendered narration for a tour step. Falls back to the
@@ -44,30 +44,30 @@ export function useTourNarration() {
   const getAudio = useCallback(() => {
     if (!audioRef.current) audioRef.current = new Audio();
     return audioRef.current;
-  }, []);
+ }, []);
 
   const stop = useCallback(() => {
     genRef.current += 1;
     if (fallbackTimerRef.current) {
       clearTimeout(fallbackTimerRef.current);
       fallbackTimerRef.current = null;
-    }
+   }
     const a = audioRef.current;
     if (a) {
       try {
         a.pause();
-      } catch {
+     } catch {
         /* no-op */
-      }
+     }
       a.onended = null;
       a.onerror = null;
-    }
+   }
     speech.cancel();
     setAudioSpeaking(false);
-  }, [speech]);
+ }, [speech]);
 
   // Guarantee narration halts if the component using this hook unmounts.
-  // Use a ref so this only fires on real unmount — `stop` gets a new identity
+  // Use a ref so this only fires on real unmount —`stop` gets a new identity
   // every render (useSpeech returns a fresh object), and depending on it here
   // would tear down + call stop() on every re-render, interrupting playback.
   const stopRef = useRef(stop);
@@ -85,10 +85,10 @@ export function useTourNarration() {
       a.pause();
       a.currentTime = 0;
       a.muted = false;
-    } catch {
+   } catch {
       /* no-op */
-    }
-  }, [speech, getAudio]);
+   }
+ }, [speech, getAudio]);
 
   const play = useCallback(
     (key: string, text: string, opts?: PlayOpts) => {
@@ -103,39 +103,39 @@ export function useTourNarration() {
             if (myGen === genRef.current) {
               setAudioSpeaking(false);
               opts?.onEnd?.();
-            }
-          }, estimateMs(text));
+           }
+         }, estimateMs(text));
           return;
-        }
+       }
         speech.speak(text, {
           onEnd: () => {
             if (myGen === genRef.current) {
               setAudioSpeaking(false);
               opts?.onEnd?.();
-            }
-          },
+           }
+         },
           onError: () => {
             if (myGen === genRef.current) {
               setAudioSpeaking(false);
               opts?.onError?.();
-            }
-          },
-        });
-      };
+           }
+         },
+       });
+     };
 
       const url = audioUrls[key];
       const a = getAudio();
       try {
         a.pause();
-      } catch {
+     } catch {
         /* no-op */
-      }
+     }
       speech.cancel();
 
       if (!url) {
         fallback();
         return;
-      }
+     }
 
       a.src = url;
       a.currentTime = 0;
@@ -143,24 +143,24 @@ export function useTourNarration() {
         if (myGen !== genRef.current) return;
         setAudioSpeaking(false);
         opts?.onEnd?.();
-      };
+     };
       a.onerror = () => {
         if (myGen !== genRef.current) return;
         fallback();
-      };
+     };
 
       const pr = a.play();
       if (pr && typeof pr.then === "function") {
         pr.then(() => {
           if (myGen === genRef.current) setAudioSpeaking(true);
-        }).catch(() => {
+       }).catch(() => {
           if (myGen !== genRef.current) return;
           fallback();
-        });
-      } else {
+       });
+     } else {
         setAudioSpeaking(true);
-      }
-    },
+     }
+   },
     [speech, getAudio],
   );
 
@@ -170,5 +170,5 @@ export function useTourNarration() {
     play,
     stop,
     prime,
-  };
+ };
 }

@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useRef, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useScanCheck,
   useRecordPayment,
@@ -20,40 +20,40 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Camera, Sparkles, X } from "lucide-react";
+import { Button} from "@/components/ui/button";
+import { Input} from "@/components/ui/input";
+import { Camera, Sparkles, X} from "lucide-react";
 
 const selectCls =
   "w-full h-9 bg-background border border-input rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
-import { prepareScanImage } from "@/lib/scanImage";
+import { prepareScanImage} from "@/lib/scanImage";
 
 async function uploadCheckFile(file: File): Promise<string | null> {
   try {
     const resp = await fetch("/api/storage/uploads/request-url", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json"},
       body: JSON.stringify({
         name: file.name || "check.jpg",
         size: Math.max(file.size, 1),
         contentType: file.type || "image/jpeg",
-      }),
-    });
+     }),
+   });
     if (!resp.ok) return null;
-    const { uploadURL, objectPath } = (await resp.json()) as {
+    const { uploadURL, objectPath} = (await resp.json()) as {
       uploadURL: string;
       objectPath: string;
-    };
+   };
     const put = await fetch(uploadURL, {
       method: "PUT",
       body: file,
-      headers: { "Content-Type": file.type || "image/jpeg" },
-    });
+      headers: { "Content-Type": file.type || "image/jpeg"},
+   });
     return put.ok ? objectPath : null;
-  } catch {
+ } catch {
     return null;
-  }
+ }
 }
 
 export function ScanCheckDialog({
@@ -64,11 +64,11 @@ export function ScanCheckDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const { data: properties } = useListProperties();
+  const { data: properties} = useListProperties();
   const [propertyId, setPropertyId] = useState("");
-  const { data: jobs } = useListJobs(propertyId ? { propertyId } : undefined);
+  const { data: jobs} = useListJobs(propertyId ? { propertyId} : undefined);
   const [jobId, setJobId] = useState("");
-  const { data: invoices } = useListInvoices();
+  const { data: invoices} = useListInvoices();
   const [invoiceIds, setInvoiceIds] = useState<string[]>([]);
   const [amount, setAmount] = useState("");
   const [scan, setScan] = useState<CheckScanResult | null>(null);
@@ -106,12 +106,12 @@ export function ScanCheckDialog({
     setCheckPreview(null);
     setError(null);
     setSaving(false);
-  };
+ };
 
   const close = (o: boolean) => {
     if (!o) reset();
     onOpenChange(o);
-  };
+ };
 
   const onPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -120,32 +120,32 @@ export function ScanCheckDialog({
     if (!file.type.startsWith("image/")) {
       setError("Please use a photo (JPG or PNG).");
       return;
-    }
+   }
     setError(null);
     setCheckFile(file);
     setCheckPreview(URL.createObjectURL(file));
     try {
-      const { base64, mediaType, blob } = await prepareScanImage(file);
-      setCheckFile(new File([blob], file.name || "check.jpg", { type: mediaType }));
+      const { base64, mediaType, blob} = await prepareScanImage(file);
+      setCheckFile(new File([blob], file.name || "check.jpg", { type: mediaType}));
       const result = await scanCheck.mutateAsync({
         data: {
           image: base64,
           mediaType,
-        },
-      });
+       },
+     });
       if (!result.found) {
         setError("Couldn't read that photo as a check — try a clearer shot.");
         return;
-      }
+     }
       setScan(result);
       if (result.amount != null) setAmount(String(result.amount));
       if (result.suggestedPropertyId) setPropertyId(result.suggestedPropertyId);
       if (result.suggestedJobId) setJobId(result.suggestedJobId);
       if (result.suggestedInvoiceId) setInvoiceIds([result.suggestedInvoiceId]);
-    } catch {
+   } catch {
       setError("Couldn't read that photo — try again.");
-    }
-  };
+   }
+ };
 
   const submit = async () => {
     const amountNum = parseFloat(amount);
@@ -158,9 +158,9 @@ export function ScanCheckDialog({
         setSaving(false);
         setError("Couldn't save the check photo. Try again.");
         return;
-      }
+     }
       checkImagePath = uploaded;
-    }
+   }
     // One invoice selected: the entered check amount goes to it (allows partial
     // payments). Multiple selected: each invoice is paid its own full amount.
     const applied: string[] = [];
@@ -174,30 +174,30 @@ export function ScanCheckDialog({
             payerName: scan?.payerName ?? undefined,
             checkNumber: scan?.checkNumber ?? undefined,
             checkImagePath,
-          },
-        });
+         },
+       });
         applied.push(inv.id);
-      }
-    } catch {
+     }
+   } catch {
       setError(
         applied.length > 0
-          ? `Applied ${applied.length} of ${selectedInvoices.length} payments — one failed. Check the Money page and try the rest again.`
+          ?`Applied ${applied.length} of ${selectedInvoices.length} payments — one failed. Check the Money page and try the rest again.`
           : "Couldn't apply the payment. Try again.",
       );
-    } finally {
-      queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
-      queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+   } finally {
+      queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
+      queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
       for (const id of applied) {
-        queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(id) });
-      }
-      queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(id)});
+     }
+      queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
       if (propertyId) {
-        queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
-      }
+        queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+     }
       setSaving(false);
       if (applied.length === selectedInvoices.length) close(false);
-    }
-  };
+   }
+ };
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -263,9 +263,9 @@ export function ScanCheckDialog({
               {scan && (
                 <div className="text-xs text-muted-foreground">
                   {[
-                    scan.payerName ? `From ${scan.payerName}` : null,
-                    scan.checkNumber ? `Check #${scan.checkNumber}` : null,
-                    scan.checkDate ? `Dated ${scan.checkDate}` : null,
+                    scan.payerName ?`From ${scan.payerName}` : null,
+                    scan.checkNumber ?`Check #${scan.checkNumber}` : null,
+                    scan.checkDate ?`Dated ${scan.checkDate}` : null,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
@@ -288,7 +288,7 @@ export function ScanCheckDialog({
               setPropertyId(e.target.value);
               setJobId("");
               setInvoiceIds([]);
-            }}
+           }}
             data-testid="select-check-property"
           >
             <option value="">Which property is this payment for?</option>
@@ -305,7 +305,7 @@ export function ScanCheckDialog({
               onChange={(e) => {
                 setJobId(e.target.value);
                 setInvoiceIds([]);
-              }}
+             }}
               data-testid="select-check-job"
             >
               <option value="">Which job? (optional)</option>
@@ -343,13 +343,13 @@ export function ScanCheckDialog({
                       </span>
                     </button>
                   );
-                })}
+               })}
               </div>
               {selectedInvoices.length > 1 && (
                 <div className="text-xs text-muted-foreground" data-testid="text-check-split-summary">
                   {selectedInvoices.length} invoices selected — ${selectedTotal.toLocaleString()} total
                   {!isNaN(checkAmountNum) && Math.abs(selectedTotal - checkAmountNum) > 0.005
-                    ? ` (check is $${checkAmountNum.toLocaleString()} — each invoice will be marked paid in full)`
+                    ?` (check is $${checkAmountNum.toLocaleString()} — each invoice will be marked paid in full)`
                     : ""}
                 </div>
               )}
@@ -369,7 +369,7 @@ export function ScanCheckDialog({
             {saving || record.isPending
               ? "Applying…"
               : invoiceIds.length > 1
-                ? `Apply payment to ${invoiceIds.length} invoices`
+                ?`Apply payment to ${invoiceIds.length} invoices`
                 : "Apply payment to books"}
           </Button>
           {error && <div className="text-xs text-destructive text-center">{error}</div>}

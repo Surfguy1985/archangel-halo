@@ -1,5 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { Trash2, BellOff, CheckCheck } from "lucide-react";
+import { useQueryClient} from "@tanstack/react-query";
+import { Trash2, BellOff, CheckCheck} from "lucide-react";
 import {
   useListNotifications,
   useReadNotification,
@@ -13,9 +13,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
+import { Button} from "@/components/ui/button";
+import { Skeleton} from "@/components/ui/skeleton";
+import { useToast} from "@/hooks/use-toast";
 
 function timeLabel(s?: string | null) {
   if (!s) return null;
@@ -24,9 +24,9 @@ function timeLabel(s?: string | null) {
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
   if (sameDay) {
-    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  }
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit"});
+ }
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric"});
 }
 
 function NotificationRow({
@@ -45,15 +45,15 @@ function NotificationRow({
     <div
       className={`group flex items-start gap-3 px-4 py-3 hover:bg-black/[0.03] transition-colors cursor-pointer ${
         n.readAt ? "opacity-60" : ""
-      }`}
+     }`}
       onClick={() => {
         if (!n.readAt) onRead();
-      }}
+     }}
     >
       <span
         className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${
           n.readAt ? "bg-transparent" : "bg-[var(--gold-light)]"
-        }`}
+       }`}
       />
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-sm text-[var(--ink)] leading-snug">
@@ -79,7 +79,7 @@ function NotificationRow({
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
-          }}
+         }}
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -88,19 +88,19 @@ function NotificationRow({
   );
 }
 
-export function NotificationsPopover({ children }: { children: React.ReactNode }) {
+export function NotificationsPopover({ children}: { children: React.ReactNode}) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { data: notifications, isLoading } = useListNotifications({
-    query: { queryKey: getListNotificationsQueryKey(), refetchInterval: 10_000 },
-  });
+  const { toast} = useToast();
+  const { data: notifications, isLoading} = useListNotifications({
+    query: { queryKey: getListNotificationsQueryKey(), refetchInterval: 10_000},
+ });
   const readMutation = useReadNotification();
   const deleteMutation = useDeleteNotification();
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-  };
+    queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+ };
 
   const unread = (notifications ?? []).filter((n) => !n.readAt);
 
@@ -110,8 +110,8 @@ export function NotificationsPopover({ children }: { children: React.ReactNode }
         (n) =>
           new Promise((resolve, reject) =>
             readMutation.mutate(
-              { id: n.id },
-              { onSuccess: resolve, onError: reject },
+              { id: n.id},
+              { onSuccess: resolve, onError: reject},
             ),
           ),
       ),
@@ -121,10 +121,10 @@ export function NotificationsPopover({ children }: { children: React.ReactNode }
         toast({
           title: "Some notifications couldn't be marked read",
           variant: "destructive",
-        });
-      }
-    });
-  };
+       });
+     }
+   });
+ };
 
   return (
     <Popover>
@@ -174,11 +174,11 @@ export function NotificationsPopover({ children }: { children: React.ReactNode }
                 n={n}
                 deleting={deleteMutation.isPending}
                 onRead={() =>
-                  readMutation.mutate({ id: n.id }, { onSuccess: invalidate })
-                }
+                  readMutation.mutate({ id: n.id}, { onSuccess: invalidate})
+               }
                 onDelete={() =>
                   deleteMutation.mutate(
-                    { id: n.id },
+                    { id: n.id},
                     {
                       onSuccess: invalidate,
                       onError: () =>
@@ -187,10 +187,10 @@ export function NotificationsPopover({ children }: { children: React.ReactNode }
                           description:
                             "That notification couldn't be removed. Try again.",
                           variant: "destructive",
-                        }),
-                    },
+                       }),
+                   },
                   )
-                }
+               }
               />
             ))
           )}

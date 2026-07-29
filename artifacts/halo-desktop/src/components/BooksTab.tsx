@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useListLedgerAccounts,
   useListJournalEntries,
@@ -23,12 +23,12 @@ import {
   type JournalEntryFull,
   type BankTxnMatch,
 } from "@workspace/api-client-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent} from "@/components/ui/card";
+import { Button} from "@/components/ui/button";
+import { Badge} from "@/components/ui/badge";
+import { Skeleton} from "@/components/ui/skeleton";
+import { Input} from "@/components/ui/input";
+import { Label} from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -44,30 +44,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, RefreshCw, Trash2, Landmark, Download } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { TaxPlannerSection } from "./TaxPlannerSection";
+import { Plus, RefreshCw, Trash2, Landmark, Download} from "lucide-react";
+import { useToast} from "@/hooks/use-toast";
+import { TaxPlannerSection} from "./TaxPlannerSection";
 
 const money = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  n.toLocaleString("en-US", { style: "currency", currency: "USD"});
 
 const fmtDate = (s: string) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
   if (!m) return s;
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString(
     "en-US",
-    { month: "short", day: "numeric", year: "numeric" },
+    { month: "short", day: "numeric", year: "numeric"},
   );
 };
 
 function localToday(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function yearStart(): string {
-  return `${new Date().getFullYear()}-01-01`;
+  return`${new Date().getFullYear()}-01-01`;
 }
 
 type SubTab = "pnl" | "balance" | "cash" | "journal" | "accounts" | "tax" | "planner" | "bank";
@@ -77,7 +77,7 @@ function ReportRows({
   totalLabel,
   total,
 }: {
-  rows: Array<{ code: string; name: string; amount: number }>;
+  rows: Array<{ code: string; name: string; amount: number}>;
   totalLabel: string;
   total: number;
 }) {
@@ -116,7 +116,7 @@ function JournalEntryDialog({
   onOpenChange: (v: boolean) => void;
   accounts: LedgerAccount[];
 }) {
-  const { toast } = useToast();
+  const { toast} = useToast();
   const queryClient = useQueryClient();
   const create = useCreateJournalEntry();
   const [memo, setMemo] = useState("");
@@ -132,44 +132,44 @@ function JournalEntryDialog({
     if (!Number.isFinite(amt) || amt <= 0) {
       setError("Enter a valid amount.");
       return;
-    }
+   }
     if (!debitCode || !creditCode || debitCode === creditCode) {
       setError("Pick two different accounts.");
       return;
-    }
+   }
     create.mutate(
       {
         data: {
           entryDate,
           memo: memo.trim() || null,
           lines: [
-            { accountCode: debitCode, debit: amt },
-            { accountCode: creditCode, credit: amt },
+            { accountCode: debitCode, debit: amt},
+            { accountCode: creditCode, credit: amt},
           ],
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ["/accounting"] });
-          queryClient.invalidateQueries({ queryKey: getListLedgerAccountsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetProfitAndLossQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetBalanceSheetReportQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetCashFlowReportQueryKey() });
+          queryClient.invalidateQueries({ queryKey: ["/accounting"]});
+          queryClient.invalidateQueries({ queryKey: getListLedgerAccountsQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetProfitAndLossQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetBalanceSheetReportQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetCashFlowReportQueryKey()});
           onOpenChange(false);
           setMemo("");
           setAmount("");
-          toast({ title: "Journal entry posted" });
-        },
+          toast({ title: "Journal entry posted"});
+       },
         onError: (err: unknown) => {
           setError(
-            (err as { data?: { error?: string } })?.data?.error ||
+            (err as { data?: { error?: string}})?.data?.error ||
               "Couldn't post the entry.",
           );
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -264,18 +264,18 @@ const SOURCE_BADGE: Record<string, string> = {
 };
 
 export function BooksTab() {
-  const { toast } = useToast();
+  const { toast} = useToast();
   const queryClient = useQueryClient();
   const [sub, setSub] = useState<SubTab>("pnl");
   const [entryOpen, setEntryOpen] = useState(false);
   const [from, setFrom] = useState(yearStart());
   const [to, setTo] = useState(localToday());
 
-  const { data: acctData, isLoading: acctLoading } = useListLedgerAccounts();
-  const { data: journalData, isLoading: jLoading } = useListJournalEntries({ limit: 100 });
-  const { data: pnl } = useGetProfitAndLoss({ from, to });
-  const { data: bs } = useGetBalanceSheetReport({ asOf: to });
-  const { data: cf } = useGetCashFlowReport({ from, to });
+  const { data: acctData, isLoading: acctLoading} = useListLedgerAccounts();
+  const { data: journalData, isLoading: jLoading} = useListJournalEntries({ limit: 100});
+  const { data: pnl} = useGetProfitAndLoss({ from, to});
+  const { data: bs} = useGetBalanceSheetReport({ asOf: to});
+  const { data: cf} = useGetCashFlowReport({ from, to});
   const rebuild = useRebuildLedgerEntries();
   const del = useDeleteJournalEntry();
 
@@ -283,31 +283,31 @@ export function BooksTab() {
   const entries: JournalEntryFull[] = journalData?.entries ?? [];
 
   const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: getListLedgerAccountsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetProfitAndLossQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetBalanceSheetReportQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetCashFlowReportQueryKey() });
-  };
+    queryClient.invalidateQueries({ queryKey: getListLedgerAccountsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetProfitAndLossQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetBalanceSheetReportQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetCashFlowReportQueryKey()});
+ };
 
   const doRebuild = () =>
     rebuild.mutate(undefined, {
       onSuccess: (r) => {
         invalidateAll();
-        toast({ title: `Books rebuilt — ${r.posted} entries posted` });
-      },
-      onError: () => toast({ title: "Couldn't rebuild the books", variant: "destructive" }),
-    });
+        toast({ title:`Books rebuilt — ${r.posted} entries posted`});
+     },
+      onError: () => toast({ title: "Couldn't rebuild the books", variant: "destructive"}),
+   });
 
-  const subTabs: { key: SubTab; label: string }[] = [
-    { key: "pnl", label: "Profit & Loss" },
-    { key: "balance", label: "Balance Sheet" },
-    { key: "cash", label: "Cash Flow" },
-    { key: "journal", label: "Journal" },
-    { key: "accounts", label: "Accounts" },
-    { key: "tax", label: "Taxes" },
-    { key: "planner", label: "Tax Planner" },
-    { key: "bank", label: "Bank Match" },
+  const subTabs: { key: SubTab; label: string}[] = [
+    { key: "pnl", label: "Profit & Loss"},
+    { key: "balance", label: "Balance Sheet"},
+    { key: "cash", label: "Cash Flow"},
+    { key: "journal", label: "Journal"},
+    { key: "accounts", label: "Accounts"},
+    { key: "tax", label: "Taxes"},
+    { key: "planner", label: "Tax Planner"},
+    { key: "bank", label: "Bank Match"},
   ];
 
   return (
@@ -320,7 +320,7 @@ export function BooksTab() {
               onClick={() => setSub(t.key)}
               className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${
                 sub === t.key ? "bg-white shadow-sm" : "text-muted-foreground"
-              }`}
+             }`}
               data-testid={`books-subtab-${t.key}`}
             >
               {t.label}
@@ -390,7 +390,7 @@ export function BooksTab() {
               <span
                 className={`font-display font-bold text-xl tabular-nums ${
                   (pnl?.netProfit ?? 0) >= 0 ? "text-emerald-600" : "text-destructive"
-                }`}
+               }`}
                 data-testid="text-net-profit"
               >
                 {money(pnl?.netProfit ?? 0)}
@@ -460,21 +460,21 @@ export function BooksTab() {
           <Card className="col-span-2">
             <CardContent className="pt-5 grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-xs text-muted-foreground uppercase font-semibold">Opening cash</p>
+                <p className="text-xs text-muted-foreground font-semibold">Opening cash</p>
                 <p className="font-display font-bold text-lg tabular-nums">{money(cf?.openingCash ?? 0)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground uppercase font-semibold">Net change</p>
+                <p className="text-xs text-muted-foreground font-semibold">Net change</p>
                 <p
                   className={`font-display font-bold text-lg tabular-nums ${
                     (cf?.netChange ?? 0) >= 0 ? "text-emerald-600" : "text-destructive"
-                  }`}
+                 }`}
                 >
                   {money(cf?.netChange ?? 0)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground uppercase font-semibold">Closing cash</p>
+                <p className="text-xs text-muted-foreground font-semibold">Closing cash</p>
                 <p className="font-display font-bold text-lg tabular-nums">{money(cf?.closingCash ?? 0)}</p>
               </div>
             </CardContent>
@@ -513,15 +513,15 @@ export function BooksTab() {
                         className="h-7 w-7 text-muted-foreground"
                         onClick={() =>
                           del.mutate(
-                            { id: e.id },
+                            { id: e.id},
                             {
                               onSuccess: () => {
                                 invalidateAll();
-                                toast({ title: `${e.entryNo} deleted` });
-                              },
-                            },
+                                toast({ title:`${e.entryNo} deleted`});
+                             },
+                           },
                           )
-                        }
+                       }
                         data-testid={`button-delete-${e.entryNo}`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -536,7 +536,7 @@ export function BooksTab() {
                           {l.accountCode} {l.accountName}
                         </span>
                         <span>
-                          {l.debit > 0 ? `${money(l.debit)} DR` : `${money(l.credit)} CR`}
+                          {l.debit > 0 ?`${money(l.debit)} DR` :`${money(l.credit)} CR`}
                         </span>
                       </div>
                     ))}
@@ -583,32 +583,32 @@ export function BooksTab() {
 
 function TaxSection() {
   const [year, setYear] = useState(new Date().getFullYear());
-  const { data: tax, isLoading } = useGetTaxReport({ year });
+  const { data: tax, isLoading} = useGetTaxReport({ year});
   const years = [0, 1, 2].map((i) => new Date().getFullYear() - i);
 
   const exportCsv = () => {
     if (!tax) return;
     const lines = [
-      `HALO Tax Report,${tax.year}`,
+     `HALO Tax Report,${tax.year}`,
       "",
-      `Gross receipts,${tax.grossReceipts}`,
-      `Sales tax collected,${tax.salesTaxCollected}`,
-      `Sales tax still owed,${tax.salesTaxBalance}`,
+     `Gross receipts,${tax.grossReceipts}`,
+     `Sales tax collected,${tax.salesTaxCollected}`,
+     `Sales tax still owed,${tax.salesTaxBalance}`,
       "",
       "Schedule C line,Category,Amount",
-      ...tax.scheduleC.map((r) => `Line ${r.line},${r.label},${r.amount}`),
+      ...tax.scheduleC.map((r) =>`Line ${r.line},${r.label},${r.amount}`),
       "",
-      `Total expenses,${tax.totalExpenses}`,
-      `Net profit,${tax.netProfit}`,
+     `Total expenses,${tax.totalExpenses}`,
+     `Net profit,${tax.netProfit}`,
     ];
-    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const blob = new Blob([lines.join("\n")], { type: "text/csv"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `halo-tax-report-${tax.year}.csv`;
+    a.download =`halo-tax-report-${tax.year}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  };
+ };
 
   return (
     <div className="space-y-4">
@@ -620,7 +620,7 @@ function TaxSection() {
               onClick={() => setYear(y)}
               className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
                 year === y ? "bg-white shadow-sm" : "text-muted-foreground"
-              }`}
+             }`}
               data-testid={`tax-year-${y}`}
             >
               {y}
@@ -637,13 +637,13 @@ function TaxSection() {
         <>
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: "Gross receipts", value: tax.grossReceipts },
-              { label: "Sales tax collected", value: tax.salesTaxCollected },
-              { label: "Sales tax still owed", value: tax.salesTaxBalance },
+              { label: "Gross receipts", value: tax.grossReceipts},
+              { label: "Sales tax collected", value: tax.salesTaxCollected},
+              { label: "Sales tax still owed", value: tax.salesTaxBalance},
             ].map((c) => (
               <Card key={c.label}>
                 <CardContent className="pt-5">
-                  <p className="text-xs text-muted-foreground uppercase font-semibold">{c.label}</p>
+                  <p className="text-xs text-muted-foreground font-semibold">{c.label}</p>
                   <p className="font-display font-bold text-2xl tabular-nums" data-testid={`tax-${c.label.replaceAll(" ", "-").toLowerCase()}`}>
                     {money(c.value)}
                   </p>
@@ -694,10 +694,10 @@ const BANK_STATUS_BADGE: Record<string, string> = {
 };
 
 function BankSection() {
-  const { toast } = useToast();
+  const { toast} = useToast();
   const queryClient = useQueryClient();
   const [days, setDays] = useState(30);
-  const { data: rec, isLoading, error } = useGetBankReconciliation({ days });
+  const { data: rec, isLoading, error} = useGetBankReconciliation({ days});
   const importTxn = useImportBankTransaction();
 
   const doImport = (t: BankTxnMatch) =>
@@ -710,22 +710,22 @@ function BankSection() {
           amount: t.amount,
           direction: t.direction as "in" | "out",
           category: t.category ?? undefined,
-        },
-      },
+       },
+     },
       {
         onSuccess: (r) => {
-          queryClient.invalidateQueries({ queryKey: getGetBankReconciliationQueryKey() });
-          queryClient.invalidateQueries({ queryKey: ["/accounting"] });
-          queryClient.invalidateQueries({ queryKey: getListLedgerAccountsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetProfitAndLossQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetCashFlowReportQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetBalanceSheetReportQueryKey() });
-          queryClient.invalidateQueries({ queryKey: ["/expenses"] });
-          toast({ title: r.message ?? "Imported" });
-        },
-        onError: () => toast({ title: "Couldn't import that transaction", variant: "destructive" }),
-      },
+          queryClient.invalidateQueries({ queryKey: getGetBankReconciliationQueryKey()});
+          queryClient.invalidateQueries({ queryKey: ["/accounting"]});
+          queryClient.invalidateQueries({ queryKey: getListLedgerAccountsQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getListJournalEntriesQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetProfitAndLossQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetCashFlowReportQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetBalanceSheetReportQueryKey()});
+          queryClient.invalidateQueries({ queryKey: ["/expenses"]});
+          toast({ title: r.message ?? "Imported"});
+       },
+        onError: () => toast({ title: "Couldn't import that transaction", variant: "destructive"}),
+     },
     );
 
   if (error) {
@@ -740,7 +740,7 @@ function BankSection() {
         </CardContent>
       </Card>
     );
-  }
+ }
 
   return (
     <div className="space-y-4">
@@ -752,7 +752,7 @@ function BankSection() {
               onClick={() => setDays(d)}
               className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
                 days === d ? "bg-white shadow-sm" : "text-muted-foreground"
-              }`}
+             }`}
             >
               {d}d
             </button>
@@ -788,8 +788,8 @@ function BankSection() {
                   <p className="text-sm font-semibold truncate">{t.merchantName || t.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {fmtDate(t.date)}
-                    {t.category ? ` · ${t.category.toLowerCase()}` : ""}
-                    {t.status === "matched" && t.matchedEntryNo ? ` · matches ${t.matchedEntryNo}` : ""}
+                    {t.category ?` · ${t.category.toLowerCase()}` : ""}
+                    {t.status === "matched" && t.matchedEntryNo ?` · matches ${t.matchedEntryNo}` : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

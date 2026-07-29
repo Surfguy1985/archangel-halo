@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useParseVoice,
   useConfirmVoice,
@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button} from "@/components/ui/button";
 import {
   Mic,
   Check,
@@ -68,7 +68,7 @@ const SCRIPTS: Script[] = [
       "Add a new property called {the name}, managed by {management company}, {number} units in {city}. Access notes: {gate code or entry details}.",
     example:
       "Add a new property called Cedar Point Apartments, managed by Sterling PMC, 48 units in Austin. Access notes: gate code 4417.",
-  },
+ },
   {
     tool: "create_crew",
     label: "New crew",
@@ -77,7 +77,7 @@ const SCRIPTS: Script[] = [
       "Add a new crew member {full name}, {their trade}, phone {number}. Make them a crew leader.",
     example:
       "Add a new crew member Marcus Reed, plumbing, phone 512-555-0134. Make them a crew leader.",
-  },
+ },
   {
     tool: "create_job",
     label: "New job",
@@ -86,7 +86,7 @@ const SCRIPTS: Script[] = [
       "Create a job at {property name}, unit {unit number}. It's a {category} job. {what needs doing}.",
     example:
       "Create a job at Riverside Commons, unit 112. It's a plumbing job. Kitchen sink is leaking under the cabinet.",
-  },
+ },
   {
     tool: "schedule_job",
     label: "Schedule",
@@ -94,7 +94,7 @@ const SCRIPTS: Script[] = [
     template:
       "Schedule job {job number} for {date, like tomorrow} at {time} with {crew name}.",
     example: "Schedule job J-2001 for tomorrow at 8am with Ray Coleman.",
-  },
+ },
   {
     tool: "log_expense",
     label: "Expense",
@@ -103,7 +103,7 @@ const SCRIPTS: Script[] = [
       "Log an expense. I paid {vendor} {amount} dollars for {what it was} at {property name}.",
     example:
       "Log an expense. I paid Home Depot 240 dollars for paint and supplies at Maple Grove Apartments.",
-  },
+ },
   {
     tool: "create_lead",
     label: "New lead",
@@ -112,7 +112,7 @@ const SCRIPTS: Script[] = [
       "New lead from {who it came from}. They need {what they want} at {property name}.",
     example:
       "New lead from Sterling PMC. They need a full unit turn on unit 210 at Maple Grove Apartments.",
-  },
+ },
   {
     tool: "create_bid",
     label: "New bid",
@@ -121,7 +121,7 @@ const SCRIPTS: Script[] = [
       "Draft a bid for {amount} dollars at {property name}, unit {unit number}, for {scope of work}.",
     example:
       "Draft a bid for 3200 dollars at Maple Grove Apartments, unit 210, for a full unit turn with paint and carpet.",
-  },
+ },
   {
     tool: "create_invoice",
     label: "Invoice",
@@ -130,7 +130,7 @@ const SCRIPTS: Script[] = [
       "Invoice {property name} for {amount} dollars for {what the work was}. PO number {number}.",
     example:
       "Invoice Maple Grove Apartments for 950 dollars for painting unit 5. PO number 4471.",
-  },
+ },
   {
     tool: "create_vendor",
     label: "New vendor",
@@ -139,7 +139,7 @@ const SCRIPTS: Script[] = [
       "Add a new vendor called {company name}. They do {trade}, phone {number}.",
     example:
       "Add a new vendor called Rocky Top Supply. They do lumber, phone 615-555-0199.",
-  },
+ },
   {
     tool: "add_inventory_item",
     label: "Track material",
@@ -148,7 +148,7 @@ const SCRIPTS: Script[] = [
       "Start tracking {material name}. We have {quantity}, reorder at {quantity}, about {cost} dollars each.",
     example:
       "Start tracking door hinges. We have 40, reorder at 10, about 3 dollars each.",
-  },
+ },
   {
     tool: "adjust_inventory",
     label: "Stock update",
@@ -157,7 +157,7 @@ const SCRIPTS: Script[] = [
       "We used {quantity} {material name} today. Also picked up {quantity} {material name}.",
     example:
       "We used 6 tubes of caulk today. Also picked up 20 boxes of tile.",
-  },
+ },
   {
     tool: "add_note",
     label: "Note",
@@ -165,17 +165,17 @@ const SCRIPTS: Script[] = [
     template: "Add a note to {property name or job number}. {the note}.",
     example:
       "Add a note to Maple Grove Apartments. Property manager wants a call before any entry before 8am.",
-  },
+ },
   {
     tool: "complete_job",
     label: "Complete",
     Icon: CheckCheck,
     template: "Mark job {job number} complete.",
     example: "Mark job J-2002 complete.",
-  },
+ },
 ];
 
-function ScriptTemplate({ template }: { template: string }) {
+function ScriptTemplate({ template}: { template: string}) {
   const parts = template.split(/(\{[^}]+\})/g).filter(Boolean);
   return (
     <p className="text-[16px] leading-[1.7] font-display text-foreground">
@@ -212,7 +212,7 @@ function getRecognition(): SpeechRecognitionLike | null {
   const w = window as unknown as {
     SpeechRecognition?: new () => SpeechRecognitionLike;
     webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-  };
+ };
   const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
   return Ctor ? new Ctor() : null;
 }
@@ -245,7 +245,7 @@ export function VoiceCaptureDialog({
 
   useEffect(() => {
     setSpeechSupported(getRecognition() !== null);
-  }, []);
+ }, []);
 
   const resetAll = () => {
     setPhase("capture");
@@ -259,12 +259,12 @@ export function VoiceCaptureDialog({
     setActiveScript(null);
     recognitionRef.current?.stop();
     recognitionRef.current = null;
-  };
+ };
 
   useEffect(() => {
     if (!open) resetAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+ }, [open]);
 
   // Command-bar entry: when opened with typed text, parse it immediately.
   useEffect(() => {
@@ -273,7 +273,7 @@ export function VoiceCaptureDialog({
     const text = initialText.trim();
     setTranscript(text);
     parse.mutate(
-      { data: { transcript: text } },
+      { data: { transcript: text}},
       {
         onSuccess: (res) => {
           if (cancelled) return;
@@ -281,25 +281,25 @@ export function VoiceCaptureDialog({
           setSelected(new Set(res.actions.map((_, i) => i)));
           setVoiceLogId(res.voiceLogId ?? null);
           setPhase("review");
-        },
-      },
+       },
+     },
     );
     return () => {
       cancelled = true;
-    };
+   };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialText]);
+ }, [open, initialText]);
 
   const toggleListen = () => {
     if (listening) {
       recognitionRef.current?.stop();
       return;
-    }
+   }
     const rec = getRecognition();
     if (!rec) {
       setSpeechSupported(false);
       return;
-    }
+   }
     baseTranscriptRef.current = transcript ? transcript.trim() + " " : "";
     rec.lang = "en-US";
     rec.continuous = true;
@@ -307,20 +307,20 @@ export function VoiceCaptureDialog({
     rec.onresult = (e: unknown) => {
       const ev = e as {
         resultIndex: number;
-        results: ArrayLike<ArrayLike<{ transcript: string }>>;
-      };
+        results: ArrayLike<ArrayLike<{ transcript: string}>>;
+     };
       let text = "";
       for (let i = 0; i < ev.results.length; i++) {
         text += ev.results[i][0].transcript;
-      }
+     }
       setTranscript(baseTranscriptRef.current + text);
-    };
+   };
     rec.onerror = () => setListening(false);
     rec.onend = () => setListening(false);
     recognitionRef.current = rec;
     rec.start();
     setListening(true);
-  };
+ };
 
   const runParse = () => {
     const text = transcript.trim();
@@ -328,17 +328,17 @@ export function VoiceCaptureDialog({
     recognitionRef.current?.stop();
     setListening(false);
     parse.mutate(
-      { data: { transcript: text } },
+      { data: { transcript: text}},
       {
         onSuccess: (res) => {
           setActions(res.actions);
           setSelected(new Set(res.actions.map((_, i) => i)));
           setVoiceLogId(res.voiceLogId ?? null);
           setPhase("review");
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   const toggleSelected = (i: number) => {
     setSelected((prev) => {
@@ -346,8 +346,8 @@ export function VoiceCaptureDialog({
       if (next.has(i)) next.delete(i);
       else next.add(i);
       return next;
-    });
-  };
+   });
+ };
 
   const runConfirm = () => {
     const chosen = actions.filter((_, i) => selected.has(i));
@@ -358,18 +358,18 @@ export function VoiceCaptureDialog({
           voiceLogId: voiceLogId ?? undefined,
           transcript: transcript.trim(),
           actions: chosen,
-        },
-      },
+       },
+     },
       {
         onSuccess: (res) => {
           setAppliedCount(res.applied);
           setResultMessages(res.messages ?? []);
           setPhase("done");
           queryClient.invalidateQueries();
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -394,13 +394,13 @@ export function VoiceCaptureDialog({
               >
                 <Mic className="relative z-10 w-6 h-6 text-[var(--gold-light)]" />
               </button>
-              <span className="block text-center text-[11px] tracking-[0.16em] uppercase text-[var(--gold-dark)] font-bold mt-3">
+              <span className="block text-center text-[11px] tracking-[0.16em] text-[var(--gold-dark)] font-bold mt-3">
                 {listening ? "Listening — click to stop" : "Click to speak"}
               </span>
             </div>
 
             <div>
-              <div className="text-[11px] tracking-[0.14em] uppercase text-muted-foreground font-bold mb-2">
+              <div className="text-[11px] tracking-[0.14em] text-muted-foreground font-bold mb-2">
                 Need a script? Pick a task
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -417,7 +417,7 @@ export function VoiceCaptureDialog({
                         on
                           ? "bg-[var(--ink)] text-[var(--paper)] border-[var(--ink)]"
                           : "bg-card text-foreground border-border shadow-sm hover:border-[var(--gold)]"
-                      }`}
+                     }`}
                     >
                       <s.Icon
                         aria-hidden="true"
@@ -426,13 +426,13 @@ export function VoiceCaptureDialog({
                       {s.label}
                     </button>
                   );
-                })}
+               })}
               </div>
             </div>
 
             {activeScript && (
               <div className="bg-[var(--paper)] rounded-xl border-2 border-[var(--gold)] shadow-[0_6px_20px_rgba(143,106,31,0.18)] p-4 pb-3.5">
-                <div className="flex items-center gap-1.5 text-[11px] tracking-[0.14em] uppercase text-[var(--gold-dark)] font-bold mb-2.5">
+                <div className="flex items-center gap-1.5 text-[11px] tracking-[0.14em] text-[var(--gold-dark)] font-bold mb-2.5">
                   <Mic className="w-[13px] h-[13px]" /> Read this aloud
                 </div>
                 {(() => {
@@ -445,7 +445,7 @@ export function VoiceCaptureDialog({
                       </div>
                     </>
                   );
-                })()}
+               })()}
               </div>
             )}
 
@@ -455,7 +455,7 @@ export function VoiceCaptureDialog({
                 speechSupported
                   ? "Your words appear here — or type them. e.g. “Log an expense. I paid Home Depot 240 dollars for paint at Maple Grove Apartments.”"
                   : "Type what you want to do. e.g. “Add a new crew member Marcus Reed, plumbing, crew leader, 512-555-0134.”"
-              }
+             }
               value={transcript}
               onChange={(e) => setTranscript(e.target.value)}
             />
@@ -520,10 +520,10 @@ export function VoiceCaptureDialog({
                         on
                           ? "bg-card border-[var(--gold)] shadow-sm"
                           : "bg-transparent border-border opacity-55"
-                      }`}
+                     }`}
                     >
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--gold-dark)]">
+                        <span className="text-[11px] tracking-[0.14em] font-bold text-[var(--gold-dark)]">
                           {TOOL_LABELS[a.tool] ?? a.tool}
                         </span>
                         <span
@@ -531,7 +531,7 @@ export function VoiceCaptureDialog({
                             on
                               ? "bg-[var(--gold-light)] text-black"
                               : "bg-black/10 text-transparent"
-                          }`}
+                         }`}
                         >
                           <Check className="w-3.5 h-3.5" />
                         </span>
@@ -547,7 +547,7 @@ export function VoiceCaptureDialog({
                       )}
                     </button>
                   );
-                })}
+               })}
               </div>
             )}
 
@@ -589,7 +589,7 @@ export function VoiceCaptureDialog({
               </span>
               <DialogTitle className="font-display font-bold text-xl mt-3">
                 {appliedCount > 0
-                  ? `Saved ${appliedCount} ${appliedCount === 1 ? "item" : "items"}`
+                  ?`Saved ${appliedCount} ${appliedCount === 1 ? "item" : "items"}`
                   : "Nothing saved"}
               </DialogTitle>
             </div>

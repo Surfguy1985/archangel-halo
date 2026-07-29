@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { useState} from "react";
 import {
   useListLeads,
   useListBids,
   getListLeadsQueryKey,
   getListBidsQueryKey,
 } from "@workspace/api-client-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Target, FileText, Zap, Mail, Phone } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { format } from "date-fns";
+import { Skeleton} from "@/components/ui/skeleton";
+import { Plus, Target, FileText, Zap, Mail, Phone} from "lucide-react";
+import { Card, CardContent} from "@/components/ui/card";
+import { format} from "date-fns";
 import {
   AddLeadDialog,
   LeadDetailDialog,
@@ -18,12 +18,12 @@ import {
 } from "@/components/PipelineDialogs";
 
 export default function Pipeline() {
-  const { data: leads, isLoading: loadingLeads } = useListLeads({
-    query: { queryKey: getListLeadsQueryKey(), refetchInterval: 10_000 },
-  });
-  const { data: bids, isLoading: loadingBids } = useListBids(undefined, {
-    query: { queryKey: getListBidsQueryKey(), refetchInterval: 10_000 },
-  });
+  const { data: leads, isLoading: loadingLeads} = useListLeads({
+    query: { queryKey: getListLeadsQueryKey(), refetchInterval: 10_000},
+ });
+  const { data: bids, isLoading: loadingBids} = useListBids(undefined, {
+    query: { queryKey: getListBidsQueryKey(), refetchInterval: 10_000},
+ });
 
   const [addLeadOpen, setAddLeadOpen] = useState(false);
   const [leadDetail, setLeadDetail] = useState<LeadRow | null>(null);
@@ -38,7 +38,7 @@ export default function Pipeline() {
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 h-screen flex flex-col">
       <header className="flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">Pipeline</h1>
+          <h1 className="text-3xl font-display font-bold text-[var(--ink)]">Pipeline</h1>
           <p className="text-muted-foreground">Leads & Active Bids</p>
         </div>
         <div className="flex items-center gap-3">
@@ -53,7 +53,7 @@ export default function Pipeline() {
             onClick={() => {
               setEditBidId(null);
               setBuilderOpen(true);
-            }}
+           }}
             className="flex items-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm"
             data-testid="button-new-bid"
           >
@@ -89,16 +89,16 @@ export default function Pipeline() {
                 <CardContent className="p-4">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--ink)] px-2 py-0.5 rounded-full bg-black/5 border border-border">
+                      <span className="text-[10px] font-bold text-[var(--ink)] px-2 py-0.5 rounded-full bg-black/5 border border-border">
                         {lead.status}
                       </span>
                       {lead.source === "phone" && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] border border-[var(--gold)]/20 flex items-center gap-1">
+                        <span className="text-[10px] font-bold text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] border border-[var(--gold)]/20 flex items-center gap-1">
                           <Phone className="w-2.5 h-2.5" /> call
                         </span>
                       )}
                       {lead.campaignStatus === "active" && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] border border-[var(--gold)]/20 flex items-center gap-1">
+                        <span className="text-[10px] font-bold text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] border border-[var(--gold)]/20 flex items-center gap-1">
                           <Zap className="w-2.5 h-2.5" /> drip
                         </span>
                       )}
@@ -155,12 +155,12 @@ export default function Pipeline() {
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs font-medium text-muted-foreground">{bid.bidNo}</span>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                      <span className={`text-[10px] font-bold   px-2 py-0.5 rounded-full border ${
                         bid.status === 'won' ? 'bg-[var(--green)]/10 text-[var(--green)] border-[var(--green)]/20' :
                         bid.status === 'lost' ? 'bg-destructive/10 text-destructive border-destructive/20' :
                         bid.status === 'draft' ? 'bg-black/5 text-muted-foreground border-border' :
                         'bg-[var(--gold-tint)] text-[var(--gold-dark)] border-[var(--gold)]/20'
-                      }`}>
+                     }`}>
                         {bid.status}
                       </span>
                     </div>
@@ -202,7 +202,7 @@ export default function Pipeline() {
         onEdit={(id) => {
           setEditBidId(id);
           setBuilderOpen(true);
-        }}
+       }}
       />
     </div>
   );

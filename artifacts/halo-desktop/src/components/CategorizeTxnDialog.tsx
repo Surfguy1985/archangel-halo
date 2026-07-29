@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useCategorizeBankTransaction,
   getGetBankAnalysisQueryKey,
@@ -17,23 +17,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Receipt, HardHat, FileCheck2, CircleDollarSign } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Button} from "@/components/ui/button";
+import { Receipt, HardHat, FileCheck2, CircleDollarSign} from "lucide-react";
+import { useToast} from "@/hooks/use-toast";
 
 const fieldCls =
   "w-full bg-background border border-border rounded-lg py-2 px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
 
 const money = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  n.toLocaleString("en-US", { style: "currency", currency: "USD"});
 
 type Kind = "expense" | "crew" | "invoice" | "other";
 
-const KIND_OPTIONS: { kind: Kind; label: string; icon: React.ReactNode }[] = [
-  { kind: "expense", label: "Expense", icon: <Receipt className="w-4 h-4" /> },
-  { kind: "crew", label: "Crew pay", icon: <HardHat className="w-4 h-4" /> },
-  { kind: "invoice", label: "Invoice paid", icon: <FileCheck2 className="w-4 h-4" /> },
-  { kind: "other", label: "Other", icon: <CircleDollarSign className="w-4 h-4" /> },
+const KIND_OPTIONS: { kind: Kind; label: string; icon: React.ReactNode}[] = [
+  { kind: "expense", label: "Expense", icon: <Receipt className="w-4 h-4" />},
+  { kind: "crew", label: "Crew pay", icon: <HardHat className="w-4 h-4" />},
+  { kind: "invoice", label: "Invoice paid", icon: <FileCheck2 className="w-4 h-4" />},
+  { kind: "other", label: "Other", icon: <CircleDollarSign className="w-4 h-4" />},
 ];
 
 const TAB_LABEL: Record<Kind, string> = {
@@ -53,10 +53,10 @@ export function CategorizeTxnDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const categorize = useCategorizeBankTransaction();
-  const { data: crews } = useListCrews();
-  const { data: invoices } = useListInvoices();
+  const { data: crews} = useListCrews();
+  const { data: invoices} = useListInvoices();
 
   const [kind, setKind] = useState<Kind>(initialKind);
   const [category, setCategory] = useState("");
@@ -71,8 +71,8 @@ export function CategorizeTxnDialog({
       setCrewId(item.crewId ?? "");
       setPersonName(item.personName ?? "");
       setInvoiceId(item.invoiceId ?? "");
-    }
-  }, [item, initialKind]);
+   }
+ }, [item, initialKind]);
 
   const openInvoices = (invoices ?? []).filter((inv) => inv.status !== "paid");
 
@@ -80,7 +80,7 @@ export function CategorizeTxnDialog({
     if (!item) return;
     categorize.mutate(
       {
-        params: { days: 30 },
+        params: { days: 30},
         data: {
           transactionId: item.transactionId,
           kind,
@@ -88,36 +88,36 @@ export function CategorizeTxnDialog({
           crewId: kind === "crew" ? crewId || null : null,
           personName: kind === "crew" && !crewId ? personName.trim() || null : null,
           invoiceId: kind === "invoice" ? invoiceId || null : null,
-        },
-      },
+       },
+     },
       {
         onSuccess: (updated) => {
-          queryClient.setQueryData(getGetBankAnalysisQueryKey({ days: 30 }), updated);
-          queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListCrewPaymentsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+          queryClient.setQueryData(getGetBankAnalysisQueryKey({ days: 30}), updated);
+          queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getListCrewPaymentsQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
           toast({
             title:
               kind === "other"
                 ? "Moved to Transfers & other"
-                : `Added under ${TAB_LABEL[kind]}`,
+                :`Added under ${TAB_LABEL[kind]}`,
             description:
               kind === "other"
                 ? "This one won't be copied into your books."
-                : `${item.name} · ${money(item.amount)}`,
-          });
+                :`${item.name} · ${money(item.amount)}`,
+         });
           onOpenChange(false);
-        },
+       },
         onError: (err: any) =>
           toast({
             title: "Couldn't update this transaction",
             description: err?.data?.error ?? "Please try again in a moment.",
             variant: "destructive",
-          }),
-      },
+         }),
+     },
     );
-  };
+ };
 
   const needsInvoice = kind === "invoice" && !invoiceId;
 
@@ -133,12 +133,12 @@ export function CategorizeTxnDialog({
               <div className="font-semibold text-sm truncate">{item.name}</div>
               <div className="text-xs text-muted-foreground mt-0.5">
                 {money(item.amount)}
-                {item.date ? ` · ${item.date}` : ""}
+                {item.date ?` · ${item.date}` : ""}
               </div>
             </div>
 
             <div>
-              <div className="text-xs font-display font-semibold tracking-wide uppercase text-muted-foreground mb-2">
+              <div className="text-xs font-display font-semibold text-muted-foreground mb-2">
                 What is this?
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -150,7 +150,7 @@ export function CategorizeTxnDialog({
                       kind === opt.kind
                         ? "bg-[var(--ink)] text-[var(--paper,#f5f1e8)] border-[var(--ink)]"
                         : "bg-card border-border text-foreground hover:bg-muted/50"
-                    }`}
+                   }`}
                   >
                     {opt.icon}
                     {opt.label}
@@ -224,7 +224,7 @@ export function CategorizeTxnDialog({
                 ? "Saving…"
                 : kind === "other"
                   ? "Move to Transfers & other"
-                  : `Save & add under ${TAB_LABEL[kind]}`}
+                  :`Save & add under ${TAB_LABEL[kind]}`}
             </Button>
           </div>
         )}

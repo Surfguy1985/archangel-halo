@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { usePlaidLink } from "react-plaid-link";
+import { useEffect, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
+import { usePlaidLink} from "react-plaid-link";
 import {
   useGetBankStatus,
   useCreatePlaidLinkToken,
@@ -12,27 +12,27 @@ import {
   getListBankAccountsQueryKey,
   getListBankTransactionsQueryKey,
 } from "@workspace/api-client-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Landmark, Plus, RefreshCw, Unlink, Wallet } from "lucide-react";
-import type { ConnectedBank } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
-import { BankAnalysisSection } from "./BankAnalysisSection";
+import { Skeleton} from "@/components/ui/skeleton";
+import { Button} from "@/components/ui/button";
+import { Badge} from "@/components/ui/badge";
+import { Landmark, Plus, RefreshCw, Unlink, Wallet} from "lucide-react";
+import type { ConnectedBank} from "@workspace/api-client-react";
+import { useToast} from "@/hooks/use-toast";
+import { BankAnalysisSection} from "./BankAnalysisSection";
 
 const money = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  n.toLocaleString("en-US", { style: "currency", currency: "USD"});
 
 const fmtDate = (s?: string | null) => {
   if (!s) return "—";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
   const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(s);
   if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric"});
 };
 
 function errMessage(err: unknown): string {
-  const anyErr = err as { data?: { error?: string }; message?: string };
+  const anyErr = err as { data?: { error?: string}; message?: string};
   return anyErr?.data?.error || anyErr?.message || "Something went wrong";
 }
 
@@ -45,21 +45,21 @@ function PlaidLauncher({
   onDone: (publicToken: string, institutionName: string | null) => void;
   onExit: () => void;
 }) {
-  const { open, ready } = usePlaidLink({
+  const { open, ready} = usePlaidLink({
     token,
-    onSuccess: (publicToken: string, metadata: { institution?: { name?: string } | null }) => {
+    onSuccess: (publicToken: string, metadata: { institution?: { name?: string} | null}) => {
       onDone(publicToken, metadata.institution?.name ?? null);
-    },
+   },
     onExit: () => onExit(),
-  });
+ });
   useEffect(() => {
     if (ready) open();
-  }, [ready, open]);
+ }, [ready, open]);
   return null;
 }
 
 function ConnectCard() {
-  const { toast } = useToast();
+  const { toast} = useToast();
   const queryClient = useQueryClient();
   const createToken = useCreatePlaidLinkToken();
   const exchange = useExchangePlaidPublicToken();
@@ -73,30 +73,30 @@ function ConnectCard() {
           title: "Couldn't start bank connection",
           description: errMessage(err),
           variant: "destructive",
-        }),
-    });
-  };
+       }),
+   });
+ };
 
   const onDone = (publicToken: string, institutionName: string | null) => {
     setLinkToken(null);
     exchange.mutate(
-      { data: { publicToken, institutionName } },
+      { data: { publicToken, institutionName}},
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetBankStatusQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListBankAccountsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListBankTransactionsQueryKey() });
-          toast({ title: "Bank connected" });
-        },
+          queryClient.invalidateQueries({ queryKey: getGetBankStatusQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getListBankAccountsQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getListBankTransactionsQueryKey()});
+          toast({ title: "Bank connected"});
+       },
         onError: (err) =>
           toast({
             title: "Bank connection failed",
             description: errMessage(err),
             variant: "destructive",
-          }),
-      },
+         }),
+     },
     );
-  };
+ };
 
   return (
     <div className="p-12 text-center border border-dashed border-border rounded-xl space-y-4">
@@ -125,11 +125,11 @@ function ConnectCard() {
   );
 }
 
-function ConnectedView({ banks }: { banks: ConnectedBank[] }) {
-  const { toast } = useToast();
+function ConnectedView({ banks}: { banks: ConnectedBank[]}) {
+  const { toast} = useToast();
   const queryClient = useQueryClient();
   const accounts = useListBankAccounts();
-  const transactions = useListBankTransactions({ days: 30 });
+  const transactions = useListBankTransactions({ days: 30});
   const disconnect = useDisconnectBank();
   const createToken = useCreatePlaidLinkToken();
   const exchange = useExchangePlaidPublicToken();
@@ -138,15 +138,15 @@ function ConnectedView({ banks }: { banks: ConnectedBank[] }) {
   const multiBank = banks.length > 1;
 
   const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: getGetBankStatusQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getListBankAccountsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getListBankTransactionsQueryKey() });
-  };
+    queryClient.invalidateQueries({ queryKey: getGetBankStatusQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getListBankAccountsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getListBankTransactionsQueryKey()});
+ };
 
   const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: getListBankAccountsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getListBankTransactionsQueryKey() });
-  };
+    queryClient.invalidateQueries({ queryKey: getListBankAccountsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getListBankTransactionsQueryKey()});
+ };
 
   const addBank = () => {
     createToken.mutate(undefined, {
@@ -156,48 +156,48 @@ function ConnectedView({ banks }: { banks: ConnectedBank[] }) {
           title: "Couldn't start bank connection",
           description: errMessage(err),
           variant: "destructive",
-        }),
-    });
-  };
+       }),
+   });
+ };
 
   const onAddDone = (publicToken: string, institutionName: string | null) => {
     setLinkToken(null);
     exchange.mutate(
-      { data: { publicToken, institutionName } },
+      { data: { publicToken, institutionName}},
       {
         onSuccess: () => {
           invalidateAll();
-          toast({ title: "Bank connected" });
-        },
+          toast({ title: "Bank connected"});
+       },
         onError: (err) =>
           toast({
             title: "Bank connection failed",
             description: errMessage(err),
             variant: "destructive",
-          }),
-      },
+         }),
+     },
     );
-  };
+ };
 
   const onDisconnect = (bank: ConnectedBank) => {
     const label = bank.institutionName || "this bank";
     if (!window.confirm(`Disconnect ${label}? You can reconnect at any time.`)) return;
     disconnect.mutate(
-      { params: { bankId: bank.id } },
+      { params: { bankId: bank.id}},
       {
         onSuccess: () => {
           invalidateAll();
-          toast({ title: "Bank disconnected" });
-        },
+          toast({ title: "Bank disconnected"});
+       },
         onError: (err) =>
           toast({
             title: "Couldn't disconnect",
             description: errMessage(err),
             variant: "destructive",
-          }),
-      },
+         }),
+     },
     );
-  };
+ };
 
   return (
     <div className="space-y-6">
@@ -256,7 +256,7 @@ function ConnectedView({ banks }: { banks: ConnectedBank[] }) {
 
       {accounts.isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
+          {Array.from({ length: 3}).map((_, i) => (
             <Skeleton key={i} className="h-28 w-full" />
           ))}
         </div>
@@ -272,15 +272,15 @@ function ConnectedView({ banks }: { banks: ConnectedBank[] }) {
                 <Wallet className="w-4 h-4 text-muted-foreground" />
                 <span className="font-semibold text-sm text-[var(--ink)] truncate">
                   {a.name}
-                  {a.mask ? ` ••${a.mask}` : ""}
+                  {a.mask ?` ••${a.mask}` : ""}
                 </span>
                 {multiBank && a.institutionName && (
-                  <Badge variant="secondary" className="ml-auto shrink-0 text-[10px] uppercase">
+                  <Badge variant="secondary" className="ml-auto shrink-0 text-[10px]">
                     {a.institutionName}
                   </Badge>
                 )}
               </div>
-              <div className="text-2xl font-mono font-bold tracking-tight text-[var(--ink)]">
+              <div className="text-2xl font-mono font-bold text-[var(--ink)]">
                 {a.availableBalance != null
                   ? money(a.availableBalance)
                   : a.currentBalance != null
@@ -294,7 +294,7 @@ function ConnectedView({ banks }: { banks: ConnectedBank[] }) {
                   a.currentBalance !== a.availableBalance && (
                     <> · {money(a.currentBalance)} current</>
                   )}
-                {a.subtype ? ` · ${a.subtype}` : ""}
+                {a.subtype ?` · ${a.subtype}` : ""}
               </div>
             </div>
           ))}
@@ -325,7 +325,7 @@ function ConnectedView({ banks }: { banks: ConnectedBank[] }) {
                   <div className="font-semibold text-sm text-[var(--ink)] truncate">
                     {t.merchantName || t.name}
                     {t.pending && (
-                      <Badge variant="secondary" className="ml-2 text-[10px] uppercase">
+                      <Badge variant="secondary" className="ml-2 text-[10px]">
                         Pending
                       </Badge>
                     )}
@@ -343,9 +343,9 @@ function ConnectedView({ banks }: { banks: ConnectedBank[] }) {
                 <div
                   className={`font-display font-semibold tabular-nums shrink-0 ${
                     t.amount < 0 ? "text-[#3c7a4e]" : "text-[var(--ink)]"
-                  }`}
+                 }`}
                 >
-                  {t.amount < 0 ? `+${money(Math.abs(t.amount))}` : `-${money(t.amount)}`}
+                  {t.amount < 0 ?`+${money(Math.abs(t.amount))}` :`-${money(t.amount)}`}
                 </div>
               </div>
             ))}
@@ -357,7 +357,7 @@ function ConnectedView({ banks }: { banks: ConnectedBank[] }) {
 }
 
 export function BankTab() {
-  const { data: status, isLoading } = useGetBankStatus();
+  const { data: status, isLoading} = useGetBankStatus();
 
   if (isLoading) return <Skeleton className="h-64 w-full" />;
   if (!status?.connected) return <ConnectCard />;

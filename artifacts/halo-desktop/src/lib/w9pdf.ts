@@ -1,4 +1,4 @@
-import { jsPDF } from "jspdf";
+import { jsPDF} from "jspdf";
 
 type W9 = Record<string, unknown>;
 
@@ -8,7 +8,7 @@ function val(data: W9, key: string): string {
 }
 
 export function downloadW9Pdf(data: W9, crewName?: string): void {
-  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const doc = new jsPDF({ unit: "pt", format: "letter"});
   const left = 56;
   let y = 64;
 
@@ -46,7 +46,7 @@ export function downloadW9Pdf(data: W9, crewName?: string): void {
     doc.setFont("helvetica", "normal");
     doc.text(doc.splitTextToSize(value, 360), left + 130, y);
     y += 24;
-  }
+ }
 
   const safeName = (crewName || val(data, "name") || "crew")
     .replace(/[^a-z0-9]+/gi, "-")

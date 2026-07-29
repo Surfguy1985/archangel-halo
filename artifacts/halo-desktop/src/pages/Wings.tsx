@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useGetWingsOverview,
   useListWingsMembers,
@@ -39,7 +39,7 @@ import {
   Wallet,
   UserCheck,
 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton} from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -47,11 +47,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+import { Button} from "@/components/ui/button";
+import { Label} from "@/components/ui/label";
+import { Input} from "@/components/ui/input";
+import { Textarea} from "@/components/ui/textarea";
+import { Switch} from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -59,20 +59,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { WingsGuideDialog } from "@/components/WingsGuideDialog";
+import { useToast} from "@/hooks/use-toast";
+import { WingsGuideDialog} from "@/components/WingsGuideDialog";
 
 const money = (n: number) =>
-  (n ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  (n ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0});
 
 const money2 = (n: number) =>
-  (n ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+  (n ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2});
 
 function fmtDate(s?: string | null): string {
   if (!s) return "—";
-  const d = new Date(s.length <= 10 ? `${s}T00:00:00` : s);
+  const d = new Date(s.length <= 10 ?`${s}T00:00:00` : s);
   if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric"});
 }
 
 function relTime(s?: string | null): string {
@@ -81,11 +81,11 @@ function relTime(s?: string | null): string {
   const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60) return`${mins}m ago`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return`${hrs}h ago`;
   const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 30) return`${days}d ago`;
   return fmtDate(s);
 }
 
@@ -97,25 +97,25 @@ const TIER_STYLES: Record<string, string> = {
   PLATINUM: "bg-violet-100 text-violet-800 border-violet-300",
 };
 
-function TierBadge({ tier }: { tier: string }) {
+function TierBadge({ tier}: { tier: string}) {
   const cls = TIER_STYLES[tier] || "bg-muted text-muted-foreground border-border";
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${cls}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold   border ${cls}`}>
       {tier}
     </span>
   );
 }
 
-const MEMBERSHIP_STYLES: Record<string, { cls: string; label: string }> = {
-  PENDING_APPROVAL: { cls: "bg-amber-100 text-amber-800 border-amber-300", label: "Pending approval" },
-  ACTIVE: { cls: "bg-green-100 text-green-700 border-green-300", label: "Active" },
-  SUSPENDED: { cls: "bg-red-100 text-red-700 border-red-300", label: "Suspended" },
+const MEMBERSHIP_STYLES: Record<string, { cls: string; label: string}> = {
+  PENDING_APPROVAL: { cls: "bg-amber-100 text-amber-800 border-amber-300", label: "Pending approval"},
+  ACTIVE: { cls: "bg-green-100 text-green-700 border-green-300", label: "Active"},
+  SUSPENDED: { cls: "bg-red-100 text-red-700 border-red-300", label: "Suspended"},
 };
 
-function MembershipBadge({ status }: { status?: string }) {
-  const s = MEMBERSHIP_STYLES[status ?? ""] || { cls: "bg-muted text-muted-foreground border-border", label: status || "—" };
+function MembershipBadge({ status}: { status?: string}) {
+  const s = MEMBERSHIP_STYLES[status ?? ""] || { cls: "bg-muted text-muted-foreground border-border", label: status || "—"};
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${s.cls}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold   border ${s.cls}`}>
       {s.label}
     </span>
   );
@@ -130,19 +130,19 @@ export default function Wings() {
   const [tab, setTab] = useState<WingsTab>("Overview");
   const [guideOpen, setGuideOpen] = useState(false);
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const runSweep = useRunWingsAutomationNow();
 
   const handleSweep = () => {
     runSweep.mutate(undefined, {
       onSuccess: () => {
         queryClient.invalidateQueries();
-        toast({ title: "AI sweep complete", description: "Founding Wings program updated." });
-      },
+        toast({ title: "AI sweep complete", description: "Founding Wings program updated."});
+     },
       onError: (e: any) =>
-        toast({ title: "Sweep failed", description: e?.message ?? "Try again", variant: "destructive" }),
-    });
-  };
+        toast({ title: "Sweep failed", description: e?.message ?? "Try again", variant: "destructive"}),
+   });
+ };
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -152,7 +152,7 @@ export default function Wings() {
             <Feather className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight uppercase">Founding Wings</h1>
+            <h1 className="text-3xl font-display font-bold text-[var(--ink)]">Founding Wings</h1>
             <p className="text-muted-foreground text-sm">Crew scores, overrides & AI quality reviews</p>
           </div>
         </div>
@@ -168,7 +168,7 @@ export default function Wings() {
             onClick={handleSweep}
             disabled={runSweep.isPending}
             data-testid="button-run-sweep"
-            className="flex items-center gap-2 bg-[var(--primary)] text-[var(--primary-foreground)] px-4 py-2 rounded-md font-display font-bold uppercase tracking-wider text-sm hover:bg-[var(--gold-light)] transition-colors disabled:opacity-60"
+            className="flex items-center gap-2 bg-[var(--primary)] text-[var(--primary-foreground)] px-4 py-2 rounded-md font-display font-bold text-sm hover:bg-[var(--gold-light)] transition-colors disabled:opacity-60"
           >
             {runSweep.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             {runSweep.isPending ? "Running…" : "Run AI sweep now"}
@@ -189,11 +189,11 @@ export default function Wings() {
             key={t}
             onClick={() => setTab(t)}
             data-testid={`tab-${t.replace(/\W+/g, "-").toLowerCase()}`}
-            className={`whitespace-nowrap px-4 py-2.5 text-sm font-display font-bold uppercase tracking-wide border-b-2 -mb-px transition-colors ${
+            className={`whitespace-nowrap px-4 py-2.5 text-sm font-display font-bold   border-b-2 -mb-px transition-colors ${
               tab === t
                 ? "border-[var(--primary)] text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
+           }`}
           >
             {t}
           </button>
@@ -212,10 +212,10 @@ export default function Wings() {
   );
 }
 
-function StatCard({ label, value, icon: Icon, highlight }: { label: string; value: React.ReactNode; icon: any; highlight?: boolean }) {
+function StatCard({ label, value, icon: Icon, highlight}: { label: string; value: React.ReactNode; icon: any; highlight?: boolean}) {
   return (
     <div className={`${highlight ? "bg-amber-50 border border-amber-300 rounded-md shadow-sm" : card} p-4`}>
-      <div className={`flex items-center gap-2 text-xs font-display font-bold uppercase tracking-wider ${highlight ? "text-amber-700" : "text-muted-foreground"}`}>
+      <div className={`flex items-center gap-2 text-xs font-display font-bold   ${highlight ? "text-amber-700" : "text-muted-foreground"}`}>
         <Icon className="w-4 h-4" /> {label}
       </div>
       <div className={`text-2xl font-display font-bold mt-1.5 ${highlight ? "text-amber-800" : "text-[var(--ink)]"}`}>{value}</div>
@@ -224,8 +224,8 @@ function StatCard({ label, value, icon: Icon, highlight }: { label: string; valu
 }
 
 function OverviewTab() {
-  const { data: overview, isLoading } = useGetWingsOverview();
-  const { data: runs } = useListWingsAutomationRuns();
+  const { data: overview, isLoading} = useGetWingsOverview();
+  const { data: runs} = useListWingsAutomationRuns();
 
   const brief = runs?.find((r) => (r.result as any)?.operatorBrief)?.result as any;
   const ob = brief?.operatorBrief;
@@ -233,10 +233,10 @@ function OverviewTab() {
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
+        {Array.from({ length: 6}).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
       </div>
     );
-  }
+ }
 
   return (
     <div className="space-y-6">
@@ -253,7 +253,7 @@ function OverviewTab() {
       <div className={`${card} p-5`}>
         <div className="flex items-center gap-2 mb-3">
           <Sparkles className="w-5 h-5 text-[var(--primary)]" />
-          <h2 className="font-display font-bold uppercase tracking-wide text-lg">Latest operator brief</h2>
+          <h2 className="font-display font-bold text-lg">Latest operator brief</h2>
         </div>
         {!ob ? (
           <p className="text-sm text-muted-foreground">
@@ -266,13 +266,13 @@ function OverviewTab() {
             )}
             {Array.isArray(ob.risks) && ob.risks.length > 0 && (
               <div>
-                <h3 className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground mb-2">Risks</h3>
+                <h3 className="text-xs font-display font-bold text-muted-foreground mb-2">Risks</h3>
                 <div className="space-y-2">
                   {ob.risks.map((r: any, i: number) => (
                     <div key={i} className="flex items-start gap-2 text-sm">
-                      <span className={`shrink-0 mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                      <span className={`shrink-0 mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold  ${
                         (r.severity ?? 0) >= 4 ? "bg-red-100 text-red-700" : (r.severity ?? 0) >= 2 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"
-                      }`}>
+                     }`}>
                         Sev {r.severity ?? "?"}
                       </span>
                       <div>
@@ -286,13 +286,13 @@ function OverviewTab() {
             )}
             {Array.isArray(ob.recommendedActions) && ob.recommendedActions.length > 0 && (
               <div>
-                <h3 className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground mb-2">Recommended actions</h3>
+                <h3 className="text-xs font-display font-bold text-muted-foreground mb-2">Recommended actions</h3>
                 <ol className="space-y-2 list-decimal list-inside">
                   {ob.recommendedActions.map((a: any, i: number) => (
                     <li key={i} className="text-sm">
                       <span className="font-semibold">{a.action}</span>
                       {a.reason ? <span className="text-muted-foreground"> — {a.reason}</span> : null}
-                      {a.priority ? <span className="text-[10px] uppercase font-bold text-muted-foreground ml-1">({a.priority})</span> : null}
+                      {a.priority ? <span className="text-[10px] font-bold text-muted-foreground ml-1">({a.priority})</span> : null}
                     </li>
                   ))}
                 </ol>
@@ -300,7 +300,7 @@ function OverviewTab() {
             )}
             {Array.isArray(ob.celebration) && ob.celebration.length > 0 && (
               <div>
-                <h3 className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground mb-2">Celebrate 🎉</h3>
+                <h3 className="text-xs font-display font-bold text-muted-foreground mb-2">Celebrate 🎉</h3>
                 <ul className="space-y-1">
                   {ob.celebration.map((c: string, i: number) => (
                     <li key={i} className="text-sm text-[var(--green,#2e7d32)] flex items-start gap-2">
@@ -318,12 +318,12 @@ function OverviewTab() {
 }
 
 function CrewsTab() {
-  const { data: members, isLoading } = useListWingsMembers();
+  const { data: members, isLoading} = useListWingsMembers();
   const update = useUpdateWingsMember();
   const decideMembership = useDecideWingsMembership();
   const recalc = useRecalculateWingsScore();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries();
@@ -331,50 +331,50 @@ function CrewsTab() {
 
   const decide = (m: WingsMember, approve: boolean) => {
     decideMembership.mutate(
-      { crewId: m.crewId, data: { approve } },
+      { crewId: m.crewId, data: { approve}},
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ["/api/wings/members"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/wings/overview"] });
-          toast({ title: approve ? "Member approved" : "Member suspended", description: m.crewName });
-        },
-        onError: (e: any) => toast({ title: approve ? "Approval failed" : "Suspend failed", description: errMsg(e), variant: "destructive" }),
-      }
+          queryClient.invalidateQueries({ queryKey: ["/api/wings/members"]});
+          queryClient.invalidateQueries({ queryKey: ["/api/wings/overview"]});
+          toast({ title: approve ? "Member approved" : "Member suspended", description: m.crewName});
+       },
+        onError: (e: any) => toast({ title: approve ? "Approval failed" : "Suspend failed", description: errMsg(e), variant: "destructive"}),
+     }
     );
-  };
+ };
 
   const toggleAvailable = (m: WingsMember) => {
     update.mutate(
-      { crewId: m.crewId, data: { isAvailable: !m.isAvailable } },
-      { onSuccess: invalidate, onError: (e: any) => toast({ title: "Update failed", description: e?.message, variant: "destructive" }) }
+      { crewId: m.crewId, data: { isAvailable: !m.isAvailable}},
+      { onSuccess: invalidate, onError: (e: any) => toast({ title: "Update failed", description: e?.message, variant: "destructive"})}
     );
-  };
+ };
 
   const setSponsor = (m: WingsMember, sponsorCrewId: string) => {
     update.mutate(
-      { crewId: m.crewId, data: { sponsorCrewId: sponsorCrewId === "none" ? null : sponsorCrewId } },
-      { onSuccess: invalidate, onError: (e: any) => toast({ title: "Update failed", description: e?.message, variant: "destructive" }) }
+      { crewId: m.crewId, data: { sponsorCrewId: sponsorCrewId === "none" ? null : sponsorCrewId}},
+      { onSuccess: invalidate, onError: (e: any) => toast({ title: "Update failed", description: e?.message, variant: "destructive"})}
     );
-  };
+ };
 
   const doRecalc = (m: WingsMember) => {
     recalc.mutate(
-      { crewId: m.crewId },
-      { onSuccess: () => { invalidate(); toast({ title: "Score recalculated", description: m.crewName }); }, onError: (e: any) => toast({ title: "Recalc failed", description: e?.message, variant: "destructive" }) }
+      { crewId: m.crewId},
+      { onSuccess: () => { invalidate(); toast({ title: "Score recalculated", description: m.crewName});}, onError: (e: any) => toast({ title: "Recalc failed", description: e?.message, variant: "destructive"})}
     );
-  };
+ };
 
-  if (isLoading) return <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>;
+  if (isLoading) return <div className="space-y-3">{Array.from({ length: 4}).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>;
 
   if (!members || members.length === 0) {
     return <div className={`${card} p-10 text-center text-muted-foreground`}>No crew members enrolled yet. Run an AI sweep to enroll crews.</div>;
-  }
+ }
 
   return (
     <div className={`${card} overflow-hidden`}>
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-xs font-display font-bold uppercase tracking-wider text-muted-foreground">
+          <tr className="border-b border-border text-left text-xs font-display font-bold text-muted-foreground">
             <th className="px-4 py-3">Crew</th>
             <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3">Halo</th>
@@ -401,7 +401,7 @@ function CrewsTab() {
                   <span className="text-2xl font-display font-bold text-[var(--ink)]">{Math.round(m.haloScore)}</span>
                 </td>
                 <td className="px-4 py-3"><TierBadge tier={m.tier} /></td>
-                <td className="px-4 py-3 text-xs">{m.founderStatus && m.founderStatus !== "NONE" ? `${m.founderStatus}${m.founderNumber ? ` #${m.founderNumber}` : ""}` : "—"}</td>
+                <td className="px-4 py-3 text-xs">{m.founderStatus && m.founderStatus !== "NONE" ?`${m.founderStatus}${m.founderNumber ?` #${m.founderNumber}` : ""}` : "—"}</td>
                 <td className="px-4 py-3 min-w-[160px]">
                   <Select value={m.sponsorCrewId ?? "none"} onValueChange={(v) => setSponsor(m, v)}>
                     <SelectTrigger className="h-8 text-xs" data-testid={`select-sponsor-${m.crewId}`}>
@@ -435,7 +435,7 @@ function CrewsTab() {
                   <td colSpan={9} className="px-4 py-3">
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                       <div className="flex items-center gap-4 text-xs">
-                        <span className="font-bold uppercase tracking-wider text-amber-700">Readiness</span>
+                        <span className="font-bold text-amber-700">Readiness</span>
                         <span className="text-muted-foreground">Completed jobs: <span className="font-semibold text-[var(--ink)]">{m.readiness?.completedJobs ?? 0}</span></span>
                         <span className="text-muted-foreground">W-9 on file: <span className={`font-semibold ${m.readiness?.w9OnFile ? "text-green-700" : "text-red-600"}`}>{m.readiness?.w9OnFile ? "Yes" : "No"}</span></span>
                         <span className="text-muted-foreground">Open incidents: <span className={`font-semibold ${(m.readiness?.openIncidents ?? 0) > 0 ? "text-red-600" : "text-[var(--ink)]"}`}>{m.readiness?.openIncidents ?? 0}</span></span>
@@ -445,7 +445,7 @@ function CrewsTab() {
                           onClick={() => decide(m, true)}
                           disabled={decideMembership.isPending}
                           data-testid={`button-approve-member-${m.crewId}`}
-                          className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider bg-green-600 text-white rounded-md px-3 py-1.5 hover:bg-green-700 disabled:opacity-50"
+                          className="flex items-center gap-1.5 text-xs font-bold bg-green-600 text-white rounded-md px-3 py-1.5 hover:bg-green-700 disabled:opacity-50"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" /> Approve
                         </button>
@@ -466,7 +466,7 @@ function CrewsTab() {
                 <tr className="border-b border-border/60 bg-[var(--muted)]/30">
                   <td colSpan={9} className="px-4 py-3">
                     <div className="text-xs text-muted-foreground">
-                      <span className="font-bold uppercase tracking-wider">Score reasons: </span>
+                      <span className="font-bold">Score reasons: </span>
                       {m.scoreReasons && m.scoreReasons.length > 0 ? m.scoreReasons.join(" · ") : "No reasons recorded yet."}
                       {m.scoreUpdatedAt ? <span className="ml-2">Updated {relTime(m.scoreUpdatedAt)}</span> : null}
                     </div>
@@ -501,22 +501,22 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 function QualityTab() {
-  const { data: items, isLoading } = useListWingsQuality();
+  const { data: items, isLoading} = useListWingsQuality();
   const runReview = useRunWingsQualityReview();
   const decide = useDecideWingsQuality();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const [decision, setDecision] = useState<{ item: WingsQualityItem; status: "PASS" | "FAIL" } | null>(null);
+  const { toast} = useToast();
+  const [decision, setDecision] = useState<{ item: WingsQualityItem; status: "PASS" | "FAIL"} | null>(null);
   const [reason, setReason] = useState("");
 
   const invalidate = () => queryClient.invalidateQueries();
 
   const doReview = (item: WingsQualityItem) => {
     runReview.mutate(
-      { id: item.id },
-      { onSuccess: () => { invalidate(); toast({ title: "AI review complete", description: item.jobNo ?? "" }); }, onError: (e: any) => toast({ title: "Review failed", description: e?.message, variant: "destructive" }) }
+      { id: item.id},
+      { onSuccess: () => { invalidate(); toast({ title: "AI review complete", description: item.jobNo ?? ""});}, onError: (e: any) => toast({ title: "Review failed", description: e?.message, variant: "destructive"})}
     );
-  };
+ };
 
   const submitDecision = () => {
     if (!decision) return;
@@ -526,20 +526,20 @@ function QualityTab() {
         data: {
           status: decision.status === "PASS" ? WingsQualityDecisionInputStatus.PASS : WingsQualityDecisionInputStatus.FAIL,
           reason: reason.trim() || (decision.status === "PASS" ? "Approved by admin" : "Failed by admin"),
-        },
-      },
+       },
+     },
       {
-        onSuccess: () => { invalidate(); setDecision(null); setReason(""); toast({ title: "Decision saved" }); },
-        onError: (e: any) => toast({ title: "Failed", description: e?.message, variant: "destructive" }),
-      }
+        onSuccess: () => { invalidate(); setDecision(null); setReason(""); toast({ title: "Decision saved"});},
+        onError: (e: any) => toast({ title: "Failed", description: e?.message, variant: "destructive"}),
+     }
     );
-  };
+ };
 
-  if (isLoading) return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>;
+  if (isLoading) return <div className="space-y-3">{Array.from({ length: 3}).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>;
 
   if (!items || items.length === 0) {
     return <div className={`${card} p-10 text-center text-muted-foreground`}>No quality submissions yet.</div>;
-  }
+ }
 
   return (
     <div className="space-y-3">
@@ -551,10 +551,10 @@ function QualityTab() {
                 {item.jobNo || "Job"} {item.crewName ? <span className="text-muted-foreground font-normal">· {item.crewName}</span> : null}
               </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                {item.propertyName ? `${item.propertyName} · ` : ""}{item.beforeCount} before / {item.afterCount} after photos · submitted {relTime(item.submittedAt)}
+                {item.propertyName ?`${item.propertyName} ·` : ""}{item.beforeCount} before / {item.afterCount} after photos · submitted {relTime(item.submittedAt)}
               </div>
             </div>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLES[item.reviewStatus] || "bg-muted text-muted-foreground"}`}>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold   ${STATUS_STYLES[item.reviewStatus] || "bg-muted text-muted-foreground"}`}>
               {item.reviewStatus}
             </span>
           </div>
@@ -588,14 +588,14 @@ function QualityTab() {
               </button>
             )}
             <button
-              onClick={() => { setDecision({ item, status: "PASS" }); setReason(""); }}
+              onClick={() => { setDecision({ item, status: "PASS"}); setReason("");}}
               data-testid={`button-approve-${item.id}`}
               className="flex items-center gap-1.5 text-xs font-medium border border-green-300 text-green-700 rounded-md px-3 py-1.5 hover:bg-green-50"
             >
               <CheckCircle2 className="w-3.5 h-3.5" /> Approve
             </button>
             <button
-              onClick={() => { setDecision({ item, status: "FAIL" }); setReason(""); }}
+              onClick={() => { setDecision({ item, status: "FAIL"}); setReason("");}}
               data-testid={`button-fail-${item.id}`}
               className="flex items-center gap-1.5 text-xs font-medium border border-red-300 text-red-700 rounded-md px-3 py-1.5 hover:bg-red-50"
             >
@@ -605,10 +605,10 @@ function QualityTab() {
         </div>
       ))}
 
-      <Dialog open={!!decision} onOpenChange={(o) => { if (!o) setDecision(null); }}>
+      <Dialog open={!!decision} onOpenChange={(o) => { if (!o) setDecision(null);}}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="font-display uppercase tracking-wide">
+            <DialogTitle className="font-display">
               {decision?.status === "PASS" ? "Approve submission" : "Fail submission"}
             </DialogTitle>
           </DialogHeader>
@@ -630,13 +630,13 @@ function QualityTab() {
 }
 
 function OverridesTab() {
-  const { data: overrides, isLoading } = useListWingsOverrides();
-  const { data: reserve } = useGetWingsReserve();
+  const { data: overrides, isLoading} = useListWingsOverrides();
+  const { data: reserve} = useGetWingsReserve();
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display font-bold uppercase tracking-wide text-lg mb-3">Wingline overrides</h2>
+        <h2 className="font-display font-bold text-lg mb-3">Wingline overrides</h2>
         {isLoading ? (
           <Skeleton className="h-40 w-full" />
         ) : !overrides || overrides.length === 0 ? (
@@ -645,7 +645,7 @@ function OverridesTab() {
           <div className={`${card} overflow-hidden`}>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-xs font-display font-bold uppercase tracking-wider text-muted-foreground">
+                <tr className="border-b border-border text-left text-xs font-display font-bold text-muted-foreground">
                   <th className="px-4 py-3">Job</th>
                   <th className="px-4 py-3">Sponsor → Recruit</th>
                   <th className="px-4 py-3">Gross override</th>
@@ -664,7 +664,7 @@ function OverridesTab() {
                     <td className="px-4 py-3">{money2(o.immediateAmount)}</td>
                     <td className="px-4 py-3">{money2(o.reserveAmount)}</td>
                     <td className="px-4 py-3">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--muted)]">{o.status}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--muted)]">{o.status}</span>
                       {o.immediateStatus ? <span className="block text-[10px] text-muted-foreground mt-0.5">imm: {o.immediateStatus}</span> : null}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{fmtDate(o.qualityWindowEndsAt)}</td>
@@ -677,7 +677,7 @@ function OverridesTab() {
       </div>
 
       <div>
-        <h2 className="font-display font-bold uppercase tracking-wide text-lg mb-3">Guardian Reserve</h2>
+        <h2 className="font-display font-bold text-lg mb-3">Guardian Reserve</h2>
         <div className="grid grid-cols-3 gap-4 mb-4">
           <StatCard label="Held" value={money(reserve?.totals.held ?? 0)} icon={ShieldCheck} />
           <StatCard label="Released" value={money(reserve?.totals.released ?? 0)} icon={CheckCircle2} />
@@ -688,7 +688,7 @@ function OverridesTab() {
           <div className={`${card} overflow-hidden mb-4`}>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-xs font-display font-bold uppercase tracking-wider text-muted-foreground">
+                <tr className="border-b border-border text-left text-xs font-display font-bold text-muted-foreground">
                   <th className="px-4 py-3">Crew</th>
                   <th className="px-4 py-3">Held</th>
                   <th className="px-4 py-3">Released</th>
@@ -711,13 +711,13 @@ function OverridesTab() {
 
         {reserve && reserve.transactions.length > 0 && (
           <div className={`${card} p-4`}>
-            <h3 className="text-xs font-display font-bold uppercase tracking-wider text-muted-foreground mb-2">Recent transactions</h3>
+            <h3 className="text-xs font-display font-bold text-muted-foreground mb-2">Recent transactions</h3>
             <div className="space-y-2">
               {reserve.transactions.map((t) => (
                 <div key={t.id} className="flex items-center justify-between text-sm border-b border-border/40 pb-2 last:border-0">
                   <div>
                     <span className="font-medium">{t.crewName || "—"}</span>
-                    <span className="text-muted-foreground text-xs ml-2">{t.type}{t.note ? ` · ${t.note}` : ""}</span>
+                    <span className="text-muted-foreground text-xs ml-2">{t.type}{t.note ?` · ${t.note}` : ""}</span>
                   </div>
                   <div className="text-right">
                     <div className="font-semibold">{money2(t.amount)}</div>
@@ -734,12 +734,12 @@ function OverridesTab() {
 }
 
 function IncidentsTab() {
-  const { data: incidents, isLoading } = useListWingsIncidents();
-  const { data: members } = useListWingsMembers();
+  const { data: incidents, isLoading} = useListWingsIncidents();
+  const { data: members} = useListWingsMembers();
   const create = useCreateWingsIncident();
   const resolve = useResolveWingsIncident();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<string>(WingsIncidentInputType.CALLBACK);
   const [severity, setSeverity] = useState("3");
@@ -750,7 +750,7 @@ function IncidentsTab() {
   const invalidate = () => queryClient.invalidateQueries();
 
   const submit = () => {
-    if (!description.trim()) { toast({ title: "Description required", variant: "destructive" }); return; }
+    if (!description.trim()) { toast({ title: "Description required", variant: "destructive"}); return;}
     create.mutate(
       {
         data: {
@@ -759,23 +759,23 @@ function IncidentsTab() {
           description: description.trim(),
           cost: cost ? Number(cost) : null,
           crewId: crewId === "none" ? null : crewId,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
           invalidate();
           setOpen(false);
           setDescription(""); setCost(""); setCrewId("none"); setSeverity("3"); setType(WingsIncidentInputType.CALLBACK);
-          toast({ title: "Incident logged" });
-        },
-        onError: (e: any) => toast({ title: "Failed", description: e?.message, variant: "destructive" }),
-      }
+          toast({ title: "Incident logged"});
+       },
+        onError: (e: any) => toast({ title: "Failed", description: e?.message, variant: "destructive"}),
+     }
     );
-  };
+ };
 
   const doResolve = (id: string) => {
-    resolve.mutate({ id }, { onSuccess: () => { invalidate(); toast({ title: "Incident resolved" }); }, onError: (e: any) => toast({ title: "Failed", description: e?.message, variant: "destructive" }) });
-  };
+    resolve.mutate({ id}, { onSuccess: () => { invalidate(); toast({ title: "Incident resolved"});}, onError: (e: any) => toast({ title: "Failed", description: e?.message, variant: "destructive"})});
+ };
 
   return (
     <div className="space-y-4">
@@ -783,14 +783,14 @@ function IncidentsTab() {
         <button
           onClick={() => setOpen(true)}
           data-testid="button-log-incident"
-          className="flex items-center gap-2 bg-[var(--primary)] text-[var(--primary-foreground)] px-4 py-2 rounded-md font-display font-bold uppercase tracking-wider text-sm hover:bg-[var(--gold-light)] transition-colors"
+          className="flex items-center gap-2 bg-[var(--primary)] text-[var(--primary-foreground)] px-4 py-2 rounded-md font-display font-bold text-sm hover:bg-[var(--gold-light)] transition-colors"
         >
           <Plus className="w-4 h-4" /> Log incident
         </button>
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
+        <div className="space-y-3">{Array.from({ length: 3}).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : !incidents || incidents.length === 0 ? (
         <div className={`${card} p-10 text-center text-muted-foreground`}>No incidents logged.</div>
       ) : (
@@ -800,13 +800,13 @@ function IncidentsTab() {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-display font-bold text-[var(--ink)]">{inc.type}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${inc.severity >= 4 ? "bg-red-100 text-red-700" : inc.severity >= 3 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"}`}>Sev {inc.severity}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold  ${inc.severity >= 4 ? "bg-red-100 text-red-700" : inc.severity >= 3 ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-700"}`}>Sev {inc.severity}</span>
                   {inc.crewName ? <span className="text-xs text-muted-foreground">{inc.crewName}</span> : null}
                   {inc.jobNo ? <span className="text-xs text-muted-foreground">· {inc.jobNo}</span> : null}
                   {inc.cost != null ? <span className="text-xs text-muted-foreground">· {money2(inc.cost)}</span> : null}
                 </div>
                 <p className="text-sm mt-1">{inc.description}</p>
-                <div className="text-[10px] text-muted-foreground mt-1">{relTime(inc.occurredAt)}{inc.resolvedAt ? ` · resolved ${relTime(inc.resolvedAt)}` : ""}</div>
+                <div className="text-[10px] text-muted-foreground mt-1">{relTime(inc.occurredAt)}{inc.resolvedAt ?` · resolved ${relTime(inc.resolvedAt)}` : ""}</div>
               </div>
               {!inc.resolvedAt && (
                 <button
@@ -826,7 +826,7 @@ function IncidentsTab() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="font-display uppercase tracking-wide">Log incident</DialogTitle>
+            <DialogTitle className="font-display">Log incident</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -886,13 +886,13 @@ const ACTOR_STYLES: Record<string, string> = {
 };
 
 function ActivityTab() {
-  const { data: entries, isLoading } = useListWingsAudit({ limit: 100 });
+  const { data: entries, isLoading} = useListWingsAudit({ limit: 100});
 
-  if (isLoading) return <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>;
+  if (isLoading) return <div className="space-y-2">{Array.from({ length: 6}).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>;
 
   if (!entries || entries.length === 0) {
     return <div className={`${card} p-10 text-center text-muted-foreground`}>No activity yet.</div>;
-  }
+ }
 
   return (
     <div className={`${card} divide-y divide-border/60`}>
@@ -900,7 +900,7 @@ function ActivityTab() {
         <div key={e.id} className="px-4 py-3 flex items-start justify-between gap-4" data-testid={`audit-${e.id}`}>
           <div>
             <div className="flex items-center gap-2">
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${ACTOR_STYLES[e.actorType] || "bg-muted text-muted-foreground"}`}>{e.actorType}</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold  ${ACTOR_STYLES[e.actorType] || "bg-muted text-muted-foreground"}`}>{e.actorType}</span>
               <span className="font-medium text-sm">{e.action}</span>
             </div>
             {e.reason ? <p className="text-xs text-muted-foreground mt-1">{e.reason}</p> : null}

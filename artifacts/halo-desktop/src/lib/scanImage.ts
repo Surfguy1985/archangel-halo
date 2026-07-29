@@ -12,10 +12,10 @@ function blobToBase64(blob: Blob): Promise<string> {
     reader.onload = () => {
       const s = String(reader.result ?? "");
       resolve(s.includes(",") ? s.slice(s.indexOf(",") + 1) : s);
-    };
+   };
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
-  });
+ });
 }
 
 function decodeImage(file: File): Promise<HTMLImageElement> {
@@ -25,13 +25,13 @@ function decodeImage(file: File): Promise<HTMLImageElement> {
     img.onload = () => {
       URL.revokeObjectURL(url);
       resolve(img);
-    };
+   };
     img.onerror = () => {
       URL.revokeObjectURL(url);
       reject(new Error("could not decode image"));
-    };
+   };
     img.src = url;
-  });
+ });
 }
 
 /**
@@ -60,16 +60,16 @@ export async function prepareScanImage(file: File): Promise<PreparedScanImage> {
         "image/jpeg",
         0.92,
       );
-    });
-    return { base64: await blobToBase64(blob), mediaType: "image/jpeg", blob };
-  } catch {
+   });
+    return { base64: await blobToBase64(blob), mediaType: "image/jpeg", blob};
+ } catch {
     if (SUPPORTED_RAW.includes(file.type)) {
       return {
         base64: await blobToBase64(file),
         mediaType: file.type as PreparedScanImage["mediaType"],
         blob: file,
-      };
-    }
+     };
+   }
     throw new Error("unsupported image");
-  }
+ }
 }

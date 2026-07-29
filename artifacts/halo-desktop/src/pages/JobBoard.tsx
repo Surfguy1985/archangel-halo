@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect} from "react";
 import { 
   useListJobBoard, 
   getListJobBoardQueryKey, 
@@ -12,17 +12,17 @@ import {
   type JobBoardCard,
   type Crew
 } from "@workspace/api-client-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { Skeleton} from "@/components/ui/skeleton";
+import { Card, CardContent} from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem} from "@/components/ui/radio-group";
+import { Label} from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription} from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle} from "@/components/ui/alert-dialog";
+import { Button} from "@/components/ui/button";
+import { useToast} from "@/hooks/use-toast";
+import { useQueryClient} from "@tanstack/react-query";
+import { format} from "date-fns";
 import { 
   ClipboardList, 
   MapPin, 
@@ -36,26 +36,26 @@ import {
   Pencil,
   Trash2
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Badge} from "@/components/ui/badge";
+import { Input} from "@/components/ui/input";
+import { Textarea} from "@/components/ui/textarea";
 
 export default function JobBoard() {
-  const { data: jobBoard, isLoading } = useListJobBoard({
-    query: { queryKey: getListJobBoardQueryKey(), refetchInterval: 5000 },
-  });
+  const { data: jobBoard, isLoading} = useListJobBoard({
+    query: { queryKey: getListJobBoardQueryKey(), refetchInterval: 5000},
+ });
   const [filter, setFilter] = useState<string>("active");
 
   const filteredJobs = jobBoard?.filter(card => {
     if (filter === "all") return true;
     return card.job.boardStatus === filter;
-  }) || [];
+ }) || [];
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 min-h-[100dvh] flex flex-col bg-[var(--background)]">
       <header className="flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-4xl font-display font-bold text-foreground tracking-tight uppercase">Job Board</h1>
+          <h1 className="text-4xl font-display font-bold text-foreground">Job Board</h1>
           <p className="text-muted-foreground font-mono mt-1 text-sm">Available jobs and broadcast status</p>
         </div>
         
@@ -64,11 +64,11 @@ export default function JobBoard() {
             <button
               key={status}
               onClick={() => setFilter(status)}
-              className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-full transition-colors ${
+              className={`px-4 py-2 text-[10px] font-bold   rounded-full transition-colors ${
                 filter === status 
-                  ? "bg-[var(--secondary)] text-white shadow-sm" 
-                  : "bg-white border border-border text-muted-foreground hover:border-[var(--secondary)] hover:text-[var(--secondary)]"
-              }`}
+                  ? "bg-[var(--primary)] text-black shadow-sm" 
+                  : "bg-[var(--secondary)] text-white hover:opacity-90"
+             }`}
             >
               {status}
             </button>
@@ -100,8 +100,8 @@ export default function JobBoard() {
   );
 }
 
-function JobBoardItem({ card }: { card: JobBoardCard }) {
-  const { job, priceItems, photos, broadcasts } = card;
+function JobBoardItem({ card}: { card: JobBoardCard}) {
+  const { job, priceItems, photos, broadcasts} = card;
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [reopenConfirmOpen, setReopenConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -113,36 +113,36 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
     filled: "bg-emerald-100 text-emerald-800",
     reopened: "bg-orange-100 text-orange-800",
     completed: "bg-gray-100 text-gray-600",
-  };
+ };
 
   const boardStatus = job.boardStatus || "active";
   const badgeColor = statusColors[boardStatus] || statusColors.active;
 
   return (
-    <Card className="flex flex-col border border-border shadow-sm rounded-none bg-white">
-      <div className="p-5 border-b border-border bg-[var(--background)]">
+    <Card className="flex flex-col shadow-sm rounded-3xl overflow-hidden bg-white border-none">
+      <div className="p-6 bg-[var(--secondary)]">
         <div className="flex items-start justify-between mb-2">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-mono text-xs text-muted-foreground">{job.jobNo}</span>
-              <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${badgeColor}`}>
+              <span className="font-mono text-xs text-white/60">{job.jobNo}</span>
+              <span className={`text-[10px] font-bold   px-2.5 py-0.5 rounded-full ${badgeColor}`}>
                 {boardStatus}
               </span>
             </div>
-            <h3 className="font-display font-bold text-xl text-[var(--secondary)] flex items-center gap-2">
+            <h3 className="font-display font-bold text-2xl text-white flex items-center gap-2">
               {job.propertyName || "Unknown Property"}
-              {job.unitNo && <span className="text-muted-foreground font-normal">#{job.unitNo}</span>}
+              {job.unitNo && <span className="text-white/60 font-normal">#{job.unitNo}</span>}
             </h3>
           </div>
           {job.marginPct !== null && job.marginPct !== undefined && (
             <div className="text-right">
-              <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Margin</div>
-              <div className="font-mono font-bold text-[var(--secondary)]">{job.marginPct}%</div>
+              <div className="text-xs text-[var(--primary)] font-bold">Margin</div>
+              <div className="font-mono font-bold text-white text-xl">{job.marginPct}%</div>
             </div>
           )}
         </div>
         
-        <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
+        <div className="flex flex-wrap gap-4 mt-3 text-sm text-white/80">
           {job.category && (
             <div className="flex items-center gap-1.5">
               <ClipboardList className="w-4 h-4" />
@@ -152,32 +152,32 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
           {job.scheduledOn && (
             <div className="flex items-center gap-1.5">
               <CalendarIcon className="w-4 h-4" />
-              <span>Needed: <span className="font-medium text-[var(--secondary)]">{format(new Date(job.scheduledOn + "T00:00:00"), "MMM d, yyyy")}</span></span>
+              <span>Needed: <span className="font-medium text-[var(--primary)]">{format(new Date(job.scheduledOn + "T00:00:00"), "MMM d, yyyy")}</span></span>
             </div>
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 mt-3">
+        <div className="flex flex-wrap items-center gap-2 mt-4">
           {job.scheduleType === "flex" ? (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Flex{job.flexDueBy ? ` · due ${format(new Date(job.flexDueBy + "T00:00:00"), "MMM d")}` : ""}
+            <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-emerald-400 text-black">
+              Flex{job.flexDueBy ?` · due ${format(new Date(job.flexDueBy + "T00:00:00"), "MMM d")}` : ""}
             </span>
           ) : (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary)] text-[var(--secondary)] border border-[var(--secondary)]/20">
+            <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-[var(--primary)] text-black">
               Set Schedule
             </span>
           )}
-          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+          <span className={`text-[10px] font-bold   px-3 py-1 rounded-full ${
             (job.crewsFilled ?? 0) >= (job.crewsNeeded ?? 1)
-              ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-              : "bg-gray-100 text-gray-600 border-gray-200"
-          }`}>
+              ? "bg-emerald-400 text-black"
+              : "bg-white text-black"
+         }`}>
             {job.crewsFilled ?? 0} of {job.crewsNeeded ?? 1} crew{(job.crewsNeeded ?? 1) > 1 ? "s" : ""} filled
           </span>
           {boardStatus !== "completed" && (
             <button
               onClick={() => setPostingOpen(true)}
-              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-border text-muted-foreground hover:text-[var(--secondary)] hover:border-[var(--secondary)] transition-colors inline-flex items-center gap-1"
+              className="text-[10px] font-bold px-3 py-1 rounded-full border border-white/20 text-white hover:bg-white hover:text-black transition-colors inline-flex items-center gap-1"
             >
               <Pencil className="w-3 h-3" /> Edit Posting
             </button>
@@ -189,7 +189,7 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
         <div className="p-5 flex-1 flex flex-col gap-6">
           {job.description && (
             <div>
-              <h4 className="text-xs font-bold text-[var(--secondary)] uppercase tracking-wider mb-2">Scope of Work</h4>
+              <h4 className="text-xs font-bold text-[var(--secondary)] mb-2">Scope of Work</h4>
               <p className="text-sm whitespace-pre-wrap text-foreground leading-relaxed">{job.description}</p>
             </div>
           )}
@@ -197,14 +197,14 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {priceItems.length > 0 && (
               <div>
-                <h4 className="text-xs font-bold text-[var(--secondary)] uppercase tracking-wider mb-2 flex items-center gap-1">
+                <h4 className="text-xs font-bold text-[var(--secondary)] mb-2 flex items-center gap-1">
                   <DollarSign className="w-3.5 h-3.5" /> Price List
                 </h4>
                 <div className="space-y-2">
                   {priceItems.map(item => (
                     <div key={item.id} className="flex justify-between items-center text-sm p-2 bg-[var(--background)] border border-border rounded-none">
                       <span className="font-medium text-[var(--secondary)] truncate pr-2">{item.service}</span>
-                      <span className="font-mono font-medium">${item.rate} {item.unit ? `/${item.unit}` : ''}</span>
+                      <span className="font-mono font-medium">${item.rate} {item.unit ?`/${item.unit}` : ''}</span>
                     </div>
                   ))}
                 </div>
@@ -213,7 +213,7 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
 
             {broadcasts.length > 0 && (
               <div>
-                <h4 className="text-xs font-bold text-[var(--secondary)] uppercase tracking-wider mb-2 flex items-center gap-1">
+                <h4 className="text-xs font-bold text-[var(--secondary)] mb-2 flex items-center gap-1">
                   <Send className="w-3.5 h-3.5" /> Broadcasts
                 </h4>
                 <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
@@ -228,7 +228,7 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
                         ${b.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : 
                           b.status === 'declined' || b.status === 'withdrawn' ? 'bg-red-100 text-red-800' : 
                           'bg-[var(--primary)] text-[var(--secondary)]'}
-                      `}>
+                     `}>
                         {b.status}
                       </Badge>
                     </div>
@@ -240,7 +240,7 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
           
           {photos.length > 0 && (
             <div>
-              <h4 className="text-xs font-bold text-[var(--secondary)] uppercase tracking-wider mb-2 flex items-center gap-1">
+              <h4 className="text-xs font-bold text-[var(--secondary)] mb-2 flex items-center gap-1">
                 <ImageIcon className="w-3.5 h-3.5" /> Photos
               </h4>
               <div className="flex gap-2 overflow-x-auto pb-2">
@@ -262,24 +262,24 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
           <Button
             variant="outline"
             onClick={() => setEditOpen(true)}
-            className="text-[var(--secondary)] rounded-none border-border"
+            className="text-[var(--secondary)] rounded-full border-border"
           >
             <Pencil className="w-4 h-4 mr-2" /> Edit
           </Button>
           <Button
             variant="outline"
             onClick={() => setDeleteConfirmOpen(true)}
-            className="text-destructive border-destructive hover:bg-destructive hover:text-white rounded-none"
+            className="text-destructive border-destructive hover:bg-destructive hover:text-white rounded-full"
           >
             <Trash2 className="w-4 h-4 mr-2" /> Delete
           </Button>
           {(boardStatus === 'active' || boardStatus === 'reopened') && (
-            <Button onClick={() => setBroadcastOpen(true)} className="bg-[var(--primary)] hover:opacity-90 text-[var(--secondary)] rounded-none font-bold">
+            <Button onClick={() => setBroadcastOpen(true)} className="bg-[var(--primary)] hover:opacity-90 text-black rounded-full font-bold">
               <Send className="w-4 h-4 mr-2" /> Broadcast Job
             </Button>
           )}
           {boardStatus === 'filled' && (
-            <Button variant="outline" onClick={() => setReopenConfirmOpen(true)} className="text-orange-600 border-orange-600 hover:bg-orange-600 hover:text-white rounded-none">
+            <Button variant="outline" onClick={() => setReopenConfirmOpen(true)} className="text-orange-600 border-orange-600 hover:bg-orange-600 hover:text-white rounded-full">
               <RotateCcw className="w-4 h-4 mr-2" /> Reopen Job
             </Button>
           )}
@@ -300,15 +300,15 @@ function JobBoardItem({ card }: { card: JobBoardCard }) {
   );
 }
 
-function BroadcastDialog({ open, onOpenChange, job }: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job'] }) {
+function BroadcastDialog({ open, onOpenChange, job}: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job']}) {
   const [mode, setMode] = useState<"all" | "trade" | "crews">("all");
   const [selectedTrade, setSelectedTrade] = useState<string>("");
   const [selectedCrews, setSelectedCrews] = useState<string[]>([]);
   const [scheduleType, setScheduleType] = useState<"scheduled" | "flex">("scheduled");
   const [flexDays, setFlexDays] = useState("7");
   const [crewsNeeded, setCrewsNeeded] = useState("1");
-  const { data: crews } = useListCrews({ query: { enabled: open, queryKey: getListCrewsQueryKey() } });
-  const { toast } = useToast();
+  const { data: crews} = useListCrews({ query: { enabled: open, queryKey: getListCrewsQueryKey()}});
+  const { toast} = useToast();
   const queryClient = useQueryClient();
 
   const broadcastJob = useBroadcastJob();
@@ -325,31 +325,31 @@ function BroadcastDialog({ open, onOpenChange, job }: { open: boolean, onOpenCha
         scheduleType,
         flexDays: scheduleType === 'flex' ? Math.max(1, parseInt(flexDays) || 7) : undefined,
         crewsNeeded: Math.max(1, parseInt(crewsNeeded) || 1),
-      }
-    }, {
+     }
+   }, {
       onSuccess: (result) => {
         toast({
           title: "Job Broadcasted",
-          description: `Sent to ${result.sent} crews. ${result.alreadySent > 0 ? `(${result.alreadySent} already sent)` : ''}`,
-        });
+          description:`Sent to ${result.sent} crews. ${result.alreadySent > 0 ?`(${result.alreadySent} already sent)` : ''}`,
+       });
         queryClient.invalidateQueries();
         onOpenChange(false);
-      },
+     },
       onError: (err) => {
         toast({
           title: "Broadcast failed",
           description: (err as any)?.data?.error ?? "Something went wrong",
           variant: "destructive"
-        });
-      }
-    });
-  };
+       });
+     }
+   });
+ };
 
   const toggleCrew = (id: string) => {
     setSelectedCrews(prev => 
       prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -463,11 +463,11 @@ function BroadcastDialog({ open, onOpenChange, job }: { open: boolean, onOpenCha
   );
 }
 
-function EditPostingDialog({ open, onOpenChange, job }: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job'] }) {
+function EditPostingDialog({ open, onOpenChange, job}: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job']}) {
   const [scheduleType, setScheduleType] = useState<"scheduled" | "flex">(job.scheduleType === "flex" ? "flex" : "scheduled");
   const [flexDays, setFlexDays] = useState("7");
   const [crewsNeeded, setCrewsNeeded] = useState(String(job.crewsNeeded ?? 1));
-  const { toast } = useToast();
+  const { toast} = useToast();
   const queryClient = useQueryClient();
   const updateSettings = useUpdateBoardSettings();
 
@@ -481,11 +481,11 @@ function EditPostingDialog({ open, onOpenChange, job }: { open: boolean, onOpenC
         today.setHours(0, 0, 0, 0);
         const days = Math.round((due.getTime() - today.getTime()) / 86400000);
         setFlexDays(String(Math.max(1, days)));
-      } else {
+     } else {
         setFlexDays("7");
-      }
-    }
-  }, [open, job.scheduleType, job.crewsNeeded, job.flexDueBy]);
+     }
+   }
+ }, [open, job.scheduleType, job.crewsNeeded, job.flexDueBy]);
 
   const handleSave = () => {
     updateSettings.mutate({
@@ -494,22 +494,22 @@ function EditPostingDialog({ open, onOpenChange, job }: { open: boolean, onOpenC
         scheduleType,
         flexDays: scheduleType === "flex" ? Math.max(1, parseInt(flexDays) || 7) : undefined,
         crewsNeeded: Math.max(1, parseInt(crewsNeeded) || 1),
-      },
-    }, {
+     },
+   }, {
       onSuccess: () => {
-        toast({ title: "Posting updated", description: "Crews will see the new terms in their portals." });
+        toast({ title: "Posting updated", description: "Crews will see the new terms in their portals."});
         queryClient.invalidateQueries();
         onOpenChange(false);
-      },
+     },
       onError: (err) => {
         toast({
           title: "Couldn't update posting",
           description: (err as any)?.data?.error ?? "Something went wrong",
           variant: "destructive",
-        });
-      },
-    });
-  };
+       });
+     },
+   });
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -577,9 +577,9 @@ function EditPostingDialog({ open, onOpenChange, job }: { open: boolean, onOpenC
 
 const JOB_STATUSES = ["open", "scheduled", "in_progress", "blocked", "complete", "invoiced", "paid", "cancelled"];
 
-function EditJobDialog({ open, onOpenChange, job }: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job'] }) {
+function EditJobDialog({ open, onOpenChange, job}: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job']}) {
   const updateJob = useUpdateJob();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const queryClient = useQueryClient();
 
   const [category, setCategory] = useState(job.category ?? "");
@@ -595,8 +595,8 @@ function EditJobDialog({ open, onOpenChange, job }: { open: boolean, onOpenChang
       setUnitNo(job.unitNo ?? "");
       setWoNo(job.woNo ?? "");
       setStatus(job.status);
-    }
-  }, [open, job]);
+   }
+ }, [open, job]);
 
   const handleSave = () => {
     updateJob.mutate({
@@ -607,22 +607,22 @@ function EditJobDialog({ open, onOpenChange, job }: { open: boolean, onOpenChang
         unitNo: unitNo.trim() || undefined,
         woNo: woNo.trim() || undefined,
         status,
-      }
-    }, {
+     }
+   }, {
       onSuccess: () => {
-        toast({ title: "Job Updated", description: `${job.jobNo} was saved. Crews see the updated details.` });
+        toast({ title: "Job Updated", description:`${job.jobNo} was saved. Crews see the updated details.`});
         queryClient.invalidateQueries();
         onOpenChange(false);
-      },
+     },
       onError: (err) => {
         toast({
           title: "Could not save",
           description: (err as any)?.data?.error ?? "Something went wrong",
           variant: "destructive"
-        });
-      }
-    });
-  };
+       });
+     }
+   });
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -685,30 +685,30 @@ function EditJobDialog({ open, onOpenChange, job }: { open: boolean, onOpenChang
   );
 }
 
-function DeleteConfirmDialog({ open, onOpenChange, job }: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job'] }) {
+function DeleteConfirmDialog({ open, onOpenChange, job}: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job']}) {
   const unlistJob = useUnlistJob();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const queryClient = useQueryClient();
 
   const handleDelete = () => {
-    unlistJob.mutate({ id: job.id }, {
+    unlistJob.mutate({ id: job.id}, {
       onSuccess: () => {
         toast({
           title: "Posting Removed",
-          description: `${job.jobNo} is off the board and crew portals. The job itself still exists on the Jobs page.`,
-        });
+          description:`${job.jobNo} is off the board and crew portals. The job itself still exists on the Jobs page.`,
+       });
         queryClient.invalidateQueries();
         onOpenChange(false);
-      },
+     },
       onError: (err) => {
         toast({
           title: "Could not remove posting",
           description: (err as any)?.data?.error ?? "Something went wrong",
           variant: "destructive"
-        });
-      }
-    });
-  };
+       });
+     }
+   });
+ };
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -722,7 +722,7 @@ function DeleteConfirmDialog({ open, onOpenChange, job }: { open: boolean, onOpe
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction 
-            onClick={(e) => { e.preventDefault(); handleDelete(); }}
+            onClick={(e) => { e.preventDefault(); handleDelete();}}
             className="bg-destructive hover:bg-destructive/90 text-white"
             disabled={unlistJob.isPending}
           >
@@ -734,30 +734,30 @@ function DeleteConfirmDialog({ open, onOpenChange, job }: { open: boolean, onOpe
   );
 }
 
-function ReopenConfirmDialog({ open, onOpenChange, job }: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job'] }) {
+function ReopenConfirmDialog({ open, onOpenChange, job}: { open: boolean, onOpenChange: (open: boolean) => void, job: JobBoardCard['job']}) {
   const reopenJob = useReopenJob();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const queryClient = useQueryClient();
 
   const handleReopen = () => {
-    reopenJob.mutate({ id: job.id }, {
+    reopenJob.mutate({ id: job.id}, {
       onSuccess: () => {
         toast({
           title: "Job Reopened",
           description: "The job is back on the board and removed from the schedule.",
-        });
+       });
         queryClient.invalidateQueries();
         onOpenChange(false);
-      },
+     },
       onError: (err) => {
         toast({
           title: "Could not reopen",
           description: (err as any)?.data?.error ?? "Something went wrong",
           variant: "destructive"
-        });
-      }
-    });
-  };
+       });
+     }
+   });
+ };
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -771,7 +771,7 @@ function ReopenConfirmDialog({ open, onOpenChange, job }: { open: boolean, onOpe
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction 
-            onClick={(e) => { e.preventDefault(); handleReopen(); }}
+            onClick={(e) => { e.preventDefault(); handleReopen();}}
             className="bg-[var(--orange)] hover:bg-[var(--orange)]/90 text-white"
             disabled={reopenJob.isPending}
           >

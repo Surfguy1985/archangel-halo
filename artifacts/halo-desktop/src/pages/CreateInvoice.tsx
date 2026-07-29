@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useSearch } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState} from "react";
+import { Link, useLocation, useSearch} from "wouter";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useCreateInvoice,
   useListProperties,
@@ -14,11 +14,11 @@ import {
   getGetTodayQueryKey,
   type InvoiceLineItemInput,
 } from "@workspace/api-client-react";
-import { ChevronLeft, Pencil, Plus, Save, Send, Trash2, Zap } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { ChevronLeft, Pencil, Plus, Save, Send, Trash2, Zap} from "lucide-react";
+import { useToast} from "@/hooks/use-toast";
+import { Button} from "@/components/ui/button";
+import { Input} from "@/components/ui/input";
+import { Textarea} from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -26,16 +26,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BusinessInfoDialog } from "@/components/BusinessInfoDialog";
-import { SendInvoiceDialog } from "@/components/SendInvoiceDialog";
+import { BusinessInfoDialog} from "@/components/BusinessInfoDialog";
+import { SendInvoiceDialog} from "@/components/SendInvoiceDialog";
 
 const money = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  n.toLocaleString("en-US", { style: "currency", currency: "USD"});
 
 const todayLocal = () => {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
 type ItemDraft = {
@@ -63,14 +63,14 @@ const itemAmount = (it: ItemDraft) => {
 };
 
 const labelCls =
-  "text-[10px] font-bold uppercase tracking-wide text-[var(--gold-dark)]";
+  "text-[10px] font-bold   text-[var(--gold-dark)]";
 
 const TERM_OPTIONS = [
-  { label: "On receipt", value: "Due on receipt", days: 0 },
-  { label: "Net 15", value: "Net 15", days: 15 },
-  { label: "Net 30", value: "Net 30", days: 30 },
-  { label: "Net 45", value: "Net 45", days: 45 },
-  { label: "Net 60", value: "Net 60", days: 60 },
+  { label: "On receipt", value: "Due on receipt", days: 0},
+  { label: "Net 15", value: "Net 15", days: 15},
+  { label: "Net 30", value: "Net 30", days: 30},
+  { label: "Net 45", value: "Net 45", days: 45},
+  { label: "Net 60", value: "Net 60", days: 60},
 ];
 
 const addDaysFrom = (base: string, days: number) => {
@@ -78,15 +78,15 @@ const addDaysFrom = (base: string, days: number) => {
   const d = new Date(y, (m ?? 1) - 1, dd ?? 1, 12);
   d.setDate(d.getDate() + days);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
 export default function CreateInvoice() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { data: properties } = useListProperties();
-  const { data: settings } = useGetBusinessSettings();
+  const { toast} = useToast();
+  const { data: properties} = useListProperties();
+  const { data: settings} = useGetBusinessSettings();
   const create = useCreateInvoice();
 
   const [propertyId, setPropertyId] = useState("");
@@ -109,13 +109,13 @@ export default function CreateInvoice() {
     billToName?: string | null;
     propertyAddress?: string | null;
     recipientEmail?: string | null;
-  } | null>(null);
+ } | null>(null);
 
   useEffect(() => {
     if (settings && !instructionsTouched) {
       setPaymentInstructions(settings.paymentInstructions);
-    }
-  }, [settings, instructionsTouched]);
+   }
+ }, [settings, instructionsTouched]);
 
   const onPickProperty = (id: string) => {
     setPropertyId(id);
@@ -123,13 +123,13 @@ export default function CreateInvoice() {
     if (prop) {
       setBillToName(prop.pmcName || prop.name);
       setPropertyAddress([prop.name, prop.city].filter(Boolean).join(", "));
-    }
-  };
+   }
+ };
 
   // Price book for the selected property → one-click line items.
-  const { data: propertyDetail } = useGetProperty(propertyId, {
-    query: { enabled: !!propertyId, queryKey: getGetPropertyQueryKey(propertyId) },
-  });
+  const { data: propertyDetail} = useGetProperty(propertyId, {
+    query: { enabled: !!propertyId, queryKey: getGetPropertyQueryKey(propertyId)},
+ });
   const priceItems = propertyDetail?.priceItems ?? [];
 
   const quickAdd = (service: string, rate: number) => {
@@ -139,19 +139,19 @@ export default function CreateInvoice() {
       );
       if (existing) {
         return prev.map((it) =>
-          it === existing ? { ...it, qty: String((parseFloat(it.qty) || 1) + 1) } : it,
+          it === existing ? { ...it, qty: String((parseFloat(it.qty) || 1) + 1)} : it,
         );
-      }
+     }
       const kept = prev.filter((it) => it.typeOfWork.trim() || it.unitPrice.trim());
-      return [...kept, { ...emptyItem(), typeOfWork: service, unitPrice: String(rate) }];
-    });
-  };
+      return [...kept, { ...emptyItem(), typeOfWork: service, unitPrice: String(rate)}];
+   });
+ };
 
   // Terms drive the due date until the user overrides it manually.
   const pickTerms = (value: string, days: number) => {
     setTerms(value);
     if (!dueTouched) setDueOn(addDaysFrom(issuedOn || todayLocal(), days));
-  };
+ };
 
   // Keep the auto due date in sync when the invoice date changes.
   useEffect(() => {
@@ -159,16 +159,16 @@ export default function CreateInvoice() {
     const opt = TERM_OPTIONS.find((t) => t.value === terms);
     if (opt) setDueOn(addDaysFrom(issuedOn, opt.days));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [issuedOn]);
+ }, [issuedOn]);
 
   // Prefill from ?jobId=&propertyId= (the "Create invoice" shortcut on a job).
   const search = useSearch();
   const params = useMemo(() => new URLSearchParams(search), [search]);
   const initialJobId = params.get("jobId") ?? "";
   const initialPropertyId = params.get("propertyId") ?? "";
-  const { data: initialJobDetail } = useGetJob(initialJobId, {
-    query: { enabled: !!initialJobId, queryKey: getGetJobQueryKey(initialJobId) },
-  });
+  const { data: initialJobDetail} = useGetJob(initialJobId, {
+    query: { enabled: !!initialJobId, queryKey: getGetJobQueryKey(initialJobId)},
+ });
   const prefilled = useRef(false);
   useEffect(() => {
     if (prefilled.current || !initialJobId || !properties) return;
@@ -186,12 +186,12 @@ export default function CreateInvoice() {
           description: "",
           qty: String(li.qty),
           unitPrice: String(li.rate),
-        })),
+       })),
       );
-    } else {
-      setItems([{ ...emptyItem(), unitNo: job.unitNo ?? "", typeOfWork: [job.category, job.description].filter(Boolean).join(" — ") }]);
-    }
-  }, [initialJobId, initialPropertyId, initialJobDetail, properties]);
+   } else {
+      setItems([{ ...emptyItem(), unitNo: job.unitNo ?? "", typeOfWork: [job.category, job.description].filter(Boolean).join(" — ")}]);
+   }
+ }, [initialJobId, initialPropertyId, initialJobDetail, properties]);
 
   const total = useMemo(
     () => Math.round(items.reduce((s, it) => s + itemAmount(it), 0) * 100) / 100,
@@ -202,17 +202,17 @@ export default function CreateInvoice() {
   const canSave = !!propertyId && validItems.length > 0 && !create.isPending;
 
   const setItem = (idx: number, patch: Partial<ItemDraft>) =>
-    setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+    setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch} : it)));
 
   const buildLineItems = (): InvoiceLineItemInput[] =>
     validItems.map((it) => ({
       typeOfWork: it.typeOfWork.trim(),
-      ...(it.dateOfWork ? { dateOfWork: it.dateOfWork } : {}),
-      ...(it.unitNo.trim() ? { unitNo: it.unitNo.trim() } : {}),
-      ...(it.description.trim() ? { description: it.description.trim() } : {}),
+      ...(it.dateOfWork ? { dateOfWork: it.dateOfWork} : {}),
+      ...(it.unitNo.trim() ? { unitNo: it.unitNo.trim()} : {}),
+      ...(it.description.trim() ? { description: it.description.trim()} : {}),
       qty: parseFloat(it.qty) || 1,
       unitPrice: parseFloat(it.unitPrice) || 0,
-    }));
+   }));
 
   const save = (thenSend: boolean) => {
     if (!canSave) return;
@@ -223,28 +223,28 @@ export default function CreateInvoice() {
           ...(initialJobId &&
           initialJobDetail?.job &&
           propertyId === (initialJobDetail.job.propertyId ?? initialPropertyId)
-            ? { jobId: initialJobId }
+            ? { jobId: initialJobId}
             : {}),
           issuedOn,
-          ...(dueOn ? { dueOn } : {}),
-          ...(poNumber.trim() ? { poNumber: poNumber.trim() } : {}),
+          ...(dueOn ? { dueOn} : {}),
+          ...(poNumber.trim() ? { poNumber: poNumber.trim()} : {}),
           terms,
-          ...(billToName.trim() ? { billToName: billToName.trim() } : {}),
-          ...(propertyAddress.trim() ? { propertyAddress: propertyAddress.trim() } : {}),
-          ...(notes.trim() ? { notes: notes.trim() } : {}),
+          ...(billToName.trim() ? { billToName: billToName.trim()} : {}),
+          ...(propertyAddress.trim() ? { propertyAddress: propertyAddress.trim()} : {}),
+          ...(notes.trim() ? { notes: notes.trim()} : {}),
           ...(paymentInstructions.trim() &&
           paymentInstructions.trim() !== (settings?.paymentInstructions ?? "").trim()
-            ? { paymentInstructions: paymentInstructions.trim() }
+            ? { paymentInstructions: paymentInstructions.trim()}
             : {}),
           lineItems: buildLineItems(),
-        },
-      },
+       },
+     },
       {
         onSuccess: (inv) => {
-          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
-          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
           if (thenSend) {
             setSendFor({
               id: inv.id,
@@ -252,17 +252,17 @@ export default function CreateInvoice() {
               amount: inv.amount,
               billToName: billToName || null,
               propertyAddress: propertyAddress || null,
-            });
-          } else {
-            toast({ title: "Invoice saved", description: `${inv.invoiceNo} created as a draft.` });
+           });
+         } else {
+            toast({ title: "Invoice saved", description:`${inv.invoiceNo} created as a draft.`});
             navigate(`/invoices/${inv.id}`);
-          }
-        },
+         }
+       },
         onError: (e) =>
-          toast({ title: "Couldn't create invoice", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't create invoice", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -297,7 +297,7 @@ export default function CreateInvoice() {
               <div className="font-display font-bold text-xl leading-tight">
                 {settings?.companyName ?? "ArchAngel Contractors"}
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--gold-dark)] mt-0.5">
+              <div className="text-[10px] font-bold text-[var(--gold-dark)] mt-0.5">
                 {settings?.tagline ?? "Restoration & Make-Ready"}
               </div>
             </div>
@@ -369,7 +369,7 @@ export default function CreateInvoice() {
                     onChange={(e) => {
                       setDueTouched(true);
                       setDueOn(e.target.value);
-                    }}
+                   }}
                   />
                 </div>
                 <div className="col-span-2">
@@ -383,7 +383,7 @@ export default function CreateInvoice() {
                           terms === t.value
                             ? "bg-card shadow-sm text-foreground"
                             : "text-muted-foreground hover:text-foreground"
-                        }`}
+                       }`}
                       >
                         {t.label}
                       </button>
@@ -427,7 +427,7 @@ export default function CreateInvoice() {
             )}
             <div className="hidden md:grid grid-cols-[110px_70px_1fr_64px_96px_96px_32px] gap-2 px-1 pb-2">
               {["Date", "Unit #", "Type of work / description", "Qty", "Unit price", "Amount", ""].map((h) => (
-                <span key={h} className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                <span key={h} className="text-[10px] font-bold text-muted-foreground">
                   {h}
                 </span>
               ))}
@@ -441,35 +441,35 @@ export default function CreateInvoice() {
                   <Input
                     type="date"
                     value={it.dateOfWork}
-                    onChange={(e) => setItem(idx, { dateOfWork: e.target.value })}
+                    onChange={(e) => setItem(idx, { dateOfWork: e.target.value})}
                   />
                   <Input
                     value={it.unitNo}
-                    onChange={(e) => setItem(idx, { unitNo: e.target.value })}
+                    onChange={(e) => setItem(idx, { unitNo: e.target.value})}
                     placeholder="Unit"
                   />
                   <div className="col-span-2 md:col-span-1 space-y-1.5">
                     <Input
                       value={it.typeOfWork}
-                      onChange={(e) => setItem(idx, { typeOfWork: e.target.value })}
+                      onChange={(e) => setItem(idx, { typeOfWork: e.target.value})}
                       placeholder="Type of work (required)"
                     />
                     <Input
                       value={it.description}
-                      onChange={(e) => setItem(idx, { description: e.target.value })}
+                      onChange={(e) => setItem(idx, { description: e.target.value})}
                       placeholder="Description (optional)"
                     />
                   </div>
                   <Input
                     inputMode="decimal"
                     value={it.qty}
-                    onChange={(e) => setItem(idx, { qty: e.target.value })}
+                    onChange={(e) => setItem(idx, { qty: e.target.value})}
                     placeholder="1"
                   />
                   <Input
                     inputMode="decimal"
                     value={it.unitPrice}
-                    onChange={(e) => setItem(idx, { unitPrice: e.target.value })}
+                    onChange={(e) => setItem(idx, { unitPrice: e.target.value})}
                     placeholder="0.00"
                   />
                   <div className="font-mono font-semibold text-sm py-2.5 text-right tabular-nums">
@@ -498,7 +498,7 @@ export default function CreateInvoice() {
 
           {/* Total */}
           <div className="pt-3 border-t-2 border-[var(--ink)] flex items-center justify-between">
-            <span className="font-display font-bold text-sm uppercase tracking-wide">Total Due</span>
+            <span className="font-display font-bold text-sm">Total Due</span>
             <span className="font-display font-bold text-2xl font-mono text-[var(--gold-dark)]">{money(total)}</span>
           </div>
 
@@ -512,7 +512,7 @@ export default function CreateInvoice() {
                 onChange={(e) => {
                   setInstructionsTouched(true);
                   setPaymentInstructions(e.target.value);
-                }}
+               }}
                 placeholder="How the client should pay…"
               />
               <p className="text-xs text-muted-foreground">
@@ -540,12 +540,12 @@ export default function CreateInvoice() {
             const id = sendFor.id;
             setSendFor(null);
             navigate(`/invoices/${id}`);
-          }
-        }}
+         }
+       }}
         invoice={sendFor}
         onSent={() => {
           if (sendFor) navigate(`/invoices/${sendFor.id}`);
-        }}
+       }}
       />
     </div>
   );

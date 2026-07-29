@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useSendInvoice,
   useGetBusinessSettings,
@@ -7,7 +7,7 @@ import {
   getGetInvoiceQueryKey,
   getGetMoneySummaryQueryKey,
 } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast} from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -16,14 +16,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Send } from "lucide-react";
+import { Button} from "@/components/ui/button";
+import { Label} from "@/components/ui/label";
+import { Input} from "@/components/ui/input";
+import { Textarea} from "@/components/ui/textarea";
+import { Send} from "lucide-react";
 
 const money = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  n.toLocaleString("en-US", { style: "currency", currency: "USD"});
 
 export function SendInvoiceDialog({
   open,
@@ -40,12 +40,12 @@ export function SendInvoiceDialog({
     billToName?: string | null;
     propertyAddress?: string | null;
     recipientEmail?: string | null;
-  } | null;
+ } | null;
   onSent?: () => void;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { data: settings } = useGetBusinessSettings();
+  const { toast} = useToast();
+  const { data: settings} = useGetBusinessSettings();
   const send = useSendInvoice();
 
   const [recipient, setRecipient] = useState("");
@@ -57,10 +57,10 @@ export function SendInvoiceDialog({
       setRecipient(invoice.recipientEmail ?? "");
       setSubject(`Invoice ${invoice.invoiceNo} — ${money(invoice.amount)}`);
       setMessage(
-        `${invoice.billToName ? `Hello ${invoice.billToName},\n` : ""}Please find attached invoice ${invoice.invoiceNo}${invoice.propertyAddress ? ` for work at ${invoice.propertyAddress}` : ""}.`,
+       `${invoice.billToName ?`Hello ${invoice.billToName},\n` : ""}Please find attached invoice ${invoice.invoiceNo}${invoice.propertyAddress ?` for work at ${invoice.propertyAddress}` : ""}.`,
       );
-    }
-  }, [open, invoice]);
+   }
+ }, [open, invoice]);
 
   const submit = () => {
     if (!invoice) return;
@@ -72,27 +72,27 @@ export function SendInvoiceDialog({
           recipientEmail: to || undefined,
           subject: subject.trim() || undefined,
           message: message.trim() || undefined,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoice.id) });
-          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoice.id)});
+          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
           onOpenChange(false);
           toast({
             title: "Invoice sent",
             description: to
-              ? `${invoice.invoiceNo} emailed to ${to}.`
-              : `${invoice.invoiceNo} emailed to the property's saved contact.`,
-          });
+              ?`${invoice.invoiceNo} emailed to ${to}.`
+              :`${invoice.invoiceNo} emailed to the property's saved contact.`,
+         });
           onSent?.();
-        },
+       },
         onError: (e) =>
-          toast({ title: "Couldn't send", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't send", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   if (!invoice) return null;
 

@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useGetBusinessSettings,
   useUpdateBusinessSettings,
   useResetAllData,
   getGetBusinessSettingsQueryKey,
 } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast} from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -26,13 +26,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2 } from "lucide-react";
+import { Button} from "@/components/ui/button";
+import { Label} from "@/components/ui/label";
+import { Input} from "@/components/ui/input";
+import { Textarea} from "@/components/ui/textarea";
+import { Switch} from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
+import { Trash2} from "lucide-react";
 
 export function BusinessInfoDialog({
   open,
@@ -42,8 +42,8 @@ export function BusinessInfoDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { data: settings } = useGetBusinessSettings();
+  const { toast} = useToast();
+  const { data: settings} = useGetBusinessSettings();
   const update = useUpdateBusinessSettings();
   const reset = useResetAllData();
 
@@ -55,12 +55,12 @@ export function BusinessInfoDialog({
         toast({
           title: "Fresh start ready",
           description: "All sample data was cleared. Your company info stays.",
-        });
-      },
+       });
+     },
       onError: (e) =>
-        toast({ title: "Couldn't clear data", description: e.message, variant: "destructive" }),
-    });
-  };
+        toast({ title: "Couldn't clear data", description: e.message, variant: "destructive"}),
+   });
+ };
 
   const [companyName, setCompanyName] = useState("");
   const [tagline, setTagline] = useState("");
@@ -93,8 +93,8 @@ export function BusinessInfoDialog({
       setAutoSendLinks(settings.autoSendRecapLinks ?? true);
       setAutopilot(settings.autopilotEnabled ?? true);
       setAutoApprove(settings.autopilotAutoApprove ?? false);
-    }
-  }, [open, settings]);
+   }
+ }, [open, settings]);
 
   const submit = () => {
     update.mutate(
@@ -115,19 +115,19 @@ export function BusinessInfoDialog({
           autoSendRecapLinks: autoSendLinks,
           autopilotEnabled: autopilot,
           autopilotAutoApprove: autoApprove,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetBusinessSettingsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetBusinessSettingsQueryKey()});
           onOpenChange(false);
-          toast({ title: "Business info saved", description: "New invoices and emails will use the updated details." });
-        },
+          toast({ title: "Business info saved", description: "New invoices and emails will use the updated details."});
+       },
         onError: (e) =>
-          toast({ title: "Couldn't save", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't save", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

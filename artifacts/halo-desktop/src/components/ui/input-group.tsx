@@ -1,12 +1,12 @@
 import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
+import { cva, type VariantProps} from "class-variance-authority"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+import { cn} from "@/lib/utils"
+import { Button} from "@/components/ui/button"
+import { Input} from "@/components/ui/input"
+import { Textarea} from "@/components/ui/textarea"
 
-function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
+function InputGroup({ className, ...props}: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="input-group"
@@ -47,12 +47,12 @@ const inputGroupAddonVariants = cva(
           "[.border-b]:pb-3 order-first w-full justify-start px-3 pt-3 group-has-[>input]/input-group:pt-2.5",
         "block-end":
           "[.border-t]:pt-3 order-last w-full justify-start px-3 pb-3 group-has-[>input]/input-group:pb-2.5",
-      },
-    },
+     },
+   },
     defaultVariants: {
       align: "inline-start",
-    },
-  }
+   },
+ }
 )
 
 function InputGroupAddon({
@@ -65,13 +65,13 @@ function InputGroupAddon({
       role="group"
       data-slot="input-group-addon"
       data-align={align}
-      className={cn(inputGroupAddonVariants({ align }), className)}
+      className={cn(inputGroupAddonVariants({ align}), className)}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button")) {
           return
-        }
+       }
         e.currentTarget.parentElement?.querySelector("input")?.focus()
-      }}
+     }}
       {...props}
     />
   )
@@ -87,12 +87,12 @@ const inputGroupButtonVariants = cva(
         "icon-xs":
           "size-6 rounded-[calc(var(--radius)-5px)] p-0 has-[>svg]:p-0",
         "icon-sm": "size-8 p-0 has-[>svg]:p-0",
-      },
-    },
+     },
+   },
     defaultVariants: {
       size: "xs",
-    },
-  }
+   },
+ }
 )
 
 function InputGroupButton({
@@ -108,13 +108,13 @@ function InputGroupButton({
       type={type}
       data-size={size}
       variant={variant}
-      className={cn(inputGroupButtonVariants({ size }), className)}
+      className={cn(inputGroupButtonVariants({ size}), className)}
       {...props}
     />
   )
 }
 
-function InputGroupText({ className, ...props }: React.ComponentProps<"span">) {
+function InputGroupText({ className, ...props}: React.ComponentProps<"span">) {
   return (
     <span
       className={cn(

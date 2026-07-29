@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useGetBankAnalysis,
   getGetBankAnalysisQueryKey,
@@ -10,8 +10,8 @@ import {
   getGetMoneySummaryQueryKey,
   type BankAnalysisItem,
 } from "@workspace/api-client-react";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Button} from "@/components/ui/button";
+import { Skeleton} from "@/components/ui/skeleton";
 import {
   Sparkles,
   RefreshCw,
@@ -21,18 +21,18 @@ import {
   CircleDollarSign,
   CopyPlus,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { CategorizeTxnDialog } from "./CategorizeTxnDialog";
+import { useToast} from "@/hooks/use-toast";
+import { CategorizeTxnDialog} from "./CategorizeTxnDialog";
 
 const money = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  n.toLocaleString("en-US", { style: "currency", currency: "USD"});
 
 const fmtDate = (s?: string | null) => {
   if (!s) return "—";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
   const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(s);
   if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric"});
 };
 
 function Column({
@@ -51,7 +51,7 @@ function Column({
   total: number;
   tone: "in" | "out";
   empty: string;
-  render: (item: BankAnalysisItem) => { primary: string; secondary: string };
+  render: (item: BankAnalysisItem) => { primary: string; secondary: string};
   onItemClick: (item: BankAnalysisItem) => void;
 }) {
   return (
@@ -64,7 +64,7 @@ function Column({
         <span
           className={`font-display font-bold tabular-nums text-sm shrink-0 ${
             tone === "in" ? "text-[#3c7a4e]" : "text-[var(--ink)]"
-          }`}
+         }`}
         >
           {tone === "in" ? "+" : "-"}
           {money(total)}
@@ -93,13 +93,13 @@ function Column({
                 <div
                   className={`font-display font-semibold tabular-nums text-[13px] shrink-0 ${
                     tone === "in" ? "text-[#3c7a4e]" : "text-[var(--ink)]"
-                  }`}
+                 }`}
                 >
-                  {tone === "in" ? `+${money(item.amount)}` : `-${money(item.amount)}`}
+                  {tone === "in" ?`+${money(item.amount)}` :`-${money(item.amount)}`}
                 </div>
               </button>
             );
-          })
+         })
         )}
       </div>
     </div>
@@ -108,68 +108,68 @@ function Column({
 
 export function BankAnalysisSection() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const [force, setForce] = useState(false);
   const [editing, setEditing] = useState<{
     item: BankAnalysisItem;
     kind: "expense" | "crew" | "invoice" | "other";
-  } | null>(null);
+ } | null>(null);
   const apply = useApplyBankAnalysis();
 
   const copyToTabs = () => {
     apply.mutate(
-      { params: { days: 30 } },
+      { params: { days: 30}},
       {
         onSuccess: (r) => {
-          queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListCrewPaymentsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getListCrewPaymentsQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
           const created = r.expensesCreated + r.crewPaymentsCreated + r.invoicesPaid;
           toast({
             title: created > 0 ? "Copied to your tabs" : "Nothing new to copy",
             description:
               created > 0
                 ? [
-                    r.expensesCreated > 0 ? `${r.expensesCreated} expenses` : null,
+                    r.expensesCreated > 0 ?`${r.expensesCreated} expenses` : null,
                     r.crewPaymentsCreated > 0
-                      ? `${r.crewPaymentsCreated} crew payments`
+                      ?`${r.crewPaymentsCreated} crew payments`
                       : null,
-                    r.invoicesPaid > 0 ? `${r.invoicesPaid} invoices marked paid` : null,
+                    r.invoicesPaid > 0 ?`${r.invoicesPaid} invoices marked paid` : null,
                   ]
                     .filter(Boolean)
                     .join(", ")
                 : "Everything here was already in your books.",
-          });
-        },
+         });
+       },
         onError: () =>
           toast({
             title: "Couldn't copy items",
             description: "Please try again in a moment.",
             variant: "destructive",
-          }),
-      },
+         }),
+     },
     );
-  };
-  const analysis = useGetBankAnalysis(force ? { days: 30, refresh: true } : { days: 30 });
+ };
+  const analysis = useGetBankAnalysis(force ? { days: 30, refresh: true} : { days: 30});
 
   // One-shot refresh: once the forced analysis lands, seed the normal query
   // and go back to cached behavior so we don't bypass the server cache forever.
   useEffect(() => {
     if (force && analysis.isSuccess && analysis.data) {
-      queryClient.setQueryData(getGetBankAnalysisQueryKey({ days: 30 }), analysis.data);
+      queryClient.setQueryData(getGetBankAnalysisQueryKey({ days: 30}), analysis.data);
       setForce(false);
-    }
-  }, [force, analysis.isSuccess, analysis.data, queryClient]);
+   }
+ }, [force, analysis.isSuccess, analysis.data, queryClient]);
 
   const refresh = () => {
     if (force) {
       analysis.refetch();
-    } else {
-      queryClient.removeQueries({ queryKey: getGetBankAnalysisQueryKey({ days: 30 }) });
+   } else {
+      queryClient.removeQueries({ queryKey: getGetBankAnalysisQueryKey({ days: 30})});
       setForce(true);
-    }
-  };
+   }
+ };
 
   return (
     <div className="space-y-3">
@@ -203,7 +203,7 @@ export function BankAnalysisSection() {
 
       {analysis.isLoading ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
+          {Array.from({ length: 3}).map((_, i) => (
             <Skeleton key={i} className="h-48 w-full" />
           ))}
         </div>
@@ -221,13 +221,13 @@ export function BankAnalysisSection() {
               total={analysis.data.totals.paidInvoices}
               tone="in"
               empty="No deposits in this period."
-              onItemClick={(item) => setEditing({ item, kind: "invoice" })}
+              onItemClick={(item) => setEditing({ item, kind: "invoice"})}
               render={(item) => ({
                 primary: item.invoiceNo
-                  ? `Invoice ${item.invoiceNo}${item.propertyName ? ` — ${item.propertyName}` : ""}`
+                  ?`Invoice ${item.invoiceNo}${item.propertyName ?` — ${item.propertyName}` : ""}`
                   : item.name,
                 secondary: [fmtDate(item.date), item.note].filter(Boolean).join(" · "),
-              })}
+             })}
             />
             <Column
               icon={<HardHat className="w-4 h-4" />}
@@ -236,7 +236,7 @@ export function BankAnalysisSection() {
               total={analysis.data.totals.crewPayments}
               tone="out"
               empty="No payments to people found."
-              onItemClick={(item) => setEditing({ item, kind: "crew" })}
+              onItemClick={(item) => setEditing({ item, kind: "crew"})}
               render={(item) => ({
                 primary: item.personName || item.name,
                 secondary: [
@@ -245,7 +245,7 @@ export function BankAnalysisSection() {
                 ]
                   .filter(Boolean)
                   .join(" · "),
-              })}
+             })}
             />
             <Column
               icon={<Receipt className="w-4 h-4" />}
@@ -254,11 +254,11 @@ export function BankAnalysisSection() {
               total={analysis.data.totals.expenses}
               tone="out"
               empty="No expenses found."
-              onItemClick={(item) => setEditing({ item, kind: "expense" })}
+              onItemClick={(item) => setEditing({ item, kind: "expense"})}
               render={(item) => ({
                 primary: item.name,
                 secondary: [fmtDate(item.date), item.category].filter(Boolean).join(" · "),
-              })}
+             })}
             />
           </div>
           {analysis.data.other.length > 0 && (
@@ -269,11 +269,11 @@ export function BankAnalysisSection() {
               total={analysis.data.totals.other}
               tone="out"
               empty=""
-              onItemClick={(item) => setEditing({ item, kind: "other" })}
+              onItemClick={(item) => setEditing({ item, kind: "other"})}
               render={(item) => ({
                 primary: item.name,
                 secondary: [fmtDate(item.date), item.category].filter(Boolean).join(" · "),
-              })}
+             })}
             />
           )}
         </>
@@ -283,7 +283,7 @@ export function BankAnalysisSection() {
         initialKind={editing?.kind ?? "expense"}
         onOpenChange={(open) => {
           if (!open) setEditing(null);
-        }}
+       }}
       />
     </div>
   );

@@ -6,17 +6,17 @@ import {
   getGetTodayQueryKey,
   getListActivitiesQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sparkles, Check, X, Loader2 } from "lucide-react";
+import { useQueryClient} from "@tanstack/react-query";
+import { useToast} from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
+import { Sparkles, Check, X, Loader2} from "lucide-react";
 
 export function AutopilotActions() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { data: actions } = useListAutopilotActions({
-    query: { queryKey: getListAutopilotActionsQueryKey(), refetchInterval: 15_000 },
-  });
+  const { toast} = useToast();
+  const { data: actions} = useListAutopilotActions({
+    query: { queryKey: getListAutopilotActionsQueryKey(), refetchInterval: 15_000},
+ });
   const approve = useApproveAutopilotAction();
   const dismiss = useDismissAutopilotAction();
 
@@ -24,39 +24,39 @@ export function AutopilotActions() {
   if (pending.length === 0) return null;
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getListAutopilotActionsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getListActivitiesQueryKey({ limit: 12 }) });
-  };
+    queryClient.invalidateQueries({ queryKey: getListAutopilotActionsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getListActivitiesQueryKey({ limit: 12})});
+ };
 
   const onApprove = (id: string) => {
     approve.mutate(
-      { id },
+      { id},
       {
         onSuccess: (a) => {
           invalidate();
           if (a.status === "executed") {
-            toast({ title: "Done", description: a.result ?? "Autopilot handled it." });
-          } else {
-            toast({ title: "Couldn't complete it", description: a.result ?? "Try again.", variant: "destructive" });
-          }
-        },
+            toast({ title: "Done", description: a.result ?? "Autopilot handled it."});
+         } else {
+            toast({ title: "Couldn't complete it", description: a.result ?? "Try again.", variant: "destructive"});
+         }
+       },
         onError: (e) =>
-          toast({ title: "Couldn't complete it", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't complete it", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   const onDismiss = (id: string) => {
     dismiss.mutate(
-      { id },
+      { id},
       {
         onSuccess: () => invalidate(),
         onError: (e) =>
-          toast({ title: "Couldn't dismiss", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't dismiss", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   const busy = approve.isPending || dismiss.isPending;
 

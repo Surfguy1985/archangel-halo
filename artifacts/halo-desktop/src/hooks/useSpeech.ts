@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState} from "react";
 
 const PREFERRED_VOICES = [
   "Samantha",
@@ -30,13 +30,13 @@ export function useSpeech() {
     const load = () => {
       const v = window.speechSynthesis.getVoices();
       if (v.length) voicesRef.current = v;
-    };
+   };
     load();
     window.speechSynthesis.addEventListener("voiceschanged", load);
     return () => {
       window.speechSynthesis.removeEventListener("voiceschanged", load);
-    };
-  }, []);
+   };
+ }, []);
 
   const pickVoice = useCallback((): SpeechSynthesisVoice | undefined => {
     const voices = voicesRef.current;
@@ -46,9 +46,9 @@ export function useSpeech() {
     for (const name of PREFERRED_VOICES) {
       const match = pool.find((v) => v.name.toLowerCase().includes(name.toLowerCase()));
       if (match) return match;
-    }
+   }
     return pool.find((v) => v.lang.toLowerCase() === "en-us") || pool[0];
-  }, []);
+ }, []);
 
   const cancel = useCallback(() => {
     if (!isSupported) return;
@@ -56,11 +56,11 @@ export function useSpeech() {
     genRef.current += 1;
     try {
       window.speechSynthesis.cancel();
-    } catch {
+   } catch {
       /* no-op */
-    }
+   }
     setSpeaking(false);
-  }, []);
+ }, []);
 
   // Unlock speech within a user gesture (required on some browsers).
   const prime = useCallback(() => {
@@ -70,64 +70,64 @@ export function useSpeech() {
       u.volume = 0;
       window.speechSynthesis.speak(u);
       window.speechSynthesis.cancel();
-    } catch {
+   } catch {
       /* no-op */
-    }
-  }, []);
+   }
+ }, []);
 
   const speak = useCallback(
-    (text: string, opts?: { onEnd?: () => void; onError?: () => void }) => {
+    (text: string, opts?: { onEnd?: () => void; onError?: () => void}) => {
       if (!isSupported) {
         opts?.onEnd?.();
         return;
-      }
+     }
       const synth = window.speechSynthesis;
       genRef.current += 1;
       const myGen = genRef.current;
       try {
         synth.cancel();
-      } catch {
+     } catch {
         /* no-op */
-      }
+     }
       const utter = new SpeechSynthesisUtterance(text);
       const voice = pickVoice();
       if (voice) {
         utter.voice = voice;
         utter.lang = voice.lang;
-      }
+     }
       utter.rate = 0.98;
       utter.pitch = 1;
       utter.volume = 1;
       utter.onstart = () => {
         if (myGen !== genRef.current) return;
         setSpeaking(true);
-      };
+     };
       utter.onend = () => {
         if (myGen !== genRef.current) return;
         setSpeaking(false);
         opts?.onEnd?.();
-      };
+     };
       utter.onerror = () => {
         if (myGen !== genRef.current) return;
         setSpeaking(false);
         opts?.onError?.();
-      };
+     };
       try {
         synth.resume();
-      } catch {
+     } catch {
         /* no-op */
-      }
+     }
       try {
         synth.speak(utter);
-      } catch {
+     } catch {
         if (myGen === genRef.current) {
           setSpeaking(false);
           opts?.onError?.();
-        }
-      }
-    },
+       }
+     }
+   },
     [pickVoice],
   );
 
-  return { supported: isSupported, speaking, speak, cancel, prime };
+  return { supported: isSupported, speaking, speak, cancel, prime};
 }

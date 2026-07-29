@@ -20,9 +20,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { useEffect, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
+import { Trash2} from "lucide-react";
 import {
   useCreateVendor,
   useUpdateVendor,
@@ -32,7 +32,7 @@ import {
   getListPurchaseOrdersQueryKey,
   type Vendor,
 } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast} from "@/hooks/use-toast";
 
 const fieldCls =
   "w-full bg-card border border-input rounded-md py-2.5 px-3.5 text-sm shadow-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -42,10 +42,10 @@ const primaryBtn =
 
 const errorCls = "text-xs text-destructive mt-1";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children}: { label: string; children: React.ReactNode}) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="text-xs font-semibold text-muted-foreground">
         {label}
       </span>
       {children}
@@ -54,7 +54,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function apiError(err: unknown): string | null {
-  return (err as { data?: { error?: string } })?.data?.error ?? null;
+  return (err as { data?: { error?: string}})?.data?.error ?? null;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -70,7 +70,7 @@ export function VendorDialog({
   vendor?: Vendor | null;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const isEdit = !!vendor;
 
   const [name, setName] = useState("");
@@ -89,7 +89,7 @@ export function VendorDialog({
     setPhone(vendor?.phone ?? "");
     setCoiExpiresOn(vendor?.coiExpiresOn ?? "");
     setError(null);
-  }, [open, vendor]);
+ }, [open, vendor]);
 
   const create = useCreateVendor();
   const update = useUpdateVendor();
@@ -97,19 +97,19 @@ export function VendorDialog({
   const pending = create.isPending || update.isPending;
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getListVendorsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-  };
+    queryClient.invalidateQueries({ queryKey: getListVendorsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+ };
 
   const submit = () => {
     if (!name.trim()) {
       setError("Vendor name is required.");
       return;
-    }
+   }
     if (email.trim() && !EMAIL_RE.test(email.trim())) {
       setError("That email address doesn't look valid.");
       return;
-    }
+   }
     setError(null);
 
     if (isEdit && vendor) {
@@ -122,18 +122,18 @@ export function VendorDialog({
             email: email.trim() || null,
             phone: phone.trim() || null,
             coiExpiresOn: coiExpiresOn || null,
-          },
-        },
+         },
+       },
         {
           onSuccess: () => {
             invalidate();
             onOpenChange(false);
-          },
+         },
           onError: (err: unknown) =>
             setError(apiError(err) || "Couldn't save the vendor."),
-        },
+       },
       );
-    } else {
+   } else {
       create.mutate(
         {
           data: {
@@ -142,41 +142,41 @@ export function VendorDialog({
             email: email.trim() || undefined,
             phone: phone.trim() || undefined,
             coiExpiresOn: coiExpiresOn || undefined,
-          },
-        },
+         },
+       },
         {
           onSuccess: () => {
             invalidate();
             onOpenChange(false);
-          },
+         },
           onError: (err: unknown) =>
             setError(apiError(err) || "Couldn't add the vendor."),
-        },
+       },
       );
-    }
-  };
+   }
+ };
 
   const confirmDelete = () => {
     if (!vendor) return;
     del.mutate(
-      { id: vendor.id },
+      { id: vendor.id},
       {
         onSuccess: () => {
           invalidate();
           queryClient.invalidateQueries({
             queryKey: getListPurchaseOrdersQueryKey(),
-          });
+         });
           setConfirmOpen(false);
           onOpenChange(false);
-          toast({ title: "Vendor deleted", description: vendor.name });
-        },
+          toast({ title: "Vendor deleted", description: vendor.name});
+       },
         onError: (err: unknown) => {
           setConfirmOpen(false);
           setError(apiError(err) || "Couldn't delete the vendor.");
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <>
@@ -278,7 +278,7 @@ export function VendorDialog({
               onClick={(e) => {
                 e.preventDefault();
                 confirmDelete();
-              }}
+             }}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
               Delete vendor

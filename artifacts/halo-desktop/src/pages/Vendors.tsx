@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState} from "react";
 import {
   useListVendors,
   useListPurchaseOrders,
@@ -17,9 +17,9 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { VendorDialog } from "@/components/VendorDialogs";
-import { exportCsv } from "@/lib/exportCsv";
+import { Skeleton} from "@/components/ui/skeleton";
+import { VendorDialog} from "@/components/VendorDialogs";
+import { exportCsv} from "@/lib/exportCsv";
 
 /* ----------------------------------------------------------- date helpers */
 
@@ -28,7 +28,7 @@ function pad(n: number) {
 }
 function todayLocal() {
   const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 function daysUntil(ymd: string): number {
   const [y, m, d] = ymd.split("-").map((n) => parseInt(n, 10));
@@ -43,7 +43,7 @@ function fmtYmd(ymd: string) {
     month: "short",
     day: "numeric",
     year: "numeric",
-  });
+ });
 }
 
 /* ------------------------------------------------------------ COI status */
@@ -58,7 +58,7 @@ function coiStatus(v: Vendor): CoiStatus {
   return "compliant";
 }
 
-function StatusBadge({ vendor }: { vendor: Vendor }) {
+function StatusBadge({ vendor}: { vendor: Vendor}) {
   const status = coiStatus(vendor);
   if (status === "compliant") {
     return (
@@ -66,16 +66,16 @@ function StatusBadge({ vendor }: { vendor: Vendor }) {
         <ShieldCheck className="w-3.5 h-3.5" /> Compliant
       </span>
     );
-  }
+ }
   if (status === "expiring") {
     const days = daysUntil(vendor.coiExpiresOn!);
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
         <Clock3 className="w-3.5 h-3.5" />
-        {days === 0 ? "Expires today" : `Expires in ${days}d`}
+        {days === 0 ? "Expires today" :`Expires in ${days}d`}
       </span>
     );
-  }
+ }
   return (
     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">
       <ShieldAlert className="w-3.5 h-3.5" />
@@ -90,8 +90,8 @@ type FilterKey = "all" | CoiStatus;
 type SortKey = "name" | "trade" | "coi";
 
 export default function Vendors() {
-  const { data: vendors, isLoading, isError, refetch } = useListVendors();
-  const { data: pos } = useListPurchaseOrders();
+  const { data: vendors, isLoading, isError, refetch} = useListVendors();
+  const { data: pos} = useListPurchaseOrders();
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -105,10 +105,10 @@ export default function Vendors() {
     for (const po of pos ?? []) {
       if (po.vendorId && po.status !== "received") {
         map.set(po.vendorId, (map.get(po.vendorId) ?? 0) + 1);
-      }
-    }
+     }
+   }
     return map;
-  }, [pos]);
+ }, [pos]);
 
   const counts = useMemo(() => {
     const all = vendors ?? [];
@@ -117,8 +117,8 @@ export default function Vendors() {
       compliant: all.filter((v) => coiStatus(v) === "compliant").length,
       expiring: all.filter((v) => coiStatus(v) === "expiring").length,
       lapsed: all.filter((v) => coiStatus(v) === "lapsed").length,
-    };
-  }, [vendors]);
+   };
+ }, [vendors]);
 
   const visible = useMemo(() => {
     let list = vendors ?? [];
@@ -130,7 +130,7 @@ export default function Vendors() {
           .filter(Boolean)
           .some((s) => String(s).toLowerCase().includes(q)),
       );
-    }
+   }
     const dir = sortDir;
     return [...list].sort((a, b) => {
       if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
@@ -140,18 +140,18 @@ export default function Vendors() {
       const av = a.coiExpiresOn ?? "9999-99-99";
       const bv = b.coiExpiresOn ?? "9999-99-99";
       return av.localeCompare(bv) * dir;
-    });
-  }, [vendors, filter, query, sortKey, sortDir]);
+   });
+ }, [vendors, filter, query, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === 1 ? -1 : 1));
     else {
       setSortKey(key);
       setSortDir(1);
-    }
-  };
+   }
+ };
 
-  const SortIcon = ({ col }: { col: SortKey }) =>
+  const SortIcon = ({ col}: { col: SortKey}) =>
     sortKey !== col ? (
       <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
     ) : sortDir === 1 ? (
@@ -163,23 +163,23 @@ export default function Vendors() {
   const openAdd = () => {
     setEditing(null);
     setDialogOpen(true);
-  };
+ };
   const openEdit = (v: Vendor) => {
     setEditing(v);
     setDialogOpen(true);
-  };
+ };
 
   const doExport = () => {
     exportCsv(
-      `vendors-${todayLocal()}.csv`,
+     `vendors-${todayLocal()}.csv`,
       [
-        { key: "name", label: "Name" },
-        { key: "trade", label: "Trade" },
-        { key: "email", label: "Email" },
-        { key: "phone", label: "Phone" },
-        { key: "coiExpiresOn", label: "COI expires" },
-        { key: "status", label: "Status" },
-        { key: "openPos", label: "Open POs" },
+        { key: "name", label: "Name"},
+        { key: "trade", label: "Trade"},
+        { key: "email", label: "Email"},
+        { key: "phone", label: "Phone"},
+        { key: "coiExpiresOn", label: "COI expires"},
+        { key: "status", label: "Status"},
+        { key: "openPos", label: "Open POs"},
       ],
       visible.map((v) => ({
         name: v.name,
@@ -194,22 +194,22 @@ export default function Vendors() {
               ? "Expiring soon"
               : "Lapsed",
         openPos: openPoCount.get(v.id) ?? 0,
-      })),
+     })),
     );
-  };
+ };
 
-  const filters: { key: FilterKey; label: string; count: number }[] = [
-    { key: "all", label: "All", count: counts.total },
-    { key: "compliant", label: "Compliant", count: counts.compliant },
-    { key: "expiring", label: "Expiring soon", count: counts.expiring },
-    { key: "lapsed", label: "Lapsed", count: counts.lapsed },
+  const filters: { key: FilterKey; label: string; count: number}[] = [
+    { key: "all", label: "All", count: counts.total},
+    { key: "compliant", label: "Compliant", count: counts.compliant},
+    { key: "expiring", label: "Expiring soon", count: counts.expiring},
+    { key: "lapsed", label: "Lapsed", count: counts.lapsed},
   ];
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">
+          <h1 className="text-3xl font-display font-bold text-[var(--ink)]">
             Vendors
           </h1>
           <p className="text-muted-foreground">
@@ -277,7 +277,7 @@ export default function Vendors() {
                 filter === f.key
                   ? "bg-[var(--ink)] text-[var(--paper)] border-[var(--ink)]"
                   : "bg-card text-muted-foreground border-border hover:text-foreground"
-              }`}
+             }`}
             >
               {f.label}
               <span className="ml-1.5 opacity-70">{f.count}</span>
@@ -372,7 +372,7 @@ export default function Vendors() {
                       onClick={(e) => {
                         e.stopPropagation();
                         openEdit(v);
-                      }}
+                     }}
                       aria-label={`Edit ${v.name}`}
                       className="w-8 h-8 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors"
                     >
@@ -402,9 +402,9 @@ function Th({
 }) {
   return (
     <th
-      className={`px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs ${
+      className={`px-6 py-3 font-semibold text-muted-foreground   text-xs ${
         onClick ? "cursor-pointer select-none hover:text-foreground transition-colors" : ""
-      } ${className}`}
+     } ${className}`}
       onClick={onClick}
     >
       <span className="inline-flex items-center gap-1">{children}</span>

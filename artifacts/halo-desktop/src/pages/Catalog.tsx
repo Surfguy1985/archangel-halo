@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useListCatalogItems,
   useCreateCatalogItem,
@@ -8,8 +8,8 @@ import {
   getListCatalogItemsQueryKey,
   type CatalogItem,
 } from "@workspace/api-client-react";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Plus, Pencil, Trash2, Search} from "lucide-react";
+import { Skeleton} from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -72,9 +72,9 @@ function CatalogItemDialog({
     const rateNum = rate.trim() === "" ? null : parseFloat(rate);
     if (!service.trim() || (rateNum !== null && isNaN(rateNum))) return;
     const onSuccess = () => {
-      queryClient.invalidateQueries({ queryKey: getListCatalogItemsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getListCatalogItemsQueryKey()});
       onOpenChange(false);
-    };
+   };
     if (item) {
       update.mutate(
         {
@@ -85,11 +85,11 @@ function CatalogItemDialog({
             unit: unit.trim() || null,
             rate: rateNum,
             category: category.trim() || null,
-          },
-        },
-        { onSuccess },
+         },
+       },
+        { onSuccess},
       );
-    } else {
+   } else {
       create.mutate(
         {
           data: {
@@ -98,12 +98,12 @@ function CatalogItemDialog({
             unit: unit.trim() || undefined,
             rate: rateNum ?? undefined,
             category: category.trim() || undefined,
-          },
-        },
-        { onSuccess },
+         },
+       },
+        { onSuccess},
       );
-    }
-  };
+   }
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -168,7 +168,7 @@ function CatalogItemDialog({
 
 export default function Catalog() {
   const queryClient = useQueryClient();
-  const { data: items, isLoading } = useListCatalogItems();
+  const { data: items, isLoading} = useListCatalogItems();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editItem, setEditItem] = useState<CatalogItem | null>(null);
@@ -188,7 +188,7 @@ export default function Catalog() {
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">Master Price List</h1>
+          <h1 className="text-3xl font-display font-bold text-[var(--ink)]">Master Price List</h1>
           <p className="text-muted-foreground">Your services and standard prices — every property can pull from here.</p>
         </div>
         <button
@@ -216,9 +216,9 @@ export default function Catalog() {
           <table className="w-full text-left text-sm">
             <thead className="bg-[var(--paper)] border-b border-border">
               <tr>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Service</th>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Category</th>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs text-right">Rate</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs">Service</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs">Category</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs text-right">Rate</th>
                 <th className="px-6 py-3 w-24"></th>
               </tr>
             </thead>
@@ -231,7 +231,7 @@ export default function Catalog() {
                   </td>
                   <td className="px-6 py-4 text-muted-foreground">{item.category || "—"}</td>
                   <td className="px-6 py-4 text-right font-mono font-bold">
-                    {item.rate != null ? `$${item.rate}` : "—"}
+                    {item.rate != null ?`$${item.rate}` : "—"}
                     {item.unit && <span className="text-xs text-muted-foreground font-sans font-normal"> /{item.unit}</span>}
                   </td>
                   <td className="px-6 py-4">
@@ -290,15 +290,15 @@ export default function Catalog() {
               onClick={() => {
                 if (!deleteItem) return;
                 del.mutate(
-                  { id: deleteItem.id },
+                  { id: deleteItem.id},
                   {
                     onSuccess: () => {
-                      queryClient.invalidateQueries({ queryKey: getListCatalogItemsQueryKey() });
+                      queryClient.invalidateQueries({ queryKey: getListCatalogItemsQueryKey()});
                       setDeleteItem(null);
-                    },
-                  },
+                   },
+                 },
                 );
-              }}
+             }}
               disabled={del.isPending}
               className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
             >

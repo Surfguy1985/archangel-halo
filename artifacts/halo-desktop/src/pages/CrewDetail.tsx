@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
-import { Link, useParams, useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState} from "react";
+import { Link, useParams, useLocation} from "wouter";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useGetCrewDetail,
   useGenerateCrewPortalLink,
@@ -29,7 +29,7 @@ import {
   type CrewPhoto,
   type CrewInvoice,
 } from "@workspace/api-client-react";
-import { useUpload } from "@workspace/object-storage-web";
+import { useUpload} from "@workspace/object-storage-web";
 import {
   ChevronLeft,
   FileDown,
@@ -52,10 +52,10 @@ import {
   Share2,
   Receipt,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton";
-import { downloadW9Pdf } from "@/lib/w9pdf";
-import { EditCrewDialog } from "@/components/CrewDialogs";
+import { useToast} from "@/hooks/use-toast";
+import { Skeleton} from "@/components/ui/skeleton";
+import { downloadW9Pdf} from "@/lib/w9pdf";
+import { EditCrewDialog} from "@/components/CrewDialogs";
 
 function paymentTermsLabel(v?: string | null): string {
   switch (v) {
@@ -64,7 +64,7 @@ function paymentTermsLabel(v?: string | null): string {
     case "net30": return "Net 30";
     case "net45": return "Net 45";
     default: return "Not set";
-  }
+ }
 }
 
 function formatWhen(iso?: string | null): string {
@@ -74,11 +74,11 @@ function formatWhen(iso?: string | null): string {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
+ });
 }
 
 const sectionTitle =
-  "font-display font-semibold text-xs tracking-wider uppercase text-muted-foreground mb-4 flex items-center gap-2";
+  "font-display font-semibold text-xs   text-muted-foreground mb-4 flex items-center gap-2";
 
 function formatDayLabel(day: string): string {
   const [y, m, d] = day.split("-").map(Number);
@@ -87,31 +87,31 @@ function formatDayLabel(day: string): string {
     month: "short",
     day: "numeric",
     year: "numeric",
-  });
+ });
 }
 
 export default function CrewDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id} = useParams<{ id: string}>();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { toast} = useToast();
 
-  const { data: crew, isLoading } = useGetCrewDetail(id);
-  const { data: messages } = useListCrewMessages(id, {
-    query: { queryKey: getListCrewMessagesQueryKey(id), refetchInterval: 8000 },
-  });
-  const { data: checkins } = useListCrewCheckins(id, {
-    query: { queryKey: getListCrewCheckinsQueryKey(id), refetchInterval: 8000 },
-  });
-  const { data: documents } = useListCrewDocuments(id, {
-    query: { queryKey: getListCrewDocumentsQueryKey(id), refetchInterval: 8000 },
-  });
-  const { data: crewInvoices } = useListCrewInvoices(id, {
-    query: { queryKey: getListCrewInvoicesQueryKey(id), refetchInterval: 8000 },
-  });
-  const { data: packetTemplates } = useListPacketTemplates();
-  const { data: packets } = useListCrewPackets(id, {
-    query: { queryKey: getListCrewPacketsQueryKey(id), refetchInterval: 8000 },
-  });
+  const { data: crew, isLoading} = useGetCrewDetail(id);
+  const { data: messages} = useListCrewMessages(id, {
+    query: { queryKey: getListCrewMessagesQueryKey(id), refetchInterval: 8000},
+ });
+  const { data: checkins} = useListCrewCheckins(id, {
+    query: { queryKey: getListCrewCheckinsQueryKey(id), refetchInterval: 8000},
+ });
+  const { data: documents} = useListCrewDocuments(id, {
+    query: { queryKey: getListCrewDocumentsQueryKey(id), refetchInterval: 8000},
+ });
+  const { data: crewInvoices} = useListCrewInvoices(id, {
+    query: { queryKey: getListCrewInvoicesQueryKey(id), refetchInterval: 8000},
+ });
+  const { data: packetTemplates} = useListPacketTemplates();
+  const { data: packets} = useListCrewPackets(id, {
+    query: { queryKey: getListCrewPacketsQueryKey(id), refetchInterval: 8000},
+ });
 
   const genLink = useGenerateCrewPortalLink();
   const sendMessage = useSendCrewMessage();
@@ -125,7 +125,7 @@ export default function CrewDetail() {
   const [, navigate] = useLocation();
   const [templateKey, setTemplateKey] = useState("");
 
-  const { uploadFile, isUploading } = useUpload({
+  const { uploadFile, isUploading} = useUpload({
     onSuccess: async (res) => {
       try {
         await sendDocument.mutateAsync({
@@ -135,20 +135,20 @@ export default function CrewDetail() {
             storagePath: res.objectPath,
             contentType: res.metadata.contentType,
             size: res.metadata.size,
-          },
-        });
-        queryClient.invalidateQueries({ queryKey: getListCrewDocumentsQueryKey(id) });
-        toast({ title: "Document sent to crew" });
-      } catch (e) {
+         },
+       });
+        queryClient.invalidateQueries({ queryKey: getListCrewDocumentsQueryKey(id)});
+        toast({ title: "Document sent to crew"});
+     } catch (e) {
         toast({
           title: "Couldn't send document",
           description: e instanceof Error ? e.message : "The file uploaded but saving failed. Try again.",
           variant: "destructive",
-        });
-      }
-    },
-    onError: (e) => toast({ title: "Upload failed", description: e.message, variant: "destructive" }),
-  });
+       });
+     }
+   },
+    onError: (e) => toast({ title: "Upload failed", description: e.message, variant: "destructive"}),
+ });
 
   if (isLoading || !crew) {
     return (
@@ -157,27 +157,27 @@ export default function CrewDetail() {
         <Skeleton className="h-64 w-full" />
       </div>
     );
-  }
+ }
 
   const portalToken = crew.portalToken;
   // Always share the mobile-friendly portal (served at the site root) — crews open this on their phones.
   const portalUrl = portalToken
-    ? `${window.location.origin}/portal/${portalToken}`
+    ?`${window.location.origin}/portal/${portalToken}`
     : null;
 
   const handleGenerate = () =>
     genLink.mutate(
-      { id },
-      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCrewDetailQueryKey(id) }) },
+      { id},
+      { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetCrewDetailQueryKey(id)})},
     );
 
   const handleCopy = async () => {
     if (!portalUrl) return;
     await navigator.clipboard.writeText(portalUrl);
     setCopied(true);
-    toast({ title: "Live link copied", description: "Send it to the crew manually." });
+    toast({ title: "Live link copied", description: "Send it to the crew manually."});
     setTimeout(() => setCopied(false), 1800);
-  };
+ };
 
   const copyGuideLink = async (lang: "en" | "es") => {
     if (!portalUrl) return;
@@ -189,45 +189,45 @@ export default function CrewDetail() {
         lang === "es"
           ? "Abre el portal del equipo en la guía en español."
           : "Opens the crew's portal on the English how-to guide.",
-    });
+   });
     setTimeout(() => setCopiedGuide(null), 1800);
-  };
+ };
 
   const handleSend = () => {
     const body = draft.trim();
     if (!body) return;
     sendMessage.mutate(
-      { id, data: { body } },
+      { id, data: { body}},
       {
         onSuccess: () => {
           setDraft("");
-          queryClient.invalidateQueries({ queryKey: getListCrewMessagesQueryKey(id) });
-        },
-      },
+          queryClient.invalidateQueries({ queryKey: getListCrewMessagesQueryKey(id)});
+       },
+     },
     );
-  };
+ };
 
   const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) uploadFile(file);
     e.target.value = "";
-  };
+ };
 
   const handleSendPacket = () => {
     if (!templateKey) return;
     sendPacket.mutate(
-      { id, data: { templateKey } },
+      { id, data: { templateKey}},
       {
         onSuccess: () => {
           setTemplateKey("");
-          queryClient.invalidateQueries({ queryKey: getListCrewPacketsQueryKey(id) });
-          queryClient.invalidateQueries({ queryKey: getListCrewMessagesQueryKey(id) });
-          toast({ title: "Packet sent", description: "The crew can now complete it in their portal." });
-        },
-        onError: (e) => toast({ title: "Couldn't send packet", description: e.message, variant: "destructive" }),
-      },
+          queryClient.invalidateQueries({ queryKey: getListCrewPacketsQueryKey(id)});
+          queryClient.invalidateQueries({ queryKey: getListCrewMessagesQueryKey(id)});
+          toast({ title: "Packet sent", description: "The crew can now complete it in their portal."});
+       },
+        onError: (e) => toast({ title: "Couldn't send packet", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   const packetLabel = (key: string) => packetTemplates?.find((t) => t.key === key)?.label ?? key;
   const card = "bg-card rounded-xl shadow-sm border border-border p-6";
@@ -253,7 +253,7 @@ export default function CrewDetail() {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="font-display font-bold text-3xl tracking-tight text-[var(--ink)] truncate">{crew.name}</h1>
+          <h1 className="font-display font-bold text-3xl text-[var(--ink)] truncate">{crew.name}</h1>
           <div className="text-sm text-muted-foreground flex items-center gap-3 flex-wrap">
             <span>{crew.trade || "General"}</span>
             {crew.phone && (
@@ -341,10 +341,10 @@ export default function CrewDetail() {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold truncate">{packetLabel(p.templateKey)}</div>
                       <div className="text-xs text-muted-foreground">
-                        {submitted ? `Submitted ${formatWhen(p.submittedAt)}` : `Sent ${formatWhen(p.sentAt)}`}
+                        {submitted ?`Submitted ${formatWhen(p.submittedAt)}` :`Sent ${formatWhen(p.sentAt)}`}
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 ${submitted ? "bg-emerald-100 text-emerald-800" : p.status === "in_progress" ? "bg-[var(--gold-tint)] text-[var(--gold-dark)]" : "bg-black/5 text-muted-foreground"}`}>{label}</span>
+                    <span className={`text-[10px] font-bold   px-2 py-0.5 rounded-full shrink-0 ${submitted ? "bg-emerald-100 text-emerald-800" : p.status === "in_progress" ? "bg-[var(--gold-tint)] text-[var(--gold-dark)]" : "bg-black/5 text-muted-foreground"}`}>{label}</span>
                     {submitted && (
                       <a href={`/api/packets/${p.id}/pdf`} download className="shrink-0 w-8 h-8 grid place-items-center rounded-full bg-[var(--paper)] border border-border text-muted-foreground hover:text-foreground" aria-label="Download packet PDF">
                         <Download className="w-4 h-4" />
@@ -352,7 +352,7 @@ export default function CrewDetail() {
                     )}
                   </div>
                 );
-              })}
+             })}
             </div>
           )}
         </div>
@@ -405,7 +405,7 @@ export default function CrewDetail() {
           ) : (
             <div className="flex flex-col divide-y divide-border">
               {documents.map((d) => {
-                const url = `/api/storage${d.storagePath}`;
+                const url =`/api/storage${d.storagePath}`;
                 return (
                   <div key={d.id} className="flex items-center gap-3 py-3">
                     <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -416,14 +416,14 @@ export default function CrewDetail() {
                       </div>
                     </a>
                     {d.direction === "from_crew" && (
-                      <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 shrink-0">New</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 shrink-0">New</span>
                     )}
                     <a href={url} download={d.name} className="shrink-0 w-8 h-8 grid place-items-center rounded-full bg-[var(--paper)] border border-border text-muted-foreground hover:text-foreground" aria-label={`Download ${d.name}`}>
                       <Download className="w-4 h-4" />
                     </a>
                   </div>
                 );
-              })}
+             })}
             </div>
           )}
         </div>
@@ -450,15 +450,15 @@ export default function CrewDetail() {
           <div className={sectionTitle}><Wallet className="w-3.5 h-3.5" /> Terms & money</div>
           <div className="flex gap-3 mb-4">
             <div className="flex-1 rounded-lg bg-emerald-50 p-3">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Paid</div>
+              <div className="text-[11px] font-bold text-emerald-700">Paid</div>
               <div className="font-display font-bold text-lg tabular-nums text-emerald-700">
-                ${(crew.paidTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                ${(crew.paidTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2})}
               </div>
             </div>
             <div className="flex-1 rounded-lg bg-amber-50 p-3">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Outstanding</div>
+              <div className="text-[11px] font-bold text-amber-700">Outstanding</div>
               <div className="font-display font-bold text-lg tabular-nums text-amber-700">
-                ${(crew.outstandingTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                ${(crew.outstandingTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2})}
               </div>
             </div>
           </div>
@@ -471,7 +471,7 @@ export default function CrewDetail() {
               {crew.services.map((s, i) => (
                 <div key={i} className={`flex items-center justify-between px-3 py-2 text-sm ${i > 0 ? "border-t border-black/5" : ""}`}>
                   <span className="font-semibold">{s.name}</span>
-                  <span className="font-mono font-semibold">{s.rate != null ? `$${s.rate.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
+                  <span className="font-mono font-semibold">{s.rate != null ?`$${s.rate.toLocaleString(undefined, { minimumFractionDigits: 2})}` : "—"}</span>
                 </div>
               ))}
             </div>
@@ -524,12 +524,12 @@ function formatCheckinWhen(iso?: string | null): string {
     month: "short",
     day: "numeric",
     year: "numeric",
-  });
+ });
   const time = d.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
-  });
-  return `${date} · ${time}`;
+ });
+  return`${date} · ${time}`;
 }
 
 const THUMB_W = 88;
@@ -537,7 +537,7 @@ const THUMB_H = 64;
 const TILE = 256;
 const MAP_ZOOM = 15;
 
-function MapThumb({ lat, lng }: { lat: number; lng: number }) {
+function MapThumb({ lat, lng}: { lat: number; lng: number}) {
   const n = 2 ** MAP_ZOOM;
   const xF = ((lng + 180) / 360) * n;
   const latR = (lat * Math.PI) / 180;
@@ -552,7 +552,7 @@ function MapThumb({ lat, lng }: { lat: number; lng: number }) {
   return (
     <div
       className="relative overflow-hidden rounded-md border border-border shrink-0 bg-muted"
-      style={{ width: THUMB_W, height: THUMB_H }}
+      style={{ width: THUMB_W, height: THUMB_H}}
     >
       <img
         src={`https://tile.openstreetmap.org/${MAP_ZOOM}/${xTile}/${yTile}.png`}
@@ -561,14 +561,14 @@ function MapThumb({ lat, lng }: { lat: number; lng: number }) {
         height={TILE}
         loading="lazy"
         className="absolute max-w-none"
-        style={{ left: -left, top: -top }}
+        style={{ left: -left, top: -top}}
       />
       <MapPin
         className="absolute w-4 h-4 text-red-600 drop-shadow"
         style={{
           left: (xF - xTile) * TILE - left - 8,
           top: (yF - yTile) * TILE - top - 16,
-        }}
+       }}
       />
     </div>
   );
@@ -582,17 +582,17 @@ type CheckinItem = {
   createdAt?: string | null;
 };
 
-function CheckinRow({ checkin: c }: { checkin: CheckinItem }) {
+function CheckinRow({ checkin: c}: { checkin: CheckinItem}) {
   const hasCoords = c.lat != null && c.lng != null;
-  const params = { lat: c.lat ?? 0, lng: c.lng ?? 0 };
-  const { data: geo } = useReverseGeocode(params, {
+  const params = { lat: c.lat ?? 0, lng: c.lng ?? 0};
+  const { data: geo} = useReverseGeocode(params, {
     query: {
       queryKey: getReverseGeocodeQueryKey(params),
       enabled: hasCoords,
       staleTime: Infinity,
       refetchOnWindowFocus: false,
-    },
-  });
+   },
+ });
   return (
     <div className="flex items-center gap-3 py-3">
       {hasCoords ? (
@@ -606,7 +606,7 @@ function CheckinRow({ checkin: c }: { checkin: CheckinItem }) {
           {formatCheckinWhen(c.createdAt)}
         </div>
         <div className="text-xs text-muted-foreground truncate">
-          {hasCoords ? `${c.lat!.toFixed(5)}, ${c.lng!.toFixed(5)}` : "No coordinates"}
+          {hasCoords ?`${c.lat!.toFixed(5)}, ${c.lng!.toFixed(5)}` : "No coordinates"}
         </div>
         {hasCoords && geo?.address && (
           <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
@@ -618,12 +618,12 @@ function CheckinRow({ checkin: c }: { checkin: CheckinItem }) {
   );
 }
 
-function W9Readout({ data }: { data: Record<string, unknown> }) {
+function W9Readout({ data}: { data: Record<string, unknown>}) {
   const rows: [string, string][] = [];
   const push = (label: string, key: string) => {
     const v = data[key];
     if (v != null && v !== "") rows.push([label, String(v)]);
-  };
+ };
   push("Name", "name");
   push("Business name", "businessName");
   push("Tax classification", "taxClassification");
@@ -654,13 +654,13 @@ function DailyActivitySection({
   crewId: string;
   crewName: string;
 }) {
-  const { toast } = useToast();
-  const { data: photos } = useListCrewPhotos(crewId, {
+  const { toast} = useToast();
+  const { data: photos} = useListCrewPhotos(crewId, {
     query: {
       queryKey: getListCrewPhotosQueryKey(crewId),
       refetchInterval: 8000,
-    },
-  });
+   },
+ });
   const createShare = useCreatePhotoShare();
   const updateNotes = useUpdatePhotoShareNotes();
   const [sharingDay, setSharingDay] = useState<string | null>(null);
@@ -671,96 +671,96 @@ function DailyActivitySection({
   const jobGroups = useMemo(() => {
     const map = new Map<
       string,
-      { label: string; days: Map<string, CrewPhoto[]> }
+      { label: string; days: Map<string, CrewPhoto[]>}
     >();
     for (const p of photos ?? []) {
       const key = p.jobId ?? "none";
       const g = map.get(key) ?? {
         label: p.jobLabel ?? (p.jobId ? "Job" : "General photos"),
         days: new Map<string, CrewPhoto[]>(),
-      };
+     };
       const arr = g.days.get(p.takenOn) ?? [];
       arr.push(p);
       g.days.set(p.takenOn, arr);
       map.set(key, g);
-    }
+   }
     return Array.from(map.entries())
       .sort((a, b) => {
         if (a[0] === "none") return 1;
         if (b[0] === "none") return -1;
         return 0;
-      })
+     })
       .map(([key, g]) => ({
         key,
         label: g.label,
         count: Array.from(g.days.values()).reduce((n, arr) => n + arr.length, 0),
         days: Array.from(g.days.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1)),
-      }));
-  }, [photos]);
+     }));
+ }, [photos]);
 
   const onShare = async (day: string) => {
     setSharingDay(day);
     try {
-      const res = await createShare.mutateAsync({ id: crewId, data: { day } });
-      const url = `${window.location.origin}/photos/${res.token}`;
-      const message = `Photos from ${crewName} — ${formatDayLabel(day)}: ${url}`;
+      const res = await createShare.mutateAsync({ id: crewId, data: { day}});
+      const url =`${window.location.origin}/photos/${res.token}`;
+      const message =`Photos from ${crewName} — ${formatDayLabel(day)}: ${url}`;
       try {
         await navigator.clipboard.writeText(url);
         toast({
           title: "Share link copied",
           description: "Opening Messages with a prefilled text…",
-        });
-      } catch {
-        toast({ title: "Share link ready", description: url });
-      }
-      window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
-    } catch {
+       });
+     } catch {
+        toast({ title: "Share link ready", description: url});
+     }
+      window.location.href =`sms:?&body=${encodeURIComponent(message)}`;
+   } catch {
       toast({
         title: "Couldn't create share link",
         description: "Please try again.",
         variant: "destructive",
-      });
-    } finally {
+     });
+   } finally {
       setSharingDay(null);
-    }
-  };
+   }
+ };
 
   const onToggleReport = async (day: string) => {
     if (reportDay === day) {
       setReportDay(null);
       setReportToken(null);
       return;
-    }
+   }
     try {
-      const res = await createShare.mutateAsync({ id: crewId, data: { day } });
+      const res = await createShare.mutateAsync({ id: crewId, data: { day}});
       setReportDay(day);
       setReportToken(res.token);
       setNotesDraft(res.notes ?? "");
-    } catch {
+   } catch {
       toast({
         title: "Couldn't prepare the report",
         description: "Please try again.",
         variant: "destructive",
-      });
-    }
-  };
+     });
+   }
+ };
 
   const onSaveNotes = async () => {
     if (!reportDay) return;
     try {
       await updateNotes.mutateAsync({
         id: crewId,
-        data: { day: reportDay, notes: notesDraft },
-      });
-      toast({ title: "Notes saved", description: "They'll appear in the report PDF." });
-    } catch {
+        data: { day: reportDay, notes: notesDraft},
+     });
+      toast({ title: "Notes saved", description: "They'll appear in the report PDF."});
+   } catch {
       toast({
         title: "Couldn't save notes",
         description: "Please try again.",
         variant: "destructive",
-      });
-    }
-  };
+     });
+   }
+ };
 
   return (
     <div className="bg-card rounded-xl shadow-sm border border-border p-6">
@@ -805,7 +805,7 @@ function DailyActivitySection({
                             reportDay === day
                               ? "bg-[var(--ink)] text-white"
                               : "border border-border text-foreground hover:bg-[var(--paper)]"
-                          }`}
+                         }`}
                         >
                           <FileDown className="w-3.5 h-3.5" />
                           Full report
@@ -814,7 +814,7 @@ function DailyActivitySection({
                     </div>
                     {reportDay === day && reportToken && (
                       <div className="mb-3 rounded-lg border border-border bg-[var(--paper)] p-3">
-                        <div className="text-[11px] font-display font-bold tracking-[0.1em] uppercase text-muted-foreground mb-1.5">
+                        <div className="text-[11px] font-display font-bold tracking-[0.1em] text-muted-foreground mb-1.5">
                           Notes for the report
                         </div>
                         <textarea
@@ -877,7 +877,7 @@ const invoiceStatusChip = (s: string) =>
       approved: "bg-emerald-100 text-emerald-700",
       paid: "bg-emerald-100 text-emerald-700",
       needs_corrections: "bg-amber-100 text-amber-800",
-    } as Record<string, string>
+   } as Record<string, string>
   )[s] ?? "bg-muted text-muted-foreground");
 
 function CrewInvoicesReview({
@@ -888,7 +888,7 @@ function CrewInvoicesReview({
   invoices: CrewInvoice[] | undefined;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const review = useReviewCrewInvoice();
   const [openId, setOpenId] = useState<string | null>(null);
   const [noteFor, setNoteFor] = useState<string | null>(null);
@@ -905,8 +905,8 @@ function CrewInvoicesReview({
     n?: string,
   ) => {
     try {
-      await review.mutateAsync({ id: invId, data: { action, note: n ?? null } });
-      queryClient.invalidateQueries({ queryKey: getListCrewInvoicesQueryKey(crewId) });
+      await review.mutateAsync({ id: invId, data: { action, note: n ?? null}});
+      queryClient.invalidateQueries({ queryKey: getListCrewInvoicesQueryKey(crewId)});
       setNoteFor(null);
       setNote("");
       toast({
@@ -918,16 +918,16 @@ function CrewInvoicesReview({
               : action === "mark_paid"
                 ? "Invoice marked paid"
                 : "Invoice cleared to history",
-      });
-    } catch (e) {
-      const err = e as { data?: { error?: string } };
+     });
+   } catch (e) {
+      const err = e as { data?: { error?: string}};
       toast({
         title: "Couldn't update invoice",
         description: err.data?.error ?? "Please try again",
         variant: "destructive",
-      });
-    }
-  };
+     });
+   }
+ };
 
   const renderRow = (inv: CrewInvoice, cleared: boolean) => {
     const isOpen = openId === inv.id;
@@ -940,22 +940,22 @@ function CrewInvoicesReview({
         >
           <div className="min-w-0">
             <div className="text-sm font-semibold truncate">
-              {inv.invoiceNo ? `#${inv.invoiceNo} · ` : ""}
+              {inv.invoiceNo ?`#${inv.invoiceNo} ·` : ""}
               {inv.propertyAddress}
             </div>
             <div className="text-xs text-muted-foreground">
               {inv.fromCompany} · {formatWhen(inv.createdAt)}
-              {inv.terms ? ` · ${inv.terms}` : ""}
-              {inv.dueDate ? ` · Due ${inv.dueDate}` : ""}
-              {inv.jobLabel ? ` · ${inv.jobLabel}` : ""}
+              {inv.terms ?` · ${inv.terms}` : ""}
+              {inv.dueDate ?` · Due ${inv.dueDate}` : ""}
+              {inv.jobLabel ?` · ${inv.jobLabel}` : ""}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-sm font-bold tabular-nums">
-              ${inv.total.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              ${inv.total.toLocaleString("en-US", { minimumFractionDigits: 2})}
             </span>
             <span
-              className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${invoiceStatusChip(inv.status)}`}
+              className={`text-[10px] font-bold   px-2 py-0.5 rounded-full ${invoiceStatusChip(inv.status)}`}
             >
               {inv.status.replace(/_/g, " ")}
             </span>
@@ -968,18 +968,18 @@ function CrewInvoicesReview({
                 <div key={it.id} className="flex items-center justify-between text-xs text-muted-foreground">
                   <span className="truncate">
                     {it.dateOfWork}
-                    {it.unitNo ? ` · Unit ${it.unitNo}` : ""} · {it.typeOfWork}
+                    {it.unitNo ?` · Unit ${it.unitNo}` : ""} · {it.typeOfWork}
                   </span>
                   <span className="tabular-nums shrink-0 ml-2">
-                    {it.qty} × ${it.unitPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })} = $
-                    {it.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    {it.qty} × ${it.unitPrice.toLocaleString("en-US", { minimumFractionDigits: 2})} = $
+                    {it.amount.toLocaleString("en-US", { minimumFractionDigits: 2})}
                   </span>
                 </div>
               ))}
             </div>
             <div className="mt-1.5 text-xs text-muted-foreground italic">
               Signed by {inv.signatureName}
-              {inv.signedAt ? ` on ${formatWhen(inv.signedAt)}` : ""}
+              {inv.signedAt ?` on ${formatWhen(inv.signedAt)}` : ""}
             </div>
             {inv.status === "needs_corrections" && inv.adminNote && (
               <div className="mt-2 text-xs rounded-md bg-amber-50 border border-amber-200 text-amber-800 px-2.5 py-1.5">
@@ -1005,7 +1005,7 @@ function CrewInvoicesReview({
                     onClick={() => {
                       setNoteFor(noteFor === inv.id ? null : inv.id);
                       setNote("");
-                    }}
+                   }}
                     className="px-3 py-1.5 rounded-md text-xs font-bold bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 disabled:opacity-50 transition-colors"
                   >
                     Send back for corrections
@@ -1056,11 +1056,11 @@ function CrewInvoicesReview({
         )}
       </div>
     );
-  };
+ };
 
   if (all.length === 0) {
     return <div className="text-sm text-muted-foreground py-2 text-center">No invoices submitted yet.</div>;
-  }
+ }
 
   return (
     <div>

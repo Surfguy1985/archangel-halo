@@ -1,10 +1,10 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Switch, Route, Router as WouterRouter} from "wouter";
+import { QueryClient, QueryClientProvider} from "@tanstack/react-query";
+import { Toaster} from "@/components/ui/toaster";
+import { TooltipProvider} from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
-import { DesktopLayout } from "@/components/DesktopLayout";
-import { SplashScreen } from "@/components/SplashScreen";
+import { DesktopLayout} from "@/components/DesktopLayout";
+import { SplashScreen} from "@/components/SplashScreen";
 import Today from "@/pages/Today";
 import Properties from "@/pages/Properties";
 import PropertyDetail from "@/pages/PropertyDetail";
@@ -36,8 +36,8 @@ const queryClient = new QueryClient({
       refetchIntervalInBackground: false,
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
-    },
-  },
+   },
+ },
 });
 
 function App() {

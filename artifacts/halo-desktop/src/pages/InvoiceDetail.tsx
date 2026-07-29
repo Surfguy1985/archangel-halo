@@ -8,12 +8,12 @@ import {
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useParams, Link, useLocation } from "wouter";
-import { ChevronLeft, Send, Download, Trash2, BellRing, CreditCard } from "lucide-react";
-import { useState } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
+import { useQueryClient} from "@tanstack/react-query";
+import { useParams, Link, useLocation} from "wouter";
+import { ChevronLeft, Send, Download, Trash2, BellRing, CreditCard} from "lucide-react";
+import { useState} from "react";
+import { Skeleton} from "@/components/ui/skeleton";
+import { useToast} from "@/hooks/use-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,16 +32,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SendInvoiceDialog } from "@/components/SendInvoiceDialog";
+import { SendInvoiceDialog} from "@/components/SendInvoiceDialog";
 
-const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD"});
 
 const fmtDate = (s?: string | null) => {
   if (!s) return "—";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
   const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(s);
   if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric"});
 };
 
 const fieldCls =
@@ -65,26 +65,26 @@ export default function InvoiceDetail() {
   const id = params.id as string;
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { data: inv, isLoading } = useGetInvoice(id, {
-    query: { enabled: !!id, queryKey: getGetInvoiceQueryKey(id) },
-  });
+  const { toast} = useToast();
+  const { data: inv, isLoading} = useGetInvoice(id, {
+    query: { enabled: !!id, queryKey: getGetInvoiceQueryKey(id)},
+ });
   const [payOpen, setPayOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("check");
-  const { data: settings } = useGetBusinessSettings();
+  const { data: settings} = useGetBusinessSettings();
 
   const remind = useRemindInvoice();
   const del = useDeleteInvoice();
   const record = useRecordPayment();
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(id) });
-    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
-  };
+    queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(id)});
+    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
+ };
 
   if (isLoading || !inv) {
     return (
@@ -93,64 +93,64 @@ export default function InvoiceDetail() {
         <Skeleton className="h-96 w-full" />
       </div>
     );
-  }
+ }
 
   const status = inv.status;
   const subtotal = inv.lineItems.reduce((s, it) => s + it.amount, 0);
-  const timeline: { label: string; date?: string | null; done: boolean }[] = [
-    { label: "Created", date: inv.issuedOn, done: true },
-    { label: "Sent to client", date: inv.sentAt, done: !!inv.sentAt },
-    { label: status === "past_due" ? "Past due" : "Due", date: inv.dueAt, done: status === "past_due" || status === "paid" },
-    { label: "Paid", date: inv.paidAt, done: !!inv.paidAt },
+  const timeline: { label: string; date?: string | null; done: boolean}[] = [
+    { label: "Created", date: inv.issuedOn, done: true},
+    { label: "Sent to client", date: inv.sentAt, done: !!inv.sentAt},
+    { label: status === "past_due" ? "Past due" : "Due", date: inv.dueAt, done: status === "past_due" || status === "paid"},
+    { label: "Paid", date: inv.paidAt, done: !!inv.paidAt},
   ];
 
   const openSend = () => setSendOpen(true);
 
   const onRemind = () =>
     remind.mutate(
-      { id },
+      { id},
       {
         onSuccess: () => {
           invalidate();
-          toast({ title: "Reminder sent", description: `Past-due notice emailed for ${inv.invoiceNo}.` });
-        },
-        onError: (e) => toast({ title: "Couldn't send reminder", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Reminder sent", description:`Past-due notice emailed for ${inv.invoiceNo}.`});
+       },
+        onError: (e) => toast({ title: "Couldn't send reminder", description: e.message, variant: "destructive"}),
+     },
     );
 
   const openPay = () => {
     setAmount(String(inv.amount));
     setPayOpen(true);
-  };
+ };
 
   const onRecord = () => {
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum)) return;
     record.mutate(
-      { data: { invoiceId: inv.id, amount: amountNum, method: method || undefined } },
+      { data: { invoiceId: inv.id, amount: amountNum, method: method || undefined}},
       {
         onSuccess: () => {
           invalidate();
           setPayOpen(false);
-          toast({ title: "Payment recorded" });
-        },
-        onError: (e) => toast({ title: "Couldn't record", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Payment recorded"});
+       },
+        onError: (e) => toast({ title: "Couldn't record", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   const onDelete = () =>
     del.mutate(
-      { id },
+      { id},
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
-          toast({ title: "Invoice deleted" });
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
+          toast({ title: "Invoice deleted"});
           navigate("/money");
-        },
-        onError: (e) => toast({ title: "Couldn't delete", description: e.message, variant: "destructive" }),
-      },
+       },
+        onError: (e) => toast({ title: "Couldn't delete", description: e.message, variant: "destructive"}),
+     },
     );
 
   return (
@@ -167,7 +167,7 @@ export default function InvoiceDetail() {
             <div className="flex items-start justify-between">
               <div>
                 <div className="font-display font-bold text-xl leading-tight">{settings?.companyName ?? "ArchAngel Contractors"}</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--gold-dark)] mt-0.5">
+                <div className="text-[10px] font-bold text-[var(--gold-dark)] mt-0.5">
                   {settings?.tagline ?? "Restoration & Make-Ready"}
                 </div>
                 {settings && (
@@ -187,17 +187,17 @@ export default function InvoiceDetail() {
 
             <div className="mt-3">
               <span
-                className="inline-block text-xs font-bold uppercase tracking-wide px-2.5 py-0.5 rounded-full text-white"
-                style={{ backgroundColor: statusColor[status] || "#8B8577" }}
+                className="inline-block text-xs font-bold px-2.5 py-0.5 rounded-full text-white"
+                style={{ backgroundColor: statusColor[status] || "#8B8577"}}
               >
                 {statusLabel[status] || status}
-                {status === "past_due" && inv.daysLate ? ` · ${inv.daysLate}d` : ""}
+                {status === "past_due" && inv.daysLate ?` · ${inv.daysLate}d` : ""}
               </span>
             </div>
 
             <div className="flex gap-8 mt-6 pt-5 border-t border-border">
               <div className="flex-1 min-w-0">
-                <div className="text-[10px] font-bold uppercase tracking-wide text-[var(--gold-dark)] mb-1">Bill To</div>
+                <div className="text-[10px] font-bold text-[var(--gold-dark)] mb-1">Bill To</div>
                 <div className="font-semibold text-sm">{inv.billToName || inv.propertyName || "Client"}</div>
                 <div className="text-sm text-muted-foreground">{inv.propertyAddress || inv.propertyName || "—"}</div>
               </div>
@@ -229,7 +229,7 @@ export default function InvoiceDetail() {
                       </div>
                       {it.description && <div className="text-xs text-muted-foreground">{it.description}</div>}
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        {[it.dateOfWork ? fmtDate(it.dateOfWork) : null, `${it.qty} × ${money(it.unitPrice)}`].filter(Boolean).join(" · ")}
+                        {[it.dateOfWork ? fmtDate(it.dateOfWork) : null,`${it.qty} × ${money(it.unitPrice)}`].filter(Boolean).join(" · ")}
                       </div>
                     </div>
                     <div className="font-mono font-semibold text-sm shrink-0">{money(it.amount)}</div>
@@ -239,13 +239,13 @@ export default function InvoiceDetail() {
             </div>
 
             <div className="mt-4 pt-3 border-t-2 border-[var(--ink)] flex items-center justify-between">
-              <span className="font-display font-bold text-sm uppercase tracking-wide">Total Due</span>
+              <span className="font-display font-bold text-sm">Total Due</span>
               <span className="font-display font-bold text-2xl font-mono text-[var(--gold-dark)]">{money(inv.amount || subtotal)}</span>
             </div>
 
             {(inv.paymentInstructions || settings?.paymentInstructions) && (
               <div className="mt-4 pt-3 border-t border-border">
-                <div className="text-[10px] font-bold uppercase tracking-wide text-[var(--gold-dark)] mb-1">
+                <div className="text-[10px] font-bold text-[var(--gold-dark)] mb-1">
                   Payment Terms &amp; Details
                 </div>
                 <div className="text-sm text-muted-foreground whitespace-pre-line">
@@ -266,7 +266,7 @@ export default function InvoiceDetail() {
         {/* Sidebar: tracking + actions */}
         <div className="space-y-6">
           <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-            <div className="font-display font-semibold text-xs tracking-wider uppercase text-muted-foreground mb-4">Tracking</div>
+            <div className="font-display font-semibold text-xs text-muted-foreground mb-4">Tracking</div>
             <div className="flex flex-col">
               {timeline.map((t, i) => (
                 <div key={t.label} className="flex gap-3">
@@ -276,10 +276,10 @@ export default function InvoiceDetail() {
                       style={{
                         backgroundColor: t.done ? "var(--gold)" : "transparent",
                         borderColor: t.done ? "var(--gold)" : "var(--border)",
-                      }}
+                     }}
                     />
                     {i < timeline.length - 1 && (
-                      <div className="w-0.5 flex-1 min-h-[24px]" style={{ backgroundColor: t.done ? "var(--gold)" : "var(--border)" }} />
+                      <div className="w-0.5 flex-1 min-h-[24px]" style={{ backgroundColor: t.done ? "var(--gold)" : "var(--border)"}} />
                     )}
                   </div>
                   <div className="pb-4 -mt-0.5">
@@ -350,11 +350,11 @@ export default function InvoiceDetail() {
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Amount received</div>
+              <div className="text-xs text-muted-foreground mb-1">Amount received</div>
               <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} className={fieldCls} />
             </div>
             <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Method</div>
+              <div className="text-xs text-muted-foreground mb-1">Method</div>
               <select value={method} onChange={(e) => setMethod(e.target.value)} className={fieldCls}>
                 <option value="check">Check</option>
                 <option value="ach">ACH / Transfer</option>

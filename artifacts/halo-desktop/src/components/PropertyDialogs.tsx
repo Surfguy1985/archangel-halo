@@ -16,10 +16,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { useEffect, useState} from "react";
+import { useLocation} from "wouter";
+import { useQueryClient} from "@tanstack/react-query";
+import { Trash2} from "lucide-react";
 import {
   useCreateProperty,
   useUpdateProperty,
@@ -107,8 +107,8 @@ export function AddPropertyDialog({
       setCity("");
       setUnits("");
       setAccessNotes("");
-    }
-  }, [open]);
+   }
+ }, [open]);
 
   const submit = () => {
     if (!name.trim()) return;
@@ -121,16 +121,16 @@ export function AddPropertyDialog({
           city: city.trim() || undefined,
           units: units ? Number(units) : undefined,
           accessNotes: accessNotes.trim() || undefined,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey()});
           onOpenChange(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -255,16 +255,16 @@ export function EditPropertyDialog({
       setUnits(property.units != null ? String(property.units) : "");
       setAccessNotes(property.accessNotes ?? "");
       setDeleteError(null);
-    }
-  }, [open, property]);
+   }
+ }, [open, property]);
 
   const update = useUpdateProperty();
   const del = useDeleteProperty();
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(property.id) });
-  };
+    queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(property.id)});
+ };
 
   const submit = () => {
     if (!name.trim()) return;
@@ -278,39 +278,39 @@ export function EditPropertyDialog({
           city: city.trim() || undefined,
           units: units ? Number(units) : undefined,
           accessNotes: accessNotes.trim() || undefined,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
           invalidate();
           onOpenChange(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   const confirmDelete = () => {
     setDeleteError(null);
     del.mutate(
-      { id: property.id },
+      { id: property.id},
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
-          queryClient.removeQueries({ queryKey: getGetPropertyQueryKey(property.id) });
+          queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey()});
+          queryClient.removeQueries({ queryKey: getGetPropertyQueryKey(property.id)});
           setConfirmOpen(false);
           onOpenChange(false);
           navigate("/properties");
-        },
+       },
         onError: (err: unknown) => {
           const msg =
-            (err as { data?: { error?: string } })?.data?.error ||
+            (err as { data?: { error?: string}})?.data?.error ||
             "Couldn't delete. It may still have jobs attached.";
           setDeleteError(msg);
           setConfirmOpen(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <>
@@ -384,7 +384,7 @@ export function EditPropertyDialog({
               onClick={() => {
                 setDeleteError(null);
                 setConfirmOpen(true);
-              }}
+             }}
               disabled={del.isPending}
             >
               <Trash2 className="w-4 h-4" />
@@ -418,7 +418,7 @@ export function EditPropertyDialog({
               onClick={(e) => {
                 e.preventDefault();
                 confirmDelete();
-              }}
+             }}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
               Delete
@@ -458,8 +458,8 @@ export function AddPriceItemDialog({
       setDetail("");
       setUnit("each");
       setRate("");
-    }
-  }, [open]);
+   }
+ }, [open]);
 
   const submit = () => {
     const rateNum = parseFloat(rate);
@@ -472,16 +472,16 @@ export function AddPriceItemDialog({
           detail: detail.trim() || undefined,
           unit: unit.trim() || undefined,
           rate: rateNum,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
           onOpenChange(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -589,8 +589,8 @@ export function AddContactDialog({
       setPhone("");
       setEmail("");
       setPrefers("");
-    }
-  }, [open]);
+   }
+ }, [open]);
 
   const submit = () => {
     if (!name.trim()) return;
@@ -603,16 +603,16 @@ export function AddContactDialog({
           phone: phone.trim() || undefined,
           email: email.trim() || undefined,
           prefers: prefers.trim() || undefined,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
           onOpenChange(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -704,10 +704,10 @@ export function AddJobDialog({
     detail?: string | null;
     rate: number;
     unit?: string | null;
-  }[];
+ }[];
 }) {
   const queryClient = useQueryClient();
-  const { data: crews } = useListCrews();
+  const { data: crews} = useListCrews();
   const [description, setDescription] = useState("");
   const [priceItemId, setPriceItemId] = useState("");
   const [category, setCategory] = useState("");
@@ -740,14 +740,14 @@ export function AddJobDialog({
       setScheduledTime("");
       setFlexDays("7");
       setError(null);
-    }
-  }, [open]);
+   }
+ }, [open]);
 
   const submit = () => {
     if (!description.trim()) {
       setError("A short description is required.");
       return;
-    }
+   }
     create.mutate(
       {
         data: {
@@ -766,24 +766,24 @@ export function AddJobDialog({
           scheduledOn: scheduleType === "scheduled" && scheduledOn ? scheduledOn : undefined,
           scheduledTime: scheduleType === "scheduled" && scheduledTime ? scheduledTime : undefined,
           flexDays: scheduleType === "flex" ? Math.max(1, Number(flexDays) || 7) : undefined,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
-          queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+          queryClient.invalidateQueries({ queryKey: getListJobsQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
           onOpenChange(false);
-        },
+       },
         onError: (err: unknown) => {
           setError(
-            (err as { data?: { error?: string } })?.data?.error ||
+            (err as { data?: { error?: string}})?.data?.error ||
               "Couldn't create the job.",
           );
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -803,7 +803,7 @@ export function AddJobDialog({
               onChange={(e) => {
                 setDescription(e.target.value);
                 setPriceItemId("");
-              }}
+             }}
               autoFocus
             />
           </Field>
@@ -818,14 +818,14 @@ export function AddJobDialog({
                 const item = priceItems?.find((p) => p.id === itemId);
                 if (item) {
                   setDescription(
-                    item.detail ? `${item.service} — ${item.detail}` : item.service,
+                    item.detail ?`${item.service} — ${item.detail}` : item.service,
                   );
                   setCategory(item.service);
-                } else {
+               } else {
                   setDescription("");
                   setCategory("");
-                }
-              }}
+               }
+             }}
             >
               <option value="">
                 {(priceItems?.length ?? 0) > 0
@@ -835,8 +835,8 @@ export function AddJobDialog({
               {priceItems?.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.service}
-                  {p.detail ? ` — ${p.detail}` : ""} (${p.rate}
-                  {p.unit ? `/${p.unit}` : ""})
+                  {p.detail ?` — ${p.detail}` : ""} (${p.rate}
+                  {p.unit ?`/${p.unit}` : ""})
                 </option>
               ))}
             </select>
@@ -899,7 +899,7 @@ export function AddJobDialog({
                     scheduleType === value
                       ? "bg-[var(--primary)] text-[var(--ink)] border-transparent"
                       : "bg-card border-border text-muted-foreground hover:text-foreground"
-                  }`}
+                 }`}
                   data-testid={`button-schedule-${value}`}
                 >
                   {label}
@@ -998,7 +998,7 @@ export function EditPriceItemDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  item: { id: string; service: string; detail?: string | null; unit?: string | null; rate: number };
+  item: { id: string; service: string; detail?: string | null; unit?: string | null; rate: number};
   propertyId: string;
 }) {
   const queryClient = useQueryClient();
@@ -1016,15 +1016,15 @@ export function EditPriceItemDialog({
       setUnit(item.unit ?? "");
       setRate(String(item.rate));
       setDeleteError(null);
-    }
-  }, [open, item]);
+   }
+ }, [open, item]);
 
   const update = useUpdatePriceItem();
   const del = useDeletePriceItem();
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
-  };
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+ };
 
   const submit = () => {
     const rateNum = parseFloat(rate);
@@ -1037,36 +1037,36 @@ export function EditPriceItemDialog({
           detail: detail.trim() || null,
           unit: unit.trim() || null,
           rate: rateNum,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
           invalidate();
           onOpenChange(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   const confirmDelete = () => {
     setDeleteError(null);
     del.mutate(
-      { id: item.id },
+      { id: item.id},
       {
         onSuccess: () => {
           invalidate();
           setConfirmOpen(false);
           onOpenChange(false);
-        },
+       },
         onError: (err: unknown) => {
           setDeleteError(
-            (err as { data?: { error?: string } })?.data?.error || "Couldn't delete this price item.",
+            (err as { data?: { error?: string}})?.data?.error || "Couldn't delete this price item.",
           );
           setConfirmOpen(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <>
@@ -1118,7 +1118,7 @@ export function EditPriceItemDialog({
           <AlertDialogFooter>
             <AlertDialogCancel>Keep it</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); confirmDelete(); }}
+              onClick={(e) => { e.preventDefault(); confirmDelete();}}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
               Delete
@@ -1140,7 +1140,7 @@ export function EditContactDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  contact: { id: string; name: string; role?: string | null; phone?: string | null; email?: string | null; prefers?: string | null };
+  contact: { id: string; name: string; role?: string | null; phone?: string | null; email?: string | null; prefers?: string | null};
   propertyId: string;
 }) {
   const queryClient = useQueryClient();
@@ -1160,15 +1160,15 @@ export function EditContactDialog({
       setEmail(contact.email ?? "");
       setPrefers(contact.prefers ?? "");
       setDeleteError(null);
-    }
-  }, [open, contact]);
+   }
+ }, [open, contact]);
 
   const update = useUpdateContact();
   const del = useDeleteContact();
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
-  };
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+ };
 
   const submit = () => {
     if (!name.trim()) return;
@@ -1181,36 +1181,36 @@ export function EditContactDialog({
           phone: phone.trim() || null,
           email: email.trim() || null,
           prefers: prefers.trim() || null,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
           invalidate();
           onOpenChange(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   const confirmDelete = () => {
     setDeleteError(null);
     del.mutate(
-      { id: contact.id },
+      { id: contact.id},
       {
         onSuccess: () => {
           invalidate();
           setConfirmOpen(false);
           onOpenChange(false);
-        },
+       },
         onError: (err: unknown) => {
           setDeleteError(
-            (err as { data?: { error?: string } })?.data?.error || "Couldn't delete this contact.",
+            (err as { data?: { error?: string}})?.data?.error || "Couldn't delete this contact.",
           );
           setConfirmOpen(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <>
@@ -1265,7 +1265,7 @@ export function EditContactDialog({
           <AlertDialogFooter>
             <AlertDialogCancel>Keep them</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); confirmDelete(); }}
+              onClick={(e) => { e.preventDefault(); confirmDelete();}}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
               Delete
@@ -1297,11 +1297,11 @@ export function EditJobDialog({
     inspectionRequired?: boolean | null;
     isRecurring?: boolean | null;
     recurrence?: string | null;
-  };
+ };
   propertyId: string;
 }) {
   const queryClient = useQueryClient();
-  const { data: crews } = useListCrews();
+  const { data: crews} = useListCrews();
   const [description, setDescription] = useState(job.description ?? "");
   const [category, setCategory] = useState(job.category ?? "");
   const [unitNo, setUnitNo] = useState(job.unitNo ?? "");
@@ -1324,24 +1324,24 @@ export function EditJobDialog({
       setIsRecurring(!!job.isRecurring);
       setRecurrence(job.recurrence ?? "weekly");
       setError(null);
-    }
-  }, [open, job]);
+   }
+ }, [open, job]);
 
   const update = useUpdateJob();
   const del = useDeleteJob();
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
-    queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(job.id) });
-    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-  };
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+    queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(job.id)});
+    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+ };
 
   const submit = () => {
     if (!description.trim()) {
       setError("A short description is required.");
       return;
-    }
+   }
     update.mutate(
       {
         id: job.id,
@@ -1356,41 +1356,41 @@ export function EditJobDialog({
           recurrence: isRecurring
             ? (recurrence as "daily" | "weekly" | "biweekly" | "monthly" | "quarterly")
             : null,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
           invalidate();
           onOpenChange(false);
-        },
+       },
         onError: (err: unknown) => {
           setError(
-            (err as { data?: { error?: string } })?.data?.error || "Couldn't save the job.",
+            (err as { data?: { error?: string}})?.data?.error || "Couldn't save the job.",
           );
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   const confirmDelete = () => {
     setError(null);
     del.mutate(
-      { id: job.id },
+      { id: job.id},
       {
         onSuccess: () => {
           invalidate();
           setConfirmOpen(false);
           onOpenChange(false);
-        },
+       },
         onError: (err: unknown) => {
           setError(
-            (err as { data?: { error?: string } })?.data?.error || "Couldn't delete this job.",
+            (err as { data?: { error?: string}})?.data?.error || "Couldn't delete this job.",
           );
           setConfirmOpen(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <>
@@ -1482,7 +1482,7 @@ export function EditJobDialog({
           <AlertDialogFooter>
             <AlertDialogCancel>Keep it</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); confirmDelete(); }}
+              onClick={(e) => { e.preventDefault(); confirmDelete();}}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
               Delete

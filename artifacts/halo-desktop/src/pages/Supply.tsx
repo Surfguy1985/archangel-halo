@@ -1,18 +1,18 @@
-import { useState } from "react";
-import { useListInventory, useListPurchaseOrders } from "@workspace/api-client-react";
-import { Plus } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useState} from "react";
+import { useListInventory, useListPurchaseOrders} from "@workspace/api-client-react";
+import { Plus} from "lucide-react";
+import { Skeleton} from "@/components/ui/skeleton";
 
 export default function Supply() {
   const [tab, setTab] = useState<"inventory" | "pos">("inventory");
-  const { data: inventory, isLoading: invLoading } = useListInventory();
-  const { data: pos, isLoading: poLoading } = useListPurchaseOrders();
+  const { data: inventory, isLoading: invLoading} = useListInventory();
+  const { data: pos, isLoading: poLoading} = useListPurchaseOrders();
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">Supply</h1>
+          <h1 className="text-3xl font-display font-bold text-[var(--ink)]">Supply</h1>
           <p className="text-muted-foreground">Inventory and purchase orders.</p>
         </div>
         <div className="flex gap-2">
@@ -43,9 +43,9 @@ export default function Supply() {
           <table className="w-full text-left text-sm">
             <thead className="bg-[var(--paper)] border-b border-border">
               <tr>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Item</th>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Vendor</th>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs text-right">On Hand</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs">Item</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs">Vendor</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs text-right">On Hand</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -53,7 +53,7 @@ export default function Supply() {
                 <tr key={it.id} className="hover:bg-black/[0.02] transition-colors">
                   <td className="px-6 py-4 font-semibold text-[var(--ink)]">
                     {it.name}
-                    {it.low && <span className="ml-2 inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 uppercase tracking-widest">Low</span>}
+                    {it.low && <span className="ml-2 inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">Low</span>}
                   </td>
                   <td className="px-6 py-4 text-muted-foreground">{it.preferredVendor || '—'}</td>
                   <td className={`px-6 py-4 text-right font-mono font-bold ${it.low ? 'text-purple-700' : ''}`}>{it.qty}</td>
@@ -71,10 +71,10 @@ export default function Supply() {
           <table className="w-full text-left text-sm">
             <thead className="bg-[var(--paper)] border-b border-border">
               <tr>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">PO Number</th>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Vendor</th>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Expected</th>
-                <th className="px-6 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-xs text-right">Status</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs">PO Number</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs">Vendor</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs">Expected</th>
+                <th className="px-6 py-3 font-semibold text-muted-foreground text-xs text-right">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

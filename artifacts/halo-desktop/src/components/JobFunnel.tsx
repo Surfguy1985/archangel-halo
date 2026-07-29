@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
-import { Link } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useRef, useState} from "react";
+import { Link} from "wouter";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useCreateInvoice,
   useSetInvoiceStatus,
@@ -21,7 +21,7 @@ import {
   getGetCalendarQueryKey,
   getListJobEventsQueryKey,
 } from "@workspace/api-client-react";
-import type { Job, Invoice } from "@workspace/api-client-react";
+import type { Job, Invoice} from "@workspace/api-client-react";
 import {
   Users,
   Hammer,
@@ -45,7 +45,7 @@ import {
   Mail,
   FileDown,
 } from "lucide-react";
-import { uploadReceiptFile } from "@/components/MoneyDialogs";
+import { uploadReceiptFile} from "@/components/MoneyDialogs";
 
 type StageKey = "crew" | "work" | "invoice" | "pay" | "close";
 
@@ -57,11 +57,11 @@ const STAGES: {
   done: string;
   ring: string;
 }[] = [
-  { key: "crew", label: "Crew", Icon: Users, active: "bg-sky-500 text-white", done: "bg-sky-100 text-sky-700", ring: "ring-sky-200" },
-  { key: "work", label: "Work", Icon: Hammer, active: "bg-amber-500 text-white", done: "bg-amber-100 text-amber-700", ring: "ring-amber-200" },
-  { key: "invoice", label: "Invoice", Icon: Receipt, active: "bg-violet-500 text-white", done: "bg-violet-100 text-violet-700", ring: "ring-violet-200" },
-  { key: "pay", label: "Crew pay", Icon: Banknote, active: "bg-teal-500 text-white", done: "bg-teal-100 text-teal-700", ring: "ring-teal-200" },
-  { key: "close", label: "Close out", Icon: Sparkles, active: "bg-[var(--gold-dark)] text-black", done: "bg-emerald-100 text-emerald-700", ring: "ring-[rgba(143,106,31,0.25)]" },
+  { key: "crew", label: "Crew", Icon: Users, active: "bg-sky-500 text-white", done: "bg-sky-100 text-sky-700", ring: "ring-sky-200"},
+  { key: "work", label: "Work", Icon: Hammer, active: "bg-amber-500 text-white", done: "bg-amber-100 text-amber-700", ring: "ring-amber-200"},
+  { key: "invoice", label: "Invoice", Icon: Receipt, active: "bg-violet-500 text-white", done: "bg-violet-100 text-violet-700", ring: "ring-violet-200"},
+  { key: "pay", label: "Crew pay", Icon: Banknote, active: "bg-teal-500 text-white", done: "bg-teal-100 text-teal-700", ring: "ring-teal-200"},
+  { key: "close", label: "Close out", Icon: Sparkles, active: "bg-[var(--gold-dark)] text-black", done: "bg-emerald-100 text-emerald-700", ring: "ring-[rgba(143,106,31,0.25)]"},
 ];
 
 function fmtDate(d: string) {
@@ -70,14 +70,14 @@ function fmtDate(d: string) {
     weekday: "short",
     month: "short",
     day: "numeric",
-  });
+ });
 }
 
 function fmtWhen(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric"}) +
     " · " +
-    d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit"});
 }
 
 const EVENT_ICONS: Record<string, typeof Users> = {
@@ -98,10 +98,10 @@ function fileToBase64(file: File): Promise<string> {
     reader.onload = () => {
       const s = String(reader.result ?? "");
       resolve(s.slice(s.indexOf(",") + 1));
-    };
+   };
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
-  });
+ });
 }
 
 const SCAN_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
@@ -128,9 +128,9 @@ async function imageToJpegBase64(file: File): Promise<string | null> {
     bitmap.close();
     const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
     return dataUrl.slice(dataUrl.indexOf(",") + 1);
-  } catch {
+ } catch {
     return null;
-  }
+ }
 }
 
 export function JobFunnel({
@@ -161,7 +161,7 @@ export function JobFunnel({
   const [scanNote, setScanNote] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [missing, setMissing] = useState<string[] | null>(null);
-  const [closedOut, setClosedOut] = useState<{ emailSent: boolean } | null>(null);
+  const [closedOut, setClosedOut] = useState<{ emailSent: boolean} | null>(null);
   const [broadcasted, setBroadcasted] = useState(false);
   const [pickingCrew, setPickingCrew] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -183,21 +183,21 @@ export function JobFunnel({
           ? !fresh.crewLeaderId && !fresh.clearedAt
           : !jobProp.crewLeaderId && !jobProp.clearedAt;
         return waiting ? 5000 : false;
-      },
-    },
-  });
+     },
+   },
+ });
   const job = liveJobQuery.data?.job ?? jobProp;
 
   const invalidateAll = () => {
-    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
-    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(job.id) });
-    queryClient.invalidateQueries({ queryKey: getListJobEventsQueryKey(job.id) });
-  };
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(job.id)});
+    queryClient.invalidateQueries({ queryKey: getListJobEventsQueryKey(job.id)});
+ };
 
   const crewDone = !!job.crewLeaderId;
   const workDone = job.status === "complete";
@@ -212,7 +212,7 @@ export function JobFunnel({
     invoice: invoiceDone,
     pay: payDone,
     close: closeDone,
-  };
+ };
   const current: StageKey = !crewDone
     ? "crew"
     : !workDone
@@ -229,8 +229,8 @@ export function JobFunnel({
       queryKey: getListJobEventsQueryKey(job.id),
       enabled: showHistory,
       refetchInterval: showHistory && !workDone ? 10000 : false,
-    },
-  });
+   },
+ });
   const events = eventsQuery.data ?? [];
 
   const defaultAmount = job.lineTotal && job.lineTotal > 0 ? job.lineTotal : 0;
@@ -239,41 +239,41 @@ export function JobFunnel({
     if (!crewId || crewId === job.crewLeaderId) {
       setPickingCrew(false);
       return;
-    }
+   }
     updateJob.mutate(
-      { id: job.id, data: { crewLeaderId: crewId } },
+      { id: job.id, data: { crewLeaderId: crewId}},
       {
         onSuccess: () => {
           setPickingCrew(false);
           setBroadcasted(false);
           invalidateAll();
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   const doQuickBroadcast = () => {
     broadcast.mutate(
-      { id: job.id, data: { mode: "all" } },
+      { id: job.id, data: { mode: "all"}},
       {
         onSuccess: () => {
           setBroadcasted(true);
           invalidateAll();
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   const createFromFile = async (file: File, amount: number) => {
     setUploading(true);
     let path: string | null = null;
     try {
       path = await uploadReceiptFile(file);
-    } finally {
+   } finally {
       setUploading(false);
-    }
+   }
     createInvoice.mutate(
-      { data: { propertyId, jobId: job.id, amount, ...(path ? { attachmentPath: path } : {}) } },
+      { data: { propertyId, jobId: job.id, amount, ...(path ? { attachmentPath: path} : {})}},
       {
         onSuccess: () => {
           setPendingFile(null);
@@ -281,14 +281,14 @@ export function JobFunnel({
           setScanNote(null);
           setScanError(null);
           invalidateAll();
-        },
+       },
         onError: (err: unknown) => {
-          const data = (err as { data?: { error?: string } })?.data;
+          const data = (err as { data?: { error?: string}})?.data;
           setScanError(data?.error ?? "Couldn't save the invoice. Please try again.");
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   const onPickInvoiceFile = async (file: File | null) => {
     setPendingFile(file);
@@ -304,46 +304,46 @@ export function JobFunnel({
       try {
         image = await fileToBase64(file);
         mediaType = "application/pdf";
-      } catch {
+     } catch {
         image = null;
-      }
-    } else {
+     }
+   } else {
       image = await imageToJpegBase64(file);
       if (!image && (SCAN_TYPES as readonly string[]).includes(file.type)) {
         try {
           image = await fileToBase64(file);
           mediaType = file.type as ScanMediaType;
-        } catch {
+       } catch {
           image = null;
-        }
-      }
-    }
+       }
+     }
+   }
 
     if (!image) {
       setScanError(
-        `Couldn't open "${file.name}" — that file type isn't readable here. Use a photo (JPG/PNG) or a PDF, or type the amount below.`,
+       `Couldn't open "${file.name}" — that file type isn't readable here. Use a photo (JPG/PNG) or a PDF, or type the amount below.`,
       );
       return;
-    }
+   }
 
     try {
       const res = await scanIngest.mutateAsync({
-        data: { image, mediaType, filename: file.name },
-      });
+        data: { image, mediaType, filename: file.name},
+     });
       for (const rec of res.records) {
         const f = rec.fields as Record<string, unknown>;
         const amt = Number(f.amount ?? f.total ?? f.totalAmount);
         if (Number.isFinite(amt) && amt > 0) {
           await createFromFile(file, amt);
           return;
-        }
-      }
+       }
+     }
       setScanNote("HALO read the file but couldn't find a total — type the amount and it's done.");
-    } catch (err: unknown) {
-      const data = (err as { data?: { error?: string } })?.data;
+   } catch (err: unknown) {
+      const data = (err as { data?: { error?: string}})?.data;
       setScanError(data?.error ?? "Couldn't read the file. Check your connection and try again, or type the amount below.");
-    }
-  };
+   }
+ };
 
   const doCreateInvoice = async () => {
     if (!pendingFile) return;
@@ -351,30 +351,30 @@ export function JobFunnel({
     if (!amount || Number.isNaN(amount) || amount <= 0) return;
     try {
       await createFromFile(pendingFile, amount);
-    } catch {
+   } catch {
       setScanError("Couldn't save the invoice. Please try again.");
-    }
-  };
+   }
+ };
 
   const doCloseOut = () => {
     setMissing(null);
     setClosing(true);
     closeOut.mutate(
-      { id: job.id },
+      { id: job.id},
       {
         onSuccess: (res) => {
-          setClosedOut({ emailSent: !!res.emailSent });
+          setClosedOut({ emailSent: !!res.emailSent});
           setClosing(false);
           invalidateAll();
-        },
+       },
         onError: (err: unknown) => {
-          const data = (err as { data?: { missing?: string[]; error?: string } })?.data;
+          const data = (err as { data?: { missing?: string[]; error?: string}})?.data;
           setMissing(data?.missing?.length ? data.missing : [data?.error ?? "Close-out failed — please try again."]);
           setClosing(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   const pillBtn =
     "flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-50";
@@ -394,18 +394,18 @@ export function JobFunnel({
               <div className="flex flex-col items-center gap-1 shrink-0">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                    done ? s.done : isCurrent ? `${s.active} ring-4 ${s.ring}` : "bg-black/[0.05] text-muted-foreground"
-                  }`}
+                    done ? s.done : isCurrent ?`${s.active} ring-4 ${s.ring}` : "bg-black/[0.05] text-muted-foreground"
+                 }`}
                 >
                   {done ? <Check className="w-4 h-4" /> : <s.Icon className="w-4 h-4" />}
                 </div>
-                <span className={`text-[10px] font-bold uppercase tracking-wider ${done || isCurrent ? "text-[var(--ink)]" : "text-muted-foreground"}`}>
+                <span className={`text-[10px] font-bold   ${done || isCurrent ? "text-[var(--ink)]" : "text-muted-foreground"}`}>
                   {s.label}
                 </span>
               </div>
             </div>
           );
-        })}
+       })}
       </div>
 
       {/* Live crew line */}
@@ -446,11 +446,11 @@ export function JobFunnel({
         )}
         {crewDone && !closeDone && (
           payDone ? (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-100 text-teal-700">
               <Banknote className="w-3 h-3" /> Crew paid
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
               <Banknote className="w-3 h-3" /> Crew pay pending
             </span>
           )
@@ -460,7 +460,7 @@ export function JobFunnel({
       {/* Pre-close checklist — always visible so nothing surprises at close-out */}
       {!closeDone && (
         <div className="mt-3 flex items-center flex-wrap gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Before close-out:</span>
+          <span className="text-[10px] font-bold text-muted-foreground">Before close-out:</span>
           {([
             ["Crew assigned", crewDone],
             ["Work verified", workDone],
@@ -469,11 +469,11 @@ export function JobFunnel({
           ] as const).map(([label, done]) => (
             <span
               key={label}
-              className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+              className={`inline-flex items-center gap-1 text-[10px] font-bold   px-2 py-0.5 rounded-full border ${
                 done
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                   : "bg-black/[0.03] text-muted-foreground border-border"
-              }`}
+             }`}
             >
               {done ? <Check className="w-3 h-3" /> : <X className="w-3 h-3 opacity-60" />}
               {label}
@@ -529,12 +529,12 @@ export function JobFunnel({
                         <Icon className="w-3.5 h-3.5 mt-[1px] shrink-0" />
                         <span>
                           <b>{ev.label}</b>
-                          {ev.crewName ? ` — ${ev.crewName}` : ""}
+                          {ev.crewName ?` — ${ev.crewName}` : ""}
                           <span className="text-red-500"> · {fmtWhen(ev.at)}</span>
                         </span>
                       </li>
                     );
-                  })}
+                 })}
                 </ul>
               )}
             </div>
@@ -545,20 +545,20 @@ export function JobFunnel({
       {/* Invoice status badges */}
       {invoiceStarted && (
         <div className="mt-2 flex items-center flex-wrap gap-1.5">
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
             <Receipt className="w-3 h-3" /> {invoice!.invoiceNo}
           </span>
           {invoice!.status === "paid" ? (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Paid</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Paid</span>
           ) : invoice!.status === "sent" || invoice!.status === "past_due" ? (
             <>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">Sent</span>
-              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${invoice!.status === "past_due" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">Sent</span>
+              <span className={`text-[10px] font-bold   px-2 py-0.5 rounded-full ${invoice!.status === "past_due" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
                 {invoice!.status === "past_due" ? "Past due" : "Pending payment"}
               </span>
             </>
           ) : (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/[0.06] text-muted-foreground">Draft — not sent</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/[0.06] text-muted-foreground">Draft — not sent</span>
           )}
         </div>
       )}
@@ -618,7 +618,7 @@ export function JobFunnel({
               {invoice!.status === "draft" && (
                 <button
                   disabled={setStatus.isPending}
-                  onClick={() => setStatus.mutate({ id: invoice!.id, data: { status: "sent" } }, { onSuccess: invalidateAll })}
+                  onClick={() => setStatus.mutate({ id: invoice!.id, data: { status: "sent"}}, { onSuccess: invalidateAll})}
                   className={`${pillBtn} bg-[var(--ink)] text-background hover:opacity-90`}
                 >
                   <Send className="w-3 h-3" /> Mark sent
@@ -626,7 +626,7 @@ export function JobFunnel({
               )}
               <button
                 disabled={setStatus.isPending}
-                onClick={() => setStatus.mutate({ id: invoice!.id, data: { status: "paid" } }, { onSuccess: invalidateAll })}
+                onClick={() => setStatus.mutate({ id: invoice!.id, data: { status: "paid"}}, { onSuccess: invalidateAll})}
                 className={`${pillBtn} bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100`}
               >
                 <CircleDollarSign className="w-3 h-3" /> Payment received
@@ -670,7 +670,7 @@ export function JobFunnel({
                       placeholder="Amount"
                       value={amountDraft}
                       onChange={(e) => setAmountDraft(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") void doCreateInvoice(); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") void doCreateInvoice();}}
                       className="w-24 px-2 py-1 rounded-md border border-border bg-background text-xs tabular-nums"
                     />
                   </span>
@@ -681,7 +681,7 @@ export function JobFunnel({
                   >
                     <Receipt className="w-3 h-3" /> Save
                   </button>
-                  <button aria-label="Cancel upload" onClick={() => { setPendingFile(null); setScanNote(null); setScanError(null); }} className="text-muted-foreground hover:text-[var(--ink)]"><X className="w-3.5 h-3.5" /></button>
+                  <button aria-label="Cancel upload" onClick={() => { setPendingFile(null); setScanNote(null); setScanError(null);}} className="text-muted-foreground hover:text-[var(--ink)]"><X className="w-3.5 h-3.5" /></button>
                 </div>
               )}
             </div>
@@ -701,25 +701,25 @@ export function JobFunnel({
                         amount: job.crewRate ?? 0,
                         status: "completed",
                         jobId: job.id,
-                        note: `Job ${job.jobNo} close-out`,
-                      },
-                    },
-                    { onSuccess: invalidateAll },
+                        note:`Job ${job.jobNo} close-out`,
+                     },
+                   },
+                    { onSuccess: invalidateAll},
                   )
-                }
+               }
                 className="w-4 h-4 accent-teal-600"
               />
-              Crew paid{job.crewRate != null ? ` · $${job.crewRate.toLocaleString()}` : ""}
+              Crew paid{job.crewRate != null ?` · $${job.crewRate.toLocaleString()}` : ""}
               {createCrewPayment.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             </label>
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Payment pending</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Payment pending</span>
             {job.crewRate == null && (
               <span className="text-xs text-amber-700">Tip: set the crew rate above so the payout amount is right.</span>
             )}
           </div>
         ) : (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+            <div className="text-[10px] font-bold text-emerald-800">
               Final check — verify, then close out
             </div>
             <ul className="mt-2 space-y-1">
@@ -729,12 +729,12 @@ export function JobFunnel({
                 [
                   "Invoice paid",
                   invoiceDone,
-                  invoice ? `${invoice.invoiceNo} · $${invoice.amount.toLocaleString()}` : undefined,
+                  invoice ?`${invoice.invoiceNo} · $${invoice.amount.toLocaleString()}` : undefined,
                 ],
                 [
                   "Crew paid",
                   payDone,
-                  job.crewRate != null ? `$${job.crewRate.toLocaleString()}` : undefined,
+                  job.crewRate != null ?`$${job.crewRate.toLocaleString()}` : undefined,
                 ],
               ] as const).map(([label, done, detail]) => (
                 <li key={label} className="flex items-center gap-2 text-sm">
@@ -783,7 +783,7 @@ export function JobFunnel({
       {/* Red safeguard warning */}
       {missing && (
         <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
-          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-700">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-red-700">
             <AlertTriangle className="w-3.5 h-3.5" /> Heads up
           </div>
           <ul className="mt-1.5 space-y-1">

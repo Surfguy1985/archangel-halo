@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { useParams } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState} from "react";
+import { useParams} from "wouter";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useGetPortal,
   useListPortalMessages,
@@ -24,8 +24,8 @@ import {
   type PortalBundle,
   type PortalOffer,
 } from "@workspace/api-client-react";
-import { WingsGuideContent, LangToggle, type GuideLang } from "@/components/WingsGuideDialog";
-import { useUpload } from "@workspace/object-storage-web";
+import { WingsGuideContent, LangToggle, type GuideLang} from "@/components/WingsGuideDialog";
+import { useUpload} from "@workspace/object-storage-web";
 import {
   Calendar,
   MessageSquare,
@@ -50,7 +50,7 @@ import {
   Feather,
   ShieldCheck as ShieldIcon,
 } from "lucide-react";
-import { downloadW9Pdf } from "@/lib/w9pdf";
+import { downloadW9Pdf} from "@/lib/w9pdf";
 import WelcomeKitTab from "./WelcomeKitTab";
 
 type Tab =
@@ -69,7 +69,7 @@ function localToday(): string {
   const d = new Date();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
+  return`${d.getFullYear()}-${m}-${day}`;
 }
 
 function formatWhen(iso?: string | null): string {
@@ -79,32 +79,32 @@ function formatWhen(iso?: string | null): string {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
+ });
 }
 
 function formatDay(iso?: string | null): string {
   if (!iso) return "";
-  const d = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);
+  const d = new Date(iso.length <= 10 ?`${iso}T00:00:00` : iso);
   return d.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
-  });
+ });
 }
 
 export default function CrewPortal() {
-  const { token } = useParams<{ token: string }>();
+  const { token} = useParams<{ token: string}>();
   const [tab, setTab] = useState<Tab>("schedule");
 
-  const { data: portal, isLoading, isError } = useGetPortal(token);
+  const { data: portal, isLoading, isError} = useGetPortal(token);
 
   const pendingOffersCount = portal?.offers?.filter(o => o.status === "pending" && !o.filledByOther).length || 0;
 
   useEffect(() => {
     if (pendingOffersCount > 0 && tab !== "offers") {
       setTab("offers");
-    }
-  }, [pendingOffersCount]);
+   }
+ }, [pendingOffersCount]);
 
   if (isLoading) {
     return (
@@ -112,7 +112,7 @@ export default function CrewPortal() {
         <Loader2 className="w-6 h-6 animate-spin text-[var(--gold)]" />
       </div>
     );
-  }
+ }
 
   if (isError || !portal) {
     return (
@@ -126,25 +126,25 @@ export default function CrewPortal() {
         </div>
       </div>
     );
-  }
+ }
 
-  const tabs: { key: Tab; label: string; icon: any; badge?: number }[] = [
-    { key: "offers", label: "Offers", icon: Briefcase, badge: pendingOffersCount },
-    { key: "schedule", label: "Schedule", icon: Calendar },
-    { key: "packets", label: "Welcome Kit", icon: PackageCheck },
-    { key: "messages", label: "Messages", icon: MessageSquare },
-    { key: "checkin", label: "Check-in", icon: MapPin },
-    { key: "photos", label: "Photos", icon: Camera },
-    { key: "documents", label: "Docs", icon: FileText },
-    { key: "pay", label: "Pay", icon: Wallet },
-    { key: "w9", label: "W-9", icon: ClipboardCheck },
-    { key: "wings", label: "Wings", icon: Feather },
+  const tabs: { key: Tab; label: string; icon: any; badge?: number}[] = [
+    { key: "offers", label: "Offers", icon: Briefcase, badge: pendingOffersCount},
+    { key: "schedule", label: "Schedule", icon: Calendar},
+    { key: "packets", label: "Welcome Kit", icon: PackageCheck},
+    { key: "messages", label: "Messages", icon: MessageSquare},
+    { key: "checkin", label: "Check-in", icon: MapPin},
+    { key: "photos", label: "Photos", icon: Camera},
+    { key: "documents", label: "Docs", icon: FileText},
+    { key: "pay", label: "Pay", icon: Wallet},
+    { key: "w9", label: "W-9", icon: ClipboardCheck},
+    { key: "wings", label: "Wings", icon: Feather},
   ];
 
   return (
     <div className="min-h-screen bg-[var(--bg,#f4f2ee)]">
       <header className="bg-[var(--ink)] text-white px-[18px] pt-[20px] pb-[16px]">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-[var(--gold-light)]">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] text-[var(--gold-light)]">
           ArchAngel · HALO
         </div>
         <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[3px]">
@@ -167,7 +167,7 @@ export default function CrewPortal() {
                   tab === t.key
                     ? "bg-[var(--ink)] text-white"
                     : "bg-card text-muted-foreground"
-                }`}
+               }`}
               >
                 <Icon className="w-[14px] h-[14px]" /> {t.label}
                 {t.badge ? (
@@ -177,7 +177,7 @@ export default function CrewPortal() {
                 ) : null}
               </button>
             );
-          })}
+         })}
         </div>
       </div>
 
@@ -206,7 +206,7 @@ export default function CrewPortal() {
 const card = "bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px]";
 
 const wingsMoney = (n: number) =>
-  (n ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+  (n ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2});
 
 const WINGS_TIER_STYLES: Record<string, string> = {
   TRAINING: "bg-slate-100 text-slate-700",
@@ -216,8 +216,8 @@ const WINGS_TIER_STYLES: Record<string, string> = {
   PLATINUM: "bg-violet-100 text-violet-800",
 };
 
-function WingsTab({ token }: { token: string }) {
-  const { data: wings, isLoading, isError } = useGetPortalWings(token);
+function WingsTab({ token}: { token: string}) {
+  const { data: wings, isLoading, isError} = useGetPortalWings(token);
   const [lang, setLang] = useState<GuideLang>("en");
 
   if (isLoading) {
@@ -226,7 +226,7 @@ function WingsTab({ token }: { token: string }) {
         <Loader2 className="w-6 h-6 animate-spin text-[var(--gold)]" />
       </div>
     );
-  }
+ }
 
   if (isError || !wings) {
     return (
@@ -240,7 +240,7 @@ function WingsTab({ token }: { token: string }) {
         </div>
       </div>
     );
-  }
+ }
 
   const tierCls = WINGS_TIER_STYLES[wings.tier] || "bg-muted text-muted-foreground";
 
@@ -248,10 +248,10 @@ function WingsTab({ token }: { token: string }) {
     <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
       {/* Score hero */}
       <div className={`${card} text-center`}>
-        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Your Halo Score</div>
+        <div className="text-[11px] font-bold tracking-[0.18em] text-muted-foreground">Your Halo Score</div>
         <div className="text-[56px] leading-none font-display font-bold text-[var(--ink)] mt-[6px]">{Math.round(wings.haloScore)}</div>
         <div className="mt-[8px] flex items-center justify-center gap-[8px]">
-          <span className={`px-[10px] py-[3px] rounded-full text-[11px] font-bold uppercase tracking-wider ${tierCls}`}>{wings.tier}</span>
+          <span className={`px-[10px] py-[3px] rounded-full text-[11px] font-bold   ${tierCls}`}>{wings.tier}</span>
           <span className="text-[12px] text-muted-foreground">Confidence {Math.round((wings.scoreConfidence ?? 0) * 100)}%</span>
         </div>
         {wings.scoreReasons && wings.scoreReasons.length > 0 && (
@@ -264,7 +264,7 @@ function WingsTab({ token }: { token: string }) {
         <div className="bg-[var(--gold-tint)] border border-[rgba(185,138,47,0.28)] text-[var(--gold-dark)] rounded-[16px] px-[16px] py-[12px] flex items-center gap-[10px]">
           <ShieldIcon className="w-[20px] h-[20px] shrink-0" />
           <div className="text-[13.5px] font-semibold">
-            Founding member — {wings.founderStatus}{wings.founderNumber ? ` #${wings.founderNumber}` : ""}
+            Founding member — {wings.founderStatus}{wings.founderNumber ?` #${wings.founderNumber}` : ""}
           </div>
         </div>
       )}
@@ -272,14 +272,14 @@ function WingsTab({ token }: { token: string }) {
       {/* Sponsor */}
       {wings.sponsorName && (
         <div className={`${card}`}>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Your sponsor</div>
+          <div className="text-[11px] font-bold text-muted-foreground">Your sponsor</div>
           <div className="text-[15px] font-semibold mt-[2px]">{wings.sponsorName}</div>
         </div>
       )}
 
       {/* Recruits */}
       <div className={`${card}`}>
-        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[8px]">Your recruits</div>
+        <div className="text-[11px] font-bold text-muted-foreground mb-[8px]">Your recruits</div>
         {wings.recruits.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">No recruits yet. Sponsor a crew to earn overrides on their jobs.</p>
         ) : (
@@ -288,7 +288,7 @@ function WingsTab({ token }: { token: string }) {
               <div key={i} className="flex items-center justify-between">
                 <span className="text-[14px] font-medium">{r.crewName}</span>
                 <span className="flex items-center gap-[6px]">
-                  <span className={`px-[8px] py-[2px] rounded-full text-[10px] font-bold uppercase ${WINGS_TIER_STYLES[r.tier] || "bg-muted text-muted-foreground"}`}>{r.tier}</span>
+                  <span className={`px-[8px] py-[2px] rounded-full text-[10px] font-bold  ${WINGS_TIER_STYLES[r.tier] || "bg-muted text-muted-foreground"}`}>{r.tier}</span>
                   <span className="text-[13px] font-semibold">{Math.round(r.haloScore)}</span>
                 </span>
               </div>
@@ -299,7 +299,7 @@ function WingsTab({ token }: { token: string }) {
 
       {/* Override earnings */}
       <div className={`${card}`}>
-        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[8px]">Your override earnings</div>
+        <div className="text-[11px] font-bold text-muted-foreground mb-[8px]">Your override earnings</div>
         {wings.overrides.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">No overrides yet.</p>
         ) : (
@@ -308,7 +308,7 @@ function WingsTab({ token }: { token: string }) {
               <div key={o.id} className="border-b border-border/50 pb-[8px] last:border-0 last:pb-0">
                 <div className="flex items-center justify-between">
                   <span className="text-[13.5px] font-semibold">{o.jobNo || "Job"}</span>
-                  <span className="text-[10px] font-bold uppercase px-[8px] py-[2px] rounded-full bg-[var(--paper)] text-muted-foreground">{o.status}</span>
+                  <span className="text-[10px] font-bold px-[8px] py-[2px] rounded-full bg-[var(--paper)] text-muted-foreground">{o.status}</span>
                 </div>
                 <div className="flex gap-[16px] text-[12px] text-muted-foreground mt-[3px]">
                   <span>Immediate <b className="text-foreground">{wingsMoney(o.immediateAmount)}</b></span>
@@ -322,19 +322,19 @@ function WingsTab({ token }: { token: string }) {
 
       {/* Reserve totals */}
       <div className={`${card}`}>
-        <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[8px]">Guardian Reserve</div>
+        <div className="text-[11px] font-bold text-muted-foreground mb-[8px]">Guardian Reserve</div>
         <div className="grid grid-cols-3 gap-[8px] text-center">
           <div>
             <div className="text-[18px] font-display font-bold text-[var(--ink)]">{wingsMoney(wings.reserve.held)}</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Held</div>
+            <div className="text-[10px] text-muted-foreground">Held</div>
           </div>
           <div>
             <div className="text-[18px] font-display font-bold text-[var(--green,#2e7d32)]">{wingsMoney(wings.reserve.released)}</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Released</div>
+            <div className="text-[10px] text-muted-foreground">Released</div>
           </div>
           <div>
             <div className="text-[18px] font-display font-bold text-muted-foreground">{wingsMoney(wings.reserve.debited)}</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Debited</div>
+            <div className="text-[10px] text-muted-foreground">Debited</div>
           </div>
         </div>
       </div>
@@ -353,35 +353,35 @@ function WingsTab({ token }: { token: string }) {
   );
 }
 
-function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
+function OffersTab({ portal, token}: { portal: PortalBundle; token: string}) {
   const queryClient = useQueryClient();
   const respond = useRespondPortalOffer();
   const [declineConfirmId, setDeclineConfirmId] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<{ [id: string]: string }>({});
-  const [errorMsg, setErrorMsg] = useState<{ [id: string]: string }>({});
+  const [successMsg, setSuccessMsg] = useState<{ [id: string]: string}>({});
+  const [errorMsg, setErrorMsg] = useState<{ [id: string]: string}>({});
 
   const offers = portal.offers || [];
 
   const handleRespond = (offerId: string, decision: "approved" | "declined") => {
-    setErrorMsg((prev) => ({ ...prev, [offerId]: "" }));
+    setErrorMsg((prev) => ({ ...prev, [offerId]: ""}));
     respond.mutate(
-      { token, offerId, data: { decision } },
+      { token, offerId, data: { decision}},
       {
         onSuccess: (res) => {
           if (decision === "approved") {
-            setSuccessMsg((prev) => ({ ...prev, [offerId]: res.message ?? "You're on the schedule." }));
-          }
+            setSuccessMsg((prev) => ({ ...prev, [offerId]: res.message ?? "You're on the schedule."}));
+         }
           queryClient.invalidateQueries();
-        },
+       },
         onError: (err: any) => {
           setErrorMsg((prev) => ({
             ...prev,
             [offerId]: err?.data?.error ?? "Something went wrong",
-          }));
-        },
-      }
+         }));
+       },
+     }
     );
-  };
+ };
 
   if (offers.length === 0) {
     return (
@@ -395,7 +395,7 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
         </div>
       </div>
     );
-  }
+ }
 
   return (
     <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
@@ -414,44 +414,44 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
               isPending
                 ? "border-[var(--gold)]"
                 : "border-border opacity-80"
-            }`}
+           }`}
           >
             <div className={`px-[16px] py-[12px] flex items-start justify-between border-b ${
               isPending ? "bg-[var(--gold-tint)] border-[var(--gold)]/20" : "bg-[var(--paper)] border-border"
-            }`}>
+           }`}>
               <div>
-                <div className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground flex items-center gap-[6px]">
+                <div className="text-[11px] font-bold text-muted-foreground flex items-center gap-[6px]">
                   {isPending && <span className="w-[8px] h-[8px] rounded-full bg-[var(--gold-light)] animate-pulse" />}
-                  {o.jobNo} {o.category ? `· ${o.category}` : ""}
+                  {o.jobNo} {o.category ?`· ${o.category}` : ""}
                 </div>
                 <div className="font-display font-bold text-[18px] mt-[2px] leading-tight">
                   {o.propertyName || "Assignment"}
-                  {o.unitNo ? ` · Unit ${o.unitNo}` : ""}
+                  {o.unitNo ?` · Unit ${o.unitNo}` : ""}
                 </div>
               </div>
               <div className="text-right">
                 {isPending && (
-                  <div className="text-[11px] font-bold uppercase text-[var(--gold-dark)] bg-white px-[8px] py-[2px] rounded-full shadow-sm">
+                  <div className="text-[11px] font-bold text-[var(--gold-dark)] bg-white px-[8px] py-[2px] rounded-full shadow-sm">
                     Action Needed
                   </div>
                 )}
                 {isFilled && (
-                  <div className="text-[11px] font-bold uppercase text-muted-foreground bg-black/5 px-[8px] py-[2px] rounded-full">
+                  <div className="text-[11px] font-bold text-muted-foreground bg-black/5 px-[8px] py-[2px] rounded-full">
                     Filled by another crew
                   </div>
                 )}
                 {o.status === "approved" && (
-                  <div className="text-[11px] font-bold uppercase text-green-700 bg-green-50 px-[8px] py-[2px] rounded-full flex items-center gap-1">
+                  <div className="text-[11px] font-bold text-green-700 bg-green-50 px-[8px] py-[2px] rounded-full flex items-center gap-1">
                     <Check className="w-3 h-3" /> Accepted
                   </div>
                 )}
                 {o.status === "declined" && (
-                  <div className="text-[11px] font-bold uppercase text-red-700 bg-red-50 px-[8px] py-[2px] rounded-full">
+                  <div className="text-[11px] font-bold text-red-700 bg-red-50 px-[8px] py-[2px] rounded-full">
                     Declined
                   </div>
                 )}
                 {o.status === "withdrawn" && (
-                  <div className="text-[11px] font-bold uppercase text-muted-foreground bg-black/5 px-[8px] py-[2px] rounded-full">
+                  <div className="text-[11px] font-bold text-muted-foreground bg-black/5 px-[8px] py-[2px] rounded-full">
                     Withdrawn
                   </div>
                 )}
@@ -465,7 +465,7 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
                   o.scheduleType === "flex"
                     ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                     : "bg-[var(--gold-tint)] border-[rgba(185,138,47,0.28)] text-[var(--gold-dark)]"
-                }`}>
+               }`}>
                   {o.scheduleType === "flex" ? (
                     <><b>Flex job</b> — work on your own time{o.flexDueBy ? <>, finish by <b>{formatDay(o.flexDueBy)}</b></> : " within the set timeframe"}.</>
                   ) : (
@@ -479,14 +479,14 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
                   <div className="flex items-start gap-[8px]">
                     <Calendar className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
                     <div>
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">When needed</div>
-                      <div className="text-[13px] font-semibold">{o.scheduleType === "flex" && o.flexDueBy ? `By ${formatDay(o.flexDueBy)}` : o.scheduledOn ? formatDay(o.scheduledOn) : "TBD"}</div>
+                      <div className="text-[11px] font-bold text-muted-foreground">When needed</div>
+                      <div className="text-[13px] font-semibold">{o.scheduleType === "flex" && o.flexDueBy ?`By ${formatDay(o.flexDueBy)}` : o.scheduledOn ? formatDay(o.scheduledOn) : "TBD"}</div>
                     </div>
                   </div>
                   <div className="flex items-start gap-[8px]">
                     <MapPin className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
                     <div>
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Location</div>
+                      <div className="text-[11px] font-bold text-muted-foreground">Location</div>
                       <div className="text-[13px] font-semibold leading-tight">
                         {[o.propertyAddress, o.propertyCity].filter(Boolean).join(", ") || "No address provided"}
                       </div>
@@ -508,15 +508,15 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
                 <div className="flex items-start gap-[8px]">
                   <Home className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
                   <div>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Unit(s) to work</div>
-                    <div className="text-[13px] font-semibold">{o.unitNo ? `Unit ${o.unitNo}` : "See scope of work — ask the site contact if unsure"}</div>
+                    <div className="text-[11px] font-bold text-muted-foreground">Unit(s) to work</div>
+                    <div className="text-[13px] font-semibold">{o.unitNo ?`Unit ${o.unitNo}` : "See scope of work — ask the site contact if unsure"}</div>
                   </div>
                 </div>
 
                 {/* Scope */}
                 {(o.description || (o.tasks && o.tasks.length > 0)) && (
                   <div className="mt-[4px] pt-[12px] border-t border-border">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[6px]">Scope of work</div>
+                    <div className="text-[11px] font-bold text-muted-foreground mb-[6px]">Scope of work</div>
                     {o.description && <div className="text-[13.5px] leading-relaxed mb-[8px]">{o.description}</div>}
                     {o.tasks && o.tasks.length > 0 && (
                       <ul className="flex flex-col gap-[4px]">
@@ -534,7 +534,7 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
                 {/* Photos */}
                 {o.photos && o.photos.length > 0 && (
                   <div className="mt-[4px] pt-[12px] border-t border-border">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[6px]">Reference Photos</div>
+                    <div className="text-[11px] font-bold text-muted-foreground mb-[6px]">Reference Photos</div>
                     <div className="flex gap-[8px] overflow-x-auto pb-[4px]">
                       {o.photos.map((p) => (
                         <a
@@ -554,7 +554,7 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
                 {/* Contact */}
                 {(o.contactName || o.contactPhone || o.contactEmail) && (
                   <div className="mt-[4px] pt-[12px] border-t border-border">
-                     <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[2px]">Site Contact</div>
+                     <div className="text-[11px] font-bold text-muted-foreground mb-[2px]">Site Contact</div>
                      <div className="text-[13px] font-semibold">
                        {o.contactName || "Contact"}
                        {o.contactRole ? <span className="text-muted-foreground font-normal"> ({o.contactRole})</span> : null}
@@ -631,12 +631,12 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
             </div>
           </div>
         );
-      })}
+     })}
     </div>
   );
 }
 
-function ScheduleTab({ portal }: { portal: PortalBundle }) {
+function ScheduleTab({ portal}: { portal: PortalBundle}) {
   const items = portal.schedule;
   return (
     <div className="animate-in fade-in duration-200">
@@ -654,7 +654,7 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
             const mapsQuery = s.propertyAddress
               ? s.propertyAddress
               : s.propertyName
-                ? `${s.propertyName}${s.propertyCity ? `, ${s.propertyCity}` : ""}`
+                ?`${s.propertyName}${s.propertyCity ?`, ${s.propertyCity}` : ""}`
                 : null;
             return (
               <div
@@ -672,14 +672,14 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
                     </span>
                   )}
                   {isToday && (
-                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wide px-[8px] py-[2px] rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark,#8f6a1f)]">
+                    <span className="ml-auto text-[10px] font-bold px-[8px] py-[2px] rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark,#8f6a1f)]">
                       Today
                     </span>
                   )}
                 </div>
                 <div className="font-semibold text-[14.5px]">
                   {s.propertyName || s.description || "Assignment"}
-                  {s.unitNo ? ` · Unit ${s.unitNo}` : ""}
+                  {s.unitNo ?` · Unit ${s.unitNo}` : ""}
                 </div>
                 {s.propertyName && s.description && (
                   <div className="text-[12.5px] text-muted-foreground mt-[2px]">
@@ -696,7 +696,7 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
                     <MapPin className="w-[13px] h-[13px] mt-[2px] shrink-0" />
                     <span>
                       {s.propertyAddress ||
-                        `${s.propertyName}${s.propertyCity ? `, ${s.propertyCity}` : ""}`}
+                       `${s.propertyName}${s.propertyCity ?`, ${s.propertyCity}` : ""}`}
                     </span>
                   </a>
                 )}
@@ -719,7 +719,7 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
                 )}
                 {s.tasks && s.tasks.length > 0 && (
                   <div className="mt-[10px] bg-[var(--paper)] rounded-[11px] px-[12px] py-[10px]">
-                    <div className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-[6px]">
+                    <div className="text-[10.5px] font-bold tracking-[0.12em] text-muted-foreground mb-[6px]">
                       {isToday ? "Today's tasks" : "Task list"}
                     </div>
                     <ul className="flex flex-col gap-[4px]">
@@ -742,21 +742,21 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
                 )}
               </div>
             );
-          })}
+         })}
         </div>
       )}
     </div>
   );
 }
 
-function MessagesTab({ token }: { token: string }) {
+function MessagesTab({ token}: { token: string}) {
   const queryClient = useQueryClient();
-  const { data: messages } = useListPortalMessages(token, {
+  const { data: messages} = useListPortalMessages(token, {
     query: {
       queryKey: getListPortalMessagesQueryKey(token),
       refetchInterval: 8000,
-    },
-  });
+   },
+ });
   const send = useSendPortalMessage();
   const [draft, setDraft] = useState("");
 
@@ -764,17 +764,17 @@ function MessagesTab({ token }: { token: string }) {
     const body = draft.trim();
     if (!body) return;
     send.mutate(
-      { token, data: { body } },
+      { token, data: { body}},
       {
         onSuccess: () => {
           setDraft("");
           queryClient.invalidateQueries({
             queryKey: getListPortalMessagesQueryKey(token),
-          });
-        },
-      },
+         });
+       },
+     },
     );
-  };
+ };
 
   return (
     <div className="animate-in fade-in duration-200">
@@ -792,7 +792,7 @@ function MessagesTab({ token }: { token: string }) {
                   m.sender === "crew"
                     ? "self-end bg-[var(--ink)] text-white rounded-br-[4px]"
                     : "self-start bg-[rgba(23,24,28,0.06)] text-foreground rounded-bl-[4px]"
-                }`}
+               }`}
               >
                 <div>{m.body}</div>
                 <div
@@ -826,7 +826,7 @@ function MessagesTab({ token }: { token: string }) {
   );
 }
 
-function CheckinTab({ token }: { token: string }) {
+function CheckinTab({ token}: { token: string}) {
   const queryClient = useQueryClient();
   const checkin = useCreatePortalCheckin();
   const [status, setStatus] = useState<string | null>(null);
@@ -838,7 +838,7 @@ function CheckinTab({ token }: { token: string }) {
     if (!navigator.geolocation) {
       setStatus("Location isn't available on this device.");
       return;
-    }
+   }
     setBusy(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -850,8 +850,8 @@ function CheckinTab({ token }: { token: string }) {
               lng: pos.coords.longitude,
               accuracy: pos.coords.accuracy,
               label: label.trim() || null,
-            },
-          },
+           },
+         },
           {
             onSuccess: () => {
               setBusy(false);
@@ -859,22 +859,22 @@ function CheckinTab({ token }: { token: string }) {
               setStatus("Checked in! The office can see your location.");
               queryClient.invalidateQueries({
                 queryKey: getGetPortalQueryKey(token),
-              });
-            },
+             });
+           },
             onError: () => {
               setBusy(false);
               setStatus("Couldn't save your check-in. Try again.");
-            },
-          },
+           },
+         },
         );
-      },
+     },
       () => {
         setBusy(false);
         setStatus("Location permission was denied.");
-      },
-      { enableHighAccuracy: true, timeout: 15000 },
+     },
+      { enableHighAccuracy: true, timeout: 15000},
     );
-  };
+ };
 
   return (
     <div className="animate-in fade-in duration-200">
@@ -920,18 +920,18 @@ function CheckinTab({ token }: { token: string }) {
   );
 }
 
-function PhotosTab({ token }: { token: string }) {
+function PhotosTab({ token}: { token: string}) {
   const queryClient = useQueryClient();
-  const { data: photos } = useListPortalPhotos(token, {
-    query: { queryKey: getListPortalPhotosQueryKey(token) },
-  });
+  const { data: photos} = useListPortalPhotos(token, {
+    query: { queryKey: getListPortalPhotosQueryKey(token)},
+ });
   const sendPhoto = useUploadPortalPhoto();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const { uploadFile } = useUpload({
+  const { uploadFile} = useUpload({
     onError: () =>
       setUploadError("Upload failed. Check your connection and try again."),
-  });
+ });
 
   const onFilesPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -945,18 +945,18 @@ function PhotosTab({ token }: { token: string }) {
         if (!res) return;
         await sendPhoto.mutateAsync({
           token,
-          data: { storagePath: res.objectPath, takenOn: localToday() },
-        });
-      }
+          data: { storagePath: res.objectPath, takenOn: localToday()},
+       });
+     }
       queryClient.invalidateQueries({
         queryKey: getListPortalPhotosQueryKey(token),
-      });
-    } catch {
+     });
+   } catch {
       setUploadError("Your photo uploaded but we couldn't save it. Please try again.");
-    } finally {
+   } finally {
       setSending(false);
-    }
-  };
+   }
+ };
 
   return (
     <div className="animate-in fade-in duration-200">
@@ -1010,12 +1010,12 @@ function PhotosTab({ token }: { token: string }) {
   );
 }
 
-function DocumentsTab({ token }: { token: string }) {
+function DocumentsTab({ token}: { token: string}) {
   const queryClient = useQueryClient();
-  const { data: documents } = useListPortalDocuments(token);
+  const { data: documents} = useListPortalDocuments(token);
   const upload = useUploadPortalDocument();
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const { uploadFile, isUploading } = useUpload({
+  const { uploadFile, isUploading} = useUpload({
     onSuccess: async (res) => {
       try {
         await upload.mutateAsync({
@@ -1025,24 +1025,24 @@ function DocumentsTab({ token }: { token: string }) {
             storagePath: res.objectPath,
             contentType: res.metadata.contentType,
             size: res.metadata.size,
-          },
-        });
+         },
+       });
         setUploadError(null);
         queryClient.invalidateQueries({
           queryKey: getListPortalDocumentsQueryKey(token),
-        });
-      } catch {
+       });
+     } catch {
         setUploadError("Your file uploaded but we couldn't save it. Please try again.");
-      }
-    },
+     }
+   },
     onError: () => setUploadError("Upload failed. Check your connection and try again."),
-  });
+ });
 
   const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) uploadFile(file);
     e.target.value = "";
-  };
+ };
 
   return (
     <div className="animate-in fade-in duration-200">
@@ -1068,7 +1068,7 @@ function DocumentsTab({ token }: { token: string }) {
       ) : (
         <div className={card}>
           {documents.map((d, idx) => {
-            const url = `/api/storage${d.storagePath}`;
+            const url =`/api/storage${d.storagePath}`;
             return (
               <div
                 key={d.id}
@@ -1097,7 +1097,7 @@ function DocumentsTab({ token }: { token: string }) {
                 </a>
               </div>
             );
-          })}
+         })}
         </div>
       )}
     </div>
@@ -1128,19 +1128,19 @@ function PaymentTab({
         data: {
           preferredPaymentMethod: method || null,
           paymentDetails: details || null,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
           setSaved(true);
           queryClient.invalidateQueries({
             queryKey: getGetPortalQueryKey(token),
-          });
+         });
           setTimeout(() => setSaved(false), 1800);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <div className="animate-in fade-in duration-200">
@@ -1160,7 +1160,7 @@ function PaymentTab({
                 method === m
                   ? "bg-[var(--ink)] text-white border-[var(--ink)]"
                   : "bg-background text-foreground border-border"
-              }`}
+             }`}
             >
               {m}
             </button>
@@ -1195,18 +1195,18 @@ function PaymentTab({
 }
 
 const TAX_CLASSES = [
-  { key: "individual", label: "Individual / sole proprietor" },
-  { key: "c_corp", label: "C Corporation" },
-  { key: "s_corp", label: "S Corporation" },
-  { key: "partnership", label: "Partnership" },
-  { key: "trust_estate", label: "Trust / estate" },
-  { key: "llc", label: "LLC" },
-  { key: "other", label: "Other" },
+  { key: "individual", label: "Individual / sole proprietor"},
+  { key: "c_corp", label: "C Corporation"},
+  { key: "s_corp", label: "S Corporation"},
+  { key: "partnership", label: "Partnership"},
+  { key: "trust_estate", label: "Trust / estate"},
+  { key: "llc", label: "LLC"},
+  { key: "other", label: "Other"},
 ];
 
-function W9Tab({ token }: { token: string }) {
+function W9Tab({ token}: { token: string}) {
   const queryClient = useQueryClient();
-  const { data: w9, isLoading } = useGetPortalW9(token);
+  const { data: w9, isLoading} = useGetPortalW9(token);
   const submit = useSubmitPortalW9();
   const [form, setForm] = useState<W9Data>({});
   const [saved, setSaved] = useState(false);
@@ -1214,10 +1214,10 @@ function W9Tab({ token }: { token: string }) {
 
   useEffect(() => {
     if (w9?.data) setForm(w9.data);
-  }, [w9?.data]);
+ }, [w9?.data]);
 
   const set = (k: keyof W9Data, v: string | boolean) =>
-    setForm((f) => ({ ...f, [k]: v }));
+    setForm((f) => ({ ...f, [k]: v}));
 
   const tinType = form.tinType === "ein" ? "ein" : "ssn";
 
@@ -1226,41 +1226,41 @@ function W9Tab({ token }: { token: string }) {
     if (!form.name || String(form.name).trim() === "") {
       setErr("Name is required (as shown on your income tax return).");
       return;
-    }
+   }
     if (!form.taxClassification) {
       setErr("Select a federal tax classification.");
       return;
-    }
+   }
     if (tinType === "ssn" ? !form.ssn : !form.ein) {
       setErr(`Enter your ${tinType === "ssn" ? "SSN" : "EIN"}.`);
       return;
-    }
+   }
     if (!form.signature || !form.certified) {
       setErr("Type your signature and check the certification box.");
       return;
-    }
+   }
     submit.mutate(
       {
         token,
         data: {
           ...form,
           signedDate: form.signedDate || localToday(),
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
           setSaved(true);
           queryClient.invalidateQueries({
             queryKey: getGetPortalW9QueryKey(token),
-          });
+         });
           queryClient.invalidateQueries({
             queryKey: getGetPortalQueryKey(token),
-          });
+         });
           setTimeout(() => setSaved(false), 2200);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   if (isLoading) {
     return (
@@ -1268,7 +1268,7 @@ function W9Tab({ token }: { token: string }) {
         <Loader2 className="w-5 h-5 animate-spin text-[var(--gold)]" />
       </div>
     );
-  }
+ }
 
   const field =
     "w-full rounded-[11px] border border-border bg-background px-[12px] py-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40";
@@ -1291,7 +1291,7 @@ function W9Tab({ token }: { token: string }) {
             {formatWhen(w9.submittedAt)}
           </div>
           <button
-            onClick={() => downloadW9Pdf({ ...w9.data, ...form })}
+            onClick={() => downloadW9Pdf({ ...w9.data, ...form})}
             className="w-full mt-[10px] flex items-center justify-center gap-[7px] rounded-[11px] py-[10px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
           >
             <Download className="w-[15px] h-[15px]" /> Download W-9 (PDF)
@@ -1328,7 +1328,7 @@ function W9Tab({ token }: { token: string }) {
                   form.taxClassification === c.key
                     ? "bg-[var(--ink)] text-white border-[var(--ink)]"
                     : "bg-background border-border"
-                }`}
+               }`}
               >
                 {c.label}
               </button>
@@ -1427,7 +1427,7 @@ function W9Tab({ token }: { token: string }) {
               tinType === "ssn"
                 ? "bg-[var(--ink)] text-white border-[var(--ink)]"
                 : "bg-background border-border"
-            }`}
+           }`}
           >
             SSN
           </button>
@@ -1437,7 +1437,7 @@ function W9Tab({ token }: { token: string }) {
               tinType === "ein"
                 ? "bg-[var(--ink)] text-white border-[var(--ink)]"
                 : "bg-background border-border"
-            }`}
+           }`}
           >
             EIN
           </button>

@@ -17,10 +17,10 @@ import {
   getGetPropertyQueryKey,
   useCreateJobTrackerShare,
 } from "@workspace/api-client-react";
-import { MarginSection } from "@/components/MarginSection";
-import { CrewPhotosSection } from "@/components/CrewPhotosSection";
-import { useQueryClient } from "@tanstack/react-query";
-import { useParams, Link, useLocation } from "wouter";
+import { MarginSection} from "@/components/MarginSection";
+import { CrewPhotosSection} from "@/components/CrewPhotosSection";
+import { useQueryClient} from "@tanstack/react-query";
+import { useParams, Link, useLocation} from "wouter";
 import {
   ChevronLeft,
   Sparkles,
@@ -33,9 +33,9 @@ import {
   Radio,
   FileDown,
 } from "lucide-react";
-import { useState } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
+import { useState} from "react";
+import { Skeleton} from "@/components/ui/skeleton";
+import { useToast} from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -63,20 +63,20 @@ function pad(n: number) {
 }
 function localToday() {
   const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
-const HOURS = Array.from({ length: 24 }, (_, h) => `${pad(h)}:00`);
+const HOURS = Array.from({ length: 24}, (_, h) =>`${pad(h)}:00`);
 
 export default function JobDetail() {
   const params = useParams();
   const id = params.id as string;
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { data, isLoading } = useGetJob(id, {
-    query: { enabled: !!id, queryKey: getGetJobQueryKey(id) },
-  });
-  const { data: crews } = useListCrews();
+  const { toast} = useToast();
+  const { data, isLoading} = useGetJob(id, {
+    query: { enabled: !!id, queryKey: getGetJobQueryKey(id)},
+ });
+  const { data: crews} = useListCrews();
 
   const [recapOpen, setRecapOpen] = useState(false);
   const [subject, setSubject] = useState("");
@@ -100,131 +100,131 @@ export default function JobDetail() {
 
   const copyTrackerLink = () => {
     trackerShare.mutate(
-      { id },
+      { id},
       {
         onSuccess: async (r) => {
-          const url = r.link || `${window.location.origin}/track/${r.token}`;
+          const url = r.link ||`${window.location.origin}/track/${r.token}`;
           try {
             await navigator.clipboard.writeText(url);
             setTrackerCopied(true);
             setTimeout(() => setTrackerCopied(false), 2500);
-            toast({ title: "Live tracker link copied", description: "Paste it into a text or email to the property manager." });
-          } catch {
+            toast({ title: "Live tracker link copied", description: "Paste it into a text or email to the property manager."});
+         } catch {
             window.prompt("Copy this live tracker link:", url);
-          }
-        },
+         }
+       },
         onError: (e) =>
-          toast({ title: "Couldn't create tracker link", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't create tracker link", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
   const propertyId = data?.job.propertyId ?? "";
-  const { data: propData } = useGetProperty(propertyId, {
-    query: { enabled: !!propertyId, queryKey: getGetPropertyQueryKey(propertyId) },
-  });
+  const { data: propData} = useGetProperty(propertyId, {
+    query: { enabled: !!propertyId, queryKey: getGetPropertyQueryKey(propertyId)},
+ });
 
   const invalidateJob = () => {
-    queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id) });
-    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey() });
-    if (propertyId) queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
-  };
+    queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(id)});
+    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey()});
+    if (propertyId) queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+ };
 
   const onRestart = () =>
     restartJob.mutate(
-      { id },
+      { id},
       {
         onSuccess: () => {
           invalidateJob();
-          toast({ title: "Job restarted" });
-        },
+          toast({ title: "Job restarted"});
+       },
         onError: (e) =>
-          toast({ title: "Couldn't restart", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't restart", description: e.message, variant: "destructive"}),
+     },
     );
 
   const generateRecap = () => {
     setRecapOpen(true);
     draft.mutate(
-      { id },
+      { id},
       {
         onSuccess: (d) => {
           setSubject(d.subject);
           setRecapBody(d.body);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   const send = () => {
     createShare.mutate(
-      { id, data: { subject, body: recapBody } },
+      { id, data: { subject, body: recapBody}},
       {
         onSuccess: async (share) => {
           invalidateJob();
           setRecapOpen(false);
-          const url = `${window.location.origin}/recap/${share.token}`;
-          const message = `${subject}\n\n${recapBody}\n\nFull recap with photos: ${url}`;
+          const url =`${window.location.origin}/recap/${share.token}`;
+          const message =`${subject}\n\n${recapBody}\n\nFull recap with photos: ${url}`;
           try {
             await navigator.clipboard.writeText(url);
             toast({
               title: "Recap link copied",
               description: "Opening Messages with the prefilled recap…",
-            });
-          } catch {
-            toast({ title: "Recap link ready", description: url });
-          }
-          window.location.href = `sms:?&body=${encodeURIComponent(message)}`;
-        },
+           });
+         } catch {
+            toast({ title: "Recap link ready", description: url});
+         }
+          window.location.href =`sms:?&body=${encodeURIComponent(message)}`;
+       },
         onError: (e) =>
-          toast({ title: "Couldn't create recap link", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't create recap link", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   const submitSchedule = () => {
     if (!scheduledOn) return;
     schedule.mutate(
-      { id, data: { scheduledOn, windowStart: windowStart || undefined, crewLeaderId: crewLeaderId || undefined } },
+      { id, data: { scheduledOn, windowStart: windowStart || undefined, crewLeaderId: crewLeaderId || undefined}},
       {
         onSuccess: () => {
           invalidateJob();
           setScheduleOpen(false);
-          toast({ title: "Job scheduled" });
-        },
+          toast({ title: "Job scheduled"});
+       },
         onError: (e) =>
-          toast({ title: "Couldn't schedule", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't schedule", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   const onComplete = () =>
     complete.mutate(
-      { id },
+      { id},
       {
         onSuccess: () => {
           invalidateJob();
-          toast({ title: "Job marked complete" });
-        },
+          toast({ title: "Job marked complete"});
+       },
         onError: (e) =>
-          toast({ title: "Couldn't complete", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't complete", description: e.message, variant: "destructive"}),
+     },
     );
 
   const onDelete = () =>
     del.mutate(
-      { id },
+      { id},
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-          toast({ title: "Job deleted" });
-          navigate(data?.job.propertyId ? `/properties/${data.job.propertyId}` : "/properties");
-        },
+          queryClient.invalidateQueries({ queryKey: getListJobsQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+          toast({ title: "Job deleted"});
+          navigate(data?.job.propertyId ?`/properties/${data.job.propertyId}` : "/properties");
+       },
         onError: (e) =>
-          toast({ title: "Couldn't delete", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't delete", description: e.message, variant: "destructive"}),
+     },
     );
 
   if (isLoading) {
@@ -234,18 +234,18 @@ export default function JobDetail() {
         <Skeleton className="h-40 w-full" />
       </div>
     );
-  }
+ }
 
   if (!data) return <div className="p-8 text-center text-muted-foreground">Job not found</div>;
 
-  const { job, expenses, schedules, crewPhotos } = data;
+  const { job, expenses, schedules, crewPhotos} = data;
   const leaders = (crews ?? []).filter((c) => c.isLeader !== false);
   const canComplete = job.status !== "complete" && job.status !== "paid" && job.status !== "cancelled";
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
       <Link
-        href={job.propertyId ? `/properties/${job.propertyId}` : "/properties"}
+        href={job.propertyId ?`/properties/${job.propertyId}` : "/properties"}
         className="flex items-center gap-2 text-muted-foreground text-sm font-semibold w-fit hover:text-foreground"
       >
         <ChevronLeft className="w-4 h-4" /> Back
@@ -253,11 +253,11 @@ export default function JobDetail() {
 
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-[var(--ink)] tracking-tight">
+          <h1 className="text-3xl font-display font-bold text-[var(--ink)]">
             {job.category || "General"}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {job.propertyName} {job.unitNo ? `· Unit ${job.unitNo}` : ""}
+            {job.propertyName} {job.unitNo ?`· Unit ${job.unitNo}` : ""}
           </p>
         </div>
         <div className="flex gap-2">
@@ -305,10 +305,10 @@ export default function JobDetail() {
           <div className="bg-card rounded-xl shadow-sm border border-border p-6">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Status</div>
+                <div className="text-xs text-muted-foreground font-semibold mb-1">Status</div>
                 {job.status === "complete" ? (
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">
                       <Check className="w-3 h-3" /> Completed
                     </span>
                     {job.clearedAt && <span className="text-xs text-muted-foreground">In job history</span>}
@@ -333,34 +333,34 @@ export default function JobDetail() {
             currentEditable
             saving={updateJob.isPending || updateProperty.isPending}
             helperText="Thresholds come from the property. Below-minimum jobs get flagged in Today."
-            onSave={({ minFrac, targetFrac, currentFrac }) => {
+            onSave={({ minFrac, targetFrac, currentFrac}) => {
               updateJob.mutate(
-                { id, data: { marginPct: currentFrac ?? null } },
+                { id, data: { marginPct: currentFrac ?? null}},
                 {
                   onSuccess: () => {
                     invalidateJob();
                     if (propertyId)
-                      queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
-                    toast({ title: "Margin updated" });
-                  },
+                      queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+                    toast({ title: "Margin updated"});
+                 },
                   onError: (e) =>
-                    toast({ title: "Couldn't save margin", description: e.message, variant: "destructive" }),
-                },
+                    toast({ title: "Couldn't save margin", description: e.message, variant: "destructive"}),
+               },
               );
               if (propertyId) {
                 updateProperty.mutate(
-                  { id: propertyId, data: { marginMin: minFrac, marginTarget: targetFrac } },
+                  { id: propertyId, data: { marginMin: minFrac, marginTarget: targetFrac}},
                   {
                     onSuccess: () => {
-                      queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
-                      queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-                    },
+                      queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+                      queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+                   },
                     onError: (e) =>
-                      toast({ title: "Couldn't save thresholds", description: e.message, variant: "destructive" }),
-                  },
+                      toast({ title: "Couldn't save thresholds", description: e.message, variant: "destructive"}),
+                 },
                 );
-              }
-            }}
+             }
+           }}
           />
 
           <CrewPhotosSection photos={crewPhotos ?? []} />
@@ -427,11 +427,11 @@ export default function JobDetail() {
                     ) : (
                       <>
                         <div>
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Subject</div>
+                          <div className="text-xs font-semibold text-muted-foreground mb-1">Subject</div>
                           <input value={subject} onChange={(e) => setSubject(e.target.value)} className={fieldCls} />
                         </div>
                         <div>
-                          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Message</div>
+                          <div className="text-xs font-semibold text-muted-foreground mb-1">Message</div>
                           <textarea value={recapBody} onChange={(e) => setRecapBody(e.target.value)} rows={8} className={`${fieldCls} resize-y leading-relaxed`} />
                         </div>
                         <div className="flex items-center gap-2">
@@ -496,20 +496,20 @@ export default function JobDetail() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Date</div>
+              <div className="text-xs text-muted-foreground mb-1">Date</div>
               <input type="date" className={fieldCls} value={scheduledOn} onChange={(e) => setScheduledOn(e.target.value)} />
             </div>
             <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Start time</div>
+              <div className="text-xs text-muted-foreground mb-1">Start time</div>
               <select className={fieldCls} value={windowStart} onChange={(e) => setWindowStart(e.target.value)}>
                 {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
               </select>
             </div>
             <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Crew leader</div>
+              <div className="text-xs text-muted-foreground mb-1">Crew leader</div>
               <select className={fieldCls} value={crewLeaderId} onChange={(e) => setCrewLeaderId(e.target.value)}>
                 <option value="">Unassigned</option>
-                {leaders.map((c) => <option key={c.id} value={c.id}>{c.name}{c.trade ? ` · ${c.trade}` : ""}</option>)}
+                {leaders.map((c) => <option key={c.id} value={c.id}>{c.name}{c.trade ?` · ${c.trade}` : ""}</option>)}
               </select>
             </div>
           </div>

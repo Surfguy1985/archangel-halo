@@ -1,37 +1,37 @@
-import { useListProperties, useGeneratePropertyImage, getListPropertiesQueryKey } from "@workspace/api-client-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "wouter";
-import { Building, Plus, Search, MapPin, Briefcase, Building2, Sparkles } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { AddPropertyDialog } from "@/components/PropertyDialogs";
+import { useListProperties, useGeneratePropertyImage, getListPropertiesQueryKey} from "@workspace/api-client-react";
+import { Skeleton} from "@/components/ui/skeleton";
+import { Link} from "wouter";
+import { Building, Plus, Search, MapPin, Briefcase, Building2, Sparkles} from "lucide-react";
+import { useState, useEffect, useRef} from "react";
+import { useQueryClient} from "@tanstack/react-query";
+import { AddPropertyDialog} from "@/components/PropertyDialogs";
 
-function useAutoGenerateImages(properties?: { id: string; imagePath?: string | null }[]) {
+function useAutoGenerateImages(properties?: { id: string; imagePath?: string | null}[]) {
   const queryClient = useQueryClient();
   const requested = useRef<Set<string>>(new Set());
-  const { mutate } = useGeneratePropertyImage({
+  const { mutate} = useGeneratePropertyImage({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
-      },
-    },
-  });
+        queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey()});
+     },
+   },
+ });
 
   useEffect(() => {
     if (!properties) return;
     for (const p of properties) {
       if (!p.imagePath && !requested.current.has(p.id)) {
         requested.current.add(p.id);
-        mutate({ id: p.id });
-      }
-    }
-  }, [properties, mutate]);
+        mutate({ id: p.id});
+     }
+   }
+ }, [properties, mutate]);
 }
 
 export default function Properties() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const { data: properties, isLoading } = useListProperties();
+  const { data: properties, isLoading} = useListProperties();
 
   useAutoGenerateImages(properties);
 
@@ -44,13 +44,13 @@ export default function Properties() {
     <div className="p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       <header className="flex items-center justify-between border-b border-[var(--border)] pb-4">
         <div>
-          <h1 className="text-4xl font-display font-bold text-foreground uppercase tracking-tight">Properties</h1>
-          <p className="text-muted-foreground font-mono mt-1 text-sm uppercase tracking-widest">{properties?.length || 0} active locations</p>
+          <h1 className="text-4xl font-display font-bold text-foreground">Properties</h1>
+          <p className="text-muted-foreground font-mono mt-1 text-sm">{properties?.length || 0} active locations</p>
         </div>
         <button
           data-tour="new-property"
           onClick={() => setAddOpen(true)}
-          className="btn-gold px-6 py-3 flex items-center gap-2"
+          className="bg-[var(--primary)] text-black hover:opacity-90 font-bold px-6 py-3 flex items-center gap-2 rounded-full"
         >
           <Plus className="w-4 h-4" /> New Property
         </button>
@@ -64,8 +64,8 @@ export default function Properties() {
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="SEARCH PROPERTIES OR PMCS..."
-          className="w-full max-w-md pl-12 pr-4 py-3 rounded-none border border-[var(--border)] bg-[var(--card)] text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-1 focus-visible:ring-[var(--primary)] font-mono uppercase tracking-wider text-foreground"
+          placeholder="Search properties or PMCs..."
+          className="w-full max-w-md pl-12 pr-4 py-3 rounded-full border border-[var(--border)] bg-[var(--card)] text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-1 focus-visible:ring-[var(--primary)] font-mono text-foreground"
         />
       </div>
 
@@ -84,7 +84,7 @@ export default function Properties() {
               <Link
                 key={p.id}
                 href={`/properties/${p.id}`}
-                className="group relative block rounded-none overflow-hidden bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] shadow-sm hover:shadow-[0_0_20px_rgba(180,255,68,0.15)] hover:-translate-y-1 transition-all duration-300"
+                className="group relative block rounded-3xl overflow-hidden bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] shadow-sm hover:shadow-[0_0_20px_rgba(180,255,68,0.15)] hover:-translate-y-1 transition-all duration-300"
               >
                 <div className="relative w-full aspect-[3/2]">
                   {p.imagePath ? (
@@ -99,7 +99,7 @@ export default function Properties() {
                       <div className="w-12 h-12 bg-black/40 border border-[var(--border)] grid place-items-center rounded-none">
                         <Building2 className="w-5 h-5 text-[var(--primary)]/50" />
                       </div>
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground tracking-[0.2em]">
                         <Sparkles className="w-3 h-3 text-[var(--primary)] animate-pulse" />
                         Creating photo
                       </div>
@@ -112,12 +112,12 @@ export default function Properties() {
                   {/* Badges */}
                   <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
                     {hasOwed && (
-                      <span className="px-3 py-1 bg-[var(--primary)] text-black text-[10px] font-bold tabular-nums uppercase tracking-wider rounded-none">
+                      <span className="px-3 py-1 bg-[var(--primary)] text-black text-[10px] font-bold tabular-nums rounded-full">
                         ${p.owed.toLocaleString()} owed
                       </span>
                     )}
                     {hasJobs && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/80 backdrop-blur border border-[var(--border)] text-white text-[10px] font-bold uppercase tracking-wider rounded-none">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[var(--secondary)] text-white text-[10px] font-bold rounded-full">
                         <Briefcase className="w-3 h-3 text-[var(--primary)]" />
                         {p.openJobs} active
                       </span>
@@ -126,10 +126,10 @@ export default function Properties() {
 
                   {/* Text */}
                   <div className="absolute inset-x-0 bottom-0 p-5">
-                    <div className="font-display font-bold text-2xl uppercase tracking-wider text-white drop-shadow-md mb-2 group-hover:text-[var(--primary)] transition-colors">
+                    <div className="font-display font-bold text-2xl text-white drop-shadow-md mb-2 group-hover:text-[var(--primary)] transition-colors">
                       {p.name}
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-white/70">
+                    <div className="flex items-center gap-2 text-[10px] font-mono text-white/70">
                       {p.city && (
                         <span className="flex items-center gap-1 shrink-0">
                           <MapPin className="w-3 h-3 text-[var(--primary)]" />
@@ -150,11 +150,11 @@ export default function Properties() {
                 </div>
               </Link>
             );
-          })}
+         })}
           {filtered.length === 0 && (
             <div className="col-span-full flex flex-col items-center justify-center py-20 text-center bg-[var(--card)] border border-dashed border-[var(--border)] rounded-none">
               <span className="custom-icon mb-4"><Building className="w-8 h-8" /></span>
-              <div className="font-display font-bold text-lg uppercase tracking-wider text-foreground">No properties found.</div>
+              <div className="font-display font-bold text-lg text-foreground">No properties found.</div>
             </div>
           )}
         </div>

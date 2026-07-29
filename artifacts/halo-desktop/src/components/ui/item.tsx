@@ -1,11 +1,11 @@
 import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
+import { Slot} from "@radix-ui/react-slot"
+import { cva, type VariantProps} from "class-variance-authority"
 
-import { cn } from "@/lib/utils"
-import { Separator } from "@/components/ui/separator"
+import { cn} from "@/lib/utils"
+import { Separator} from "@/components/ui/separator"
 
-function ItemGroup({ className, ...props }: React.ComponentProps<"div">) {
+function ItemGroup({ className, ...props}: React.ComponentProps<"div">) {
   return (
     <div
       role="list"
@@ -38,17 +38,17 @@ const itemVariants = cva(
         default: "bg-transparent",
         outline: "border-border",
         muted: "bg-muted/50",
-      },
+     },
       size: {
         default: "gap-4 p-4 ",
         sm: "gap-2.5 px-4 py-3",
-      },
-    },
+     },
+   },
     defaultVariants: {
       variant: "default",
       size: "default",
-    },
-  }
+   },
+ }
 )
 
 function Item({
@@ -58,14 +58,14 @@ function Item({
   asChild = false,
   ...props
 }: React.ComponentProps<"div"> &
-  VariantProps<typeof itemVariants> & { asChild?: boolean }) {
+  VariantProps<typeof itemVariants> & { asChild?: boolean}) {
   const Comp = asChild ? Slot : "div"
   return (
     <Comp
       data-slot="item"
       data-variant={variant}
       data-size={size}
-      className={cn(itemVariants({ variant, size, className }))}
+      className={cn(itemVariants({ variant, size, className}))}
       {...props}
     />
   )
@@ -80,12 +80,12 @@ const itemMediaVariants = cva(
         icon: "bg-muted size-8 rounded-sm border [&_svg:not([class*='size-'])]:size-4",
         image:
           "size-10 overflow-hidden rounded-sm [&_img]:size-full [&_img]:object-cover",
-      },
-    },
+     },
+   },
     defaultVariants: {
       variant: "default",
-    },
-  }
+   },
+ }
 )
 
 function ItemMedia({
@@ -97,13 +97,13 @@ function ItemMedia({
     <div
       data-slot="item-media"
       data-variant={variant}
-      className={cn(itemMediaVariants({ variant, className }))}
+      className={cn(itemMediaVariants({ variant, className}))}
       {...props}
     />
   )
 }
 
-function ItemContent({ className, ...props }: React.ComponentProps<"div">) {
+function ItemContent({ className, ...props}: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="item-content"
@@ -116,7 +116,7 @@ function ItemContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
+function ItemTitle({ className, ...props}: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="item-title"
@@ -129,7 +129,7 @@ function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
+function ItemDescription({ className, ...props}: React.ComponentProps<"p">) {
   return (
     <p
       data-slot="item-description"
@@ -143,7 +143,7 @@ function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
   )
 }
 
-function ItemActions({ className, ...props }: React.ComponentProps<"div">) {
+function ItemActions({ className, ...props}: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="item-actions"
@@ -153,7 +153,7 @@ function ItemActions({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function ItemHeader({ className, ...props }: React.ComponentProps<"div">) {
+function ItemHeader({ className, ...props}: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="item-header"
@@ -166,7 +166,7 @@ function ItemHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function ItemFooter({ className, ...props }: React.ComponentProps<"div">) {
+function ItemFooter({ className, ...props}: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="item-footer"

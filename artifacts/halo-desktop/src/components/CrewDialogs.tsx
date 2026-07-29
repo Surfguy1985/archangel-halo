@@ -16,9 +16,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { useEffect, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
+import { Trash2} from "lucide-react";
 import {
   useCreateCrew,
   useUpdateCrew,
@@ -79,19 +79,19 @@ function Toggle({
       <span
         className={`w-[44px] h-[26px] rounded-full relative transition-colors shrink-0 ${
           checked ? "bg-[var(--gold-light)]" : "bg-black/15"
-        }`}
+       }`}
       >
         <span
           className={`absolute top-[3px] w-[20px] h-[20px] rounded-full bg-white shadow-sm transition-all ${
             checked ? "left-[21px]" : "left-[3px]"
-          }`}
+         }`}
         />
       </span>
     </button>
   );
 }
 
-type ServiceRow = { name: string; rate: string };
+type ServiceRow = { name: string; rate: string};
 
 function toServicePayload(rows: ServiceRow[]) {
   return rows
@@ -99,7 +99,7 @@ function toServicePayload(rows: ServiceRow[]) {
     .map((s) => ({
       name: s.name.trim(),
       rate: s.rate.trim() === "" || isNaN(parseFloat(s.rate)) ? null : parseFloat(s.rate),
-    }));
+   }));
 }
 
 function TermsAndServices({
@@ -119,10 +119,10 @@ function TermsAndServices({
         <div className={`${labelCls} mb-1.5`}>Payment terms</div>
         <div className="flex flex-wrap gap-2">
           {[
-            { value: "due_on_receipt", label: "Due on receipt" },
-            { value: "net15", label: "Net 15" },
-            { value: "net30", label: "Net 30" },
-            { value: "net45", label: "Net 45" },
+            { value: "due_on_receipt", label: "Due on receipt"},
+            { value: "net15", label: "Net 15"},
+            { value: "net30", label: "Net 30"},
+            { value: "net45", label: "Net 45"},
           ].map((t) => (
             <button
               key={t.value}
@@ -132,7 +132,7 @@ function TermsAndServices({
                 paymentTerms === t.value
                   ? "bg-[var(--gold-light)] border-[var(--gold)] text-black"
                   : "bg-card border-input text-muted-foreground hover:bg-black/[0.03]"
-              }`}
+             }`}
             >
               {t.label}
             </button>
@@ -144,7 +144,7 @@ function TermsAndServices({
           <span className={labelCls}>Services & what they charge</span>
           <button
             type="button"
-            onClick={() => setServices((s) => [...s, { name: "", rate: "" }])}
+            onClick={() => setServices((s) => [...s, { name: "", rate: ""}])}
             className="text-xs font-bold text-[var(--gold-dark)]"
           >
             + Add service
@@ -159,14 +159,14 @@ function TermsAndServices({
               className={`${fieldCls} flex-1`}
               placeholder="Service (e.g. Paint)"
               value={s.name}
-              onChange={(e) => setServices((list) => list.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+              onChange={(e) => setServices((list) => list.map((x, j) => (j === i ? { ...x, name: e.target.value} : x)))}
             />
             <input
               className={`${fieldCls} w-[100px]`}
               placeholder="$ rate"
               inputMode="decimal"
               value={s.rate}
-              onChange={(e) => setServices((list) => list.map((x, j) => (j === i ? { ...x, rate: e.target.value } : x)))}
+              onChange={(e) => setServices((list) => list.map((x, j) => (j === i ? { ...x, rate: e.target.value} : x)))}
             />
             <button
               type="button"
@@ -212,9 +212,9 @@ export function AddCrewDialog({
       setPaymentTerms("");
       setServices([]);
       create.reset();
-    }
+   }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+ }, [open]);
 
   const submit = () => {
     if (!name.trim()) return;
@@ -228,16 +228,16 @@ export function AddCrewDialog({
           isLeader,
           paymentTerms: paymentTerms || null,
           services: toServicePayload(services),
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListCrewsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListCrewsQueryKey()});
           onOpenChange(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -327,7 +327,7 @@ export type EditableCrew = {
   isLeader?: boolean | null;
   active?: boolean | null;
   paymentTerms?: string | null;
-  services?: { name: string; rate?: number | null }[] | null;
+  services?: { name: string; rate?: number | null}[] | null;
 };
 
 export function EditCrewDialog({
@@ -350,7 +350,7 @@ export function EditCrewDialog({
   const [active, setActive] = useState(crew.active !== false);
   const [paymentTerms, setPaymentTerms] = useState(crew.paymentTerms ?? "");
   const [services, setServices] = useState<ServiceRow[]>(
-    (crew.services ?? []).map((s) => ({ name: s.name, rate: s.rate != null ? String(s.rate) : "" })),
+    (crew.services ?? []).map((s) => ({ name: s.name, rate: s.rate != null ? String(s.rate) : ""})),
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -365,21 +365,21 @@ export function EditCrewDialog({
       setActive(crew.active !== false);
       setPaymentTerms(crew.paymentTerms ?? "");
       setServices(
-        (crew.services ?? []).map((s) => ({ name: s.name, rate: s.rate != null ? String(s.rate) : "" })),
+        (crew.services ?? []).map((s) => ({ name: s.name, rate: s.rate != null ? String(s.rate) : ""})),
       );
       setDeleteError(null);
-    }
-  }, [open, crew]);
+   }
+ }, [open, crew]);
 
   const update = useUpdateCrew();
   const del = useDeleteCrew();
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getListCrewsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListCrewsQueryKey()});
     queryClient.invalidateQueries({
       queryKey: getGetCrewDetailQueryKey(crew.id),
-    });
-  };
+   });
+ };
 
   const submit = () => {
     if (!name.trim()) return;
@@ -395,45 +395,45 @@ export function EditCrewDialog({
           active,
           paymentTerms: paymentTerms || null,
           services: toServicePayload(services),
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
           invalidate();
           onOpenChange(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   const confirmDelete = () => {
     setDeleteError(null);
     del.mutate(
-      { id: crew.id },
+      { id: crew.id},
       {
         onSuccess: () => {
           invalidate();
           queryClient.invalidateQueries({
             queryKey: getListCrewPaymentsQueryKey(),
-          });
+         });
           queryClient.invalidateQueries({
             queryKey: getGetMoneySummaryQueryKey(),
-          });
-          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+         });
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
           setConfirmOpen(false);
           onOpenChange(false);
           onDeleted?.();
-        },
+       },
         onError: (err: unknown) => {
           const msg =
-            (err as { data?: { error?: string } })?.data?.error ||
+            (err as { data?: { error?: string}})?.data?.error ||
             "Couldn't delete. They may still be leading jobs.";
           setDeleteError(msg);
           setConfirmOpen(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <>
@@ -514,7 +514,7 @@ export function EditCrewDialog({
               onClick={() => {
                 setDeleteError(null);
                 setConfirmOpen(true);
-              }}
+             }}
               disabled={del.isPending}
             >
               <Trash2 className="w-4 h-4" />
@@ -549,7 +549,7 @@ export function EditCrewDialog({
               onClick={(e) => {
                 e.preventDefault();
                 confirmDelete();
-              }}
+             }}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
               Delete

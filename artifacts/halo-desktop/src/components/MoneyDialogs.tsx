@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useRecordPayment,
   useCreateExpense,
@@ -17,9 +17,9 @@ import {
   type Invoice,
   type ReceiptBankMatch,
 } from "@workspace/api-client-react";
-import { ScanLine, Sparkles, Landmark, X, FileImage } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { prepareScanImage } from "@/lib/scanImage";
+import { ScanLine, Sparkles, Landmark, X, FileImage} from "lucide-react";
+import { useToast} from "@/hooks/use-toast";
+import { prepareScanImage} from "@/lib/scanImage";
 import {
   Dialog,
   DialogContent,
@@ -28,9 +28,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { Button} from "@/components/ui/button";
+import { Label} from "@/components/ui/label";
+import { Input} from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -42,7 +42,7 @@ import {
 function todayLocal() {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 const RECEIPT_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -52,7 +52,7 @@ function fmtShortDate(s?: string | null) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
   const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(s);
   if (isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric"});
 }
 
 export function fileToBase64(file: File): Promise<string> {
@@ -61,37 +61,37 @@ export function fileToBase64(file: File): Promise<string> {
     reader.onload = () => {
       const s = String(reader.result ?? "");
       resolve(s.includes(",") ? s.slice(s.indexOf(",") + 1) : s);
-    };
+   };
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
-  });
+ });
 }
 
 export async function uploadReceiptFile(file: File): Promise<string | null> {
   try {
     const resp = await fetch("/api/storage/uploads/request-url", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json"},
       body: JSON.stringify({
         name: file.name,
         size: Math.max(file.size, 1),
         contentType: file.type || "application/octet-stream",
-      }),
-    });
+     }),
+   });
     if (!resp.ok) return null;
-    const { uploadURL, objectPath } = (await resp.json()) as {
+    const { uploadURL, objectPath} = (await resp.json()) as {
       uploadURL: string;
       objectPath: string;
-    };
+   };
     const put = await fetch(uploadURL, {
       method: "PUT",
       body: file,
-      headers: { "Content-Type": file.type || "application/octet-stream" },
-    });
+      headers: { "Content-Type": file.type || "application/octet-stream"},
+   });
     return put.ok ? objectPath : null;
-  } catch {
+ } catch {
     return null;
-  }
+ }
 }
 
 export function RecordPaymentDialog({
@@ -104,7 +104,7 @@ export function RecordPaymentDialog({
   invoice: Invoice | null;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const record = useRecordPayment();
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("check");
@@ -115,8 +115,8 @@ export function RecordPaymentDialog({
       setAmount(String(invoice.amount));
       setMethod("check");
       setError(null);
-    }
-  }, [open, invoice]);
+   }
+ }, [open, invoice]);
 
   const submit = () => {
     if (!invoice) return;
@@ -124,29 +124,29 @@ export function RecordPaymentDialog({
     if (isNaN(amountNum) || amountNum <= 0) {
       setError("Enter a valid amount.");
       return;
-    }
+   }
     record.mutate(
-      { data: { invoiceId: invoice.id, amount: amountNum, method: method || undefined } },
+      { data: { invoiceId: invoice.id, amount: amountNum, method: method || undefined}},
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoice.id) });
-          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoice.id)});
+          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
           onOpenChange(false);
           toast({
             title: "Payment recorded",
-            description: `${invoice.invoiceNo} marked paid.`,
-          });
-        },
+            description:`${invoice.invoiceNo} marked paid.`,
+         });
+       },
         onError: (err: unknown) => {
           setError(
-            (err as { data?: { error?: string } })?.data?.error ||
+            (err as { data?: { error?: string}})?.data?.error ||
               "Couldn't record payment.",
           );
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -154,7 +154,7 @@ export function RecordPaymentDialog({
         <DialogHeader>
           <DialogTitle>Record payment</DialogTitle>
           <DialogDescription>
-            {invoice ? `${invoice.invoiceNo} · ${invoice.propertyName || "—"}` : ""}
+            {invoice ?`${invoice.invoiceNo} · ${invoice.propertyName || "—"}` : ""}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -213,10 +213,10 @@ export function AddExpenseDialog({
   billMode?: boolean;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const create = useCreateExpense();
   const extract = useExtractReceipt();
-  const { data: properties } = useListProperties();
+  const { data: properties} = useListProperties();
   const [vendor, setVendor] = useState("");
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
@@ -247,15 +247,15 @@ export function AddExpenseDialog({
       setScanSummary(null);
       setBankMatch(null);
       setSaving(false);
-    }
-  }, [open, fixedPropertyId, billMode]);
+   }
+ }, [open, fixedPropertyId, billMode]);
 
   const clearReceipt = () => {
     setReceiptFile(null);
     setReceiptPreview(null);
     setScanSummary(null);
     setBankMatch(null);
-  };
+ };
 
   const onReceiptPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -264,28 +264,28 @@ export function AddExpenseDialog({
     if (!file.type.startsWith("image/")) {
       setError("Please choose a photo (JPG, PNG, WebP, or GIF).");
       return;
-    }
+   }
     setError(null);
     setScanSummary(null);
     setBankMatch(null);
     setReceiptFile(file);
     setReceiptPreview(URL.createObjectURL(file));
     try {
-      const { base64, mediaType, blob } = await prepareScanImage(file);
-      setReceiptFile(new File([blob], file.name || "receipt.jpg", { type: mediaType }));
+      const { base64, mediaType, blob} = await prepareScanImage(file);
+      setReceiptFile(new File([blob], file.name || "receipt.jpg", { type: mediaType}));
       const result = await extract.mutateAsync({
         data: {
           image: base64,
           mediaType,
           filename: file.name,
           kind: isBill ? "bill" : "receipt",
-        },
-      });
+       },
+     });
       if (!result.found) {
         setScanSummary(null);
         setError("Couldn't read that photo — you can still fill the fields in yourself.");
         return;
-      }
+     }
       if (result.vendor) setVendor(result.vendor);
       if (result.amount) setAmount(String(result.amount));
       if (result.category) setCategory(result.category);
@@ -293,20 +293,20 @@ export function AddExpenseDialog({
       if (result.isBill) {
         setIsBill(true);
         if (result.dueDate) setDueDate(result.dueDate);
-      }
+     }
       setScanSummary(result.summary ?? "Details filled in from the photo.");
       setBankMatch(result.bankMatch ?? null);
-    } catch {
+   } catch {
       setError("Couldn't read that photo — you can still fill the fields in yourself.");
-    }
-  };
+   }
+ };
 
   const submit = async () => {
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
       setError("Enter a valid amount.");
       return;
-    }
+   }
     setSaving(true);
     let receiptPath: string | undefined;
     if (receiptFile) {
@@ -315,9 +315,9 @@ export function AddExpenseDialog({
         setSaving(false);
         setError("Couldn't save the receipt photo. Please try again.");
         return;
-      }
+     }
       receiptPath = uploaded;
-    }
+   }
     create.mutate(
       {
         data: {
@@ -332,37 +332,37 @@ export function AddExpenseDialog({
           receiptPath,
           bankTxnId: bankMatch?.txnId,
           bankTxnLabel: bankMatch?.label,
-        },
-      },
+       },
+     },
       {
         onSuccess: (created) => {
-          queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-          queryClient.invalidateQueries({ queryKey: ["/accounting"] });
+          queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+          queryClient.invalidateQueries({ queryKey: ["/accounting"]});
           if (propertyId) {
-            queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
-          }
+            queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+         }
           onOpenChange(false);
           if (created.approvalStatus === "pending") {
             toast({
               title: "Waiting for approval",
               description: "This expense is over your approval limit — approve it in the Expenses tab.",
-            });
-          } else {
-            toast({ title: isBill ? "Bill logged — it shows as unpaid" : "Expense logged" });
-          }
-        },
+           });
+         } else {
+            toast({ title: isBill ? "Bill logged — it shows as unpaid" : "Expense logged"});
+         }
+       },
         onError: (err: unknown) => {
           setError(
-            (err as { data?: { error?: string } })?.data?.error ||
+            (err as { data?: { error?: string}})?.data?.error ||
               "Couldn't log expense.",
           );
-        },
+       },
         onSettled: () => setSaving(false),
-      },
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -558,9 +558,9 @@ export function AddCrewPaymentDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const create = useCreateCrewPayment();
-  const { data: crews } = useListCrews();
+  const { data: crews} = useListCrews();
   const [crewId, setCrewId] = useState("");
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("check");
@@ -578,19 +578,19 @@ export function AddCrewPaymentDialog({
       setNote("");
       setDueOn(todayLocal());
       setError(null);
-    }
-  }, [open]);
+   }
+ }, [open]);
 
   const submit = () => {
     if (!crewId) {
       setError("Select a crew.");
       return;
-    }
+   }
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
       setError("Enter a valid amount.");
       return;
-    }
+   }
     create.mutate(
       {
         data: {
@@ -600,23 +600,23 @@ export function AddCrewPaymentDialog({
           status,
           note: note.trim() || undefined,
           dueOn: status === "completed" ? undefined : dueOn || undefined,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListCrewPaymentsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListCrewPaymentsQueryKey()});
           onOpenChange(false);
-          toast({ title: "Crew payment recorded" });
-        },
+          toast({ title: "Crew payment recorded"});
+       },
         onError: (err: unknown) => {
           setError(
-            (err as { data?: { error?: string } })?.data?.error ||
+            (err as { data?: { error?: string}})?.data?.error ||
               "Couldn't record crew payment.",
           );
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

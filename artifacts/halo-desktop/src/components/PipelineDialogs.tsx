@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useListProperties,
   useCreateLead,
@@ -21,7 +21,7 @@ import {
   getGetTodayQueryKey,
   getGetQueuesQueryKey,
 } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast} from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -37,12 +37,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { Button} from "@/components/ui/button";
+import { Label} from "@/components/ui/label";
+import { Input} from "@/components/ui/input";
+import { Textarea} from "@/components/ui/textarea";
+import { Badge} from "@/components/ui/badge";
+import { format} from "date-fns";
 import {
   Plus,
   Trash2,
@@ -56,7 +56,7 @@ import {
 } from "lucide-react";
 
 const money = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  n.toLocaleString("en-US", { style: "currency", currency: "USD"});
 
 const LEAD_STATUSES = ["new", "contacted", "qualified", "converted", "dead"];
 const NONE = "__none__";
@@ -73,8 +73,8 @@ export function AddLeadDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { data: properties } = useListProperties();
+  const { toast} = useToast();
+  const { data: properties} = useListProperties();
   const createLead = useCreateLead();
 
   const [propertyId, setPropertyId] = useState(NONE);
@@ -90,14 +90,14 @@ export function AddLeadDialog({
       setSummary("");
       setContactName("");
       setContactEmail("");
-    }
-  }, [open]);
+   }
+ }, [open]);
 
   const submit = () => {
     if (!summary.trim()) {
-      toast({ title: "Summary is required", variant: "destructive" });
+      toast({ title: "Summary is required", variant: "destructive"});
       return;
-    }
+   }
     createLead.mutate(
       {
         data: {
@@ -106,19 +106,19 @@ export function AddLeadDialog({
           summary: summary.trim(),
           contactName: contactName.trim() || undefined,
           contactEmail: contactEmail.trim() || undefined,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListLeadsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListLeadsQueryKey()});
           onOpenChange(false);
-          toast({ title: "Lead added" });
-        },
+          toast({ title: "Lead added"});
+       },
         onError: (e) =>
-          toast({ title: "Couldn't add lead", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't add lead", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -234,7 +234,7 @@ export function LeadDetailDialog({
   lead: LeadRow | null;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { toast} = useToast();
   const updateLead = useUpdateLead();
   const deleteLead = useDeleteLead();
   const sendEmail = useSendLeadEmail();
@@ -245,26 +245,26 @@ export function LeadDetailDialog({
   const doDeleteLead = () => {
     if (!lead) return;
     deleteLead.mutate(
-      { id: lead.id },
+      { id: lead.id},
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListLeadsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-          toast({ title: "Lead deleted" });
+          queryClient.invalidateQueries({ queryKey: getListLeadsQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+          toast({ title: "Lead deleted"});
           onOpenChange(false);
-        },
+       },
         onError: (e) =>
-          toast({ title: "Couldn't delete", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't delete", description: e.message, variant: "destructive"}),
+     },
     );
-  };
-  const { data: templates } = useListLeadEmailTemplates(lead?.id ?? "", {
+ };
+  const { data: templates} = useListLeadEmailTemplates(lead?.id ?? "", {
     query: {
       queryKey: ["leadTemplates", lead?.id ?? ""],
       enabled: open && !!lead,
-    },
-  });
-  const { data: campaignDefs } = useListLeadCampaignDefs();
+   },
+ });
+  const { data: campaignDefs} = useListLeadCampaignDefs();
 
   const [status, setStatus] = useState("new");
   const [contactName, setContactName] = useState("");
@@ -282,15 +282,15 @@ export function LeadDetailDialog({
       setSelectedTemplate(null);
       setShowTranscript(false);
       setConfirmDelete(false);
-    }
-  }, [open, lead]);
+   }
+ }, [open, lead]);
 
   if (!lead) return null;
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getListLeadsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: ["leadTemplates", lead.id] });
-  };
+    queryClient.invalidateQueries({ queryKey: getListLeadsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: ["leadTemplates", lead.id]});
+ };
 
   const dirty =
     status !== lead.status ||
@@ -307,18 +307,18 @@ export function LeadDetailDialog({
           contactName: contactName.trim() || undefined,
           contactEmail: contactEmail.trim() || undefined,
           contactPhone: contactPhone.trim() || undefined,
-        },
-      },
+       },
+     },
       {
         onSuccess: () => {
           invalidate();
-          toast({ title: "Lead updated" });
-        },
+          toast({ title: "Lead updated"});
+       },
         onError: (e) =>
-          toast({ title: "Couldn't update", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't update", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   const hasRecipient = !!(contactEmail.trim() || lead.contactEmail || lead.propertyId);
   const activeCampaign = lead.campaignStatus === "active";
@@ -326,53 +326,53 @@ export function LeadDetailDialog({
 
   const doSendEmail = (templateKey: string) => {
     sendEmail.mutate(
-      { id: lead.id, data: { templateKey } },
+      { id: lead.id, data: { templateKey}},
       {
         onSuccess: (res) => {
           if (res.sent) {
             invalidate();
-            toast({ title: "Email sent", description: `Sent to ${res.to}.` });
+            toast({ title: "Email sent", description:`Sent to ${res.to}.`});
             setSelectedTemplate(null);
-          } else {
-            toast({ title: "Couldn't send", description: res.error ?? "Send failed", variant: "destructive" });
-          }
-        },
+         } else {
+            toast({ title: "Couldn't send", description: res.error ?? "Send failed", variant: "destructive"});
+         }
+       },
         onError: (e) =>
-          toast({ title: "Couldn't send", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't send", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   const doStartCampaign = (kind: string) => {
     startCampaign.mutate(
-      { id: lead.id, data: { kind } },
+      { id: lead.id, data: { kind}},
       {
         onSuccess: () => {
           invalidate();
           toast({
             title: "Campaign started",
             description: "The first email just went out. The rest are scheduled automatically.",
-          });
-        },
+         });
+       },
         onError: (e) =>
-          toast({ title: "Couldn't start campaign", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't start campaign", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   const doStopCampaign = () => {
     stopCampaign.mutate(
-      { id: lead.id },
+      { id: lead.id},
       {
         onSuccess: () => {
           invalidate();
-          toast({ title: "Campaign stopped" });
-        },
+          toast({ title: "Campaign stopped"});
+       },
         onError: (e) =>
-          toast({ title: "Couldn't stop campaign", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't stop campaign", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -381,7 +381,7 @@ export function LeadDetailDialog({
           <DialogTitle className="font-display flex items-center gap-2">
             {lead.propertyName || "Lead"}
             {lead.source === "phone" && (
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] border border-[var(--gold)]/20 inline-flex items-center gap-1">
+              <span className="text-[10px] font-bold text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)] border border-[var(--gold)]/20 inline-flex items-center gap-1">
                 <Phone className="w-2.5 h-2.5" /> phone call
               </span>
             )}
@@ -632,16 +632,16 @@ export function BidBuilderDialog({
   onSaved?: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { data: properties } = useListProperties();
+  const { toast} = useToast();
+  const { data: properties} = useListProperties();
   const createBid = useCreateBid();
   const updateBid = useUpdateBid();
-  const { data: editing } = useGetBid(editBidId ?? "", {
+  const { data: editing} = useGetBid(editBidId ?? "", {
     query: {
       queryKey: getGetBidQueryKey(editBidId ?? ""),
       enabled: open && !!editBidId,
-    },
-  });
+   },
+ });
 
   const [propertyId, setPropertyId] = useState(NONE);
   const [unitNo, setUnitNo] = useState("");
@@ -665,18 +665,18 @@ export function BidBuilderDialog({
               description: it.description ?? "",
               qty: String(it.qty),
               unitPrice: String(it.unitPrice),
-            }))
+           }))
           : [emptyItem()],
       );
-    } else if (!editBidId) {
+   } else if (!editBidId) {
       setPropertyId(NONE);
       setUnitNo("");
       setScope("");
       setWelcome("");
       setEstCost("");
       setItems([emptyItem()]);
-    }
-  }, [open, editBidId, editing]);
+   }
+ }, [open, editBidId, editing]);
 
   const parsedItems = useMemo(
     () =>
@@ -687,7 +687,7 @@ export function BidBuilderDialog({
           description: it.description.trim() || undefined,
           qty: Math.max(0, Number(it.qty) || 0),
           unitPrice: Math.max(0, Number(it.unitPrice) || 0),
-        })),
+       })),
     [items],
   );
   const total = useMemo(
@@ -696,25 +696,25 @@ export function BidBuilderDialog({
   );
 
   const setItem = (idx: number, patch: Partial<LineItemDraft>) => {
-    setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
-  };
+    setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch} : it)));
+ };
 
   const invalidate = (id: string) => {
-    queryClient.invalidateQueries({ queryKey: getListBidsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetBidQueryKey(id) });
-    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetQueuesQueryKey() });
-  };
+    queryClient.invalidateQueries({ queryKey: getListBidsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetBidQueryKey(id)});
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetQueuesQueryKey()});
+ };
 
   const submit = () => {
     if (!scope.trim()) {
-      toast({ title: "Scope is required", variant: "destructive" });
+      toast({ title: "Scope is required", variant: "destructive"});
       return;
-    }
+   }
     if (!parsedItems.length) {
-      toast({ title: "Add at least one line item", variant: "destructive" });
+      toast({ title: "Add at least one line item", variant: "destructive"});
       return;
-    }
+   }
     const payload = {
       propertyId: propertyId === NONE ? undefined : propertyId,
       unitNo: unitNo.trim() || undefined,
@@ -722,40 +722,40 @@ export function BidBuilderDialog({
       welcomeMessage: welcome.trim() || undefined,
       estCost: estCost.trim() ? Number(estCost) : undefined,
       lineItems: parsedItems,
-    };
+   };
     if (editBidId) {
       updateBid.mutate(
-        { id: editBidId, data: payload },
+        { id: editBidId, data: payload},
         {
           onSuccess: (res) => {
             invalidate(editBidId);
             onOpenChange(false);
-            toast({ title: `Bid ${res.bidNo} updated` });
+            toast({ title:`Bid ${res.bidNo} updated`});
             onSaved?.(editBidId);
-          },
+         },
           onError: (e) =>
-            toast({ title: "Couldn't save bid", description: e.message, variant: "destructive" }),
-        },
+            toast({ title: "Couldn't save bid", description: e.message, variant: "destructive"}),
+       },
       );
-    } else {
+   } else {
       createBid.mutate(
-        { data: { ...payload, amount: total, status: "draft" } },
+        { data: { ...payload, amount: total, status: "draft"}},
         {
           onSuccess: (res) => {
             invalidate(res.id);
             onOpenChange(false);
             toast({
-              title: `Bid ${res.bidNo} created`,
+              title:`Bid ${res.bidNo} created`,
               description: "Saved as a draft. Open it to preview the proposal PDF and send it.",
-            });
+           });
             onSaved?.(res.id);
-          },
+         },
           onError: (e) =>
-            toast({ title: "Couldn't create bid", description: e.message, variant: "destructive" }),
-        },
+            toast({ title: "Couldn't create bid", description: e.message, variant: "destructive"}),
+       },
       );
-    }
-  };
+   }
+ };
 
   const pending = createBid.isPending || updateBid.isPending;
 
@@ -832,13 +832,13 @@ export function BidBuilderDialog({
                   <div className="space-y-1">
                     <Input
                       value={it.service}
-                      onChange={(e) => setItem(idx, { service: e.target.value })}
+                      onChange={(e) => setItem(idx, { service: e.target.value})}
                       placeholder="Service (e.g. Full interior paint)"
                       data-testid={`input-item-service-${idx}`}
                     />
                     <Input
                       value={it.description}
-                      onChange={(e) => setItem(idx, { description: e.target.value })}
+                      onChange={(e) => setItem(idx, { description: e.target.value})}
                       placeholder="Description (optional)"
                       className="text-xs"
                     />
@@ -847,7 +847,7 @@ export function BidBuilderDialog({
                     type="number"
                     min="0"
                     value={it.qty}
-                    onChange={(e) => setItem(idx, { qty: e.target.value })}
+                    onChange={(e) => setItem(idx, { qty: e.target.value})}
                     placeholder="Qty"
                     data-testid={`input-item-qty-${idx}`}
                   />
@@ -856,7 +856,7 @@ export function BidBuilderDialog({
                     min="0"
                     step="0.01"
                     value={it.unitPrice}
-                    onChange={(e) => setItem(idx, { unitPrice: e.target.value })}
+                    onChange={(e) => setItem(idx, { unitPrice: e.target.value})}
                     placeholder="Unit price"
                     data-testid={`input-item-price-${idx}`}
                   />
@@ -888,7 +888,7 @@ export function BidBuilderDialog({
                 />
               </div>
               <div className="text-right">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Proposal total</p>
+                <p className="text-xs text-muted-foreground font-bold">Proposal total</p>
                 <p className="font-mono font-bold text-xl text-[var(--gold-dark)]" data-testid="text-bid-total">
                   {money(total)}
                 </p>
@@ -929,13 +929,13 @@ export function BidDetailDialog({
   onEdit: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { data: bid } = useGetBid(bidId ?? "", {
+  const { toast} = useToast();
+  const { data: bid} = useGetBid(bidId ?? "", {
     query: {
       queryKey: getGetBidQueryKey(bidId ?? ""),
       enabled: open && !!bidId,
-    },
-  });
+   },
+ });
   const updateBid = useUpdateBid();
   const deleteBid = useDeleteBid();
   const sendBid = useSendBid();
@@ -951,46 +951,46 @@ export function BidDetailDialog({
       setSendMessage("");
       setSendOpen(false);
       setConfirmDelete(false);
-    }
-  }, [open, bid?.id]);
+   }
+ }, [open, bid?.id]);
 
   if (!bidId) return null;
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getListBidsQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetBidQueryKey(bidId) });
-    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetQueuesQueryKey() });
-  };
+    queryClient.invalidateQueries({ queryKey: getListBidsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetBidQueryKey(bidId)});
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetQueuesQueryKey()});
+ };
 
   const setStatus = (status: string) => {
     updateBid.mutate(
-      { id: bidId, data: { status } },
+      { id: bidId, data: { status}},
       {
         onSuccess: () => {
           invalidate();
-          toast({ title: `Bid marked ${status}` });
-        },
+          toast({ title:`Bid marked ${status}`});
+       },
         onError: (e) =>
-          toast({ title: "Couldn't update", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't update", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   const doDelete = () => {
     deleteBid.mutate(
-      { id: bidId },
+      { id: bidId},
       {
         onSuccess: () => {
           invalidate();
           onOpenChange(false);
-          toast({ title: "Bid deleted" });
-        },
+          toast({ title: "Bid deleted"});
+       },
         onError: (e) =>
-          toast({ title: "Couldn't delete", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't delete", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   const doSend = () => {
     sendBid.mutate(
@@ -999,23 +999,23 @@ export function BidDetailDialog({
         data: {
           to: sendTo.trim() || undefined,
           message: sendMessage.trim() || undefined,
-        },
-      },
+       },
+     },
       {
         onSuccess: (res) => {
           if (res.sent) {
             invalidate();
             setSendOpen(false);
-            toast({ title: "Proposal sent", description: `Emailed to ${res.to} with the PDF attached.` });
-          } else {
-            toast({ title: "Couldn't send", description: res.error ?? "Send failed", variant: "destructive" });
-          }
-        },
+            toast({ title: "Proposal sent", description:`Emailed to ${res.to} with the PDF attached.`});
+         } else {
+            toast({ title: "Couldn't send", description: res.error ?? "Send failed", variant: "destructive"});
+         }
+       },
         onError: (e) =>
-          toast({ title: "Couldn't send", description: e.message, variant: "destructive" }),
-      },
+          toast({ title: "Couldn't send", description: e.message, variant: "destructive"}),
+     },
     );
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1035,15 +1035,15 @@ export function BidDetailDialog({
                       : bid.status === "lost"
                         ? "bg-destructive/10 text-destructive border-destructive/20"
                         : "bg-[var(--gold-tint)] text-[var(--gold-dark)] border-[var(--gold)]/20"
-                  }
+                 }
                 >
                   {bid.status}
                 </Badge>
               </DialogTitle>
               <DialogDescription>
                 {bid.propertyName || "No property"}
-                {bid.unitNo ? ` · Unit ${bid.unitNo}` : ""}
-                {bid.contactName ? ` · ${bid.contactName}` : ""}
+                {bid.unitNo ?` · Unit ${bid.unitNo}` : ""}
+                {bid.contactName ?` · ${bid.contactName}` : ""}
               </DialogDescription>
             </DialogHeader>
 
@@ -1053,7 +1053,7 @@ export function BidDetailDialog({
               )}
               {bid.welcomeMessage && (
                 <div className="bg-[var(--gold-tint)] border border-[var(--gold)]/20 rounded-md p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] mb-1">
+                  <p className="text-[10px] font-bold text-[var(--gold-dark)] mb-1">
                     Welcome message
                   </p>
                   <p className="text-sm">{bid.welcomeMessage}</p>

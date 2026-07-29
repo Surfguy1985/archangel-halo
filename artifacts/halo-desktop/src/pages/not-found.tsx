@@ -1,5 +1,5 @@
-import { AlertCircle } from "lucide-react";
-import { FalkonBadge } from "@/components/FalkonBadge";
+import { AlertCircle} from "lucide-react";
+import { FalkonBadge} from "@/components/FalkonBadge";
 
 export default function NotFound() {
   return (
@@ -9,7 +9,7 @@ export default function NotFound() {
           <span className="flex h-10 w-10 items-center justify-center border border-[color:var(--gold)] text-[color:var(--gold)]">
             <AlertCircle className="h-5 w-5" />
           </span>
-          <h1 className="text-2xl font-bold text-foreground uppercase tracking-wide">404 — Not Found</h1>
+          <h1 className="text-2xl font-bold text-foreground">404 — Not Found</h1>
         </div>
         <p className="text-sm text-muted-foreground">
           This page doesn&apos;t exist. Use the sidebar to get back on track.

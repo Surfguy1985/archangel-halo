@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState} from "react";
 import {
   useGetBusinessReport,
   useGenerateReportInsights,
@@ -6,10 +6,10 @@ import {
   type PropertyReportRow,
   type ReportJob,
 } from "@workspace/api-client-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent} from "@/components/ui/card";
+import { Button} from "@/components/ui/button";
+import { Skeleton} from "@/components/ui/skeleton";
+import { Badge} from "@/components/ui/badge";
 import {
   Download,
   Sparkles,
@@ -24,10 +24,10 @@ const money = (n: number) =>
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
-  });
+ });
 
 const pct = (f: number | null | undefined) =>
-  f == null ? "—" : `${(f * 100).toFixed(1)}%`;
+  f == null ? "—" :`${(f * 100).toFixed(1)}%`;
 
 function marginColor(f: number | null | undefined): string {
   if (f == null) return "text-muted-foreground";
@@ -36,7 +36,7 @@ function marginColor(f: number | null | undefined): string {
   return "text-[#3c7a4e]";
 }
 
-function JobRow({ job }: { job: ReportJob }) {
+function JobRow({ job}: { job: ReportJob}) {
   const weak = (job.marginPct ?? 1) < 0.25 || (job.grossProfit ?? 0) < 0;
   return (
     <div className="flex items-center justify-between py-2 border-b last:border-b-0 border-[var(--line,#eee)]">
@@ -60,7 +60,7 @@ function JobRow({ job }: { job: ReportJob }) {
   );
 }
 
-function PropertyRow({ row }: { row: PropertyReportRow }) {
+function PropertyRow({ row}: { row: PropertyReportRow}) {
   return (
     <Card>
       <CardContent className="p-5 space-y-3">
@@ -116,7 +116,7 @@ function PropertyRow({ row }: { row: PropertyReportRow }) {
 }
 
 export function BusinessReportTab() {
-  const { data: report, isLoading } = useGetBusinessReport();
+  const { data: report, isLoading} = useGetBusinessReport();
   const insightsMut = useGenerateReportInsights();
   const [insights, setInsights] = useState<ReportInsights | null>(null);
 
@@ -127,7 +127,7 @@ export function BusinessReportTab() {
         <Skeleton className="h-48 w-full" />
       </div>
     );
-  }
+ }
 
   const t = report.totals;
   const tiles: [string, string, string?][] = [
@@ -143,7 +143,7 @@ export function BusinessReportTab() {
       t.netProfit >= 0 ? "text-[#3c7a4e]" : "text-destructive",
     ],
     ["Overall margin", pct(t.marginPct), marginColor(t.marginPct)],
-    ["Jobs", `${t.jobsCompleted} done · ${t.jobsActive} active`],
+    ["Jobs",`${t.jobsCompleted} done · ${t.jobsActive} active`],
   ];
 
   return (
@@ -161,8 +161,8 @@ export function BusinessReportTab() {
             onClick={() =>
               insightsMut.mutate(undefined, {
                 onSuccess: (d) => setInsights(d),
-              })
-            }
+             })
+           }
             disabled={insightsMut.isPending}
             data-testid="button-generate-insights"
           >
@@ -186,7 +186,7 @@ export function BusinessReportTab() {
         {tiles.map(([label, value, cls]) => (
           <Card key={label}>
             <CardContent className="p-4">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+              <div className="text-xs text-muted-foreground font-semibold">
                 {label}
               </div>
               <div className={`text-xl font-mono font-bold mt-1 ${cls ?? ""}`}>
@@ -214,7 +214,7 @@ export function BusinessReportTab() {
               {insights.suggestions.map((s, i) => (
                 <div key={i} className="border-l-2 border-[var(--gold)] pl-3">
                   <div className="font-semibold text-sm">
-                    {s.propertyName ? `${s.propertyName}: ` : ""}
+                    {s.propertyName ?`${s.propertyName}:` : ""}
                     {s.title}
                   </div>
                   <div className="text-sm text-muted-foreground">{s.detail}</div>

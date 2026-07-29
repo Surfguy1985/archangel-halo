@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { useLocation, useSearch } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState} from "react";
+import { useLocation, useSearch} from "wouter";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useGetMoneySummary,
   useListInvoices,
@@ -17,11 +17,11 @@ import {
   getListCrewPaymentsQueryKey,
   type Invoice,
 } from "@workspace/api-client-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton} from "@/components/ui/skeleton";
+import { Card, CardContent} from "@/components/ui/card";
+import { Button} from "@/components/ui/button";
+import { Badge} from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -49,29 +49,29 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useToast } from "@/hooks/use-toast";
-import { exportCsv } from "@/lib/exportCsv";
+import { useToast} from "@/hooks/use-toast";
+import { exportCsv} from "@/lib/exportCsv";
 import {
   RecordPaymentDialog,
   AddExpenseDialog,
   AddCrewPaymentDialog,
 } from "@/components/MoneyDialogs";
-import { SendInvoiceDialog } from "@/components/SendInvoiceDialog";
-import { ScanCheckDialog } from "@/components/ScanCheckDialog";
-import { BankTab } from "@/components/BankTab";
-import { ZellePayDialog } from "@/components/ZellePayDialog";
-import { BusinessInfoDialog } from "@/components/BusinessInfoDialog";
-import { BusinessReportTab } from "@/components/BusinessReportTab";
-import { BooksTab } from "@/components/BooksTab";
-import { Link } from "wouter";
+import { SendInvoiceDialog} from "@/components/SendInvoiceDialog";
+import { ScanCheckDialog} from "@/components/ScanCheckDialog";
+import { BankTab} from "@/components/BankTab";
+import { ZellePayDialog} from "@/components/ZellePayDialog";
+import { BusinessInfoDialog} from "@/components/BusinessInfoDialog";
+import { BusinessReportTab} from "@/components/BusinessReportTab";
+import { BooksTab} from "@/components/BooksTab";
+import { Link} from "wouter";
 
 const money = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0});
 
 const todayLocal = () => {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
 const fmtDate = (s?: string | null) => {
@@ -79,7 +79,7 @@ const fmtDate = (s?: string | null) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
   const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(s);
   if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric"});
 };
 
 const statusColor: Record<string, string> = {
@@ -97,34 +97,34 @@ const statusLabel: Record<string, string> = {
 
 type InvoiceFilter = "all" | "sent" | "past_due" | "paid" | "draft";
 
-const invoiceFilters: { key: InvoiceFilter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "sent", label: "Pending" },
-  { key: "past_due", label: "Overdue" },
-  { key: "paid", label: "Paid" },
-  { key: "draft", label: "Drafts" },
+const invoiceFilters: { key: InvoiceFilter; label: string}[] = [
+  { key: "all", label: "All"},
+  { key: "sent", label: "Pending"},
+  { key: "past_due", label: "Overdue"},
+  { key: "paid", label: "Paid"},
+  { key: "draft", label: "Drafts"},
 ];
 
 function SummaryCards() {
-  const { data: summary, isLoading } = useGetMoneySummary();
+  const { data: summary, isLoading} = useGetMoneySummary();
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {Array.from({ length: 4 }).map((_, i) => (
+        {Array.from({ length: 4}).map((_, i) => (
           <Skeleton key={i} className="h-32 w-full rounded-none" />
         ))}
       </div>
     );
-  }
+ }
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
       <Card className="bg-[var(--secondary)] text-white border-none shadow-sm rounded-none">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4 opacity-90 text-[var(--primary)]">
             <ArrowDownRight className="w-5 h-5" />
-            <span className="font-semibold uppercase tracking-wider text-xs">Landing (Owed)</span>
+            <span className="font-semibold text-xs">Landing (Owed)</span>
           </div>
-          <div className="text-3xl font-mono font-bold tracking-tight">
+          <div className="text-3xl font-mono font-bold">
             {money(summary?.landing ?? 0)}
           </div>
         </CardContent>
@@ -134,9 +134,9 @@ function SummaryCards() {
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4 opacity-90 text-white">
             <AlertCircle className="w-5 h-5" />
-            <span className="font-semibold uppercase tracking-wider text-xs">At Risk (&gt;30d)</span>
+            <span className="font-semibold text-xs">At Risk (&gt;30d)</span>
           </div>
-          <div className="text-3xl font-mono font-bold tracking-tight">
+          <div className="text-3xl font-mono font-bold">
             {money(summary?.atRisk ?? 0)}
           </div>
         </CardContent>
@@ -146,9 +146,9 @@ function SummaryCards() {
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4 text-muted-foreground">
             <ArrowUpRight className="w-5 h-5" />
-            <span className="font-semibold uppercase tracking-wider text-xs">MTD Revenue</span>
+            <span className="font-semibold text-xs">MTD Revenue</span>
           </div>
-          <div className="text-3xl font-mono font-bold tracking-tight text-[var(--secondary)]">
+          <div className="text-3xl font-mono font-bold text-[var(--secondary)]">
             {money(summary?.mtd ?? 0)}
           </div>
           <div className="mt-2 text-sm font-medium text-[var(--primary)] text-emerald-600">
@@ -161,11 +161,11 @@ function SummaryCards() {
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4 text-muted-foreground">
             <CreditCard className="w-5 h-5" />
-            <span className="font-semibold uppercase tracking-wider text-xs">
+            <span className="font-semibold text-xs">
               {summary?.bankConnected ? "Spent MTD" : "Collected MTD"}
             </span>
           </div>
-          <div className="text-3xl font-mono font-bold tracking-tight text-[var(--secondary)]">
+          <div className="text-3xl font-mono font-bold text-[var(--secondary)]">
             {money(
               summary?.bankConnected
                 ? summary?.spentMtd ?? 0
@@ -184,17 +184,17 @@ function SummaryCards() {
 }
 
 function AgingReceivables() {
-  const { data: summary } = useGetMoneySummary();
+  const { data: summary} = useGetMoneySummary();
   if (!summary) return null;
   return (
     <div>
-      <h2 className="text-xl font-display font-bold mb-4 text-[var(--secondary)] uppercase">Aging Receivables</h2>
+      <h2 className="text-xl font-display font-bold mb-4 text-[var(--secondary)]">Aging Receivables</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {summary.aging.map((bucket, i) => (
           <div key={i} className="p-4 bg-white border border-border">
             <div
               className="h-1.5 rounded-full mb-3"
-              style={{ backgroundColor: bucket.color || "var(--muted)" }}
+              style={{ backgroundColor: bucket.color || "var(--muted)"}}
             />
             <span className="text-sm font-medium text-muted-foreground">{bucket.label}</span>
             <div
@@ -209,13 +209,13 @@ function AgingReceivables() {
   );
 }
 
-function InvoiceStatusBadge({ inv }: { inv: Invoice }) {
+function InvoiceStatusBadge({ inv}: { inv: Invoice}) {
   return (
     <span
-      className={`text-[10.5px] font-bold uppercase tracking-[0.06em] px-2 py-0.5 rounded-full shrink-0 ${statusColor[inv.status] || statusColor.draft}`}
+      className={`text-[10.5px] font-bold  tracking-[0.06em] px-2 py-0.5 rounded-full shrink-0 ${statusColor[inv.status] || statusColor.draft}`}
     >
       {statusLabel[inv.status] || inv.status}
-      {inv.status === "past_due" && inv.daysLate ? ` · ${inv.daysLate}d` : ""}
+      {inv.status === "past_due" && inv.daysLate ?` · ${inv.daysLate}d` : ""}
     </span>
   );
 }
@@ -223,8 +223,8 @@ function InvoiceStatusBadge({ inv }: { inv: Invoice }) {
 function Invoices() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
-  const { toast } = useToast();
-  const { data: invoices, isLoading } = useListInvoices();
+  const { toast} = useToast();
+  const { data: invoices, isLoading} = useListInvoices();
   const [filter, setFilter] = useState<InvoiceFilter>("all");
   const [payInvoice, setInvoiceToPay] = useState<Invoice | null>(null);
   const [sendInvoice, setInvoiceToSend] = useState<Invoice | null>(null);
@@ -233,9 +233,9 @@ function Invoices() {
   const remind = useRemindInvoice();
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
-  };
+    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
+ };
 
   const sorted = useMemo(
     () =>
@@ -248,24 +248,24 @@ function Invoices() {
   );
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: sorted.length };
+    const c: Record<string, number> = { all: sorted.length};
     for (const inv of sorted) c[inv.status] = (c[inv.status] ?? 0) + 1;
     return c;
-  }, [sorted]);
+ }, [sorted]);
 
   const filtered = filter === "all" ? sorted : sorted.filter((i) => i.status === filter);
 
   const onExport = () => {
     exportCsv(
-      `invoices-${new Date().toISOString().slice(0, 10)}.csv`,
+     `invoices-${new Date().toISOString().slice(0, 10)}.csv`,
       [
-        { key: "invoiceNo", label: "Invoice #" },
-        { key: "propertyName", label: "Property" },
-        { key: "amount", label: "Amount" },
-        { key: "status", label: "Status" },
-        { key: "sentAt", label: "Sent" },
-        { key: "dueAt", label: "Due" },
-        { key: "paidAt", label: "Paid" },
+        { key: "invoiceNo", label: "Invoice #"},
+        { key: "propertyName", label: "Property"},
+        { key: "amount", label: "Amount"},
+        { key: "status", label: "Status"},
+        { key: "sentAt", label: "Sent"},
+        { key: "dueAt", label: "Due"},
+        { key: "paidAt", label: "Paid"},
       ],
       sorted.map((inv) => ({
         invoiceNo: inv.invoiceNo,
@@ -275,9 +275,9 @@ function Invoices() {
         sentAt: fmtDate(inv.sentAt),
         dueAt: fmtDate(inv.dueAt),
         paidAt: fmtDate(inv.paidAt),
-      })),
+     })),
     );
-  };
+ };
 
   return (
     <div className="space-y-4">
@@ -287,11 +287,11 @@ function Invoices() {
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider transition-colors ${
+              className={`px-4 py-1.5 rounded-full text-sm font-bold   transition-colors ${
                 filter === f.key
                   ? "bg-[var(--secondary)] text-white shadow-sm"
                   : "bg-white border border-border text-muted-foreground hover:border-[var(--secondary)] hover:text-[var(--secondary)]"
-              }`}
+             }`}
             >
               {f.label}
               <span className="ml-1.5 opacity-60 tabular-nums">
@@ -362,9 +362,9 @@ function Invoices() {
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {[
-                      inv.sentAt ? `Sent ${fmtDate(inv.sentAt)}` : null,
-                      inv.dueAt ? `Due ${fmtDate(inv.dueAt)}` : null,
-                      inv.paidAt ? `Paid ${fmtDate(inv.paidAt)}` : null,
+                      inv.sentAt ?`Sent ${fmtDate(inv.sentAt)}` : null,
+                      inv.dueAt ?`Due ${fmtDate(inv.dueAt)}` : null,
+                      inv.paidAt ?`Paid ${fmtDate(inv.paidAt)}` : null,
                     ]
                       .filter(Boolean)
                       .join(" · ") || "Not sent yet"}
@@ -381,7 +381,7 @@ function Invoices() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setInvoiceToSend(inv);
-                        }}
+                       }}
                         className="bg-[var(--secondary)] text-white rounded-none"
                       >
                         <Send className="w-4 h-4 mr-1.5" /> Send
@@ -394,17 +394,17 @@ function Invoices() {
                         onClick={(e) => {
                           e.stopPropagation();
                           remind.mutate(
-                            { id: inv.id },
+                            { id: inv.id},
                             {
                               onSuccess: () => {
                                 invalidate();
-                                toast({ title: "Reminder sent", description: `Past-due notice emailed for ${inv.invoiceNo}.` });
-                              },
+                                toast({ title: "Reminder sent", description:`Past-due notice emailed for ${inv.invoiceNo}.`});
+                             },
                               onError: (err) =>
-                                toast({ title: "Couldn't send reminder", description: err.message, variant: "destructive" }),
-                            },
+                                toast({ title: "Couldn't send reminder", description: err.message, variant: "destructive"}),
+                           },
                           );
-                        }}
+                       }}
                         disabled={remind.isPending}
                         className="rounded-none border-red-200 text-red-600 hover:bg-red-50"
                       >
@@ -417,7 +417,7 @@ function Invoices() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setInvoiceToPay(inv);
-                        }}
+                       }}
                         className="bg-[var(--secondary)] text-white rounded-none"
                       >
                         <CreditCard className="w-4 h-4 mr-1.5" /> Record payment
@@ -450,8 +450,8 @@ function Invoices() {
 
 function Expenses() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const { data: expenses, isLoading } = useListExpenses();
+  const { toast} = useToast();
+  const { data: expenses, isLoading} = useListExpenses();
   const [addOpen, setAddOpen] = useState(false);
   const [billOpen, setBillOpen] = useState(false);
   const payBill = usePayExpenseBill();
@@ -459,45 +459,45 @@ function Expenses() {
   const reject = useRejectExpense();
 
   const invalidateExpenseViews = () => {
-    queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
-    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
-    queryClient.invalidateQueries({ queryKey: ["/accounting"] });
-  };
+    queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
+    queryClient.invalidateQueries({ queryKey: ["/accounting"]});
+ };
 
   const doPay = (id: string, vendor: string | null | undefined) =>
     payBill.mutate(
-      { id },
+      { id},
       {
         onSuccess: () => {
           invalidateExpenseViews();
-          toast({ title: `Paid ${vendor || "bill"}` });
-        },
-        onError: () => toast({ title: "Couldn't mark that bill paid", variant: "destructive" }),
-      },
+          toast({ title:`Paid ${vendor || "bill"}`});
+       },
+        onError: () => toast({ title: "Couldn't mark that bill paid", variant: "destructive"}),
+     },
     );
 
   const doApprove = (id: string, vendor: string | null | undefined) =>
     approve.mutate(
-      { id },
+      { id},
       {
         onSuccess: () => {
           invalidateExpenseViews();
-          toast({ title: `Approved ${vendor || "expense"} — it's on the books now` });
-        },
-        onError: () => toast({ title: "Couldn't approve that expense", variant: "destructive" }),
-      },
+          toast({ title:`Approved ${vendor || "expense"} — it's on the books now`});
+       },
+        onError: () => toast({ title: "Couldn't approve that expense", variant: "destructive"}),
+     },
     );
 
   const doReject = (id: string, vendor: string | null | undefined) =>
     reject.mutate(
-      { id },
+      { id},
       {
         onSuccess: () => {
           invalidateExpenseViews();
-          toast({ title: `Rejected ${vendor || "expense"} — it won't count in your numbers` });
-        },
-        onError: () => toast({ title: "Couldn't reject that expense", variant: "destructive" }),
-      },
+          toast({ title:`Rejected ${vendor || "expense"} — it won't count in your numbers`});
+       },
+        onError: () => toast({ title: "Couldn't reject that expense", variant: "destructive"}),
+     },
     );
 
   const sorted = useMemo(
@@ -515,13 +515,13 @@ function Expenses() {
 
   const onExport = () => {
     exportCsv(
-      `expenses-${new Date().toISOString().slice(0, 10)}.csv`,
+     `expenses-${new Date().toISOString().slice(0, 10)}.csv`,
       [
-        { key: "vendor", label: "Vendor" },
-        { key: "category", label: "Category" },
-        { key: "amount", label: "Amount" },
-        { key: "spentOn", label: "Date" },
-        { key: "source", label: "Source" },
+        { key: "vendor", label: "Vendor"},
+        { key: "category", label: "Category"},
+        { key: "amount", label: "Amount"},
+        { key: "spentOn", label: "Date"},
+        { key: "source", label: "Source"},
       ],
       sorted.map((e) => ({
         vendor: e.vendor || "",
@@ -529,9 +529,9 @@ function Expenses() {
         amount: e.amount,
         spentOn: fmtDate(e.spentOn),
         source: e.source || "",
-      })),
+     })),
     );
-  };
+ };
 
   return (
     <div className="space-y-4">
@@ -540,7 +540,7 @@ function Expenses() {
           {sorted.length} expense{sorted.length === 1 ? "" : "s"} ·{" "}
           <span className="font-semibold text-[var(--ink)]">{money(total)}</span> total
           {pendingCount > 0 && (
-            <span className="ml-2 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark)]">
+            <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark)]">
               {pendingCount} awaiting approval
             </span>
           )}
@@ -604,7 +604,7 @@ function Expenses() {
                   </div>
                   <div className="text-xs text-muted-foreground truncate mt-0.5">
                     {[e.category, fmtDate(e.spentOn), e.source].filter(Boolean).join(" · ")}
-                    {e.paymentStatus === "open" && e.dueDate ? ` · due ${fmtDate(e.dueDate)}` : ""}
+                    {e.paymentStatus === "open" && e.dueDate ?` · due ${fmtDate(e.dueDate)}` : ""}
                   </div>
                   {e.bankTxnLabel && (
                     <div className="text-[11px] text-emerald-700 truncate mt-0.5 flex items-center gap-1">
@@ -613,17 +613,17 @@ function Expenses() {
                   )}
                 </div>
                 {isPending && (
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark)] shrink-0">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark)] shrink-0">
                     Needs approval
                   </span>
                 )}
                 {isRejected && (
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-black/10 text-muted-foreground shrink-0">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/10 text-muted-foreground shrink-0">
                     Rejected
                   </span>
                 )}
                 {!isPending && !isRejected && e.paymentStatus === "open" && (
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 shrink-0">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 shrink-0">
                     Unpaid bill
                   </span>
                 )}
@@ -666,7 +666,7 @@ function Expenses() {
                 ) : null}
               </div>
             );
-          })}
+         })}
         </div>
       )}
 
@@ -678,27 +678,27 @@ function Expenses() {
 
 function CrewPay() {
   const queryClient = useQueryClient();
-  const { data: payments, isLoading } = useListCrewPayments();
+  const { data: payments, isLoading} = useListCrewPayments();
   const [addOpen, setAddOpen] = useState(false);
   const markPaid = useUpdateCrewPayment();
-  const { toast } = useToast();
+  const { toast} = useToast();
 
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: getListCrewPaymentsQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListCrewPaymentsQueryKey()});
 
   type Payment = NonNullable<typeof payments>[number];
   const [zellePayment, setZellePayment] = useState<Payment | null>(null);
 
   const groups = useMemo(() => {
-    const map = new Map<string, { name: string; items: Payment[] }>();
+    const map = new Map<string, { name: string; items: Payment[]}>();
     for (const p of payments ?? []) {
       const key = p.crewId ?? p.crewName ?? "unknown";
       const name = p.crewName || "Unassigned crew";
-      if (!map.has(key)) map.set(key, { name, items: [] });
+      if (!map.has(key)) map.set(key, { name, items: []});
       map.get(key)!.items.push(p);
-    }
+   }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [payments]);
+ }, [payments]);
 
   return (
     <div className="space-y-4">
@@ -736,7 +736,7 @@ function CrewPay() {
                     const dateStr = p.paidAt
                       ? fmtDate(p.paidAt)
                       : p.dueOn
-                        ? `Due ${fmtDate(p.dueOn)}`
+                        ?`Due ${fmtDate(p.dueOn)}`
                         : null;
                     return (
                       <div key={p.id} className="flex items-center gap-3 py-3">
@@ -747,7 +747,7 @@ function CrewPay() {
                             </span>
                             <Badge
                               variant={isDone ? "secondary" : "destructive"}
-                              className="text-[10px] uppercase"
+                              className="text-[10px]"
                             >
                               {isDone ? "Completed" : "Pending"}
                             </Badge>
@@ -775,16 +775,16 @@ function CrewPay() {
                                   data: {
                                     status: "completed",
                                     paidAt: todayLocal(),
-                                  },
-                                },
+                                 },
+                               },
                                 {
                                   onSuccess: () => {
                                     invalidate();
-                                    toast({ title: "Marked paid" });
-                                  },
-                                },
+                                    toast({ title: "Marked paid"});
+                                 },
+                               },
                               )
-                            }
+                           }
                             disabled={markPaid.isPending}
                           >
                             <Check className="w-4 h-4 mr-1.5" /> Mark paid
@@ -792,11 +792,11 @@ function CrewPay() {
                         )}
                       </div>
                     );
-                  })}
+                 })}
                 </div>
               </div>
             );
-          })}
+         })}
         </div>
       )}
 
@@ -805,7 +805,7 @@ function CrewPay() {
         open={!!zellePayment}
         onOpenChange={(o) => {
           if (!o) setZellePayment(null);
-        }}
+       }}
         payment={zellePayment}
       />
     </div>
@@ -823,16 +823,16 @@ export default function Money() {
   );
   useEffect(() => {
     if (urlTab && MONEY_TABS.includes(urlTab)) setTab(urlTab);
-  }, [urlTab]);
+ }, [urlTab]);
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8 min-h-[100dvh] bg-[var(--background)]">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-display font-bold text-[var(--secondary)] tracking-tight uppercase">Money</h1>
+          <h1 className="text-4xl font-display font-bold text-[var(--secondary)]">Money</h1>
           <p className="text-muted-foreground font-mono mt-1 text-sm">{todayLocal()}</p>
         </div>
         <Link href="/money/payments">
-          <Button variant="default" className="bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90 gap-2 rounded-none font-bold uppercase tracking-wider text-xs px-6 py-2">
+          <Button variant="default" className="bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90 gap-2 rounded-none font-bold text-xs px-6 py-2">
             <ScanLine className="w-4 h-4" /> Pay Hub
           </Button>
         </Link>
@@ -842,15 +842,15 @@ export default function Money() {
         <SummaryCards />
       </div>
 
-      <Tabs value={tab} onValueChange={(t) => { setTab(t); setLocation(`/money?tab=${t}`); }} className="space-y-6">
+      <Tabs value={tab} onValueChange={(t) => { setTab(t); setLocation(`/money?tab=${t}`);}} className="space-y-6">
         <TabsList data-tour="money-tabs" className="bg-white border border-border shadow-sm p-1 rounded-none flex flex-wrap h-auto gap-1">
-          <TabsTrigger value="invoices" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Invoices</TabsTrigger>
-          <TabsTrigger value="expenses" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Expenses</TabsTrigger>
-          <TabsTrigger value="crew" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Crew Pay</TabsTrigger>
-          <TabsTrigger value="bank" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Bank</TabsTrigger>
-          <TabsTrigger value="aging" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Aging</TabsTrigger>
-          <TabsTrigger value="report" data-testid="tab-report" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Report</TabsTrigger>
-          <TabsTrigger value="books" data-testid="tab-books" className="rounded-none font-bold uppercase tracking-wider text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Books</TabsTrigger>
+          <TabsTrigger value="invoices" className="rounded-none font-bold text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Invoices</TabsTrigger>
+          <TabsTrigger value="expenses" className="rounded-none font-bold text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Expenses</TabsTrigger>
+          <TabsTrigger value="crew" className="rounded-none font-bold text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Crew Pay</TabsTrigger>
+          <TabsTrigger value="bank" className="rounded-none font-bold text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Bank</TabsTrigger>
+          <TabsTrigger value="aging" className="rounded-none font-bold text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Aging</TabsTrigger>
+          <TabsTrigger value="report" data-testid="tab-report" className="rounded-none font-bold text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Report</TabsTrigger>
+          <TabsTrigger value="books" data-testid="tab-books" className="rounded-none font-bold text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Books</TabsTrigger>
         </TabsList>
 
         <TabsContent value="invoices">

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useListPortalPackets,
   useGetPortalPacket,
@@ -18,7 +18,7 @@ import {
   type SignatureValue,
   type PacketAttachmentValue,
 } from "@workspace/onboarding-packet";
-import { useUpload } from "@workspace/object-storage-web";
+import { useUpload} from "@workspace/object-storage-web";
 import {
   PackageCheck,
   FileText,
@@ -38,7 +38,7 @@ function localToday(): string {
   const d = new Date();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
+  return`${d.getFullYear()}-${m}-${day}`;
 }
 
 function formatWhen(iso?: string | null): string {
@@ -48,20 +48,20 @@ function formatWhen(iso?: string | null): string {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
+ });
 }
 
 type FormsData = Record<string, Record<string, unknown>>;
 type Signatures = Record<string, SignatureValue>;
 type Attachments = Record<string, PacketAttachmentValue[]>;
 
-export default function WelcomeKitTab({ token }: { token: string }) {
-  const { data: packets, isLoading } = useListPortalPackets(token, {
+export default function WelcomeKitTab({ token}: { token: string}) {
+  const { data: packets, isLoading} = useListPortalPackets(token, {
     query: {
       queryKey: getListPortalPacketsQueryKey(token),
       refetchInterval: 8000,
-    },
-  });
+   },
+ });
   const [openId, setOpenId] = useState<string | null>(null);
 
   if (isLoading) {
@@ -70,7 +70,7 @@ export default function WelcomeKitTab({ token }: { token: string }) {
         <Loader2 className="w-5 h-5 animate-spin text-[var(--gold)]" />
       </div>
     );
-  }
+ }
 
   if (openId) {
     return (
@@ -80,7 +80,7 @@ export default function WelcomeKitTab({ token }: { token: string }) {
         onBack={() => setOpenId(null)}
       />
     );
-  }
+ }
 
   return (
     <div className="animate-in fade-in duration-200">
@@ -137,12 +137,12 @@ function PacketCard({
         </div>
         <div className="text-[11.5px] text-muted-foreground">
           {submitted
-            ? `Submitted ${formatWhen(packet.submittedAt)}`
-            : `Sent ${formatWhen(packet.sentAt)}`}
+            ?`Submitted ${formatWhen(packet.submittedAt)}`
+            :`Sent ${formatWhen(packet.sentAt)}`}
         </div>
       </div>
       <span
-        className={`text-[10px] font-bold uppercase tracking-[0.06em] px-[8px] py-[3px] rounded-full shrink-0 ${chip}`}
+        className={`text-[10px] font-bold  tracking-[0.06em] px-[8px] py-[3px] rounded-full shrink-0 ${chip}`}
       >
         {label}
       </span>
@@ -161,9 +161,9 @@ function PacketRunner({
   onBack: () => void;
 }) {
   const queryClient = useQueryClient();
-  const { data: packet, isLoading } = useGetPortalPacket(token, packetId, {
-    query: { queryKey: getGetPortalPacketQueryKey(token, packetId) },
-  });
+  const { data: packet, isLoading} = useGetPortalPacket(token, packetId, {
+    query: { queryKey: getGetPortalPacketQueryKey(token, packetId)},
+ });
   const save = useSavePortalPacket();
   const submitPacket = useSubmitPortalPacket();
 
@@ -180,18 +180,18 @@ function PacketRunner({
 
   useEffect(() => {
     if (!packet) return;
-    const app = (packet.applicability as { insured?: boolean; ach?: boolean } | null) ?? null;
+    const app = (packet.applicability as { insured?: boolean; ach?: boolean} | null) ?? null;
     if (app) {
       if (typeof app.insured === "boolean") setInsured(app.insured);
       if (typeof app.ach === "boolean") setAch(app.ach);
-    }
+   }
     setFormsData((packet.formsData as FormsData | null) ?? {});
     setSignatures((packet.signatures as Signatures | null) ?? {});
     setAttachments((packet.attachments as Attachments | null) ?? {});
     if (packet.status === "submitted") setDone(true);
-  }, [packet]);
+ }, [packet]);
 
-  const answers = { insured: insured === true, ach: ach === true };
+  const answers = { insured: insured === true, ach: ach === true};
   const steps: PacketForm[] = useMemo(
     () => (tpl ? completableForms(tpl, answers) : []),
     [tpl, answers.insured, answers.ach],
@@ -207,7 +207,7 @@ function PacketRunner({
         <Loader2 className="w-5 h-5 animate-spin text-[var(--gold)]" />
       </div>
     );
-  }
+ }
 
   // Step 0 = intake, 1..N = forms, N+1 = review.
   const totalSteps = steps.length + 2;
@@ -221,13 +221,13 @@ function PacketRunner({
       packetId,
       data: {
         status,
-        applicability: { insured: answers.insured, ach: answers.ach },
+        applicability: { insured: answers.insured, ach: answers.ach},
         formsData,
         signatures,
         attachments,
         ...overrides,
-      },
-    });
+     },
+   });
 
   const goNext = async () => {
     setErr(null);
@@ -235,44 +235,44 @@ function PacketRunner({
       if (insured === null || ach === null) {
         setErr("Please answer both questions to continue.");
         return;
-      }
+     }
       try {
         await persist();
-      } catch {
+     } catch {
         setErr("Couldn't save your progress. Check your connection and try again.");
         return;
-      }
+     }
       setStep(1);
-      window.scrollTo({ top: 0 });
+      window.scrollTo({ top: 0});
       return;
-    }
+   }
     if (currentForm) {
       const v = validateForm(currentForm, formsData[currentForm.code], signatures[currentForm.code], attachments[currentForm.code]);
       if (v) {
         setErr(v);
         return;
-      }
+     }
       try {
         await persist();
-      } catch {
+     } catch {
         setErr("Couldn't save your progress. Check your connection and try again.");
         return;
-      }
+     }
       setStep((s) => s + 1);
-      window.scrollTo({ top: 0 });
+      window.scrollTo({ top: 0});
       return;
-    }
-  };
+   }
+ };
 
   const goBack = () => {
     setErr(null);
     if (step === 0) {
       onBack();
       return;
-    }
+   }
     setStep((s) => s - 1);
-    window.scrollTo({ top: 0 });
-  };
+    window.scrollTo({ top: 0});
+ };
 
   const doSubmit = async () => {
     setErr(null);
@@ -281,28 +281,28 @@ function PacketRunner({
       if (v) {
         setErr(`${f.title}: ${v}`);
         return;
-      }
-    }
+     }
+   }
     try {
       await submitPacket.mutateAsync({
         token,
         packetId,
         data: {
-          applicability: { insured: answers.insured, ach: answers.ach },
+          applicability: { insured: answers.insured, ach: answers.ach},
           formsData,
           signatures,
           attachments,
-        },
-      });
-    } catch {
+       },
+     });
+   } catch {
       setErr("Couldn't submit your packet. Check your connection and try again.");
       return;
-    }
-    queryClient.invalidateQueries({ queryKey: getListPortalPacketsQueryKey(token) });
-    queryClient.invalidateQueries({ queryKey: getGetPortalPacketQueryKey(token, packetId) });
+   }
+    queryClient.invalidateQueries({ queryKey: getListPortalPacketsQueryKey(token)});
+    queryClient.invalidateQueries({ queryKey: getGetPortalPacketQueryKey(token, packetId)});
     setDone(true);
-    window.scrollTo({ top: 0 });
-  };
+    window.scrollTo({ top: 0});
+ };
 
   if (done) {
     return (
@@ -325,7 +325,7 @@ function PacketRunner({
         </div>
       </div>
     );
-  }
+ }
 
   return (
     <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
@@ -345,12 +345,12 @@ function PacketRunner({
       <div className="h-[5px] rounded-full bg-[rgba(23,24,28,0.08)] overflow-hidden">
         <div
           className="h-full bg-[var(--gold-light)] transition-all duration-300"
-          style={{ width: `${((step + 1) / totalSteps) * 100}%` }}
+          style={{ width:`${((step + 1) / totalSteps) * 100}%`}}
         />
       </div>
 
       <div className={card}>
-        <div className="text-[11px] font-display font-bold tracking-[0.14em] uppercase text-[var(--gold-dark)]">
+        <div className="text-[11px] font-display font-bold tracking-[0.14em] text-[var(--gold-dark)]">
           {tpl.label}
         </div>
 
@@ -373,14 +373,14 @@ function PacketRunner({
             signature={signatures[currentForm.code]}
             attachments={attachments[currentForm.code] ?? []}
             onData={(d) =>
-              setFormsData((prev) => ({ ...prev, [currentForm.code]: d }))
-            }
+              setFormsData((prev) => ({ ...prev, [currentForm.code]: d}))
+           }
             onSignature={(s) =>
-              setSignatures((prev) => ({ ...prev, [currentForm.code]: s }))
-            }
+              setSignatures((prev) => ({ ...prev, [currentForm.code]: s}))
+           }
             onAttachments={(a) =>
-              setAttachments((prev) => ({ ...prev, [currentForm.code]: a }))
-            }
+              setAttachments((prev) => ({ ...prev, [currentForm.code]: a}))
+           }
           />
         )}
 
@@ -474,7 +474,7 @@ function IntakeStep({
                 value(q.key) === true
                   ? "bg-[var(--ink)] text-white border-[var(--ink)]"
                   : "bg-background text-foreground border-border"
-              }`}
+             }`}
             >
               {q.yesLabel}
             </button>
@@ -484,7 +484,7 @@ function IntakeStep({
                 value(q.key) === false
                   ? "bg-[var(--ink)] text-white border-[var(--ink)]"
                   : "bg-background text-foreground border-border"
-              }`}
+             }`}
             >
               {q.noLabel}
             </button>
@@ -517,15 +517,15 @@ function FormStep({
   onAttachments: (a: PacketAttachmentValue[]) => void;
 }) {
   const pdfUrl = form.hasSourcePdf
-    ? `/api/packets/templates/${templateKey}/forms/${form.code}/pdf`
+    ?`/api/packets/templates/${templateKey}/forms/${form.code}/pdf`
     : null;
 
-  const setField = (key: string, v: unknown) => onData({ ...data, [key]: v });
+  const setField = (key: string, v: unknown) => onData({ ...data, [key]: v});
 
   return (
     <div className="mt-[10px] flex flex-col gap-[14px]">
       <div>
-        <div className="text-[11px] font-display font-bold tracking-[0.1em] uppercase text-muted-foreground">
+        <div className="text-[11px] font-display font-bold tracking-[0.1em] text-muted-foreground">
           Form {form.code}
         </div>
         <div className="font-display font-bold text-[18px] mt-[1px]">
@@ -574,8 +574,8 @@ function FormStep({
           value={attachments.find((a) => a.key === att.key)}
           onChange={(val) => {
             const rest = attachments.filter((a) => a.key !== att.key);
-            onAttachments(val ? [...rest, { ...val, key: att.key }] : rest);
-          }}
+            onAttachments(val ? [...rest, { ...val, key: att.key}] : rest);
+         }}
         />
       ))}
 
@@ -625,7 +625,7 @@ function FieldInput({
         />
       </div>
     );
-  }
+ }
 
   if (field.type === "checkbox") {
     return (
@@ -642,7 +642,7 @@ function FieldInput({
         </span>
       </label>
     );
-  }
+ }
 
   if (field.type === "radio" || field.type === "select") {
     return (
@@ -658,7 +658,7 @@ function FieldInput({
                 value === opt.value
                   ? "bg-[var(--ink)] text-white border-[var(--ink)]"
                   : "bg-background text-foreground border-border"
-              }`}
+             }`}
             >
               {opt.label}
             </button>
@@ -666,7 +666,7 @@ function FieldInput({
         </div>
       </div>
     );
-  }
+ }
 
   if (field.type === "workers") {
     return (
@@ -677,7 +677,7 @@ function FieldInput({
         onChange={onChange}
       />
     );
-  }
+ }
 
   const inputType =
     field.type === "email"
@@ -713,12 +713,12 @@ function WorkersInput({
   value: Array<Record<string, string>>;
   onChange: (v: unknown) => void;
 }) {
-  const rows = value.length > 0 ? value : [{ name: "", role: "" }];
+  const rows = value.length > 0 ? value : [{ name: "", role: ""}];
   const update = (i: number, key: string, v: string) => {
-    const next = rows.map((r, idx) => (idx === i ? { ...r, [key]: v } : r));
+    const next = rows.map((r, idx) => (idx === i ? { ...r, [key]: v} : r));
     onChange(next);
-  };
-  const add = () => onChange([...rows, { name: "", role: "" }]);
+ };
+  const add = () => onChange([...rows, { name: "", role: ""}]);
   const remove = (i: number) => onChange(rows.filter((_, idx) => idx !== i));
   const input =
     "w-full rounded-[11px] border border-border bg-background px-[12px] py-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40";
@@ -784,7 +784,7 @@ function AttachmentInput({
   onChange: (v: PacketAttachmentValue | null) => void;
 }) {
   void token;
-  const { uploadFile, isUploading } = useUpload({
+  const { uploadFile, isUploading} = useUpload({
     onSuccess: (res) =>
       onChange({
         key: "",
@@ -792,14 +792,14 @@ function AttachmentInput({
         storagePath: res.objectPath,
         contentType: res.metadata.contentType ?? null,
         size: res.metadata.size ?? null,
-      }),
-  });
+     }),
+ });
 
   const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) uploadFile(file);
     e.target.value = "";
-  };
+ };
 
   return (
     <div>
@@ -863,11 +863,11 @@ function SignatureInput({
       agreedAt: value?.agreedAt,
       userAgent: value?.userAgent,
       ...patch,
-    });
+   });
 
   return (
     <div className="rounded-[13px] border border-[var(--gold)]/40 bg-[rgba(143,106,31,0.05)] p-[13px] flex flex-col gap-[10px]">
-      <div className="text-[12px] font-display font-bold tracking-[0.08em] uppercase text-[var(--gold-dark)]">
+      <div className="text-[12px] font-display font-bold tracking-[0.08em] text-[var(--gold-dark)]">
         Electronic signature
       </div>
       <div>
@@ -876,10 +876,10 @@ function SignatureInput({
         </label>
         <input
           value={value?.typedName ?? ""}
-          onChange={(e) => set({ typedName: e.target.value })}
+          onChange={(e) => set({ typedName: e.target.value})}
           placeholder="Your full name"
           className={`${input} font-display`}
-          style={{ fontStyle: "italic" }}
+          style={{ fontStyle: "italic"}}
         />
       </div>
       {captureTitle && (
@@ -887,7 +887,7 @@ function SignatureInput({
           <label className="block text-[12.5px] font-semibold mb-[5px]">Title</label>
           <input
             value={value?.title ?? ""}
-            onChange={(e) => set({ title: e.target.value })}
+            onChange={(e) => set({ title: e.target.value})}
             placeholder="e.g. Owner"
             className={input}
           />
@@ -898,7 +898,7 @@ function SignatureInput({
           <label className="block text-[12.5px] font-semibold mb-[5px]">Company</label>
           <input
             value={value?.company ?? ""}
-            onChange={(e) => set({ company: e.target.value })}
+            onChange={(e) => set({ company: e.target.value})}
             placeholder="Company name"
             className={input}
           />
@@ -913,8 +913,8 @@ function SignatureInput({
               agreed: e.target.checked,
               agreedAt: e.target.checked ? new Date().toISOString() : undefined,
               userAgent: e.target.checked ? navigator.userAgent : undefined,
-            })
-          }
+           })
+         }
           className="mt-[2px] w-[18px] h-[18px] accent-[var(--gold)]"
         />
         <span className="text-[12.5px] leading-[1.45]">{agreeText}</span>
@@ -974,7 +974,7 @@ function ReviewStep({
               )}
             </div>
           );
-        })}
+       })}
       </div>
     </div>
   );
@@ -991,29 +991,29 @@ function validateForm(
     if (!field.required) continue;
     const v = d[field.key];
     if (field.type === "checkbox") {
-      if (!v) return `Please check "${field.label}".`;
-    } else if (field.type === "workers") {
+      if (!v) return`Please check "${field.label}".`;
+   } else if (field.type === "workers") {
       const rows = Array.isArray(v) ? v : [];
       const hasOne = rows.some(
         (r) => r && typeof r === "object" && String((r as Record<string, unknown>).name ?? "").trim() !== "",
       );
-      if (!hasOne) return `Add at least one entry for "${field.label}".`;
-    } else if (v == null || String(v).trim() === "") {
-      return `"${field.label}" is required.`;
-    }
-  }
+      if (!hasOne) return`Add at least one entry for "${field.label}".`;
+   } else if (v == null || String(v).trim() === "") {
+      return`"${field.label}" is required.`;
+   }
+ }
   for (const att of form.attachments) {
     if (att.required && !(attachments ?? []).some((a) => a.key === att.key)) {
-      return `Please upload "${att.label}".`;
-    }
-  }
+      return`Please upload "${att.label}".`;
+   }
+ }
   if (form.signature) {
     if (!signature?.typedName || String(signature.typedName).trim() === "") {
       return "Please type your name to sign.";
-    }
+   }
     if (!signature.agreed) {
       return "Please check the agreement box to sign.";
-    }
-  }
+   }
+ }
   return null;
 }

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useGetTaxPlanner,
   useSaveTaxPlannerSettings,
@@ -10,12 +10,12 @@ import {
   type TaxEstimate,
   type TaxEntityComparison,
 } from "@workspace/api-client-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent} from "@/components/ui/card";
+import { Button} from "@/components/ui/button";
+import { Badge} from "@/components/ui/badge";
+import { Skeleton} from "@/components/ui/skeleton";
+import { Input} from "@/components/ui/input";
+import { Label} from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -23,11 +23,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calculator, Scale, Sparkles, AlertTriangle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Calculator, Scale, Sparkles, AlertTriangle} from "lucide-react";
+import { useToast} from "@/hooks/use-toast";
 
 const money = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  n.toLocaleString("en-US", { style: "currency", currency: "USD"});
 
 const ENTITY_LABELS: Record<string, string> = {
   sole_proprietor: "Sole proprietor",
@@ -51,23 +51,23 @@ type NumField = {
 };
 
 const NUM_FIELDS: NumField[] = [
-  { key: "ownerW2Wages", label: "Your W-2 salary from the business", hint: "S-corp / C-corp owner salary" },
-  { key: "otherW2Wages", label: "Other W-2 wages (outside job)" },
-  { key: "otherTaxableIncome", label: "Other taxable income" },
-  { key: "aboveLineAdjustments", label: "Above-the-line adjustments" },
-  { key: "itemizedDeductions", label: "Itemized deductions", hint: "Standard deduction used if larger" },
-  { key: "qbiDeduction", label: "QBI deduction (CPA-reviewed)" },
-  { key: "taxCredits", label: "Tax credits" },
-  { key: "federalWithholding", label: "Federal withholding so far" },
-  { key: "estimatedPaymentsMade", label: "Estimated payments already made" },
-  { key: "stateEffectiveRatePct", label: "State effective rate %", hint: "Texas: 0" },
-  { key: "reserveBufferRatePct", label: "Safety buffer % on reserve" },
+  { key: "ownerW2Wages", label: "Your W-2 salary from the business", hint: "S-corp / C-corp owner salary"},
+  { key: "otherW2Wages", label: "Other W-2 wages (outside job)"},
+  { key: "otherTaxableIncome", label: "Other taxable income"},
+  { key: "aboveLineAdjustments", label: "Above-the-line adjustments"},
+  { key: "itemizedDeductions", label: "Itemized deductions", hint: "Standard deduction used if larger"},
+  { key: "qbiDeduction", label: "QBI deduction (CPA-reviewed)"},
+  { key: "taxCredits", label: "Tax credits"},
+  { key: "federalWithholding", label: "Federal withholding so far"},
+  { key: "estimatedPaymentsMade", label: "Estimated payments already made"},
+  { key: "stateEffectiveRatePct", label: "State effective rate %", hint: "Texas: 0"},
+  { key: "reserveBufferRatePct", label: "Safety buffer % on reserve"},
 ];
 
 export function TaxPlannerSection() {
-  const { toast } = useToast();
+  const { toast} = useToast();
   const qc = useQueryClient();
-  const { data: planner, isLoading } = useGetTaxPlanner();
+  const { data: planner, isLoading} = useGetTaxPlanner();
   const save = useSaveTaxPlannerSettings();
   const runEstimate = useRunTaxPlannerEstimate();
   const runCompare = useCompareTaxPlannerEntities();
@@ -80,7 +80,7 @@ export function TaxPlannerSection() {
 
   useEffect(() => {
     if (planner && !form) setForm(planner.settings);
-  }, [planner, form]);
+ }, [planner, form]);
 
   const prefill = planner?.prefill;
 
@@ -89,39 +89,39 @@ export function TaxPlannerSection() {
     if (kind === "ytd") {
       setGrossRevenue(String(prefill.ytdRevenue));
       setOrdinaryExpenses(String(prefill.ytdExpenses));
-    } else {
+   } else {
       setGrossRevenue(String(prefill.annualizedRevenue));
       setOrdinaryExpenses(String(prefill.annualizedExpenses));
-    }
-  };
+   }
+ };
 
   const numbersReady = grossRevenue !== "" && ordinaryExpenses !== "";
 
   const runBoth = async () => {
     if (!form || !numbersReady) return;
     try {
-      await save.mutateAsync({ data: form });
-      qc.invalidateQueries({ queryKey: getGetTaxPlannerQueryKey() });
+      await save.mutateAsync({ data: form});
+      qc.invalidateQueries({ queryKey: getGetTaxPlannerQueryKey()});
       const payload = {
         grossRevenue: Number(grossRevenue) || 0,
         ordinaryExpenses: Number(ordinaryExpenses) || 0,
         settings: form,
-      };
+     };
       const [est, cmp] = await Promise.all([
-        runEstimate.mutateAsync({ data: payload }),
-        runCompare.mutateAsync({ data: payload }),
+        runEstimate.mutateAsync({ data: payload}),
+        runCompare.mutateAsync({ data: payload}),
       ]);
       setEstimate(est);
       setComparison(cmp);
-    } catch {
-      toast({ title: "Could not run the estimate", variant: "destructive" });
-    }
-  };
+   } catch {
+      toast({ title: "Could not run the estimate", variant: "destructive"});
+   }
+ };
 
   const running = save.isPending || runEstimate.isPending || runCompare.isPending;
 
   const setNum = (key: keyof TaxPlannerSettingsData, v: string) =>
-    setForm((f) => (f ? { ...f, [key]: v === "" ? 0 : Number(v) } : f));
+    setForm((f) => (f ? { ...f, [key]: v === "" ? 0 : Number(v)} : f));
 
   const bestLabel = useMemo(
     () => (comparison ? ENTITY_LABELS[comparison.lowestProjectedTaxEntity] : ""),
@@ -137,7 +137,7 @@ export function TaxPlannerSection() {
           <CardContent className="pt-5">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <p className="text-xs text-muted-foreground uppercase font-semibold flex items-center gap-1.5">
+                <p className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" /> From your Books — {prefill.year}
                 </p>
                 <p className="text-sm mt-1">
@@ -195,7 +195,7 @@ export function TaxPlannerSection() {
                 <Label>Business entity type</Label>
                 <Select
                   value={form.entityType}
-                  onValueChange={(v) => setForm({ ...form, entityType: v as TaxPlannerSettingsData["entityType"] })}
+                  onValueChange={(v) => setForm({ ...form, entityType: v as TaxPlannerSettingsData["entityType"]})}
                 >
                   <SelectTrigger data-testid="select-planner-entity">
                     <SelectValue />
@@ -211,7 +211,7 @@ export function TaxPlannerSection() {
                 <Label>Filing status</Label>
                 <Select
                   value={form.filingStatus}
-                  onValueChange={(v) => setForm({ ...form, filingStatus: v as TaxPlannerSettingsData["filingStatus"] })}
+                  onValueChange={(v) => setForm({ ...form, filingStatus: v as TaxPlannerSettingsData["filingStatus"]})}
                 >
                   <SelectTrigger data-testid="select-planner-filing">
                     <SelectValue />
@@ -264,14 +264,14 @@ export function TaxPlannerSection() {
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: "Projected total tax", value: estimate.totalProjectedTax },
-              { label: "Balance still due", value: estimate.projectedBalanceDue },
-              { label: "Set aside (with buffer)", value: estimate.reserveRecommendation },
-              { label: "Taxable income", value: estimate.taxableIncomeEstimate },
+              { label: "Projected total tax", value: estimate.totalProjectedTax},
+              { label: "Balance still due", value: estimate.projectedBalanceDue},
+              { label: "Set aside (with buffer)", value: estimate.reserveRecommendation},
+              { label: "Taxable income", value: estimate.taxableIncomeEstimate},
             ].map((c) => (
               <Card key={c.label}>
                 <CardContent className="pt-5">
-                  <p className="text-xs text-muted-foreground uppercase font-semibold">{c.label}</p>
+                  <p className="text-xs text-muted-foreground font-semibold">{c.label}</p>
                   <p className="font-display font-bold text-2xl tabular-nums" data-testid={`planner-${c.label.replaceAll(" ", "-").toLowerCase()}`}>
                     {money(c.value)}
                   </p>
@@ -333,7 +333,7 @@ export function TaxPlannerSection() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs text-muted-foreground uppercase">
+                  <tr className="text-left text-xs text-muted-foreground">
                     <th className="py-2 pr-3">Entity</th>
                     <th className="py-2 pr-3 text-right">Total tax</th>
                     <th className="py-2 pr-3 text-right">Balance due</th>
@@ -357,7 +357,7 @@ export function TaxPlannerSection() {
                         </td>
                       </tr>
                     );
-                  })}
+                 })}
                 </tbody>
               </table>
             </div>
@@ -369,7 +369,7 @@ export function TaxPlannerSection() {
       {estimate && (
         <Card className="border-amber-300/60 bg-amber-50/50">
           <CardContent className="pt-5">
-            <p className="text-xs font-semibold uppercase text-amber-800 flex items-center gap-1.5">
+            <p className="text-xs font-semibold text-amber-800 flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5" /> Planning estimate only
             </p>
             <ul className="mt-1.5 space-y-1">

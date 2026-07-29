@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
 import {
   useListCatalogItems,
   useImportPriceItems,
   getGetPropertyQueryKey,
 } from "@workspace/api-client-react";
-import { Search, BookOpen, Check } from "lucide-react";
-import { Link } from "wouter";
+import { Search, BookOpen, Check} from "lucide-react";
+import { Link} from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,7 @@ export function ImportFromCatalogDialog({
   existingServices: string[];
 }) {
   const queryClient = useQueryClient();
-  const { data: items, isLoading } = useListCatalogItems();
+  const { data: items, isLoading} = useListCatalogItems();
   const importMut = useImportPriceItems();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -48,31 +48,31 @@ export function ImportFromCatalogDialog({
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
-    });
-  };
+   });
+ };
 
   const submit = () => {
     if (selected.size === 0) return;
     importMut.mutate(
-      { id: propertyId, data: { catalogItemIds: Array.from(selected) } },
+      { id: propertyId, data: { catalogItemIds: Array.from(selected)}},
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
           setSelected(new Set());
           setSearch("");
           onOpenChange(false);
-        },
-      },
+       },
+     },
     );
-  };
+ };
 
   const handleOpenChange = (o: boolean) => {
     if (!o) {
       setSelected(new Set());
       setSearch("");
-    }
+   }
     onOpenChange(o);
-  };
+ };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -128,12 +128,12 @@ export function ImportFromCatalogDialog({
                   </div>
                 </div>
                 <div className="font-mono font-bold text-sm shrink-0">
-                  {item.rate != null ? `$${item.rate}` : "—"}
+                  {item.rate != null ?`$${item.rate}` : "—"}
                   {item.unit && <span className="text-xs text-muted-foreground font-sans font-normal"> /{item.unit}</span>}
                 </div>
               </button>
             );
-          })}
+         })}
         </div>
         {importMut.isError && (
           <div className="text-xs text-destructive">Couldn't add those services. Try again.</div>
@@ -151,7 +151,7 @@ export function ImportFromCatalogDialog({
             disabled={selected.size === 0 || importMut.isPending}
             className="bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50"
           >
-            {importMut.isPending ? "Adding…" : `Add ${selected.size || ""} selected`}
+            {importMut.isPending ? "Adding…" :`Add ${selected.size || ""} selected`}
           </button>
         </DialogFooter>
       </DialogContent>

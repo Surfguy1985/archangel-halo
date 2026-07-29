@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { Minus, Plus, X } from "lucide-react";
+import { useState} from "react";
+import { useQueryClient} from "@tanstack/react-query";
+import { Minus, Plus, X} from "lucide-react";
 import {
   useAddJobLineItem,
   useUpdateJobLineItem,
@@ -42,7 +42,7 @@ export function JobLineItemsPanel({
   const del = useDeleteJobLineItem();
 
   const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
+    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
 
   const total = lineItems.reduce((s, li) => s + li.amount, 0);
   const busy = add.isPending || update.isPending || del.isPending;
@@ -56,7 +56,7 @@ export function JobLineItemsPanel({
               <div className="flex-1 min-w-0">
                 <div className="font-semibold truncate">{li.service}</div>
                 <div className="text-xs text-muted-foreground">
-                  ${li.rate.toLocaleString()}{li.unit ? `/${li.unit}` : ""}
+                  ${li.rate.toLocaleString()}{li.unit ?`/${li.unit}` : ""}
                 </div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
@@ -64,8 +64,8 @@ export function JobLineItemsPanel({
                   aria-label="Decrease quantity"
                   disabled={busy || li.qty <= 1}
                   onClick={() =>
-                    update.mutate({ id: li.id, data: { qty: li.qty - 1 } }, { onSuccess: refresh })
-                  }
+                    update.mutate({ id: li.id, data: { qty: li.qty - 1}}, { onSuccess: refresh})
+                 }
                   className="w-6 h-6 rounded-full bg-card border border-border grid place-items-center text-muted-foreground disabled:opacity-40 hover:bg-black/[0.04]"
                 >
                   <Minus className="w-3 h-3" />
@@ -75,8 +75,8 @@ export function JobLineItemsPanel({
                   aria-label="Increase quantity"
                   disabled={busy}
                   onClick={() =>
-                    update.mutate({ id: li.id, data: { qty: li.qty + 1 } }, { onSuccess: refresh })
-                  }
+                    update.mutate({ id: li.id, data: { qty: li.qty + 1}}, { onSuccess: refresh})
+                 }
                   className="w-6 h-6 rounded-full bg-card border border-border grid place-items-center text-muted-foreground disabled:opacity-40 hover:bg-black/[0.04]"
                 >
                   <Plus className="w-3 h-3" />
@@ -88,7 +88,7 @@ export function JobLineItemsPanel({
               <button
                 aria-label="Remove line item"
                 disabled={busy}
-                onClick={() => del.mutate({ id: li.id }, { onSuccess: refresh })}
+                onClick={() => del.mutate({ id: li.id}, { onSuccess: refresh})}
                 className="shrink-0 w-6 h-6 rounded-full grid place-items-center text-muted-foreground/70 hover:text-foreground hover:bg-black/[0.05]"
               >
                 <X className="w-3.5 h-3.5" />
@@ -108,7 +108,7 @@ export function JobLineItemsPanel({
             <option value="">Add from price list…</option>
             {priceItems.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.service} — ${p.rate.toLocaleString()}{p.unit ? `/${p.unit}` : ""}
+                {p.service} — ${p.rate.toLocaleString()}{p.unit ?`/${p.unit}` : ""}
               </option>
             ))}
           </select>
@@ -116,15 +116,15 @@ export function JobLineItemsPanel({
             disabled={!selectedId || busy}
             onClick={() =>
               add.mutate(
-                { id: jobId, data: { priceItemId: selectedId, qty: 1 } },
+                { id: jobId, data: { priceItemId: selectedId, qty: 1}},
                 {
                   onSuccess: () => {
                     setSelectedId("");
                     refresh();
-                  },
-                },
+                 },
+               },
               )
-            }
+           }
             className="shrink-0 rounded-md px-3 py-1.5 text-sm font-semibold text-[var(--ink)] bg-[var(--primary)] disabled:opacity-50 hover:brightness-105"
           >
             Add
