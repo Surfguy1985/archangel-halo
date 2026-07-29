@@ -23,6 +23,9 @@ import {
   GetOfficeClientBoardResponse,
   CreateOfficeClientBoardCardBody,
   CreateOfficeClientBoardCardResponse,
+  UpdateOfficeClientBoardCardBody,
+  UpdateOfficeClientBoardCardResponse,
+  DeleteOfficeClientBoardCardResponse,
 } from "@workspace/api-zod";
 import { randomUUID } from "node:crypto";
 import { raiseClientCard, webhookUrlProblem } from "../lib/clientBoard";
@@ -756,6 +759,128 @@ router.post(
       body: `Card sent to the client board: ${title}`,
     });
     res.json(CreateOfficeClientBoardCardResponse.parse(serCard(card)));
+  },
+);
+
+// Fix a typo or take back a card sent by mistake — manual cards only, so the
+// office can't touch cards that mirror real records (invoices, recaps, …).
+router.patch(
+  "/admin/accounts/:propertyId/board/cards/:cardId",
+  async (req, res): Promise<void> => {
+    const parsed = UpdateOfficeClientBoardCardBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const body = parsed.data;
+    const title = body.title.trim();
+    if (!title) {
+      res.status(400).json({ error: "The card needs a title" });
+      return;
+    }
+    if (body.dueDate != null && body.dueDate !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(body.dueDate)) {
+      res.status(400).json({ error: "Due date must be YYYY-MM-DD" });
+      return;
+    }
+    const links = (body.links ?? [])
+      .map((l) => ({ label: l.label.trim(), url: l.url.trim(), kind: l.kind ?? null }))
+      .filter((l) => l.label && l.url);
+    for (const l of links) {
+      let u: URL;
+      try {
+        u = new URL(l.url);
+      } catch {
+        res.status(400).json({ error: `Link "${l.label}" must be a valid URL` });
+        return;
+      }
+      if (u.protocol !== "https:" && u.protocol !== "http:") {
+        res.status(400).json({ error: `Link "${l.label}" must be an http(s) URL` });
+        return;
+      }
+    }
+    const propertyId = String(req.params.propertyId);
+    const cardId = String(req.params.cardId);
+    if (!UUID_RE.test(propertyId)) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    // Ownership: the card must belong to THIS property.
+    const [existing] = await db
+      .select()
+      .from(clientBoardCardsTable)
+      .where(
+        and(
+          eq(clientBoardCardsTable.id, cardId),
+          eq(clientBoardCardsTable.propertyId, propertyId),
+        ),
+      )
+      .limit(1);
+    if (!existing) {
+      res.status(404).json({ error: "Card not found" });
+      return;
+    }
+    if (existing.kind !== "manual") {
+      res.status(409).json({ error: "Only manual cards can be edited" });
+      return;
+    }
+    const [card] = await db
+      .update(clientBoardCardsTable)
+      .set({
+        title,
+        body: body.body?.trim() || null,
+        dueDate: body.dueDate || null,
+        links,
+        updatedAt: new Date(),
+      })
+      .where(eq(clientBoardCardsTable.id, existing.id))
+      .returning();
+    await db.insert(activitiesTable).values({
+      entityType: "property",
+      entityId: propertyId,
+      kind: "note",
+      body: `Client-board card edited: ${title}`,
+    });
+    res.json(UpdateOfficeClientBoardCardResponse.parse(serCard(card)));
+  },
+);
+
+router.delete(
+  "/admin/accounts/:propertyId/board/cards/:cardId",
+  async (req, res): Promise<void> => {
+    const propertyId = String(req.params.propertyId);
+    const cardId = String(req.params.cardId);
+    if (!UUID_RE.test(propertyId)) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const [existing] = await db
+      .select()
+      .from(clientBoardCardsTable)
+      .where(
+        and(
+          eq(clientBoardCardsTable.id, cardId),
+          eq(clientBoardCardsTable.propertyId, propertyId),
+        ),
+      )
+      .limit(1);
+    if (!existing) {
+      res.status(404).json({ error: "Card not found" });
+      return;
+    }
+    if (existing.kind !== "manual") {
+      res.status(409).json({ error: "Only manual cards can be removed" });
+      return;
+    }
+    await db
+      .delete(clientBoardCardsTable)
+      .where(eq(clientBoardCardsTable.id, existing.id));
+    await db.insert(activitiesTable).values({
+      entityType: "property",
+      entityId: propertyId,
+      kind: "note",
+      body: `Card taken back from the client board: ${existing.title}`,
+    });
+    res.json(DeleteOfficeClientBoardCardResponse.parse({ ok: true }));
   },
 );
 

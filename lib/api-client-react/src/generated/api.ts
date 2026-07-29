@@ -198,6 +198,7 @@ import type {
   MoneySummary,
   NewCalendarEvent,
   Notification,
+  OfficeClientBoardCardEditInput,
   OfficeClientBoardCardInput,
   OfficeClientBoardView,
   OkResponse,
@@ -18867,6 +18868,153 @@ export const useCreateOfficeClientBoardCard = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getCreateOfficeClientBoardCardMutationOptions(options));
+    }
+
+export const getUpdateOfficeClientBoardCardUrl = (propertyId: string,
+    cardId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/cards/${cardId}`
+}
+
+/**
+ * @summary Edit a manual card the office sent to the client's board
+ */
+export const updateOfficeClientBoardCard = async (propertyId: string,
+    cardId: string,
+    officeClientBoardCardEditInput: OfficeClientBoardCardEditInput, options?: RequestInit): Promise<ClientBoardFeedCard> => {
+
+  return customFetch<ClientBoardFeedCard>(getUpdateOfficeClientBoardCardUrl(propertyId,cardId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(officeClientBoardCardEditInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateOfficeClientBoardCardMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeClientBoardCard>>, TError,{propertyId: string;cardId: string;data: BodyType<OfficeClientBoardCardEditInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOfficeClientBoardCard>>, TError,{propertyId: string;cardId: string;data: BodyType<OfficeClientBoardCardEditInput>}, TContext> => {
+
+const mutationKey = ['updateOfficeClientBoardCard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOfficeClientBoardCard>>, {propertyId: string;cardId: string;data: BodyType<OfficeClientBoardCardEditInput>}> = (props) => {
+          const {propertyId,cardId,data} = props ?? {};
+
+          return  updateOfficeClientBoardCard(propertyId,cardId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOfficeClientBoardCardMutationResult = NonNullable<Awaited<ReturnType<typeof updateOfficeClientBoardCard>>>
+    export type UpdateOfficeClientBoardCardMutationBody = BodyType<OfficeClientBoardCardEditInput>
+    export type UpdateOfficeClientBoardCardMutationError = ErrorType<Error>
+
+    /**
+ * @summary Edit a manual card the office sent to the client's board
+ */
+export const useUpdateOfficeClientBoardCard = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOfficeClientBoardCard>>, TError,{propertyId: string;cardId: string;data: BodyType<OfficeClientBoardCardEditInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateOfficeClientBoardCard>>,
+        TError,
+        {propertyId: string;cardId: string;data: BodyType<OfficeClientBoardCardEditInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateOfficeClientBoardCardMutationOptions(options));
+    }
+
+export const getDeleteOfficeClientBoardCardUrl = (propertyId: string,
+    cardId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/cards/${cardId}`
+}
+
+/**
+ * @summary Take back a manual card sent to the client's board
+ */
+export const deleteOfficeClientBoardCard = async (propertyId: string,
+    cardId: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getDeleteOfficeClientBoardCardUrl(propertyId,cardId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteOfficeClientBoardCardMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeClientBoardCard>>, TError,{propertyId: string;cardId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeClientBoardCard>>, TError,{propertyId: string;cardId: string}, TContext> => {
+
+const mutationKey = ['deleteOfficeClientBoardCard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOfficeClientBoardCard>>, {propertyId: string;cardId: string}> = (props) => {
+          const {propertyId,cardId} = props ?? {};
+
+          return  deleteOfficeClientBoardCard(propertyId,cardId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOfficeClientBoardCardMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOfficeClientBoardCard>>>
+
+    export type DeleteOfficeClientBoardCardMutationError = ErrorType<Error>
+
+    /**
+ * @summary Take back a manual card sent to the client's board
+ */
+export const useDeleteOfficeClientBoardCard = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOfficeClientBoardCard>>, TError,{propertyId: string;cardId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOfficeClientBoardCard>>,
+        TError,
+        {propertyId: string;cardId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteOfficeClientBoardCardMutationOptions(options));
     }
 
 export const getGetClientAccessUrl = (token: string,) => {

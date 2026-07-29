@@ -433,6 +433,18 @@ export interface OfficeClientBoardCardInput {
   links?: ClientBoardFeedCardLink[];
 }
 
+export interface OfficeClientBoardCardEditInput {
+  title: string;
+  /** @nullable */
+  body?: string | null;
+  /**
+     * YYYY-MM-DD
+     * @nullable
+     */
+  dueDate?: string | null;
+  links?: ClientBoardFeedCardLink[];
+}
+
 export interface ClientBoardFeedCardUpdateInput {
   /** inbox | todo | in_progress | done */
   column: string;

@@ -5,10 +5,13 @@ import {
   useGetOfficeClientBoard,
   getGetOfficeClientBoardQueryKey,
   useCreateOfficeClientBoardCard,
+  useUpdateOfficeClientBoardCard,
+  useDeleteOfficeClientBoardCard,
   type ClientBoardFeedCard,
 } from "@workspace/api-client-react";
 import {
   ChevronLeft,
+  Pencil,
   CheckCircle2,
   CreditCard,
   ExternalLink,
@@ -55,20 +58,58 @@ function linkIcon(kind?: string | null) {
   return Link2;
 }
 
-function CardView({ card }: { card: ClientBoardFeedCard }) {
+function CardView({
+  card,
+  onEdit,
+  onRemove,
+  removing,
+}: {
+  card: ClientBoardFeedCard;
+  onEdit?: () => void;
+  onRemove?: () => void;
+  removing?: boolean;
+}) {
   const meta = KIND_META[card.kind] ?? KIND_META.manual;
+  const editable = card.kind === "manual" && (onEdit || onRemove);
   return (
-    <div className="rounded-xl border border-border bg-card p-3 shadow-sm space-y-2" data-testid={`card-${card.id}`}>
+    <div className="group rounded-xl border border-border bg-card p-3 shadow-sm space-y-2" data-testid={`card-${card.id}`}>
       <div className="flex items-center justify-between gap-2">
         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${meta.cls}`}>
           {card.kind === "flag" ? <Flag className="inline h-3 w-3 mr-1 -mt-0.5" /> : null}
           {meta.label}
         </span>
-        {card.amount != null && (
-          <span className="text-sm font-bold tabular-nums">
-            {card.amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {card.amount != null && (
+            <span className="text-sm font-bold tabular-nums">
+              {card.amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+            </span>
+          )}
+          {editable && (
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {onEdit && (
+                <button
+                  onClick={onEdit}
+                  title="Edit this card"
+                  className="text-muted-foreground hover:text-foreground p-0.5"
+                  data-testid={`button-edit-card-${card.id}`}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {onRemove && (
+                <button
+                  onClick={onRemove}
+                  disabled={removing}
+                  title="Take this card back"
+                  className="text-muted-foreground hover:text-red-600 p-0.5 disabled:opacity-50"
+                  data-testid={`button-remove-card-${card.id}`}
+                >
+                  {removing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       <div className="text-sm font-semibold leading-snug">{card.title}</div>
       {card.body && (
@@ -103,38 +144,58 @@ function CardView({ card }: { card: ClientBoardFeedCard }) {
 
 type DraftLink = { label: string; url: string };
 
-function SendCardForm({ propertyId, onClose }: { propertyId: string; onClose: () => void }) {
+function SendCardForm({
+  propertyId,
+  editCard,
+  onClose,
+}: {
+  propertyId: string;
+  editCard?: ClientBoardFeedCard | null;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [links, setLinks] = useState<DraftLink[]>([]);
+  const [title, setTitle] = useState(editCard?.title ?? "");
+  const [body, setBody] = useState(editCard?.body ?? "");
+  const [dueDate, setDueDate] = useState(editCard?.dueDate ?? "");
+  const [links, setLinks] = useState<DraftLink[]>(
+    editCard?.links.map((l) => ({ label: l.label, url: l.url })) ?? [],
+  );
   const create = useCreateOfficeClientBoardCard();
+  const update = useUpdateOfficeClientBoardCard();
+  const isPending = create.isPending || update.isPending;
 
   const submit = () => {
-    create.mutate(
-      {
-        propertyId,
-        data: {
-          title: title.trim(),
-          body: body.trim() || null,
-          dueDate: dueDate || null,
-          links: links
-            .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
-            .filter((l) => l.label && l.url),
-        },
+    const data = {
+      title: title.trim(),
+      body: body.trim() || null,
+      dueDate: dueDate || null,
+      links: links
+        .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
+        .filter((l) => l.label && l.url),
+    };
+    const opts = {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId) });
+        toast(
+          editCard
+            ? { title: "Card updated", description: "The client sees the corrected card." }
+            : { title: "Card sent", description: "It's now in the client's From Archangel column." },
+        );
+        onClose();
       },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId) });
-          toast({ title: "Card sent", description: "It's now in the client's From Archangel column." });
-          onClose();
-        },
-        onError: (err: Error) =>
-          toast({ title: "Couldn't send the card", description: err.message, variant: "destructive" }),
-      },
-    );
+      onError: (err: Error) =>
+        toast({
+          title: editCard ? "Couldn't update the card" : "Couldn't send the card",
+          description: err.message,
+          variant: "destructive" as const,
+        }),
+    };
+    if (editCard) {
+      update.mutate({ propertyId, cardId: editCard.id, data }, opts);
+    } else {
+      create.mutate({ propertyId, data }, opts);
+    }
   };
 
   const inputCls =
@@ -143,7 +204,9 @@ function SendCardForm({ propertyId, onClose }: { propertyId: string; onClose: ()
   return (
     <div className="bg-card rounded-2xl p-6 shadow-sm space-y-4 border border-[var(--primary)]/40">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-display font-bold">Send a card to the client</h2>
+        <h2 className="text-lg font-display font-bold">
+          {editCard ? "Edit this card" : "Send a card to the client"}
+        </h2>
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground" data-testid="button-close-send-card">
           <X className="w-4 h-4" />
         </button>
@@ -217,12 +280,12 @@ function SendCardForm({ propertyId, onClose }: { propertyId: string; onClose: ()
       )}
       <button
         onClick={submit}
-        disabled={create.isPending || !title.trim()}
+        disabled={isPending || !title.trim()}
         className="px-5 py-2.5 bg-[var(--gold-light,#B4FF44)] text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
         data-testid="button-send-card"
       >
-        {create.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-        Send to their board
+        {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+        {editCard ? "Save changes" : "Send to their board"}
       </button>
     </div>
   );
@@ -231,7 +294,26 @@ function SendCardForm({ propertyId, onClose }: { propertyId: string; onClose: ()
 export default function ClientBoardOffice() {
   const { propertyId = "" } = useParams<{ propertyId: string }>();
   const [formOpen, setFormOpen] = useState(false);
+  const [editCard, setEditCard] = useState<ClientBoardFeedCard | null>(null);
   const { data: board, isLoading } = useGetOfficeClientBoard(propertyId);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const remove = useDeleteOfficeClientBoardCard();
+
+  const removeCard = (card: ClientBoardFeedCard) => {
+    if (!window.confirm(`Take back "${card.title}"? It disappears from the client's board.`)) return;
+    remove.mutate(
+      { propertyId, cardId: card.id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId) });
+          toast({ title: "Card taken back", description: "It's off the client's board." });
+        },
+        onError: (err: Error) =>
+          toast({ title: "Couldn't remove the card", description: err.message, variant: "destructive" }),
+      },
+    );
+  };
 
   if (isLoading || !board) {
     return (
@@ -295,7 +377,17 @@ export default function ClientBoardOffice() {
         </div>
       )}
 
-      {formOpen && <SendCardForm propertyId={propertyId} onClose={() => setFormOpen(false)} />}
+      {formOpen && !editCard && (
+        <SendCardForm propertyId={propertyId} onClose={() => setFormOpen(false)} />
+      )}
+      {editCard && (
+        <SendCardForm
+          key={editCard.id}
+          propertyId={propertyId}
+          editCard={editCard}
+          onClose={() => setEditCard(null)}
+        />
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {COLUMNS.map((col) => {
@@ -313,7 +405,15 @@ export default function ClientBoardOffice() {
                   Empty
                 </div>
               ) : (
-                cards.map((card) => <CardView key={card.id} card={card} />)
+                cards.map((card) => (
+                  <CardView
+                    key={card.id}
+                    card={card}
+                    onEdit={card.kind === "manual" ? () => setEditCard(card) : undefined}
+                    onRemove={card.kind === "manual" ? () => removeCard(card) : undefined}
+                    removing={remove.isPending && remove.variables?.cardId === card.id}
+                  />
+                ))
               )}
             </section>
           );

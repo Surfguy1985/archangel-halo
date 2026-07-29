@@ -7803,6 +7803,59 @@ export const CreateOfficeClientBoardCardResponse = zod.object({
 
 
 /**
+ * @summary Edit a manual card the office sent to the client's board
+ */
+export const UpdateOfficeClientBoardCardParams = zod.object({
+  "propertyId": zod.coerce.string(),
+  "cardId": zod.coerce.string()
+})
+
+export const UpdateOfficeClientBoardCardBody = zod.object({
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
+})).optional()
+})
+
+export const UpdateOfficeClientBoardCardResponse = zod.object({
+  "id": zod.string(),
+  "column": zod.string().describe('inbox | todo | in_progress | done'),
+  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "actionLabel": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "dueDate": zod.string().nullish(),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
+})),
+  "jobId": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Take back a manual card sent to the client's board
+ */
+export const DeleteOfficeClientBoardCardParams = zod.object({
+  "propertyId": zod.coerce.string(),
+  "cardId": zod.coerce.string()
+})
+
+export const DeleteOfficeClientBoardCardResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
  * @summary Client dashboard admin — team members and their feature access
  */
 export const GetClientAccessParams = zod.object({
