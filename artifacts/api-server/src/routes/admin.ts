@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { randomBytes, scryptSync } from "crypto";
+import { createHash, randomBytes, scryptSync } from "crypto";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import {
@@ -14,6 +14,7 @@ import {
   priceItemsTable,
   invoicesTable,
   jobsTable,
+  bidsTable,
   activitiesTable,
   paymentRequestsTable,
   paymentRequestJobsTable,
@@ -43,12 +44,16 @@ import {
 import { raiseClientCard } from "../lib/clientBoard";
 import {
   buildInvoiceModule,
+  buildInvoiceBatchModule,
   buildTrackerModule,
   buildFlagsModule,
   buildSummaryModule,
   buildPhotosModule,
   buildLinkModule,
   buildReferralModule,
+  buildBidModule,
+  buildCrewMapModule,
+  buildDocumentModule,
 } from "../lib/cardModules";
 import { notifyCardPush } from "../lib/clientCardDigest";
 import { sendEmail } from "../lib/email";
@@ -569,6 +574,10 @@ const PUSH_KINDS = new Set([
   "flag",
   "manual",
   "referral",
+  "crewmap",
+  "invoice_batch",
+  "bid",
+  "document",
 ]);
 
 router.post(
@@ -616,11 +625,54 @@ router.post(
     }
     // "referral" is a composer template, stored as a manual card whose module
     // carries the interactive refer-us form.
-    const cardKind = (body.kind === "referral" ? "manual" : body.kind) as
-      "invoice" | "payment_request" | "summary" | "tracker" | "photos" | "flag" | "manual";
+    const cardKind = (
+      body.kind === "referral" || body.kind === "document"
+        ? "manual"
+        : body.kind === "crewmap"
+          ? "tracker"
+          : body.kind === "invoice_batch"
+            ? "invoice"
+            : body.kind === "bid"
+              ? "manual"
+              : body.kind
+    ) as "invoice" | "payment_request" | "summary" | "tracker" | "photos" | "flag" | "manual";
     // Build the self-contained module snapshot for this card.
     let module: Record<string, unknown> | null = null;
-    if (body.kind === "invoice" && body.sourceType === "invoice" && body.sourceId) {
+    let sourceType = body.sourceType?.trim() || "office_push";
+    let sourceId = body.sourceId?.trim() || "";
+    if (body.kind === "crewmap") {
+      module = await buildCrewMapModule(property.id);
+      if (!module) {
+        res.status(404).json({ error: "Property not found" });
+        return;
+      }
+      sourceType = "crewmap";
+      sourceId = property.id; // one live crew-map card per property — re-push refreshes it
+    } else if (body.kind === "invoice_batch") {
+      const ids = (body.sourceIds ?? []).filter((x): x is string => !!x);
+      module = await buildInvoiceBatchModule(property.id, ids);
+      if (!module) {
+        res.status(400).json({ error: "Pick at least one invoice for the batch" });
+        return;
+      }
+      sourceType = "invoice_batch";
+      sourceId = sourceId || createHash("sha1").update([...ids].sort().join(",")).digest("hex").slice(0, 32);
+    } else if (body.kind === "bid" && (body.sourceId || body.sourceIds?.[0])) {
+      const bidId = body.sourceId || body.sourceIds![0]!;
+      module = await buildBidModule(property.id, bidId);
+      if (!module) {
+        res.status(404).json({ error: "Bid not found on this property" });
+        return;
+      }
+      sourceType = "bid";
+      sourceId = bidId;
+    } else if (body.kind === "document") {
+      module = buildDocumentModule(links[0]?.url ?? null, links[0]?.label ?? null);
+      if (!module) {
+        res.status(400).json({ error: "A document card needs a file link" });
+        return;
+      }
+    } else if (body.kind === "invoice" && body.sourceType === "invoice" && body.sourceId) {
       module = await buildInvoiceModule(property.id, body.sourceId);
     } else if ((body.kind === "tracker" || body.sourceType === "tracker") && (body.jobId || body.sourceId)) {
       module = await buildTrackerModule(property.id, body.jobId || body.sourceId!);
@@ -645,8 +697,8 @@ router.post(
       amount: body.amount ?? null,
       dueDate: body.dueDate ?? null,
       links,
-      sourceType: body.sourceType?.trim() || "office_push",
-      sourceId: body.sourceId?.trim() || randomBytes(12).toString("hex"),
+      sourceType,
+      sourceId: sourceId || randomBytes(12).toString("hex"),
       jobId: body.jobId ?? null,
     });
     if (!card) {
@@ -810,10 +862,27 @@ router.get(
         photoCount: countByJob.get(j.id) ?? 0,
       }));
 
+    // Bids on this property — pushable as proposal cards with a PDF view.
+    const bidRows = await db
+      .select()
+      .from(bidsTable)
+      .where(eq(bidsTable.propertyId, property.id))
+      .orderBy(desc(bidsTable.createdAt))
+      .limit(20);
+    const bids = bidRows.map((b) => ({
+      id: b.id,
+      bidNo: b.bidNo,
+      amount: b.amount,
+      status: b.status,
+      unitNo: b.unitNo ?? null,
+      scope: b.scope ?? null,
+    }));
+
     res.json(
       GetClientBoardPushQuickPicksResponse.parse({
         summaries,
         photoJobs,
+        bids,
         invoices: invoices.map((inv) => ({
           id: inv.id,
           invoiceNo: inv.invoiceNo,

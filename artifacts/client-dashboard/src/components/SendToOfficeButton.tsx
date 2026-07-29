@@ -14,6 +14,7 @@ import {
 import {
   useSendClientCardToOffice,
   getGetClientBoardQueryKey,
+  getGetClientPmBoardQueryKey,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
@@ -49,6 +50,7 @@ export function SendToOfficeButton({ card, token }: SendToOfficeButtonProps) {
             description: 'Your card has been submitted to the office for review.',
           });
           queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
         },
         onError: (error: { status?: number; message?: string }) => {
           setShowDialog(false);

@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle, Clock, DollarSign, Calendar } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, DollarSign, Calendar, Map as MapIcon } from 'lucide-react';
 import {
   useGetClientBoardKpis,
   getGetClientBoardKpisQueryKey,
@@ -6,9 +6,10 @@ import {
 
 interface KpiStripProps {
   token: string;
+  onOpenBirdseye?: () => void;
 }
 
-export function KpiStrip({ token }: KpiStripProps) {
+export function KpiStrip({ token, onOpenBirdseye }: KpiStripProps) {
   const { data: kpis, isLoading } = useGetClientBoardKpis(token, {
     query: {
       queryKey: getGetClientBoardKpisQueryKey(token),
@@ -107,6 +108,17 @@ export function KpiStrip({ token }: KpiStripProps) {
             </div>
           );
         })}
+        {onOpenBirdseye && (
+          <div className="ml-auto pl-6 border-l border-border flex items-center">
+            <button
+              onClick={onOpenBirdseye}
+              className="flex items-center gap-2 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 px-4 py-2.5 rounded-xl font-bold text-sm transition-colors uppercase tracking-wider"
+            >
+              <MapIcon className="w-5 h-5" />
+              Live Birdseye
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -15,14 +15,19 @@
 
 import {
   db,
+  bidsTable,
+  bidLineItemsTable,
+  crewCheckinsTable,
   crewPhotosTable,
+  crewsTable,
   invoicesTable,
   jobsTable,
   jobSummariesTable,
   paymentRequestsTable,
   paymentRequestJobsTable,
+  propertiesTable,
 } from "@workspace/db";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 function publicBaseUrl(): string {
   const domain =
@@ -64,7 +69,177 @@ export async function buildInvoiceModule(
     status: inv.status,
     dueDate: localDate(inv.dueAt),
     payUrl: live ? `${publicBaseUrl()}/pay/${live.token}` : null,
+    pdfUrl: `/api/invoices/${inv.id}/pdf`,
     canApprove: inv.status !== "paid",
+  };
+}
+
+/** Invoice batch module: several invoices on one card — totals, pay links, PDFs. */
+export async function buildInvoiceBatchModule(
+  propertyId: string,
+  invoiceIds: string[],
+): Promise<Record<string, unknown> | null> {
+  const ids = [...new Set(invoiceIds)].filter(Boolean).slice(0, 25);
+  if (ids.length === 0) return null;
+  const rows = await db
+    .select()
+    .from(invoicesTable)
+    .where(and(inArray(invoicesTable.id, ids), eq(invoicesTable.propertyId, propertyId)));
+  if (rows.length === 0) return null;
+  // One pay-link lookup for the whole batch.
+  const linkRows = await db
+    .select({
+      invoiceId: paymentRequestJobsTable.invoiceId,
+      token: paymentRequestsTable.token,
+      status: paymentRequestsTable.status,
+      createdAt: paymentRequestsTable.createdAt,
+    })
+    .from(paymentRequestJobsTable)
+    .innerJoin(paymentRequestsTable, eq(paymentRequestJobsTable.requestId, paymentRequestsTable.id))
+    .where(inArray(paymentRequestJobsTable.invoiceId, rows.map((r) => r.id)))
+    .orderBy(desc(paymentRequestsTable.createdAt));
+  const payByInvoice = new Map<string, string>();
+  for (const r of linkRows) {
+    if (!r.invoiceId || r.status === "paid" || r.status === "returned") continue;
+    if (!payByInvoice.has(r.invoiceId)) payByInvoice.set(r.invoiceId, `${publicBaseUrl()}/pay/${r.token}`);
+  }
+  const ordered = ids
+    .map((id) => rows.find((r) => r.id === id))
+    .filter((r): r is (typeof rows)[number] => !!r);
+  const invoices = ordered.map((inv) => ({
+    invoiceId: inv.id,
+    invoiceNo: inv.invoiceNo,
+    amount: inv.amount + (inv.taxAmount ?? 0),
+    status: inv.status,
+    dueDate: localDate(inv.dueAt),
+    payUrl: payByInvoice.get(inv.id) ?? null,
+    pdfUrl: `/api/invoices/${inv.id}/pdf`,
+  }));
+  return {
+    type: "invoice_batch",
+    invoiceIds: invoices.map((i) => i.invoiceId), // refresh source
+    invoices,
+    count: invoices.length,
+    totalAmount: invoices.reduce((s, i) => s + i.amount, 0),
+    unpaidAmount: invoices.filter((i) => i.status !== "paid").reduce((s, i) => s + i.amount, 0),
+  };
+}
+
+/** Bid module: proposal snapshot + line items + PDF view. */
+export async function buildBidModule(
+  propertyId: string,
+  bidId: string,
+): Promise<Record<string, unknown> | null> {
+  const [bid] = await db
+    .select()
+    .from(bidsTable)
+    .where(and(eq(bidsTable.id, bidId), eq(bidsTable.propertyId, propertyId)));
+  if (!bid) return null;
+  const items = await db
+    .select()
+    .from(bidLineItemsTable)
+    .where(eq(bidLineItemsTable.bidId, bid.id));
+  return {
+    type: "bid",
+    bidId: bid.id,
+    bidNo: bid.bidNo,
+    amount: bid.amount,
+    status: bid.status,
+    unitNo: bid.unitNo ?? null,
+    scope: bid.scope ?? null,
+    lineItems: items.slice(0, 20).map((i) => ({
+      service: i.service,
+      description: i.description ?? null,
+      qty: i.qty,
+      amount: i.amount,
+    })),
+    lineItemCount: items.length,
+    pdfUrl: `/api/bids/${bid.id}/pdf`,
+  };
+}
+
+/** Document module: a PDF/file the client can view inline. */
+export function buildDocumentModule(
+  url: string | null,
+  label: string | null,
+): Record<string, unknown> | null {
+  if (!url) return null;
+  return { type: "document", url, label: label ?? "Document", isPdf: /\.pdf($|\?)/i.test(url) || url.includes("/pdf") };
+}
+
+/**
+ * Crew map module: snapshot of live crew activity on this property — pins with
+ * GPS from the latest check-ins, scope, units, check-in/out state, tracker
+ * links. The client's full-bleed popup uses the LIVE /board/map endpoint; this
+ * snapshot keeps the card meaningful even as a static tile.
+ */
+export async function buildCrewMapModule(
+  propertyId: string,
+): Promise<Record<string, unknown> | null> {
+  const [prop] = await db
+    .select()
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, propertyId));
+  if (!prop) return null;
+  const activeJobs = await db
+    .select()
+    .from(jobsTable)
+    .where(and(eq(jobsTable.propertyId, propertyId), isNull(jobsTable.clearedAt)));
+  const active = activeJobs.filter((j) => j.status !== "complete");
+  const crewIds = [...new Set(active.map((j) => j.crewLeaderId).filter((x): x is string => !!x))];
+  const jobIds = active.map((j) => j.id);
+  const [crews, checkins] = await Promise.all([
+    crewIds.length
+      ? db.select().from(crewsTable).where(inArray(crewsTable.id, crewIds))
+      : Promise.resolve([]),
+    jobIds.length
+      ? db
+          .select()
+          .from(crewCheckinsTable)
+          .where(inArray(crewCheckinsTable.jobId, jobIds))
+          .orderBy(desc(crewCheckinsTable.createdAt))
+          .limit(200)
+      : Promise.resolve([]),
+  ]);
+  const crewById = new Map(crews.map((c) => [c.id, c]));
+  const lastByJob = new Map<string, (typeof checkins)[number]>();
+  for (const c of checkins) {
+    if (c.jobId && !lastByJob.has(c.jobId)) lastByJob.set(c.jobId, c);
+  }
+  const now = Date.now();
+  const crewsOut = active
+    .filter((j) => j.crewLeaderId)
+    .map((j) => {
+      const crew = crewById.get(j.crewLeaderId!);
+      const last = lastByJob.get(j.id);
+      const onSite =
+        !!last && last.kind !== "checkout" && now - new Date(last.createdAt).getTime() < 4 * 3_600_000;
+      return {
+        crewName: crew?.name ?? "Crew",
+        crewTrade: crew?.trade ?? null,
+        selfieUrl: crew?.selfiePath ? `/api/storage${crew.selfiePath}` : null,
+        jobNo: j.jobNo,
+        scope: j.description ?? null,
+        unitNo: j.unitNo ?? null,
+        onSite,
+        lastCheckinKind: last?.kind ?? null,
+        lastCheckinAt: last ? last.createdAt.toISOString() : null,
+        trackerUrl: j.trackerToken ? `${publicBaseUrl()}/track/${j.trackerToken}` : null,
+        lat: last?.lat ?? null,
+        lng: last?.lng ?? null,
+      };
+    });
+  return {
+    type: "crewmap",
+    propertyName: prop.name,
+    propertyAddress: prop.address ?? null,
+    lat: prop.latitude ?? null,
+    lng: prop.longitude ?? null,
+    crews: crewsOut,
+    onSiteCount: crewsOut.filter((c) => c.onSite).length,
+    snapshotAt: new Date().toISOString(),
+    // Client opens the live full-bleed map (board/map endpoint) from this card.
+    live: true,
   };
 }
 
@@ -141,6 +316,11 @@ export async function buildSummaryModule(
     flagCount: (s.flags ?? []).filter((f) => f.checked).length,
     photoCount: (s.photos ?? []).length,
     summaryUrl: `${publicBaseUrl()}/summary/${s.token}`,
+    // Full task list for the expanded card view (capped — card stays a snapshot).
+    taskSections: (s.checklist ?? []).slice(0, 8).map((sec) => ({
+      title: sec.section,
+      items: (sec.items ?? []).slice(0, 12).map((i) => ({ label: i.label, checked: !!i.checked })),
+    })),
   };
 }
 

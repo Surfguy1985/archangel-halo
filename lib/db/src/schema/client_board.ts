@@ -21,6 +21,9 @@ export const clientDashboardCardsTable = pgTable(
     propertyId: uuid("property_id").notNull(),
     cardKey: text("card_key").notNull(),
     kind: text("kind").notNull().default("custom"), // custom | override
+    // Which client board the card lives on: "vendor" (Archangel contractors,
+    // HALO-fed) | "pm" (the client's own property-management board).
+    board: text("board").notNull().default("vendor"),
     lane: text("lane"), // board lane the client placed the card in
     position: doublePrecision("position").notNull().default(0),
     title: text("title"),

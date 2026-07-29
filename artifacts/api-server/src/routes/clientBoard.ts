@@ -57,6 +57,18 @@ const LANES = [
 ] as const;
 const LANE_KEYS = new Set(LANES.map((l) => l.key as string));
 
+// Property-management board — the client's own space. No HALO projection;
+// every card is client-created (usually from a PM template).
+const PM_LANES = [
+  { key: "planning", label: "Planning", hint: "Ideas and upcoming work" },
+  { key: "todo", label: "To Do", hint: "Committed and ready to start" },
+  { key: "doing", label: "In Progress", hint: "Happening now" },
+  { key: "done", label: "Done", hint: "Wrapped up" },
+] as const;
+const PM_LANE_KEYS = new Set(PM_LANES.map((l) => l.key as string));
+// Drag-drop validation must accept lanes from either board.
+const ANY_LANE_KEYS = new Set([...LANE_KEYS, ...PM_LANE_KEYS]);
+
 // ---------------------------------------------------------------------------
 // Session tokens — HMAC-signed, stateless. `userId.expiresMs.sig` (base64url
 // pieces). Sent by the dashboard as `Authorization: Bearer <token>`.
@@ -294,7 +306,10 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   const overrides = new Map(
     boardRows.filter((r) => r.kind === "override").map((r) => [r.cardKey, r]),
   );
-  const customs = boardRows.filter((r) => r.kind === "custom" && !r.archived);
+  // Vendor board only — PM-board cards live in their own projection.
+  const customs = boardRows.filter(
+    (r) => r.kind === "custom" && !r.archived && r.board === "vendor",
+  );
 
   // Comment counts per card, one grouped query.
   const commentRows = await db
@@ -667,7 +682,75 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   return cards;
 }
 
-router.get("/client/:token/board", async (req, res): Promise<void> => {
+// The client's own property-management board: only their cards, no HALO feed.
+async function projectPmBoard(account: typeof clientAccountsTable.$inferSelect) {
+  const propertyId = account.propertyId;
+  const [rows, commentRows] = await Promise.all([
+    db
+      .select()
+      .from(clientDashboardCardsTable)
+      .where(
+        and(
+          eq(clientDashboardCardsTable.propertyId, propertyId),
+          eq(clientDashboardCardsTable.board, "pm"),
+        ),
+      ),
+    db
+      .select({
+        cardKey: clientCardCommentsTable.cardKey,
+        n: sql<number>`count(*)::int`,
+      })
+      .from(clientCardCommentsTable)
+      .where(eq(clientCardCommentsTable.propertyId, propertyId))
+      .groupBy(clientCardCommentsTable.cardKey),
+  ]);
+  const commentCountByKey = new Map(commentRows.map((r) => [r.cardKey, r.n]));
+  const now = Date.now();
+  const cards = rows
+    .filter((c) => c.kind === "custom" && !c.archived)
+    .map((c) => ({
+      cardKey: c.cardKey,
+      template: c.template ?? "custom",
+      title: c.title ?? "Untitled",
+      subtitle: c.createdBy ? `Added by ${c.createdBy}` : null,
+      lane: c.lane && PM_LANE_KEYS.has(c.lane) ? c.lane : "planning",
+      position: c.position,
+      pipeline: ["Open", "Done"],
+      stageIndex: c.lane === "done" ? 1 : 0,
+      status: null,
+      unitNo: null,
+      category: null,
+      amount: null,
+      priority: c.priority ?? null,
+      dueOn: c.dueOn ?? null,
+      scheduledOn: null,
+      description: c.description ?? null,
+      notes: c.notes ?? null,
+      crew: null,
+      trackerUrl: null,
+      payUrl: null,
+      photos: [],
+      actions: [{ key: "card.archive", label: "Archive", kind: "secondary", href: null }],
+      editable: true,
+      updatedAt: c.updatedAt.toISOString(),
+      snoozedUntil:
+        c.snoozedUntil && c.snoozedUntil.getTime() > now ? c.snoozedUntil.toISOString() : null,
+      labels: Array.isArray(c.labels) ? c.labels : [],
+      checklist: Array.isArray(c.checklist) ? c.checklist : [],
+      commentCount: commentCountByKey.get(c.cardKey) ?? 0,
+      sentToOffice: c.sentToOfficeAt
+        ? {
+            sentAt: c.sentToOfficeAt.toISOString(),
+            status: c.officeStatus ?? "pending",
+            note: c.officeNote ?? null,
+          }
+        : null,
+    }));
+  cards.sort((a, b) => a.position - b.position);
+  return cards;
+}
+
+router.get(["/client/:token/board", "/client/:token/board/pm"], async (req, res): Promise<void> => {
   const account = await accountByToken(String(req.params.token));
   if (!account) {
     res.status(404).json({ error: "Invalid link" });
@@ -680,8 +763,9 @@ router.get("/client/:token/board", async (req, res): Promise<void> => {
     .where(eq(propertiesTable.id, account.propertyId))
     .limit(1);
   const [biz] = await db.select().from(businessSettingsTable).limit(1);
+  const boardKind = req.path.endsWith("/pm") ? "pm" : "vendor";
   const [cards, audit] = await Promise.all([
-    projectBoard(account),
+    boardKind === "pm" ? projectPmBoard(account) : projectBoard(account),
     db
       .select()
       .from(clientDashboardActionsTable)
@@ -697,7 +781,7 @@ router.get("/client/:token/board", async (req, res): Promise<void> => {
       servicesOverview: account.servicesOverview ?? null,
       businessName: biz?.companyName ?? null,
       viewer: viewerDto(viewer),
-      lanes: LANES,
+      lanes: boardKind === "pm" ? PM_LANES : LANES,
       cards,
       audit: audit.map((a) => ({
         action: a.action,
@@ -745,7 +829,9 @@ router.post("/client/:token/board/cards", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Title is required" });
     return;
   }
-  if (!LANE_KEYS.has(body.lane)) {
+  const board = body.board === "pm" ? "pm" : "vendor";
+  const laneOk = board === "pm" ? PM_LANE_KEYS.has(body.lane) : LANE_KEYS.has(body.lane);
+  if (!laneOk) {
     res.status(400).json({ error: "Unknown lane" });
     return;
   }
@@ -755,6 +841,7 @@ router.post("/client/:token/board/cards", async (req, res): Promise<void> => {
       propertyId: account.propertyId,
       cardKey: `custom:${crypto.randomUUID()}`,
       kind: "custom",
+      board,
       lane: body.lane,
       position: Date.now(),
       title,
@@ -763,6 +850,8 @@ router.post("/client/:token/board/cards", async (req, res): Promise<void> => {
       notes: body.notes ?? null,
       priority: body.priority ?? null,
       dueOn: body.dueOn ?? null,
+      labels: Array.isArray(body.labels) ? body.labels : undefined,
+      checklist: Array.isArray(body.checklist) ? body.checklist : undefined,
       createdBy: viewer.name,
     })
     .returning();
@@ -973,7 +1062,25 @@ const ACTIONS: Record<
           )
         : null;
       if (!ctx.cardKey) return { ok: false, blocked: false, reason: "cardKey required" };
-      if (!LANE_KEYS.has(lane)) return { ok: false, blocked: false, reason: "Unknown lane" };
+      if (!ANY_LANE_KEYS.has(lane)) return { ok: false, blocked: false, reason: "Unknown lane" };
+      // Lanes are board-specific: a PM card can only move within PM lanes,
+      // everything else (HALO-fed + vendor customs) within vendor lanes.
+      let cardBoard = "vendor";
+      if (ctx.cardKey.startsWith("custom:")) {
+        const [row] = await db
+          .select({ board: clientDashboardCardsTable.board })
+          .from(clientDashboardCardsTable)
+          .where(
+            and(
+              eq(clientDashboardCardsTable.propertyId, ctx.account.propertyId),
+              eq(clientDashboardCardsTable.cardKey, ctx.cardKey),
+            ),
+          )
+          .limit(1);
+        if (row?.board === "pm") cardBoard = "pm";
+      }
+      const boardLaneOk = cardBoard === "pm" ? PM_LANE_KEYS.has(lane) : LANE_KEYS.has(lane);
+      if (!boardLaneOk) return { ok: false, blocked: false, reason: "Unknown lane" };
       // Dropping INTO Done is HALO's call — but reordering a card that is
       // already in Done stays allowed (same-lane drops target "done" too).
       const alreadyInDone = lane === "done" ? await cardCurrentlyInDone(ctx) : false;

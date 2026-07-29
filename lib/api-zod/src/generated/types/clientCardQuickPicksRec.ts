@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { ClientCardQuickPickBid } from './clientCardQuickPickBid';
 import type { ClientCardQuickPickInvoice } from './clientCardQuickPickInvoice';
 import type { ClientCardQuickPickPhotoJob } from './clientCardQuickPickPhotoJob';
 import type { ClientCardQuickPickSummary } from './clientCardQuickPickSummary';
@@ -15,4 +16,5 @@ export interface ClientCardQuickPicksRec {
   trackers: ClientCardQuickPickTracker[];
   summaries: ClientCardQuickPickSummary[];
   photoJobs: ClientCardQuickPickPhotoJob[];
+  bids: ClientCardQuickPickBid[];
 }

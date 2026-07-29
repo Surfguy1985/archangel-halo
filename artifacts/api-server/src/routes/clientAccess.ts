@@ -44,10 +44,13 @@ import { raiseClientCard, webhookUrlProblem, ACTION_STATE_KEYS } from "../lib/cl
 import { resolveViewer, notifyClientBoard } from "./clientBoard";
 import {
   buildInvoiceModule,
+  buildInvoiceBatchModule,
   buildTrackerModule,
   buildFlagsModule,
   buildSummaryModule,
   buildPhotosModule,
+  buildBidModule,
+  buildCrewMapModule,
 } from "../lib/cardModules";
 
 const router: IRouter = Router();
@@ -1044,6 +1047,13 @@ router.patch(
         fresh = await buildSummaryModule(existing.propertyId, existing.sourceId);
       } else if (existing.sourceType === "photos" && existing.sourceId) {
         fresh = await buildPhotosModule(existing.propertyId, existing.sourceId);
+      } else if (existing.sourceType === "crewmap") {
+        fresh = await buildCrewMapModule(existing.propertyId);
+      } else if (existing.sourceType === "invoice_batch") {
+        const ids = ((existing.module as Record<string, unknown> | null)?.invoiceIds ?? []) as string[];
+        fresh = await buildInvoiceBatchModule(existing.propertyId, ids);
+      } else if (existing.sourceType === "bid" && existing.sourceId) {
+        fresh = await buildBidModule(existing.propertyId, existing.sourceId);
       } else if (existing.kind === "flag") {
         fresh = await buildFlagsModule(existing.propertyId);
       }

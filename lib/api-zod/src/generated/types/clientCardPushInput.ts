@@ -7,7 +7,7 @@
  */
 
 export interface ClientCardPushInput {
-  /** invoice | payment_request | summary | tracker | photos | flag | manual | referral */
+  /** invoice | payment_request | summary | tracker | photos | flag | manual | referral | crewmap | invoice_batch | bid | document */
   kind: string;
   title: string;
   /** @nullable */
@@ -37,4 +37,9 @@ export interface ClientCardPushInput {
      * @nullable
      */
   sourceId?: string | null;
+  /**
+     * Multiple entity ids for batch cards (invoice_batch)
+     * @nullable
+     */
+  sourceIds?: string[] | null;
 }

@@ -19,6 +19,8 @@ import { specFor, CATEGORY_COLORS } from '@/components/kanban/templateSpec';
 import { KpiStrip } from '@/components/KpiStrip';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CardDetailPanel } from '@/components/CardDetailPanel';
+import { BirdseyeMapDialog } from '@/components/BirdseyeMapDialog';
+import { PropertyManagementBoard } from '@/components/pm/PropertyManagementBoard';
 
 import {
   Sheet,
@@ -34,6 +36,26 @@ function Board() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Tab state: vendors or pm, persisted in URL
+  const [searchParams, setSearchParams] = useState(() => {
+    if (typeof window === 'undefined') return new URLSearchParams();
+    return new URLSearchParams(window.location.search);
+  });
+  const activeTab = searchParams.get('tab') === 'pm' ? 'pm' : 'vendors';
+
+  const setActiveTab = (tab: 'vendors' | 'pm') => {
+    const newParams = new URLSearchParams(window.location.search);
+    if (tab === 'pm') {
+      newParams.set('tab', 'pm');
+    } else {
+      newParams.delete('tab');
+    }
+    const newSearch = newParams.toString();
+    const newUrl = newSearch ? `${window.location.pathname}?${newSearch}` : window.location.pathname;
+    window.history.replaceState(null, '', newUrl);
+    setSearchParams(newParams);
+  };
+
   const [loginOpen, setLoginOpen] = useState(false);
   const [draggedCard, setDraggedCard] = useState<string | null>(null);
   const [dragOverLane, setDragOverLane] = useState<string | null>(null);
@@ -43,6 +65,7 @@ function Board() {
   const [hoveredLane, setHoveredLane] = useState<string | null>(null);
   const [expandedLane, setExpandedLane] = useState<string | null>(null);
   const [detailPanelCard, setDetailPanelCard] = useState<ClientBoardCardView | null>(null);
+  const [birdseyeOpen, setBirdseyeOpen] = useState(false);
   const isCoarsePointer = React.useMemo(
     () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches,
     [],
@@ -758,7 +781,7 @@ function Board() {
       transition={{ duration: 0.6, ease: "easeOut" }}
       className="flex h-screen flex-col bg-[#f1f0ec] font-sans relative overflow-hidden"
     >
-      {/* 4. App Chrome - Header */}
+      {/* App Chrome - Header */}
       <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#e4e2db] bg-[#ffffff] px-[20px] shadow-[0_1px_2px_rgba(16,28,51,0.05)] z-50 sticky top-0">
         <div className="flex items-center gap-[16px]">
           {logoUrl ? (
@@ -860,11 +883,39 @@ function Board() {
         </div>
       </header>
 
-      {/* KPI Strip */}
-      <KpiStrip token={token} />
+      {/* Tab Switcher */}
+      <div className="flex h-[52px] shrink-0 items-center px-[20px] bg-white border-b border-[#e4e2db]">
+        <div className="flex p-[2px] bg-[#E7E5DD] border border-[#DCD9D1] rounded-[10px]">
+          <button
+            onClick={() => setActiveTab('vendors')}
+            className={`px-4 py-1.5 text-[12px] font-[700] rounded-[8px] transition-colors ${
+              activeTab === 'vendors'
+                ? 'bg-white text-[#101c33] shadow-[0_1px_3px_rgba(16,28,51,0.13)]'
+                : 'text-[#96948B] hover:text-[#101c33]'
+            }`}
+          >
+            Archangel Vendors
+          </button>
+          <button
+            onClick={() => setActiveTab('pm')}
+            className={`px-4 py-1.5 text-[12px] font-[700] rounded-[8px] transition-colors ${
+              activeTab === 'pm'
+                ? 'bg-white text-[#101c33] shadow-[0_1px_3px_rgba(16,28,51,0.13)]'
+                : 'text-[#96948B] hover:text-[#101c33]'
+            }`}
+          >
+            Property Management
+          </button>
+        </div>
+      </div>
 
-      {/* Pulse rail */}
-      <div className="flex h-[56px] shrink-0 bg-[#101c33] overflow-x-auto kanban-lane-scroll hide-scrollbar items-center gap-[1px]">
+      {activeTab === 'vendors' && (
+        <>
+          {/* KPI Strip */}
+          <KpiStrip token={token} onOpenBirdseye={() => setBirdseyeOpen(true)} />
+
+          {/* Pulse rail */}
+          <div className="flex h-[56px] shrink-0 bg-[#101c33] overflow-x-auto kanban-lane-scroll hide-scrollbar items-center gap-[1px]">
         {pulseMetrics.map((m, i) => (
           <div key={i} className="flex-1 min-w-[186px] h-full flex flex-col justify-center px-4 hover:bg-white/5 transition-colors cursor-pointer group relative">
             <div className="flex items-center gap-2">
@@ -880,10 +931,10 @@ function Board() {
             </div>
           </div>
         ))}
-      </div>
+          </div>
 
-      {/* Toolbar */}
-      <div className="flex items-center px-[20px] py-[10px] shrink-0 bg-[#FBFAF7] border-b border-[#e4e2db] gap-4">
+          {/* Toolbar */}
+          <div className="flex items-center px-[20px] py-[10px] shrink-0 bg-[#FBFAF7] border-b border-[#e4e2db] gap-4">
         <span className="text-[10px] font-[800] tracking-widest text-[#96948B] uppercase">LENS</span>
         
         <div className="flex p-[2px] bg-[#E7E5DD] border border-[#DCD9D1] rounded-[10px]">
@@ -971,11 +1022,11 @@ function Board() {
             <Plus className="h-3.5 w-3.5" />
             Card
           </button>
-        </div>
-      </div>
+          </div>
+          </div>
 
-      {/* 5. The board */}
-      <main
+          {/* The Vendor Board */}
+          <main
         ref={boardScrollRef}
         className="flex-1 flex overflow-x-auto kanban-lane-scroll p-[18px] px-[20px] gap-[14px]"
       >
@@ -1168,7 +1219,17 @@ function Board() {
           );
           });
         })()}
-      </main>
+          </main>
+        </>
+      )}
+
+      {activeTab === 'pm' && (
+        <PropertyManagementBoard
+          token={token}
+          viewer={viewer}
+          onLoginRequired={() => setLoginOpen(true)}
+        />
+      )}
 
       <CommandPalette
         open={paletteOpen}
@@ -1196,6 +1257,12 @@ function Board() {
         availableLanes={lanes}
         open={createCardOpen}
         onOpenChange={setCreateCardOpen}
+      />
+
+      <BirdseyeMapDialog
+        token={token}
+        open={birdseyeOpen}
+        onOpenChange={setBirdseyeOpen}
       />
 
       {tourOpen && <DashboardTour onClose={() => setTourOpen(false)} />}

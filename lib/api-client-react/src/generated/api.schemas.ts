@@ -716,7 +716,7 @@ export interface ClientCredentialIssued {
 }
 
 export interface ClientCardPushInput {
-  /** invoice | payment_request | summary | tracker | photos | flag | manual | referral */
+  /** invoice | payment_request | summary | tracker | photos | flag | manual | referral | crewmap | invoice_batch | bid | document */
   kind: string;
   title: string;
   /** @nullable */
@@ -746,6 +746,11 @@ export interface ClientCardPushInput {
      * @nullable
      */
   sourceId?: string | null;
+  /**
+     * Multiple entity ids for batch cards (invoice_batch)
+     * @nullable
+     */
+  sourceIds?: string[] | null;
 }
 
 export interface ClientCardPushRec {
@@ -818,11 +823,23 @@ export interface ClientCardQuickPickPhotoJob {
   photoCount: number;
 }
 
+export interface ClientCardQuickPickBid {
+  id: string;
+  bidNo: string;
+  amount: number;
+  status: string;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  scope?: string | null;
+}
+
 export interface ClientCardQuickPicksRec {
   invoices: ClientCardQuickPickInvoice[];
   trackers: ClientCardQuickPickTracker[];
   summaries: ClientCardQuickPickSummary[];
   photoJobs: ClientCardQuickPickPhotoJob[];
+  bids: ClientCardQuickPickBid[];
 }
 
 export interface OnboardingSendInput {
@@ -5059,6 +5076,11 @@ export interface ClientBoardView {
 export interface ClientBoardCardInput {
   title: string;
   lane: string;
+  /**
+     * vendor (default) | pm
+     * @nullable
+     */
+  board?: string | null;
   /** @nullable */
   template?: string | null;
   /** @nullable */

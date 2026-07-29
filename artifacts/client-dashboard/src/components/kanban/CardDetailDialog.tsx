@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClientBoardCardView, useUpdateClientBoardCard } from '@workspace/api-client-react';
+import { ClientBoardCardView, useUpdateClientBoardCard, getGetClientBoardQueryKey, getGetClientPmBoardQueryKey } from '@workspace/api-client-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
+import { CardModuleDetail } from '../CardModuleDetail';
 
 interface CardDetailDialogProps {
   card: ClientBoardCardView | null;
@@ -62,6 +62,7 @@ export function CardDetailDialog({ card, token, readOnly, onClose }: CardDetailD
       onSuccess: () => {
         toast({ title: "Card updated" });
         queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+        queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
         onClose();
       },
       onError: () => {
@@ -144,6 +145,12 @@ export function CardDetailDialog({ card, token, readOnly, onClose }: CardDetailD
               <div className="flex flex-col gap-1.5 p-4 rounded-xl bg-black/[0.02] border border-black/5">
                 <span className="text-[10px] font-[800] uppercase tracking-widest text-muted-foreground">Due Date</span>
                 <span className="text-[13px] font-[800]">{card.dueOn}</span>
+              </div>
+            )}
+            
+            {card.module && (
+              <div className="mt-2 p-4 rounded-xl bg-black/[0.02] border border-black/5">
+                <CardModuleDetail module={card.module} token={token} />
               </div>
             )}
           </div>

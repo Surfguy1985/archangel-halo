@@ -6588,6 +6588,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /client/{token}/board/pm:
+    get:
+      operationId: getClientPmBoard
+      tags: [admin]
+      summary: The client's own property-management board — their cards only, no HALO feed
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Board
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBoardView"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /client/{token}/board/cards:
     post:
       operationId: createClientBoardCard
@@ -8351,7 +8375,7 @@ components:
       properties:
         kind:
           type: string
-          description: "invoice | payment_request | summary | tracker | photos | flag | manual | referral"
+          description: "invoice | payment_request | summary | tracker | photos | flag | manual | referral | crewmap | invoice_batch | bid | document"
         title: { type: string }
         body: { type: ["string", "null"] }
         actionLabel: { type: ["string", "null"] }
@@ -8362,6 +8386,10 @@ components:
         jobId: { type: ["string", "null"] }
         sourceType: { type: ["string", "null"], description: "Entity ref for dedupe, e.g. invoice; defaults to office_push" }
         sourceId: { type: ["string", "null"], description: "Entity id for dedupe; defaults to a fresh id (always a new card)" }
+        sourceIds:
+          type: ["array", "null"]
+          description: "Multiple entity ids for batch cards (invoice_batch)"
+          items: { type: string }
     ClientCardPushRec:
       type: object
       required: [cardId, notified]
@@ -8392,7 +8420,7 @@ components:
         trackerUrl: { type: string, description: "Absolute live tracker link" }
     ClientCardQuickPicksRec:
       type: object
-      required: [invoices, trackers, summaries, photoJobs]
+      required: [invoices, trackers, summaries, photoJobs, bids]
       properties:
         invoices:
           type: array
@@ -8410,6 +8438,20 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ClientCardQuickPickPhotoJob"
+        bids:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientCardQuickPickBid"
+    ClientCardQuickPickBid:
+      type: object
+      required: [id, bidNo, amount, status]
+      properties:
+        id: { type: string }
+        bidNo: { type: string }
+        amount: { type: number }
+        status: { type: string }
+        unitNo: { type: ["string", "null"] }
+        scope: { type: ["string", "null"] }
     ClientCardQuickPickSummary:
       type: object
       required: [id, title, unitNo, serviceDate, result, status]
@@ -12226,6 +12268,7 @@ components:
       properties:
         title: { type: string }
         lane: { type: string }
+        board: { type: ["string", "null"], description: "vendor (default) | pm" }
         # Template-library key the card was created from (e.g. "wo", "invoice").
         template: { type: ["string", "null"] }
         description: { type: ["string", "null"] }

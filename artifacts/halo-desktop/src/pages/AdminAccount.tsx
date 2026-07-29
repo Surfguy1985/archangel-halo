@@ -211,12 +211,22 @@ export default function AdminAccount() {
             e.target.value = "";
           }}
         />
-        <Link
-          href={`/admin/${property.id}/board`}
+        {/* Opens what the CLIENT sees (their live board), not the office mirror. */}
+        <a
+          href={account.dashboardUrl ?? "#"}
+          target="_blank"
+          rel="noreferrer"
           className="px-4 py-2.5 bg-white/10 text-white text-sm font-bold rounded-xl hover:bg-white/20 transition-colors"
           data-testid="link-client-board"
         >
           Client board
+        </a>
+        <Link
+          href={`/admin/${property.id}/board`}
+          className="px-4 py-2.5 text-white/70 hover:text-white text-sm font-bold rounded-xl transition-colors"
+          data-testid="link-office-board"
+        >
+          Office view
         </Link>
         <Link href={`/properties/${property.id}`} className="px-4 py-2.5 text-white/70 hover:text-white text-sm font-bold rounded-xl transition-colors">
           Open property

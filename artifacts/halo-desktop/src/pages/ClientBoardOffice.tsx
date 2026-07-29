@@ -112,6 +112,30 @@ const KIND_META: Record<string, KindMeta> = {
     gradient: "bg-gradient-to-br from-teal-400 to-teal-500",
     textColor: "text-white",
   },
+  crewmap: {
+    label: "Crew Map",
+    icon: MapPin,
+    gradient: "bg-gradient-to-br from-emerald-400 to-emerald-500",
+    textColor: "text-white",
+  },
+  invoice_batch: {
+    label: "Invoices",
+    icon: FileText,
+    gradient: "bg-gradient-to-br from-amber-400 to-amber-500",
+    textColor: "text-white",
+  },
+  bid: {
+    label: "Proposal",
+    icon: Briefcase,
+    gradient: "bg-gradient-to-br from-indigo-400 to-indigo-500",
+    textColor: "text-white",
+  },
+  document: {
+    label: "Document",
+    icon: Link2,
+    gradient: "bg-gradient-to-br from-slate-400 to-slate-500",
+    textColor: "text-white",
+  },
   manual: {
     label: "Note",
     icon: StickyNote,
@@ -213,6 +237,104 @@ function CardView({
 
         {mod && (
           <div className="mt-auto pt-2 overflow-hidden">
+            {mod.type === "crewmap" && (
+              <div className="rounded-xl bg-emerald-50/80 border border-emerald-200/60 p-2.5 text-xs space-y-1.5">
+                <div className="font-semibold text-emerald-900">
+                  {mod.onSiteCount || 0} crew members on site
+                </div>
+                {mod.crews && mod.crews.length > 0 && (
+                  <div className="space-y-1 mt-1">
+                    {mod.crews.map((c: any, i: number) => (
+                      <div key={i} className="flex items-center gap-1.5 text-emerald-800 bg-emerald-100/50 px-2 py-1 rounded">
+                        <Users className="w-3 h-3" />
+                        <span>{c.crewName} {c.unitNo && `• Unit ${c.unitNo}`}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {mod.type === "invoice_batch" && (
+              <div className="rounded-xl bg-amber-50/80 border border-amber-200/60 p-2.5 text-xs space-y-1.5">
+                <div className="font-semibold text-amber-900 flex justify-between">
+                  <span>Batch of {mod.invoices?.length || 0}</span>
+                  <span>${mod.totalAmount?.toFixed(2)}</span>
+                </div>
+                {mod.invoices && mod.invoices.length > 0 && (
+                  <div className="space-y-1 mt-1">
+                    {mod.invoices.slice(0, 3).map((inv: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between text-amber-800">
+                        <span>Inv {inv.invoiceNo}</span>
+                        <div className="flex items-center gap-2">
+                          <span>${inv.amount?.toFixed(2)}</span>
+                          {inv.pdfUrl && (
+                            <a href={inv.pdfUrl} target="_blank" rel="noreferrer" className="text-amber-600 hover:text-amber-900" title="View PDF">
+                              <FileText className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {mod.invoices.length > 3 && (
+                      <div className="text-[10px] text-amber-600/80 text-center pt-0.5">
+                        +{mod.invoices.length - 3} more
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            {mod.type === "bid" && (
+              <div className="rounded-xl bg-indigo-50/80 border border-indigo-200/60 p-2.5 text-xs space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-indigo-900">Bid {mod.bidNo}</span>
+                  <span className="font-semibold text-indigo-900">${mod.amount?.toFixed(2)}</span>
+                </div>
+                {mod.status === "approved" ? (
+                   <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#041029] bg-[#B4FF44] px-2 py-1 rounded-lg w-max">
+                     <CheckCircle2 className="w-3.5 h-3.5" /> Approved
+                   </div>
+                ) : mod.status === "declined" ? (
+                   <div className="flex items-center gap-1.5 text-[11px] font-bold text-red-900 bg-red-200 px-2 py-1 rounded-lg w-max">
+                     Declined
+                   </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-700 bg-indigo-100/70 px-2 py-1 rounded-lg w-max">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Waiting on client...
+                  </div>
+                )}
+                {mod.lineItems && mod.lineItems.length > 0 && (
+                  <div className="space-y-0.5 mt-1 text-[10px] text-indigo-800/80">
+                     {mod.lineItems.slice(0,2).map((item: any, i: number) => (
+                       <div key={i} className="truncate">• {item.description}</div>
+                     ))}
+                     {mod.lineItems.length > 2 && <div className="pl-2">+{mod.lineItems.length - 2} more</div>}
+                  </div>
+                )}
+                {mod.pdfUrl && (
+                  <a
+                    href={mod.pdfUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 w-max bg-indigo-100/60 px-2 py-1 rounded-lg transition-colors mt-2"
+                  >
+                    <FileText className="w-3 h-3" /> View PDF
+                  </a>
+                )}
+              </div>
+            )}
+            {mod.type === "document" && (
+              <div className="rounded-xl bg-slate-50/80 border border-slate-200/60 p-2.5 text-xs space-y-1.5">
+                <a
+                  href={mod.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 hover:text-slate-900 w-max bg-slate-200/60 px-2 py-1 rounded-lg transition-colors"
+                >
+                  <Link2 className="w-3.5 h-3.5" /> View Document
+                </a>
+              </div>
+            )}
             {card.kind === "invoice" && (
               <div className="rounded-xl bg-amber-50/80 border border-amber-200/60 p-2.5 text-xs space-y-1.5">
                 <div className="flex justify-between items-center">
@@ -880,15 +1002,63 @@ type PushTemplate = {
   icon: typeof FileText;
   gradient: string;
   textColor: string;
-  quick?: "invoices" | "trackers" | "summaries" | "photos";
+  quick?: "invoices" | "trackers" | "summaries" | "photos" | "bids";
   money?: boolean;
   due?: boolean;
   titlePrefill?: string;
   bodyPlaceholder?: string;
   linkLabel?: string;
+  multiSelect?: boolean;
+  requireUrl?: boolean;
 };
 
 const TEMPLATES: PushTemplate[] = [
+  {
+    id: "live_crew_map",
+    kind: "crewmap",
+    label: "Live Crew Map",
+    desc: "Map of current crews",
+    icon: MapPin,
+    gradient: "bg-gradient-to-br from-emerald-400 to-emerald-500",
+    textColor: "text-white",
+    titlePrefill: "Live crew on your site",
+  },
+  {
+    id: "invoice_batch",
+    kind: "invoice_batch",
+    label: "Invoice Batch",
+    desc: "Multiple invoices",
+    icon: FileText,
+    gradient: "bg-gradient-to-br from-amber-400 to-amber-500",
+    textColor: "text-white",
+    quick: "invoices",
+    multiSelect: true,
+    titlePrefill: "Invoices — ",
+    linkLabel: "Pay invoices",
+  },
+  {
+    id: "bid",
+    kind: "bid",
+    label: "Bid / Proposal",
+    desc: "Send a proposal",
+    icon: Briefcase,
+    gradient: "bg-gradient-to-br from-indigo-400 to-indigo-500",
+    textColor: "text-white",
+    quick: "bids",
+    titlePrefill: "Proposal ",
+    linkLabel: "View proposal",
+  },
+  {
+    id: "document",
+    kind: "document",
+    label: "Document / PDF",
+    desc: "Share a file link",
+    icon: Link2,
+    gradient: "bg-gradient-to-br from-slate-400 to-slate-500",
+    textColor: "text-white",
+    requireUrl: true,
+    linkLabel: "View document",
+  },
   {
     id: "invoice",
     kind: "invoice",
@@ -1025,6 +1195,7 @@ function PushCardDialog({
   const [linkUrl, setLinkUrl] = useState("");
   const [linkLabel, setLinkLabel] = useState("Open");
   const [source, setSource] = useState<{ type: string; id: string; jobId?: string } | null>(null);
+  const [sourceIds, setSourceIds] = useState<string[]>([]);
 
   const { data: accounts } = useListClientAccounts({
     query: { queryKey: ["push-card-accounts"], enabled: open },
@@ -1045,6 +1216,7 @@ function PushCardDialog({
     setLinkUrl("");
     setLinkLabel("Open");
     setSource(null);
+    setSourceIds([]);
   };
 
   useEffect(() => {
@@ -1073,6 +1245,7 @@ function PushCardDialog({
       linkLabel: linkUrl.trim() ? linkLabel.trim() : null,
       sourceType: source?.type || null,
       sourceId: source?.id || null,
+      sourceIds: sourceIds.length > 0 ? sourceIds : undefined,
       jobId: source?.jobId || null,
     };
 
@@ -1169,7 +1342,56 @@ function PushCardDialog({
                   {template.quick === "invoices" && quickPicks.invoices.length === 0 && (
                     <div className="text-sm text-muted-foreground italic">No open invoices to pick from.</div>
                   )}
-                  {template.quick === "invoices" && (
+                  {template.quick === "invoices" && template.multiSelect && (
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-2">
+                        {quickPicks.invoices.map((inv) => {
+                          const isSelected = sourceIds.includes(inv.id);
+                          return (
+                            <button
+                              key={inv.id}
+                              onClick={() => {
+                                const newIds = isSelected 
+                                  ? sourceIds.filter(id => id !== inv.id) 
+                                  : [...sourceIds, inv.id];
+                                setSourceIds(newIds);
+                                
+                                const total = quickPicks.invoices
+                                  .filter(i => newIds.includes(i.id))
+                                  .reduce((sum, i) => sum + i.amount, 0);
+                                  
+                                setAmount(total > 0 ? total.toString() : "");
+                                
+                                const monthName = new Date().toLocaleString('en-US', { month: 'long' });
+                                setTitle(`Invoices — ${monthName}`);
+                              }}
+                              className={`px-3 py-2 rounded-xl border text-left transition-colors ${
+                                isSelected ? "bg-[#B4FF44]/20 border-[#B4FF44]" : "bg-card border-border hover:bg-muted"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-[#041029] border-[#041029]' : 'border-border'}`}>
+                                  {isSelected && <CheckCircle2 className="w-3 h-3 text-[#B4FF44]" />}
+                                </div>
+                                <div>
+                                  <div className="text-sm font-bold">Inv {inv.invoiceNo}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    ${inv.amount.toFixed(2)} {inv.dueDate && ` • Due ${inv.dueDate}`}
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {sourceIds.length > 0 && (
+                        <div className="text-sm font-medium text-amber-600 bg-amber-50 p-2 rounded-lg inline-block">
+                          {sourceIds.length} invoice{sourceIds.length === 1 ? "" : "s"} selected
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {template.quick === "invoices" && !template.multiSelect && (
                     <div className="flex flex-wrap gap-2">
                       {quickPicks.invoices.map((inv) => (
                         <button
@@ -1188,6 +1410,33 @@ function PushCardDialog({
                           <div className="text-sm font-bold">Inv {inv.invoiceNo}</div>
                           <div className="text-xs text-muted-foreground">
                             ${inv.amount.toFixed(2)} {inv.dueDate && ` • Due ${inv.dueDate}`}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {template.quick === "bids" && quickPicks.bids?.length === 0 && (
+                    <div className="text-sm text-muted-foreground italic">No active proposals to pick from.</div>
+                  )}
+                  {template.quick === "bids" && quickPicks.bids && (
+                    <div className="flex flex-wrap gap-2">
+                      {quickPicks.bids.map((bid: any) => (
+                        <button
+                          key={bid.id}
+                          onClick={() => {
+                            setSource({ type: "bid", id: bid.id });
+                            setTitle(`Proposal ${bid.bidNo}`);
+                            setAmount(bid.amount.toString());
+                            if (bid.scope) setBody(bid.scope);
+                          }}
+                          className={`px-3 py-2 rounded-xl border text-left transition-colors ${
+                            source?.id === bid.id ? "bg-[#B4FF44]/20 border-[#B4FF44]" : "bg-card border-border hover:bg-muted"
+                          }`}
+                        >
+                          <div className="text-sm font-bold">Proposal {bid.bidNo} {bid.unitNo && ` • Unit ${bid.unitNo}`}</div>
+                          <div className="text-xs text-muted-foreground">
+                            ${bid.amount.toFixed(2)} • {bid.status}
                           </div>
                         </button>
                       ))}
@@ -1298,7 +1547,11 @@ function PushCardDialog({
                         type="number"
                         step="0.01"
                         value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
+                        onChange={(e) => {
+                          setAmount(e.target.value);
+                          setSource(null);
+                          setSourceIds([]);
+                        }}
                         placeholder="0.00"
                         className={`${inputCls} pl-7`}
                       />
@@ -1319,19 +1572,34 @@ function PushCardDialog({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Link (optional)</label>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Link {template.requireUrl ? "" : "(optional)"}
+                </label>
                 <div className="flex gap-2">
                   <input
                     value={linkLabel}
-                    onChange={(e) => setLinkLabel(e.target.value)}
+                    onChange={(e) => {
+                      setLinkLabel(e.target.value);
+                      if (template?.kind !== "document") {
+                        setSource(null);
+                        setSourceIds([]);
+                      }
+                    }}
                     placeholder="Label"
                     className={`${inputCls} max-w-[120px]`}
                   />
                   <input
                     value={linkUrl}
-                    onChange={(e) => setLinkUrl(e.target.value)}
+                    onChange={(e) => {
+                      setLinkUrl(e.target.value);
+                      if (template?.kind !== "document") {
+                        setSource(null);
+                        setSourceIds([]);
+                      }
+                    }}
                     placeholder="https://"
                     className={inputCls}
+                    required={template.requireUrl}
                   />
                 </div>
               </div>
@@ -1346,7 +1614,13 @@ function PushCardDialog({
             </div>
             <button
               onClick={submit}
-              disabled={push.isPending || !title.trim() || !targetId}
+              disabled={
+                push.isPending || 
+                !title.trim() || 
+                !targetId || 
+                (template.requireUrl ? !linkUrl.trim() : false) || 
+                (template.multiSelect ? sourceIds.length === 0 : false)
+              }
               className="px-6 py-2.5 bg-[#B4FF44] text-[#041029] text-sm font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
             >
               {push.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}

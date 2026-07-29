@@ -10,6 +10,11 @@ import type { BoardChecklistItem } from './boardChecklistItem';
 export interface ClientBoardCardInput {
   title: string;
   lane: string;
+  /**
+     * vendor (default) | pm
+     * @nullable
+     */
+  board?: string | null;
   /** @nullable */
   template?: string | null;
   /** @nullable */

@@ -9,12 +9,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { SendToOfficeButton } from './SendToOfficeButton';
+import { CardModuleDetail } from './CardModuleDetail';
 import {
   useUpdateClientBoardCard,
   useListClientCardComments,
   useAddClientCardComment,
   getListClientCardCommentsQueryKey,
-  getGetClientBoardQueryKey
+  getGetClientBoardQueryKey,
+  getGetClientPmBoardQueryKey
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
@@ -65,6 +67,7 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
         }
       }
     );
@@ -79,6 +82,7 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
         }
       }
     );
@@ -97,6 +101,7 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
         }
       }
     );
@@ -113,6 +118,7 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
         }
       }
     );
@@ -127,6 +133,7 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
         }
       }
     );
@@ -139,6 +146,7 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
         }
       }
     );
@@ -153,6 +161,7 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
           setCommentBody('');
           queryClient.invalidateQueries({ queryKey: getListClientCardCommentsQueryKey(token, card.cardKey) });
           queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
         }
       }
     );
@@ -206,7 +215,14 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
             )}
           </div>
 
-          <Separator />
+          {card.module && (
+            <>
+              <Separator className="my-6" />
+              <CardModuleDetail module={card.module} token={token} />
+            </>
+          )}
+
+          <Separator className="my-6" />
 
           {/* Send to Office (custom cards only) */}
           {card.cardKey.startsWith('custom:') && !readOnly && (

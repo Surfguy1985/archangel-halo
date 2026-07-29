@@ -20912,6 +20912,83 @@ export function useGetClientBoard<TData = Awaited<ReturnType<typeof getClientBoa
 
 
 
+export const getGetClientPmBoardUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/pm`
+}
+
+/**
+ * @summary The client's own property-management board — their cards only, no HALO feed
+ */
+export const getClientPmBoard = async (token: string, options?: RequestInit): Promise<ClientBoardView> => {
+
+  return customFetch<ClientBoardView>(getGetClientPmBoardUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientPmBoardQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/board/pm`
+    ] as const;
+    }
+
+
+export const getGetClientPmBoardQueryOptions = <TData = Awaited<ReturnType<typeof getClientPmBoard>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientPmBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientPmBoardQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientPmBoard>>> = ({ signal }) => getClientPmBoard(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientPmBoard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientPmBoardQueryResult = NonNullable<Awaited<ReturnType<typeof getClientPmBoard>>>
+export type GetClientPmBoardQueryError = ErrorType<Error>
+
+
+/**
+ * @summary The client's own property-management board — their cards only, no HALO feed
+ */
+
+export function useGetClientPmBoard<TData = Awaited<ReturnType<typeof getClientPmBoard>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientPmBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientPmBoardQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getCreateClientBoardCardUrl = (token: string,) => {
 
 

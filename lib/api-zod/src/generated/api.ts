@@ -7745,7 +7745,7 @@ export const PushClientBoardCardParams = zod.object({
 })
 
 export const PushClientBoardCardBody = zod.object({
-  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual | referral'),
+  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual | referral | crewmap | invoice_batch | bid | document'),
   "title": zod.string(),
   "body": zod.string().nullish(),
   "actionLabel": zod.string().nullish(),
@@ -7755,7 +7755,8 @@ export const PushClientBoardCardBody = zod.object({
   "linkLabel": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "sourceType": zod.string().nullish().describe('Entity ref for dedupe, e.g. invoice; defaults to office_push'),
-  "sourceId": zod.string().nullish().describe('Entity id for dedupe; defaults to a fresh id (always a new card)')
+  "sourceId": zod.string().nullish().describe('Entity id for dedupe; defaults to a fresh id (always a new card)'),
+  "sourceIds": zod.array(zod.string()).nullish().describe('Multiple entity ids for batch cards (invoice_batch)')
 })
 
 export const PushClientBoardCardResponse = zod.object({
@@ -7804,6 +7805,14 @@ export const GetClientBoardPushQuickPicksResponse = zod.object({
   "unitNo": zod.string().nullable(),
   "description": zod.string().nullable(),
   "photoCount": zod.number()
+})),
+  "bids": zod.array(zod.object({
+  "id": zod.string(),
+  "bidNo": zod.string(),
+  "amount": zod.number(),
+  "status": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "scope": zod.string().nullish()
 }))
 })
 
@@ -8704,6 +8713,101 @@ export const GetClientBoardResponse = zod.object({
 
 
 /**
+ * @summary The client's own property-management board — their cards only, no HALO feed
+ */
+export const GetClientPmBoardParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientPmBoardResponse = zod.object({
+  "propertyName": zod.string(),
+  "propertyAddress": zod.string().nullish(),
+  "logoUrl": zod.string().nullable(),
+  "servicesOverview": zod.string().nullish(),
+  "businessName": zod.string().nullish(),
+  "viewer": zod.object({
+  "authenticated": zod.boolean(),
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "permissions": zod.array(zod.string()),
+  "readOnly": zod.boolean(),
+  "tourSeen": zod.boolean().optional()
+}),
+  "lanes": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "hint": zod.string().nullish()
+})),
+  "cards": zod.array(zod.object({
+  "cardKey": zod.string(),
+  "template": zod.string(),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "lane": zod.string(),
+  "position": zod.number(),
+  "pipeline": zod.array(zod.string()),
+  "stageIndex": zod.number(),
+  "status": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "priority": zod.string().nullish(),
+  "dueOn": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "crew": zod.union([zod.object({
+  "name": zod.string(),
+  "trade": zod.string().nullish(),
+  "selfieUrl": zod.string().nullish(),
+  "onSite": zod.boolean().optional(),
+  "lastSeenAt": zod.string().nullish()
+}),zod.null()]).optional(),
+  "trackerUrl": zod.string().nullish(),
+  "payUrl": zod.string().nullish(),
+  "photos": zod.array(zod.object({
+  "url": zod.string(),
+  "phase": zod.string().nullish(),
+  "note": zod.string().nullish()
+})),
+  "actions": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "kind": zod.enum(['primary', 'secondary', 'link']),
+  "href": zod.string().nullish()
+})),
+  "editable": zod.boolean(),
+  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Interactive module payload for cards pushed from the office (invoice pay\/approve, tracker GPS, flagged items, referral)'),
+  "updatedAt": zod.string().nullish(),
+  "snoozedUntil": zod.string().nullish(),
+  "labels": zod.array(zod.string()).optional(),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})).optional(),
+  "commentCount": zod.number().optional(),
+  "sentToOffice": zod.union([zod.object({
+  "sentAt": zod.string(),
+  "status": zod.string().describe('pending | accepted | declined'),
+  "note": zod.string().nullish().describe('Office response note')
+}),zod.null()]).optional()
+})),
+  "audit": zod.array(zod.object({
+  "action": zod.string(),
+  "cardKey": zod.string().nullish(),
+  "actorName": zod.string().nullish(),
+  "actorRole": zod.string().nullish(),
+  "ok": zod.boolean(),
+  "blocked": zod.boolean(),
+  "reason": zod.string().nullish(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
  * @summary Client adds their own custom card to the board
  */
 export const CreateClientBoardCardParams = zod.object({
@@ -8713,6 +8817,7 @@ export const CreateClientBoardCardParams = zod.object({
 export const CreateClientBoardCardBody = zod.object({
   "title": zod.string(),
   "lane": zod.string(),
+  "board": zod.string().nullish().describe('vendor (default) | pm'),
   "template": zod.string().nullish(),
   "description": zod.string().nullish(),
   "notes": zod.string().nullish(),

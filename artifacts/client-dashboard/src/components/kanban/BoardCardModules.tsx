@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { TONES } from './templateSpec';
-import { CheckCircle2, ArrowUpRight, ExternalLink, Calendar, MapPin, FileText, Check, AlertTriangle, Camera, Receipt, Gift, CreditCard } from 'lucide-react';
+import { CheckCircle2, ArrowUpRight, ExternalLink, Calendar, MapPin, FileText, Check, AlertTriangle, Camera, Receipt, Gift, CreditCard, Map as MapIcon, Users } from 'lucide-react';
 import { useClientBoardCardAction, getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
+import { BirdseyeMapDialog } from '../BirdseyeMapDialog';
+import { PdfViewerDialog } from '../PdfViewerDialog';
 
 function safeDate(d?: string) {
   if (!d) return '—';
@@ -12,6 +14,106 @@ function safeDate(d?: string) {
 }
 
 export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
+  if (module.type === 'crewmap') {
+    return (
+      <div className="flex flex-col gap-[1px] rounded-[9px] mt-[6px] overflow-hidden bg-emerald-500/20 border border-emerald-500/30">
+        <div className="flex justify-between items-center bg-white/90 p-2 backdrop-blur-md">
+          <span className="text-[10px] font-[800] tracking-widest text-emerald-800 uppercase">Live Crews</span>
+          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md">{module.onSiteCount || 0} on site</span>
+        </div>
+        {module.crews?.slice(0, 3).map((c: any, i: number) => (
+          <div key={i} className="bg-white/90 p-2 flex items-start gap-2 backdrop-blur-md">
+            <div className="relative shrink-0">
+              {c.selfieUrl ? (
+                <img src={c.selfieUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-bold">
+                  {c.crewName?.charAt(0).toUpperCase()}
+                </div>
+              )}
+              {c.onSite && <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 border border-white rounded-full" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-[700] text-emerald-950 truncate">{c.crewName}</span>
+                <span className="text-[9px] font-bold text-emerald-700/70">{c.unitNo}</span>
+              </div>
+              <div className="text-[9px] font-medium text-emerald-800/60 truncate">{c.description || c.crewTrade}</div>
+            </div>
+          </div>
+        ))}
+        {module.crews?.length > 3 && (
+          <div className="bg-white/90 p-1.5 text-center text-[9px] font-bold text-emerald-800/50 backdrop-blur-md">
+            + {module.crews.length - 3} more
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (module.type === 'invoice_batch') {
+    return (
+      <div className="flex flex-col gap-[1px] rounded-[9px] mt-[6px] overflow-hidden bg-amber-500/20 border border-amber-500/30">
+        <div className="flex justify-between items-center bg-white/90 p-2 backdrop-blur-md">
+          <div className="flex flex-col">
+            <span className="text-[9px] font-[800] tracking-widest text-amber-800/70 uppercase">Batch Due</span>
+            <span className="text-[14px] font-[700] text-amber-950 leading-tight">${module.unpaidAmount?.toLocaleString() || '0'}</span>
+          </div>
+          <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-md">{module.count || 0} Invoices</span>
+        </div>
+        {module.invoices?.slice(0, 3).map((inv: any, i: number) => (
+          <div key={i} className="bg-white/90 p-2 flex justify-between items-center backdrop-blur-md">
+            <div className="flex flex-col min-w-0 pr-2">
+              <span className="text-[11px] font-[700] text-amber-950 truncate">{inv.invoiceNo}</span>
+              <span className="text-[9px] font-medium text-amber-800/60">{inv.status}</span>
+            </div>
+            <span className="text-[11px] font-[700] text-amber-900 shrink-0">${inv.amount?.toLocaleString()}</span>
+          </div>
+        ))}
+        {module.invoices?.length > 3 && (
+          <div className="bg-white/90 p-1.5 text-center text-[9px] font-bold text-amber-800/50 backdrop-blur-md">
+            + {module.invoices.length - 3} more
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (module.type === 'bid') {
+    return (
+      <div className="flex flex-col gap-[1px] rounded-[9px] mt-[6px] overflow-hidden bg-indigo-500/20 border border-indigo-500/30">
+        <div className="flex justify-between items-start bg-white/90 p-2 backdrop-blur-md">
+          <div className="flex flex-col">
+            <span className="text-[9px] font-[800] tracking-widest text-indigo-800/70 uppercase">{module.status || 'PROPOSAL'}</span>
+            <span className="text-[14px] font-[700] text-indigo-950 leading-tight">${module.amount?.toLocaleString() || '0'}</span>
+            <span className="text-[10px] font-medium text-indigo-900 mt-1 line-clamp-1">{module.scope}</span>
+          </div>
+        </div>
+        {module.lineItems?.slice(0, 3).map((li: any, i: number) => (
+          <div key={i} className="bg-white/90 p-2 flex justify-between items-start backdrop-blur-md">
+            <div className="flex flex-col min-w-0 pr-2">
+              <span className="text-[10px] font-[700] text-indigo-950 truncate">{li.service}</span>
+              <span className="text-[9px] font-medium text-indigo-800/60">Qty: {li.qty}</span>
+            </div>
+            <span className="text-[10px] font-[700] text-indigo-900 shrink-0">${li.amount?.toLocaleString()}</span>
+          </div>
+        ))}
+        {module.lineItems?.length > 3 && (
+          <div className="bg-white/90 p-1.5 text-center text-[9px] font-bold text-indigo-800/50 backdrop-blur-md">
+            + {module.lineItems.length - 3} more
+          </div>
+        )}
+      </div>
+    );
+  }
+  if (module.type === 'document') {
+    return (
+      <div className="grid grid-cols-1 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden bg-slate-500/20 border border-slate-500/30">
+        <div className="flex flex-col bg-white/90 pt-[9px] px-[9px] pb-0 backdrop-blur-md">
+          <span className="text-[8px] font-[800] tracking-[0.08em] text-slate-700/70 uppercase whitespace-nowrap overflow-hidden text-ellipsis">DOCUMENT</span>
+          <span className="text-[15px] font-[700] tracking-[-0.035em] overflow-hidden text-ellipsis mt-[2px] text-slate-950 line-clamp-2 leading-tight">{module.label || 'Attached File'}</span>
+        </div>
+      </div>
+    );
+  }
   if (module.type === 'invoice') {
     return (
       <div className="grid grid-cols-3 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden" style={{ background: tint.bd }}>
@@ -297,6 +399,8 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
   const [note, setNote] = useState('');
   const [unitNo, setUnitNo] = useState('');
   const [neededBy, setNeededBy] = useState('');
+  const [birdseyeOpen, setBirdseyeOpen] = useState(false);
+  const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
 
   const isPending = actionMut.isPending;
 
@@ -323,31 +427,39 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
 
   if (module.type === 'invoice') {
     return (
-      <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
-        {module.approvedAt ? (
-          <div className="flex-1 h-full rounded-[8px] bg-black/5 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center pointer-events-none border border-black/5">
-            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-[#5c7a28]" /> APPROVED
-          </div>
-        ) : (
-          <>
-            {module.canApprove && (
-              <button disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'approve')} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 disabled:opacity-50 transition-colors">
-                {isPending ? 'Wait...' : 'Approve'}
-              </button>
-            )}
-            {module.payUrl && (
-              <a href={module.payUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] transition-colors">
-                Pay Now <ArrowUpRight className="w-3.5 h-3.5 ml-1" />
-              </a>
-            )}
-            {!module.canApprove && !module.payUrl && (
-              <div className="flex-1 h-full rounded-[8px] bg-black/5 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-50 pointer-events-none">
-                —
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      <>
+        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+          {module.approvedAt ? (
+            <div className="flex-1 h-full rounded-[8px] bg-black/5 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center pointer-events-none border border-black/5">
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-[#5c7a28]" /> APPROVED
+            </div>
+          ) : (
+            <>
+              {module.canApprove && (
+                <button disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'approve')} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 disabled:opacity-50 transition-colors">
+                  {isPending ? 'Wait...' : 'Approve'}
+                </button>
+              )}
+              {module.pdfUrl && (
+                <button onClick={(e) => { e.stopPropagation(); setPdfViewerUrl(module.pdfUrl); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
+                  PDF
+                </button>
+              )}
+              {module.payUrl && (
+                <a href={module.payUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] transition-colors">
+                  Pay Now <ArrowUpRight className="w-3.5 h-3.5 ml-1" />
+                </a>
+              )}
+              {!module.canApprove && !module.payUrl && !module.pdfUrl && (
+                <div className="flex-1 h-full rounded-[8px] bg-black/5 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-50 pointer-events-none">
+                  —
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        <PdfViewerDialog url={pdfViewerUrl || ''} open={!!pdfViewerUrl} onOpenChange={(o) => { if(!o) setPdfViewerUrl(null); }} />
+      </>
     );
   }
 
@@ -465,6 +577,69 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
             EVIDENCE LOGGED
          </div>
       </div>
+    );
+  }
+
+  if (module.type === 'crewmap') {
+    return (
+      <>
+        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+          <button onClick={(e) => { e.stopPropagation(); setBirdseyeOpen(true); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
+            Open live map <MapIcon className="w-3.5 h-3.5 ml-1.5" />
+          </button>
+        </div>
+        <BirdseyeMapDialog token={token} open={birdseyeOpen} onOpenChange={setBirdseyeOpen} />
+      </>
+    );
+  }
+
+  if (module.type === 'invoice_batch') {
+    const unpaidPayableInvoices = module.invoices?.filter((inv: any) => inv.status?.toLowerCase() !== 'paid' && inv.payUrl) || [];
+    const singlePayUrl = unpaidPayableInvoices.length === 1 ? unpaidPayableInvoices[0].payUrl : null;
+
+    return (
+      <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+        <button className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors pointer-events-none">
+          View Invoices
+        </button>
+        {singlePayUrl && (
+          <a href={singlePayUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] transition-colors">
+            Pay Now
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  if (module.type === 'bid') {
+    return (
+      <>
+        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+          <button onClick={(e) => { e.stopPropagation(); setPdfViewerUrl(module.pdfUrl); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
+            View Proposal
+          </button>
+        </div>
+        <PdfViewerDialog url={pdfViewerUrl || ''} open={!!pdfViewerUrl} onOpenChange={(o) => { if(!o) setPdfViewerUrl(null); }} />
+      </>
+    );
+  }
+
+  if (module.type === 'document') {
+    return (
+      <>
+        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+          {module.isPdf ? (
+            <button onClick={(e) => { e.stopPropagation(); setPdfViewerUrl(module.url); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
+              View Document
+            </button>
+          ) : (
+            <a href={module.url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
+              Open Document
+            </a>
+          )}
+        </div>
+        <PdfViewerDialog url={pdfViewerUrl || ''} open={!!pdfViewerUrl} onOpenChange={(o) => { if(!o) setPdfViewerUrl(null); }} />
+      </>
     );
   }
 

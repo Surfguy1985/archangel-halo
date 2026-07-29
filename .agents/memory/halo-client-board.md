@@ -22,3 +22,8 @@ The board page has a voice-guided tour (`BoardTour`, halo assets `board-tour/ste
 - Send-to-office and inbox respond use guarded conditional UPDATEs (pending-state first-wins, 409 otherwise); side-effect writes (notifications, activity log) after the primary mutation must be try/caught — never let them 500 a committed change.
 - Client bell = `client_board_notifications` (audience client); office bell = existing `notificationsTable` kind "client_dashboard". raiseClientCard also raises a client bell entry.
 - `client_card_comments` + `client_board_notifications` are in the Settings reset delete list; KPI endpoint (`/board/kpis`) returns dollars, not cents — no /100 in UIs.
+
+## Multi-board (vendor + PM)
+- client_dashboard_cards has a `board` column (vendor default | pm). The PM board (/board/pm endpoint, PM lanes planning/todo/doing/done) is client-created cards only — no HALO projection, no pushed cards. Lane validation is board-aware everywhere (create AND card.moved must resolve the card's board; the union set alone lets PM cards land in vendor lanes).
+- Shared detail components (comments/checklist/send-to-office/edit) must invalidate BOTH board query keys or the PM tab goes stale.
+- Orval gotcha: adding a query param to an op that already has path params generates colliding GetXParams exports (zod const vs type) — use a dedicated subpath endpoint instead of query params on such ops.
