@@ -198,7 +198,7 @@ export async function reviewQualitySubmission(submissionId: string) {
         summary: ai.summary,
         concerns: ai.concerns,
         evidence: ai.evidence,
-        aiModel: "claude-sonnet-4-6",
+        aiModel: "claude-opus-4-7",
         decidedBy: "AI",
       })
       .onConflictDoNothing()

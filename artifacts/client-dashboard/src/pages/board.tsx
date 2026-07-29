@@ -231,8 +231,7 @@ function Board() {
     { key: 'access', label: 'Access', color: CATEGORY_COLORS.access },
     { key: 'people', label: 'People', color: CATEGORY_COLORS.people },
     { key: 'intel', label: 'Intel', color: CATEGORY_COLORS.intel },
-  ].map(cat => ({ ...cat, count: categoryCounts[cat.key] || 0 }))
-   .filter(cat => cat.count > 0), [categoryCounts]);
+  ].map(cat => ({ ...cat, count: categoryCounts[cat.key] || 0 })), [categoryCounts]);
 
   if (isLoading) {
     return (

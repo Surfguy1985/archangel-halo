@@ -1,6 +1,8 @@
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 
 const MODEL = "claude-sonnet-4-6";
+/** Claude's most capable model — used for complex reasoning paths (SOP rules, invoice audit, voice parsing). Do NOT pass temperature/top_p/top_k with this model. */
+export const COMPLEX_MODEL = "claude-opus-4-7";
 
 /** Retry transient AI-provider failures (rate limits, overloads, 5xx). */
 async function withRetries<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
@@ -34,10 +36,11 @@ export async function completeText(
   system: string,
   user: string,
   maxTokens = 8192,
+  model: string = MODEL,
 ): Promise<string> {
   const message = await withRetries(() =>
     anthropic.messages.create({
-      model: MODEL,
+      model,
       max_tokens: maxTokens,
       system,
       messages: [{ role: "user", content: user }],
@@ -59,13 +62,24 @@ export async function completeJson<T = unknown>(
   system: string,
   user: string,
   maxTokens = 8192,
+  model: string = MODEL,
 ): Promise<T> {
   const raw = await completeText(
     `${system}\n\nRespond with ONLY valid JSON. No prose, no markdown fences.`,
     user,
     maxTokens,
+    model,
   );
   return extractJson(raw) as T;
+}
+
+/** completeJson on Claude's most capable model — for complex multi-step reasoning. */
+export async function completeComplexJson<T = unknown>(
+  system: string,
+  user: string,
+  maxTokens = 8192,
+): Promise<T> {
+  return completeJson<T>(system, user, maxTokens, COMPLEX_MODEL);
 }
 
 type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "application/pdf";
@@ -76,11 +90,12 @@ export async function completeJsonWithImage<T = unknown>(
   imageBase64: string,
   mediaType: ImageMediaType,
   maxTokens = 8192,
+  model: string = MODEL,
 ): Promise<T> {
   const run = async (): Promise<T> => {
     const message = await withRetries(() =>
       anthropic.messages.create({
-        model: MODEL,
+        model,
         max_tokens: maxTokens,
         system: `${system}\n\nRespond with ONLY valid JSON. No prose, no markdown fences.`,
         messages: [

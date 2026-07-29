@@ -24,7 +24,7 @@ import {
   ConfirmVoiceBody,
   ConfirmVoiceResponse,
 } from "@workspace/api-zod";
-import { completeJson } from "../lib/ai";
+import { completeComplexJson } from "../lib/ai";
 import { applySopToInvoice } from "./sop";
 import { localToday } from "../lib/localDate";
 import { recomputeJobFinancials } from "../lib/jobFinance";
@@ -78,7 +78,7 @@ router.post("/voice/parse", async (req, res): Promise<void> => {
 
   let actions: Action[] = [];
   try {
-    const result = await completeJson<{ actions: Action[] }>(
+    const result = await completeComplexJson<{ actions: Action[] }>(
       `You are HALO's voice intake. Convert a contractor's spoken note into structured actions. ${TOOLS}
 Today's date is ${today}. Convert relative dates like "tomorrow" or "next Monday" into an absolute YYYY-MM-DD date.
 Known properties: ${props.map((p) => p.name).join(", ") || "none"}.

@@ -12,7 +12,7 @@ import {
   BuildInvoiceJobDraftBody,
   BuildInvoiceJobDraftResponse,
 } from "@workspace/api-zod";
-import { completeJson } from "../lib/ai";
+import { completeComplexJson } from "../lib/ai";
 import { getSopRule, applySopToInvoice, type SopRuleSet } from "./sop";
 import { resolveTaxAmount } from "./money";
 
@@ -170,7 +170,7 @@ router.post("/invoices/job-draft", async (req, res): Promise<void> => {
   let draftNotes = "";
   const compliance: { stage: string; status: string; detail: string }[] = [];
   try {
-    const first = await completeJson<{ lineItems?: unknown; notes?: unknown }>(
+    const first = await completeComplexJson<{ lineItems?: unknown; notes?: unknown }>(
       DRAFT_SYSTEM,
       `SOP BILLING RULE:\n${ruleSummary(rule)}\n\nJOB FACTS:\n${JSON.stringify(facts)}`,
       3000,
@@ -202,7 +202,7 @@ router.post("/invoices/job-draft", async (req, res): Promise<void> => {
     'Return JSON: {"compliant":true,"violations":[{"rule":"","issue":"","fix":""}],"correctedLineItems":null} — correctedLineItems must be the FULL corrected array (same shape as the draft) when and only when you found violations, else null.',
   ].join("\n");
   try {
-    const audit = await completeJson<{
+    const audit = await completeComplexJson<{
       compliant?: boolean;
       violations?: { rule?: string; issue?: string; fix?: string }[];
       correctedLineItems?: unknown;

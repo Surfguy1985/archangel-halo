@@ -11,7 +11,7 @@ import {
   UploadPropertySopDocumentBody,
   GetPropertySopRuleResponse,
 } from "@workspace/api-zod";
-import { completeJsonWithImage } from "../lib/ai";
+import { completeJsonWithImage, COMPLEX_MODEL } from "../lib/ai";
 
 const router: IRouter = Router();
 
@@ -284,6 +284,7 @@ router.post("/properties/:id/sop-rule", async (req, res): Promise<void> => {
       body.data,
       body.mediaType,
       2048,
+      COMPLEX_MODEL,
     );
     rules = normalizeRules(raw);
   } catch (err) {

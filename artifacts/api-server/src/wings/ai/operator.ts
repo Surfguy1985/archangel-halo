@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 
-const MODEL = "claude-sonnet-4-6";
+const MODEL = "claude-opus-4-7";
 
 export const OperatorBriefSchema = z.object({
   executiveSummary: z.string().min(1).max(1500),
