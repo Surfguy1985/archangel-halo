@@ -125,6 +125,11 @@ export const clientBoardCardsTable = pgTable(
     // Source dedupe key: one card per sent thing, updated on re-send.
     sourceType: text("source_type").notNull(), // invoice | payment_request | job_summary | tracker | manual
     sourceId: text("source_id").notNull(),
+    // Self-contained interactive module payload — kind-specific structured
+    // data (invoice snapshot + pay/approve state, tracker GPS link, flagged
+    // items by unit, referral form...) rendered identically on the client
+    // board and the office mirror.
+    module: jsonb("module").$type<Record<string, unknown> | null>(),
     jobId: uuid("job_id"),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     // When this card was included in a client notification digest. NULL means

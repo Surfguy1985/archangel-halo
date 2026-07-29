@@ -7745,7 +7745,7 @@ export const PushClientBoardCardParams = zod.object({
 })
 
 export const PushClientBoardCardBody = zod.object({
-  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual | referral'),
   "title": zod.string(),
   "body": zod.string().nullish(),
   "actionLabel": zod.string().nullish(),
@@ -7845,6 +7845,7 @@ export const GetOfficeClientBoardResponse = zod.object({
   "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
 })),
   "jobId": zod.string().nullish(),
+  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Self-contained interactive module payload — kind-specific snapshot (invoice + pay\/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -7885,6 +7886,7 @@ export const CreateOfficeClientBoardCardResponse = zod.object({
   "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
 })),
   "jobId": zod.string().nullish(),
+  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Self-contained interactive module payload — kind-specific snapshot (invoice + pay\/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -7925,6 +7927,7 @@ export const UpdateOfficeClientBoardCardResponse = zod.object({
   "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
 })),
   "jobId": zod.string().nullish(),
+  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Self-contained interactive module payload — kind-specific snapshot (invoice + pay\/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -8325,6 +8328,7 @@ export const GetClientBoardFeedResponse = zod.object({
   "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
 })),
   "jobId": zod.string().nullish(),
+  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Self-contained interactive module payload — kind-specific snapshot (invoice + pay\/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -8359,6 +8363,46 @@ export const UpdateClientBoardFeedCardResponse = zod.object({
   "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
 })),
   "jobId": zod.string().nullish(),
+  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Self-contained interactive module payload — kind-specific snapshot (invoice + pay\/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state'),
+  "completedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Run a card module action — approve invoice, schedule flagged work, refer, acknowledge
+ */
+export const ClientBoardCardActionParams = zod.object({
+  "token": zod.coerce.string(),
+  "cardId": zod.coerce.string()
+})
+
+export const ClientBoardCardActionBody = zod.object({
+  "action": zod.string().describe('approve | schedule | refer | acknowledge'),
+  "name": zod.string().nullish().describe('Who is acting (approver, requester, referrer)'),
+  "contact": zod.string().nullish().describe('Referral contact — email or phone'),
+  "note": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "neededBy": zod.string().nullish().describe('YYYY-MM-DD')
+})
+
+export const ClientBoardCardActionResponse = zod.object({
+  "id": zod.string(),
+  "column": zod.string().describe('inbox | todo | in_progress | done'),
+  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "actionLabel": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "dueDate": zod.string().nullish(),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
+})),
+  "jobId": zod.string().nullish(),
+  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Self-contained interactive module payload — kind-specific snapshot (invoice + pay\/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -8525,6 +8569,7 @@ export const GetClientBoardResponse = zod.object({
   "href": zod.string().nullish()
 })),
   "editable": zod.boolean(),
+  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Interactive module payload for cards pushed from the office (invoice pay\/approve, tracker GPS, flagged items, referral)'),
   "updatedAt": zod.string().nullish(),
   "snoozedUntil": zod.string().nullish()
 })),

@@ -150,7 +150,7 @@ function Board() {
   const { data: board, isLoading, error } = useGetClientBoard(token, {
     query: {
       queryKey: getGetClientBoardQueryKey(token),
-      refetchInterval: 10000,
+      refetchInterval: 4000,
     }
   });
 

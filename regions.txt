@@ -1,0 +1,101 @@
+253:        {/* 5. Metric triad - 70px */}
+254-        <div
+255-          className="grid grid-cols-3 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden"
+256-          style={{ background: tint.bd }}
+257-        >
+258-          {metrics.map((m, i) => (
+259-            <div key={i} className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+260-              <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">{m.label}</span>
+261-              <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]" style={{ color: TONES[m.tone] }}>
+262-                {m.value}
+263-              </span>
+264-              <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">
+265-                {m.tone === 'good' ? 'on track' : m.tone === 'warn' ? 'attention' : m.tone === 'bad' ? 'critical' : 'active'}
+266-              </span>
+267-            </div>
+268-          ))}
+269-        </div>
+270-
+271-        {/* 6. Evidence - 130px */}
+272-        <div className="bg-white rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col" style={{ border: `1px solid ${tint.bd}` }}>
+273-          <div className="h-[22px] flex items-center justify-between px-[10px] border-b border-black/5">
+274-            <span className="text-[8px] font-[800] text-[#96948B] uppercase tracking-wider">EVIDENCE / LOG</span>
+275-            <span className="font-mono text-[8.5px] font-[700] text-[#96948B]">{rows.filter(r => r.text !== '—').length}</span>
+276-          </div>
+277-          <div className="flex flex-col flex-1">
+278-            {rows.map((row, i) => (
+279-              <div key={i} className="h-[36px] flex items-center px-[10px] gap-2 border-b border-black/5 last:border-0">
+280-                <div className="w-[3px] h-[20px] rounded-[2px]" style={{ background: row.bar }} />
+281-                <div className="flex flex-col flex-1 min-w-0">
+282-                  <span className="text-[10.5px] font-[600] text-[#2E2C27] truncate leading-tight">{row.text}</span>
+283-                  {row.meta && <span className="text-[8.5px] text-[#96948B] truncate leading-tight">{row.meta}</span>}
+284-                </div>
+285-                {row.chip && (
+286-                  <span
+287-                    className="shrink-0 rounded-[4px] px-1.5 py-[2px] text-[8.5px] font-[800] tracking-wider"
+288-                    style={{ background: row.chip.bg, color: row.chip.fg }}
+289-                  >
+290-                    {row.chip.label}
+291-                  </span>
+292-                )}
+293-              </div>
+294-            ))}
+295-          </div>
+296-        </div>
+297-
+298-        {/* 7. Labels - 26px */}
+299-        <div className="flex items-center h-[26px] gap-1.5 mt-[6px] overflow-hidden">
+300-          <span
+301-            className="rounded-[20px] px-[8px] py-[3px] text-[8.5px] font-[700] uppercase tracking-wider whitespace-nowrap border"
+302-            style={{
+303-              background: `color-mix(in oklab, ${spec.accent} 12%, #fff)`,
+304-              color: `color-mix(in oklab, ${spec.accent} 80%, #101C33)`,
+305-              borderColor: `color-mix(in oklab, ${spec.accent} 28%, #fff)`
+306-            }}
+307-          >
+308-            {spec.name}
+309-          </span>
+310-          {labels.map((l) => (
+311-            <span
+312-              key={l.name}
+313-              className="rounded-[20px] px-[8px] py-[3px] text-[8.5px] font-[700] uppercase tracking-wider whitespace-nowrap border"
+314-              style={{
+315-                background: `color-mix(in oklab, ${l.color} 12%, #fff)`,
+316-                color: `color-mix(in oklab, ${l.color} 80%, #101C33)`,
+317-                borderColor: `color-mix(in oklab, ${l.color} 28%, #fff)`
+318-              }}
+319-            >
+320-              {l.name}
+321-            </span>
+322-          ))}
+323-        </div>
+324-
+325-        {/* 8. Decision - 36px */}
+326-        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+327-          {primaryBtn ? (
+328-            primaryBtn.href ? (
+329-              <a href={primaryBtn.href} target="_blank" rel="noreferrer" className="flex-1 h-full rounded-[8px] bg-[#D8F84E] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#C8EC33] transition-colors">
+330-                {primaryBtn.label}
+331-              </a>
+332-            ) : (
+333-              <button disabled={isDispatching || readOnly} onClick={(e) => handleAction(e, primaryBtn.key)} className="flex-1 h-full rounded-[8px] bg-[#D8F84E] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#C8EC33] disabled:opacity-50 transition-colors">
+334-                {primaryBtn.label}
+335-              </button>
+336-            )
+337-          ) : (
+338-            <div className="flex-1 h-full rounded-[8px] bg-[#D8F84E] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-30 pointer-events-none">
+339-              —
+340-            </div>
+341-          )}
+342-
+343-          {secondaryBtn && (
+344-            <button disabled={isDispatching || readOnly} onClick={(e) => handleAction(e, secondaryBtn.key)} className="px-[12px] h-full rounded-[8px] bg-white text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center border border-black/10 hover:bg-black/5 disabled:opacity-50 transition-colors" style={{ borderColor: tint.bd }}>
+345-              {secondaryBtn.label}
+346-            </button>
+347-          )}
+348-        </div>
+349-      </div>
+350-
+351-      {/* 9. Footer - 38px */}
+352-      <div
+353-        className="h-[38px] mt-auto flex items-center px-4 gap-2 border-t"

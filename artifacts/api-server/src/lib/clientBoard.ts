@@ -76,6 +76,9 @@ export type RaiseCardInput = {
   sourceType: string;
   sourceId: string;
   jobId?: string | null;
+  // Kind-specific interactive module payload (invoice snapshot, tracker GPS,
+  // flagged items...). Rendered on both boards; action state lives in it too.
+  module?: Record<string, unknown> | null;
 };
 
 async function postWebhook(propertyId: string, event: string, card: ClientBoardCard) {
@@ -123,6 +126,16 @@ async function postWebhook(propertyId: string, event: string, card: ClientBoardC
   }
 }
 
+// Client action state keys that must survive a module refresh on re-send.
+const ACTION_STATE_KEYS = ["approvedAt", "approvedBy", "requestedAt", "requestId", "acknowledgedAt", "referredAt"] as const;
+
+function pickActionState(m: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  if (!m) return {};
+  const out: Record<string, unknown> = {};
+  for (const k of ACTION_STATE_KEYS) if (m[k] !== undefined) out[k] = m[k];
+  return out;
+}
+
 /** Create (or refresh, on re-send) the board card for something we sent. */
 export async function raiseClientCard(input: RaiseCardInput): Promise<ClientBoardCard | null> {
   try {
@@ -150,6 +163,11 @@ export async function raiseClientCard(input: RaiseCardInput): Promise<ClientBoar
           dueDate: input.dueDate ?? existing.dueDate,
           links: input.links ?? existing.links,
           jobId: input.jobId ?? existing.jobId,
+          // Refresh module data but keep client action state (approvedAt,
+          // requestedAt...) already recorded on the card.
+          module: input.module
+            ? { ...input.module, ...pickActionState(existing.module) }
+            : existing.module,
           column: existing.column === "done" ? "inbox" : existing.column,
           completedAt: existing.column === "done" ? null : existing.completedAt,
           updatedAt: new Date(),
@@ -173,6 +191,7 @@ export async function raiseClientCard(input: RaiseCardInput): Promise<ClientBoar
           sourceType: input.sourceType,
           sourceId: input.sourceId,
           jobId: input.jobId ?? null,
+          module: input.module ?? null,
         })
         .returning();
       card = c!;

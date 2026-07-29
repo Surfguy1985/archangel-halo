@@ -37,6 +37,7 @@ import {
   Webhook,
   X,
   BellRing,
+  Users,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -59,6 +60,7 @@ const KIND_META: Record<string, { label: string; cls: string }> = {
   tracker: { label: "Live job", cls: "bg-violet-100 text-violet-800" },
   photos: { label: "Photos", cls: "bg-pink-100 text-pink-800" },
   manual: { label: "Note", cls: "bg-neutral-200 text-neutral-700" },
+  referral: { label: "Referral", cls: "bg-teal-100 text-teal-800" },
 };
 
 function linkIcon(kind?: string | null) {
@@ -81,9 +83,16 @@ function CardView({
 }) {
   const meta = KIND_META[card.kind] ?? KIND_META.manual;
   const editable = card.kind === "manual" && (onEdit || onRemove);
+  const mod = card.module as any;
+  
+  const showLinks = card.links.length > 0;
+  const showDueDate = card.dueDate && !mod?.dueDate;
+  const showActionLabel = !!card.actionLabel;
+  const hasFooter = showLinks || showDueDate || showActionLabel;
+
   return (
-    <div className="group rounded-xl border border-border bg-card p-3 shadow-sm space-y-2" data-testid={`card-${card.id}`}>
-      <div className="flex items-center justify-between gap-2">
+    <div className="group flex flex-col h-[220px] rounded-xl border border-border bg-card p-3 shadow-sm" data-testid={`card-${card.id}`}>
+      <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${meta.cls}`}>
           {card.kind === "flag" ? <Flag className="inline h-3 w-3 mr-1 -mt-0.5" /> : null}
           {meta.label}
@@ -121,32 +130,115 @@ function CardView({
           )}
         </div>
       </div>
-      <div className="text-sm font-semibold leading-snug">{card.title}</div>
-      {card.body && (
-        <div className="text-xs text-muted-foreground whitespace-pre-line line-clamp-4">{card.body}</div>
-      )}
-      {card.dueDate && <div className="text-[11px] text-muted-foreground">Due {card.dueDate}</div>}
-      {card.links.length > 0 && (
-        <div className="space-y-1">
-          {card.links.map((l, i) => {
-            const Icon = linkIcon(l.kind);
-            return (
-              <a
-                key={i}
-                href={l.url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 text-xs font-medium underline underline-offset-2 hover:text-muted-foreground"
-              >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                {l.label}
+      
+      <div className="flex-1 min-h-0 flex flex-col space-y-1.5">
+        <div className="text-[13px] font-bold leading-snug line-clamp-2 shrink-0">{card.title}</div>
+        {card.body && (
+          <div className="text-[11px] text-muted-foreground whitespace-pre-line line-clamp-2 shrink-0">{card.body}</div>
+        )}
+        
+        {mod && (
+          <div className="mt-auto pt-1 overflow-hidden">
+            {card.kind === "invoice" && (
+              <div className="rounded-lg bg-slate-50 border border-slate-100 p-2 text-xs space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-slate-700">Inv {mod.invoiceNo}</span>
+                  {mod.dueDate && <span className="text-[10px] text-slate-500">Due {mod.dueDate}</span>}
+                </div>
+                {mod.approvedAt ? (
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#041029] bg-[#B4FF44] px-2 py-1 rounded-md w-max">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Approved by the client
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-md w-max">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Waiting on client...
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {card.kind === "tracker" && (
+              <div className="rounded-lg bg-violet-50 border border-violet-100 p-2 text-xs space-y-1.5">
+                <div className="font-semibold text-violet-900">Job {mod.jobNo} {mod.unitNo ? `· Unit ${mod.unitNo}` : ""}</div>
+                {mod.scope && <div className="text-violet-700 line-clamp-1">{mod.scope}</div>}
+                {mod.trackerUrl && (
+                  <a href={mod.trackerUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[11px] font-bold text-violet-600 hover:text-violet-800 w-max bg-violet-100/50 px-2 py-1 rounded-md">
+                    <MapPin className="w-3 h-3" /> Live GPS
+                  </a>
+                )}
+              </div>
+            )}
+            
+            {card.kind === "flag" && (
+              <div className="rounded-lg bg-red-50 border border-red-100 p-2 text-xs space-y-1.5">
+                {mod.requestedAt ? (
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#041029] bg-[#B4FF44] px-2 py-1 rounded-md w-max">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Work requested
+                  </div>
+                ) : (
+                  <div className="font-semibold text-red-900">{mod.totalCount} item{mod.totalCount === 1 ? "" : "s"} flagged</div>
+                )}
+                {mod.items && mod.items.length > 0 && (
+                  <div className="text-[10px] text-red-800 line-clamp-1">
+                    {mod.items.map((i: any) => `${i.unit}: ${i.label}`).join(", ")}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(card.kind === "referral" || (card.module as any)?.type === "referral") && (
+              <div className="rounded-lg bg-teal-50 border border-teal-100 p-2 text-xs space-y-1.5">
+                {mod.referredAt ? (
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#041029] bg-[#B4FF44] px-2 py-1 rounded-md w-max">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Referral received
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-teal-700 bg-teal-100/50 px-2 py-1 rounded-md w-max">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Waiting for referral...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {card.kind === "link" && (
+              <a href={mod.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-2 py-1 rounded-md mt-1">
+                <ExternalLink className="w-3.5 h-3.5" /> {mod.label}
               </a>
-            );
-          })}
+            )}
+          </div>
+        )}
+      </div>
+      
+      {hasFooter && (
+        <div className="mt-2 shrink-0 flex flex-col gap-1.5 border-t border-border pt-2">
+          {showDueDate && (
+            <div className="text-[11px] font-medium text-muted-foreground">Due {card.dueDate}</div>
+          )}
+          
+          {showLinks && (
+            <div className="flex flex-wrap gap-1.5">
+              {card.links.map((l, i) => {
+                const Icon = linkIcon(l.kind);
+                return (
+                  <a
+                    key={i}
+                    href={l.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted px-1.5 py-0.5 rounded"
+                  >
+                    <Icon className="h-3 w-3 shrink-0" />
+                    <span className="truncate max-w-[120px]">{l.label}</span>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+
+          {showActionLabel && (
+            <div className="text-[10px] font-semibold text-muted-foreground truncate">{card.actionLabel}</div>
+          )}
         </div>
-      )}
-      {card.actionLabel && (
-        <div className="text-[11px] text-muted-foreground truncate">{card.actionLabel}</div>
       )}
     </div>
   );
@@ -326,7 +418,8 @@ const TEMPLATES: PushTemplate[] = [
   { id: "photos", kind: "photos", label: "Before & after", desc: "Photo report link", icon: Camera, tint: "bg-pink-100 text-pink-700", titlePrefill: "Before & after photos", linkLabel: "View photos" },
   { id: "new_job", kind: "manual", label: "New job created", desc: "Work scheduled for you", icon: Briefcase, tint: "bg-indigo-100 text-indigo-700", quick: "trackers", titlePrefill: "New job created", bodyPlaceholder: "What the job covers and when it starts" },
   { id: "reminder", kind: "manual", label: "Schedule reminder", desc: "A date to know about", icon: CalendarClock, tint: "bg-orange-100 text-orange-700", due: true, bodyPlaceholder: "What's happening and what (if anything) you need to do" },
-  { id: "flag", kind: "flag", label: "Flagged item", desc: "Needs your attention", icon: Flag, tint: "bg-red-100 text-red-700", bodyPlaceholder: "Why it's flagged — from the summary report or a walkthrough" },
+  { id: "flag", kind: "flag", label: "Flagged item", desc: "Auto-attaches property's flagged items by unit", icon: Flag, tint: "bg-red-100 text-red-700", bodyPlaceholder: "Why it's flagged — from the summary report or a walkthrough" },
+  { id: "referral", kind: "referral", label: "Refer us", desc: "Ask for a referral", icon: Users, tint: "bg-teal-100 text-teal-700", titlePrefill: "Know another PM?", bodyPlaceholder: "We'd love an intro." },
   { id: "note", kind: "manual", label: "Note", desc: "Anything else", icon: StickyNote, tint: "bg-neutral-200 text-neutral-700" },
 ];
 
@@ -595,8 +688,10 @@ function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string
                 className={inputCls}
                 value={title}
                 onChange={(e) => {
+                  // Renaming the card keeps the quick-pick link — the module
+                  // (invoice snapshot, tracker) is built from the source, and
+                  // a custom title shouldn't sever it. Amount/link edits do.
                   setTitle(e.target.value);
-                  setSource(null);
                 }}
                 data-testid="input-push-title"
                 placeholder="Short and clear"

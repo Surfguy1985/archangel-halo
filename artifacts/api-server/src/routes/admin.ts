@@ -38,6 +38,13 @@ import {
   GetClientBoardPushQuickPicksResponse,
 } from "@workspace/api-zod";
 import { raiseClientCard } from "../lib/clientBoard";
+import {
+  buildInvoiceModule,
+  buildTrackerModule,
+  buildFlagsModule,
+  buildLinkModule,
+  buildReferralModule,
+} from "../lib/cardModules";
 import { notifyCardPush } from "../lib/clientCardDigest";
 import { sendEmail } from "../lib/email";
 import { getBusinessSettings } from "../lib/businessSettings";
@@ -556,6 +563,7 @@ const PUSH_KINDS = new Set([
   "photos",
   "flag",
   "manual",
+  "referral",
 ]);
 
 router.post(
@@ -601,9 +609,27 @@ router.post(
       }
       links = [{ label: body.linkLabel?.trim() || "Open", url: raw }];
     }
+    // "referral" is a composer template, stored as a manual card whose module
+    // carries the interactive refer-us form.
+    const cardKind = (body.kind === "referral" ? "manual" : body.kind) as
+      "invoice" | "payment_request" | "summary" | "tracker" | "photos" | "flag" | "manual";
+    // Build the self-contained module snapshot for this card.
+    let module: Record<string, unknown> | null = null;
+    if (body.kind === "invoice" && body.sourceType === "invoice" && body.sourceId) {
+      module = await buildInvoiceModule(property.id, body.sourceId);
+    } else if ((body.kind === "tracker" || body.sourceType === "tracker") && (body.jobId || body.sourceId)) {
+      module = await buildTrackerModule(property.id, body.jobId || body.sourceId!);
+    } else if (body.kind === "flag") {
+      module = await buildFlagsModule(property.id);
+    } else if (body.kind === "referral") {
+      module = buildReferralModule();
+    } else if (body.kind === "photos" || body.kind === "summary") {
+      module = buildLinkModule("link", links[0]?.url ?? null, links[0]?.label ?? null);
+    }
     const card = await raiseClientCard({
       propertyId: property.id,
-      kind: body.kind as "invoice" | "payment_request" | "summary" | "tracker" | "photos" | "flag" | "manual",
+      kind: cardKind,
+      module,
       title,
       body: body.body?.trim() || null,
       actionLabel: body.actionLabel?.trim() || null,

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ClientBoardCardButton } from './clientBoardCardButton';
+import type { ClientBoardCardViewModule } from './clientBoardCardViewModule';
 import type { ClientBoardCrew } from './clientBoardCrew';
 import type { ClientBoardPhoto } from './clientBoardPhoto';
 
@@ -45,6 +46,11 @@ export interface ClientBoardCardView {
   photos: ClientBoardPhoto[];
   actions: ClientBoardCardButton[];
   editable: boolean;
+  /**
+     * Interactive module payload for cards pushed from the office (invoice pay/approve, tracker GPS, flagged items, referral)
+     * @nullable
+     */
+  module?: ClientBoardCardViewModule;
   /** @nullable */
   updatedAt?: string | null;
   /** @nullable */

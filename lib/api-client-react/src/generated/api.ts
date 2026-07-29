@@ -85,6 +85,7 @@ import type {
   ClientBoardView,
   ClientBoardWebhookInput,
   ClientBoardWebhookView,
+  ClientCardActionInput,
   ClientCardPushInput,
   ClientCardPushRec,
   ClientCardQuickPicksRec,
@@ -20157,6 +20158,80 @@ export const useUpdateClientBoardFeedCard = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getUpdateClientBoardFeedCardMutationOptions(options));
+    }
+
+export const getClientBoardCardActionUrl = (token: string,
+    cardId: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/cards/${cardId}/action`
+}
+
+/**
+ * @summary Run a card module action — approve invoice, schedule flagged work, refer, acknowledge
+ */
+export const clientBoardCardAction = async (token: string,
+    cardId: string,
+    clientCardActionInput: ClientCardActionInput, options?: RequestInit): Promise<ClientBoardFeedCard> => {
+
+  return customFetch<ClientBoardFeedCard>(getClientBoardCardActionUrl(token,cardId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientCardActionInput)
+  }
+);}
+
+
+
+
+
+export const getClientBoardCardActionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientBoardCardAction>>, TError,{token: string;cardId: string;data: BodyType<ClientCardActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof clientBoardCardAction>>, TError,{token: string;cardId: string;data: BodyType<ClientCardActionInput>}, TContext> => {
+
+const mutationKey = ['clientBoardCardAction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clientBoardCardAction>>, {token: string;cardId: string;data: BodyType<ClientCardActionInput>}> = (props) => {
+          const {token,cardId,data} = props ?? {};
+
+          return  clientBoardCardAction(token,cardId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClientBoardCardActionMutationResult = NonNullable<Awaited<ReturnType<typeof clientBoardCardAction>>>
+    export type ClientBoardCardActionMutationBody = BodyType<ClientCardActionInput>
+    export type ClientBoardCardActionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Run a card module action — approve invoice, schedule flagged work, refer, acknowledge
+ */
+export const useClientBoardCardAction = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clientBoardCardAction>>, TError,{token: string;cardId: string;data: BodyType<ClientCardActionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof clientBoardCardAction>>,
+        TError,
+        {token: string;cardId: string;data: BodyType<ClientCardActionInput>},
+        TContext
+      > => {
+      return useMutation(getClientBoardCardActionMutationOptions(options));
     }
 
 export const getUpdateClientBoardWebhookUrl = (token: string,) => {

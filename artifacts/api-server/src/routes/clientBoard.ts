@@ -7,6 +7,7 @@ import {
   clientUsersTable,
   clientDashboardCardsTable,
   clientDashboardActionsTable,
+  clientBoardCardsTable,
   propertiesTable,
   jobsTable,
   crewsTable,
@@ -576,6 +577,55 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       updatedAt: c.updatedAt.toISOString(),
       snoozedUntil:
         c.snoozedUntil && c.snoozedUntil.getTime() > now ? c.snoozedUntil.toISOString() : null,
+    });
+  }
+
+  // Pushed cards from the office ("From Archangel") ------------------------
+  // These are the interactive micro-service modules the contractor pushes:
+  // invoice pay/approve, live crew tracker, flagged items, referral asks.
+  const pushed = await db
+    .select()
+    .from(clientBoardCardsTable)
+    .where(eq(clientBoardCardsTable.propertyId, account.propertyId))
+    .orderBy(desc(clientBoardCardsTable.updatedAt));
+  const pushLane = (c: (typeof pushed)[number]): string => {
+    if (c.column === "done") return "done";
+    if (c.column === "in_progress") return "in_progress";
+    if (c.kind === "invoice" || c.kind === "payment_request") return "billing";
+    return "requested";
+  };
+  for (const c of pushed) {
+    // Old completed cards fall off after 30 days like paid invoices do.
+    if (c.completedAt && now - c.completedAt.getTime() > 30 * DAY) continue;
+    const links = (c.links ?? []) as { label: string; url: string; kind?: string | null }[];
+    const module = (c.module ?? null) as Record<string, unknown> | null;
+    cards.push({
+      cardKey: `push:${c.id}`,
+      template: `push_${c.kind}`,
+      title: c.title,
+      subtitle: "From Archangel",
+      lane: pushLane(c),
+      position: -1, // pushed cards sort to the top of their lane
+      pipeline: ["Sent", "Seen", "Done"],
+      stageIndex: c.column === "done" ? 2 : c.column === "inbox" ? 0 : 1,
+      status: c.column === "done" ? "done" : "open",
+      unitNo: null,
+      category: c.kind,
+      amount: c.amount ?? (typeof module?.amount === "number" ? (module.amount as number) : null),
+      priority: null,
+      dueOn: c.dueDate ?? null,
+      scheduledOn: null,
+      description: c.body ?? null,
+      notes: null,
+      crew: null,
+      trackerUrl: typeof module?.trackerUrl === "string" ? (module.trackerUrl as string) : null,
+      payUrl: typeof module?.payUrl === "string" ? (module.payUrl as string) : null,
+      photos: [],
+      actions: links.map((l, i) => ({ key: `link:${i}`, label: l.label, kind: "link", href: l.url })),
+      editable: false,
+      module,
+      updatedAt: c.updatedAt.toISOString(),
+      snoozedUntil: null,
     });
   }
 

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import {
   db,
   clientAccountsTable,
@@ -7,6 +7,9 @@ import {
   clientBoardCardsTable,
   propertiesTable,
   activitiesTable,
+  notificationsTable,
+  workRequestsTable,
+  paymentRequestsTable,
 } from "@workspace/db";
 import {
   GetClientAccessResponse,
@@ -26,9 +29,12 @@ import {
   UpdateOfficeClientBoardCardBody,
   UpdateOfficeClientBoardCardResponse,
   DeleteOfficeClientBoardCardResponse,
+  ClientBoardCardActionBody,
+  ClientBoardCardActionResponse,
 } from "@workspace/api-zod";
 import { randomUUID } from "node:crypto";
 import { raiseClientCard, webhookUrlProblem } from "../lib/clientBoard";
+import { resolveViewer } from "./clientBoard";
 
 const router: IRouter = Router();
 
@@ -537,6 +543,7 @@ function serCard(c: typeof clientBoardCardsTable.$inferSelect) {
     dueDate: c.dueDate,
     links: (c.links ?? []).map((l) => ({ label: l.label, url: l.url, kind: l.kind ?? null })),
     jobId: c.jobId,
+    module: c.module ?? null,
     completedAt: c.completedAt?.toISOString() ?? null,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
@@ -603,6 +610,194 @@ router.patch("/client/:token/board/feed/cards/:cardId", async (req, res): Promis
     return;
   }
   res.json(UpdateClientBoardFeedCardResponse.parse(serCard(card)));
+});
+
+// ---------------------------------------------------------------------------
+// Card module actions — each card is a self-contained mini-app. The client
+// taps a button ON the card (approve invoice, schedule flagged work, refer a
+// property, acknowledge); the action is recorded on the card's module, the
+// office is notified, and both boards see the new state on their next sync.
+// ---------------------------------------------------------------------------
+router.post("/client/:token/board/cards/:cardId/action", async (req, res): Promise<void> => {
+  const account = await accountByToken(String(req.params.token));
+  if (!account || account.status !== "active") {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  // Writes require an authenticated, non-read-only board user — the same
+  // rule every other board write follows. The link token alone is view-only.
+  const viewer = await resolveViewer(req, account.propertyId);
+  if (!viewer.authenticated || viewer.readOnly) {
+    res.status(403).json({ error: "Sign in to take actions on cards" });
+    return;
+  }
+  const parsed = ClientBoardCardActionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const body = parsed.data;
+  const actorName = body.name?.trim() || viewer.name || null;
+  // The board projection exposes pushed cards as "push:<id>" — accept both.
+  const rawCardId = String(req.params.cardId).replace(/^push:/, "");
+  const [prop] = await db
+    .select({ name: propertiesTable.name })
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, account.propertyId))
+    .limit(1);
+  const propName = prop?.name ?? "a property";
+  const now = new Date();
+  const nowIso = now.toISOString();
+
+  // Everything inside one transaction with the card row locked, so a
+  // double-click can't approve twice or create duplicate work requests.
+  let status = 200;
+  let payload: unknown = null;
+  await db.transaction(async (tx) => {
+    const [card] = await tx
+      .select()
+      .from(clientBoardCardsTable)
+      .where(
+        and(
+          eq(clientBoardCardsTable.id, rawCardId),
+          eq(clientBoardCardsTable.propertyId, account.propertyId),
+        ),
+      )
+      .for("update");
+    if (!card) {
+      status = 404;
+      payload = { error: "Card not found" };
+      return;
+    }
+    const module = { ...(card.module ?? {}) } as Record<string, unknown>;
+
+    if (body.action === "approve") {
+      if (module.type !== "invoice") {
+        status = 400;
+        payload = { error: "Only invoice cards can be approved" };
+        return;
+      }
+      if (!module.approvedAt) {
+        module.approvedAt = nowIso;
+        module.approvedBy = actorName;
+        // Also unlock the pay flow if a payment request backs this invoice.
+        if (typeof module.payUrl === "string") {
+          const token = module.payUrl.split("/pay/")[1];
+          if (token) {
+            await tx
+              .update(paymentRequestsTable)
+              .set({ approvedAt: now })
+              .where(and(eq(paymentRequestsTable.token, token), isNull(paymentRequestsTable.approvedAt)));
+          }
+        }
+        await tx.insert(activitiesTable).values({
+          entityType: "property",
+          entityId: account.propertyId,
+          kind: "note",
+          body: `Invoice ${module.invoiceNo ?? ""} approved from the client board by ${propName}${actorName ? ` (${actorName})` : ""}.`,
+        });
+        await tx.insert(notificationsTable).values({
+          kind: "client_board",
+          priority: "high",
+          entityType: "property",
+          entityId: account.propertyId,
+          title: `Invoice approved by ${propName}`,
+          body: `Invoice ${module.invoiceNo ?? ""} was approved on their board${typeof module.payUrl === "string" ? " — pay link is unlocked" : ""}.`,
+        });
+      }
+    } else if (body.action === "schedule") {
+      // Turn flagged items into a real work request in the office Pipeline —
+      // the same flow the Requests page uses. Only flags cards offer this.
+      if (module.type !== "flags") {
+        status = 400;
+        payload = { error: "Only flagged-items cards can schedule work" };
+        return;
+      }
+      if (!module.requestedAt) {
+        const label =
+          body.note?.trim() ||
+          `Schedule flagged work: ${((module.items as { unit: string | null; label: string }[] | undefined) ?? [])
+            .slice(0, 3)
+            .map((i) => `${i.unit ? `Unit ${i.unit} — ` : ""}${i.label}`)
+            .join("; ") || card.title}`;
+        const [rowReq] = await tx
+          .insert(workRequestsTable)
+          .values({
+            propertyId: account.propertyId,
+            requesterName: actorName,
+            serviceLabel: label.slice(0, 300),
+            unitNo: body.unitNo?.trim() || null,
+            notes: body.note?.trim() || `Requested from the "${card.title}" card on the client board.`,
+            neededBy: body.neededBy && /^\d{4}-\d{2}-\d{2}$/.test(body.neededBy) ? body.neededBy : null,
+          })
+          .returning();
+        module.requestedAt = nowIso;
+        module.requestId = rowReq!.id;
+        await tx.insert(notificationsTable).values({
+          kind: "work_request",
+          priority: "high",
+          entityType: "work_request",
+          entityId: rowReq!.id,
+          title: `New work request from ${propName}`,
+          body: `${rowReq!.serviceLabel}. Sent from the "${card.title}" card — review it in Pipeline.`,
+        });
+        await tx.insert(activitiesTable).values({
+          entityType: "property",
+          entityId: account.propertyId,
+          kind: "note",
+          body: `${propName} requested work from their board card "${card.title}".`,
+        });
+      }
+    } else if (body.action === "refer") {
+      if (module.type !== "referral") {
+        status = 400;
+        payload = { error: "This card doesn't take referrals" };
+        return;
+      }
+      const contact = body.contact?.trim();
+      if (!contact) {
+        status = 400;
+        payload = { error: "Add the contact for the referral" };
+        return;
+      }
+      if (!module.referredAt) {
+        module.referredAt = nowIso;
+        await tx.insert(activitiesTable).values({
+          entityType: "property",
+          entityId: account.propertyId,
+          kind: "note",
+          body: `Referral from ${propName}: ${body.name?.trim() || "a contact"} — ${contact}${body.note?.trim() ? ` — ${body.note.trim()}` : ""}`,
+        });
+        await tx.insert(notificationsTable).values({
+          kind: "client_board",
+          priority: "high",
+          entityType: "property",
+          entityId: account.propertyId,
+          title: `New referral from ${propName}`,
+          body: `${body.name?.trim() || "A contact"} — ${contact}${body.note?.trim() ? `. "${body.note.trim()}"` : ""}`,
+        });
+      }
+    } else if (body.action === "acknowledge") {
+      module.acknowledgedAt = nowIso;
+    } else {
+      status = 400;
+      payload = { error: "Unknown action" };
+      return;
+    }
+
+    const moveDone = body.action === "acknowledge";
+    const [updated] = await tx
+      .update(clientBoardCardsTable)
+      .set({
+        module,
+        updatedAt: now,
+        ...(moveDone ? { column: "done", completedAt: now } : {}),
+      })
+      .where(eq(clientBoardCardsTable.id, card.id))
+      .returning();
+    payload = ClientBoardCardActionResponse.parse(serCard(updated!));
+  });
+  res.status(status).json(payload);
 });
 
 router.patch("/client/:token/board/feed/webhook", async (req, res): Promise<void> => {

@@ -380,6 +380,12 @@ export interface ClientBoardFeedCardLink {
   kind?: string | null;
 }
 
+/**
+ * Self-contained interactive module payload — kind-specific snapshot (invoice + pay/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state
+ * @nullable
+ */
+export type ClientBoardFeedCardModule = { [key: string]: unknown } | null;
+
 export interface ClientBoardFeedCard {
   id: string;
   /** inbox | todo | in_progress | done */
@@ -398,10 +404,39 @@ export interface ClientBoardFeedCard {
   links: ClientBoardFeedCardLink[];
   /** @nullable */
   jobId?: string | null;
+  /**
+     * Self-contained interactive module payload — kind-specific snapshot (invoice + pay/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state
+     * @nullable
+     */
+  module?: ClientBoardFeedCardModule;
   /** @nullable */
   completedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ClientCardActionInput {
+  /** approve | schedule | refer | acknowledge */
+  action: string;
+  /**
+     * Who is acting (approver, requester, referrer)
+     * @nullable
+     */
+  name?: string | null;
+  /**
+     * Referral contact — email or phone
+     * @nullable
+     */
+  contact?: string | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /**
+     * YYYY-MM-DD
+     * @nullable
+     */
+  neededBy?: string | null;
 }
 
 export interface ClientBoardFeedView {
@@ -675,7 +710,7 @@ export interface ClientCredentialIssued {
 }
 
 export interface ClientCardPushInput {
-  /** invoice | payment_request | summary | tracker | photos | flag | manual */
+  /** invoice | payment_request | summary | tracker | photos | flag | manual | referral */
   kind: string;
   title: string;
   /** @nullable */
@@ -4796,6 +4831,12 @@ export interface ClientBoardCrew {
   lastSeenAt?: string | null;
 }
 
+/**
+ * Interactive module payload for cards pushed from the office (invoice pay/approve, tracker GPS, flagged items, referral)
+ * @nullable
+ */
+export type ClientBoardCardViewModule = { [key: string]: unknown } | null;
+
 export interface ClientBoardCardView {
   cardKey: string;
   template: string;
@@ -4832,6 +4873,11 @@ export interface ClientBoardCardView {
   photos: ClientBoardPhoto[];
   actions: ClientBoardCardButton[];
   editable: boolean;
+  /**
+     * Interactive module payload for cards pushed from the office (invoice pay/approve, tracker GPS, flagged items, referral)
+     * @nullable
+     */
+  module?: ClientBoardCardViewModule;
   /** @nullable */
   updatedAt?: string | null;
   /** @nullable */

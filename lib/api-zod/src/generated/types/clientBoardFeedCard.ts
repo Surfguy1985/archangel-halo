@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ClientBoardFeedCardLink } from './clientBoardFeedCardLink';
+import type { ClientBoardFeedCardModule } from './clientBoardFeedCardModule';
 
 export interface ClientBoardFeedCard {
   id: string;
@@ -25,6 +26,11 @@ export interface ClientBoardFeedCard {
   links: ClientBoardFeedCardLink[];
   /** @nullable */
   jobId?: string | null;
+  /**
+     * Self-contained interactive module payload — kind-specific snapshot (invoice + pay/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state
+     * @nullable
+     */
+  module?: ClientBoardFeedCardModule;
   /** @nullable */
   completedAt?: string | null;
   createdAt: string;

@@ -6248,6 +6248,46 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /client/{token}/board/cards/{cardId}/action:
+    post:
+      operationId: clientBoardCardAction
+      tags: [clients]
+      summary: Run a card module action — approve invoice, schedule flagged work, refer, acknowledge
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cardId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientCardActionInput"
+      responses:
+        "200":
+          description: Updated card with new module state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBoardFeedCard"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link or card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /client/{token}/board/feed/webhook:
     patch:
       operationId: updateClientBoardWebhook
@@ -7719,9 +7759,24 @@ components:
           items:
             $ref: "#/components/schemas/ClientBoardFeedCardLink"
         jobId: { type: ["string", "null"] }
+        module:
+          type: ["object", "null"]
+          description: "Self-contained interactive module payload — kind-specific snapshot (invoice + pay/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state"
+          additionalProperties: true
         completedAt: { type: ["string", "null"] }
         createdAt: { type: string }
         updatedAt: { type: string }
+
+    ClientCardActionInput:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, description: "approve | schedule | refer | acknowledge" }
+        name: { type: ["string", "null"], description: "Who is acting (approver, requester, referrer)" }
+        contact: { type: ["string", "null"], description: "Referral contact — email or phone" }
+        note: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        neededBy: { type: ["string", "null"], description: "YYYY-MM-DD" }
 
     ClientBoardFeedView:
       type: object
@@ -7970,7 +8025,7 @@ components:
       properties:
         kind:
           type: string
-          description: "invoice | payment_request | summary | tracker | photos | flag | manual"
+          description: "invoice | payment_request | summary | tracker | photos | flag | manual | referral"
         title: { type: string }
         body: { type: ["string", "null"] }
         actionLabel: { type: ["string", "null"] }
@@ -11639,6 +11694,10 @@ components:
           items:
             $ref: "#/components/schemas/ClientBoardCardButton"
         editable: { type: boolean }
+        module:
+          type: ["object", "null"]
+          description: "Interactive module payload for cards pushed from the office (invoice pay/approve, tracker GPS, flagged items, referral)"
+          additionalProperties: true
         updatedAt: { type: ["string", "null"] }
         snoozedUntil: { type: ["string", "null"] }
 

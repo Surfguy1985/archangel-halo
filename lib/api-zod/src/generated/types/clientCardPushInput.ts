@@ -7,7 +7,7 @@
  */
 
 export interface ClientCardPushInput {
-  /** invoice | payment_request | summary | tracker | photos | flag | manual */
+  /** invoice | payment_request | summary | tracker | photos | flag | manual | referral */
   kind: string;
   title: string;
   /** @nullable */

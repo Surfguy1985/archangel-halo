@@ -15,6 +15,7 @@ import {
   MetricTone,
 } from './templateSpec';
 import { Camera, User, CheckCircle2, Circle, AlertCircle } from 'lucide-react';
+import { ModuleMetrics, ModuleEvidence, ModuleDecision } from './BoardCardModules';
 
 interface BoardCardProps {
   card: ClientBoardCardView;
@@ -143,6 +144,8 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
   const pipeline = spec.pipeline || [];
   const stageChip = pipeline[stageIndex];
 
+  const cardModule = (card as any).module;
+  
   // Evidence list building (exactly 3 rows)
   const rows = [];
   if (pipeline.length > 0) {
@@ -251,49 +254,57 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
         </div>
 
         {/* 5. Metric triad - 70px */}
-        <div
-          className="grid grid-cols-3 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden"
-          style={{ background: tint.bd }}
-        >
-          {metrics.map((m, i) => (
-            <div key={i} className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
-              <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">{m.label}</span>
-              <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]" style={{ color: TONES[m.tone] }}>
-                {m.value}
-              </span>
-              <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">
-                {m.tone === 'good' ? 'on track' : m.tone === 'warn' ? 'attention' : m.tone === 'bad' ? 'critical' : 'active'}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* 6. Evidence - 130px */}
-        <div className="bg-white rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col" style={{ border: `1px solid ${tint.bd}` }}>
-          <div className="h-[22px] flex items-center justify-between px-[10px] border-b border-black/5">
-            <span className="text-[8px] font-[800] text-[#96948B] uppercase tracking-wider">EVIDENCE / LOG</span>
-            <span className="font-mono text-[8.5px] font-[700] text-[#96948B]">{rows.filter(r => r.text !== '—').length}</span>
-          </div>
-          <div className="flex flex-col flex-1">
-            {rows.map((row, i) => (
-              <div key={i} className="h-[36px] flex items-center px-[10px] gap-2 border-b border-black/5 last:border-0">
-                <div className="w-[3px] h-[20px] rounded-[2px]" style={{ background: row.bar }} />
-                <div className="flex flex-col flex-1 min-w-0">
-                  <span className="text-[10.5px] font-[600] text-[#2E2C27] truncate leading-tight">{row.text}</span>
-                  {row.meta && <span className="text-[8.5px] text-[#96948B] truncate leading-tight">{row.meta}</span>}
-                </div>
-                {row.chip && (
-                  <span
-                    className="shrink-0 rounded-[4px] px-1.5 py-[2px] text-[8.5px] font-[800] tracking-wider"
-                    style={{ background: row.chip.bg, color: row.chip.fg }}
-                  >
-                    {row.chip.label}
-                  </span>
-                )}
+        {cardModule ? (
+          <ModuleMetrics module={cardModule} tint={tint} />
+        ) : (
+          <div
+            className="grid grid-cols-3 gap-[1px] rounded-[9px] mt-[6px] h-[70px] overflow-hidden"
+            style={{ background: tint.bd }}
+          >
+            {metrics.map((m, i) => (
+              <div key={i} className="flex flex-col bg-white pt-[9px] px-[9px] pb-0">
+                <span className="text-[8px] font-[800] tracking-[0.08em] text-[#96948B] uppercase whitespace-nowrap overflow-hidden text-ellipsis">{m.label}</span>
+                <span className="text-[17px] font-[700] tracking-[-0.035em] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]" style={{ color: TONES[m.tone] }}>
+                  {m.value}
+                </span>
+                <span className="text-[8.5px] font-[650] text-[#96948B] whitespace-nowrap overflow-hidden text-ellipsis mt-[2px]">
+                  {m.tone === 'good' ? 'on track' : m.tone === 'warn' ? 'attention' : m.tone === 'bad' ? 'critical' : 'active'}
+                </span>
               </div>
             ))}
           </div>
-        </div>
+        )}
+
+        {/* 6. Evidence - 130px */}
+        {cardModule ? (
+          <ModuleEvidence module={cardModule} tint={tint} />
+        ) : (
+          <div className="bg-white rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col" style={{ border: `1px solid ${tint.bd}` }}>
+            <div className="h-[22px] flex items-center justify-between px-[10px] border-b border-black/5">
+              <span className="text-[8px] font-[800] text-[#96948B] uppercase tracking-wider">EVIDENCE / LOG</span>
+              <span className="font-mono text-[8.5px] font-[700] text-[#96948B]">{rows.filter(r => r.text !== '—').length}</span>
+            </div>
+            <div className="flex flex-col flex-1">
+              {rows.map((row, i) => (
+                <div key={i} className="h-[36px] flex items-center px-[10px] gap-2 border-b border-black/5 last:border-0">
+                  <div className="w-[3px] h-[20px] rounded-[2px]" style={{ background: row.bar }} />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="text-[10.5px] font-[600] text-[#2E2C27] truncate leading-tight">{row.text}</span>
+                    {row.meta && <span className="text-[8.5px] text-[#96948B] truncate leading-tight">{row.meta}</span>}
+                  </div>
+                  {row.chip && (
+                    <span
+                      className="shrink-0 rounded-[4px] px-1.5 py-[2px] text-[8.5px] font-[800] tracking-wider"
+                      style={{ background: row.chip.bg, color: row.chip.fg }}
+                    >
+                      {row.chip.label}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 7. Labels - 26px */}
         <div className="flex items-center h-[26px] gap-1.5 mt-[6px] overflow-hidden">
@@ -323,29 +334,33 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
         </div>
 
         {/* 8. Decision - 36px */}
-        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
-          {primaryBtn ? (
-            primaryBtn.href ? (
-              <a href={primaryBtn.href} target="_blank" rel="noreferrer" className="flex-1 h-full rounded-[8px] bg-[#D8F84E] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#C8EC33] transition-colors">
-                {primaryBtn.label}
-              </a>
+        {cardModule ? (
+          <ModuleDecision module={cardModule} tint={tint} cardKey={card.cardKey} token={token} readOnly={readOnly} />
+        ) : (
+          <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+            {primaryBtn ? (
+              primaryBtn.href ? (
+                <a href={primaryBtn.href} target="_blank" rel="noreferrer" className="flex-1 h-full rounded-[8px] bg-[#D8F84E] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#C8EC33] transition-colors">
+                  {primaryBtn.label}
+                </a>
+              ) : (
+                <button disabled={isDispatching || readOnly} onClick={(e) => handleAction(e, primaryBtn.key)} className="flex-1 h-full rounded-[8px] bg-[#D8F84E] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#C8EC33] disabled:opacity-50 transition-colors">
+                  {primaryBtn.label}
+                </button>
+              )
             ) : (
-              <button disabled={isDispatching || readOnly} onClick={(e) => handleAction(e, primaryBtn.key)} className="flex-1 h-full rounded-[8px] bg-[#D8F84E] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#C8EC33] disabled:opacity-50 transition-colors">
-                {primaryBtn.label}
-              </button>
-            )
-          ) : (
-            <div className="flex-1 h-full rounded-[8px] bg-[#D8F84E] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-30 pointer-events-none">
-              —
-            </div>
-          )}
+              <div className="flex-1 h-full rounded-[8px] bg-[#D8F84E] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-30 pointer-events-none">
+                —
+              </div>
+            )}
 
-          {secondaryBtn && (
-            <button disabled={isDispatching || readOnly} onClick={(e) => handleAction(e, secondaryBtn.key)} className="px-[12px] h-full rounded-[8px] bg-white text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center border border-black/10 hover:bg-black/5 disabled:opacity-50 transition-colors" style={{ borderColor: tint.bd }}>
-              {secondaryBtn.label}
-            </button>
-          )}
-        </div>
+            {secondaryBtn && (
+              <button disabled={isDispatching || readOnly} onClick={(e) => handleAction(e, secondaryBtn.key)} className="px-[12px] h-full rounded-[8px] bg-white text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center border border-black/10 hover:bg-black/5 disabled:opacity-50 transition-colors" style={{ borderColor: tint.bd }}>
+                {secondaryBtn.label}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 9. Footer - 38px */}
