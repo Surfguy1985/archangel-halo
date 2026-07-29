@@ -295,7 +295,13 @@ export default function ClientBoardOffice() {
   const { propertyId = "" } = useParams<{ propertyId: string }>();
   const [formOpen, setFormOpen] = useState(false);
   const [editCard, setEditCard] = useState<ClientBoardFeedCard | null>(null);
-  const { data: board, isLoading } = useGetOfficeClientBoard(propertyId);
+  const { data: board, isLoading } = useGetOfficeClientBoard(propertyId, {
+    query: {
+      queryKey: getGetOfficeClientBoardQueryKey(propertyId),
+      refetchInterval: 15000,
+      refetchOnWindowFocus: true,
+    },
+  });
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const remove = useDeleteOfficeClientBoardCard();

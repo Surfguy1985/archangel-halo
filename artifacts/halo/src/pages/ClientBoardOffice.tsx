@@ -5,7 +5,7 @@ import {
   useGetOfficeClientBoard,
   getGetOfficeClientBoardQueryKey,
   useCreateOfficeClientBoardCard,
-  type ClientBoardCard,
+  type ClientBoardFeedCard,
 } from "@workspace/api-client-react";
 import {
   ChevronLeft,
@@ -54,7 +54,7 @@ function linkIcon(kind?: string | null) {
   return Link2;
 }
 
-function CardView({ card }: { card: ClientBoardCard }) {
+function CardView({ card }: { card: ClientBoardFeedCard }) {
   const meta = KIND_META[card.kind] ?? KIND_META.manual;
   return (
     <div
@@ -233,7 +233,12 @@ export default function ClientBoardOffice() {
   const propertyId = (params.id as string) ?? "";
   const [formOpen, setFormOpen] = useState(false);
   const { data: board, isLoading } = useGetOfficeClientBoard(propertyId, {
-    query: { enabled: !!propertyId, queryKey: getGetOfficeClientBoardQueryKey(propertyId) },
+    query: {
+      enabled: !!propertyId,
+      queryKey: getGetOfficeClientBoardQueryKey(propertyId),
+      refetchInterval: 15000,
+      refetchOnWindowFocus: true,
+    },
   });
 
   if (isLoading || !board) {
