@@ -10,7 +10,7 @@ import { MapPin, User, Loader2, Info, Plus, LayoutGrid, BookOpen, Headphones, La
 import { useQueryClient } from '@tanstack/react-query';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { formatDistanceToNow, isBefore, parseISO, startOfDay, format } from 'date-fns';
+import { formatDistanceToNow, isBefore, parseISO, startOfDay, format, isSameDay, addDays } from 'date-fns';
 import { DashboardTour } from '@/components/DashboardTour';
 import { motion, AnimatePresence } from 'framer-motion';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
@@ -114,6 +114,11 @@ function Board() {
   
   const [tourOpen, setTourOpen] = useState(false);
   const [triageOpen, setTriageOpen] = useState(false);
+
+  type Lens = 'flow' | 'time' | 'service' | 'building';
+  const [lens, setLens] = useState<Lens>('flow');
+  const lensRef = useRef<Lens>('flow');
+  lensRef.current = lens;
 
   const [viewMode, setViewMode] = useState<'stacked' | 'unstacked'>(() => {
     try {
@@ -261,7 +266,19 @@ function Board() {
 
   const { viewer, lanes, cards, propertyName, logoUrl } = board;
 
+  const dragLockedToast = () => {
+    toast({
+      title: 'Drag is available in the Flow lens',
+      description: 'Other lenses are read-only groupings of the same cards. Switch back to Flow to move cards.',
+    });
+  };
+
   const handleDragStart = (e: React.DragEvent, cardKey: string) => {
+    if (lens !== 'flow') {
+      e.preventDefault();
+      dragLockedToast();
+      return;
+    }
     setDraggedCard(cardKey);
     autoScrollPoint.current = { x: e.clientX, y: e.clientY };
     startAutoScroll();
@@ -484,6 +501,12 @@ function Board() {
     const timer = setTimeout(() => {
       const s = touchDrag.current;
       if (!s) return;
+      if (lensRef.current !== 'flow') {
+        dragLockedToast();
+        s.cleanup();
+        touchDrag.current = null;
+        return;
+      }
       if (readOnlyRef.current) {
         toast({
           title: "Sign in required",
@@ -792,7 +815,25 @@ function Board() {
         <span className="text-[10px] font-[800] tracking-widest text-[#96948B] uppercase">LENS</span>
         
         <div className="flex p-[2px] bg-[#E7E5DD] border border-[#DCD9D1] rounded-[10px]">
-          <button className="px-3 py-1 text-[11px] font-[700] rounded-[8px] bg-white text-[#101c33] shadow-[0_1px_3px_rgba(16,28,51,0.13)]">Flow</button>
+          {([
+            ['flow', 'Flow'],
+            ['time', 'Time'],
+            ['service', 'Service lane'],
+            ['building', 'Building'],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              data-testid={`button-lens-${key}`}
+              onClick={() => setLens(key)}
+              className={`px-3 py-1 text-[11px] font-[700] rounded-[8px] transition-colors ${
+                lens === key
+                  ? 'bg-white text-[#101c33] shadow-[0_1px_3px_rgba(16,28,51,0.13)]'
+                  : 'text-[#96948B] hover:text-[#101c33]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         <div className="w-[1px] h-[20px] bg-[#e4e2db]" />
@@ -866,42 +907,153 @@ function Board() {
         ref={boardScrollRef}
         className="flex-1 flex overflow-x-auto kanban-lane-scroll p-[18px] px-[20px] gap-[14px]"
       >
-        {lanes.map((lane) => {
-          const laneCards = cards
-            .filter((c) => c.lane === lane.key)
-            .filter(c => {
-              // REGRESSION FIX #3: Filter by specFor category instead of hardcoded templates
-              if (!activeCategory) return true;
-              const spec = specFor(c.template);
-              return spec.categoryLabel === activeCategory;
-            })
-            // REGRESSION FIX #1: Sort by position (persisted drag order), NOT by SLA heat
-            .sort((a, b) => (a.position || 0) - (b.position || 0));
+        {(() => {
+          const filteredCards = cards.filter(c => {
+            // REGRESSION FIX #3: Filter by specFor category instead of hardcoded templates
+            if (!activeCategory) return true;
+            const spec = specFor(c.template);
+            return spec.categoryLabel === activeCategory;
+          });
 
-          const isOver = dragOverLane === lane.key;
+          // Non-flow lenses sort by urgency: dated cards soonest-first, then priority.
+          const urgencySort = (a: ClientBoardCardView, b: ClientBoardCardView) => {
+            const ta = a.dueOn ? parseISO(a.dueOn).getTime() : Infinity;
+            const tb = b.dueOn ? parseISO(b.dueOn).getTime() : Infinity;
+            if (ta !== tb) return ta - tb;
+            const pMap: Record<string, number> = { urgent: 3, high: 2, medium: 1, normal: 1, low: 0, none: 0 };
+            return (pMap[b.priority ?? 'none'] ?? 0) - (pMap[a.priority ?? 'none'] ?? 0);
+          };
+
+          type Column = {
+            key: string;
+            label: string;
+            statusColor: string;
+            description: string;
+            cards: ClientBoardCardView[];
+            droppable: boolean;
+            hideWhenEmpty?: boolean;
+          };
+
+          let columns: Column[];
+
+          if (lens === 'flow') {
+            columns = lanes.map((lane) => {
+              let statusColor = '#8c8a81';
+              let description = 'Unknown column.';
+              if (lane.key === 'inbox') { statusColor = '#4a6070'; description = 'Auto-detected by sensors, portals and inboxes.'; }
+              if (lane.key === 'requested') { statusColor = '#c25a1e'; description = 'A decision only the manager can make.'; }
+              if (lane.key === 'scheduled') { statusColor = '#33639f'; description = 'Crews on site, money moving, clocks running.'; }
+              if (lane.key === 'in_progress') { statusColor = '#b23a2e'; description = 'Waiting on a part, a signature, or vendor.'; }
+              if (lane.key === 'billing') { statusColor = '#7a4a9e'; description = 'Work claimed done — QC to confirm.'; }
+              if (lane.key === 'done') { statusColor = '#1f7a52'; description = 'Closed today. Auto-archives at midnight.'; }
+              return {
+                key: lane.key,
+                label: lane.label,
+                statusColor,
+                description,
+                droppable: true,
+                cards: filteredCards
+                  .filter((c) => c.lane === lane.key)
+                  // REGRESSION FIX #1: Sort by position (persisted drag order), NOT by SLA heat
+                  .sort((a, b) => (a.position || 0) - (b.position || 0)),
+              };
+            });
+          } else if (lens === 'time') {
+            const now = currentTime;
+            const bucketFor = (c: ClientBoardCardView): string => {
+              const iso = c.dueOn ?? c.scheduledOn;
+              if (!iso) return 'standing';
+              const d = parseISO(iso);
+              if (isBefore(d, startOfDay(now))) return 'overdue';
+              const ms = d.getTime() - now.getTime();
+              if (ms >= 0 && ms <= 2 * 60 * 60 * 1000) return 'next2h';
+              if (isSameDay(d, now)) return 'today';
+              if (isBefore(d, addDays(startOfDay(now), 7))) return 'week';
+              return 'standing';
+            };
+            const defs: Array<[string, string, string, string]> = [
+              ['overdue', 'Overdue', '#b23a2e', 'Past their due date. Deal with these first.'],
+              ['next2h', 'Next 2 hours', '#c25a1e', 'Due or scheduled within the next two hours.'],
+              ['today', 'Today', '#33639f', 'On the docket for the rest of today.'],
+              ['week', 'This week', '#4a6070', 'Coming up over the next seven days.'],
+              ['standing', 'Standing', '#1f7a52', 'No date attached, or further out than a week.'],
+            ];
+            columns = defs.map(([key, label, statusColor, description]) => ({
+              key: `time-${key}`,
+              label,
+              statusColor,
+              description,
+              droppable: false,
+              cards: filteredCards.filter(c => bucketFor(c) === key).sort(urgencySort),
+            }));
+          } else if (lens === 'service') {
+            columns = ([
+              ['maintenance', 'Maintenance'],
+              ['money', 'Money'],
+              ['vendor', 'Vendor'],
+              ['compliance', 'Compliance'],
+              ['leasing', 'Leasing'],
+              ['access', 'Access'],
+              ['people', 'People'],
+              ['intel', 'Intel'],
+            ] as const).map(([key, label]) => ({
+              key: `service-${key}`,
+              label,
+              statusColor: CATEGORY_COLORS[key],
+              description: `Every ${label.toLowerCase()} card, whatever its stage.`,
+              droppable: false,
+              cards: filteredCards.filter(c => specFor(c.template).categoryLabel === key).sort(urgencySort),
+            }));
+          } else {
+            // Building lens — derived from each card's unit label; empty columns hidden.
+            const buildingFor = (c: ClientBoardCardView): string => {
+              const u = (c.unitNo ?? '').trim();
+              if (!u) return 'Property-wide';
+              const lower = u.toLowerCase();
+              if (lower.includes('club')) return 'Clubhouse';
+              if (lower.includes('ground') || lower.includes('exterior') || lower.includes('common') || lower.includes('lot')) return 'Grounds';
+              const letter = u.match(/^([A-Da-d])[\s.-]?\d/);
+              if (letter) return `Building ${letter[1].toUpperCase()}`;
+              const num = u.match(/^(\d)\d{2}\b/);
+              if (num) {
+                const idx = Math.min(4, Math.max(1, parseInt(num[1], 10)));
+                return `Building ${String.fromCharCode(64 + idx)}`;
+              }
+              return 'Property-wide';
+            };
+            const order = ['Building A', 'Building B', 'Building C', 'Building D', 'Clubhouse', 'Grounds', 'Property-wide'];
+            columns = order.map((label) => ({
+              key: `building-${label.toLowerCase().replace(/\s+/g, '-')}`,
+              label,
+              statusColor: label === 'Property-wide' ? '#4a6070' : label === 'Grounds' ? '#5c7a28' : label === 'Clubhouse' ? '#b08d57' : '#33639f',
+              description: label === 'Property-wide'
+                ? 'Cards not tied to a specific unit or building.'
+                : `Open and recent work located in ${label.toLowerCase()}.`,
+              droppable: false,
+              hideWhenEmpty: true,
+              cards: filteredCards.filter(c => buildingFor(c) === label).sort(urgencySort),
+            })).filter(col => !col.hideWhenEmpty || col.cards.length > 0);
+          }
+
+          return columns.map((col) => {
+          const laneCards = col.cards;
+          const lane = { key: col.key, label: col.label };
+          const statusColor = col.statusColor;
+          const description = col.description;
+
+          const isOver = col.droppable && dragOverLane === lane.key;
           // Compute hot count for the "N hot" indicator (uses heat, but doesn't reorder)
           const hasHotCards = laneCards.some(c => c.dueOn && isBefore(parseISO(c.dueOn), startOfDay(new Date())));
           const hotCount = laneCards.filter(c => c.dueOn && isBefore(parseISO(c.dueOn), startOfDay(new Date()))).length;
 
-          // Spec colors and descriptions for Flow lens
-          let statusColor = '#8c8a81';
-          let description = 'Unknown column.';
-          
-          if (lane.key === 'inbox') { statusColor = '#4a6070'; description = 'Auto-detected by sensors, portals and inboxes.'; }
-          if (lane.key === 'requested') { statusColor = '#c25a1e'; description = 'A decision only the manager can make.'; }
-          if (lane.key === 'scheduled') { statusColor = '#33639f'; description = 'Crews on site, money moving, clocks running.'; }
-          if (lane.key === 'in_progress') { statusColor = '#b23a2e'; description = 'Waiting on a part, a signature, or vendor.'; }
-          if (lane.key === 'billing') { statusColor = '#7a4a9e'; description = 'Work claimed done — QC to confirm.'; }
-          if (lane.key === 'done') { statusColor = '#1f7a52'; description = 'Closed today. Auto-archives at midnight.'; }
-
           return (
             <div
               key={lane.key}
-              data-lane-key={lane.key}
+              {...(col.droppable ? { 'data-lane-key': lane.key } : {})}
               className={`flex shrink-0 flex-col w-[362px] bg-[#E7E5DD] border border-[#DCD9D1] rounded-[14px] p-[10px] transition-all duration-200 ${isOver ? 'ring-2 ring-[#101c33] ring-offset-2 ring-offset-[#F1F0EC]' : ''}`}
-              onDragOver={(e) => handleDragOver(e, lane.key)}
-              onDragLeave={(e) => handleDragLeave(e, lane.key)}
-              onDrop={(e) => handleDrop(e, lane.key)}
+              onDragOver={col.droppable ? (e) => handleDragOver(e, lane.key) : undefined}
+              onDragLeave={col.droppable ? (e) => handleDragLeave(e, lane.key) : undefined}
+              onDrop={col.droppable ? (e) => handleDrop(e, lane.key) : undefined}
             >
               {/* Column header */}
               <div className="flex flex-col gap-1.5 px-2 py-1 mb-2">
@@ -936,13 +1088,14 @@ function Board() {
 
                 {laneCards.length === 0 && (
                   <div className="absolute inset-x-2 top-0 bottom-2 border-2 border-dashed border-[#DCD9D1] rounded-[14px] flex items-center justify-center text-[12px] font-[600] text-[#96948B] opacity-50 pointer-events-none">
-                    Drop a card here
+                    {col.droppable ? 'Drop a card here' : 'No cards here right now'}
                   </div>
                 )}
               </div>
             </div>
           );
-        })}
+          });
+        })()}
       </main>
 
       <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} token={token} />
