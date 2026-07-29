@@ -220,6 +220,8 @@ import type {
   ScheduleInput,
   SendInvoiceInput,
   SendPacketInput,
+  SopDocumentUpload,
+  SopRuleDetail,
   TaxEntityComparison,
   TaxEstimate,
   TaxPlannerRunInput,
@@ -1235,6 +1237,220 @@ export const useGeneratePropertyImage = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getGeneratePropertyImageMutationOptions(options));
+    }
+
+export const getGetPropertySopRuleUrl = (id: string,) => {
+
+
+
+
+  return `/api/properties/${id}/sop-rule`
+}
+
+/**
+ * @summary The SOP billing rule governing this property's invoices
+ */
+export const getPropertySopRule = async (id: string, options?: RequestInit): Promise<SopRuleDetail> => {
+
+  return customFetch<SopRuleDetail>(getGetPropertySopRuleUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPropertySopRuleQueryKey = (id: string,) => {
+    return [
+    `/api/properties/${id}/sop-rule`
+    ] as const;
+    }
+
+
+export const getGetPropertySopRuleQueryOptions = <TData = Awaited<ReturnType<typeof getPropertySopRule>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPropertySopRule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPropertySopRuleQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPropertySopRule>>> = ({ signal }) => getPropertySopRule(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPropertySopRule>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPropertySopRuleQueryResult = NonNullable<Awaited<ReturnType<typeof getPropertySopRule>>>
+export type GetPropertySopRuleQueryError = ErrorType<Error>
+
+
+/**
+ * @summary The SOP billing rule governing this property's invoices
+ */
+
+export function useGetPropertySopRule<TData = Awaited<ReturnType<typeof getPropertySopRule>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPropertySopRule>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPropertySopRuleQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUploadPropertySopDocumentUrl = (id: string,) => {
+
+
+
+
+  return `/api/properties/${id}/sop-rule`
+}
+
+/**
+ * @summary Upload an SOP guideline doc — AI extracts the property's fixed billing rule
+ */
+export const uploadPropertySopDocument = async (id: string,
+    sopDocumentUpload: SopDocumentUpload, options?: RequestInit): Promise<SopRuleDetail> => {
+
+  return customFetch<SopRuleDetail>(getUploadPropertySopDocumentUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sopDocumentUpload)
+  }
+);}
+
+
+
+
+
+export const getUploadPropertySopDocumentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadPropertySopDocument>>, TError,{id: string;data: BodyType<SopDocumentUpload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadPropertySopDocument>>, TError,{id: string;data: BodyType<SopDocumentUpload>}, TContext> => {
+
+const mutationKey = ['uploadPropertySopDocument'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadPropertySopDocument>>, {id: string;data: BodyType<SopDocumentUpload>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  uploadPropertySopDocument(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadPropertySopDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof uploadPropertySopDocument>>>
+    export type UploadPropertySopDocumentMutationBody = BodyType<SopDocumentUpload>
+    export type UploadPropertySopDocumentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Upload an SOP guideline doc — AI extracts the property's fixed billing rule
+ */
+export const useUploadPropertySopDocument = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadPropertySopDocument>>, TError,{id: string;data: BodyType<SopDocumentUpload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadPropertySopDocument>>,
+        TError,
+        {id: string;data: BodyType<SopDocumentUpload>},
+        TContext
+      > => {
+      return useMutation(getUploadPropertySopDocumentMutationOptions(options));
+    }
+
+export const getDeletePropertySopRuleUrl = (id: string,) => {
+
+
+
+
+  return `/api/properties/${id}/sop-rule`
+}
+
+export const deletePropertySopRule = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeletePropertySopRuleUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeletePropertySopRuleMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePropertySopRule>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePropertySopRule>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deletePropertySopRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePropertySopRule>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deletePropertySopRule(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePropertySopRuleMutationResult = NonNullable<Awaited<ReturnType<typeof deletePropertySopRule>>>
+
+    export type DeletePropertySopRuleMutationError = ErrorType<Error>
+
+    export const useDeletePropertySopRule = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePropertySopRule>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePropertySopRule>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeletePropertySopRuleMutationOptions(options));
     }
 
 export const getListCatalogItemsUrl = () => {

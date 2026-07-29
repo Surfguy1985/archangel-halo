@@ -7,6 +7,8 @@ import {
   useGetBusinessSettings,
   useGetJob,
   useGetProperty,
+  useGetPropertySopRule,
+  getGetPropertySopRuleQueryKey,
   getGetJobQueryKey,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
@@ -14,7 +16,7 @@ import {
   getGetTodayQueryKey,
   type InvoiceLineItemInput,
 } from "@workspace/api-client-react";
-import { ChevronLeft, Pencil, Plus, Save, Send, Trash2, Zap} from "lucide-react";
+import { ChevronLeft, Pencil, Plus, Save, Send, ShieldCheck, Trash2, Zap} from "lucide-react";
 import { useToast} from "@/hooks/use-toast";
 import { Button} from "@/components/ui/button";
 import { Input} from "@/components/ui/input";
@@ -126,6 +128,33 @@ export default function CreateInvoice() {
    }
  };
 
+  // SOP rule for the selected property — the invoice must follow it.
+  const { data: sopRule} = useGetPropertySopRule(propertyId, {
+    query: {
+      enabled: !!propertyId,
+      queryKey: getGetPropertySopRuleQueryKey(propertyId),
+      retry: false,
+   },
+ });
+  const sopFormat = sopRule?.rules?.format;
+  const sopPoRequired = sopFormat?.po_required === true;
+  const sopAppliedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!sopRule || sopAppliedFor.current === propertyId) return;
+    sopAppliedFor.current = propertyId;
+    const r = sopRule.rules;
+    if (r.property?.client_company) setBillToName(r.property.client_company);
+    if (r.property?.billing_address) setPropertyAddress(r.property.billing_address);
+    if (r.format?.payment_terms) setTerms(r.format.payment_terms);
+    if (r.format?.due_days != null && !dueTouched) {
+      setDueOn(addDaysFrom(issuedOn || todayLocal(), r.format.due_days));
+   }
+    if ((r.special_instructions?.length ?? 0) > 0) {
+      setNotes((prev) => prev || (r.special_instructions ?? []).map((s) =>`• ${s}`).join("\n"));
+   }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [sopRule, propertyId]);
+
   // Price book for the selected property → one-click line items.
   const { data: propertyDetail} = useGetProperty(propertyId, {
     query: { enabled: !!propertyId, queryKey: getGetPropertyQueryKey(propertyId)},
@@ -199,7 +228,11 @@ export default function CreateInvoice() {
   );
 
   const validItems = items.filter((it) => it.typeOfWork.trim());
-  const canSave = !!propertyId && validItems.length > 0 && !create.isPending;
+  const canSave =
+    !!propertyId &&
+    validItems.length > 0 &&
+    !create.isPending &&
+    (!sopPoRequired || !!poNumber.trim());
 
   const setItem = (idx: number, patch: Partial<ItemDraft>) =>
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch} : it)));
@@ -286,6 +319,19 @@ export default function CreateInvoice() {
           </Button>
         </div>
       </div>
+
+      {sopRule && (
+        <div className="flex items-start gap-3 rounded-2xl bg-[var(--ink)] text-white px-5 py-4" data-testid="banner-sop-active">
+          <ShieldCheck className="w-5 h-5 text-[var(--gold-light,#B4FF44)] shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <span className="font-bold">SOP rule active.</span>{" "}
+            This invoice follows {sopRule.rules.property?.name || "the property"}'s
+            billing guideline — number format, terms and due date are applied
+            automatically on save.
+            {sopPoRequired && <span className="font-bold"> A PO number is required.</span>}
+          </div>
+        </div>
+      )}
 
       {/* Branded editable template */}
       <div className="bg-white rounded-3xl shadow-sm border border-border overflow-hidden">
@@ -391,8 +437,15 @@ export default function CreateInvoice() {
                   </div>
                 </div>
                 <div className="col-span-2">
-                  <div className="text-xs text-muted-foreground mb-1">PO number</div>
-                  <Input value={poNumber} onChange={(e) => setPoNumber(e.target.value)} placeholder="Optional" />
+                  <div className="text-xs text-muted-foreground mb-1">
+                    PO number{sopPoRequired ? " — required by SOP" : ""}
+                  </div>
+                  <Input
+                    value={poNumber}
+                    onChange={(e) => setPoNumber(e.target.value)}
+                    placeholder={sopPoRequired ? "Required" : "Optional"}
+                    className={sopPoRequired && !poNumber.trim() ? "border-destructive" : undefined}
+                  />
                 </div>
               </div>
             </div>

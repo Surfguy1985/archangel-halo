@@ -56,6 +56,7 @@ import { completeJson, completeJsonWithImage } from "../lib/ai";
 import { ser } from "../lib/serialize";
 import { sendEmail } from "../lib/email";
 import { generateInvoicePdf, type InvoicePdfCompany } from "../lib/invoicePdf";
+import { applySopToInvoice, getSopRule } from "./sop";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { getBankMtdCashflow } from "../lib/plaidClient";
 
@@ -391,7 +392,6 @@ router.get("/invoices", async (req, res): Promise<void> => {
 
 router.post("/invoices", async (req, res): Promise<void> => {
   const body = CreateInvoiceBody.parse(req.body);
-  const dueAt = computeDueAt(body);
   const items = normalizeItems(body.lineItems);
   const total =
     items.length > 0
@@ -400,23 +400,50 @@ router.post("/invoices", async (req, res): Promise<void> => {
   const defaults = await defaultBillTo(body.propertyId);
   const issuedOn = body.issuedOn ?? new Date().toISOString().slice(0, 10);
 
+  // SOP rule enforcement — when the property has a rule, every invoice
+  // must follow it: PO requirement, number format, terms, due date, etc.
+  const sop = await applySopToInvoice(body.propertyId, {
+    issuedOn,
+    poNumber: body.poNumber,
+    terms: body.terms,
+    dueProvided: !!body.dueOn || body.dueInDays != null,
+    billToName: body.billToName,
+    propertyAddress: body.propertyAddress,
+    paymentInstructions: body.paymentInstructions,
+    notes: body.notes,
+    taxAmount: body.taxAmount,
+    total,
+  });
+  if (sop && !sop.ok) {
+    res.status(400).json({ error: sop.error });
+    return;
+  }
+  const applied = sop && sop.ok ? sop : null;
+  const dueAt = applied?.dueAt ?? computeDueAt(body);
+
   const row = await db.transaction(async (tx) => {
     const [created] = await tx
       .insert(invoicesTable)
       .values({
-        invoiceNo: await nextInvoiceNo(),
+        invoiceNo: applied?.invoiceNo ?? (await nextInvoiceNo()),
         propertyId: body.propertyId,
         jobId: body.jobId,
         amount: total,
         dueAt,
         issuedOn,
         poNumber: body.poNumber ?? null,
-        terms: body.terms ?? "Net 30",
-        billToName: body.billToName ?? defaults.billToName,
-        propertyAddress: body.propertyAddress ?? defaults.propertyAddress,
-        notes: body.notes ?? null,
-        paymentInstructions: body.paymentInstructions ?? null,
-        taxAmount: await resolveTaxAmount(body.taxAmount, total),
+        terms: body.terms ?? applied?.terms ?? "Net 30",
+        billToName:
+          body.billToName ?? applied?.billToName ?? defaults.billToName,
+        propertyAddress:
+          body.propertyAddress ??
+          applied?.propertyAddress ??
+          defaults.propertyAddress,
+        notes: body.notes ?? applied?.notes ?? null,
+        paymentInstructions:
+          body.paymentInstructions ?? applied?.paymentInstructions ?? null,
+        taxAmount:
+          applied?.taxAmount ?? (await resolveTaxAmount(body.taxAmount, total)),
         attachmentPath: body.attachmentPath ?? null,
         status: "draft",
       })
@@ -468,6 +495,16 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   const dueAt =
     body.dueOn || body.dueInDays != null ? computeDueAt(body) : existing.dueAt;
   const taxAmount = await resolveTaxAmount(body.taxAmount, total);
+
+  // SOP rule enforcement — an edit cannot strip a PO the SOP requires.
+  const editRule = await getSopRule(body.propertyId);
+  if (editRule?.format?.po_required && !body.poNumber) {
+    res.status(400).json({
+      error:
+        "This property's SOP requires a PO number on every invoice. Add the PO number and try again.",
+    });
+    return;
+  }
 
   const row = await db.transaction(async (tx) => {
     const [updated] = await tx

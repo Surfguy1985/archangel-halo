@@ -1169,6 +1169,8 @@ export interface CrewToday {
   /** @nullable */
   isLeader?: boolean | null;
   /** @nullable */
+  active?: boolean | null;
+  /** @nullable */
   preferredPaymentMethod?: string | null;
   /** @nullable */
   paymentDetails?: string | null;
@@ -3493,6 +3495,90 @@ export interface PortalWings {
   reserve: PortalWingsReserve;
 }
 
+export type SopDocumentUploadMediaType = typeof SopDocumentUploadMediaType[keyof typeof SopDocumentUploadMediaType];
+
+
+export const SopDocumentUploadMediaType = {
+  'application/pdf': 'application/pdf',
+  'image/png': 'image/png',
+  'image/jpeg': 'image/jpeg',
+  'image/webp': 'image/webp',
+  'image/gif': 'image/gif',
+} as const;
+
+export interface SopDocumentUpload {
+  /** @minLength 1 */
+  fileName: string;
+  mediaType: SopDocumentUploadMediaType;
+  /**
+     * Base64 file content
+     * @minLength 1
+     */
+  data: string;
+}
+
+export interface SopLineItemRule {
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  description_rule?: string | null;
+  /** @nullable */
+  rate_type?: string | null;
+  /** @nullable */
+  default_rate?: number | null;
+}
+
+export type SopRuleSetProperty = {
+  /** @nullable */
+  name?: string | null;
+  aliases?: string[];
+  /** @nullable */
+  client_company?: string | null;
+  /** @nullable */
+  billing_address?: string | null;
+};
+
+export type SopRuleSetFormat = {
+  /** @nullable */
+  invoice_number_format?: string | null;
+  /** @nullable */
+  date_format?: string | null;
+  /** @nullable */
+  currency?: string | null;
+  /** @nullable */
+  tax_rate_percent?: number | null;
+  /** @nullable */
+  payment_terms?: string | null;
+  /** @nullable */
+  due_days?: number | null;
+  /** @nullable */
+  po_required?: boolean | null;
+  /** @nullable */
+  remit_to?: string | null;
+  /** @nullable */
+  delivery_method?: string | null;
+  /** @nullable */
+  send_to?: string | null;
+};
+
+export interface SopRuleSet {
+  property?: SopRuleSetProperty;
+  format?: SopRuleSetFormat;
+  required_fields?: string[];
+  line_item_rules?: SopLineItemRule[];
+  special_instructions?: string[];
+}
+
+export interface SopRuleDetail {
+  id: string;
+  propertyId: string;
+  fileName: string;
+  mediaType: string;
+  rules: SopRuleSet;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PayerInfo {
   /** @nullable */
   routingNumber?: string | null;
@@ -3551,17 +3637,32 @@ export interface PayHubOverview {
 
 export interface PaymentRequestJobLine {
   id: string;
-  jobId: string;
+  /** @nullable */
+  jobId: string | null;
   /** @nullable */
   invoiceId?: string | null;
   label: string;
   amount: number;
 }
 
+export interface PaymentRequestCustomItem {
+  /** @minLength 1 */
+  label: string;
+  amount: number;
+}
+
+/**
+ * Optional per-job amount overrides keyed by jobId
+ */
+export type PaymentRequestInputJobAmounts = {[key: string]: number};
+
 export interface PaymentRequestInput {
   propertyId: string;
-  /** @minItems 1 */
   jobIds: string[];
+  /** Optional per-job amount overrides keyed by jobId */
+  jobAmounts?: PaymentRequestInputJobAmounts;
+  /** Extra type-in line items not tied to a job */
+  customItems?: PaymentRequestCustomItem[];
   memo?: string;
   payerInfo?: PayerInfo;
 }

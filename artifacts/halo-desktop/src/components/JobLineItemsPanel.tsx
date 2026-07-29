@@ -7,9 +7,11 @@ import {
   useDeleteJobLineItem,
   getGetPropertyQueryKey,
 } from "@workspace/api-client-react";
+import { useToast} from "@/hooks/use-toast";
 
 type LineItem = {
   id: string;
+  priceItemId?: string | null;
   service: string;
   unit?: string | null;
   rate: number;
@@ -36,6 +38,7 @@ export function JobLineItemsPanel({
   priceItems: PriceItemOption[];
 }) {
   const queryClient = useQueryClient();
+  const { toast} = useToast();
   const [selectedId, setSelectedId] = useState("");
   const add = useAddJobLineItem();
   const update = useUpdateJobLineItem();
@@ -43,6 +46,8 @@ export function JobLineItemsPanel({
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+  const onError = (err: Error) =>
+    toast({ title: "Couldn't update line items", description: err.message, variant: "destructive"});
 
   const total = lineItems.reduce((s, li) => s + li.amount, 0);
   const busy = add.isPending || update.isPending || del.isPending;
@@ -64,7 +69,7 @@ export function JobLineItemsPanel({
                   aria-label="Decrease quantity"
                   disabled={busy || li.qty <= 1}
                   onClick={() =>
-                    update.mutate({ id: li.id, data: { qty: li.qty - 1}}, { onSuccess: refresh})
+                    update.mutate({ id: li.id, data: { qty: li.qty - 1}}, { onSuccess: refresh, onError})
                  }
                   className="w-6 h-6 rounded-full bg-card border border-border grid place-items-center text-muted-foreground disabled:opacity-40 hover:bg-black/[0.04]"
                 >
@@ -75,7 +80,7 @@ export function JobLineItemsPanel({
                   aria-label="Increase quantity"
                   disabled={busy}
                   onClick={() =>
-                    update.mutate({ id: li.id, data: { qty: li.qty + 1}}, { onSuccess: refresh})
+                    update.mutate({ id: li.id, data: { qty: li.qty + 1}}, { onSuccess: refresh, onError})
                  }
                   className="w-6 h-6 rounded-full bg-card border border-border grid place-items-center text-muted-foreground disabled:opacity-40 hover:bg-black/[0.04]"
                 >
@@ -88,7 +93,7 @@ export function JobLineItemsPanel({
               <button
                 aria-label="Remove line item"
                 disabled={busy}
-                onClick={() => del.mutate({ id: li.id}, { onSuccess: refresh})}
+                onClick={() => del.mutate({ id: li.id}, { onSuccess: refresh, onError})}
                 className="shrink-0 w-6 h-6 rounded-full grid place-items-center text-muted-foreground/70 hover:text-foreground hover:bg-black/[0.05]"
               >
                 <X className="w-3.5 h-3.5" />
@@ -114,7 +119,17 @@ export function JobLineItemsPanel({
           </select>
           <button
             disabled={!selectedId || busy}
-            onClick={() =>
+            onClick={() => {
+              // If this price item is already on the job, bump its quantity
+              // instead of creating a duplicate row.
+              const existing = lineItems.find((li) => li.priceItemId === selectedId);
+              if (existing) {
+                update.mutate(
+                  { id: existing.id, data: { qty: existing.qty + 1}},
+                  { onSuccess: () => { setSelectedId(""); refresh();}, onError},
+                );
+                return;
+             }
               add.mutate(
                 { id: jobId, data: { priceItemId: selectedId, qty: 1}},
                 {
@@ -122,9 +137,10 @@ export function JobLineItemsPanel({
                     setSelectedId("");
                     refresh();
                  },
+                  onError,
                },
-              )
-           }
+              );
+           }}
             className="shrink-0 rounded-md px-3 py-1.5 text-sm font-semibold text-[var(--ink)] bg-[var(--primary)] disabled:opacity-50 hover:brightness-105"
           >
             Add

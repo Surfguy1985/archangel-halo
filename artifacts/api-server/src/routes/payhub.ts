@@ -212,6 +212,15 @@ router.post("/pay-hub/requests", async (req, res): Promise<void> => {
     return;
   }
   const body = parsed.data;
+  const customItems = (body.customItems ?? []).filter(
+    (c) => c.label.trim().length > 0 && c.amount > 0,
+  );
+  if (body.jobIds.length === 0 && customItems.length === 0) {
+    res
+      .status(400)
+      .json({ error: "Select at least one job or add a line item" });
+    return;
+  }
   const [prop] = await db
     .select()
     .from(propertiesTable)
@@ -221,10 +230,12 @@ router.post("/pay-hub/requests", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Property not found" });
     return;
   }
-  const jobs = await db
-    .select()
-    .from(jobsTable)
-    .where(inArray(jobsTable.id, body.jobIds));
+  const jobs = body.jobIds.length
+    ? await db
+        .select()
+        .from(jobsTable)
+        .where(inArray(jobsTable.id, body.jobIds))
+    : [];
   if (jobs.length !== body.jobIds.length) {
     res.status(400).json({ error: "One or more jobs not found" });
     return;
@@ -237,16 +248,22 @@ router.post("/pay-hub/requests", async (req, res): Promise<void> => {
     return;
   }
   const labels = await jobLabelMap(body.jobIds);
-  // Amount per job: latest unpaid invoice amount, else job line items, else 0.
-  const invoices = await db
-    .select()
-    .from(invoicesTable)
-    .where(inArray(invoicesTable.jobId, body.jobIds));
-  const lineItems = await db
-    .select()
-    .from(jobLineItemsTable)
-    .where(inArray(jobLineItemsTable.jobId, body.jobIds));
-  const lines = jobs.map((job, i) => {
+  // Amount per job: office override, else latest unpaid invoice amount, else
+  // job line items, else 0.
+  const invoices = body.jobIds.length
+    ? await db
+        .select()
+        .from(invoicesTable)
+        .where(inArray(invoicesTable.jobId, body.jobIds))
+    : [];
+  const lineItems = body.jobIds.length
+    ? await db
+        .select()
+        .from(jobLineItemsTable)
+        .where(inArray(jobLineItemsTable.jobId, body.jobIds))
+    : [];
+  const overrides = body.jobAmounts ?? {};
+  const jobLines = jobs.map((job, i) => {
     const jobInvoices = invoices
       .filter((inv) => inv.jobId === job.id && inv.status === "sent")
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -254,15 +271,35 @@ router.post("/pay-hub/requests", async (req, res): Promise<void> => {
     const liTotal = lineItems
       .filter((li) => li.jobId === job.id)
       .reduce((s, li) => s + li.rate * li.qty, 0);
+    const override = overrides[job.id];
     return {
-      jobId: job.id,
+      jobId: job.id as string | null,
       invoiceId: inv?.id ?? null,
       label: labels.get(job.id) ?? `#${job.jobNo}`,
-      amount: inv ? inv.amount + (inv.taxAmount ?? 0) : liTotal,
+      amount:
+        typeof override === "number" && override >= 0
+          ? override
+          : inv
+            ? inv.amount + (inv.taxAmount ?? 0)
+            : liTotal,
       sortOrder: i,
     };
   });
+  const lines = [
+    ...jobLines,
+    ...customItems.map((c, i) => ({
+      jobId: null as string | null,
+      invoiceId: null,
+      label: c.label.trim(),
+      amount: c.amount,
+      sortOrder: jobLines.length + i,
+    })),
+  ];
   const total = lines.reduce((s, l) => s + l.amount, 0);
+  if (total <= 0) {
+    res.status(400).json({ error: "Request total must be greater than $0" });
+    return;
+  }
   const count = (await db.select({ id: paymentRequestsTable.id }).from(paymentRequestsTable)).length;
   const created = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -465,7 +502,7 @@ router.post("/pay-hub/requests/:id/return", async (req, res): Promise<void> => {
             eq(invoicesTable.status, "paid"),
           ),
         );
-      touched.push({ invoiceId: link.invoiceId, jobId: link.jobId });
+      if (link.jobId) touched.push({ invoiceId: link.invoiceId, jobId: link.jobId });
     }
     return u;
   });
@@ -639,7 +676,7 @@ router.post("/pay/:token", async (req, res): Promise<void> => {
   }
   for (const link of links) {
     if (link.invoiceId) await syncInvoiceLedger(link.invoiceId);
-    await recomputeJobFinancials(link.jobId);
+    if (link.jobId) await recomputeJobFinancials(link.jobId);
   }
   const [prop] = await db
     .select({ name: propertiesTable.name })
@@ -684,7 +721,11 @@ router.get("/pay-hub/distribution/:id", async (req, res): Promise<void> => {
     return;
   }
   const detail = await requestDetail(row);
-  const jobIds = detail.jobs.map((j) => j.jobId);
+  // Custom (non-job) line items have no crew to pay out — exclude them.
+  const jobLinesOnly = detail.jobs.filter(
+    (j): j is typeof j & { jobId: string } => j.jobId != null,
+  );
+  const jobIds = jobLinesOnly.map((j) => j.jobId);
   const jobs = jobIds.length
     ? await db.select().from(jobsTable).where(inArray(jobsTable.id, jobIds))
     : [];
@@ -717,7 +758,7 @@ router.get("/pay-hub/distribution/:id", async (req, res): Promise<void> => {
     .from(crewPayoutsTable)
     .where(eq(crewPayoutsTable.paymentRequestId, id));
   // One row per (job, assigned crew) so multi-crew jobs get individual payouts.
-  const rows = detail.jobs.flatMap((line) => {
+  const rows = jobLinesOnly.flatMap((line) => {
     const job = jobs.find((j) => j.id === line.jobId);
     const assigned = jobCrews.get(line.jobId) ?? [];
     const perCrewRate =

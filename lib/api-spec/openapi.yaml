@@ -280,6 +280,81 @@ paths:
               schema:
                 $ref: "#/components/schemas/Property"
 
+  /properties/{id}/sop-rule:
+    get:
+      operationId: getPropertySopRule
+      tags: [properties]
+      summary: The SOP billing rule governing this property's invoices
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SopRuleDetail"
+        "404":
+          description: No rule for this property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      operationId: uploadPropertySopDocument
+      tags: [properties]
+      summary: Upload an SOP guideline doc — AI extracts the property's fixed billing rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SopDocumentUpload"
+      responses:
+        "200":
+          description: Rule created or replaced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SopRuleDetail"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Extraction failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deletePropertySopRule
+      tags: [properties]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /catalog-items:
     get:
       operationId: listCatalogItems
@@ -6065,6 +6140,7 @@ components:
         phone: { type: ["string", "null"] }
         email: { type: ["string", "null"] }
         isLeader: { type: ["boolean", "null"] }
+        active: { type: ["boolean", "null"] }
         preferredPaymentMethod: { type: ["string", "null"] }
         paymentDetails: { type: ["string", "null"] }
         paymentTerms: { type: ["string", "null"] }
@@ -8230,6 +8306,80 @@ components:
             released: { type: number }
             debited: { type: number }
 
+    SopDocumentUpload:
+      type: object
+      required: [fileName, mediaType, data]
+      properties:
+        fileName: { type: string, minLength: 1 }
+        mediaType:
+          type: string
+          enum:
+            [
+              application/pdf,
+              image/png,
+              image/jpeg,
+              image/webp,
+              image/gif,
+            ]
+        data: { type: string, minLength: 1, description: Base64 file content }
+
+    SopLineItemRule:
+      type: object
+      properties:
+        category: { type: ["string", "null"] }
+        description_rule: { type: ["string", "null"] }
+        rate_type: { type: ["string", "null"] }
+        default_rate: { type: ["number", "null"] }
+
+    SopRuleSet:
+      type: object
+      properties:
+        property:
+          type: object
+          properties:
+            name: { type: ["string", "null"] }
+            aliases:
+              type: array
+              items: { type: string }
+            client_company: { type: ["string", "null"] }
+            billing_address: { type: ["string", "null"] }
+        format:
+          type: object
+          properties:
+            invoice_number_format: { type: ["string", "null"] }
+            date_format: { type: ["string", "null"] }
+            currency: { type: ["string", "null"] }
+            tax_rate_percent: { type: ["number", "null"] }
+            payment_terms: { type: ["string", "null"] }
+            due_days: { type: ["number", "null"] }
+            po_required: { type: ["boolean", "null"] }
+            remit_to: { type: ["string", "null"] }
+            delivery_method: { type: ["string", "null"] }
+            send_to: { type: ["string", "null"] }
+        required_fields:
+          type: array
+          items: { type: string }
+        line_item_rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/SopLineItemRule"
+        special_instructions:
+          type: array
+          items: { type: string }
+
+    SopRuleDetail:
+      type: object
+      required: [id, propertyId, fileName, mediaType, rules, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        propertyId: { type: string }
+        fileName: { type: string }
+        mediaType: { type: string }
+        rules:
+          $ref: "#/components/schemas/SopRuleSet"
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
     PayerInfo:
       type: object
       properties:
@@ -8279,9 +8429,16 @@ components:
       required: [id, jobId, label, amount]
       properties:
         id: { type: string }
-        jobId: { type: string }
+        jobId: { type: ["string", "null"] }
         invoiceId: { type: ["string", "null"] }
         label: { type: string }
+        amount: { type: number }
+
+    PaymentRequestCustomItem:
+      type: object
+      required: [label, amount]
+      properties:
+        label: { type: string, minLength: 1 }
         amount: { type: number }
 
     PaymentRequestInput:
@@ -8291,8 +8448,16 @@ components:
         propertyId: { type: string }
         jobIds:
           type: array
-          minItems: 1
           items: { type: string }
+        jobAmounts:
+          type: object
+          description: Optional per-job amount overrides keyed by jobId
+          additionalProperties: { type: number }
+        customItems:
+          type: array
+          description: Extra type-in line items not tied to a job
+          items:
+            $ref: "#/components/schemas/PaymentRequestCustomItem"
         memo: { type: string }
         payerInfo:
           $ref: "#/components/schemas/PayerInfo"

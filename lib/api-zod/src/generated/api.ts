@@ -469,6 +469,113 @@ export const GeneratePropertyImageResponse = zod.object({
 
 
 /**
+ * @summary The SOP billing rule governing this property's invoices
+ */
+export const GetPropertySopRuleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetPropertySopRuleResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "fileName": zod.string(),
+  "mediaType": zod.string(),
+  "rules": zod.object({
+  "property": zod.object({
+  "name": zod.string().nullish(),
+  "aliases": zod.array(zod.string()).optional(),
+  "client_company": zod.string().nullish(),
+  "billing_address": zod.string().nullish()
+}).optional(),
+  "format": zod.object({
+  "invoice_number_format": zod.string().nullish(),
+  "date_format": zod.string().nullish(),
+  "currency": zod.string().nullish(),
+  "tax_rate_percent": zod.number().nullish(),
+  "payment_terms": zod.string().nullish(),
+  "due_days": zod.number().nullish(),
+  "po_required": zod.boolean().nullish(),
+  "remit_to": zod.string().nullish(),
+  "delivery_method": zod.string().nullish(),
+  "send_to": zod.string().nullish()
+}).optional(),
+  "required_fields": zod.array(zod.string()).optional(),
+  "line_item_rules": zod.array(zod.object({
+  "category": zod.string().nullish(),
+  "description_rule": zod.string().nullish(),
+  "rate_type": zod.string().nullish(),
+  "default_rate": zod.number().nullish()
+})).optional(),
+  "special_instructions": zod.array(zod.string()).optional()
+}),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Upload an SOP guideline doc — AI extracts the property's fixed billing rule
+ */
+export const UploadPropertySopDocumentParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+
+export const UploadPropertySopDocumentBody = zod.object({
+  "fileName": zod.string().min(1),
+  "mediaType": zod.enum(['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif']),
+  "data": zod.string().min(1).describe('Base64 file content')
+})
+
+export const UploadPropertySopDocumentResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "fileName": zod.string(),
+  "mediaType": zod.string(),
+  "rules": zod.object({
+  "property": zod.object({
+  "name": zod.string().nullish(),
+  "aliases": zod.array(zod.string()).optional(),
+  "client_company": zod.string().nullish(),
+  "billing_address": zod.string().nullish()
+}).optional(),
+  "format": zod.object({
+  "invoice_number_format": zod.string().nullish(),
+  "date_format": zod.string().nullish(),
+  "currency": zod.string().nullish(),
+  "tax_rate_percent": zod.number().nullish(),
+  "payment_terms": zod.string().nullish(),
+  "due_days": zod.number().nullish(),
+  "po_required": zod.boolean().nullish(),
+  "remit_to": zod.string().nullish(),
+  "delivery_method": zod.string().nullish(),
+  "send_to": zod.string().nullish()
+}).optional(),
+  "required_fields": zod.array(zod.string()).optional(),
+  "line_item_rules": zod.array(zod.object({
+  "category": zod.string().nullish(),
+  "description_rule": zod.string().nullish(),
+  "rate_type": zod.string().nullish(),
+  "default_rate": zod.number().nullish()
+})).optional(),
+  "special_instructions": zod.array(zod.string()).optional()
+}),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+export const DeletePropertySopRuleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeletePropertySopRuleResponse = zod.void()
+
+
+/**
  * @summary Master price list — services shared across all properties
  */
 export const ListCatalogItemsResponseItem = zod.object({
@@ -2284,6 +2391,7 @@ export const ListCrewsResponseItem = zod.object({
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
+  "active": zod.boolean().nullish(),
   "preferredPaymentMethod": zod.string().nullish(),
   "paymentDetails": zod.string().nullish(),
   "paymentTerms": zod.string().nullish(),
@@ -6464,7 +6572,7 @@ export const ListPaymentRequestsResponseItem = zod.object({
   "createdAt": zod.string(),
   "jobs": zod.array(zod.object({
   "id": zod.string(),
-  "jobId": zod.string(),
+  "jobId": zod.string().nullable(),
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
@@ -6481,7 +6589,12 @@ export const ListPaymentRequestsResponse = zod.array(ListPaymentRequestsResponse
 
 export const CreatePaymentRequestBody = zod.object({
   "propertyId": zod.string(),
-  "jobIds": zod.array(zod.string()).min(1),
+  "jobIds": zod.array(zod.string()),
+  "jobAmounts": zod.record(zod.string(), zod.number()).optional().describe('Optional per-job amount overrides keyed by jobId'),
+  "customItems": zod.array(zod.object({
+  "label": zod.string().min(1),
+  "amount": zod.number()
+})).optional().describe('Extra type-in line items not tied to a job'),
   "memo": zod.string().optional(),
   "payerInfo": zod.object({
   "routingNumber": zod.string().nullish(),
@@ -6529,7 +6642,7 @@ export const CreatePaymentRequestResponse = zod.object({
   "createdAt": zod.string(),
   "jobs": zod.array(zod.object({
   "id": zod.string(),
-  "jobId": zod.string(),
+  "jobId": zod.string().nullable(),
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
@@ -6574,7 +6687,7 @@ export const GetPaymentRequestResponse = zod.object({
   "createdAt": zod.string(),
   "jobs": zod.array(zod.object({
   "id": zod.string(),
-  "jobId": zod.string(),
+  "jobId": zod.string().nullable(),
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
@@ -6634,7 +6747,7 @@ export const SendPaymentRequestResponse = zod.object({
   "createdAt": zod.string(),
   "jobs": zod.array(zod.object({
   "id": zod.string(),
-  "jobId": zod.string(),
+  "jobId": zod.string().nullable(),
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
@@ -6686,7 +6799,7 @@ export const ReturnPaymentRequestResponse = zod.object({
   "createdAt": zod.string(),
   "jobs": zod.array(zod.object({
   "id": zod.string(),
-  "jobId": zod.string(),
+  "jobId": zod.string().nullable(),
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
@@ -6718,7 +6831,7 @@ export const GetPublicPaymentRequestResponse = zod.object({
   "paymentMethod": zod.string().nullish(),
   "jobs": zod.array(zod.object({
   "id": zod.string(),
-  "jobId": zod.string(),
+  "jobId": zod.string().nullable(),
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()
@@ -6777,7 +6890,7 @@ export const ApprovePublicInvoiceResponse = zod.object({
   "paymentMethod": zod.string().nullish(),
   "jobs": zod.array(zod.object({
   "id": zod.string(),
-  "jobId": zod.string(),
+  "jobId": zod.string().nullable(),
   "invoiceId": zod.string().nullish(),
   "label": zod.string(),
   "amount": zod.number()

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Halo — Property Operations Board</title>
+<script>window.HALO_ENDPOINT = '/api/actions';</script>
+<script src="halo-bridge.js"></script>
+</head>
+<body style="margin:0">
+<script>
+  // The board is authored as a Design Component; board.dc.html is a complete
+  // standalone document, so it mounts in a full-bleed frame.
+  const f = document.createElement('iframe');
+  f.src = 'board.dc.html';
+  f.style.cssText = 'border:0;width:100vw;height:100vh;display:block';
+  document.body.appendChild(f);
+  // forward actions emitted inside the frame out to the bridge
+  f.addEventListener('load', () => {
+    f.contentWindow.addEventListener('halo:action', e => window.HALO.dispatch(e.detail));
+    f.contentWindow.HALO = window.HALO;
+  });
+</script>
+</body>
+</html>

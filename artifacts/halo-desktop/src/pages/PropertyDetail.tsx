@@ -1,13 +1,15 @@
-import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, useCompleteJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey, getListExpensesQueryKey, useCreateInvoice, useListCrews} from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, useCompleteJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey, getListExpensesQueryKey, useCreateInvoice, useListCrews, useBroadcastJob} from "@workspace/api-client-react";
 import type { Job, Invoice } from "@workspace/api-client-react";
 import { AddExpenseDialog} from "@/components/MoneyDialogs";
 import { MarginSection} from "@/components/MarginSection";
 import { CrewPhotosSection} from "@/components/CrewPhotosSection";
 import { useQueryClient} from "@tanstack/react-query";
 import { useParams, Link} from "wouter";
-import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Repeat, BookOpen, Receipt, Users} from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Radio, Repeat, BookOpen, Receipt, Users, Wand2} from "lucide-react";
+import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { Skeleton} from "@/components/ui/skeleton";
 import { useState} from "react";
+import { useToast} from "@/hooks/use-toast";
 import { JobLineItemsPanel} from "@/components/JobLineItemsPanel";
 import { ImportFromCatalogDialog} from "@/components/ImportFromCatalogDialog";
 import {
@@ -24,6 +26,7 @@ export default function PropertyDetail() {
   const params = useParams();
   const id = params.id as string;
   const [editOpen, setEditOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
@@ -33,10 +36,13 @@ export default function PropertyDetail() {
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
   const [openLineItemsJobId, setOpenLineItemsJobId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [jobTab, setJobTab] = useState<"active" | "history">("active");
   const [expenseJobId, setExpenseJobId] = useState<string | null>(null);
   const [rateJobId, setRateJobId] = useState<string | null>(null);
   const [assignJobId, setAssignJobId] = useState<string | null>(null);
+  const [broadcastJobId, setBroadcastJobId] = useState<string | null>(null);
+  const broadcast = useBroadcastJob();
   const [rateDraft, setRateDraft] = useState("");
   const updateJob = useUpdateJob();
   const setStatus = useSetInvoiceStatus();
@@ -182,7 +188,20 @@ export default function PropertyDetail() {
         action = () => setStatus.mutate({ id: invoice.id, data: { status: "paid" } }, { onSuccess: () => invalidateMoney(job.id) });
       } else if (invoice.status === "paid") {
         label = "Close out";
-        action = () => clearJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists });
+        action = () =>
+          clearJob.mutate(
+            { id: job.id },
+            {
+              onSuccess: () => {
+                invalidateJobLists();
+                // Move the whole card to the History tab right away.
+                setJobTab("history");
+                toast({ title: "Job closed out", description: "Moved to History." });
+              },
+              onError: (err) =>
+                toast({ title: "Can't close out yet", description: err.message, variant: "destructive" }),
+            },
+          );
       }
 
       return (
@@ -217,7 +236,7 @@ export default function PropertyDetail() {
              <span className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 bg-white/10 text-white rounded-full">
                <Archive className="w-3.5 h-3.5" /> Closed
              </span>
-          ) : isComplete ? (
+          ) : isComplete && invoice?.status === "paid" ? (
             <span className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 bg-[var(--primary)] text-black rounded-full">
               <Check className="w-3.5 h-3.5" /> Completed
             </span>
@@ -299,6 +318,74 @@ export default function PropertyDetail() {
         {/* Bottom Actions */}
         <div className="flex items-center gap-3 pt-3 border-t border-white/10">
           {renderPrimaryAction()}
+          {!job.clearedAt && !job.crewLeaderId && (crews ?? []).some((c) => c.active !== false) && (
+            broadcastJobId === job.id ? (
+              <select
+                autoFocus
+                defaultValue=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setBroadcastJobId(null);
+                  if (!v) return;
+                  const data =
+                    v === "all"
+                      ? { mode: "all" }
+                      : v.startsWith("trade:")
+                        ? { mode: "trade", trade: v.slice(6) }
+                        : { mode: "crews", crewIds: [v.slice(5)] };
+                  broadcast.mutate(
+                    { id: job.id, data },
+                    {
+                      onSuccess: (r) => {
+                        invalidateJobLists();
+                        toast({
+                          title: "Job broadcast sent",
+                          description:
+                            (r as { message?: string }).message ??
+                            "Crews can now claim this job from their portal.",
+                        });
+                      },
+                      onError: (err) =>
+                        toast({ title: "Couldn't broadcast", description: err.message, variant: "destructive" }),
+                    },
+                  );
+                }}
+                onBlur={() => setBroadcastJobId(null)}
+                className="px-4 py-2.5 bg-white text-black text-sm font-bold rounded-xl outline-none max-w-[220px]"
+                data-testid="select-broadcast-target"
+              >
+                <option value="">Broadcast to…</option>
+                <option value="all">All crews</option>
+                {(() => {
+                  const activeCrews = (crews ?? []).filter((c) => c.active !== false);
+                  const trades = Array.from(
+                    new Set(activeCrews.filter((c) => c.trade).map((c) => c.trade as string)),
+                  ).sort();
+                  return trades.length > 0 ? (
+                    <optgroup label="Groups">
+                      {trades.map((t) => (
+                        <option key={t} value={`trade:${t}`}>{t}</option>
+                      ))}
+                    </optgroup>
+                  ) : null;
+                })()}
+                <optgroup label="Individuals">
+                  {(crews ?? []).filter((c) => c.active !== false).map((c) => (
+                    <option key={c.id} value={`crew:${c.id}`}>{c.name}</option>
+                  ))}
+                </optgroup>
+              </select>
+            ) : (
+              <button
+                onClick={() => setBroadcastJobId(job.id)}
+                disabled={broadcast.isPending}
+                className="px-5 py-2.5 bg-transparent border border-white/20 text-white text-sm font-bold rounded-xl hover:bg-white/5 transition-colors flex items-center gap-2 disabled:opacity-50"
+                data-testid="button-broadcast-job"
+              >
+                <Radio className="w-4 h-4" /> {broadcast.isPending ? "Sending…" : "Broadcast job"}
+              </button>
+            )
+          )}
           <button
             onClick={() => setExpenseJobId(job.id)}
             className="px-5 py-2.5 bg-transparent border border-white/20 text-white text-sm font-bold rounded-xl hover:bg-white/5 transition-colors"
@@ -348,14 +435,24 @@ export default function PropertyDetail() {
           <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">{property.name}</h1>
           <p className="text-muted-foreground mt-1">{property.pmcName || property.city || "No location data"} {property.units ? `· ${property.units} units` : ''}</p>
         </div>
-        <button
-          onClick={() => setEditOpen(true)}
-          className="flex items-center gap-2 bg-card text-[var(--ink)] px-5 py-2.5 rounded-full font-medium border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-[var(--ink)] transition-colors"
-        >
-          <Pencil className="w-4 h-4" /> Edit
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setWizardOpen(true)}
+            className="flex items-center gap-2 bg-[var(--gold-light,#B4FF44)] text-black px-5 py-2.5 rounded-full font-bold shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:opacity-90 transition-opacity"
+            data-testid="button-invoice-wizard"
+          >
+            <Wand2 className="w-4 h-4" /> Invoice wizard
+          </button>
+          <button
+            onClick={() => setEditOpen(true)}
+            className="flex items-center gap-2 bg-card text-[var(--ink)] px-5 py-2.5 rounded-full font-medium border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:border-[var(--ink)] transition-colors"
+          >
+            <Pencil className="w-4 h-4" /> Edit
+          </button>
+        </div>
       </header>
 
+      <InvoiceWizardDialog open={wizardOpen} onOpenChange={setWizardOpen} propertyId={id} propertyName={property.name} />
       <EditPropertyDialog open={editOpen} onOpenChange={setEditOpen} property={property} />
       <AddPriceItemDialog open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
       <ImportFromCatalogDialog open={importOpen} onOpenChange={setImportOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />

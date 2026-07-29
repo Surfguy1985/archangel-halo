@@ -46,4 +46,5 @@
 - [HALO crew invoice job linking](halo-crew-invoice-job-link.md) — portal invoice jobId must pass crew-ownership check server-side; propertyId derived, jobLabel attached in all read models.
 - [HALO double-entry ledger](halo-ledger.md) — Books engine: every money mutation (REST and voice) must call syncXLedger; rebuild+syncs serialized by in-process mutex; JE numbering via advisory lock.
 - [HALO Payments Hub](halo-payments-hub.md) — Cybrid rails stubbed at marked spots; guarded transactional pay/return; payout ownership+dedupe checks; payerInfo sanitized (no CVV, last4 only).
+- [HALO SOP Invoice Wizard](halo-sop-invoice-wizard.md) — per-property AI-extracted billing rules; every invoice-create path must call applySopToInvoice (user values win, missing PO → 400).
 - [HALO job timeline](halo-job-timeline.md) — JobFunnel 5-stage pipeline: /jobs/:id/events feed, manual-assign board sync is server-side + transactional, recap-then-close needs no-email fallback.

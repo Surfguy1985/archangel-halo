@@ -1,0 +1,10 @@
+run = "npm install && npm start"
+entrypoint = "server/index.js"
+modules = ["nodejs-20"]
+
+[deployment]
+run = ["sh", "-c", "npm install && npm start"]
+
+[[ports]]
+localPort = 3000
+externalPort = 80

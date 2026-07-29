@@ -39,6 +39,7 @@ import {
   vendorsTable,
   agreementsTable,
   priceItemsTable,
+  propertySopRulesTable,
   contactsTable,
   jobsTable,
   crewsTable,
@@ -288,6 +289,7 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(vendorsTable);
     await tx.delete(agreementsTable);
     await tx.delete(priceItemsTable);
+    await tx.delete(propertySopRulesTable);
     await tx.delete(contactsTable);
     await tx.delete(jobsTable);
     await tx.delete(crewsTable);

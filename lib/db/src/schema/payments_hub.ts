@@ -38,7 +38,7 @@ export const paymentRequestsTable = pgTable("payment_requests", {
 export const paymentRequestJobsTable = pgTable("payment_request_jobs", {
   id: uuid("id").primaryKey().defaultRandom(),
   requestId: uuid("request_id").notNull(),
-  jobId: uuid("job_id").notNull(),
+  jobId: uuid("job_id"),
   invoiceId: uuid("invoice_id"),
   label: text("label").notNull(),
   amount: doublePrecision("amount").notNull().default(0),

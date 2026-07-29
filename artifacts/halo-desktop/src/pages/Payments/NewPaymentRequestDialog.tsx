@@ -31,10 +31,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+type CustomItem = { label: string, amount: string };
+
 export function NewPaymentRequestDialog({ open, onOpenChange}: { open: boolean, onOpenChange: (open: boolean) => void}) {
   const [step, setStep] = useState<"details" | "ocr">("details");
   const [propertyId, setPropertyId] = useState("");
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [jobAmounts, setJobAmounts] = useState<Record<string, string>>({});
+  const [customItems, setCustomItems] = useState<CustomItem[]>([]);
   const [memo, setMemo] = useState("");
   const [payerInfo, setPayerInfo] = useState<PaymentOcrResult["payerInfo"] | undefined>();
   const [ocrConfidence, setOcrConfidence] = useState("");
@@ -48,20 +52,54 @@ export function NewPaymentRequestDialog({ open, onOpenChange}: { open: boolean, 
   const queryClient = useQueryClient();
 
   const propertyJobs = jobs?.filter(j => j.propertyId === propertyId && j.status === "completed") || [];
-  
+
+  const jobAmount = (jobId: string, fallback: number) => {
+    const raw = jobAmounts[jobId];
+    if (raw === undefined || raw === "") return fallback;
+    const n = parseFloat(raw);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+ };
+
+  const customTotal = customItems.reduce((s, c) => {
+    const n = parseFloat(c.amount);
+    return s + (Number.isFinite(n) && n > 0 ? n : 0);
+ }, 0);
+
   const total = propertyJobs
     .filter(j => selectedJobIds.has(j.id))
-    .reduce((sum, j) => sum + (j.lineTotal || 0), 0);
+    .reduce((sum, j) => sum + jobAmount(j.id, j.lineTotal || 0), 0) + customTotal;
+
+  const validCustomItems = customItems
+    .map(c => ({ label: c.label.trim(), amount: parseFloat(c.amount)}))
+    .filter(c => c.label.length > 0 && Number.isFinite(c.amount) && c.amount > 0);
 
   const handleCreate = () => {
-    if (!propertyId || selectedJobIds.size === 0) {
-      toast({ title: "Select a property and at least one job", variant: "destructive"});
+    if (!propertyId) {
+      toast({ title: "Select a property", variant: "destructive"});
       return;
+   }
+    if (selectedJobIds.size === 0 && validCustomItems.length === 0) {
+      toast({ title: "Select a job or add a line item", variant: "destructive"});
+      return;
+   }
+    if (total <= 0) {
+      toast({ title: "Request total must be greater than $0", variant: "destructive"});
+      return;
+   }
+    const overrides: Record<string, number> = {};
+    for (const id of selectedJobIds) {
+      const raw = jobAmounts[id];
+      if (raw !== undefined && raw !== "") {
+        const n = parseFloat(raw);
+        if (Number.isFinite(n) && n >= 0) overrides[id] = n;
+     }
    }
     createReq.mutate({
       data: {
         propertyId,
         jobIds: Array.from(selectedJobIds),
+        ...(Object.keys(overrides).length ? { jobAmounts: overrides} : {}),
+        ...(validCustomItems.length ? { customItems: validCustomItems} : {}),
         memo,
         payerInfo,
      }
@@ -70,6 +108,13 @@ export function NewPaymentRequestDialog({ open, onOpenChange}: { open: boolean, 
         toast({ title: "Payment request created"});
         queryClient.invalidateQueries({ queryKey: getListPaymentRequestsQueryKey()});
         queryClient.invalidateQueries({ queryKey: getGetPayHubOverviewQueryKey()});
+        setPropertyId("");
+        setSelectedJobIds(new Set());
+        setJobAmounts({});
+        setCustomItems([]);
+        setMemo("");
+        setPayerInfo(undefined);
+        setOcrConfidence("");
         onOpenChange(false);
      },
       onError: (err) => toast({ title: "Failed to create request", description: err.message, variant: "destructive"})
@@ -161,11 +206,78 @@ export function NewPaymentRequestDialog({ open, onOpenChange}: { open: boolean, 
                             {job.jobNo}: {job.category || job.description?.substring(0, 30)}
                           </label>
                         </div>
-                        <div className="text-sm font-bold text-foreground">{moneyFmt(job.lineTotal || 0)}</div>
+                        {selectedJobIds.has(job.id) ? (
+                          <div className="relative w-28">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={jobAmounts[job.id] ?? String(job.lineTotal || 0)}
+                              onChange={e => setJobAmounts(prev => ({ ...prev, [job.id]: e.target.value}))}
+                              className="rounded-lg bg-white border-border h-9 pl-6 text-right font-bold"
+                              data-testid={`input-job-amount-${job.id}`}
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-sm font-bold text-foreground">{moneyFmt(job.lineTotal || 0)}</div>
+                        )}
                       </div>
                     ))
                   )}
                 </div>
+              </div>
+            )}
+
+            {propertyId && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-muted-foreground">Extra line items</Label>
+                  <button
+                    type="button"
+                    onClick={() => setCustomItems(items => [...items, { label: "", amount: ""}])}
+                    className="text-sm font-bold text-foreground hover:opacity-70"
+                    data-testid="button-add-line-item"
+                  >
+                    + Add line item
+                  </button>
+                </div>
+                {customItems.length > 0 && (
+                  <div className="space-y-2">
+                    {customItems.map((item, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Input
+                          value={item.label}
+                          onChange={e => setCustomItems(items => items.map((c, idx) => idx === i ? { ...c, label: e.target.value} : c))}
+                          placeholder="Description (e.g. Trip charge)"
+                          className="rounded-xl bg-white border-border h-10 flex-1"
+                          data-testid={`input-custom-label-${i}`}
+                        />
+                        <div className="relative w-28">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.amount}
+                            onChange={e => setCustomItems(items => items.map((c, idx) => idx === i ? { ...c, amount: e.target.value} : c))}
+                            placeholder="0.00"
+                            className="rounded-xl bg-white border-border h-10 pl-6 text-right font-bold"
+                            data-testid={`input-custom-amount-${i}`}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setCustomItems(items => items.filter((_, idx) => idx !== i))}
+                          className="text-muted-foreground hover:text-foreground px-1 text-lg leading-none"
+                          aria-label="Remove line item"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -187,7 +299,7 @@ export function NewPaymentRequestDialog({ open, onOpenChange}: { open: boolean, 
                   Extract Check/Card
                 </Label>
               </div>
-              <Button onClick={handleCreate} disabled={selectedJobIds.size === 0 || createReq.isPending} className="rounded-full bg-[var(--primary)] text-black font-bold hover:opacity-90 px-6 h-10">
+              <Button onClick={handleCreate} disabled={(selectedJobIds.size === 0 && validCustomItems.length === 0) || total <= 0 || createReq.isPending} className="rounded-full bg-[var(--primary)] text-black font-bold hover:opacity-90 px-6 h-10">
                 Create request
               </Button>
             </div>

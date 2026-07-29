@@ -27,7 +27,12 @@ app.use(
 );
 app.use(cors());
 app.use(
-  ["/api/ingest/scan", "/api/ingest/receipt", "/api/checks/scan"],
+  [
+    "/api/ingest/scan",
+    "/api/ingest/receipt",
+    "/api/checks/scan",
+    "/api/properties/:id/sop-rule",
+  ],
   express.json({ limit: "15mb" }),
 );
 app.use(express.json({ limit: "2mb" }));

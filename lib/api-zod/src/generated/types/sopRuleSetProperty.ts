@@ -6,12 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface PaymentRequestJobLine {
-  id: string;
+export type SopRuleSetProperty = {
   /** @nullable */
-  jobId: string | null;
+  name?: string | null;
+  aliases?: string[];
   /** @nullable */
-  invoiceId?: string | null;
-  label: string;
-  amount: number;
-}
+  client_company?: string | null;
+  /** @nullable */
+  billing_address?: string | null;
+};

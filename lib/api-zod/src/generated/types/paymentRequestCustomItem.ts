@@ -6,12 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface PaymentRequestJobLine {
-  id: string;
-  /** @nullable */
-  jobId: string | null;
-  /** @nullable */
-  invoiceId?: string | null;
+export interface PaymentRequestCustomItem {
+  /** @minLength 1 */
   label: string;
   amount: number;
 }

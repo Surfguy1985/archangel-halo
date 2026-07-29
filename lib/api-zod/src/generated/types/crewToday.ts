@@ -19,6 +19,8 @@ export interface CrewToday {
   /** @nullable */
   isLeader?: boolean | null;
   /** @nullable */
+  active?: boolean | null;
+  /** @nullable */
   preferredPaymentMethod?: string | null;
   /** @nullable */
   paymentDetails?: string | null;

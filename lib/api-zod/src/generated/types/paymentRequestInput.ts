@@ -6,11 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PayerInfo } from './payerInfo';
+import type { PaymentRequestCustomItem } from './paymentRequestCustomItem';
+import type { PaymentRequestInputJobAmounts } from './paymentRequestInputJobAmounts';
 
 export interface PaymentRequestInput {
   propertyId: string;
-  /** @minItems 1 */
   jobIds: string[];
+  /** Optional per-job amount overrides keyed by jobId */
+  jobAmounts?: PaymentRequestInputJobAmounts;
+  /** Extra type-in line items not tied to a job */
+  customItems?: PaymentRequestCustomItem[];
   memo?: string;
   payerInfo?: PayerInfo;
 }

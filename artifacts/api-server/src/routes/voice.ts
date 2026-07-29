@@ -25,6 +25,7 @@ import {
   ConfirmVoiceResponse,
 } from "@workspace/api-zod";
 import { completeJson } from "../lib/ai";
+import { applySopToInvoice } from "./sop";
 import { localToday } from "../lib/localDate";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import {
@@ -347,10 +348,40 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
           const m = /^INV-(\d+)$/.exec(r.invoiceNo);
           if (m) maxNo = Math.max(maxNo, Number(m[1]));
         }
-        const invoiceNo = `INV-${String(maxNo + 1)}`;
+        let invoiceNo = `INV-${String(maxNo + 1)}`;
         const description = f.description ? String(f.description) : null;
         const issuedOn = localToday();
-        const dueAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        let dueAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        let terms = "Net 30";
+        let sopNotes: string | null = null;
+        let sopBillToName: string | null = null;
+        let sopPropertyAddress: string | null = null;
+        let sopPaymentInstructions: string | null = null;
+        let sopTaxAmount: number | null = null;
+        // SOP rule enforcement — voice-created invoices follow it too.
+        const sopApplied = await applySopToInvoice(prop.id, {
+          issuedOn,
+          poNumber: f.poNumber ? String(f.poNumber) : null,
+          terms: null,
+          dueProvided: false,
+          notes: description,
+          taxAmount: null,
+          total: amount,
+        });
+        if (sopApplied && !sopApplied.ok) {
+          messages.push(`Skipped invoice for ${prop.name} — ${sopApplied.error}`);
+          continue;
+        }
+        if (sopApplied?.ok) {
+          if (sopApplied.invoiceNo) invoiceNo = sopApplied.invoiceNo;
+          if (sopApplied.dueAt) dueAt = sopApplied.dueAt;
+          if (sopApplied.terms) terms = sopApplied.terms;
+          sopNotes = sopApplied.notes;
+          sopBillToName = sopApplied.billToName;
+          sopPropertyAddress = sopApplied.propertyAddress;
+          sopPaymentInstructions = sopApplied.paymentInstructions;
+          sopTaxAmount = sopApplied.taxAmount;
+        }
         await db.transaction(async (tx) => {
           const [created] = await tx
             .insert(invoicesTable)
@@ -360,15 +391,18 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
               jobId: job?.id ?? null,
               amount,
               status: "draft",
-              terms: "Net 30",
+              terms,
               issuedOn,
               dueAt,
               poNumber: f.poNumber ? String(f.poNumber) : null,
-              // Same bill-to defaults as the main invoice route.
-              billToName: prop.pmcName ?? prop.name,
+              // SOP bill-to wins; otherwise same defaults as the main route.
+              billToName: sopBillToName ?? prop.pmcName ?? prop.name,
               propertyAddress:
-                [prop.name, prop.city].filter(Boolean).join(", ") || null,
-              notes: description,
+                sopPropertyAddress ??
+                ([prop.name, prop.city].filter(Boolean).join(", ") || null),
+              paymentInstructions: sopPaymentInstructions,
+              taxAmount: sopTaxAmount ?? undefined,
+              notes: description ?? sopNotes,
             })
             .returning();
           await tx.insert(invoiceLineItemsTable).values({
