@@ -13,6 +13,10 @@ export interface CrewMessage {
   sender: string;
   body: string;
   /** @nullable */
+  attachmentName?: string | null;
+  /** @nullable */
+  attachmentPath?: string | null;
+  /** @nullable */
   readAt?: string | null;
   /** @nullable */
   createdAt?: string | null;

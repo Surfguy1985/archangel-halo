@@ -560,6 +560,11 @@ router.post("/portal/:token/invoices", async (req, res): Promise<void> => {
     return;
   }
 
+  const pdfPath = body.pdfStoragePath?.trim() || null;
+  const pdfName =
+    body.pdfName?.trim() ||
+    `invoice-${body.invoiceNo?.trim() || new Date().toISOString().slice(0, 10)}.pdf`;
+
   const created = await db.transaction(async (tx) => {
     const [inv] = await tx
       .insert(crewInvoicesTable)
@@ -602,6 +607,23 @@ router.post("/portal/:token/invoices", async (req, res): Promise<void> => {
         })),
       )
       .returning();
+    if (pdfPath) {
+      await tx.insert(crewDocumentsTable).values({
+        crewId: crew.id,
+        direction: "from_crew",
+        name: pdfName,
+        storagePath: pdfPath,
+        contentType: "application/pdf",
+        note: `Invoice${inv!.invoiceNo ? ` #${inv!.invoiceNo}` : ""} — ${body.propertyAddress.trim()}`,
+      });
+      await tx.insert(crewMessagesTable).values({
+        crewId: crew.id,
+        sender: "crew",
+        body: `Sent invoice${inv!.invoiceNo ? ` #${inv!.invoiceNo}` : ""} for ${body.propertyAddress.trim()} — $${subtotal.toFixed(2)}`,
+        attachmentName: pdfName,
+        attachmentPath: pdfPath,
+      });
+    }
     return { inv: inv!, itemRows };
   });
 
@@ -700,6 +722,11 @@ router.patch(
       return;
     }
 
+    const pdfPath = body.pdfStoragePath?.trim() || null;
+    const pdfName =
+      body.pdfName?.trim() ||
+      `invoice-${body.invoiceNo?.trim() || new Date().toISOString().slice(0, 10)}.pdf`;
+
     const updated = await db.transaction(async (tx) => {
       const [inv] = await tx
         .update(crewInvoicesTable)
@@ -756,6 +783,23 @@ router.patch(
           })),
         )
         .returning();
+      if (pdfPath) {
+        await tx.insert(crewDocumentsTable).values({
+          crewId: crew.id,
+          direction: "from_crew",
+          name: pdfName,
+          storagePath: pdfPath,
+          contentType: "application/pdf",
+          note: `Corrected invoice${inv.invoiceNo ? ` #${inv.invoiceNo}` : ""} — ${body.propertyAddress.trim()}`,
+        });
+        await tx.insert(crewMessagesTable).values({
+          crewId: crew.id,
+          sender: "crew",
+          body: `Resubmitted corrected invoice${inv.invoiceNo ? ` #${inv.invoiceNo}` : ""} for ${body.propertyAddress.trim()} — $${subtotal.toFixed(2)}`,
+          attachmentName: pdfName,
+          attachmentPath: pdfPath,
+        });
+      }
       return { inv, itemRows };
     });
 

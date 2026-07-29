@@ -1,4 +1,3 @@
-// hint: Logic changed on both sides. Requires understanding intent of each change.
 - [HALO API contract](halo-api-contract.md) — openapi.yaml is source of truth; server route paths + response shapes must match generated Zod/client or you get 404/500.
 - [HALO voice tools](halo-voice-tools.md) — adding a voice tool means editing BOTH the TOOLS prompt AND the /voice/confirm handler in voice.ts; field names must match drizzle schema; restart server for prompt changes.
 - [HALO CRUD deletes](halo-crud-deletes.md) — no DB FKs: delete handlers need transactions + manual guards/cascades; client errors live on ApiError.data, not err.error.
@@ -57,3 +56,4 @@
 - [HALO unit map + hub CMS](halo-unit-map-cms.md) — unit boxes use fractional coords; statuses keyed by normalized unit label; new endpoints must hit both client-token and office mounts.
 - [HALO crew command center](halo-crew-command-center.md) — live crew map rules: per-crew last-checkin lookup, escape divIcon HTML, invoice send_back needs a note, keep photo-share UI reachable in restyles.
 - [HALO job timeline](halo-job-timeline.md) — JobFunnel 5-stage pipeline: /jobs/:id/events feed, manual-assign board sync is server-side + transactional, recap-then-close needs no-email fallback.
+- [HALO crew message attachments](halo-message-attachments.md) — crew_messages carry attachmentName/Path; invoice PDFs are client-generated (jsPDF) and delivered into the thread; all thread UIs must render attachments.

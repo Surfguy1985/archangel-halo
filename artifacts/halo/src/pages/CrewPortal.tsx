@@ -74,6 +74,12 @@ import {
   Shield,
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
+import {
+  downloadInvoicePdf,
+  invoicePdfFile,
+  invoicePdfFileName,
+  type InvoicePdfData,
+} from "@/lib/invoicePdf";
 import WelcomeKitTab from "./WelcomeKitTab";
 import { FalkonBadge } from "@/components/FalkonBadge";
 import { portalGuide, type GuideLang } from "@/lib/portalGuideContent";
@@ -1227,6 +1233,25 @@ function MessagesTab({ token }: { token: string }) {
                 }`}
               >
                 <div>{m.body}</div>
+                {m.attachmentPath && (
+                  <a
+                    href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/storage${m.attachmentPath}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    download={m.attachmentName ?? undefined}
+                    className={`mt-[6px] flex items-center gap-[7px] rounded-[10px] px-[9px] py-[7px] text-[12px] font-semibold ${
+                      m.sender === "crew"
+                        ? "bg-white/15 text-white"
+                        : "bg-white border border-border text-foreground"
+                    }`}
+                  >
+                    <FileText className="w-[14px] h-[14px] shrink-0" />
+                    <span className="truncate flex-1 min-w-0">
+                      {m.attachmentName || "Attachment"}
+                    </span>
+                    <Download className="w-[13px] h-[13px] shrink-0" />
+                  </a>
+                )}
                 <div
                   className={`text-[10px] mt-[3px] ${m.sender === "crew" ? "text-white/60" : "text-muted-foreground"}`}
                 >
@@ -2544,6 +2569,8 @@ function emptyLine(): InvLine {
 
 function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) {
   const queryClient = useQueryClient();
+  const { uploadFile } = useUpload();
+  const [uploadingPdf, setUploadingPdf] = useState(false);
   const { data: invoices } = useListPortalInvoices(token, {
     query: {
       queryKey: getListPortalInvoicesQueryKey(token),
@@ -2601,20 +2628,98 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
   };
 
-  const handleSend = () => {
+  const buildPdfData = (filled: InvLine[]): InvoicePdfData => ({
+    fromCompany: fromCompany.trim(),
+    fromTrade: fromTrade.trim() || undefined,
+    fromAddress: fromAddress.trim() || undefined,
+    fromCityStateZip: fromCityStateZip.trim() || undefined,
+    fromContact: fromContact.trim() || undefined,
+    fromPhone: fromPhone.trim() || undefined,
+    fromEmail: fromEmail.trim() || undefined,
+    invoiceNo: invoiceNo.trim() || undefined,
+    poNumber: poNumber.trim() || undefined,
+    invoiceDate,
+    terms,
+    dueDate: dueDate || undefined,
+    propertyAddress: propertyAddress.trim(),
+    lines: filled.map((l) => ({
+      dateOfWork: l.dateOfWork,
+      unitNo: l.unitNo.trim(),
+      typeOfWork: l.typeOfWork.trim(),
+      qty: parseFloat(l.qty),
+      unitPrice: parseFloat(l.unitPrice),
+      amount: lineAmount(l),
+    })),
+    subtotal: total,
+    total,
+    signatureName: signatureName.trim() || undefined,
+  });
+
+  // Shared validation for both "Download PDF" and "Sign & Send".
+  const validate = (requireSignature: boolean): InvLine[] | null => {
     setErr("");
-    if (!fromCompany.trim()) return setErr("Enter your company or crew name.");
-    if (!propertyAddress.trim()) return setErr("Enter the property address you worked at.");
+    if (!fromCompany.trim()) {
+      setErr("Enter your company or crew name.");
+      return null;
+    }
+    if (!propertyAddress.trim()) {
+      setErr("Enter the property address you worked at.");
+      return null;
+    }
     const filled = lines.filter((l) => l.typeOfWork.trim());
-    if (filled.length === 0) return setErr("Add at least one line of work.");
+    if (filled.length === 0) {
+      setErr("Add at least one line of work.");
+      return null;
+    }
     for (const l of filled) {
-      if (!l.dateOfWork) return setErr("Every line needs a date of work.");
+      if (!l.dateOfWork) {
+        setErr("Every line needs a date of work.");
+        return null;
+      }
       const q = parseFloat(l.qty);
       const p = parseFloat(l.unitPrice);
-      if (!Number.isFinite(q) || q <= 0) return setErr("Every line needs a quantity above zero.");
-      if (!Number.isFinite(p) || p < 0) return setErr("Every line needs a unit price.");
+      if (!Number.isFinite(q) || q <= 0) {
+        setErr("Every line needs a quantity above zero.");
+        return null;
+      }
+      if (!Number.isFinite(p) || p < 0) {
+        setErr("Every line needs a unit price.");
+        return null;
+      }
     }
-    if (!signatureName.trim()) return setErr("Type your full name to sign the invoice.");
+    if (requireSignature && !signatureName.trim()) {
+      setErr("Type your full name to sign the invoice.");
+      return null;
+    }
+    return filled;
+  };
+
+  const handleDownloadPdf = () => {
+    const filled = validate(false);
+    if (!filled) return;
+    downloadInvoicePdf(buildPdfData(filled));
+  };
+
+  const handleSend = async () => {
+    const filled = validate(true);
+    if (!filled) return;
+
+    // Generate the completed PDF and upload it so it lands in Messages.
+    const pdfData = buildPdfData(filled);
+    let pdfStoragePath: string | undefined;
+    let pdfName: string | undefined;
+    setUploadingPdf(true);
+    try {
+      const res = await uploadFile(invoicePdfFile(pdfData));
+      if (!res) {
+        setErr("Couldn't upload the invoice PDF. Check your connection and try again.");
+        return;
+      }
+      pdfStoragePath = res.objectPath;
+      pdfName = invoicePdfFileName(pdfData);
+    } finally {
+      setUploadingPdf(false);
+    }
 
     const payload = {
           invoiceNo: invoiceNo.trim() || undefined,
@@ -2639,6 +2744,8 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
             unitPrice: parseFloat(l.unitPrice),
           })),
           signatureName: signatureName.trim(),
+          pdfStoragePath,
+          pdfName,
     };
 
     const opts = {
@@ -2654,6 +2761,12 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
         setSignatureName("");
         queryClient.invalidateQueries({
           queryKey: getListPortalInvoicesQueryKey(token),
+        });
+        queryClient.invalidateQueries({
+          queryKey: getListPortalMessagesQueryKey(token),
+        });
+        queryClient.invalidateQueries({
+          queryKey: getListPortalDocumentsQueryKey(token),
         });
         window.scrollTo({ top: 0, behavior: "smooth" });
         setTimeout(() => setSent(false), 6000);
@@ -2949,13 +3062,20 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
         />
         {err && <div className="text-[12.5px] text-destructive mt-[9px]">{err}</div>}
         <button
-          onClick={handleSend}
-          disabled={submit.isPending || resubmit.isPending}
-          className="mt-[12px] w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+          onClick={handleDownloadPdf}
+          className="mt-[12px] w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] text-[14px] font-display font-bold text-foreground bg-card border border-border transition-transform active:scale-[0.98]"
         >
-          {submit.isPending || resubmit.isPending ? (
+          <Download className="w-[16px] h-[16px]" /> Download PDF
+        </button>
+        <button
+          onClick={handleSend}
+          disabled={submit.isPending || resubmit.isPending || uploadingPdf}
+          className="mt-[10px] w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+        >
+          {submit.isPending || resubmit.isPending || uploadingPdf ? (
             <>
-              <Loader2 className="w-[17px] h-[17px] animate-spin" /> Sending…
+              <Loader2 className="w-[17px] h-[17px] animate-spin" />{" "}
+              {uploadingPdf ? "Preparing PDF…" : "Sending…"}
             </>
           ) : (
             <>
@@ -2964,6 +3084,9 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
             </>
           )}
         </button>
+        <p className="text-[11.5px] text-muted-foreground mt-[8px] text-center">
+          Sending delivers the finished PDF to the office in your Messages thread.
+        </p>
       </div>
 
       {invoices && invoices.length > 0 && (

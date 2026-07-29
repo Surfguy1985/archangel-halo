@@ -478,6 +478,25 @@ export default function CrewDetail() {
                 }`}
               >
                 <div>{m.body}</div>
+                {m.attachmentPath && (
+                  <a
+                    href={`/api/storage${m.attachmentPath}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    download={m.attachmentName ?? undefined}
+                    className={`mt-[6px] flex items-center gap-[7px] rounded-[10px] px-[9px] py-[7px] text-[12px] font-semibold ${
+                      m.sender === "admin"
+                        ? "bg-white/15 text-white"
+                        : "bg-white border border-border text-foreground"
+                    }`}
+                  >
+                    <FileText className="w-[14px] h-[14px] shrink-0" />
+                    <span className="truncate flex-1 min-w-0">
+                      {m.attachmentName || "Attachment"}
+                    </span>
+                    <Download className="w-[13px] h-[13px] shrink-0" />
+                  </a>
+                )}
                 <div
                   className={`text-[10px] mt-[3px] ${m.sender === "admin" ? "text-white/60" : "text-muted-foreground"}`}
                 >

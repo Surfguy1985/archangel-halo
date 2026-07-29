@@ -2936,6 +2936,10 @@ export interface CrewMessage {
   sender: string;
   body: string;
   /** @nullable */
+  attachmentName?: string | null;
+  /** @nullable */
+  attachmentPath?: string | null;
+  /** @nullable */
   readAt?: string | null;
   /** @nullable */
   createdAt?: string | null;
@@ -3530,6 +3534,13 @@ export interface CrewInvoiceInput {
   jobId?: string | null;
   items: CrewInvoiceItemInput[];
   signatureName: string;
+  /**
+     * Storage path of the client-generated invoice PDF (from presigned upload); when set, a document + message attachment are created.
+     * @nullable
+     */
+  pdfStoragePath?: string | null;
+  /** @nullable */
+  pdfName?: string | null;
 }
 
 export interface CrewInvoiceItem {

@@ -763,6 +763,18 @@ export default function CrewDetail() {
                 messages.map((m) => (
                   <div key={m.id} className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${m.sender === "admin" ? "self-end bg-[var(--ink)] text-white rounded-br-sm" : "self-start bg-white border border-[var(--hairline)] text-[var(--ink)] rounded-bl-sm"}`}>
                     <div>{m.body}</div>
+                    {m.attachmentPath ? (
+                      <a
+                        href={`/api/storage${m.attachmentPath}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        download={m.attachmentName ?? undefined}
+                        className={`mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold ${m.sender === "admin" ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/5 text-[var(--ink)] hover:bg-black/10"}`}
+                      >
+                        <Receipt className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{m.attachmentName || "Attachment"}</span>
+                      </a>
+                    ) : null}
                     <div className={`text-[10px] mt-1.5 font-medium ${m.sender === "admin" ? "text-white/60" : "text-muted-foreground"}`}>{formatWhen(m.createdAt)}</div>
                   </div>
                 ))

@@ -9876,6 +9876,8 @@ components:
         crewId: { type: string }
         sender: { type: string, description: "crew | admin" }
         body: { type: string }
+        attachmentName: { type: ["string", "null"] }
+        attachmentPath: { type: ["string", "null"] }
         readAt: { type: ["string", "null"] }
         createdAt: { type: ["string", "null"] }
 
@@ -10313,6 +10315,10 @@ components:
           items:
             $ref: "#/components/schemas/CrewInvoiceItemInput"
         signatureName: { type: string }
+        pdfStoragePath:
+          type: ["string", "null"]
+          description: "Storage path of the client-generated invoice PDF (from presigned upload); when set, a document + message attachment are created."
+        pdfName: { type: ["string", "null"] }
     CrewInvoiceItem:
       type: object
       required: [id, dateOfWork, typeOfWork, qty, unitPrice, amount]

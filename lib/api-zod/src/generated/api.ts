@@ -4133,6 +4133,8 @@ export const ListCrewMessagesResponseItem = zod.object({
   "crewId": zod.string(),
   "sender": zod.string().describe('crew | admin'),
   "body": zod.string(),
+  "attachmentName": zod.string().nullish(),
+  "attachmentPath": zod.string().nullish(),
   "readAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
 })
@@ -4158,6 +4160,8 @@ export const SendCrewMessageResponse = zod.object({
   "crewId": zod.string(),
   "sender": zod.string().describe('crew | admin'),
   "body": zod.string(),
+  "attachmentName": zod.string().nullish(),
+  "attachmentPath": zod.string().nullish(),
   "readAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
 })
@@ -4565,6 +4569,8 @@ export const ListPortalMessagesResponseItem = zod.object({
   "crewId": zod.string(),
   "sender": zod.string().describe('crew | admin'),
   "body": zod.string(),
+  "attachmentName": zod.string().nullish(),
+  "attachmentPath": zod.string().nullish(),
   "readAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
 })
@@ -4587,6 +4593,8 @@ export const SendPortalMessageResponse = zod.object({
   "crewId": zod.string(),
   "sender": zod.string().describe('crew | admin'),
   "body": zod.string(),
+  "attachmentName": zod.string().nullish(),
+  "attachmentPath": zod.string().nullish(),
   "readAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
 })
@@ -5234,7 +5242,9 @@ export const SubmitPortalInvoiceBody = zod.object({
   "qty": zod.number(),
   "unitPrice": zod.number()
 })),
-  "signatureName": zod.string()
+  "signatureName": zod.string(),
+  "pdfStoragePath": zod.string().nullish().describe('Storage path of the client-generated invoice PDF (from presigned upload); when set, a document + message attachment are created.'),
+  "pdfName": zod.string().nullish()
 })
 
 export const SubmitPortalInvoiceResponse = zod.object({
@@ -5432,7 +5442,9 @@ export const ResubmitPortalInvoiceBody = zod.object({
   "qty": zod.number(),
   "unitPrice": zod.number()
 })),
-  "signatureName": zod.string()
+  "signatureName": zod.string(),
+  "pdfStoragePath": zod.string().nullish().describe('Storage path of the client-generated invoice PDF (from presigned upload); when set, a document + message attachment are created.'),
+  "pdfName": zod.string().nullish()
 })
 
 export const ResubmitPortalInvoiceResponse = zod.object({

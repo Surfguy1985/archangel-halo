@@ -12,6 +12,8 @@ export const crewMessagesTable = pgTable("crew_messages", {
   crewId: uuid("crew_id").notNull(),
   sender: text("sender").notNull().default("crew"),
   body: text("body").notNull(),
+  attachmentName: text("attachment_name"),
+  attachmentPath: text("attachment_path"),
   readAt: timestamp("read_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
