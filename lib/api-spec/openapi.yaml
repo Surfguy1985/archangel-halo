@@ -6292,6 +6292,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /client/{token}/board/tour-seen:
+    post:
+      operationId: markClientBoardTourSeen
+      tags: [admin]
+      summary: Signed-in dashboard user records that they've seen the guided tour
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /client/{token}/board:
     get:
       operationId: getClientBoard
@@ -11378,6 +11408,7 @@ components:
           type: array
           items: { type: string }
         readOnly: { type: boolean }
+        tourSeen: { type: boolean }
 
     ClientBoardSession:
       type: object

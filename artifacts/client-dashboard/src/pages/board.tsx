@@ -1,18 +1,17 @@
 import { useLocation, useParams } from 'wouter';
-import { useGetClientBoard, useDispatchClientBoardAction, ClientBoardCardView } from '@workspace/api-client-react';
+import { useGetClientBoard, useDispatchClientBoardAction, useMarkClientBoardTourSeen, ClientBoardCardView } from '@workspace/api-client-react';
 import { LoginDialog } from '@/components/LoginDialog';
 import { useToast } from '@/hooks/use-toast';
 import { BoardCard } from '@/components/kanban/BoardCard';
 import { CardDetailDialog } from '@/components/kanban/CardDetailDialog';
 import { CreateCardDialog } from '@/components/kanban/CreateCardDialog';
 import { Button } from '@/components/ui/button';
-import { MapPin, User, Loader2, Info, Plus, LayoutGrid, BookOpen } from 'lucide-react';
+import { MapPin, User, Loader2, Info, Plus, LayoutGrid, BookOpen, Headphones } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow } from 'date-fns';
 import React, { useEffect, useState } from 'react';
-import { MapPin, User, Loader2, Info, Plus, Headphones } from 'lucide-react';
 import { DashboardTour } from '@/components/DashboardTour';
 
 export default function KanbanBoard() {
@@ -37,12 +36,25 @@ export default function KanbanBoard() {
   });
 
   const dispatchAction = useDispatchClientBoardAction();
+  const markTourSeen = useMarkClientBoardTourSeen();
 
-  // Offer the guided tour once per browser per board link.
+  // Auto-offer the guided tour once. Signed-in users get a server-side flag
+  // so the offer holds across devices; guests keep the per-browser flag.
   const boardLoaded = !isLoading && !error && !!board;
+  const viewerAuthenticated = board?.viewer?.authenticated ?? false;
+  const viewerTourSeen = board?.viewer?.tourSeen ?? false;
   useEffect(() => {
     if (!boardLoaded) return;
     const tourSeenKey = `halo_dashboard_tour_seen_${token}`;
+    if (viewerAuthenticated) {
+      if (!viewerTourSeen) {
+        // Record server-side immediately so other devices don't re-offer.
+        markTourSeen.mutate({ token });
+        try { localStorage.setItem(tourSeenKey, '1'); } catch { /* ignore */ }
+        setTourOpen(true);
+      }
+      return;
+    }
     let seen = true;
     try {
       seen = localStorage.getItem(tourSeenKey) === '1';
@@ -53,7 +65,8 @@ export default function KanbanBoard() {
       try { localStorage.setItem(tourSeenKey, '1'); } catch { /* ignore */ }
       setTourOpen(true);
     }
-  }, [boardLoaded, token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardLoaded, viewerAuthenticated, viewerTourSeen, token]);
 
   if (isLoading) {
     return (

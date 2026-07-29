@@ -74,6 +74,8 @@ export const clientUsersTable = pgTable(
     lastPasswordResetAt: timestamp("last_password_reset_at", {
       withTimezone: true,
     }),
+    // When this user first saw the dashboard guided tour (any device).
+    tourSeenAt: timestamp("tour_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

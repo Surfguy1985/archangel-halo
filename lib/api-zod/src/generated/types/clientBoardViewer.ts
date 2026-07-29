@@ -15,4 +15,5 @@ export interface ClientBoardViewer {
   role: string;
   permissions: string[];
   readOnly: boolean;
+  tourSeen?: boolean;
 }

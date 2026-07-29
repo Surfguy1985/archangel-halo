@@ -160,6 +160,9 @@ function viewerDto(v: Viewer) {
     role: v.role,
     permissions: v.permissions,
     readOnly: v.readOnly,
+    // Authenticated users carry a server-side "tour seen" flag so the auto
+    // tour only offers once across devices. Guests fall back to localStorage.
+    tourSeen: v.authenticated ? v.user?.tourSeenAt != null : false,
   };
 }
 
@@ -198,9 +201,34 @@ router.post("/client/:token/board/login", async (req, res): Promise<void> => {
         role: user.role,
         permissions,
         readOnly: user.role === "guest",
+        tourSeen: user.tourSeenAt != null,
       },
     }),
   );
+});
+
+// ---------------------------------------------------------------------------
+// Guided tour — persist "seen" per signed-in user so the auto-offer holds
+// across devices. Guests keep the browser-local behavior.
+// ---------------------------------------------------------------------------
+router.post("/client/:token/board/tour-seen", async (req, res): Promise<void> => {
+  const account = await accountByToken(String(req.params.token));
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const viewer = await resolveViewer(req, account.propertyId);
+  if (!viewer.authenticated || !viewer.user) {
+    res.status(401).json({ error: "Sign in required" });
+    return;
+  }
+  if (!viewer.user.tourSeenAt) {
+    await db
+      .update(clientUsersTable)
+      .set({ tourSeenAt: new Date() })
+      .where(eq(clientUsersTable.id, viewer.user.id));
+  }
+  res.json({ ok: true });
 });
 
 // ---------------------------------------------------------------------------

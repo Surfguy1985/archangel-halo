@@ -4619,6 +4619,7 @@ export interface ClientBoardViewer {
   role: string;
   permissions: string[];
   readOnly: boolean;
+  tourSeen?: boolean;
 }
 
 export interface ClientBoardSession {
@@ -4863,6 +4864,193 @@ export interface UnitBoxRec {
   w: number;
   h: number;
 }
+
+export interface UnitStatusRec {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** red | yellow | green */
+  status: string;
+  reasons: string[];
+  openJobs: number;
+  openInvoices: number;
+}
+
+export interface UnitMapView {
+  propertyName: string;
+  /**
+     * Uploaded map image, null = plain grid
+     * @nullable
+     */
+  imageUrl: string | null;
+  canEdit: boolean;
+  /**
+     * The property's known unit count
+     * @nullable
+     */
+  unitTarget: number | null;
+  /**
+     * Boxes AI-extracted on the last image upload
+     * @nullable
+     */
+  extracted?: number | null;
+  units: UnitStatusRec[];
+}
+
+export interface UnitMapImageInput {
+  /** Object storage path from the upload flow (/objects/...) */
+  objectPath: string;
+  /** @nullable */
+  contentType?: string | null;
+  /** Run AI unit extraction on the image */
+  extract?: boolean;
+}
+
+export interface UnitGridInput {
+  /**
+     * Units to generate; defaults to the property's unit count
+     * @nullable
+     */
+  count?: number | null;
+  /**
+     * First unit number, default 101
+     * @nullable
+     */
+  startAt?: number | null;
+  /** Replace the existing layout */
+  replace?: boolean;
+}
+
+export interface UnitBoxInput {
+  label: string;
+  /** @nullable */
+  x?: number | null;
+  /** @nullable */
+  y?: number | null;
+  /** @nullable */
+  w?: number | null;
+  /** @nullable */
+  h?: number | null;
+}
+
+export interface UnitBoxUpdate {
+  /** @nullable */
+  label?: string | null;
+  /** @nullable */
+  x?: number | null;
+  /** @nullable */
+  y?: number | null;
+  /** @nullable */
+  w?: number | null;
+  /** @nullable */
+  h?: number | null;
+}
+
+export interface UnitSmartLink {
+  label: string;
+  url: string;
+  /** tracker | summary | recap | photos | invoice | board */
+  kind: string;
+}
+
+export type UnitSummaryViewPhotosItem = {
+  url: string;
+  /** @nullable */
+  phase: string | null;
+};
+
+export interface UnitSummaryView {
+  unitLabel: string;
+  /** red | yellow | green */
+  status: string;
+  /** AI-composed plain-language summary of current activity */
+  summary: string;
+  facts: string[];
+  links: UnitSmartLink[];
+  photos: UnitSummaryViewPhotosItem[];
+}
+
+export interface HubItemRec {
+  id: string;
+  /** link | doc | card | employee | maintenance */
+  section: string;
+  title: string;
+  /** @nullable */
+  subtitle?: string | null;
+  /** @nullable */
+  url?: string | null;
+  /**
+     * Served URL for an uploaded doc
+     * @nullable
+     */
+  fileUrl?: string | null;
+  /** @nullable */
+  body?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  createdBy?: string | null;
+  createdAt: string;
+}
+
+export interface ClientHubView {
+  propertyName: string;
+  canEdit: boolean;
+  items: HubItemRec[];
+}
+
+export interface HubItemInput {
+  section: string;
+  title: string;
+  /** @nullable */
+  subtitle?: string | null;
+  /** @nullable */
+  url?: string | null;
+  /** @nullable */
+  storagePath?: string | null;
+  /** @nullable */
+  body?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+}
+
+export interface HubItemUpdate {
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  subtitle?: string | null;
+  /** @nullable */
+  url?: string | null;
+  /** @nullable */
+  storagePath?: string | null;
+  /** @nullable */
+  body?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+}
+
+export interface MaintenancePingInput {
+  message: string;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  contactName?: string | null;
+}
+
+export interface MaintenancePingResult {
+  ok: boolean;
+  message: string;
+}
+
 export type ListPropertiesParams = {
 search?: string;
 };
@@ -5025,189 +5213,3 @@ export type ListWorkRequestsParams = {
 status?: string;
 };
 
-
-export interface UnitBoxInput {
-  label: string;
-  /** @nullable */
-  x?: number | null;
-  /** @nullable */
-  y?: number | null;
-  /** @nullable */
-  w?: number | null;
-  /** @nullable */
-  h?: number | null;
-}
-
-export interface UnitSmartLink {
-  label: string;
-  url: string;
-  /** tracker | summary | recap | photos | invoice | board */
-  kind: string;
-}
-
-export interface MaintenancePingInput {
-  message: string;
-  /** @nullable */
-  unitNo?: string | null;
-  /** @nullable */
-  contactName?: string | null;
-}
-
-export interface UnitStatusRec {
-  id: string;
-  label: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  /** red | yellow | green */
-  status: string;
-  reasons: string[];
-  openJobs: number;
-  openInvoices: number;
-}
-
-export interface UnitMapImageInput {
-  /** Object storage path from the upload flow (/objects/...) */
-  objectPath: string;
-  /** @nullable */
-  contentType?: string | null;
-  /** Run AI unit extraction on the image */
-  extract?: boolean;
-}
-
-export type UnitSummaryViewPhotosItem = {
-  url: string;
-  /** @nullable */
-  phase: string | null;
-};
-
-export interface HubItemInput {
-  section: string;
-  title: string;
-  /** @nullable */
-  subtitle?: string | null;
-  /** @nullable */
-  url?: string | null;
-  /** @nullable */
-  storagePath?: string | null;
-  /** @nullable */
-  body?: string | null;
-  /** @nullable */
-  phone?: string | null;
-  /** @nullable */
-  email?: string | null;
-}
-
-export interface UnitSummaryView {
-  unitLabel: string;
-  /** red | yellow | green */
-  status: string;
-  /** AI-composed plain-language summary of current activity */
-  summary: string;
-  facts: string[];
-  links: UnitSmartLink[];
-  photos: UnitSummaryViewPhotosItem[];
-}
-
-export interface MaintenancePingResult {
-  ok: boolean;
-  message: string;
-}
-
-export interface UnitGridInput {
-  /**
-     * Units to generate; defaults to the property's unit count
-     * @nullable
-     */
-  count?: number | null;
-  /**
-     * First unit number, default 101
-     * @nullable
-     */
-  startAt?: number | null;
-  /** Replace the existing layout */
-  replace?: boolean;
-}
-
-export interface ClientHubView {
-  propertyName: string;
-  canEdit: boolean;
-  items: HubItemRec[];
-}
-
-export interface HubItemUpdate {
-  /** @nullable */
-  title?: string | null;
-  /** @nullable */
-  subtitle?: string | null;
-  /** @nullable */
-  url?: string | null;
-  /** @nullable */
-  storagePath?: string | null;
-  /** @nullable */
-  body?: string | null;
-  /** @nullable */
-  phone?: string | null;
-  /** @nullable */
-  email?: string | null;
-}
-
-export interface HubItemRec {
-  id: string;
-  /** link | doc | card | employee | maintenance */
-  section: string;
-  title: string;
-  /** @nullable */
-  subtitle?: string | null;
-  /** @nullable */
-  url?: string | null;
-  /**
-     * Served URL for an uploaded doc
-     * @nullable
-     */
-  fileUrl?: string | null;
-  /** @nullable */
-  body?: string | null;
-  /** @nullable */
-  phone?: string | null;
-  /** @nullable */
-  email?: string | null;
-  /** @nullable */
-  createdBy?: string | null;
-  createdAt: string;
-}
-
-export interface UnitMapView {
-  propertyName: string;
-  /**
-     * Uploaded map image, null = plain grid
-     * @nullable
-     */
-  imageUrl: string | null;
-  canEdit: boolean;
-  /**
-     * The property's known unit count
-     * @nullable
-     */
-  unitTarget: number | null;
-  /**
-     * Boxes AI-extracted on the last image upload
-     * @nullable
-     */
-  extracted?: number | null;
-  units: UnitStatusRec[];
-}
-
-export interface UnitBoxUpdate {
-  /** @nullable */
-  label?: string | null;
-  /** @nullable */
-  x?: number | null;
-  /** @nullable */
-  y?: number | null;
-  /** @nullable */
-  w?: number | null;
-  /** @nullable */
-  h?: number | null;
-}
