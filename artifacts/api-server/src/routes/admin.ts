@@ -28,7 +28,11 @@ import {
   RegenerateDashboardTokenResponse,
   SendClientOnboardingBody,
   SendClientOnboardingResponse,
+  PushClientBoardCardBody,
+  PushClientBoardCardResponse,
 } from "@workspace/api-zod";
+import { raiseClientCard } from "../lib/clientBoard";
+import { notifyCardPush } from "../lib/clientCardDigest";
 import { sendEmail } from "../lib/email";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { ser } from "../lib/serialize";
@@ -535,6 +539,88 @@ router.post(
       .where(eq(clientAccountsTable.id, account.id))
       .returning();
     res.json(RegenerateDashboardTokenResponse.parse(serAccount(updated)));
+  },
+);
+
+const PUSH_KINDS = new Set([
+  "invoice",
+  "payment_request",
+  "summary",
+  "tracker",
+  "photos",
+  "flag",
+  "manual",
+]);
+
+router.post(
+  "/admin/accounts/:propertyId/board/push",
+  async (req, res): Promise<void> => {
+    const body = PushClientBoardCardBody.parse(req.body);
+    if (!PUSH_KINDS.has(body.kind)) {
+      res.status(400).json({ error: "Unknown card type" });
+      return;
+    }
+    const title = body.title.trim();
+    if (!title) {
+      res.status(400).json({ error: "Card needs a title" });
+      return;
+    }
+    if (body.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(body.dueDate)) {
+      res.status(400).json({ error: "Due date must be YYYY-MM-DD" });
+      return;
+    }
+    const [property] = await db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, req.params.propertyId));
+    if (!property) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    // Board link must exist for the client to land somewhere.
+    await ensureAccount(property.id);
+    let links: { label: string; url: string }[] = [];
+    if (body.linkUrl?.trim()) {
+      const raw = body.linkUrl.trim();
+      let u: URL;
+      try {
+        u = new URL(raw);
+      } catch {
+        res.status(400).json({ error: "Link must be a valid URL" });
+        return;
+      }
+      if (u.protocol !== "https:" && u.protocol !== "http:") {
+        res.status(400).json({ error: "Link must be an http(s) URL" });
+        return;
+      }
+      links = [{ label: body.linkLabel?.trim() || "Open", url: raw }];
+    }
+    const card = await raiseClientCard({
+      propertyId: property.id,
+      kind: body.kind as "invoice" | "payment_request" | "summary" | "tracker" | "photos" | "flag" | "manual",
+      title,
+      body: body.body?.trim() || null,
+      actionLabel: body.actionLabel?.trim() || null,
+      amount: body.amount ?? null,
+      dueDate: body.dueDate ?? null,
+      links,
+      sourceType: body.sourceType?.trim() || "office_push",
+      sourceId: body.sourceId?.trim() || randomBytes(12).toString("hex"),
+      jobId: body.jobId ?? null,
+    });
+    if (!card) {
+      res.status(400).json({ error: "Couldn't create the card" });
+      return;
+    }
+    const notify = await notifyCardPush(property.id, card);
+    res.json(
+      PushClientBoardCardResponse.parse({
+        cardId: card.id,
+        notified: notify.notified,
+        notifiedTo: notify.notifiedTo,
+        notifySkippedReason: notify.skippedReason,
+      }),
+    );
   },
 );
 

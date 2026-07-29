@@ -7738,6 +7738,35 @@ export const RegenerateDashboardTokenResponse = zod.object({
 
 
 /**
+ * @summary Push a card onto the client's board and notify them instantly
+ */
+export const PushClientBoardCardParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const PushClientBoardCardBody = zod.object({
+  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "actionLabel": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
+  "linkUrl": zod.string().nullish(),
+  "linkLabel": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "sourceType": zod.string().nullish().describe('Entity ref for dedupe, e.g. invoice; defaults to office_push'),
+  "sourceId": zod.string().nullish().describe('Entity id for dedupe; defaults to a fresh id (always a new card)')
+})
+
+export const PushClientBoardCardResponse = zod.object({
+  "cardId": zod.string(),
+  "notified": zod.boolean().describe('True if the instant email went out'),
+  "notifiedTo": zod.string().nullish(),
+  "notifySkippedReason": zod.string().nullish().describe('off | no_contact | send_failed when notified is false')
+})
+
+
+/**
  * @summary Send the branded onboarding email/SMS with the dashboard link
  */
 export const SendClientOnboardingParams = zod.object({

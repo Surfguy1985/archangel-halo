@@ -61,6 +61,7 @@ function digestHtml(opts: {
   propertyName: string;
   cards: ClientBoardCard[];
   boardLink: string;
+  heading?: string;
 }): string {
   const rows = opts.cards
     .map((c) => {
@@ -87,7 +88,7 @@ function digestHtml(opts: {
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
         <tr><td style="background:#17181c;border-radius:14px 14px 0 0;padding:22px 26px;">
           <div style="font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#c9a24b;">${escHtml(opts.company)}</div>
-          <div style="font-size:22px;font-weight:800;color:#ffffff;margin-top:6px;">${n === 1 ? "A new card is" : `${n} new cards are`} on your board</div>
+          <div style="font-size:22px;font-weight:800;color:#ffffff;margin-top:6px;">${opts.heading ? escHtml(opts.heading) : `${n === 1 ? "A new card is" : `${n} new cards are`} on your board`}</div>
         </td></tr>
         <tr><td style="background:#ffffff;padding:20px 26px 24px 26px;border-radius:0 0 14px 14px;box-shadow:0 1px 3px rgba(23,24,28,0.08);">
           <p style="font-size:15px;color:#3a3c42;line-height:1.6;margin:0 0 14px 0;">We just added ${n === 1 ? "an update" : "updates"} for <strong>${escHtml(opts.propertyName)}</strong> to your project board:</p>
@@ -105,6 +106,90 @@ function digestHtml(opts: {
   </table>
 </body>
 </html>`;
+}
+
+export type PushNotifyResult = {
+  notified: boolean;
+  notifiedTo: string | null;
+  skippedReason: "off" | "no_contact" | "send_failed" | null;
+};
+
+/**
+ * Instant single-card notification for an office push ("Your vendor has sent
+ * you a card"). Claims the card (notifiedAt) BEFORE sending so the hourly
+ * digest never double-mails it; on send failure the claim is released so the
+ * digest retries. Respects the account's notifyNewCards toggle.
+ */
+export async function notifyCardPush(
+  propertyId: string,
+  card: ClientBoardCard,
+): Promise<PushNotifyResult> {
+  const [account] = await db
+    .select()
+    .from(clientAccountsTable)
+    .where(eq(clientAccountsTable.propertyId, propertyId))
+    .limit(1);
+  if (!account || account.status === "cancelled" || !account.notifyNewCards) {
+    // Toggle off: claim so the digest doesn't email it later either.
+    await claimCards([card.id]);
+    return { notified: false, notifiedTo: null, skippedReason: "off" };
+  }
+  let to = account.billingContact?.email?.trim() || null;
+  if (!to) {
+    const admins = await db
+      .select({ email: clientUsersTable.email })
+      .from(clientUsersTable)
+      .where(
+        and(
+          eq(clientUsersTable.propertyId, propertyId),
+          eq(clientUsersTable.role, "admin"),
+          eq(clientUsersTable.active, true),
+        ),
+      )
+      .limit(1);
+    to = admins[0]?.email ?? null;
+  }
+  if (!to) {
+    // Leave unclaimed — the digest will retry once a contact exists.
+    return { notified: false, notifiedTo: null, skippedReason: "no_contact" };
+  }
+  const claimed = await claimCards([card.id]);
+  if (claimed.length === 0) {
+    // A concurrent sweep already notified it.
+    return { notified: true, notifiedTo: to, skippedReason: null };
+  }
+  const settings = await getBusinessSettings();
+  const company = settings.companyName || "ArchAngel Contractors";
+  const [property] = await db
+    .select({ name: propertiesTable.name })
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, propertyId))
+    .limit(1);
+  const propertyName = property?.name ?? "your property";
+  const result = await sendEmail({
+    to,
+    subject: `Your vendor has sent you a card — ${card.title}`,
+    html: digestHtml({
+      company,
+      propertyName,
+      cards: [card],
+      boardLink: boardUrl(account.dashboardToken),
+      heading: "Your vendor has sent you a card",
+    }),
+  });
+  if (!result.ok) {
+    await db
+      .update(clientBoardCardsTable)
+      .set({ notifiedAt: null })
+      .where(eq(clientBoardCardsTable.id, card.id));
+    logger.warn(
+      { propertyId, to, error: result.error },
+      "Card push notification failed; digest will retry",
+    );
+    return { notified: false, notifiedTo: to, skippedReason: "send_failed" };
+  }
+  logger.info({ propertyId, to, cardId: card.id }, "Card push notification sent");
+  return { notified: true, notifiedTo: to, skippedReason: null };
 }
 
 let running = false;

@@ -85,6 +85,8 @@ import type {
   ClientBoardView,
   ClientBoardWebhookInput,
   ClientBoardWebhookView,
+  ClientCardPushInput,
+  ClientCardPushRec,
   ClientCredentialIssued,
   ClientHubView,
   ClientPasswordResetInput,
@@ -18738,6 +18740,78 @@ export const useRegenerateDashboardToken = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getRegenerateDashboardTokenMutationOptions(options));
+    }
+
+export const getPushClientBoardCardUrl = (propertyId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/push`
+}
+
+/**
+ * @summary Push a card onto the client's board and notify them instantly
+ */
+export const pushClientBoardCard = async (propertyId: string,
+    clientCardPushInput: ClientCardPushInput, options?: RequestInit): Promise<ClientCardPushRec> => {
+
+  return customFetch<ClientCardPushRec>(getPushClientBoardCardUrl(propertyId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientCardPushInput)
+  }
+);}
+
+
+
+
+
+export const getPushClientBoardCardMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pushClientBoardCard>>, TError,{propertyId: string;data: BodyType<ClientCardPushInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pushClientBoardCard>>, TError,{propertyId: string;data: BodyType<ClientCardPushInput>}, TContext> => {
+
+const mutationKey = ['pushClientBoardCard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pushClientBoardCard>>, {propertyId: string;data: BodyType<ClientCardPushInput>}> = (props) => {
+          const {propertyId,data} = props ?? {};
+
+          return  pushClientBoardCard(propertyId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PushClientBoardCardMutationResult = NonNullable<Awaited<ReturnType<typeof pushClientBoardCard>>>
+    export type PushClientBoardCardMutationBody = BodyType<ClientCardPushInput>
+    export type PushClientBoardCardMutationError = ErrorType<Error>
+
+    /**
+ * @summary Push a card onto the client's board and notify them instantly
+ */
+export const usePushClientBoardCard = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pushClientBoardCard>>, TError,{propertyId: string;data: BodyType<ClientCardPushInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pushClientBoardCard>>,
+        TError,
+        {propertyId: string;data: BodyType<ClientCardPushInput>},
+        TContext
+      > => {
+      return useMutation(getPushClientBoardCardMutationOptions(options));
     }
 
 export const getSendClientOnboardingUrl = (propertyId: string,) => {

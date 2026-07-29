@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -7,6 +7,7 @@ import {
   useCreateOfficeClientBoardCard,
   useUpdateOfficeClientBoardCard,
   useDeleteOfficeClientBoardCard,
+  usePushClientBoardCard,
   type ClientBoardFeedCard,
 } from "@workspace/api-client-react";
 import {
@@ -28,9 +29,11 @@ import {
   Trash2,
   Webhook,
   X,
+  BellRing,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Mirrors the client-facing board (halo /client/:token/board) — same columns,
 // same card anatomy — so the office sees exactly what the client sees.
@@ -291,9 +294,203 @@ function SendCardForm({
   );
 }
 
+const PUSH_KINDS = [
+  { value: "invoice", label: "Invoice" },
+  { value: "payment_request", label: "Payment request" },
+  { value: "summary", label: "Job summary" },
+  { value: "tracker", label: "Live tracker" },
+  { value: "photos", label: "Photos" },
+  { value: "flag", label: "Heads-up" },
+  { value: "manual", label: "Note" },
+];
+
+function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string; open: boolean; onOpenChange: (v: boolean) => void }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const push = usePushClientBoardCard();
+
+  const [kind, setKind] = useState("manual");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [amount, setAmount] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkLabel, setLinkLabel] = useState("Open");
+
+  useEffect(() => {
+    if (open) {
+      setKind("manual");
+      setTitle("");
+      setBody("");
+      setAmount("");
+      setDueDate("");
+      setLinkUrl("");
+      setLinkLabel("Open");
+    }
+  }, [open]);
+
+  const handleSubmit = () => {
+    push.mutate(
+      {
+        propertyId,
+        data: {
+          kind,
+          title: title.trim(),
+          body: body.trim() || null,
+          amount: (kind === "invoice" || kind === "payment_request") && amount ? Number(amount) : null,
+          dueDate: (kind === "invoice" || kind === "payment_request") && dueDate ? dueDate : null,
+          linkUrl: linkUrl.trim() || null,
+          linkLabel: linkUrl.trim() ? linkLabel.trim() || "Open" : null,
+        },
+      },
+      {
+        onSuccess: (res) => {
+          queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId) });
+
+          let desc = "Card added to board";
+          if (res.notified) {
+            desc = `Card sent — client notified at ${res.notifiedTo || "their contact info"}`;
+          } else {
+            if (res.notifySkippedReason === "off") desc = "Card added to board (client notifications are off)";
+            else if (res.notifySkippedReason === "no_contact") desc = "Card added — no client email on file yet";
+            else if (res.notifySkippedReason === "send_failed") desc = "Card added — email failed, will retry hourly";
+          }
+
+          toast({ title: "Card pushed", description: desc });
+          onOpenChange(false);
+        },
+        onError: (err: Error) => {
+          toast({ title: "Couldn't push card", description: err.message, variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const inputCls =
+    "w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm font-medium outline-none focus:ring-2 focus:ring-[#B4FF44] focus:border-[#101c33]/20";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md p-6 sm:rounded-3xl border-[#101c33]/10">
+        <DialogHeader className="mb-4">
+          <DialogTitle className="text-xl font-display font-bold text-[#101c33]">Push a card</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-5">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-[#101c33] mb-2">Card Type</label>
+            <div className="flex flex-wrap gap-2">
+              {PUSH_KINDS.map((k) => (
+                <button
+                  key={k.value}
+                  onClick={() => setKind(k.value)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
+                    kind === k.value
+                      ? "bg-[#101c33] border-[#101c33] text-white"
+                      : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                  }`}
+                  type="button"
+                >
+                  {k.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-[#101c33]">Title</label>
+              <input
+                className={inputCls}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                data-testid="input-push-title"
+                placeholder="e.g. Please clear unit 4B by Friday"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-[#101c33]">Message</label>
+              <textarea
+                className={`${inputCls} min-h-[80px] resize-none`}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                data-testid="input-push-body"
+                placeholder="Optional details..."
+              />
+            </div>
+
+            {(kind === "invoice" || kind === "payment_request") && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#101c33]">Amount</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-medium">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className={`${inputCls} pl-7`}
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      data-testid="input-push-amount"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#101c33]">Due Date</label>
+                  <input
+                    type="date"
+                    className={inputCls}
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    data-testid="input-push-due-date"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#101c33]">Link URL</label>
+                <input
+                  className={inputCls}
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  data-testid="input-push-link-url"
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#101c33]">Link Label</label>
+                <input
+                  className={inputCls}
+                  value={linkLabel}
+                  onChange={(e) => setLinkLabel(e.target.value)}
+                  data-testid="input-push-link-label"
+                  placeholder="Open"
+                />
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={handleSubmit}
+            disabled={!title.trim() || push.isPending}
+            className="w-full mt-2 py-3 bg-[#B4FF44] text-black text-sm font-bold uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {push.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <BellRing className="w-5 h-5" />}
+            Push Card
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ClientBoardOffice() {
   const { propertyId = "" } = useParams<{ propertyId: string }>();
-  const [formOpen, setFormOpen] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
   const [editCard, setEditCard] = useState<ClientBoardFeedCard | null>(null);
   const { data: board, isLoading } = useGetOfficeClientBoard(propertyId, {
     query: {
@@ -367,11 +564,11 @@ export default function ClientBoardOffice() {
             </a>
           )}
           <button
-            onClick={() => setFormOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 text-xs font-bold rounded-lg bg-[var(--gold-light,#B4FF44)] text-black px-3 py-2 hover:opacity-90 transition-opacity"
-            data-testid="button-open-send-card"
+            onClick={() => setPushOpen(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider rounded-lg bg-[var(--gold-light,#B4FF44)] text-black px-4 py-2 hover:opacity-90 transition-opacity shadow-sm"
+            data-testid="button-push-card"
           >
-            <Plus className="h-3.5 w-3.5" /> Send a card
+            <BellRing className="h-3.5 w-3.5" /> Push Card
           </button>
         </div>
       </div>
@@ -383,9 +580,8 @@ export default function ClientBoardOffice() {
         </div>
       )}
 
-      {formOpen && !editCard && (
-        <SendCardForm propertyId={propertyId} onClose={() => setFormOpen(false)} />
-      )}
+      <PushCardDialog propertyId={propertyId} open={pushOpen} onOpenChange={setPushOpen} />
+
       {editCard && (
         <SendCardForm
           key={editCard.id}

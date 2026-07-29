@@ -674,6 +674,52 @@ export interface ClientCredentialIssued {
   emailed: boolean;
 }
 
+export interface ClientCardPushInput {
+  /** invoice | payment_request | summary | tracker | photos | flag | manual */
+  kind: string;
+  title: string;
+  /** @nullable */
+  body?: string | null;
+  /** @nullable */
+  actionLabel?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /**
+     * YYYY-MM-DD
+     * @nullable
+     */
+  dueDate?: string | null;
+  /** @nullable */
+  linkUrl?: string | null;
+  /** @nullable */
+  linkLabel?: string | null;
+  /** @nullable */
+  jobId?: string | null;
+  /**
+     * Entity ref for dedupe, e.g. invoice; defaults to office_push
+     * @nullable
+     */
+  sourceType?: string | null;
+  /**
+     * Entity id for dedupe; defaults to a fresh id (always a new card)
+     * @nullable
+     */
+  sourceId?: string | null;
+}
+
+export interface ClientCardPushRec {
+  cardId: string;
+  /** True if the instant email went out */
+  notified: boolean;
+  /** @nullable */
+  notifiedTo?: string | null;
+  /**
+     * off | no_contact | send_failed when notified is false
+     * @nullable
+     */
+  notifySkippedReason?: string | null;
+}
+
 export interface OnboardingSendInput {
   /** email | sms */
   channel: string;

@@ -5643,6 +5643,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/accounts/{propertyId}/board/push:
+    post:
+      operationId: pushClientBoardCard
+      tags: [admin]
+      summary: Push a card onto the client's board and notify them instantly
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientCardPushInput"
+      responses:
+        "200":
+          description: The card that was raised, plus notification outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientCardPushRec"
+        "400":
+          description: Invalid input or no client account for this property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /admin/accounts/{propertyId}/onboarding/send:
     post:
       operationId: sendClientOnboarding
@@ -7912,6 +7941,31 @@ components:
           $ref: "#/components/schemas/ClientUserRec"
         tempPassword: { type: string, description: "Shown once — not retrievable later" }
         emailed: { type: boolean }
+    ClientCardPushInput:
+      type: object
+      required: [kind, title]
+      properties:
+        kind:
+          type: string
+          description: "invoice | payment_request | summary | tracker | photos | flag | manual"
+        title: { type: string }
+        body: { type: ["string", "null"] }
+        actionLabel: { type: ["string", "null"] }
+        amount: { type: ["number", "null"] }
+        dueDate: { type: ["string", "null"], description: "YYYY-MM-DD" }
+        linkUrl: { type: ["string", "null"] }
+        linkLabel: { type: ["string", "null"] }
+        jobId: { type: ["string", "null"] }
+        sourceType: { type: ["string", "null"], description: "Entity ref for dedupe, e.g. invoice; defaults to office_push" }
+        sourceId: { type: ["string", "null"], description: "Entity id for dedupe; defaults to a fresh id (always a new card)" }
+    ClientCardPushRec:
+      type: object
+      required: [cardId, notified]
+      properties:
+        cardId: { type: string }
+        notified: { type: boolean, description: "True if the instant email went out" }
+        notifiedTo: { type: ["string", "null"] }
+        notifySkippedReason: { type: ["string", "null"], description: "off | no_contact | send_failed when notified is false" }
     OnboardingSendInput:
       type: object
       required: [channel, to]

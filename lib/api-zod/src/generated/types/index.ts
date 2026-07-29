@@ -106,6 +106,8 @@ export * from './clientBoardView';
 export * from './clientBoardViewer';
 export * from './clientBoardWebhookInput';
 export * from './clientBoardWebhookView';
+export * from './clientCardPushInput';
+export * from './clientCardPushRec';
 export * from './clientCredentialIssued';
 export * from './clientFeature';
 export * from './clientHubView';

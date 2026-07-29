@@ -13,3 +13,6 @@ New client-board cards are notified via an hourly scheduler sweep (clientCardDig
 - SMS deliberately not wired: no Twilio helper exists in the api-server yet (separate task adds one). When it lands, add a text channel to the digest sweep.
 
 **Why:** batching/dedupe prevents multi-send days from spamming clients; claim-before-send prevents double emails from overlapping sweeps or restarts.
+
+## Instant push notify (Jul 2026)
+Office can push any card kind onto a client board (admin board/push endpoint → raiseClientCard with sourceType office_push + random sourceId, so each push is a new card unless caller passes an entity dedupe ref). notifyCardPush sends the "Your vendor has sent you a card" email immediately using the same claim-before-send notifiedAt contract as the digest — toggle-off claims silently, send failure releases the claim so the hourly digest retries. linkUrl must be validated http(s) server-side (client board renders links as raw hrefs).
