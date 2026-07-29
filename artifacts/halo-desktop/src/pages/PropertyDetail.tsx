@@ -1,14 +1,14 @@
-import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, useCompleteJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey, getListExpensesQueryKey} from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, useCompleteJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey, getListExpensesQueryKey, useCreateInvoice, useListCrews} from "@workspace/api-client-react";
+import type { Job, Invoice } from "@workspace/api-client-react";
 import { AddExpenseDialog} from "@/components/MoneyDialogs";
 import { MarginSection} from "@/components/MarginSection";
 import { CrewPhotosSection} from "@/components/CrewPhotosSection";
 import { useQueryClient} from "@tanstack/react-query";
 import { useParams, Link} from "wouter";
-import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Repeat, BookOpen, Receipt} from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Repeat, BookOpen, Receipt, Users} from "lucide-react";
 import { Skeleton} from "@/components/ui/skeleton";
 import { useState} from "react";
 import { JobLineItemsPanel} from "@/components/JobLineItemsPanel";
-import { JobFunnel} from "@/components/JobFunnel";
 import { ImportFromCatalogDialog} from "@/components/ImportFromCatalogDialog";
 import {
   EditPropertyDialog,
@@ -36,6 +36,7 @@ export default function PropertyDetail() {
   const [jobTab, setJobTab] = useState<"active" | "history">("active");
   const [expenseJobId, setExpenseJobId] = useState<string | null>(null);
   const [rateJobId, setRateJobId] = useState<string | null>(null);
+  const [assignJobId, setAssignJobId] = useState<string | null>(null);
   const [rateDraft, setRateDraft] = useState("");
   const updateJob = useUpdateJob();
   const setStatus = useSetInvoiceStatus();
@@ -43,6 +44,8 @@ export default function PropertyDetail() {
   const restartJob = useRestartJob();
   const completeJob = useCompleteJob();
   const updateProperty = useUpdateProperty();
+  const createInvoice = useCreateInvoice();
+  const { data: crews } = useListCrews();
   const { data, isLoading } = useGetProperty(id, { query: { enabled: !!id, queryKey: getGetPropertyQueryKey(id), refetchInterval: 15000 } });
 
   if (isLoading) {
@@ -124,6 +127,213 @@ export default function PropertyDetail() {
     setStatus.mutate(
       { id: invoiceId, data: { status: next } },
       { onSuccess: () => invalidateMoney(jobId) },
+    );
+  };
+
+  const renderJobCard = (job: Job, invoice: Invoice | undefined) => {
+    const isComplete = job.status === "complete";
+    const STAGES = [
+      { label: "Crew", done: !!job.crewLeaderId },
+      { label: "Work", done: isComplete },
+      { label: "Invoice", done: invoice?.status === "paid" },
+      { label: "Close", done: !!job.clearedAt }
+    ];
+
+    const renderPrimaryAction = () => {
+      if (assignJobId === job.id) {
+        return (
+          <select 
+            autoFocus
+            onChange={(e) => {
+              if (e.target.value) {
+                updateJob.mutate({ id: job.id, data: { crewLeaderId: e.target.value } }, { onSuccess: invalidateJobLists });
+              }
+              setAssignJobId(null);
+            }}
+            onBlur={() => setAssignJobId(null)}
+            className="px-4 py-2.5 bg-white text-black text-sm font-bold rounded-xl outline-none"
+          >
+            <option value="">Select crew...</option>
+            {crews?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        );
+      }
+
+      let label = "";
+      let action = () => {};
+
+      if (job.clearedAt) {
+        label = "Reopen";
+        action = () => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists });
+      } else if (!job.crewLeaderId) {
+        label = "Assign crew";
+        action = () => setAssignJobId(job.id);
+      } else if (!isComplete) {
+        label = "Complete work";
+        action = () => completeJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists });
+      } else if (!invoice) {
+        label = "Create invoice";
+        action = () => createInvoice.mutate({ data: { propertyId: id, jobId: job.id, amount: job.lineTotal || 0 } }, { onSuccess: () => invalidateMoney(job.id) });
+      } else if (invoice.status === "draft") {
+        label = "Send invoice";
+        action = () => setStatus.mutate({ id: invoice.id, data: { status: "sent" } }, { onSuccess: () => invalidateMoney(job.id) });
+      } else if (invoice.status === "sent" || invoice.status === "past_due") {
+        label = "Mark paid";
+        action = () => setStatus.mutate({ id: invoice.id, data: { status: "paid" } }, { onSuccess: () => invalidateMoney(job.id) });
+      } else if (invoice.status === "paid") {
+        label = "Close out";
+        action = () => clearJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists });
+      }
+
+      return (
+        <button
+          onClick={action}
+          className="px-5 py-2.5 bg-white text-black text-sm font-bold rounded-xl hover:bg-white/90 transition-colors"
+        >
+          {label}
+        </button>
+      );
+    };
+
+    return (
+      <div key={job.id} className="bg-[var(--ink)] text-white rounded-2xl p-6 shadow-sm flex flex-col gap-5">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <Link href={`/jobs/${job.id}`} className="block hover:opacity-80 transition-opacity">
+            <h3 className="text-xl font-display font-bold text-white mb-1 flex items-center gap-2">
+              {job.category || 'General'} · {job.unitNo || 'Common'}
+              <button
+                aria-label="Edit job"
+                onClick={(e) => { e.preventDefault(); setEditJobId(job.id); }}
+                className="w-6 h-6 rounded-full flex items-center justify-center text-white/40 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+            </h3>
+            <p className="text-white/70 text-sm font-medium">{job.description}</p>
+          </Link>
+          
+          {job.clearedAt ? (
+             <span className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 bg-white/10 text-white rounded-full">
+               <Archive className="w-3.5 h-3.5" /> Closed
+             </span>
+          ) : isComplete ? (
+            <span className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 bg-[var(--primary)] text-black rounded-full">
+              <Check className="w-3.5 h-3.5" /> Completed
+            </span>
+          ) : (
+            <span className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 bg-white/10 text-white rounded-full">
+              In progress
+            </span>
+          )}
+        </div>
+
+        {/* Info Grid */}
+        <div className="flex items-center flex-wrap gap-x-5 gap-y-2 text-sm text-white/70 font-medium">
+          <span className="font-mono text-white/50">{job.jobNo}</span>
+          {job.crewLeaderName && (
+            <span className="flex items-center gap-1.5">
+              <Users className="w-4 h-4" /> {job.crewLeaderName}
+            </span>
+          )}
+          {job.isRecurring && (
+            <span className="flex items-center gap-1.5">
+              <Repeat className="w-4 h-4" /> 
+              {{ daily: "Daily", weekly: "Weekly", biweekly: "Bi-weekly", monthly: "Monthly", quarterly: "Quarterly" }[job.recurrence ?? ""] ?? "Recurring"}
+            </span>
+          )}
+          {rateJobId === job.id ? (
+            <span className="inline-flex items-center gap-1.5">
+              Crew $
+              <input
+                autoFocus
+                inputMode="decimal"
+                value={rateDraft}
+                onChange={(e) => setRateDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") saveRate(job.id); if (e.key === "Escape") setRateJobId(null); }}
+                className="w-20 px-2 py-1 rounded-lg border-none bg-white text-black text-sm tabular-nums outline-none"
+              />
+              <button
+                disabled={updateJob.isPending}
+                onClick={() => saveRate(job.id)}
+                className="font-bold text-white hover:text-white/80 disabled:opacity-50"
+              >
+                Save
+              </button>
+            </span>
+          ) : (
+            <button
+              onClick={() => { setRateJobId(job.id); setRateDraft(job.crewRate != null ? String(job.crewRate) : ""); }}
+              className="inline-flex items-center gap-1 font-medium text-white/70 hover:text-white transition-colors"
+            >
+              Crew {job.crewRate != null ? `$${job.crewRate.toLocaleString()}` : "rate —"}
+              <Pencil className="w-3 h-3 opacity-50" />
+            </button>
+          )}
+          <span>Invoiced <b className="text-white tabular-nums">${(job.invoicedTotal ?? 0).toLocaleString()}</b></span>
+          <span>Paid <b className="text-[var(--primary)] tabular-nums">${(job.paidTotal ?? 0).toLocaleString()}</b></span>
+          <span>Expenses <b className="text-white tabular-nums">${(job.expensesTotal ?? 0).toLocaleString()}</b></span>
+          {job.marginPct != null && (
+            <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5 ${job.marginPct < (property.marginMin ?? 0.25) ? "bg-rose-500/20 text-rose-300" : "bg-[var(--primary)]/20 text-[var(--primary)]"}`}>
+              {Math.round(job.marginPct * 100)}% margin
+            </span>
+          )}
+        </div>
+
+        {/* Progress Track */}
+        <div className="flex items-center gap-2">
+          {STAGES.map((s, i, arr) => {
+            const isActive = i === 0 || arr[i - 1].done;
+            const highlight = isActive || s.done;
+            return (
+              <div key={s.label} className="flex-1 flex flex-col items-start gap-2">
+                <div className={`h-1.5 w-full rounded-full transition-colors ${highlight ? "bg-[var(--primary)]" : "bg-white/10"}`} />
+                <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${highlight ? "text-[var(--primary)]" : "text-white/40"}`}>
+                  {s.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Bottom Actions */}
+        <div className="flex items-center gap-3 pt-3 border-t border-white/10">
+          {renderPrimaryAction()}
+          <button
+            onClick={() => setExpenseJobId(job.id)}
+            className="px-5 py-2.5 bg-transparent border border-white/20 text-white text-sm font-bold rounded-xl hover:bg-white/5 transition-colors"
+          >
+            Log expense
+          </button>
+          
+          {invoice && (
+            <Link 
+              href={`/invoices/${invoice.id}`}
+              className="px-5 py-2.5 bg-transparent text-white/70 hover:text-white text-sm font-bold rounded-xl transition-colors"
+            >
+              Open invoice
+            </Link>
+          )}
+
+          <button
+            onClick={() => setOpenLineItemsJobId(openLineItemsJobId === job.id ? null : job.id)}
+            className="px-5 py-2.5 bg-transparent text-white/70 hover:text-white text-sm font-bold rounded-xl transition-colors ml-auto flex items-center gap-2"
+          >
+            Line items <ChevronDown className={`w-4 h-4 transition-transform ${openLineItemsJobId === job.id ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+        
+        {openLineItemsJobId === job.id && (
+          <div className="bg-white/5 rounded-2xl p-4 mt-2">
+            <JobLineItemsPanel
+              jobId={job.id}
+              propertyId={id}
+              lineItems={job.lineItems ?? []}
+              priceItems={priceItems}
+            />
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -242,124 +452,8 @@ export default function PropertyDetail() {
               ))}
             </div>
             {jobTab !== "history" && (
-            <div className="space-y-3">
-              {activeJobs.map(job => (
-                <div key={job.id} className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] border-l-4 border-l-[var(--gold-light)] p-4 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] transition-shadow">
-                  <div className="flex items-center gap-3">
-                    <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
-                      <div className="font-semibold flex items-center gap-2">
-                        <span className="truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</span>
-                        {job.status === "complete" && (
-                          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-                            <Check className="w-2.5 h-2.5" /> Completed
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-muted-foreground">{job.description}</div>
-                      {job.isRecurring && (
-                        <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--gold-dark)]">
-                          <Repeat className="w-3 h-3" />
-                          {{ daily: "Daily", weekly: "Weekly", biweekly: "Bi-weekly", monthly: "Monthly", quarterly: "Quarterly" }[job.recurrence ?? ""] ?? "Recurring"}
-                          <span className="text-muted-foreground font-normal">
-                            · {job.crewLeaderName ? `${job.crewLeaderName} goes` : "No crew assigned"}
-                          </span>
-                        </div>
-                      )}
-                    </Link>
-                    <div className="text-right shrink-0">
-                      <div className="font-mono text-sm text-muted-foreground">{job.jobNo}</div>
-                      {!job.isRecurring && job.crewLeaderName && (
-                        <div className="text-xs text-muted-foreground">{job.crewLeaderName}</div>
-                      )}
-                    </div>
-                    <button
-                      aria-label="Edit job"
-                      onClick={() => setEditJobId(job.id)}
-                      className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => setOpenLineItemsJobId(openLineItemsJobId === job.id ? null : job.id)}
-                    className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-                  >
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform ${openLineItemsJobId === job.id ? 'rotate-180' : ''}`} />
-                    Line items
-                    {(job.lineItems?.length ?? 0) > 0 && (
-                      <span className="text-muted-foreground font-normal">
-                        · {job.lineItems!.length} · ${(job.lineTotal ?? 0).toLocaleString()}
-                      </span>
-                    )}
-                  </button>
-                  {openLineItemsJobId === job.id && (
-                    <JobLineItemsPanel
-                      jobId={job.id}
-                      propertyId={id}
-                      lineItems={job.lineItems ?? []}
-                      priceItems={priceItems}
-                    />
-                  )}
-                  <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 mt-2 text-xs text-muted-foreground">
-                    {rateJobId === job.id ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        Crew $
-                        <input
-                          autoFocus
-                          inputMode="decimal"
-                          value={rateDraft}
-                          onChange={(e) => setRateDraft(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") saveRate(job.id); if (e.key === "Escape") setRateJobId(null); }}
-                          className="w-20 px-1.5 py-0.5 rounded-md border border-border bg-background text-xs tabular-nums"
-                        />
-                        <button
-                          disabled={updateJob.isPending}
-                          onClick={() => saveRate(job.id)}
-                          className="font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] disabled:opacity-50"
-                        >
-                          Save
-                        </button>
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => { setRateJobId(job.id); setRateDraft(job.crewRate != null ? String(job.crewRate) : ""); }}
-                        className="inline-flex items-center gap-1 font-semibold text-[var(--ink)] hover:opacity-70"
-                      >
-                        Crew {job.crewRate != null ? `$${job.crewRate.toLocaleString()}` : "rate —"}
-                        <Pencil className="w-2.5 h-2.5 text-muted-foreground" />
-                      </button>
-                    )}
-                    <span>Invoiced <b className="text-[var(--ink)] tabular-nums">${(job.invoicedTotal ?? 0).toLocaleString()}</b></span>
-                    <span>Paid <b className="text-emerald-700 tabular-nums">${(job.paidTotal ?? 0).toLocaleString()}</b></span>
-                    <span>Expenses <b className="text-[var(--ink)] tabular-nums">${(job.expensesTotal ?? 0).toLocaleString()}</b></span>
-                    {marginBadge(job.marginPct)}
-                  </div>
-                  <JobFunnel
-                    job={job}
-                    invoice={invoiceForJob(job.id)}
-                    propertyId={id}
-                    onCompleteWork={() => completeJob.mutate({ id: job.id }, { onSuccess: () => invalidateJobLists() })}
-                    completePending={completeJob.isPending}
-                  />
-                  <div className="flex items-center gap-2 mt-2">
-                    <button
-                      onClick={() => setExpenseJobId(job.id)}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-[var(--ink)] hover:bg-black/[0.08] transition-colors"
-                    >
-                      <Plus className="w-3 h-3" /> Expense
-                    </button>
-                    {job.status === "complete" && (
-                      <button
-                        disabled={restartJob.isPending}
-                        onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
-                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[var(--gold-tint)] text-[var(--ink)] hover:brightness-95 transition-colors disabled:opacity-50"
-                      >
-                        <RotateCcw className="w-3 h-3" /> Reopen for corrections
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-4">
+              {activeJobs.map(job => renderJobCard(job, invoiceForJob(job.id)))}
               {!activeJobs.length && (
                 <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6 text-center text-sm text-muted-foreground">
                   No active jobs — closed-out jobs live in History.
@@ -368,35 +462,8 @@ export default function PropertyDetail() {
             </div>
             )}
             {jobTab === "history" && (
-              <div className="space-y-3">
-                {historyJobs.map((job) => (
-                  <div key={job.id} className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] border-l-4 border-l-[rgba(180,255,68,0.55)] flex items-center gap-3 p-4">
-                    <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
-                      <div className="font-semibold text-muted-foreground truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</div>
-                      <div className="text-sm text-muted-foreground truncate">
-                        {job.jobNo}{job.completedAt ? ` · Completed ${new Date(job.completedAt).toLocaleDateString()}` : ''}
-                      </div>
-                    </Link>
-                    {(() => {
-                      const inv = invoiceForJob(job.id);
-                      return inv ? (
-                        <Link
-                          href={`/invoices/${inv.id}`}
-                          className={`shrink-0 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full hover:opacity-80 transition-opacity ${invoiceStatusCls[inv.status] ?? invoiceStatusCls.draft}`}
-                        >
-                          <Receipt className="w-3 h-3" /> {invoiceStatusLabel[inv.status] ?? "Invoice"}
-                        </Link>
-                      ) : null;
-                    })()}
-                    <button
-                      disabled={restartJob.isPending}
-                      onClick={() => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists })}
-                      className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[var(--gold-tint)] text-[var(--ink)] hover:brightness-95 transition-colors disabled:opacity-50"
-                    >
-                      <RotateCcw className="w-3 h-3" /> Restart
-                    </button>
-                  </div>
-                ))}
+              <div className="space-y-4">
+                {historyJobs.map((job) => renderJobCard(job, invoiceForJob(job.id)))}
                 {!historyJobs.length && (
                   <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6 text-center text-sm text-muted-foreground">
                     No cleared jobs yet — completed jobs you clear land here.
