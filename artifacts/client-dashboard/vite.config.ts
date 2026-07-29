@@ -73,6 +73,51 @@ export default defineConfig({
           await import('@replit/vite-plugin-dev-banner').then((m) =>
             m.devBanner(),
           ),
+          // The dev-banner plugin injects its script with a root-relative
+          // src ("/@replit/..."), which escapes this app's base path and is
+          // routed to the root artifact by the workspace proxy — 502ing on
+          // every page load whenever that service isn't running. Rewrite the
+          // injected src to stay under our base path so our own dev server
+          // serves it.
+          {
+            name: 'rebase-dev-banner-script',
+            transformIndexHtml: {
+              order: 'post' as const,
+              handler(html: string) {
+                return html.replace(
+                  'src="/@replit/vite-plugin-dev-banner/banner-script.js"',
+                  `src="${basePath.replace(/\/?$/, '/')}@replit/vite-plugin-dev-banner/banner-script.js"`,
+                );
+              },
+            },
+            configureServer(server: import('vite').ViteDevServer) {
+              const rebasedPath = `${basePath.replace(/\/?$/, '/')}@replit/vite-plugin-dev-banner/banner-script.js`;
+              server.middlewares.use(async (req, res, next) => {
+                if (req.url === rebasedPath) {
+                  try {
+                    const { createRequire } = await import('node:module');
+                    const require = createRequire(import.meta.url);
+                    const scriptPath = path.join(
+                      path.dirname(
+                        require.resolve('@replit/vite-plugin-dev-banner'),
+                      ),
+                      'banner-script.js',
+                    );
+                    const fs = await import('node:fs/promises');
+                    const script = await fs.readFile(scriptPath, 'utf-8');
+                    res.setHeader('Content-Type', 'application/javascript');
+                    res.end(script);
+                    return;
+                  } catch {
+                    res.statusCode = 404;
+                    res.end();
+                    return;
+                  }
+                }
+                next();
+              });
+            },
+          },
         ]
       : []),
   ],
