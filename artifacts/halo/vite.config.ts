@@ -68,7 +68,11 @@ export default defineConfig({
       workbox: {
         // Main bundle exceeds workbox's 2 MiB default precache cap.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        navigateFallbackDenylist: [/^\/api/, /^\/desktop/],
+        // Never let this app's service worker hijack navigations that belong
+        // to sibling artifacts — otherwise an installed HALO PWA serves its
+        // cached shell at /board/<token> and the desktop-redirect bounces the
+        // user to /desktop/.
+        navigateFallbackDenylist: [/^\/api/, /^\/desktop/, /^\/board/, /^\/devportal/],
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
       },
     }),

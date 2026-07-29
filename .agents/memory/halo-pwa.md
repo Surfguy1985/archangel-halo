@@ -16,3 +16,6 @@ Rule: the mobile app (artifacts/halo, served at root `/`) is an installable PWA 
 - After changing icons/manifest you must rebuild (and republish) for changes to take effect; regenerate all four icon sizes together.
 - SW registration is manual in `src/main.tsx` via `registerSW({ immediate: true })` from `virtual:pwa-register` with a 60s `registration.update()` interval, and `injectRegister: null` in vite.config — keep these paired or you get double registration / stale installed shells.
 - All `/api` responses get `Cache-Control: no-store` from an app-level middleware in the api-server (routes like storage objects override it later); don't remove it or installed PWAs/proxies serve stale JSON ("not syncing" complaints).
+
+## Service worker vs sibling artifacts
+The halo PWA service worker's navigateFallback will hijack navigations to sibling artifacts (/board, /devportal), serving the cached halo shell — whose desktop-redirect then bounces users to /desktop/. Any new artifact path must be added to navigateFallbackDenylist in artifacts/halo/vite.config.ts AND the desktop-redirect exemption regex in halo main.tsx. main.tsx also has a self-heal (unregister SW + reload, bounded by sessionStorage counter) for devices with a stale SW. Symptom only reproduces on devices with the SW installed — headless curls/screenshots look fine.

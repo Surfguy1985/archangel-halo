@@ -6,6 +6,27 @@ import "./index.css";
 // Desktop visitors on the main URL get the full desktop app at /desktop.
 // Public/shared pages (pay, portal, track, photos, recap) always render here,
 // and ?mobile=1 forces the mobile experience on any screen.
+// Self-heal: if this app's shell was served at /board/* (or /devportal/*), an
+// old installed service worker hijacked a sibling artifact's URL. Unregister
+// the stale SW and reload once so the real page loads from the network.
+(() => {
+  const path = window.location.pathname;
+  if (!/^\/(board|devportal)(\/|$)/.test(path)) return;
+  const flag = "halo_sw_selfheal";
+  const attempts = Number(sessionStorage.getItem(flag) ?? "0");
+  if (attempts >= 2) return; // avoid reload loops, but allow one retry
+  sessionStorage.setItem(flag, String(attempts + 1));
+  const done = () => window.location.reload();
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((rs) => Promise.all(rs.map((r) => r.unregister())))
+      .then(done, done);
+  } else {
+    done();
+  }
+})();
+
 (() => {
   const params = new URLSearchParams(window.location.search);
   if (params.get("mobile") === "1") return;
@@ -14,7 +35,10 @@ import "./index.css";
   if (!isDesktop) return;
   const path = window.location.pathname;
   if (path.startsWith("/desktop")) return;
-  if (/^\/(pay|portal|track|photos|recap|summary|client|dashboard)\//.test(path)) return;
+  // board + devportal belong to sibling artifacts: if we're rendering there, a
+  // stale service worker hijacked the URL and the self-heal above is reloading —
+  // never bounce those to /desktop.
+  if (/^\/(pay|portal|track|photos|recap|summary|client|dashboard|board|devportal)\//.test(path)) return;
   // Only redirect paths that exist in the desktop app; everything else lands on its home.
   const known =
     /^\/(properties|jobs|invoices|money|calendar|crews|wings|pipeline|catalog|supply|vendors|import|jobboard)(\/|$)|^\/$/;
