@@ -147,3 +147,13 @@
 .kanban-lane-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Card snap-in animation after a drag-and-drop move */
+@keyframes card-snap {
+  0% { transform: scale(1.04) translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,0.18); }
+  60% { transform: scale(0.985) translateY(1px); }
+  100% { transform: scale(1) translateY(0); box-shadow: none; }
+}
+.card-snap {
+  animation: card-snap 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}

@@ -22,6 +22,7 @@ export default function KanbanBoard() {
 
   const [loginOpen, setLoginOpen] = useState(false);
   const [draggedCard, setDraggedCard] = useState<string | null>(null);
+  const [dragOverLane, setDragOverLane] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<ClientBoardCardView | null>(null);
   
   const [createLaneKey, setCreateLaneKey] = useState<string | null>(null);
@@ -108,13 +109,22 @@ export default function KanbanBoard() {
     if (el) el.classList.remove('opacity-50');
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, laneKey: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    if (dragOverLane !== laneKey) setDragOverLane(laneKey);
+  };
+
+  const handleDragLeave = (e: React.DragEvent, laneKey: string) => {
+    // Only clear when actually leaving the lane, not entering a child element.
+    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
+      if (dragOverLane === laneKey) setDragOverLane(null);
+    }
   };
 
   const handleDrop = (e: React.DragEvent, laneKey: string) => {
     e.preventDefault();
+    setDragOverLane(null);
     if (!draggedCard || viewer.readOnly) {
       if (viewer.readOnly) {
         toast({
@@ -128,6 +138,18 @@ export default function KanbanBoard() {
 
     const card = cards.find(c => c.cardKey === draggedCard);
     if (!card || card.lane === laneKey) return;
+
+    // Snap-in animation once the card re-renders in its new lane.
+    const movedKey = draggedCard;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`card-${movedKey}`);
+        if (el) {
+          el.classList.add('card-snap');
+          el.addEventListener('animationend', () => el.classList.remove('card-snap'), { once: true });
+        }
+      });
+    });
 
     // Optimistically update
     const previousLane = card.lane;
@@ -298,8 +320,13 @@ export default function KanbanBoard() {
               <div 
                 key={lane.key} 
                 data-testid={`lane-${lane.key}`}
-                className="flex h-full w-[356px] shrink-0 flex-col rounded-xl border bg-secondary/30"
-                onDragOver={handleDragOver}
+                className={`flex h-full w-[356px] shrink-0 flex-col rounded-xl border transition-colors duration-150 ${
+                  dragOverLane === lane.key && draggedCard
+                    ? 'border-primary bg-primary/10 ring-2 ring-primary/40'
+                    : 'bg-secondary/30'
+                }`}
+                onDragOver={(e) => handleDragOver(e, lane.key)}
+                onDragLeave={(e) => handleDragLeave(e, lane.key)}
                 onDrop={(e) => handleDrop(e, lane.key)}
               >
                 <div className="flex items-center justify-between p-3 pb-2">
