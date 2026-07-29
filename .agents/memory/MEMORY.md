@@ -9,6 +9,7 @@
 - [HALO/Falkon palette](halo-brand-palette.md) — light theme, 5-color palette; --gold=dark lime for text, --gold-light=#B4FF44 for buttons w/ black text.
 - [HALO Margin Guardian](halo-margin-guardian.md) — marginPct is a FRACTION (0.25=25%); floor is per-property marginMin (default 0.25) excluding complete/paid/cancelled; surfaces in Today feed + emails.
 - [HALO local date handling](halo-local-date-handling.md) — date-only YYYY-MM-DD values must be built/formatted from LOCAL date parts, never UTC toISOString/new Date("Y-M-D"), or days shift by one.
+- [HALO root desktop redirect](halo-desktop-redirect.md) — root app redirects desktop visitors to /desktop pre-render; public share routes + ?mobile=1 exempt; allowlist in halo main.tsx.
 - [HALO desktop API/asset URLs](halo-desktop-api-urls.md) — desktop BASE_URL is /desktop/; manual /api asset links (storage/PDF) must be absolute /api, never BASE_URL-prefixed; BASE_URL only for in-app route links.
 - [HALO job finance recompute](halo-job-finance.md) — every invoice/payment/expense/crewRate mutation must call recomputeJobFinancials or stored job margins go stale; expenses validate job↔property match.
 - [HALO portal ownership checks](halo-portal-ownership-checks.md) — portal write endpoints must verify referenced entities (e.g. jobId) belong to the crew; no FKs/auth means unchecked refs corrupt data.
