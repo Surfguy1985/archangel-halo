@@ -8808,6 +8808,127 @@ export const GetClientPmBoardResponse = zod.object({
 
 
 /**
+ * @summary The full projected client vendor board for the office — identical shape to the client view
+ */
+export const GetOfficeBoardFullParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const GetOfficeBoardFullResponse = zod.object({
+  "propertyName": zod.string(),
+  "dashboardUrl": zod.string().nullable(),
+  "board": zod.object({
+  "propertyName": zod.string(),
+  "propertyAddress": zod.string().nullish(),
+  "logoUrl": zod.string().nullable(),
+  "servicesOverview": zod.string().nullish(),
+  "businessName": zod.string().nullish(),
+  "viewer": zod.object({
+  "authenticated": zod.boolean(),
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "permissions": zod.array(zod.string()),
+  "readOnly": zod.boolean(),
+  "tourSeen": zod.boolean().optional()
+}),
+  "lanes": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "hint": zod.string().nullish()
+})),
+  "cards": zod.array(zod.object({
+  "cardKey": zod.string(),
+  "template": zod.string(),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "lane": zod.string(),
+  "position": zod.number(),
+  "pipeline": zod.array(zod.string()),
+  "stageIndex": zod.number(),
+  "status": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "priority": zod.string().nullish(),
+  "dueOn": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "crew": zod.union([zod.object({
+  "name": zod.string(),
+  "trade": zod.string().nullish(),
+  "selfieUrl": zod.string().nullish(),
+  "onSite": zod.boolean().optional(),
+  "lastSeenAt": zod.string().nullish()
+}),zod.null()]).optional(),
+  "trackerUrl": zod.string().nullish(),
+  "payUrl": zod.string().nullish(),
+  "photos": zod.array(zod.object({
+  "url": zod.string(),
+  "phase": zod.string().nullish(),
+  "note": zod.string().nullish()
+})),
+  "actions": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "kind": zod.enum(['primary', 'secondary', 'link']),
+  "href": zod.string().nullish()
+})),
+  "editable": zod.boolean(),
+  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Interactive module payload for cards pushed from the office (invoice pay\/approve, tracker GPS, flagged items, referral)'),
+  "updatedAt": zod.string().nullish(),
+  "snoozedUntil": zod.string().nullish(),
+  "labels": zod.array(zod.string()).optional(),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})).optional(),
+  "commentCount": zod.number().optional(),
+  "sentToOffice": zod.union([zod.object({
+  "sentAt": zod.string(),
+  "status": zod.string().describe('pending | accepted | declined'),
+  "note": zod.string().nullish().describe('Office response note')
+}),zod.null()]).optional()
+})),
+  "audit": zod.array(zod.object({
+  "action": zod.string(),
+  "cardKey": zod.string().nullish(),
+  "actorName": zod.string().nullish(),
+  "actorRole": zod.string().nullish(),
+  "ok": zod.boolean(),
+  "blocked": zod.boolean(),
+  "reason": zod.string().nullish(),
+  "createdAt": zod.string()
+}))
+})
+})
+
+
+/**
+ * @summary AI builds an interactive board card from live HALO data (invoices, pay links, crews, jobs, bids)
+ */
+export const CreateClientBoardAiCardParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const createClientBoardAiCardBodyPromptMax = 600;
+
+
+
+export const CreateClientBoardAiCardBody = zod.object({
+  "prompt": zod.string().min(1).max(createClientBoardAiCardBodyPromptMax)
+})
+
+export const CreateClientBoardAiCardResponse = zod.object({
+  "cardId": zod.string(),
+  "title": zod.string(),
+  "kind": zod.string()
+})
+
+
+/**
  * @summary Client adds their own custom card to the board
  */
 export const CreateClientBoardCardParams = zod.object({

@@ -3,22 +3,24 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useCreateClientBoardCard, getGetClientPmBoardQueryKey } from '@workspace/api-client-react';
+import { useCreateClientBoardCard, getGetClientBoardQueryKey, getGetClientPmBoardQueryKey } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { PmTemplate, PM_CATEGORY_COLORS } from './pm-templates';
+import { AppleTemplate, APPLE_CATEGORY_COLORS } from './templates';
 import { X, ArrowLeft } from 'lucide-react';
 
-interface PmCardFormProps {
+interface AppleCardFormProps {
   token: string;
-  template: PmTemplate | null;
+  template: AppleTemplate | null;
   open: boolean;
   onClose: () => void;
   onBack: () => void;
   defaultLane?: string;
+  availableLanes: { key: string; label: string }[];
+  boardKey?: string; // 'pm' or undefined for vendor
 }
 
-export function PmCardForm({ token, template, open, onClose, onBack, defaultLane = 'todo' }: PmCardFormProps) {
+export function AppleCardForm({ token, template, open, onClose, onBack, defaultLane = 'todo', availableLanes, boardKey }: AppleCardFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createCard = useCreateClientBoardCard();
@@ -58,7 +60,7 @@ export function PmCardForm({ token, template, open, onClose, onBack, defaultLane
     mutateFnRef.current({
       token,
       data: {
-        board: 'pm',
+        board: boardKey, // Will be 'pm' or undefined
         title,
         lane,
         template: template.key,
@@ -72,7 +74,11 @@ export function PmCardForm({ token, template, open, onClose, onBack, defaultLane
     }, {
       onSuccess: () => {
         toast({ title: "Card created" });
-        queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
+        if (boardKey === 'pm') {
+          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
+        } else {
+          queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+        }
         onClose();
       },
       onError: () => {
@@ -84,7 +90,7 @@ export function PmCardForm({ token, template, open, onClose, onBack, defaultLane
   if (!template) return null;
 
   const Icon = template.icon;
-  const color = PM_CATEGORY_COLORS[template.category];
+  const color = APPLE_CATEGORY_COLORS[template.category] || APPLE_CATEGORY_COLORS.blank;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -157,10 +163,9 @@ export function PmCardForm({ token, template, open, onClose, onBack, defaultLane
                   onChange={(e) => setLane(e.target.value)}
                   className="h-11 rounded-[10px] border border-black/[0.12] bg-white px-3 text-[15px] font-normal focus:outline-none focus:ring-1 focus:ring-[#007AFF] focus:border-[#007AFF]"
                 >
-                  <option value="planning">Planning</option>
-                  <option value="todo">To Do</option>
-                  <option value="doing">In Progress</option>
-                  <option value="done">Done</option>
+                  {availableLanes.map(l => (
+                    <option key={l.key} value={l.key}>{l.label}</option>
+                  ))}
                 </select>
               </div>
 

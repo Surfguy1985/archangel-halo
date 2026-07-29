@@ -1,20 +1,35 @@
 import React from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { PM_TEMPLATES, PM_CATEGORY_COLORS, PmTemplate } from './pm-templates';
+import { motion, AnimatePresence } from 'framer-motion';
+import { APPLE_CATEGORY_COLORS, AppleTemplate } from './templates';
 import { X } from 'lucide-react';
 
-interface PmTemplateGalleryProps {
+interface AppleTemplateGalleryProps {
   open: boolean;
   onClose: () => void;
-  onSelectTemplate: (template: PmTemplate) => void;
+  onSelectTemplate: (template: AppleTemplate) => void;
+  templates: AppleTemplate[];
 }
 
-export function PmTemplateGallery({ open, onClose, onSelectTemplate }: PmTemplateGalleryProps) {
+export function AppleTemplateGallery({ open, onClose, onSelectTemplate, templates }: AppleTemplateGalleryProps) {
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-3xl max-h-[85vh] p-0 overflow-hidden bg-[#fafafa] border-0 shadow-[0_20px_60px_rgba(0,0,0,0.12)] rounded-[24px]">
-        <div className="flex flex-col h-full max-h-[85vh]">
-          {/* Header */}
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="relative z-10 w-full max-w-3xl bg-[#fafafa] shadow-[0_20px_60px_rgba(0,0,0,0.12)] rounded-[24px] overflow-hidden m-4 max-h-[85vh] flex flex-col"
+          >
+            {/* Header */}
           <div className="px-8 pt-8 pb-6 shrink-0 border-b border-black/[0.06]">
             <div className="flex items-start justify-between">
               <div>
@@ -37,9 +52,9 @@ export function PmTemplateGallery({ open, onClose, onSelectTemplate }: PmTemplat
           {/* Template Grid */}
           <div className="flex-1 overflow-y-auto px-8 py-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {PM_TEMPLATES.map((template) => {
+              {templates.map((template) => {
                 const Icon = template.icon;
-                const color = PM_CATEGORY_COLORS[template.category];
+                const color = APPLE_CATEGORY_COLORS[template.category];
                 
                 return (
                   <button
@@ -66,8 +81,9 @@ export function PmTemplateGallery({ open, onClose, onSelectTemplate }: PmTemplat
               })}
             </div>
           </div>
+          </motion.div>
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+    </AnimatePresence>
   );
 }

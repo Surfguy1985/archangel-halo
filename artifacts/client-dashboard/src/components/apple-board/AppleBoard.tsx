@@ -1,48 +1,83 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useGetClientPmBoard, useDispatchClientBoardAction, ClientBoardCardView, getGetClientPmBoardQueryKey } from '@workspace/api-client-react';
+import { 
+  useGetClientPmBoard, 
+  useGetClientBoard,
+  useDispatchClientBoardAction, 
+  useCreateClientBoardAiCard,
+  ClientBoardCardView, 
+  getGetClientPmBoardQueryKey,
+  getGetClientBoardQueryKey
+} from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-import { PmCard } from './PmCard';
-import { PmTemplateGallery } from './PmTemplateGallery';
-import { PmCardForm } from './PmCardForm';
-import { PmTemplate } from './pm-templates';
-import { Plus, Loader2 } from 'lucide-react';
+import { AppleCard } from './AppleCard';
+import { AppleTemplateGallery } from './AppleTemplateGallery';
+import { AppleCardForm } from './AppleCardForm';
+import { PM_TEMPLATES, VENDOR_TEMPLATES, AppleTemplate } from './templates';
+import { Plus, Loader2, Sparkles, Map as MapIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CardDetailPanel } from '@/components/CardDetailPanel';
+import { BirdseyeMapDialog } from '@/components/BirdseyeMapDialog';
 
-interface PropertyManagementBoardProps {
+interface AppleBoardProps {
   token: string;
-  viewer: { readOnly: boolean; authenticated: boolean };
+  viewer: { readOnly: boolean; authenticated: boolean; permissions?: string[] };
+  boardKey?: 'pm';
   onLoginRequired: () => void;
+  onOpenBirdseye?: () => void;
 }
 
-const PM_LANES = [
-  { key: 'planning', label: 'Planning', color: '#8E8E93', description: 'Ideas and future tasks' },
-  { key: 'todo', label: 'To Do', color: '#007AFF', description: 'Ready to start' },
-  { key: 'doing', label: 'In Progress', color: '#FF9500', description: 'Currently working on' },
-  { key: 'done', label: 'Done', color: '#34C759', description: 'Completed' },
-];
+const DEFAULT_LANE_COLORS: Record<string, string> = {
+  planning: '#8E8E93',
+  todo: '#007AFF',
+  doing: '#FF9500',
+  done: '#34C759',
+  inbox: '#AF52DE',
+  requested: '#FF3B30',
+  scheduled: '#5856D6',
+  in_progress: '#FF9500',
+  billing: '#8E8E93',
+};
 
-export function PropertyManagementBoard({ token, viewer, onLoginRequired }: PropertyManagementBoardProps) {
+export function AppleBoard({ token, viewer, boardKey, onLoginRequired, onOpenBirdseye }: AppleBoardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: board, isLoading } = useGetClientPmBoard(token, {
+  const isPm = boardKey === 'pm';
+
+  const pmQuery = useGetClientPmBoard(token, {
     query: {
       queryKey: getGetClientPmBoardQueryKey(token),
       refetchInterval: 4000,
+      enabled: isPm,
     }
   });
 
+  const vendorQuery = useGetClientBoard(token, {
+    query: {
+      queryKey: getGetClientBoardQueryKey(token),
+      refetchInterval: 4000,
+      enabled: !isPm,
+    }
+  });
+
+  const boardQuery = isPm ? pmQuery : vendorQuery;
+  const board = boardQuery.data;
+  const isLoading = boardQuery.isLoading;
+
   const dispatchAction = useDispatchClientBoardAction();
+  const createAiCard = useCreateClientBoardAiCard();
 
   const [draggedCard, setDraggedCard] = useState<string | null>(null);
   const [dragOverLane, setDragOverLane] = useState<string | null>(null);
   const [templateGalleryOpen, setTemplateGalleryOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<PmTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<AppleTemplate | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [defaultLane, setDefaultLane] = useState('todo');
   const [detailCard, setDetailCard] = useState<ClientBoardCardView | null>(null);
+
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isAiFocused, setIsAiFocused] = useState(false);
 
   const boardScrollRef = useRef<HTMLElement | null>(null);
   const autoScrollPoint = useRef<{ x: number; y: number } | null>(null);
@@ -91,7 +126,7 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
       }
       const laneScroll = document
         .elementFromPoint(p.x, p.y)
-        ?.closest('.pm-lane-scroll') as HTMLElement | null;
+        ?.closest('.apple-lane-scroll') as HTMLElement | null;
       if (laneScroll) {
         const r = laneScroll.getBoundingClientRect();
         if (p.y < r.top + EDGE) laneScroll.scrollTop -= speedFor(p.y - r.top);
@@ -149,6 +184,19 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
       }
       return;
     }
+    
+    if (!isPm && laneKey === 'done') {
+      const card = board?.cards?.find(c => c.cardKey === draggedCard);
+      if (card && (card.template === 'job' || card.template === 'invoice' || card.template === 'request')) {
+         toast({
+           title: "Cannot move to Done",
+           description: "This card must be completed by the office.",
+           variant: "destructive"
+         });
+         return;
+      }
+    }
+    
     moveCard(draggedCard, laneKey, computeDropIndex(laneKey, e.clientY, draggedCard));
   };
 
@@ -190,13 +238,15 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
 
     const previousCards = cards.map(c => ({ ...c }));
     const revert = () => {
-      queryClient.setQueryData(getGetClientPmBoardQueryKey(token), (old: any) => {
+      const qKey = isPm ? getGetClientPmBoardQueryKey(token) : getGetClientBoardQueryKey(token);
+      queryClient.setQueryData(qKey, (old: any) => {
         if (!old) return old;
         return { ...old, cards: previousCards };
       });
     };
 
-    queryClient.setQueryData(getGetClientPmBoardQueryKey(token), (old: any) => {
+    const qKey = isPm ? getGetClientPmBoardQueryKey(token) : getGetClientBoardQueryKey(token);
+    queryClient.setQueryData(qKey, (old: any) => {
       if (!old) return old;
       return {
         ...old,
@@ -226,7 +276,7 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
             variant: "destructive"
           });
         } else {
-          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: qKey });
         }
       },
       onError: () => {
@@ -269,9 +319,16 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
       if (!drop) return;
       const laneEl = document
         .elementFromPoint(clientX, clientY)
-        ?.closest('[data-pm-lane-key]') as HTMLElement | null;
-      const laneKey = laneEl?.dataset.pmLaneKey;
+        ?.closest('[data-apple-lane-key]') as HTMLElement | null;
+      const laneKey = laneEl?.dataset.appleLaneKey;
       if (laneKey) {
+        if (!isPm && laneKey === 'done') {
+          const c = board?.cards?.find(x => x.cardKey === s.cardKey);
+          if (c && (c.template === 'job' || c.template === 'invoice' || c.template === 'request')) {
+             toast({ title: "Cannot move to Done", description: "This card must be completed by the office.", variant: "destructive" });
+             return;
+          }
+        }
         moveCardRef.current(s.cardKey, laneKey, dropIndexRef.current(laneKey, clientY, s.cardKey));
       }
     };
@@ -296,8 +353,8 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
       }
       const laneEl = document
         .elementFromPoint(t.clientX, t.clientY)
-        ?.closest('[data-pm-lane-key]') as HTMLElement | null;
-      setDragOverLane(laneEl?.dataset.pmLaneKey ?? null);
+        ?.closest('[data-apple-lane-key]') as HTMLElement | null;
+      setDragOverLane(laneEl?.dataset.appleLaneKey ?? null);
     };
 
     const onEnd = (ev: TouchEvent) => {
@@ -368,7 +425,7 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
     };
   };
 
-  const handleSelectTemplate = (template: PmTemplate) => {
+  const handleSelectTemplate = (template: AppleTemplate) => {
     setSelectedTemplate(template);
     setTemplateGalleryOpen(false);
     setFormOpen(true);
@@ -389,8 +446,35 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
       onLoginRequired();
       return;
     }
-    setDefaultLane(laneKey || 'todo');
+    setDefaultLane(laneKey || (isPm ? 'todo' : 'requested'));
     setTemplateGalleryOpen(true);
+  };
+
+  const submitAiCard = (prompt: string) => {
+    if (viewer.readOnly) {
+      toast({ title: "Sign in required", description: "You are viewing as a guest.", variant: "destructive" });
+      return;
+    }
+    if (!prompt.trim()) return;
+
+    createAiCard.mutate(
+      { token, data: { prompt } },
+      {
+        onSuccess: () => {
+          toast({ title: "Card created" });
+          queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          setAiPrompt('');
+          setIsAiFocused(false);
+        },
+        onError: (err: any) => {
+          if (err.status === 403) {
+            toast({ title: "Access Denied", description: "Read-only viewers cannot create cards.", variant: "destructive" });
+          } else {
+            toast({ title: "Error", description: "HALO couldn't build this card right now.", variant: "destructive" });
+          }
+        }
+      }
+    );
   };
 
   if (isLoading) {
@@ -402,17 +486,100 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
   }
 
   const cards = board?.cards || [];
+  const lanes = board?.lanes || [];
   const hasCards = cards.length > 0;
+  
+  const templates = isPm ? PM_TEMPLATES : VENDOR_TEMPLATES;
+  
+  const title = isPm ? "Your property board" : "Archangel Operations";
+  const desc = isPm 
+    ? "Create cards from templates to organize work orders, leases, inspections, and more."
+    : "Review service updates, invoices, quotes, and live tracker links.";
 
   return (
-    <>
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-[#fafafa]">
+      {/* Optional AI Composer Header for Vendor Tab */}
+      {!isPm && (
+        <div className="px-6 py-4 border-b border-black/[0.06] bg-white shrink-0 flex items-center justify-between">
+          <div className="flex-1 max-w-2xl relative">
+            <div className={`flex items-center bg-[#f5f5f7] rounded-[14px] border transition-all duration-200 ${isAiFocused ? 'border-[#007AFF] shadow-sm bg-white' : 'border-transparent'}`}>
+              <div className="pl-4">
+                 {createAiCard.isPending ? <Loader2 className="h-5 w-5 text-[#007AFF] animate-spin" /> : <Sparkles className="h-5 w-5 text-[#007AFF]" />}
+              </div>
+              <input 
+                type="text" 
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                onFocus={() => setIsAiFocused(true)}
+                onBlur={() => setTimeout(() => setIsAiFocused(false), 200)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    submitAiCard(aiPrompt);
+                  }
+                }}
+                disabled={createAiCard.isPending}
+                placeholder={createAiCard.isPending ? "HALO is building your card..." : "Ask HALO to build a card..."}
+                className="flex-1 h-12 bg-transparent text-[15px] px-3 font-medium text-[#1d1d1f] placeholder:text-[#6e6e73] focus:outline-none disabled:opacity-50"
+              />
+              <button 
+                disabled={createAiCard.isPending || !aiPrompt.trim()}
+                onClick={() => submitAiCard(aiPrompt)}
+                className="h-8 px-4 mr-2 bg-[#007AFF] text-white text-[13px] font-semibold rounded-[8px] hover:bg-[#0051D5] transition-colors disabled:opacity-50"
+              >
+                Send
+              </button>
+            </div>
+            
+            <AnimatePresence>
+              {isAiFocused && !aiPrompt && !createAiCard.isPending && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -5 }} 
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="absolute top-full left-0 mt-2 flex flex-wrap gap-2 z-10"
+                >
+                  {["All my unpaid invoices", "Who's on site right now?", "Progress on my active job"].map((prompt, i) => (
+                    <button 
+                      key={i} 
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        submitAiCard(prompt);
+                      }}
+                      className="text-[12px] font-medium bg-white border border-black/[0.06] text-[#6e6e73] hover:text-[#1d1d1f] hover:border-black/[0.12] px-3 py-1.5 rounded-full shadow-sm"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          
+          <div className="flex gap-3">
+            {onOpenBirdseye && (
+              <button
+                onClick={onOpenBirdseye}
+                className="flex items-center gap-1.5 h-12 px-4 rounded-[14px] bg-white border border-black/[0.06] text-[#1d1d1f] text-[14px] font-semibold hover:border-black/[0.12] hover:shadow-sm transition-all"
+              >
+                <MapIcon className="h-4.5 w-4.5 text-[#007AFF]" />
+                Live Map
+              </button>
+            )}
+            <button
+              onClick={() => handleNewCard()}
+              className="flex items-center gap-1.5 h-12 px-4 rounded-[14px] bg-[#007AFF] text-white text-[14px] font-semibold hover:bg-[#0051D5] shadow-sm hover:shadow-md transition-all active:scale-[0.98]"
+            >
+              <Plus className="h-4.5 w-4.5" />
+              New Card
+            </button>
+          </div>
+        </div>
+      )}
+
       <main
         ref={boardScrollRef}
         className="flex-1 flex overflow-x-auto p-6 gap-4 bg-[#fafafa]"
-        style={{
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-        }}
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {!hasCards && (
           <motion.div
@@ -424,10 +591,10 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
               <Plus className="h-10 w-10 text-[#007AFF]" strokeWidth={2.5} />
             </div>
             <h2 className="text-[28px] font-semibold text-[#1d1d1f] tracking-[-0.02em] mb-3">
-              Your property board
+              {title}
             </h2>
             <p className="text-[17px] text-[#6e6e73] leading-[1.4] mb-8">
-              Create cards from templates to organize work orders, leases, inspections, and more.
+              {desc}
             </p>
             <button
               onClick={() => handleNewCard()}
@@ -438,16 +605,18 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
           </motion.div>
         )}
 
-        {hasCards && PM_LANES.map((lane) => {
+        {hasCards && lanes.map((lane: { key: string; label: string; description?: string }) => {
           const laneCards = cards
             .filter(c => c.lane === lane.key)
             .sort((a, b) => (a.position || 0) - (b.position || 0));
           const isOver = dragOverLane === lane.key;
+          const color = DEFAULT_LANE_COLORS[lane.key] || '#8E8E93';
 
           return (
             <div
               key={lane.key}
-              data-pm-lane-key={lane.key}
+              data-apple-lane-key={lane.key}
+              data-testid={`lane-${lane.key}`}
               className={`flex shrink-0 flex-col w-[340px] rounded-[20px] transition-all ${
                 isOver ? 'ring-2 ring-[#007AFF] ring-offset-2 ring-offset-[#fafafa]' : ''
               }`}
@@ -458,10 +627,7 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
               {/* Lane Header */}
               <div className="flex flex-col gap-2 px-4 py-3 mb-3">
                 <div className="flex items-center gap-2">
-                  <div
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: lane.color }}
-                  />
+                  <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
                   <h2 className="text-[13px] font-semibold text-[#1d1d1f] tracking-wide uppercase">
                     {lane.label}
                   </h2>
@@ -476,16 +642,15 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
                     <Plus className="h-4 w-4 text-[#6e6e73]" strokeWidth={2.5} />
                   </button>
                 </div>
-                <p className="text-[11px] text-[#6e6e73] font-normal">{lane.description}</p>
+                {lane.description && (
+                  <p className="text-[11px] text-[#6e6e73] font-normal">{lane.description}</p>
+                )}
               </div>
 
               {/* Cards */}
               <div
-                className="flex-1 overflow-y-auto pm-lane-scroll px-4 flex flex-col gap-3 min-h-[200px] pb-4"
-                style={{
-                  scrollbarWidth: 'none',
-                  msOverflowStyle: 'none',
-                }}
+                className="flex-1 overflow-y-auto apple-lane-scroll px-4 flex flex-col gap-3 min-h-[200px] pb-4"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
                 <AnimatePresence>
                   {laneCards.map((card) => (
@@ -498,8 +663,9 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
                       onTouchStart={(e) => handleTouchStart(e, card.cardKey)}
                       onClick={() => { if (!draggedCard) setDetailCard(card); }}
                     >
-                      <PmCard
+                      <AppleCard
                         card={card}
+                        token={token}
                         readOnly={viewer.readOnly}
                         onDragStart={(e) => handleDragStart(e, card.cardKey)}
                         onDragEnd={(e) => handleDragEnd(e, card.cardKey)}
@@ -510,9 +676,7 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
 
                 {laneCards.length === 0 && (
                   <div className="flex-1 flex items-center justify-center border-2 border-dashed border-black/[0.06] rounded-[18px] min-h-[120px]">
-                    <p className="text-[13px] text-[#6e6e73] font-normal">
-                      Drop cards here
-                    </p>
+                    <p className="text-[13px] text-[#6e6e73] font-normal">Drop cards here</p>
                   </div>
                 )}
               </div>
@@ -521,19 +685,22 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
         })}
       </main>
 
-      <PmTemplateGallery
+      <AppleTemplateGallery
         open={templateGalleryOpen}
         onClose={() => setTemplateGalleryOpen(false)}
         onSelectTemplate={handleSelectTemplate}
+        templates={templates}
       />
 
-      <PmCardForm
+      <AppleCardForm
         token={token}
         template={selectedTemplate}
         open={formOpen}
         onClose={handleFormClose}
         onBack={handleFormBack}
         defaultLane={defaultLane}
+        availableLanes={lanes}
+        boardKey={boardKey}
       />
 
       {detailCard && (
@@ -544,6 +711,6 @@ export function PropertyManagementBoard({ token, viewer, onLoginRequired }: Prop
           onClose={() => setDetailCard(null)}
         />
       )}
-    </>
+    </div>
   );
 }

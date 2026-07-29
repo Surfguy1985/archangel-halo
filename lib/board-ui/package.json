@@ -1,0 +1,19 @@
+{
+  "name": "@workspace/board-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "framer-motion": "catalog:",
+    "lucide-react": "catalog:",
+    "date-fns": "catalog:",
+    "@workspace/api-client-react": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  }
+}

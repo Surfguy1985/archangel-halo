@@ -42,6 +42,18 @@ import {
   GetClientBoardKpisResponse,
 } from "@workspace/api-zod";
 import { effectivePermissions } from "./clientAccess";
+import { completeJson } from "../lib/ai";
+import { raiseClientCard } from "../lib/clientBoard";
+import {
+  buildCrewMapModule,
+  buildInvoiceModule,
+  buildInvoiceBatchModule,
+  buildBidModule,
+  buildTrackerModule,
+  buildFlagsModule,
+  buildSummaryModule,
+} from "../lib/cardModules";
+import { bidsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -750,6 +762,167 @@ async function projectPmBoard(account: typeof clientAccountsTable.$inferSelect) 
   return cards;
 }
 
+// ---------------------------------------------------------------------------
+// AI card builder — the client asks in plain language, the AI picks the right
+// interactive card kind + real HALO entities, and the SERVER builds the module
+// deterministically (AI never invents amounts, links, or ids).
+// ---------------------------------------------------------------------------
+router.post("/client/:token/board/ai-card", async (req, res): Promise<void> => {
+  const prompt = typeof req.body?.prompt === "string" ? req.body.prompt.trim() : "";
+  if (!prompt || prompt.length > 600) {
+    res.status(400).json({ error: "Tell HALO what card to build (up to 600 characters)" });
+    return;
+  }
+  const account = await accountByToken(String(req.params.token));
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const viewer = await resolveViewer(req, account.propertyId);
+  const denied = requireWriter(viewer);
+  if (denied) {
+    res.status(403).json({ error: denied });
+    return;
+  }
+  const propertyId = account.propertyId;
+  const [prop] = await db
+    .select()
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, propertyId))
+    .limit(1);
+  if (!prop) {
+    res.status(404).json({ error: "Property not found" });
+    return;
+  }
+  const [invoices, jobs, bids] = await Promise.all([
+    db.select().from(invoicesTable).where(eq(invoicesTable.propertyId, propertyId)),
+    db.select().from(jobsTable).where(eq(jobsTable.propertyId, propertyId)),
+    db.select().from(bidsTable).where(eq(bidsTable.propertyId, propertyId)),
+  ]);
+  const openInvoices = invoices.filter((i) => i.status !== "cancelled");
+  const activeJobs = jobs.filter((j) => !j.clearedAt);
+  const snapshot = {
+    property: { name: prop.name, address: prop.address ?? null },
+    invoices: openInvoices.slice(0, 40).map((i) => ({
+      id: i.id,
+      invoiceNo: i.invoiceNo,
+      amount: i.amount,
+      status: i.status,
+      dueDate: i.dueAt ? i.dueAt.toISOString().slice(0, 10) : null,
+    })),
+    jobs: activeJobs.slice(0, 30).map((j) => ({
+      id: j.id,
+      title: j.description ?? j.jobNo,
+      status: j.status,
+      scheduledOn: j.scheduledOn ?? null,
+    })),
+    bids: bids.slice(0, 20).map((b) => ({
+      id: b.id,
+      bidNo: b.bidNo,
+      title: b.scope ?? b.bidNo,
+      amount: b.amount,
+      status: b.status,
+    })),
+  };
+  type AiPick = {
+    kind: string;
+    title?: string;
+    body?: string;
+    invoiceIds?: string[];
+    bidId?: string;
+    jobId?: string;
+    actionLabel?: string;
+  };
+  let pick: AiPick;
+  try {
+    pick = await completeJson<AiPick>(
+      `You compose ONE interactive card for a property client's board from live HALO data. Pick the best kind for the request:
+- "crewmap": live crews on site / who's working / where (also covers addresses & site activity)
+- "invoice": ONE specific invoice (set invoiceIds to exactly that id)
+- "invoice_batch": several invoices / "all my invoices" / balances due (set invoiceIds)
+- "bid": a bid/proposal (set bidId)
+- "tracker": live progress of ONE job (set jobId)
+- "flag": items flagged for attention across units
+- "summary": recap of a completed job (set jobId)
+- "note": anything else — plain informational card (put content in body)
+Use ONLY ids present in the data. Title ≤ 60 chars, client-friendly. Body: 1-2 sentences referencing real facts (amounts in dollars, the address, dates). Return JSON: {"kind","title","body","invoiceIds","bidId","jobId","actionLabel"}.`,
+      `Client request: ${JSON.stringify(prompt)}\n\nLive HALO data for ${prop.name}:\n${JSON.stringify(snapshot)}`,
+      1500,
+    );
+  } catch {
+    res.status(502).json({ error: "HALO couldn't compose that card — try rephrasing" });
+    return;
+  }
+  const title = (pick.title ?? "").trim().slice(0, 80) || "From HALO";
+  const bodyText = (pick.body ?? "").trim().slice(0, 500) || null;
+  const invoiceIds = (pick.invoiceIds ?? []).filter((x) => invoices.some((i) => i.id === x));
+  const jobOk = pick.jobId && jobs.some((j) => j.id === pick.jobId);
+  const bidOk = pick.bidId && bids.some((b) => b.id === pick.bidId);
+  // Build the module deterministically from validated ids only.
+  let module: Record<string, unknown> | null = null;
+  let cardKind: "invoice" | "tracker" | "flag" | "summary" | "manual" = "manual";
+  let sourceType = "ai";
+  let sourceId = `ai:${Date.now()}`;
+  try {
+    if (pick.kind === "crewmap") {
+      module = await buildCrewMapModule(propertyId);
+      cardKind = "tracker";
+      sourceType = "crewmap";
+      sourceId = propertyId;
+    } else if (pick.kind === "invoice" && invoiceIds.length === 1) {
+      module = await buildInvoiceModule(propertyId, invoiceIds[0]!);
+      cardKind = "invoice";
+      sourceType = "invoice";
+      sourceId = invoiceIds[0]!;
+    } else if ((pick.kind === "invoice_batch" || pick.kind === "invoice") && invoiceIds.length > 0) {
+      module = await buildInvoiceBatchModule(propertyId, invoiceIds);
+      cardKind = "invoice";
+      sourceType = "invoice_batch";
+      sourceId = createHmac("sha1", "ai").update([...invoiceIds].sort().join(",")).digest("hex").slice(0, 32);
+    } else if (pick.kind === "bid" && bidOk) {
+      module = await buildBidModule(propertyId, pick.bidId!);
+      sourceType = "bid";
+      sourceId = pick.bidId!;
+    } else if (pick.kind === "tracker" && jobOk) {
+      module = await buildTrackerModule(propertyId, pick.jobId!);
+      cardKind = "tracker";
+      sourceType = "tracker";
+      sourceId = pick.jobId!;
+    } else if (pick.kind === "flag") {
+      module = await buildFlagsModule(propertyId);
+      cardKind = "flag";
+      sourceType = "flag";
+      sourceId = propertyId;
+    } else if (pick.kind === "summary" && jobOk) {
+      module = await buildSummaryModule(propertyId, pick.jobId!);
+      cardKind = "summary";
+      sourceType = "summary";
+      sourceId = pick.jobId!;
+    }
+  } catch {
+    module = null;
+  }
+  const card = await raiseClientCard({
+    propertyId,
+    kind: cardKind,
+    module,
+    title,
+    body: bodyText,
+    actionLabel: (pick.actionLabel ?? "").trim().slice(0, 40) || null,
+    amount: null,
+    dueDate: null,
+    links: [],
+    sourceType,
+    sourceId,
+    jobId: jobOk ? pick.jobId! : null,
+  });
+  if (!card) {
+    res.status(400).json({ error: "Couldn't create the card" });
+    return;
+  }
+  res.status(201).json({ cardId: card.id, title: card.title, kind: card.kind });
+});
+
 router.get(["/client/:token/board", "/client/:token/board/pm"], async (req, res): Promise<void> => {
   const account = await accountByToken(String(req.params.token));
   if (!account) {
@@ -795,6 +968,77 @@ router.get(["/client/:token/board", "/client/:token/board/pm"], async (req, res)
       })),
     }),
   );
+});
+
+// ---------------------------------------------------------------------------
+// Office full board — the SAME projected vendor board the client sees, served
+// to the admin apps so the office view is pixel-identical and always in sync.
+// ---------------------------------------------------------------------------
+router.get("/admin/accounts/:propertyId/board/full", async (req, res): Promise<void> => {
+  const propertyId = String(req.params.propertyId);
+  const [account] = await db
+    .select()
+    .from(clientAccountsTable)
+    .where(eq(clientAccountsTable.propertyId, propertyId))
+    .limit(1);
+  if (!account) {
+    res.status(404).json({ error: "No client account for this property yet" });
+    return;
+  }
+  const [prop] = await db
+    .select()
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, propertyId))
+    .limit(1);
+  const [biz] = await db.select().from(businessSettingsTable).limit(1);
+  const [cards, audit] = await Promise.all([
+    projectBoard(account),
+    db
+      .select()
+      .from(clientDashboardActionsTable)
+      .where(eq(clientDashboardActionsTable.propertyId, propertyId))
+      .orderBy(desc(clientDashboardActionsTable.createdAt))
+      .limit(20),
+  ]);
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0] ?? process.env.REPLIT_DEV_DOMAIN;
+  const dashboardUrl =
+    account.status === "active"
+      ? domain
+        ? `https://${domain}/board/${account.dashboardToken}`
+        : `/board/${account.dashboardToken}`
+      : null;
+  res.json({
+    propertyName: prop?.name ?? "Property",
+    dashboardUrl,
+    board: {
+      propertyName: prop?.name ?? "Your property",
+      propertyAddress: prop?.address ?? null,
+      logoUrl: account.logoPath ? storageUrl(account.logoPath) : null,
+      servicesOverview: account.servicesOverview ?? null,
+      businessName: biz?.companyName ?? null,
+      viewer: {
+        authenticated: true,
+        name: "Archangel Office",
+        email: null,
+        role: "office",
+        permissions: [],
+        readOnly: false,
+        tourSeen: true,
+      },
+      lanes: LANES,
+      cards,
+      audit: audit.map((a) => ({
+        action: a.action,
+        cardKey: a.cardKey,
+        actorName: a.actorName,
+        actorRole: a.actorRole,
+        ok: a.ok,
+        blocked: a.blocked,
+        reason: a.reason,
+        createdAt: a.createdAt.toISOString(),
+      })),
+    },
+  });
 });
 
 // ---------------------------------------------------------------------------

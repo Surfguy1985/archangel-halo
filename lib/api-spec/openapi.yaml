@@ -6612,6 +6612,66 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/accounts/{propertyId}/board/full:
+    get:
+      operationId: getOfficeBoardFull
+      tags: [admin]
+      summary: The full projected client vendor board for the office — identical shape to the client view
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Full board
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeBoardFullRec"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/ai-card:
+    post:
+      operationId: createClientBoardAiCard
+      tags: [admin]
+      summary: AI builds an interactive board card from live HALO data (invoices, pay links, crews, jobs, bids)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientAiCardInput"
+      responses:
+        "201":
+          description: Card created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientAiCardRec"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /client/{token}/board/cards:
     post:
       operationId: createClientBoardCard
@@ -12261,6 +12321,28 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ClientBoardAuditEntry"
+
+    OfficeBoardFullRec:
+      type: object
+      required: [propertyName, dashboardUrl, board]
+      properties:
+        propertyName: { type: string }
+        dashboardUrl: { type: string, nullable: true }
+        board:
+          $ref: "#/components/schemas/ClientBoardView"
+
+    ClientAiCardInput:
+      type: object
+      required: [prompt]
+      properties:
+        prompt: { type: string, minLength: 1, maxLength: 600 }
+    ClientAiCardRec:
+      type: object
+      required: [cardId, title, kind]
+      properties:
+        cardId: { type: string }
+        title: { type: string }
+        kind: { type: string }
 
     ClientBoardCardInput:
       type: object

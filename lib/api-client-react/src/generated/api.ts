@@ -73,6 +73,8 @@ import type {
   ClientAccountRec,
   ClientAccountSummary,
   ClientAccountUpsert,
+  ClientAiCardInput,
+  ClientAiCardRec,
   ClientBillingUpdateInput,
   ClientBillingView,
   ClientBoardActionInput,
@@ -217,6 +219,7 @@ import type {
   MoneySummary,
   NewCalendarEvent,
   Notification,
+  OfficeBoardFullRec,
   OfficeClientBoardCardEditInput,
   OfficeClientBoardCardInput,
   OfficeClientBoardView,
@@ -20988,6 +20991,155 @@ export function useGetClientPmBoard<TData = Awaited<ReturnType<typeof getClientP
 
 
 
+
+export const getGetOfficeBoardFullUrl = (propertyId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/full`
+}
+
+/**
+ * @summary The full projected client vendor board for the office — identical shape to the client view
+ */
+export const getOfficeBoardFull = async (propertyId: string, options?: RequestInit): Promise<OfficeBoardFullRec> => {
+
+  return customFetch<OfficeBoardFullRec>(getGetOfficeBoardFullUrl(propertyId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOfficeBoardFullQueryKey = (propertyId: string,) => {
+    return [
+    `/api/admin/accounts/${propertyId}/board/full`
+    ] as const;
+    }
+
+
+export const getGetOfficeBoardFullQueryOptions = <TData = Awaited<ReturnType<typeof getOfficeBoardFull>>, TError = ErrorType<Error>>(propertyId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeBoardFull>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOfficeBoardFullQueryKey(propertyId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOfficeBoardFull>>> = ({ signal }) => getOfficeBoardFull(propertyId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: propertyId !== null && propertyId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOfficeBoardFull>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOfficeBoardFullQueryResult = NonNullable<Awaited<ReturnType<typeof getOfficeBoardFull>>>
+export type GetOfficeBoardFullQueryError = ErrorType<Error>
+
+
+/**
+ * @summary The full projected client vendor board for the office — identical shape to the client view
+ */
+
+export function useGetOfficeBoardFull<TData = Awaited<ReturnType<typeof getOfficeBoardFull>>, TError = ErrorType<Error>>(
+ propertyId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOfficeBoardFull>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOfficeBoardFullQueryOptions(propertyId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateClientBoardAiCardUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/ai-card`
+}
+
+/**
+ * @summary AI builds an interactive board card from live HALO data (invoices, pay links, crews, jobs, bids)
+ */
+export const createClientBoardAiCard = async (token: string,
+    clientAiCardInput: ClientAiCardInput, options?: RequestInit): Promise<ClientAiCardRec> => {
+
+  return customFetch<ClientAiCardRec>(getCreateClientBoardAiCardUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientAiCardInput)
+  }
+);}
+
+
+
+
+
+export const getCreateClientBoardAiCardMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientBoardAiCard>>, TError,{token: string;data: BodyType<ClientAiCardInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createClientBoardAiCard>>, TError,{token: string;data: BodyType<ClientAiCardInput>}, TContext> => {
+
+const mutationKey = ['createClientBoardAiCard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createClientBoardAiCard>>, {token: string;data: BodyType<ClientAiCardInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  createClientBoardAiCard(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateClientBoardAiCardMutationResult = NonNullable<Awaited<ReturnType<typeof createClientBoardAiCard>>>
+    export type CreateClientBoardAiCardMutationBody = BodyType<ClientAiCardInput>
+    export type CreateClientBoardAiCardMutationError = ErrorType<Error>
+
+    /**
+ * @summary AI builds an interactive board card from live HALO data (invoices, pay links, crews, jobs, bids)
+ */
+export const useCreateClientBoardAiCard = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientBoardAiCard>>, TError,{token: string;data: BodyType<ClientAiCardInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createClientBoardAiCard>>,
+        TError,
+        {token: string;data: BodyType<ClientAiCardInput>},
+        TContext
+      > => {
+      return useMutation(getCreateClientBoardAiCardMutationOptions(options));
+    }
 
 export const getCreateClientBoardCardUrl = (token: string,) => {
 

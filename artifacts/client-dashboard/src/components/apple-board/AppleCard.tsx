@@ -1,20 +1,50 @@
 import React from 'react';
 import { ClientBoardCardView } from '@workspace/api-client-react';
-import { PM_TEMPLATES, PM_CATEGORY_COLORS } from './pm-templates';
-import { MessageSquare, Calendar } from 'lucide-react';
+import { APPLE_CATEGORY_COLORS, PM_TEMPLATES, VENDOR_TEMPLATES } from './templates';
+import { MessageSquare, Calendar, Wrench, FileText, FileSearch, HardHat, FileSignature, Layers } from 'lucide-react';
 import { formatDistanceToNow, parseISO, isBefore, startOfDay } from 'date-fns';
+import { ModuleMetrics, ModuleEvidence, ModuleDecision } from '../kanban/BoardCardModules';
 
-interface PmCardProps {
+interface AppleCardProps {
   card: ClientBoardCardView;
   readOnly?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
   onDragEnd?: (e: React.DragEvent) => void;
+  token: string;
 }
 
-export function PmCard({ card, readOnly, onDragStart, onDragEnd }: PmCardProps) {
-  const template = PM_TEMPLATES.find(t => t.key === card.template) || PM_TEMPLATES[0];
+export function AppleCard({ card, readOnly, onDragStart, onDragEnd, token }: AppleCardProps) {
+  // Find template across both PM and Vendor
+  let template = PM_TEMPLATES.find(t => t.key === card.template) 
+              || VENDOR_TEMPLATES.find(t => t.key === card.template);
+
+  // If not found (e.g. HALO-generated card like 'invoice' or 'crew'), use fallback
+  if (!template) {
+    let fallbackCategory: any = 'blank';
+    let fallbackIcon = Layers;
+    let fallbackName = card.title;
+    
+    switch (card.template) {
+      case 'invoice': fallbackCategory = 'billing'; fallbackIcon = FileText; break;
+      case 'crew': fallbackCategory = 'coordination'; fallbackIcon = HardHat; break;
+      case 'request': fallbackCategory = 'maintenance'; fallbackIcon = Wrench; break;
+      case 'makeready': fallbackCategory = 'maintenance'; fallbackIcon = FileSignature; break;
+      case 'job': fallbackCategory = 'maintenance'; fallbackIcon = Wrench; break;
+      default: fallbackCategory = 'blank'; fallbackIcon = Layers; break;
+    }
+
+    template = {
+      key: card.template,
+      name: fallbackName,
+      icon: fallbackIcon,
+      description: '',
+      category: fallbackCategory,
+      priority: 'normal'
+    };
+  }
+
   const Icon = template.icon;
-  const color = PM_CATEGORY_COLORS[template.category];
+  const color = APPLE_CATEGORY_COLORS[template.category] || APPLE_CATEGORY_COLORS.blank;
 
   const checkedCount = card.checklist?.filter(c => c.done).length || 0;
   const totalCount = card.checklist?.length || 0;
@@ -52,21 +82,44 @@ export function PmCard({ card, readOnly, onDragStart, onDragEnd }: PmCardProps) 
           <h3 className="text-[15px] font-semibold text-[#1d1d1f] leading-[1.3] line-clamp-2 tracking-[-0.01em]">
             {card.title}
           </h3>
+          {card.subtitle && (
+            <p className="text-[12px] text-[#6e6e73] font-medium line-clamp-1 mt-0.5">
+              {card.subtitle}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Category Badge */}
-      {template.labelPreset && (
-        <div className="mb-3">
-          <span
-            className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide"
-            style={{
-              backgroundColor: `${color}15`,
-              color: color,
-            }}
-          >
-            {template.labelPreset}
-          </span>
+      {/* Modules (if any) */}
+      {card.module && (
+        <div className="mb-3 space-y-2">
+          <ModuleMetrics module={card.module} tint={{ bd: '#f5f5f7' }} />
+          <ModuleEvidence module={card.module} tint={{ bg: '#fafafa', border: '#e8e8ed', hairline: '#e8e8ed', bd: '#e8e8ed' }} />
+          {!readOnly && card.actions && card.actions.length > 0 && (
+            <ModuleDecision cardKey={card.cardKey} token={token} module={card.module} readOnly={!!readOnly} tint={{ bd: '#e8e8ed' }} />
+          )}
+        </div>
+      )}
+
+      {/* Category / Labels */}
+      {(template.labelPreset || (card.labels && card.labels.length > 0)) && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {template.labelPreset && (
+            <span
+              className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide"
+              style={{ backgroundColor: `${color}15`, color: color }}
+            >
+              {template.labelPreset}
+            </span>
+          )}
+          {card.labels?.filter(l => l !== template?.labelPreset).map((lbl, idx) => (
+            <span
+              key={idx}
+              className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-[#f5f5f7] text-[#6e6e73]"
+            >
+              {lbl}
+            </span>
+          ))}
         </div>
       )}
 
@@ -99,7 +152,7 @@ export function PmCard({ card, readOnly, onDragStart, onDragEnd }: PmCardProps) 
         />
 
         {/* Due Date */}
-        {card.dueOn && (
+        {(card.dueOn || card.scheduledOn) && (
           <div
             className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
               isPastDue
@@ -108,7 +161,11 @@ export function PmCard({ card, readOnly, onDragStart, onDragEnd }: PmCardProps) 
             }`}
           >
             <Calendar className="h-3 w-3" strokeWidth={2.5} />
-            <span>{formatDistanceToNow(parseISO(card.dueOn), { addSuffix: true })}</span>
+            <span>
+              {card.scheduledOn 
+                ? `Sched ${formatDistanceToNow(parseISO(card.scheduledOn), { addSuffix: true })}`
+                : formatDistanceToNow(parseISO(card.dueOn!), { addSuffix: true })}
+            </span>
           </div>
         )}
 

@@ -5073,6 +5073,26 @@ export interface ClientBoardView {
   audit: ClientBoardAuditEntry[];
 }
 
+export interface OfficeBoardFullRec {
+  propertyName: string;
+  dashboardUrl: string | null;
+  board: ClientBoardView;
+}
+
+export interface ClientAiCardInput {
+  /**
+     * @minLength 1
+     * @maxLength 600
+     */
+  prompt: string;
+}
+
+export interface ClientAiCardRec {
+  cardId: string;
+  title: string;
+  kind: string;
+}
+
 export interface ClientBoardCardInput {
   title: string;
   lane: string;
