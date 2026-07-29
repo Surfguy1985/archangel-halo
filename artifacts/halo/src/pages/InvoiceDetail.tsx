@@ -3,6 +3,8 @@ import {
   useSendInvoice,
   useRemindInvoice,
   useDeleteInvoice,
+  useCreateContact,
+  getGetPropertyQueryKey,
   getGetInvoiceQueryKey,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
@@ -88,7 +90,9 @@ export default function InvoiceDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [recipient, setRecipient] = useState("");
+  const [saveAsBilling, setSaveAsBilling] = useState(true);
   const send = useSendInvoice();
+  const createContact = useCreateContact();
   const remind = useRemindInvoice();
   const del = useDeleteInvoice();
 
@@ -123,6 +127,7 @@ export default function InvoiceDetail() {
 
   const openSend = () => {
     setRecipient(inv.recipientEmail ?? "");
+    setSaveAsBilling(true);
     setSendOpen(true);
   };
 
@@ -132,6 +137,26 @@ export default function InvoiceDetail() {
       { id, data: { recipientEmail: to || undefined } },
       {
         onSuccess: () => {
+          // No billing contact was on file — optionally save this address so
+          // future sends don't dead-end.
+          if (!inv.recipientEmail && saveAsBilling && to && inv.propertyId) {
+            createContact.mutate(
+              {
+                data: {
+                  propertyId: inv.propertyId,
+                  name: inv.billToName || inv.propertyName || "Billing contact",
+                  role: "Billing",
+                  email: to,
+                },
+              },
+              {
+                onSuccess: () =>
+                  queryClient.invalidateQueries({
+                    queryKey: getGetPropertyQueryKey(inv.propertyId ?? ""),
+                  }),
+              },
+            );
+          }
           setSendOpen(false);
           invalidate();
           toast({
@@ -451,9 +476,22 @@ export default function InvoiceDetail() {
               autoComplete="email"
             />
             {!inv.recipientEmail && (
-              <p className="text-[12px] text-muted-foreground">
-                No contact email is saved for this property — enter one to send.
-              </p>
+              <>
+                <p className="text-[12px] text-[#8f6a1f] font-medium">
+                  No billing contact email is saved for this property — enter one
+                  to send.
+                </p>
+                <label className="flex items-center gap-[8px] text-[12.5px] text-[var(--ink)] mt-[6px] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={saveAsBilling}
+                    onChange={(e) => setSaveAsBilling(e.target.checked)}
+                    className="w-[16px] h-[16px] accent-[var(--gold-dark)]"
+                    data-testid="checkbox-save-billing"
+                  />
+                  Save this address as the property's billing contact
+                </label>
+              </>
             )}
           </div>
           <DialogFooter className="gap-[8px]">

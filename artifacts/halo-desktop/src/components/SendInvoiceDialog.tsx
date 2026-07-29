@@ -3,9 +3,12 @@ import { useQueryClient} from "@tanstack/react-query";
 import {
   useSendInvoice,
   useGetBusinessSettings,
+  useGetProperty,
+  useCreateContact,
   getListInvoicesQueryKey,
   getGetInvoiceQueryKey,
   getGetMoneySummaryQueryKey,
+  getGetPropertyQueryKey,
 } from "@workspace/api-client-react";
 import { useToast} from "@/hooks/use-toast";
 import {
@@ -20,7 +23,8 @@ import { Button} from "@/components/ui/button";
 import { Label} from "@/components/ui/label";
 import { Input} from "@/components/ui/input";
 import { Textarea} from "@/components/ui/textarea";
-import { Send} from "lucide-react";
+import { Checkbox} from "@/components/ui/checkbox";
+import { Send, AlertTriangle} from "lucide-react";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD"});
@@ -37,6 +41,7 @@ export function SendInvoiceDialog({
     id: string;
     invoiceNo: string;
     amount: number;
+    propertyId?: string | null;
     billToName?: string | null;
     propertyAddress?: string | null;
     recipientEmail?: string | null;
@@ -47,10 +52,21 @@ export function SendInvoiceDialog({
   const { toast} = useToast();
   const { data: settings} = useGetBusinessSettings();
   const send = useSendInvoice();
+  const createContact = useCreateContact();
+
+  const propertyId = invoice?.propertyId ?? "";
+  const { data: propertyDetail} = useGetProperty(propertyId, {
+    query: { enabled: open && !!propertyId, queryKey: getGetPropertyQueryKey(propertyId)},
+  });
+  const savedEmail =
+    propertyDetail?.contacts.find((c) => c.email)?.email ?? null;
+  // Only assert "missing" once contacts have actually loaded.
+  const missingBillingEmail = !!propertyDetail && !savedEmail;
 
   const [recipient, setRecipient] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [saveAsBilling, setSaveAsBilling] = useState(true);
 
   useEffect(() => {
     if (open && invoice) {
@@ -59,12 +75,28 @@ export function SendInvoiceDialog({
       setMessage(
        `${invoice.billToName ?`Hello ${invoice.billToName},\n` : ""}Please find attached invoice ${invoice.invoiceNo}${invoice.propertyAddress ?` for work at ${invoice.propertyAddress}` : ""}.`,
       );
+      setSaveAsBilling(true);
    }
  }, [open, invoice]);
+
+  // Prefill from the property's saved contact when the invoice didn't carry one.
+  useEffect(() => {
+    if (open && savedEmail) {
+      setRecipient((r) => r || savedEmail);
+   }
+ }, [open, savedEmail]);
 
   const submit = () => {
     if (!invoice) return;
     const to = recipient.trim();
+    if (missingBillingEmail && !to) {
+      toast({
+        title: "No billing email",
+        description: "This property has no billing contact email — enter an address to send.",
+        variant: "destructive",
+     });
+      return;
+   }
     send.mutate(
       {
         id: invoice.id,
@@ -76,6 +108,26 @@ export function SendInvoiceDialog({
      },
       {
         onSuccess: () => {
+          // Optionally save the entered address as the property's billing contact
+          // so future sends don't dead-end.
+          if (missingBillingEmail && saveAsBilling && to && propertyId) {
+            createContact.mutate(
+              {
+                data: {
+                  propertyId,
+                  name: invoice.billToName || "Billing contact",
+                  role: "Billing",
+                  email: to,
+               },
+             },
+              {
+                onSuccess: () =>
+                  queryClient.invalidateQueries({
+                    queryKey: getGetPropertyQueryKey(propertyId),
+                 }),
+             },
+            );
+         }
           queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
           queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoice.id)});
           queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
@@ -111,6 +163,20 @@ export function SendInvoiceDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          {missingBillingEmail && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium">No billing email on file for this property</p>
+                  <p className="text-xs mt-0.5">
+                    Enter an address below — we can save it to the property so this
+                    doesn't happen again.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label>Send to</Label>
             <Input
@@ -119,12 +185,21 @@ export function SendInvoiceDialog({
               onChange={(e) => setRecipient(e.target.value)}
               placeholder="anyone@example.com"
             />
-            {!recipient && (
+            {!recipient && !missingBillingEmail && (
               <p className="text-xs text-muted-foreground">
                 Leave blank to send to the property's saved contact, or enter any address.
               </p>
             )}
           </div>
+          {missingBillingEmail && (
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={saveAsBilling}
+                onCheckedChange={(v) => setSaveAsBilling(v === true)}
+              />
+              Save this address as the property's billing contact
+            </label>
+          )}
           <div className="space-y-1.5">
             <Label>Subject</Label>
             <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
@@ -138,7 +213,7 @@ export function SendInvoiceDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             onClick={submit}
-            disabled={send.isPending}
+            disabled={send.isPending || (missingBillingEmail && !recipient.trim())}
             className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
           >
             <Send className="w-4 h-4 mr-1.5" /> {send.isPending ? "Sending…" : "Send invoice"}

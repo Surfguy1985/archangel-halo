@@ -385,12 +385,20 @@ function Invoices() {
                               description: `${inv.invoiceNo} emailed to the client.`,
                             });
                           },
-                          onError: (e) =>
+                          onError: (e) => {
+                            const missingEmail = /no billing contact email/i.test(
+                              e.message
+                            );
                             toast({
                               title: "Couldn't send invoice",
-                              description: e.message,
+                              description: missingEmail
+                                ? "No billing email on file — add one on the invoice page."
+                                : e.message,
                               variant: "destructive",
-                            }),
+                            });
+                            // Take the user straight to where they can fix it.
+                            if (missingEmail) navigate(`/invoices/${inv.id}`);
+                          },
                         }
                       );
                     }}

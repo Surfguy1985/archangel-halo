@@ -108,6 +108,7 @@ export default function CreateInvoice() {
     id: string;
     invoiceNo: string;
     amount: number;
+    propertyId?: string | null;
     billToName?: string | null;
     propertyAddress?: string | null;
     recipientEmail?: string | null;
@@ -283,6 +284,7 @@ export default function CreateInvoice() {
               id: inv.id,
               invoiceNo: inv.invoiceNo,
               amount: inv.amount,
+              propertyId: inv.propertyId ?? propertyId ?? null,
               billToName: billToName || null,
               propertyAddress: propertyAddress || null,
            });

@@ -1,10 +1,11 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Minus, ChevronDown, Check, Building2, Zap } from "lucide-react";
+import { Plus, Trash2, Minus, ChevronDown, Check, Building2, Zap, AlertTriangle } from "lucide-react";
 import {
   useCreateInvoice,
   useUpdateInvoice,
+  useCreateContact,
   useListProperties,
   useListJobs,
   useGetJob,
@@ -96,6 +97,41 @@ export function InvoiceEditor({
 
   const create = useCreateInvoice();
   const update = useUpdateInvoice();
+  const createContact = useCreateContact();
+  const [billingEmailDraft, setBillingEmailDraft] = useState("");
+
+  // Warn up front when the selected property has no billing email —
+  // otherwise sending the invoice dead-ends with a 422 at the last step.
+  const missingBillingEmail =
+    !!propertyId &&
+    !!propertyDetail &&
+    !propertyDetail.contacts.some((c) => c.email);
+
+  const saveBillingEmail = () => {
+    const email = billingEmailDraft.trim();
+    if (!email || !propertyId) return;
+    createContact.mutate(
+      {
+        data: {
+          propertyId,
+          name:
+            propertyDetail?.property.pmcName ||
+            propertyDetail?.property.name ||
+            "Billing contact",
+          role: "Billing",
+          email,
+        },
+      },
+      {
+        onSuccess: () => {
+          setBillingEmailDraft("");
+          queryClient.invalidateQueries({
+            queryKey: getGetPropertyQueryKey(propertyId),
+          });
+        },
+      },
+    );
+  };
   const isEdit = !!invoice;
   const pending = create.isPending || update.isPending;
   const isError = create.isError || update.isError;
@@ -367,6 +403,47 @@ export function InvoiceEditor({
 
           {propertyId && (
             <>
+              {/* Heads-up: no billing email means the send will fail later. */}
+              {missingBillingEmail && (
+                <div className="mb-[16px] rounded-[16px] border border-[rgba(190,140,20,0.35)] bg-[rgba(255,196,66,0.12)] p-[12px]">
+                  <div className="flex items-start gap-[8px]">
+                    <AlertTriangle className="w-[16px] h-[16px] text-[#8f6a1f] shrink-0 mt-[2px]" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-[13px] text-[var(--ink)]">
+                        No billing email for this property
+                      </div>
+                      <div className="text-[12px] text-muted-foreground mt-[2px]">
+                        You can create the invoice, but it can't be emailed until a
+                        billing contact email is saved. Add one now:
+                      </div>
+                      <div className="flex gap-[6px] mt-[8px]">
+                        <input
+                          type="email"
+                          className={`${smallField} flex-1`}
+                          placeholder="billing@company.com"
+                          value={billingEmailDraft}
+                          onChange={(e) => setBillingEmailDraft(e.target.value)}
+                          data-testid="input-billing-email"
+                        />
+                        <button
+                          onClick={saveBillingEmail}
+                          disabled={!billingEmailDraft.trim() || createContact.isPending}
+                          className="shrink-0 px-[14px] rounded-[10px] text-[12.5px] font-display font-bold bg-[var(--gold-light)] text-black disabled:opacity-40 active:scale-[0.96] transition-transform"
+                          data-testid="button-save-billing-email"
+                        >
+                          {createContact.isPending ? "Saving…" : "Save"}
+                        </button>
+                      </div>
+                      {createContact.isError && (
+                        <div className="text-[11.5px] text-destructive mt-[4px]">
+                          Couldn't save. Try again.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* STEP 2 — One-tap services from the price book */}
               {!isEdit && priceItems.length > 0 && (
                 <div className="mb-[16px]">
