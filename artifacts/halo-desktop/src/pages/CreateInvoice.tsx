@@ -63,7 +63,7 @@ const itemAmount = (it: ItemDraft) => {
 };
 
 const labelCls =
-  "text-[10px] font-bold   text-[var(--gold-dark)]";
+  "text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--gold-dark)]";
 
 const TERM_OPTIONS = [
   { label: "On receipt", value: "Due on receipt", days: 0},
@@ -280,7 +280,7 @@ export default function CreateInvoice() {
           <Button
             disabled={!canSave}
             onClick={() => save(true)}
-            className="bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] text-black"
+            className="bg-[var(--primary)] hover:opacity-90 text-black font-bold"
           >
             <Send className="w-4 h-4 mr-1.5" /> {create.isPending ? "Saving…" : "Save & send"}
           </Button>
@@ -288,7 +288,7 @@ export default function CreateInvoice() {
       </div>
 
       {/* Branded editable template */}
-      <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-sm border border-border overflow-hidden">
         <div className="h-1.5 bg-[var(--primary)]" />
         <div className="p-8 space-y-6">
           {/* Header */}
@@ -297,12 +297,12 @@ export default function CreateInvoice() {
               <div className="font-display font-bold text-xl leading-tight">
                 {settings?.companyName ?? "ArchAngel Contractors"}
               </div>
-              <div className="text-[10px] font-bold text-[var(--gold-dark)] mt-0.5">
+              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--gold-dark)] mt-1">
                 {settings?.tagline ?? "Restoration & Make-Ready"}
               </div>
             </div>
             <div className="text-right">
-              <div className="font-display font-bold text-2xl text-[var(--gold-dark)] leading-none">INVOICE</div>
+              <div className="font-display font-bold text-2xl text-[var(--secondary)] leading-none">INVOICE</div>
               <div className="font-mono text-sm text-muted-foreground mt-1">Number assigned on save</div>
             </div>
           </div>
@@ -374,14 +374,14 @@ export default function CreateInvoice() {
                 </div>
                 <div className="col-span-2">
                   <div className="text-xs text-muted-foreground mb-1">Terms</div>
-                  <div className="flex gap-1 bg-muted/60 rounded-full p-1">
+                  <div className="flex gap-1 bg-muted rounded-full p-1">
                     {TERM_OPTIONS.map((t) => (
                       <button
                         key={t.value}
                         onClick={() => pickTerms(t.value, t.days)}
-                        className={`flex-1 py-1.5 px-1 rounded-full text-[11px] font-bold transition-all ${
+                        className={`flex-1 py-1.5 px-1 rounded-full text-[11px] font-bold transition-colors ${
                           terms === t.value
-                            ? "bg-card shadow-sm text-foreground"
+                            ? "bg-[var(--secondary)] text-white"
                             : "text-muted-foreground hover:text-foreground"
                        }`}
                       >
@@ -401,9 +401,9 @@ export default function CreateInvoice() {
           {/* Line items */}
           <div className="pt-4 border-t border-border">
             {propertyId && priceItems.length > 0 && (
-              <div className="mb-4 p-3 rounded-xl bg-[rgba(185,138,47,0.06)] border border-[rgba(185,138,47,0.18)]">
+              <div className="mb-4 p-3 rounded-2xl bg-[var(--gold-tint)] border border-[var(--primary)]/40">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <Zap className="w-3.5 h-3.5 text-[var(--gold-dark)]" />
+                  <Zap className="w-3.5 h-3.5 text-[var(--secondary)]" />
                   <span className={labelCls}>Click to add from this property's price book</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -411,14 +411,14 @@ export default function CreateInvoice() {
                     <button
                       key={pi.id}
                       onClick={() => quickAdd(pi.service, pi.rate)}
-                      className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-card border border-border shadow-sm text-[13px] font-semibold hover:border-[var(--gold)] active:scale-95 transition-all"
+                      className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-white border border-border shadow-sm text-[13px] font-semibold hover:border-[var(--secondary)] active:scale-95 transition-all"
                     >
                       {pi.service}
-                      <span className="text-xs font-bold text-[var(--gold-dark)] tabular-nums">
+                      <span className="text-xs font-bold text-[var(--secondary)] tabular-nums">
                         {money(pi.rate)}
                       </span>
-                      <span className="w-4 h-4 rounded-full bg-[rgba(185,138,47,0.14)] grid place-items-center">
-                        <Plus className="w-2.5 h-2.5 text-[var(--gold-dark)]" strokeWidth={3} />
+                      <span className="w-4 h-4 rounded-full bg-[var(--primary)] grid place-items-center">
+                        <Plus className="w-2.5 h-2.5 text-black" strokeWidth={3} />
                       </span>
                     </button>
                   ))}
@@ -499,7 +499,7 @@ export default function CreateInvoice() {
           {/* Total */}
           <div className="pt-3 border-t-2 border-[var(--ink)] flex items-center justify-between">
             <span className="font-display font-bold text-sm">Total Due</span>
-            <span className="font-display font-bold text-2xl font-mono text-[var(--gold-dark)]">{money(total)}</span>
+            <span className="font-display font-bold text-2xl font-mono text-[var(--secondary)]">{money(total)}</span>
           </div>
 
           {/* Payment instructions + notes */}

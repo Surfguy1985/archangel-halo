@@ -376,7 +376,7 @@ export default function InvoiceDetail() {
           <button
             onClick={openSend}
             disabled={send.isPending}
-            className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14.5px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-50 active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14.5px] text-[var(--ink)] bg-[var(--primary)] disabled:opacity-50 active:scale-[0.98]"
           >
             <Send className="w-[16px] h-[16px]" />
             {send.isPending ? "Sending…" : "Send invoice"}
@@ -395,7 +395,7 @@ export default function InvoiceDetail() {
         {status !== "paid" && status !== "draft" && (
           <button
             onClick={() => setPayOpen(true)}
-            className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14.5px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14.5px] text-[var(--ink)] bg-[var(--primary)] active:scale-[0.98]"
           >
             <CreditCard className="w-[16px] h-[16px]" /> Record payment
           </button>
@@ -466,7 +466,7 @@ export default function InvoiceDetail() {
             <button
               onClick={onSend}
               disabled={send.isPending || !recipient.trim()}
-              className="flex-1 flex items-center justify-center gap-[6px] rounded-[12px] py-[10px] text-[13px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-50 active:scale-[0.98]"
+              className="flex-1 flex items-center justify-center gap-[6px] rounded-[12px] py-[10px] text-[13px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] disabled:opacity-50 active:scale-[0.98]"
             >
               <Send className="w-[15px] h-[15px]" />
               {send.isPending ? "Sending…" : "Send invoice"}

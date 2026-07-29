@@ -26,7 +26,7 @@ export default function RecapShare() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background grid place-items-center">
-        <Loader2 className="w-6 h-6 animate-spin text-primary drop-shadow-[0_0_10px_rgba(180,255,68,0.5)]" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -35,7 +35,7 @@ export default function RecapShare() {
     return (
       <div className="min-h-screen bg-background grid place-items-center px-6">
         <div className="text-center">
-          <ShieldCheck className="w-10 h-10 text-primary drop-shadow-[0_0_10px_rgba(180,255,68,0.5)] mx-auto mb-3" />
+          <ShieldCheck className="w-10 h-10 text-primary mx-auto mb-3" />
           <div className="font-display font-bold text-[18px] text-foreground">Invalid link</div>
           <p className="text-[13px] text-muted-foreground mt-1">
             This recap link isn't valid or has been removed.
@@ -56,7 +56,7 @@ export default function RecapShare() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="bg-card border-b border-border px-[18px] pt-[22px] pb-[18px] lg:px-0 lg:pt-[28px] lg:pb-[22px]">
         <div className="lg:max-w-[1060px] lg:mx-auto lg:px-[24px]">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(180,255,68,0.4)] lg:text-[12px]">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-[var(--gold-dark)] lg:text-[12px]">
           ArchAngel Contractors
         </div>
         <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[4px] leading-snug text-foreground lg:text-[28px]">
@@ -71,9 +71,9 @@ export default function RecapShare() {
       </header>
 
       <main className="px-[14px] py-[16px] pb-[44px] max-w-[720px] mx-auto flex-1 w-full lg:max-w-[1060px] lg:px-[24px] lg:py-[32px] lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-x-[28px] lg:gap-y-0 lg:items-start">
-        <div className="bg-card rounded-[16px] border border-border border-t-[3px] border-t-primary shadow-[0_0_20px_rgba(180,255,68,0.05)] p-[18px] mb-[14px] lg:p-[28px] lg:mb-0">
-          <div className="flex items-center gap-[7px] text-[12px] font-semibold text-primary mb-[10px]">
-            <CheckCircle2 className="w-[15px] h-[15px] drop-shadow-[0_0_5px_rgba(180,255,68,0.5)]" />
+        <div className="bg-card rounded-[16px] border border-border border-t-[3px] border-t-primary shadow-sm p-[18px] mb-[14px] lg:p-[28px] lg:mb-0">
+          <div className="flex items-center gap-[7px] text-[12px] font-semibold text-[var(--gold-dark)] mb-[10px]">
+            <CheckCircle2 className="w-[15px] h-[15px]" />
             Work completed
             <span className="text-muted-foreground font-normal">{data.completedAt ? ` · ${formatDate(data.completedAt)}` : ""}</span>
           </div>
@@ -83,7 +83,7 @@ export default function RecapShare() {
         </div>
 
         <div className="bg-card border border-border rounded-[16px] p-[15px] mb-[14px] lg:p-[22px] lg:mb-0 lg:sticky lg:top-[24px]">
-          <div className="font-display font-bold text-[11px] tracking-[0.14em] uppercase text-primary drop-shadow-[0_0_5px_rgba(180,255,68,0.3)] mb-[12px]">
+          <div className="font-display font-bold text-[11px] tracking-[0.14em] uppercase text-[var(--gold-dark)] mb-[12px]">
             Job details
           </div>
           <div className="grid grid-cols-2 gap-y-[10px] text-[13.5px]">
@@ -135,7 +135,7 @@ export default function RecapShare() {
                   href={`${base}${p.url}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-[12px] overflow-hidden bg-card border border-border shadow-[0_0_10px_rgba(0,0,0,0.5)] hover:border-primary transition-colors group"
+                  className="block rounded-[12px] overflow-hidden bg-card border border-border shadow-sm hover:border-primary transition-colors group"
                 >
                   <div className="aspect-square relative">
                     <img

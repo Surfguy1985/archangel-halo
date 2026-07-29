@@ -130,7 +130,7 @@ export default function PublicPayment() {
     };
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6">
-        <div className="w-full max-w-[420px] bg-card rounded-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.12)] p-[32px] text-center">
+        <div className="w-full max-w-[420px] bg-card rounded-[24px] shadow-[var(--shadow)] p-[32px] text-center">
           <div className="w-[64px] h-[64px] rounded-full bg-[rgba(60,122,78,0.12)] grid place-items-center mx-auto mb-[16px]">
             <CheckCircle2 className="w-[36px] h-[36px] text-[var(--green)]" />
           </div>
@@ -191,7 +191,7 @@ export default function PublicPayment() {
       </header>
 
       <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto w-full flex-1 lg:max-w-[1060px] lg:px-[24px] lg:py-[32px] lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-[28px] lg:items-start">
-        <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[24px] mb-[20px] relative overflow-hidden lg:p-[36px] lg:mb-0 lg:rounded-[24px]">
+        <div className="bg-card rounded-[20px] shadow-[var(--shadow)] p-[24px] mb-[20px] relative overflow-hidden lg:p-[36px] lg:mb-0 lg:rounded-[24px]">
           <div className="absolute top-0 right-0 p-[24px] opacity-[0.04] pointer-events-none">
             <FileText className="w-[120px] h-[120px]" />
           </div>
@@ -251,7 +251,7 @@ export default function PublicPayment() {
         </div>
 
         {!req.approvedAt ? (
-          <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[24px] text-center lg:sticky lg:top-[24px]">
+          <div className="bg-card rounded-[20px] shadow-[var(--shadow)] p-[24px] text-center lg:sticky lg:top-[24px]">
             <div className="w-[48px] h-[48px] rounded-full bg-[rgba(143,106,31,0.12)] grid place-items-center mx-auto mb-[16px]">
               <FileText className="w-[24px] h-[24px] text-[var(--gold-dark)]" />
             </div>
@@ -264,7 +264,7 @@ export default function PublicPayment() {
             <button
               onClick={onApprove}
               disabled={approve.isPending}
-              className="w-full flex items-center justify-center gap-[8px] rounded-[14px] py-[15px] font-display font-bold text-[16px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_8px_24px_rgba(143,106,31,0.25)] transition-transform active:scale-[0.98] disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-[8px] rounded-[14px] py-[15px] font-display font-bold text-[16px] text-[var(--ink)] bg-[var(--primary)] transition-transform active:scale-[0.98] disabled:opacity-50"
             >
               {approve.isPending ? <Loader2 className="w-[20px] h-[20px] animate-spin" /> : <Check className="w-[20px] h-[20px]" />}
               Approve Invoice
@@ -282,7 +282,7 @@ export default function PublicPayment() {
               </div>
             </div>
 
-            <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[20px]">
+            <div className="bg-card rounded-[20px] shadow-[var(--shadow)] p-[20px]">
               <div className="text-[14px] font-semibold text-foreground mb-[14px]">
                 Choose payment method
               </div>
@@ -300,7 +300,7 @@ export default function PublicPayment() {
                       onClick={() => setMethod(m.key)}
                       className={`flex items-center justify-center gap-[6px] rounded-[12px] py-[12px] text-[14px] font-display font-bold transition-all ${
                         method === m.key
-                          ? "bg-[var(--ink)] text-white shadow-[0_4px_12px_rgba(23,24,28,0.2)]"
+                          ? "bg-[var(--ink)] text-white"
                           : "bg-muted/60 text-muted-foreground hover:bg-muted"
                       }`}
                       data-testid={`button-method-${m.key}`}
@@ -460,7 +460,7 @@ export default function PublicPayment() {
               <button
                 onClick={onSubmit}
                 disabled={!canSubmit || submit.isPending}
-                className="w-full mt-[20px] flex items-center justify-center gap-[8px] rounded-[14px] py-[15px] font-display font-bold text-[16px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_8px_24px_rgba(143,106,31,0.25)] disabled:opacity-50 disabled:shadow-none transition-all active:scale-[0.98]"
+                className="w-full mt-[20px] flex items-center justify-center gap-[8px] rounded-[14px] py-[15px] font-display font-bold text-[16px] text-[var(--ink)] bg-[var(--primary)] disabled:opacity-50 disabled:shadow-none transition-all active:scale-[0.98]"
                 data-testid="button-submit-payment"
               >
                 {submit.isPending ? (

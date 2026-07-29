@@ -108,15 +108,15 @@ export default function CrewPortal() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[var(--bg,#f4f2ee)] grid place-items-center">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--gold)]" />
+      <div className="min-h-screen bg-background grid place-items-center">
+        <Loader2 className="w-6 h-6 animate-spin text-[var(--ink)]" />
       </div>
     );
  }
 
   if (isError || !portal) {
     return (
-      <div className="min-h-screen bg-[var(--bg,#f4f2ee)] grid place-items-center px-6">
+      <div className="min-h-screen bg-background grid place-items-center px-6">
         <div className="text-center">
           <ShieldCheck className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <div className="font-display font-bold text-[18px]">Invalid link</div>
@@ -142,7 +142,7 @@ export default function CrewPortal() {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--bg,#f4f2ee)]">
+    <div className="min-h-screen bg-background">
       <header className="bg-[var(--ink)] text-white px-[18px] pt-[20px] pb-[16px]">
         <div className="text-[11px] font-display font-bold tracking-[0.18em] text-[var(--gold-light)]">
           ArchAngel · HALO
@@ -155,7 +155,7 @@ export default function CrewPortal() {
         </div>
       </header>
 
-      <div className="sticky top-0 z-10 bg-[var(--bg,#f4f2ee)] px-[12px] pt-[10px] pb-[8px] border-b border-border">
+      <div className="sticky top-0 z-10 bg-background px-[12px] pt-[10px] pb-[8px] border-b border-border">
         <div className="flex gap-[4px] overflow-x-auto no-scrollbar">
           {tabs.map((t) => {
             const Icon = t.icon;
@@ -163,10 +163,10 @@ export default function CrewPortal() {
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex items-center gap-[5px] whitespace-nowrap rounded-[10px] px-[12px] py-[8px] text-[12.5px] font-display font-bold transition-colors ${
+                className={`flex items-center gap-[5px] whitespace-nowrap rounded-full px-[12px] py-[8px] text-[12.5px] font-display font-bold transition-colors ${
                   tab === t.key
                     ? "bg-[var(--ink)] text-white"
-                    : "bg-card text-muted-foreground"
+                    : "bg-muted text-muted-foreground"
                }`}
               >
                 <Icon className="w-[14px] h-[14px]" /> {t.label}
@@ -203,7 +203,7 @@ export default function CrewPortal() {
   );
 }
 
-const card = "bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px]";
+const card = "bg-card rounded-[20px] border border-border shadow-sm p-[15px]";
 
 const wingsMoney = (n: number) =>
   (n ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2});
@@ -247,21 +247,21 @@ function WingsTab({ token}: { token: string}) {
   return (
     <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
       {/* Score hero */}
-      <div className={`${card} text-center`}>
-        <div className="text-[11px] font-bold tracking-[0.18em] text-muted-foreground">Your Halo Score</div>
-        <div className="text-[56px] leading-none font-display font-bold text-[var(--ink)] mt-[6px]">{Math.round(wings.haloScore)}</div>
+      <div className="bg-[var(--ink)] text-white rounded-[20px] shadow-sm p-[15px] text-center">
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--gold-light)]">Your Halo Score</div>
+        <div className="text-[56px] leading-none font-display font-bold text-white mt-[6px]">{Math.round(wings.haloScore)}</div>
         <div className="mt-[8px] flex items-center justify-center gap-[8px]">
           <span className={`px-[10px] py-[3px] rounded-full text-[11px] font-bold   ${tierCls}`}>{wings.tier}</span>
-          <span className="text-[12px] text-muted-foreground">Confidence {Math.round((wings.scoreConfidence ?? 0) * 100)}%</span>
+          <span className="text-[12px] text-white/60">Confidence {Math.round((wings.scoreConfidence ?? 0) * 100)}%</span>
         </div>
         {wings.scoreReasons && wings.scoreReasons.length > 0 && (
-          <p className="text-[12px] text-muted-foreground mt-[10px]">{wings.scoreReasons.join(" · ")}</p>
+          <p className="text-[12px] text-white/60 mt-[10px]">{wings.scoreReasons.join(" · ")}</p>
         )}
       </div>
 
       {/* Founder banner */}
       {wings.founderStatus && wings.founderStatus !== "NONE" && (
-        <div className="bg-[var(--gold-tint)] border border-[rgba(185,138,47,0.28)] text-[var(--gold-dark)] rounded-[16px] px-[16px] py-[12px] flex items-center gap-[10px]">
+        <div className="bg-[var(--gold-tint)] border border-[var(--gold-light)] text-[var(--gold-dark)] rounded-[16px] px-[16px] py-[12px] flex items-center gap-[10px]">
           <ShieldIcon className="w-[20px] h-[20px] shrink-0" />
           <div className="text-[13.5px] font-semibold">
             Founding member — {wings.founderStatus}{wings.founderNumber ?` #${wings.founderNumber}` : ""}
@@ -272,14 +272,14 @@ function WingsTab({ token}: { token: string}) {
       {/* Sponsor */}
       {wings.sponsorName && (
         <div className={`${card}`}>
-          <div className="text-[11px] font-bold text-muted-foreground">Your sponsor</div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Your sponsor</div>
           <div className="text-[15px] font-semibold mt-[2px]">{wings.sponsorName}</div>
         </div>
       )}
 
       {/* Recruits */}
       <div className={`${card}`}>
-        <div className="text-[11px] font-bold text-muted-foreground mb-[8px]">Your recruits</div>
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-[8px]">Your recruits</div>
         {wings.recruits.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">No recruits yet. Sponsor a crew to earn overrides on their jobs.</p>
         ) : (
@@ -299,7 +299,7 @@ function WingsTab({ token}: { token: string}) {
 
       {/* Override earnings */}
       <div className={`${card}`}>
-        <div className="text-[11px] font-bold text-muted-foreground mb-[8px]">Your override earnings</div>
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-[8px]">Your override earnings</div>
         {wings.overrides.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">No overrides yet.</p>
         ) : (
@@ -308,7 +308,7 @@ function WingsTab({ token}: { token: string}) {
               <div key={o.id} className="border-b border-border/50 pb-[8px] last:border-0 last:pb-0">
                 <div className="flex items-center justify-between">
                   <span className="text-[13.5px] font-semibold">{o.jobNo || "Job"}</span>
-                  <span className="text-[10px] font-bold px-[8px] py-[2px] rounded-full bg-[var(--paper)] text-muted-foreground">{o.status}</span>
+                  <span className="text-[10px] font-bold px-[8px] py-[2px] rounded-full bg-muted text-muted-foreground">{o.status}</span>
                 </div>
                 <div className="flex gap-[16px] text-[12px] text-muted-foreground mt-[3px]">
                   <span>Immediate <b className="text-foreground">{wingsMoney(o.immediateAmount)}</b></span>
@@ -322,7 +322,7 @@ function WingsTab({ token}: { token: string}) {
 
       {/* Reserve totals */}
       <div className={`${card}`}>
-        <div className="text-[11px] font-bold text-muted-foreground mb-[8px]">Guardian Reserve</div>
+        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-[8px]">Guardian Reserve</div>
         <div className="grid grid-cols-3 gap-[8px] text-center">
           <div>
             <div className="text-[18px] font-display font-bold text-[var(--ink)]">{wingsMoney(wings.reserve.held)}</div>
@@ -410,18 +410,18 @@ function OffersTab({ portal, token}: { portal: PortalBundle; token: string}) {
         return (
           <div
             key={o.id}
-            className={`bg-card rounded-[16px] shadow-[var(--shadow)] overflow-hidden border ${
+            className={`bg-card rounded-[20px] shadow-sm overflow-hidden border ${
               isPending
-                ? "border-[var(--gold)]"
+                ? "border-[var(--gold-light)]"
                 : "border-border opacity-80"
            }`}
           >
             <div className={`px-[16px] py-[12px] flex items-start justify-between border-b ${
-              isPending ? "bg-[var(--gold-tint)] border-[var(--gold)]/20" : "bg-[var(--paper)] border-border"
+              isPending ? "bg-[var(--gold-tint)] border-[var(--gold-light)]" : "bg-muted border-border"
            }`}>
               <div>
-                <div className="text-[11px] font-bold text-muted-foreground flex items-center gap-[6px]">
-                  {isPending && <span className="w-[8px] h-[8px] rounded-full bg-[var(--gold-light)] animate-pulse" />}
+                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground flex items-center gap-[6px]">
+                  {isPending && <span className="w-[8px] h-[8px] rounded-full bg-[var(--gold-light)]" />}
                   {o.jobNo} {o.category ?`· ${o.category}` : ""}
                 </div>
                 <div className="font-display font-bold text-[18px] mt-[2px] leading-tight">
@@ -431,7 +431,7 @@ function OffersTab({ portal, token}: { portal: PortalBundle; token: string}) {
               </div>
               <div className="text-right">
                 {isPending && (
-                  <div className="text-[11px] font-bold text-[var(--gold-dark)] bg-white px-[8px] py-[2px] rounded-full shadow-sm">
+                  <div className="text-[11px] font-bold text-[var(--ink)] bg-[var(--gold-light)] px-[8px] py-[2px] rounded-full">
                     Action Needed
                   </div>
                 )}
@@ -464,7 +464,7 @@ function OffersTab({ portal, token}: { portal: PortalBundle; token: string}) {
                 <div className={`rounded-[10px] px-[10px] py-[8px] border text-[12px] ${
                   o.scheduleType === "flex"
                     ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                    : "bg-[var(--gold-tint)] border-[rgba(185,138,47,0.28)] text-[var(--gold-dark)]"
+                    : "bg-[var(--gold-tint)] border-[var(--gold-light)] text-[var(--gold-dark)]"
                }`}>
                   {o.scheduleType === "flex" ? (
                     <><b>Flex job</b> — work on your own time{o.flexDueBy ? <>, finish by <b>{formatDay(o.flexDueBy)}</b></> : " within the set timeframe"}.</>
@@ -672,7 +672,7 @@ function ScheduleTab({ portal}: { portal: PortalBundle}) {
                     </span>
                   )}
                   {isToday && (
-                    <span className="ml-auto text-[10px] font-bold px-[8px] py-[2px] rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark,#8f6a1f)]">
+                    <span className="ml-auto text-[10px] font-bold px-[8px] py-[2px] rounded-full bg-[var(--gold-light)] text-[var(--ink)]">
                       Today
                     </span>
                   )}
@@ -791,7 +791,7 @@ function MessagesTab({ token}: { token: string}) {
                 className={`max-w-[82%] rounded-[13px] px-[12px] py-[8px] text-[13px] leading-[1.4] ${
                   m.sender === "crew"
                     ? "self-end bg-[var(--ink)] text-white rounded-br-[4px]"
-                    : "self-start bg-[rgba(23,24,28,0.06)] text-foreground rounded-bl-[4px]"
+                    : "self-start bg-muted text-foreground rounded-bl-[4px]"
                }`}
               >
                 <div>{m.body}</div>
@@ -880,8 +880,8 @@ function CheckinTab({ token}: { token: string}) {
     <div className="animate-in fade-in duration-200">
       <div className={card}>
         <div className="grid place-items-center py-[10px]">
-          <div className="w-[68px] h-[68px] rounded-full bg-[rgba(143,106,31,0.12)] grid place-items-center mb-[14px]">
-            <MapPin className="w-[30px] h-[30px] text-[var(--gold)]" />
+          <div className="w-[68px] h-[68px] rounded-full bg-[var(--gold-tint)] grid place-items-center mb-[14px]">
+            <MapPin className="w-[30px] h-[30px] text-[var(--ink)]" />
           </div>
           <div className="font-display font-bold text-[17px]">Live GPS check-in</div>
           <p className="text-[12.5px] text-muted-foreground text-center mt-[4px] mb-[16px] max-w-[300px]">
@@ -897,7 +897,7 @@ function CheckinTab({ token}: { token: string}) {
           <button
             onClick={doCheckin}
             disabled={busy}
-            className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] disabled:opacity-60 transition-transform active:scale-[0.98]"
           >
             {busy ? (
               <>
@@ -960,7 +960,7 @@ function PhotosTab({ token}: { token: string}) {
 
   return (
     <div className="animate-in fade-in duration-200">
-      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] cursor-pointer transition-transform active:scale-[0.98]">
+      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] cursor-pointer transition-transform active:scale-[0.98]">
         {sending ? (
           <Loader2 className="w-[18px] h-[18px] animate-spin" />
         ) : (
@@ -1046,7 +1046,7 @@ function DocumentsTab({ token}: { token: string}) {
 
   return (
     <div className="animate-in fade-in duration-200">
-      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] cursor-pointer transition-transform active:scale-[0.98]">
+      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] cursor-pointer transition-transform active:scale-[0.98]">
         <FileUp className="w-[18px] h-[18px]" />
         {isUploading ? "Uploading…" : "Upload a document"}
         <input
@@ -1179,7 +1179,7 @@ function PaymentTab({
         <button
           onClick={handleSave}
           disabled={save.isPending}
-          className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] disabled:opacity-60 transition-transform active:scale-[0.98]"
         >
           {saved ? (
             <>
@@ -1511,7 +1511,7 @@ function W9Tab({ token}: { token: string}) {
       <button
         onClick={handleSubmit}
         disabled={submit.isPending}
-        className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+        className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] disabled:opacity-60 transition-transform active:scale-[0.98]"
       >
         {saved ? (
           <>

@@ -180,7 +180,7 @@ export default function CrewPortal() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background grid place-items-center">
-        <Loader2 className="w-6 h-6 animate-spin text-primary drop-shadow-[0_0_10px_rgba(180,255,68,0.5)]" />
+        <Loader2 className="w-6 h-6 animate-spin text-[var(--gold-dark)]" />
       </div>
     );
   }
@@ -189,7 +189,7 @@ export default function CrewPortal() {
     return (
       <div className="min-h-screen bg-background grid place-items-center px-6">
         <div className="text-center">
-          <ShieldCheck className="w-10 h-10 text-primary drop-shadow-[0_0_10px_rgba(180,255,68,0.5)] mx-auto mb-3" />
+          <ShieldCheck className="w-10 h-10 text-[var(--gold-dark)] mx-auto mb-3" />
           <div className="font-display font-bold text-[18px] text-foreground">Invalid link</div>
           <p className="text-[13px] text-muted-foreground mt-1">
             This portal link isn't valid. Ask ArchAngel for a new one.
@@ -219,7 +219,7 @@ export default function CrewPortal() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="bg-card border-b border-border px-[18px] pt-[20px] pb-[16px] lg:px-0 lg:pt-[26px] lg:pb-[20px]">
         <div className="lg:max-w-[1160px] lg:mx-auto lg:px-[24px]">
-          <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(180,255,68,0.4)] lg:text-[12px]">
+          <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-[var(--gold-dark)] lg:text-[12px]">
             ArchAngel · HALO
           </div>
           <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[3px] text-foreground lg:text-[28px]">
@@ -231,7 +231,7 @@ export default function CrewPortal() {
         </div>
       </header>
 
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md px-[12px] pt-[10px] pb-[8px] border-b border-border shadow-[0_4px_20px_rgba(0,0,0,0.4)] lg:hidden">
+      <div className="sticky top-0 z-10 bg-card px-[12px] pt-[10px] pb-[8px] border-b border-border shadow-sm lg:hidden">
         <div className="flex gap-[4px] overflow-x-auto no-scrollbar pb-[2px]">
           {tabs.map((t) => {
             const Icon = t.icon;
@@ -241,13 +241,13 @@ export default function CrewPortal() {
                 onClick={() => setTab(t.key)}
                 className={`flex items-center gap-[5px] whitespace-nowrap rounded-[10px] px-[12px] py-[8px] text-[12.5px] font-display font-bold transition-all ${
                   tab === t.key
-                    ? "bg-[var(--gold-light)] text-primary-foreground shadow-[0_0_15px_rgba(180,255,68,0.4)]"
+                    ? "bg-[var(--gold-light)] text-primary-foreground"
                     : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                 }`}
               >
                 <Icon className="w-[14px] h-[14px]" /> {t.label}
                 {t.alert ? (
-                  <span className="ml-[2px] bg-red-500 text-white px-[5px] py-[1px] rounded-full text-[10px] font-bold min-w-[16px] text-center shadow-[0_0_8px_rgba(239,68,68,0.6)]">
+                  <span className="ml-[2px] bg-red-500 text-white px-[5px] py-[1px] rounded-full text-[10px] font-bold min-w-[16px] text-center">
                     {t.alert}
                   </span>
                 ) : t.badge ? (
@@ -272,7 +272,7 @@ export default function CrewPortal() {
                   onClick={() => setTab(t.key)}
                   className={`flex items-center gap-[10px] rounded-[12px] px-[14px] py-[11px] text-[14px] font-display font-bold text-left transition-all ${
                     tab === t.key
-                      ? "bg-[var(--gold-light)] text-primary-foreground shadow-[0_0_15px_rgba(180,255,68,0.4)]"
+                      ? "bg-[var(--gold-light)] text-primary-foreground"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                   data-testid={`sidebar-tab-${t.key}`}
@@ -280,7 +280,7 @@ export default function CrewPortal() {
                   <Icon className="w-[16px] h-[16px] shrink-0" />
                   <span className="flex-1">{t.label}</span>
                   {t.alert ? (
-                    <span className="bg-red-500 text-white px-[6px] py-[1px] rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-[0_0_8px_rgba(239,68,68,0.6)]">
+                    <span className="bg-red-500 text-white px-[6px] py-[1px] rounded-full text-[10px] font-bold min-w-[18px] text-center">
                       {t.alert}
                     </span>
                   ) : t.badge ? (
@@ -342,9 +342,9 @@ function AgreementModal({ token, crewName }: { token: string; crewName: string }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-end sm:items-center justify-center p-[14px]">
-      <div className="bg-card border border-border rounded-[20px] w-full max-w-[480px] max-h-[86vh] overflow-y-auto p-[20px] shadow-[0_0_40px_rgba(0,0,0,0.6)]">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_5px_rgba(180,255,68,0.3)]">
+    <div className="fixed inset-0 z-50 bg-[var(--ink)]/40 flex items-end sm:items-center justify-center p-[14px]">
+      <div className="bg-card border border-border rounded-[20px] w-full max-w-[480px] max-h-[86vh] overflow-y-auto p-[20px] shadow-xl">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-[var(--gold-dark)]">
           Welcome, {crewName}
         </div>
         <div className="font-display font-bold text-[20px] mt-[4px] mb-[10px] text-foreground">
@@ -383,7 +383,7 @@ function AgreementModal({ token, crewName }: { token: string; crewName: string }
         <button
           onClick={onAccept}
           disabled={!checked || accept.isPending}
-          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-primary-foreground bg-[var(--gold-light)] shadow-[0_0_15px_rgba(180,255,68,0.3)] disabled:opacity-50 disabled:shadow-none hover:brightness-110 transition-all active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-primary-foreground bg-[var(--gold-light)] disabled:opacity-50 hover:brightness-105 transition-all active:scale-[0.98]"
         >
           {accept.isPending ? (
             <Loader2 className="w-[18px] h-[18px] animate-spin" />
@@ -454,9 +454,9 @@ function SelfieModal({ token, crewName }: { token: string; crewName: string }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-end sm:items-center justify-center p-[14px]">
-      <div className="bg-card border border-border rounded-[20px] w-full max-w-[480px] max-h-[86vh] overflow-y-auto p-[20px] shadow-[0_0_40px_rgba(0,0,0,0.6)] text-center">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary">
+    <div className="fixed inset-0 z-50 bg-[var(--ink)]/40 flex items-end sm:items-center justify-center p-[14px]">
+      <div className="bg-card border border-border rounded-[20px] w-full max-w-[480px] max-h-[86vh] overflow-y-auto p-[20px] shadow-xl text-center">
+        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-[var(--gold-dark)]">
           One last step, {crewName}
         </div>
         <div className="font-display font-bold text-[20px] mt-[4px] mb-[8px] text-foreground">
@@ -494,7 +494,7 @@ function SelfieModal({ token, crewName }: { token: string; crewName: string }) {
         <button
           onClick={onSave}
           disabled={!file || saving}
-          className="mt-[18px] w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-primary-foreground bg-[var(--gold-light)] shadow-[0_0_15px_rgba(180,255,68,0.3)] disabled:opacity-50 disabled:shadow-none hover:brightness-110 transition-all active:scale-[0.98]"
+          className="mt-[18px] w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-primary-foreground bg-[var(--gold-light)] disabled:opacity-50 hover:brightness-105 transition-all active:scale-[0.98]"
         >
           {saving ? (
             <Loader2 className="w-[18px] h-[18px] animate-spin" />
@@ -608,7 +608,7 @@ function WingsTab({ token }: { token: string }) {
   return (
     <div className="space-y-[14px]" data-testid="wings-tab">
       <div className={`${card} text-center`}>
-        <div className="text-[11px] font-display font-bold tracking-[0.16em] uppercase text-primary">
+        <div className="text-[11px] font-display font-bold tracking-[0.16em] uppercase text-[var(--gold-dark)]">
           Your Halo Score
         </div>
         <div className="font-display font-bold text-[52px] leading-none text-foreground mt-[6px]">
@@ -1363,7 +1363,7 @@ function CheckinTab({ token }: { token: string }) {
           <button
             onClick={() => doPunch("checkin")}
             disabled={busy !== null}
-            className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] disabled:opacity-60 transition-transform active:scale-[0.98]"
           >
             {busy === "checkin" ? (
               <>
@@ -1538,7 +1538,7 @@ function PhotosTab({ token }: { token: string }) {
           ))}
         </div>
       </div>
-      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] cursor-pointer transition-transform active:scale-[0.98]">
+      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] cursor-pointer transition-transform active:scale-[0.98]">
         {sending ? (
           <Loader2 className="w-[18px] h-[18px] animate-spin" />
         ) : (
@@ -1682,7 +1682,7 @@ function DocumentsTab({ token }: { token: string }) {
 
   return (
     <div className="animate-in fade-in duration-200">
-      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] cursor-pointer transition-transform active:scale-[0.98]">
+      <label className="w-full mb-[14px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] cursor-pointer transition-transform active:scale-[0.98]">
         <FileUp className="w-[18px] h-[18px]" />
         {isUploading ? "Uploading…" : "Upload a document"}
         <input
@@ -1769,7 +1769,7 @@ function PaymentTab({ token }: { token: string }) {
           </p>
           <button
             onClick={() => setConnectOpen(true)}
-            className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] transition-transform active:scale-[0.98]"
             data-testid="button-open-bank-connect"
           >
             <Wallet className="w-[18px] h-[18px]" /> Connect bank account
@@ -1930,7 +1930,7 @@ function BankConnectSheet({
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent
         side="bottom"
-        className="rounded-t-[32px] bg-[var(--paper)] p-0 flex flex-col max-h-[88vh] border-none shadow-[0_-12px_44px_rgba(23,24,28,0.24)]"
+        className="rounded-t-[32px] bg-[var(--paper)] p-0 flex flex-col max-h-[88vh] border-none shadow-xl"
       >
         <div className="w-[40px] h-[5px] rounded-full bg-[rgba(23,24,28,0.16)] mx-auto mt-[12px] mb-[4px] shrink-0" />
         <div className="p-[12px_24px_32px] overflow-y-auto">
@@ -1981,7 +1981,7 @@ function BankConnectSheet({
               </div>
               <button
                 onClick={() => setStep(2)}
-                className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
+                className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] transition-transform active:scale-[0.98]"
                 data-testid="button-next-step-2"
               >
                 Continue
@@ -2066,7 +2066,7 @@ function BankConnectSheet({
                 <button
                   onClick={() => setStep(3)}
                   disabled={!holderName || (accountKind === "business" && !businessName)}
-                  className="flex-1 flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+                  className="flex-1 flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] disabled:opacity-50 transition-transform active:scale-[0.98]"
                   data-testid="button-next-step-3"
                 >
                   Continue
@@ -2127,7 +2127,7 @@ function BankConnectSheet({
                 <button
                   onClick={onSubmit}
                   disabled={submitBank.isPending}
-                  className="flex-1 flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+                  className="flex-1 flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] disabled:opacity-50 transition-transform active:scale-[0.98]"
                   data-testid="button-submit-bank"
                 >
                   {submitBank.isPending ? (
@@ -2155,7 +2155,7 @@ function BankConnectSheet({
               </p>
               <button
                 onClick={onClose}
-                className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
+                className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] transition-transform active:scale-[0.98]"
                 data-testid="button-close-bank-connect"
               >
                 Done
@@ -2485,7 +2485,7 @@ function W9Tab({ token }: { token: string }) {
       <button
         onClick={handleSubmit}
         disabled={submit.isPending}
-        className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+        className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] disabled:opacity-60 transition-transform active:scale-[0.98]"
       >
         {saved ? (
           <>
@@ -2951,7 +2951,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
         <button
           onClick={handleSend}
           disabled={submit.isPending || resubmit.isPending}
-          className="mt-[12px] w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+          className="mt-[12px] w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] disabled:opacity-60 transition-transform active:scale-[0.98]"
         >
           {submit.isPending || resubmit.isPending ? (
             <>

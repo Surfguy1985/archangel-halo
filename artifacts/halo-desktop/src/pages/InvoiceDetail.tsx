@@ -47,11 +47,11 @@ const fmtDate = (s?: string | null) => {
 const fieldCls =
   "w-full bg-background border border-border rounded-md py-2.5 px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring";
 
-const statusColor: Record<string, string> = {
-  paid: "#3c7a4e",
-  past_due: "#be3c3c",
-  sent: "#8f6a1f",
-  draft: "#8B8577",
+const statusChip: Record<string, string> = {
+  paid: "bg-[var(--primary)] text-black",
+  past_due: "bg-rose-100 text-rose-900",
+  sent: "bg-[var(--secondary)] text-white",
+  draft: "bg-gray-100 text-gray-800",
 };
 const statusLabel: Record<string, string> = {
   paid: "Paid",
@@ -161,13 +161,13 @@ export default function InvoiceDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Branded invoice */}
-        <div className="lg:col-span-2 bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+        <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-border overflow-hidden">
           <div className="h-1.5 bg-[var(--primary)]" />
           <div className="p-8">
             <div className="flex items-start justify-between">
               <div>
                 <div className="font-display font-bold text-xl leading-tight">{settings?.companyName ?? "ArchAngel Contractors"}</div>
-                <div className="text-[10px] font-bold text-[var(--gold-dark)] mt-0.5">
+                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--gold-dark)] mt-1">
                   {settings?.tagline ?? "Restoration & Make-Ready"}
                 </div>
                 {settings && (
@@ -180,15 +180,14 @@ export default function InvoiceDetail() {
                 )}
               </div>
               <div className="text-right">
-                <div className="font-display font-bold text-2xl text-[var(--gold-dark)] leading-none">INVOICE</div>
+                <div className="font-display font-bold text-2xl text-[var(--secondary)] leading-none">INVOICE</div>
                 <div className="font-mono text-sm text-muted-foreground mt-1">{inv.invoiceNo}</div>
               </div>
             </div>
 
             <div className="mt-3">
               <span
-                className="inline-block text-xs font-bold px-2.5 py-0.5 rounded-full text-white"
-                style={{ backgroundColor: statusColor[status] || "#8B8577"}}
+                className={`inline-block text-xs font-bold px-3 py-1 rounded-full ${statusChip[status] || statusChip.draft}`}
               >
                 {statusLabel[status] || status}
                 {status === "past_due" && inv.daysLate ?` · ${inv.daysLate}d` : ""}
@@ -197,7 +196,7 @@ export default function InvoiceDetail() {
 
             <div className="flex gap-8 mt-6 pt-5 border-t border-border">
               <div className="flex-1 min-w-0">
-                <div className="text-[10px] font-bold text-[var(--gold-dark)] mb-1">Bill To</div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--gold-dark)] mb-1.5">Bill To</div>
                 <div className="font-semibold text-sm">{inv.billToName || inv.propertyName || "Client"}</div>
                 <div className="text-sm text-muted-foreground">{inv.propertyAddress || inv.propertyName || "—"}</div>
               </div>
@@ -240,12 +239,12 @@ export default function InvoiceDetail() {
 
             <div className="mt-4 pt-3 border-t-2 border-[var(--ink)] flex items-center justify-between">
               <span className="font-display font-bold text-sm">Total Due</span>
-              <span className="font-display font-bold text-2xl font-mono text-[var(--gold-dark)]">{money(inv.amount || subtotal)}</span>
+              <span className="font-display font-bold text-2xl font-mono text-[var(--secondary)]">{money(inv.amount || subtotal)}</span>
             </div>
 
             {(inv.paymentInstructions || settings?.paymentInstructions) && (
               <div className="mt-4 pt-3 border-t border-border">
-                <div className="text-[10px] font-bold text-[var(--gold-dark)] mb-1">
+                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--gold-dark)] mb-1.5">
                   Payment Terms &amp; Details
                 </div>
                 <div className="text-sm text-muted-foreground whitespace-pre-line">
@@ -265,8 +264,8 @@ export default function InvoiceDetail() {
 
         {/* Sidebar: tracking + actions */}
         <div className="space-y-6">
-          <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-            <div className="font-display font-semibold text-xs text-muted-foreground mb-4">Tracking</div>
+          <div className="bg-white rounded-3xl shadow-sm border border-border p-6">
+            <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-4">Tracking</div>
             <div className="flex flex-col">
               {timeline.map((t, i) => (
                 <div key={t.label} className="flex gap-3">
@@ -295,7 +294,7 @@ export default function InvoiceDetail() {
             {status === "draft" && (
               <button
                 onClick={openSend}
-                className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 font-display font-bold text-sm text-black bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 font-display font-bold text-sm text-black bg-[var(--primary)] hover:opacity-90 transition-opacity"
               >
                 <Send className="w-4 h-4" /> Send invoice
               </button>
@@ -304,7 +303,7 @@ export default function InvoiceDetail() {
               <button
                 onClick={onRemind}
                 disabled={remind.isPending}
-                className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 font-display font-bold text-sm bg-card border border-border shadow-sm hover:bg-black/[0.03] transition-colors disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 font-display font-bold text-sm bg-white border border-border shadow-sm hover:bg-black/[0.03] transition-colors disabled:opacity-50"
               >
                 <BellRing className="w-4 h-4" /> {remind.isPending ? "Sending…" : "Send reminder"}
               </button>
@@ -312,7 +311,7 @@ export default function InvoiceDetail() {
             {status !== "paid" && status !== "draft" && (
               <button
                 onClick={openPay}
-                className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 font-display font-bold text-sm text-black bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 font-display font-bold text-sm text-black bg-[var(--primary)] hover:opacity-90 transition-opacity"
               >
                 <CreditCard className="w-4 h-4" /> Record payment
               </button>
@@ -321,13 +320,13 @@ export default function InvoiceDetail() {
               href={`/api/invoices/${inv.id}/pdf`}
               target="_blank"
               rel="noreferrer"
-              className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 font-display font-bold text-sm bg-card border border-border shadow-sm hover:bg-black/[0.03] transition-colors"
+              className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 font-display font-bold text-sm bg-white border border-border shadow-sm hover:bg-black/[0.03] transition-colors"
             >
               <Download className="w-4 h-4" /> Download PDF
             </a>
             <button
               onClick={() => setConfirmDelete(true)}
-              className="w-full flex items-center justify-center gap-2 rounded-md py-2.5 font-display font-bold text-sm bg-card border border-border shadow-sm text-destructive hover:bg-destructive/10 transition-colors"
+              className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 font-display font-bold text-sm bg-white border border-border shadow-sm text-destructive hover:bg-destructive/10 transition-colors"
             >
               <Trash2 className="w-4 h-4" /> Delete
             </button>
@@ -367,7 +366,7 @@ export default function InvoiceDetail() {
             <button
               onClick={onRecord}
               disabled={!amount.trim() || record.isPending}
-              className="flex items-center gap-2 rounded-md py-2 px-4 text-sm font-semibold text-black bg-[var(--gold-light)] hover:bg-[var(--gold-dark)] transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 rounded-full py-2 px-5 text-sm font-bold text-black bg-[var(--primary)] hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {record.isPending ? "Recording…" : "Record payment"}
             </button>

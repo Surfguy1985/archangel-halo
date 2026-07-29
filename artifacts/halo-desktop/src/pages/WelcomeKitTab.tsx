@@ -32,7 +32,7 @@ import {
   X,
 } from "lucide-react";
 
-const card = "bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px]";
+const card = "bg-card rounded-[20px] border border-border shadow-sm p-[15px]";
 
 function localToday(): string {
   const d = new Date();
@@ -118,18 +118,18 @@ function PacketCard({
         ? "In progress"
         : "New";
   const chip = submitted
-    ? "bg-[rgba(60,122,78,0.14)] text-[var(--green,#3c7a4e)]"
+    ? "bg-green-50 text-green-700"
     : packet.status === "in_progress"
-      ? "bg-[rgba(143,106,31,0.14)] text-[var(--gold-dark)]"
-      : "bg-[rgba(59,111,181,0.14)] text-[var(--blue)]";
+      ? "bg-[var(--gold-tint)] text-[var(--gold-dark)]"
+      : "bg-blue-50 text-blue-700";
 
   return (
     <button
       onClick={onOpen}
       className={`${card} text-left flex items-center gap-[12px] transition-transform active:scale-[0.99]`}
     >
-      <div className="w-[42px] h-[42px] rounded-[12px] bg-[rgba(143,106,31,0.12)] grid place-items-center shrink-0">
-        <PackageCheck className="w-[20px] h-[20px] text-[var(--gold)]" />
+      <div className="w-[42px] h-[42px] rounded-[12px] bg-[var(--gold-tint)] grid place-items-center shrink-0">
+        <PackageCheck className="w-[20px] h-[20px] text-[var(--ink)]" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="font-display font-bold text-[15px] truncate">
@@ -308,8 +308,8 @@ function PacketRunner({
     return (
       <div className="animate-in fade-in duration-200">
         <div className={`${card} text-center py-[34px]`}>
-          <div className="w-[68px] h-[68px] rounded-full bg-[rgba(60,122,78,0.14)] grid place-items-center mx-auto mb-[14px]">
-            <Check className="w-[32px] h-[32px] text-[var(--green,#3c7a4e)]" />
+          <div className="w-[68px] h-[68px] rounded-full bg-green-50 grid place-items-center mx-auto mb-[14px]">
+            <Check className="w-[32px] h-[32px] text-green-600" />
           </div>
           <div className="font-display font-bold text-[18px]">Packet submitted</div>
           <p className="text-[13px] text-muted-foreground mt-[4px] max-w-[320px] mx-auto">
@@ -342,7 +342,7 @@ function PacketRunner({
         </span>
       </div>
 
-      <div className="h-[5px] rounded-full bg-[rgba(23,24,28,0.08)] overflow-hidden">
+      <div className="h-[5px] rounded-full bg-muted overflow-hidden">
         <div
           className="h-full bg-[var(--gold-light)] transition-all duration-300"
           style={{ width:`${((step + 1) / totalSteps) * 100}%`}}
@@ -403,7 +403,7 @@ function PacketRunner({
         <button
           onClick={doSubmit}
           disabled={submitPacket.isPending}
-          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] disabled:opacity-60 transition-transform active:scale-[0.98]"
         >
           {submitPacket.isPending ? (
             <>
@@ -419,7 +419,7 @@ function PacketRunner({
         <button
           onClick={goNext}
           disabled={save.isPending}
-          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_16px_rgba(180,255,68,0.35)] disabled:opacity-60 transition-transform active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] disabled:opacity-60 transition-transform active:scale-[0.98]"
         >
           {save.isPending ? (
             <Loader2 className="w-[18px] h-[18px] animate-spin" />
@@ -748,7 +748,7 @@ function WorkersInput({
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="shrink-0 w-[34px] h-[34px] grid place-items-center rounded-full bg-[rgba(23,24,28,0.06)] text-muted-foreground"
+                className="shrink-0 w-[34px] h-[34px] grid place-items-center rounded-full bg-muted text-muted-foreground"
                 aria-label="Remove worker"
               >
                 <X className="w-[15px] h-[15px]" />
@@ -866,7 +866,7 @@ function SignatureInput({
    });
 
   return (
-    <div className="rounded-[13px] border border-[var(--gold)]/40 bg-[rgba(143,106,31,0.05)] p-[13px] flex flex-col gap-[10px]">
+    <div className="rounded-[13px] border border-[var(--gold-light)] bg-[var(--gold-tint)] p-[13px] flex flex-col gap-[10px]">
       <div className="text-[12px] font-display font-bold tracking-[0.08em] text-[var(--gold-dark)]">
         Electronic signature
       </div>
