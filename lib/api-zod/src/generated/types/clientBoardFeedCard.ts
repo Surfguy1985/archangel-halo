@@ -5,9 +5,9 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
-import type { ClientBoardCardLink } from './clientBoardCardLink';
+import type { ClientBoardFeedCardLink } from './clientBoardFeedCardLink';
 
-export interface ClientBoardCard {
+export interface ClientBoardFeedCard {
   id: string;
   /** inbox | todo | in_progress | done */
   column: string;
@@ -22,7 +22,7 @@ export interface ClientBoardCard {
   amount?: number | null;
   /** @nullable */
   dueDate?: string | null;
-  links: ClientBoardCardLink[];
+  links: ClientBoardFeedCardLink[];
   /** @nullable */
   jobId?: string | null;
   /** @nullable */

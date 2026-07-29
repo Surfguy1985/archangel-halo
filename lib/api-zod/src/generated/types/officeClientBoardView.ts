@@ -5,7 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
-import type { ClientBoardCard } from './clientBoardCard';
+import type { ClientBoardFeedCard } from './clientBoardFeedCard';
 
 export interface OfficeClientBoardView {
   propertyName: string;
@@ -14,5 +14,5 @@ export interface OfficeClientBoardView {
   /** @nullable */
   dashboardUrl?: string | null;
   webhookConnected?: boolean;
-  cards: ClientBoardCard[];
+  cards: ClientBoardFeedCard[];
 }

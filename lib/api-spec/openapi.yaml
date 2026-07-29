@@ -5711,7 +5711,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ClientBoardCard"
+                $ref: "#/components/schemas/ClientBoardFeedCard"
         "400":
           description: Invalid input
           content:
@@ -6040,9 +6040,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /client/{token}/board:
+  /client/{token}/board/feed:
     get:
-      operationId: getClientBoard
+      operationId: getClientBoardFeed
       tags: [clients]
       summary: Trello-style client board — cards raised by everything we send
       parameters:
@@ -6056,7 +6056,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ClientBoardView"
+                $ref: "#/components/schemas/ClientBoardFeedView"
         "404":
           description: Invalid link
           content:
@@ -6064,9 +6064,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /client/{token}/board/cards/{cardId}:
+  /client/{token}/board/feed/cards/{cardId}:
     patch:
-      operationId: updateClientBoardCard
+      operationId: updateClientBoardFeedCard
       tags: [clients]
       summary: Move a board card between columns
       parameters:
@@ -6083,14 +6083,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ClientBoardCardUpdateInput"
+              $ref: "#/components/schemas/ClientBoardFeedCardUpdateInput"
       responses:
         "200":
           description: Updated card
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ClientBoardCard"
+                $ref: "#/components/schemas/ClientBoardFeedCard"
         "400":
           description: Invalid input
           content:
@@ -6104,7 +6104,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /client/{token}/board/webhook:
+  /client/{token}/board/feed/webhook:
     patch:
       operationId: updateClientBoardWebhook
       tags: [clients]
@@ -6177,6 +6177,220 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+
+  /client/{token}/board/login:
+    post:
+      operationId: clientBoardLogin
+      tags: [admin]
+      summary: Client dashboard login — seated users sign in with their credentials
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientBoardLoginInput"
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBoardSession"
+        "401":
+          description: Bad credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board:
+    get:
+      operationId: getClientBoard
+      tags: [admin]
+      summary: The client kanban board — HALO-fed cards plus the client's own cards
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Board
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBoardView"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/cards:
+    post:
+      operationId: createClientBoardCard
+      tags: [admin]
+      summary: Client adds their own custom card to the board
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientBoardCardInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBoardCardRec"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/cards/{cardKey}:
+    patch:
+      operationId: updateClientBoardCard
+      tags: [admin]
+      summary: Edit card details — full edits on custom cards, notes on HALO cards
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cardKey
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientBoardCardUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBoardCardRec"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/actions:
+    post:
+      operationId: dispatchClientBoardAction
+      tags: [admin]
+      summary: Action registry — every board button posts a named action here
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientBoardActionInput"
+      responses:
+        "200":
+          description: Dispatched (ok, blocked, or failed — see flags)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBoardActionOutcome"
+        "400":
+          description: Unknown action
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/map:
+    get:
+      operationId: getClientBoardMap
+      tags: [admin]
+      summary: Map view — the property plus live crew activity and trackers
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Map data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBoardMapView"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   schemas:
@@ -6493,7 +6707,7 @@ components:
         email: { type: ["string", "null"] }
         company: { type: ["string", "null"] }
         phone: { type: ["string", "null"] }
-    ClientBoardCardLink:
+    ClientBoardFeedCardLink:
       type: object
       required: [label, url]
       properties:
@@ -6501,7 +6715,7 @@ components:
         url: { type: string }
         kind: { type: ["string", "null"], description: "pay | pdf | summary | tracker" }
 
-    ClientBoardCard:
+    ClientBoardFeedCard:
       type: object
       required: [id, column, kind, title, links, createdAt, updatedAt]
       properties:
@@ -6516,13 +6730,13 @@ components:
         links:
           type: array
           items:
-            $ref: "#/components/schemas/ClientBoardCardLink"
+            $ref: "#/components/schemas/ClientBoardFeedCardLink"
         jobId: { type: ["string", "null"] }
         completedAt: { type: ["string", "null"] }
         createdAt: { type: string }
         updatedAt: { type: string }
 
-    ClientBoardView:
+    ClientBoardFeedView:
       type: object
       required: [propertyName, cards]
       properties:
@@ -6531,7 +6745,7 @@ components:
         cards:
           type: array
           items:
-            $ref: "#/components/schemas/ClientBoardCard"
+            $ref: "#/components/schemas/ClientBoardFeedCard"
 
     OfficeClientBoardView:
       type: object
@@ -6544,7 +6758,7 @@ components:
         cards:
           type: array
           items:
-            $ref: "#/components/schemas/ClientBoardCard"
+            $ref: "#/components/schemas/ClientBoardFeedCard"
 
     OfficeClientBoardCardInput:
       type: object
@@ -6556,9 +6770,9 @@ components:
         links:
           type: array
           items:
-            $ref: "#/components/schemas/ClientBoardCardLink"
+            $ref: "#/components/schemas/ClientBoardFeedCardLink"
 
-    ClientBoardCardUpdateInput:
+    ClientBoardFeedCardUpdateInput:
       type: object
       required: [column]
       properties:
@@ -10241,3 +10455,236 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PayoutDistributionRow"
+    ClientBoardLoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password: { type: string }
+
+    ClientBoardViewer:
+      type: object
+      required: [authenticated, role, permissions, readOnly]
+      properties:
+        authenticated: { type: boolean }
+        name: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        role: { type: string }
+        permissions:
+          type: array
+          items: { type: string }
+        readOnly: { type: boolean }
+
+    ClientBoardSession:
+      type: object
+      required: [sessionToken, viewer]
+      properties:
+        sessionToken: { type: string }
+        viewer:
+          $ref: "#/components/schemas/ClientBoardViewer"
+
+    ClientBoardLane:
+      type: object
+      required: [key, label]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        hint: { type: ["string", "null"] }
+
+    ClientBoardPhoto:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string }
+        phase: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+
+    ClientBoardCardButton:
+      type: object
+      required: [key, label, kind]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        kind: { type: string, enum: [primary, secondary, link] }
+        href: { type: ["string", "null"] }
+
+    ClientBoardCrew:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        trade: { type: ["string", "null"] }
+        selfieUrl: { type: ["string", "null"] }
+        onSite: { type: boolean }
+        lastSeenAt: { type: ["string", "null"] }
+
+    ClientBoardCardView:
+      type: object
+      required: [cardKey, template, title, lane, position, editable, pipeline, stageIndex, actions, photos]
+      properties:
+        cardKey: { type: string }
+        template: { type: string, enum: [job, makeready, invoice, crew, request, custom] }
+        title: { type: string }
+        subtitle: { type: ["string", "null"] }
+        lane: { type: string }
+        position: { type: number }
+        pipeline:
+          type: array
+          items: { type: string }
+        stageIndex: { type: integer }
+        status: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        amount: { type: ["number", "null"] }
+        priority: { type: ["string", "null"] }
+        dueOn: { type: ["string", "null"] }
+        scheduledOn: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        crew:
+          oneOf:
+            - $ref: "#/components/schemas/ClientBoardCrew"
+            - type: "null"
+        trackerUrl: { type: ["string", "null"] }
+        payUrl: { type: ["string", "null"] }
+        photos:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientBoardPhoto"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientBoardCardButton"
+        editable: { type: boolean }
+        updatedAt: { type: ["string", "null"] }
+
+    ClientBoardAuditEntry:
+      type: object
+      required: [action, ok, blocked, createdAt]
+      properties:
+        action: { type: string }
+        cardKey: { type: ["string", "null"] }
+        actorName: { type: ["string", "null"] }
+        actorRole: { type: ["string", "null"] }
+        ok: { type: boolean }
+        blocked: { type: boolean }
+        reason: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    ClientBoardView:
+      type: object
+      required: [propertyName, logoUrl, viewer, lanes, cards, audit]
+      properties:
+        propertyName: { type: string }
+        propertyAddress: { type: ["string", "null"] }
+        logoUrl: { type: ["string", "null"] }
+        servicesOverview: { type: ["string", "null"] }
+        businessName: { type: ["string", "null"] }
+        viewer:
+          $ref: "#/components/schemas/ClientBoardViewer"
+        lanes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientBoardLane"
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientBoardCardView"
+        audit:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientBoardAuditEntry"
+
+    ClientBoardCardInput:
+      type: object
+      required: [title, lane]
+      properties:
+        title: { type: string }
+        lane: { type: string }
+        description: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        priority: { type: ["string", "null"] }
+        dueOn: { type: ["string", "null"] }
+
+    ClientBoardCardUpdate:
+      type: object
+      properties:
+        title: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        priority: { type: ["string", "null"] }
+        dueOn: { type: ["string", "null"] }
+        archived: { type: ["boolean", "null"] }
+
+    ClientBoardCardRec:
+      type: object
+      required: [cardKey]
+      properties:
+        cardKey: { type: string }
+        lane: { type: ["string", "null"] }
+        title: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+
+    ClientBoardActionInput:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string }
+        cardKey: { type: ["string", "null"] }
+        payload:
+          type: object
+          additionalProperties: true
+
+    ClientBoardActionOutcome:
+      type: object
+      required: [ok, blocked, action]
+      properties:
+        ok: { type: boolean }
+        blocked: { type: boolean }
+        action: { type: string }
+        reason: { type: ["string", "null"] }
+        message: { type: ["string", "null"] }
+
+    ClientBoardMapCrew:
+      type: object
+      required: [crewName, jobNo, status, onSite]
+      properties:
+        crewName: { type: string }
+        crewTrade: { type: ["string", "null"] }
+        selfieUrl: { type: ["string", "null"] }
+        jobId: { type: string }
+        jobNo: { type: string }
+        description: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        status: { type: string }
+        onSite: { type: boolean }
+        trackerUrl: { type: ["string", "null"] }
+        lastCheckinKind: { type: ["string", "null"] }
+        lastCheckinAt: { type: ["string", "null"] }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        accuracy: { type: ["number", "null"] }
+
+    ClientBoardHappening:
+      type: object
+      required: [at, text]
+      properties:
+        at: { type: string }
+        text: { type: string }
+
+    ClientBoardMapView:
+      type: object
+      required: [propertyName, crews, happenings]
+      properties:
+        propertyName: { type: string }
+        propertyAddress: { type: ["string", "null"] }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        crews:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientBoardMapCrew"
+        happenings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientBoardHappening"

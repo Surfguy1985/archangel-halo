@@ -6,7 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ClientBoardCardUpdateInput {
-  /** inbox | todo | in_progress | done */
-  column: string;
+export interface ClientBoardPhoto {
+  url: string;
+  /** @nullable */
+  phase?: string | null;
+  /** @nullable */
+  note?: string | null;
 }

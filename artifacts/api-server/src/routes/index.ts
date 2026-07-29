@@ -31,6 +31,7 @@ import jobSummariesRouter from "./jobSummaries";
 import clientAccessRouter from "./clientAccess";
 import workRequestsRouter from "./workRequests";
 import invoiceJobDraftRouter from "./invoiceJobDraft";
+import clientBoardRouter from "./clientBoard";
 
 const router: IRouter = Router();
 
@@ -64,6 +65,7 @@ router.use(sopRouter);
 router.use(adminRouter);
 router.use(jobSummariesRouter);
 router.use(clientAccessRouter);
+router.use(clientBoardRouter);
 router.use(workRequestsRouter);
 router.use(invoiceJobDraftRouter);
 

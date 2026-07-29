@@ -5,7 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
-import type { ClientBoardCardLink } from './clientBoardCardLink';
+import type { ClientBoardFeedCardLink } from './clientBoardFeedCardLink';
 
 export interface OfficeClientBoardCardInput {
   title: string;
@@ -16,5 +16,5 @@ export interface OfficeClientBoardCardInput {
      * @nullable
      */
   dueDate?: string | null;
-  links?: ClientBoardCardLink[];
+  links?: ClientBoardFeedCardLink[];
 }

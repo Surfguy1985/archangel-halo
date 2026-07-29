@@ -368,7 +368,7 @@ export interface ClientBillingContact {
   phone?: string | null;
 }
 
-export interface ClientBoardCardLink {
+export interface ClientBoardFeedCardLink {
   label: string;
   url: string;
   /**
@@ -378,7 +378,7 @@ export interface ClientBoardCardLink {
   kind?: string | null;
 }
 
-export interface ClientBoardCard {
+export interface ClientBoardFeedCard {
   id: string;
   /** inbox | todo | in_progress | done */
   column: string;
@@ -393,7 +393,7 @@ export interface ClientBoardCard {
   amount?: number | null;
   /** @nullable */
   dueDate?: string | null;
-  links: ClientBoardCardLink[];
+  links: ClientBoardFeedCardLink[];
   /** @nullable */
   jobId?: string | null;
   /** @nullable */
@@ -402,11 +402,11 @@ export interface ClientBoardCard {
   updatedAt: string;
 }
 
-export interface ClientBoardView {
+export interface ClientBoardFeedView {
   propertyName: string;
   /** @nullable */
   webhookUrl?: string | null;
-  cards: ClientBoardCard[];
+  cards: ClientBoardFeedCard[];
 }
 
 export interface OfficeClientBoardView {
@@ -416,7 +416,7 @@ export interface OfficeClientBoardView {
   /** @nullable */
   dashboardUrl?: string | null;
   webhookConnected?: boolean;
-  cards: ClientBoardCard[];
+  cards: ClientBoardFeedCard[];
 }
 
 export interface OfficeClientBoardCardInput {
@@ -428,10 +428,10 @@ export interface OfficeClientBoardCardInput {
      * @nullable
      */
   dueDate?: string | null;
-  links?: ClientBoardCardLink[];
+  links?: ClientBoardFeedCardLink[];
 }
 
-export interface ClientBoardCardUpdateInput {
+export interface ClientBoardFeedCardUpdateInput {
   /** inbox | todo | in_progress | done */
   column: string;
 }
@@ -4588,6 +4588,255 @@ export interface PayoutDistribution {
   /** @nullable */
   paidAt?: string | null;
   rows: PayoutDistributionRow[];
+}
+
+export interface ClientBoardLoginInput {
+  email: string;
+  password: string;
+}
+
+export interface ClientBoardViewer {
+  authenticated: boolean;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  email?: string | null;
+  role: string;
+  permissions: string[];
+  readOnly: boolean;
+}
+
+export interface ClientBoardSession {
+  sessionToken: string;
+  viewer: ClientBoardViewer;
+}
+
+export interface ClientBoardLane {
+  key: string;
+  label: string;
+  /** @nullable */
+  hint?: string | null;
+}
+
+export interface ClientBoardPhoto {
+  url: string;
+  /** @nullable */
+  phase?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export type ClientBoardCardButtonKind = typeof ClientBoardCardButtonKind[keyof typeof ClientBoardCardButtonKind];
+
+
+export const ClientBoardCardButtonKind = {
+  primary: 'primary',
+  secondary: 'secondary',
+  link: 'link',
+} as const;
+
+export interface ClientBoardCardButton {
+  key: string;
+  label: string;
+  kind: ClientBoardCardButtonKind;
+  /** @nullable */
+  href?: string | null;
+}
+
+export interface ClientBoardCrew {
+  name: string;
+  /** @nullable */
+  trade?: string | null;
+  /** @nullable */
+  selfieUrl?: string | null;
+  onSite?: boolean;
+  /** @nullable */
+  lastSeenAt?: string | null;
+}
+
+export type ClientBoardCardViewTemplate = typeof ClientBoardCardViewTemplate[keyof typeof ClientBoardCardViewTemplate];
+
+
+export const ClientBoardCardViewTemplate = {
+  job: 'job',
+  makeready: 'makeready',
+  invoice: 'invoice',
+  crew: 'crew',
+  request: 'request',
+  custom: 'custom',
+} as const;
+
+export interface ClientBoardCardView {
+  cardKey: string;
+  template: ClientBoardCardViewTemplate;
+  title: string;
+  /** @nullable */
+  subtitle?: string | null;
+  lane: string;
+  position: number;
+  pipeline: string[];
+  stageIndex: number;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  priority?: string | null;
+  /** @nullable */
+  dueOn?: string | null;
+  /** @nullable */
+  scheduledOn?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  crew?: ClientBoardCrew | null;
+  /** @nullable */
+  trackerUrl?: string | null;
+  /** @nullable */
+  payUrl?: string | null;
+  photos: ClientBoardPhoto[];
+  actions: ClientBoardCardButton[];
+  editable: boolean;
+  /** @nullable */
+  updatedAt?: string | null;
+}
+
+export interface ClientBoardAuditEntry {
+  action: string;
+  /** @nullable */
+  cardKey?: string | null;
+  /** @nullable */
+  actorName?: string | null;
+  /** @nullable */
+  actorRole?: string | null;
+  ok: boolean;
+  blocked: boolean;
+  /** @nullable */
+  reason?: string | null;
+  createdAt: string;
+}
+
+export interface ClientBoardView {
+  propertyName: string;
+  /** @nullable */
+  propertyAddress?: string | null;
+  /** @nullable */
+  logoUrl: string | null;
+  /** @nullable */
+  servicesOverview?: string | null;
+  /** @nullable */
+  businessName?: string | null;
+  viewer: ClientBoardViewer;
+  lanes: ClientBoardLane[];
+  cards: ClientBoardCardView[];
+  audit: ClientBoardAuditEntry[];
+}
+
+export interface ClientBoardCardInput {
+  title: string;
+  lane: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  priority?: string | null;
+  /** @nullable */
+  dueOn?: string | null;
+}
+
+export interface ClientBoardCardUpdate {
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  priority?: string | null;
+  /** @nullable */
+  dueOn?: string | null;
+  /** @nullable */
+  archived?: boolean | null;
+}
+
+export interface ClientBoardCardRec {
+  cardKey: string;
+  /** @nullable */
+  lane?: string | null;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type ClientBoardActionInputPayload = { [key: string]: unknown };
+
+export interface ClientBoardActionInput {
+  action: string;
+  /** @nullable */
+  cardKey?: string | null;
+  payload?: ClientBoardActionInputPayload;
+}
+
+export interface ClientBoardActionOutcome {
+  ok: boolean;
+  blocked: boolean;
+  action: string;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  message?: string | null;
+}
+
+export interface ClientBoardMapCrew {
+  crewName: string;
+  /** @nullable */
+  crewTrade?: string | null;
+  /** @nullable */
+  selfieUrl?: string | null;
+  jobId?: string;
+  jobNo: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  status: string;
+  onSite: boolean;
+  /** @nullable */
+  trackerUrl?: string | null;
+  /** @nullable */
+  lastCheckinKind?: string | null;
+  /** @nullable */
+  lastCheckinAt?: string | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** @nullable */
+  accuracy?: number | null;
+}
+
+export interface ClientBoardHappening {
+  at: string;
+  text: string;
+}
+
+export interface ClientBoardMapView {
+  propertyName: string;
+  /** @nullable */
+  propertyAddress?: string | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  crews: ClientBoardMapCrew[];
+  happenings: ClientBoardHappening[];
 }
 
 export type ListPropertiesParams = {

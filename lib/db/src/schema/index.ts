@@ -17,3 +17,4 @@ export * from "./sop";
 export * from "./clients";
 export * from "./job_summaries";
 export * from "./work_requests";
+export * from "./client_board";

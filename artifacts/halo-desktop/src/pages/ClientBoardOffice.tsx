@@ -5,7 +5,7 @@ import {
   useGetOfficeClientBoard,
   getGetOfficeClientBoardQueryKey,
   useCreateOfficeClientBoardCard,
-  type ClientBoardCard,
+  type ClientBoardFeedCard,
 } from "@workspace/api-client-react";
 import {
   ChevronLeft,
@@ -55,7 +55,7 @@ function linkIcon(kind?: string | null) {
   return Link2;
 }
 
-function CardView({ card }: { card: ClientBoardCard }) {
+function CardView({ card }: { card: ClientBoardFeedCard }) {
   const meta = KIND_META[card.kind] ?? KIND_META.manual;
   return (
     <div className="rounded-xl border border-border bg-card p-3 shadow-sm space-y-2" data-testid={`card-${card.id}`}>

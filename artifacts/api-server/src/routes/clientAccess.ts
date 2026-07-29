@@ -15,9 +15,9 @@ import {
   GetClientBillingResponse,
   UpdateClientBillingBody,
   PutClientPaymentMethodBody,
-  GetClientBoardResponse,
-  UpdateClientBoardCardBody,
-  UpdateClientBoardCardResponse,
+  GetClientBoardFeedResponse,
+  UpdateClientBoardFeedCardBody,
+  UpdateClientBoardFeedCardResponse,
   UpdateClientBoardWebhookBody,
   UpdateClientBoardWebhookResponse,
   GetOfficeClientBoardResponse,
@@ -538,7 +538,7 @@ function serCard(c: typeof clientBoardCardsTable.$inferSelect) {
   };
 }
 
-router.get("/client/:token/board", async (req, res): Promise<void> => {
+router.get("/client/:token/board/feed", async (req, res): Promise<void> => {
   const account = await accountByToken(String(req.params.token));
   if (!account || account.status !== "active") {
     res.status(404).json({ error: "Invalid link" });
@@ -555,7 +555,7 @@ router.get("/client/:token/board", async (req, res): Promise<void> => {
     .where(eq(clientBoardCardsTable.propertyId, account.propertyId))
     .orderBy(desc(clientBoardCardsTable.updatedAt));
   res.json(
-    GetClientBoardResponse.parse({
+    GetClientBoardFeedResponse.parse({
       propertyName: prop?.name ?? "Property",
       webhookUrl: account.webhookUrl ?? null,
       cards: cards.map(serCard),
@@ -563,13 +563,13 @@ router.get("/client/:token/board", async (req, res): Promise<void> => {
   );
 });
 
-router.patch("/client/:token/board/cards/:cardId", async (req, res): Promise<void> => {
+router.patch("/client/:token/board/feed/cards/:cardId", async (req, res): Promise<void> => {
   const account = await accountByToken(String(req.params.token));
   if (!account || account.status !== "active") {
     res.status(404).json({ error: "Invalid link" });
     return;
   }
-  const parsed = UpdateClientBoardCardBody.safeParse(req.body);
+  const parsed = UpdateClientBoardFeedCardBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
@@ -597,10 +597,10 @@ router.patch("/client/:token/board/cards/:cardId", async (req, res): Promise<voi
     res.status(404).json({ error: "Card not found" });
     return;
   }
-  res.json(UpdateClientBoardCardResponse.parse(serCard(card)));
+  res.json(UpdateClientBoardFeedCardResponse.parse(serCard(card)));
 });
 
-router.patch("/client/:token/board/webhook", async (req, res): Promise<void> => {
+router.patch("/client/:token/board/feed/webhook", async (req, res): Promise<void> => {
   const account = await accountByToken(String(req.params.token));
   if (!account || account.status !== "active") {
     res.status(404).json({ error: "Invalid link" });

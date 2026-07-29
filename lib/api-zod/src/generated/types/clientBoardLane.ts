@@ -6,12 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ClientBoardCardLink {
+export interface ClientBoardLane {
+  key: string;
   label: string;
-  url: string;
-  /**
-     * pay | pdf | summary | tracker
-     * @nullable
-     */
-  kind?: string | null;
+  /** @nullable */
+  hint?: string | null;
 }

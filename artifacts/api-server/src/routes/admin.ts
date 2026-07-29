@@ -85,7 +85,7 @@ function publicBaseUrl(): string {
 
 function dashboardUrl(token: string): string {
   const base = publicBaseUrl();
-  return base ? `${base}/client/${token}` : `/client/${token}`;
+  return base ? `${base}/dashboard/${token}` : `/dashboard/${token}`;
 }
 
 async function ensureAccount(propertyId: string): Promise<ClientAccount> {

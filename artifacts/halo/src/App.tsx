@@ -91,6 +91,13 @@ function App() {
             <Route path="/photos/:token" component={PhotoShare} />
             <Route path="/recap/:token" component={RecapShare} />
             <Route path="/summary/:token" component={SummaryShare} />
+            {/* Bare client links now live on the client dashboard artifact. */}
+            <Route path="/client/:token">
+              {(params) => {
+                window.location.replace(`/dashboard/${params.token}`);
+                return null;
+              }}
+            </Route>
             <Route path="/client/:token/admin" component={ClientAdmin} />
             <Route path="/client/:token/board" component={ClientBoard} />
             <Route path="/client/:token/requests" component={ClientRequest} />

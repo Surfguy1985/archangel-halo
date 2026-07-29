@@ -87,6 +87,7 @@ export const GetQueuesResponse = zod.array(GetQueuesResponseItem)
  */
 
 
+
 export const DismissFeedItemBody = zod.object({
   "itemId": zod.string().min(1)
 })
@@ -99,6 +100,7 @@ export const DismissFeedItemResponse = zod.object({
 /**
  * @summary Ask HALO a natural-language question about the business
  */
+
 
 
 export const AskHaloBody = zod.object({
@@ -147,6 +149,7 @@ export const createPropertyBodyLatitudeMax = 90;
 
 export const createPropertyBodyLongitudeMin = -180;
 export const createPropertyBodyLongitudeMax = 180;
+
 
 
 export const CreatePropertyBody = zod.object({
@@ -368,6 +371,7 @@ export const updatePropertyBodyMarginTargetMin = 0;
 export const updatePropertyBodyMarginTargetMax = 1;
 
 
+
 export const UpdatePropertyBody = zod.object({
   "name": zod.string().min(1).optional(),
   "pmcName": zod.string().optional(),
@@ -517,6 +521,9 @@ export const UploadPropertySopDocumentParams = zod.object({
 })
 
 
+
+
+
 export const UploadPropertySopDocumentBody = zod.object({
   "fileName": zod.string().min(1),
   "mediaType": zod.enum(['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif']),
@@ -582,6 +589,9 @@ export const ListCatalogItemsResponseItem = zod.object({
 export const ListCatalogItemsResponse = zod.array(ListCatalogItemsResponseItem)
 
 
+
+
+
 export const CreateCatalogItemBody = zod.object({
   "service": zod.string().min(1),
   "detail": zod.string().optional(),
@@ -603,6 +613,8 @@ export const CreateCatalogItemResponse = zod.object({
 export const UpdateCatalogItemParams = zod.object({
   "id": zod.coerce.string()
 })
+
+
 
 
 export const UpdateCatalogItemBody = zod.object({
@@ -640,6 +652,8 @@ export const ImportPriceItemsParams = zod.object({
 })
 
 
+
+
 export const ImportPriceItemsBody = zod.object({
   "catalogItemIds": zod.array(zod.string()).min(1)
 })
@@ -663,6 +677,8 @@ export const CreatePriceItemParams = zod.object({
 })
 
 
+
+
 export const CreatePriceItemBody = zod.object({
   "service": zod.string().min(1),
   "detail": zod.string().optional(),
@@ -680,6 +696,9 @@ export const CreatePriceItemResponse = zod.object({
   "rate": zod.number(),
   "marginFloor": zod.number().nullish()
 })
+
+
+
 
 
 export const CreateContactBody = zod.object({
@@ -705,6 +724,8 @@ export const CreateContactResponse = zod.object({
 export const UpdateContactParams = zod.object({
   "id": zod.coerce.string()
 })
+
+
 
 
 export const UpdateContactBody = zod.object({
@@ -738,6 +759,8 @@ export const DeleteContactResponse = zod.object({
 export const UpdatePriceItemParams = zod.object({
   "id": zod.coerce.string()
 })
+
+
 
 
 export const UpdatePriceItemBody = zod.object({
@@ -787,6 +810,9 @@ export const ListLeadsResponseItem = zod.object({
   "createdAt": zod.string().nullish()
 })
 export const ListLeadsResponse = zod.array(ListLeadsResponseItem)
+
+
+
 
 
 export const CreateLeadBody = zod.object({
@@ -991,6 +1017,10 @@ export const ListBidsResponseItem = zod.object({
 export const ListBidsResponse = zod.array(ListBidsResponseItem)
 
 
+
+
+
+
 export const CreateBidBody = zod.object({
   "propertyId": zod.string().optional(),
   "unitNo": zod.string().optional(),
@@ -1064,6 +1094,8 @@ export const GetBidResponse = zod.object({
 export const UpdateBidParams = zod.object({
   "id": zod.coerce.string()
 })
+
+
 
 
 export const UpdateBidBody = zod.object({
@@ -1231,6 +1263,10 @@ export const ListJobsResponseItem = zod.object({
   "lineTotal": zod.number().nullish()
 })
 export const ListJobsResponse = zod.array(ListJobsResponseItem)
+
+
+
+
 
 
 export const CreateJobBody = zod.object({
@@ -1415,6 +1451,7 @@ export const updateJobBodyMarginPctMin = 0;
 export const updateJobBodyMarginPctMax = 1;
 
 export const updateJobBodyCrewRateMin = 0;
+
 
 
 export const UpdateJobBody = zod.object({
@@ -1752,6 +1789,7 @@ export const AddJobLineItemParams = zod.object({
 export const addJobLineItemBodyQtyMin = 0;
 
 
+
 export const AddJobLineItemBody = zod.object({
   "priceItemId": zod.string(),
   "qty": zod.number().min(addJobLineItemBodyQtyMin).optional()
@@ -1777,6 +1815,7 @@ export const UpdateJobLineItemParams = zod.object({
 })
 
 export const updateJobLineItemBodyQtyMin = 0;
+
 
 
 export const UpdateJobLineItemBody = zod.object({
@@ -2344,6 +2383,7 @@ export const DeleteCalendarEventResponse = zod.object({
  */
 
 
+
 export const ListCrewsResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
@@ -2367,6 +2407,10 @@ export const ListCrewsResponseItem = zod.object({
 export const ListCrewsResponse = zod.array(ListCrewsResponseItem)
 
 
+
+
+
+
 export const CreateCrewBody = zod.object({
   "name": zod.string().min(1),
   "trade": zod.string().optional(),
@@ -2379,6 +2423,8 @@ export const CreateCrewBody = zod.object({
   "rate": zod.number().nullish()
 })).optional()
 })
+
+
 
 
 export const CreateCrewResponse = zod.object({
@@ -2403,6 +2449,9 @@ export const UpdateCrewParams = zod.object({
 })
 
 
+
+
+
 export const UpdateCrewBody = zod.object({
   "name": zod.string().min(1).optional(),
   "trade": zod.string().optional(),
@@ -2416,6 +2465,8 @@ export const UpdateCrewBody = zod.object({
   "rate": zod.number().nullish()
 })).nullish()
 })
+
+
 
 
 export const UpdateCrewResponse = zod.object({
@@ -2699,6 +2750,7 @@ export const listBankTransactionsQueryDaysDefault = 30;
 export const listBankTransactionsQueryDaysMax = 90;
 
 
+
 export const ListBankTransactionsQueryParams = zod.object({
   "days": zod.coerce.number().min(1).max(listBankTransactionsQueryDaysMax).default(listBankTransactionsQueryDaysDefault)
 })
@@ -2722,6 +2774,7 @@ export const ListBankTransactionsResponse = zod.array(ListBankTransactionsRespon
  */
 export const getBankAnalysisQueryDaysDefault = 30;
 export const getBankAnalysisQueryDaysMax = 90;
+
 
 
 export const GetBankAnalysisQueryParams = zod.object({
@@ -2804,6 +2857,7 @@ export const applyBankAnalysisQueryDaysDefault = 30;
 export const applyBankAnalysisQueryDaysMax = 90;
 
 
+
 export const ApplyBankAnalysisQueryParams = zod.object({
   "days": zod.coerce.number().min(1).max(applyBankAnalysisQueryDaysMax).default(applyBankAnalysisQueryDaysDefault)
 })
@@ -2822,6 +2876,7 @@ export const ApplyBankAnalysisResponse = zod.object({
  */
 export const categorizeBankTransactionQueryDaysDefault = 30;
 export const categorizeBankTransactionQueryDaysMax = 90;
+
 
 
 export const CategorizeBankTransactionQueryParams = zod.object({
@@ -3513,6 +3568,9 @@ export const ListInventoryResponseItem = zod.object({
 export const ListInventoryResponse = zod.array(ListInventoryResponseItem)
 
 
+
+
+
 export const CreateInventoryItemBody = zod.object({
   "name": zod.string().min(1),
   "qty": zod.number().optional(),
@@ -3567,6 +3625,9 @@ export const ListVendorsResponseItem = zod.object({
 export const ListVendorsResponse = zod.array(ListVendorsResponseItem)
 
 
+
+
+
 export const CreateVendorBody = zod.object({
   "name": zod.string().min(1),
   "trade": zod.string().optional(),
@@ -3592,6 +3653,8 @@ export const CreateVendorResponse = zod.object({
 export const UpdateVendorParams = zod.object({
   "id": zod.coerce.string()
 })
+
+
 
 
 export const UpdateVendorBody = zod.object({
@@ -3728,6 +3791,7 @@ export const DeleteNotificationResponse = zod.void()
 export const listActivitiesQueryLimitMax = 200;
 
 
+
 export const ListActivitiesQueryParams = zod.object({
   "entityType": zod.coerce.string().optional(),
   "entityId": zod.coerce.string().optional(),
@@ -3767,6 +3831,7 @@ export const CreateActivityResponse = zod.object({
 /**
  * @summary Parse a spoken transcript into structured, confirmable actions
  */
+
 
 
 export const ParseVoiceBody = zod.object({
@@ -3926,11 +3991,18 @@ export const ListImportHistoryResponse = zod.object({
  */
 
 
+
+
+
 export const RequestUploadUrlBody = zod.object({
   "name": zod.string().min(1),
   "size": zod.number().min(1),
   "contentType": zod.string().min(1)
 })
+
+
+
+
 
 
 export const RequestUploadUrlResponse = zod.object({
@@ -3970,6 +4042,8 @@ export const GetStorageObjectResponse = zod.unknown()
 export const GetCrewDetailParams = zod.object({
   "id": zod.coerce.string()
 })
+
+
 
 
 export const GetCrewDetailResponse = zod.object({
@@ -4052,6 +4126,8 @@ export const SendCrewMessageParams = zod.object({
 })
 
 
+
+
 export const SendCrewMessageBody = zod.object({
   "body": zod.string().min(1)
 })
@@ -4109,6 +4185,9 @@ export const ListCrewDocumentsResponse = zod.array(ListCrewDocumentsResponseItem
 export const SendCrewDocumentParams = zod.object({
   "id": zod.coerce.string()
 })
+
+
+
 
 
 export const SendCrewDocumentBody = zod.object({
@@ -4260,6 +4339,8 @@ export const UpdateCrewPaymentMethodBody = zod.object({
   "preferredPaymentMethod": zod.string().nullish(),
   "paymentDetails": zod.string().nullish()
 })
+
+
 
 
 export const UpdateCrewPaymentMethodResponse = zod.object({
@@ -4474,6 +4555,8 @@ export const SendPortalMessageParams = zod.object({
 })
 
 
+
+
 export const SendPortalMessageBody = zod.object({
   "body": zod.string().min(1)
 })
@@ -4543,6 +4626,9 @@ export const ListPortalDocumentsResponse = zod.array(ListPortalDocumentsResponse
 export const UploadPortalDocumentParams = zod.object({
   "token": zod.coerce.string()
 })
+
+
+
 
 
 export const UploadPortalDocumentBody = zod.object({
@@ -6509,6 +6595,7 @@ export const ListPaymentRequestsResponse = zod.array(ListPaymentRequestsResponse
  */
 
 
+
 export const CreatePaymentRequestBody = zod.object({
   "propertyId": zod.string(),
   "jobIds": zod.array(zod.string()),
@@ -6936,6 +7023,7 @@ export const ListCrewPayoutsResponse = zod.array(ListCrewPayoutsResponseItem)
 export const createCrewPayoutBodyAmountExclusiveMin = 0;
 
 
+
 export const CreateCrewPayoutBody = zod.object({
   "crewId": zod.string(),
   "jobId": zod.string(),
@@ -6983,6 +7071,8 @@ export const GetPayoutQueueResponse = zod.array(GetPayoutQueueResponseItem)
  * @summary One-tap ACH payouts to multiple crews (Cybrid rails stubbed)
  */
 export const createCrewPayoutBatchBodyItemsItemAmountExclusiveMin = 0;
+
+
 
 
 export const CreateCrewPayoutBatchBody = zod.object({
@@ -7092,6 +7182,7 @@ export const submitPortalBankBodyRoutingNumberMin = 9;
 export const submitPortalBankBodyRoutingNumberMax = 9;
 
 export const submitPortalBankBodyAccountNumberMin = 4;
+
 
 
 export const SubmitPortalBankBody = zod.object({
@@ -7633,12 +7724,80 @@ export const SendClientOnboardingResponse = zod.object({
   "createdAt": zod.string()
 })
 
+
 /**
  * @summary Office view of a property's client board — same cards the client sees
  */
 export const GetOfficeClientBoardParams = zod.object({
   "propertyId": zod.coerce.string()
 })
+
+export const GetOfficeClientBoardResponse = zod.object({
+  "propertyName": zod.string(),
+  "accountStatus": zod.string().describe('active | paused | cancelled'),
+  "dashboardUrl": zod.string().nullish(),
+  "webhookConnected": zod.boolean().optional(),
+  "cards": zod.array(zod.object({
+  "id": zod.string(),
+  "column": zod.string().describe('inbox | todo | in_progress | done'),
+  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "actionLabel": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "dueDate": zod.string().nullish(),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
+})),
+  "jobId": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Drop a manual card on the client's board (title, note, optional links)
+ */
+export const CreateOfficeClientBoardCardParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const CreateOfficeClientBoardCardBody = zod.object({
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
+})).optional()
+})
+
+export const CreateOfficeClientBoardCardResponse = zod.object({
+  "id": zod.string(),
+  "column": zod.string().describe('inbox | todo | in_progress | done'),
+  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "actionLabel": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "dueDate": zod.string().nullish(),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
+})),
+  "jobId": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
 /**
  * @summary Client dashboard admin — team members and their feature access
  */
@@ -7885,6 +8044,7 @@ export const UpdateClientBillingParams = zod.object({
 export const updateClientBillingBodyBillingDayMax = 28;
 
 
+
 export const UpdateClientBillingBody = zod.object({
   "billingDay": zod.number().min(1).max(updateClientBillingBodyBillingDayMax).optional(),
   "status": zod.string().optional().describe('active | paused'),
@@ -7997,11 +8157,11 @@ export const PutClientPaymentMethodResponse = zod.object({
 /**
  * @summary Trello-style client board — cards raised by everything we send
  */
-export const GetClientBoardParams = zod.object({
+export const GetClientBoardFeedParams = zod.object({
   "token": zod.coerce.string()
 })
 
-export const GetClientBoardResponse = zod.object({
+export const GetClientBoardFeedResponse = zod.object({
   "propertyName": zod.string(),
   "webhookUrl": zod.string().nullish(),
   "cards": zod.array(zod.object({
@@ -8029,16 +8189,16 @@ export const GetClientBoardResponse = zod.object({
 /**
  * @summary Move a board card between columns
  */
-export const UpdateClientBoardCardParams = zod.object({
+export const UpdateClientBoardFeedCardParams = zod.object({
   "token": zod.coerce.string(),
   "cardId": zod.coerce.string()
 })
 
-export const UpdateClientBoardCardBody = zod.object({
+export const UpdateClientBoardFeedCardBody = zod.object({
   "column": zod.string().describe('inbox | todo | in_progress | done')
 })
 
-export const UpdateClientBoardCardResponse = zod.object({
+export const UpdateClientBoardFeedCardResponse = zod.object({
   "id": zod.string(),
   "column": zod.string().describe('inbox | todo | in_progress | done'),
   "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
@@ -8115,66 +8275,215 @@ export const BuildInvoiceJobDraftResponse = zod.object({
 })
 
 
-export const CreateOfficeClientBoardCardBody = zod.object({
-  "title": zod.string(),
-  "body": zod.string().nullish(),
-  "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
-  "links": zod.array(zod.object({
-  "label": zod.string(),
-  "url": zod.string(),
-  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
-})).optional()
+/**
+ * @summary Client dashboard login — seated users sign in with their credentials
+ */
+export const ClientBoardLoginParams = zod.object({
+  "token": zod.coerce.string()
 })
 
-export const GetOfficeClientBoardResponse = zod.object({
+export const ClientBoardLoginBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string()
+})
+
+export const ClientBoardLoginResponse = zod.object({
+  "sessionToken": zod.string(),
+  "viewer": zod.object({
+  "authenticated": zod.boolean(),
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "permissions": zod.array(zod.string()),
+  "readOnly": zod.boolean()
+})
+})
+
+
+/**
+ * @summary The client kanban board — HALO-fed cards plus the client's own cards
+ */
+export const GetClientBoardParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientBoardResponse = zod.object({
   "propertyName": zod.string(),
-  "accountStatus": zod.string().describe('active | paused | cancelled'),
-  "dashboardUrl": zod.string().nullish(),
-  "webhookConnected": zod.boolean().optional(),
-  "cards": zod.array(zod.object({
-  "id": zod.string(),
-  "column": zod.string().describe('inbox | todo | in_progress | done'),
-  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
-  "title": zod.string(),
-  "body": zod.string().nullish(),
-  "actionLabel": zod.string().nullish(),
-  "amount": zod.number().nullish(),
-  "dueDate": zod.string().nullish(),
-  "links": zod.array(zod.object({
+  "propertyAddress": zod.string().nullish(),
+  "logoUrl": zod.string().nullable(),
+  "servicesOverview": zod.string().nullish(),
+  "businessName": zod.string().nullish(),
+  "viewer": zod.object({
+  "authenticated": zod.boolean(),
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "role": zod.string(),
+  "permissions": zod.array(zod.string()),
+  "readOnly": zod.boolean()
+}),
+  "lanes": zod.array(zod.object({
+  "key": zod.string(),
   "label": zod.string(),
-  "url": zod.string(),
-  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
+  "hint": zod.string().nullish()
 })),
-  "jobId": zod.string().nullish(),
-  "completedAt": zod.string().nullish(),
-  "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "cards": zod.array(zod.object({
+  "cardKey": zod.string(),
+  "template": zod.enum(['job', 'makeready', 'invoice', 'crew', 'request', 'custom']),
+  "title": zod.string(),
+  "subtitle": zod.string().nullish(),
+  "lane": zod.string(),
+  "position": zod.number(),
+  "pipeline": zod.array(zod.string()),
+  "stageIndex": zod.number(),
+  "status": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "priority": zod.string().nullish(),
+  "dueOn": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "crew": zod.union([zod.object({
+  "name": zod.string(),
+  "trade": zod.string().nullish(),
+  "selfieUrl": zod.string().nullish(),
+  "onSite": zod.boolean().optional(),
+  "lastSeenAt": zod.string().nullish()
+}),zod.null()]).optional(),
+  "trackerUrl": zod.string().nullish(),
+  "payUrl": zod.string().nullish(),
+  "photos": zod.array(zod.object({
+  "url": zod.string(),
+  "phase": zod.string().nullish(),
+  "note": zod.string().nullish()
+})),
+  "actions": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "kind": zod.enum(['primary', 'secondary', 'link']),
+  "href": zod.string().nullish()
+})),
+  "editable": zod.boolean(),
+  "updatedAt": zod.string().nullish()
+})),
+  "audit": zod.array(zod.object({
+  "action": zod.string(),
+  "cardKey": zod.string().nullish(),
+  "actorName": zod.string().nullish(),
+  "actorRole": zod.string().nullish(),
+  "ok": zod.boolean(),
+  "blocked": zod.boolean(),
+  "reason": zod.string().nullish(),
+  "createdAt": zod.string()
 }))
 })
 
+
 /**
- * @summary Drop a manual card on the client's board (title, note, optional links)
+ * @summary Client adds their own custom card to the board
  */
-export const CreateOfficeClientBoardCardParams = zod.object({
-  "propertyId": zod.coerce.string()
+export const CreateClientBoardCardParams = zod.object({
+  "token": zod.coerce.string()
 })
 
-export const CreateOfficeClientBoardCardResponse = zod.object({
-  "id": zod.string(),
-  "column": zod.string().describe('inbox | todo | in_progress | done'),
-  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+export const CreateClientBoardCardBody = zod.object({
   "title": zod.string(),
-  "body": zod.string().nullish(),
-  "actionLabel": zod.string().nullish(),
-  "amount": zod.number().nullish(),
-  "dueDate": zod.string().nullish(),
-  "links": zod.array(zod.object({
-  "label": zod.string(),
-  "url": zod.string(),
-  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
-})),
-  "jobId": zod.string().nullish(),
-  "completedAt": zod.string().nullish(),
-  "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "lane": zod.string(),
+  "description": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "priority": zod.string().nullish(),
+  "dueOn": zod.string().nullish()
 })
+
+export const CreateClientBoardCardResponse = zod.object({
+  "cardKey": zod.string(),
+  "lane": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})
+
+
+/**
+ * @summary Edit card details — full edits on custom cards, notes on HALO cards
+ */
+export const UpdateClientBoardCardParams = zod.object({
+  "token": zod.coerce.string(),
+  "cardKey": zod.coerce.string()
+})
+
+export const UpdateClientBoardCardBody = zod.object({
+  "title": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "priority": zod.string().nullish(),
+  "dueOn": zod.string().nullish(),
+  "archived": zod.boolean().nullish()
+})
+
+export const UpdateClientBoardCardResponse = zod.object({
+  "cardKey": zod.string(),
+  "lane": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})
+
+
+/**
+ * @summary Action registry — every board button posts a named action here
+ */
+export const DispatchClientBoardActionParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const DispatchClientBoardActionBody = zod.object({
+  "action": zod.string(),
+  "cardKey": zod.string().nullish(),
+  "payload": zod.record(zod.string(), zod.unknown()).optional()
+})
+
+export const DispatchClientBoardActionResponse = zod.object({
+  "ok": zod.boolean(),
+  "blocked": zod.boolean(),
+  "action": zod.string(),
+  "reason": zod.string().nullish(),
+  "message": zod.string().nullish()
+})
+
+
+/**
+ * @summary Map view — the property plus live crew activity and trackers
+ */
+export const GetClientBoardMapParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientBoardMapResponse = zod.object({
+  "propertyName": zod.string(),
+  "propertyAddress": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "crews": zod.array(zod.object({
+  "crewName": zod.string(),
+  "crewTrade": zod.string().nullish(),
+  "selfieUrl": zod.string().nullish(),
+  "jobId": zod.string().optional(),
+  "jobNo": zod.string(),
+  "description": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "status": zod.string(),
+  "onSite": zod.boolean(),
+  "trackerUrl": zod.string().nullish(),
+  "lastCheckinKind": zod.string().nullish(),
+  "lastCheckinAt": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "accuracy": zod.number().nullish()
+})),
+  "happenings": zod.array(zod.object({
+  "at": zod.string(),
+  "text": zod.string()
+}))
+})
+
+

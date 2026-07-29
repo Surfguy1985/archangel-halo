@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useGetClientBoard,
-  getGetClientBoardQueryKey,
-  useUpdateClientBoardCard,
+  useGetClientBoardFeed,
+  getGetClientBoardFeedQueryKey,
+  useUpdateClientBoardFeedCard,
   useUpdateClientBoardWebhook,
-  type ClientBoardCard,
+  type ClientBoardFeedCard,
 } from "@workspace/api-client-react";
 import {
   ArrowRight,
@@ -61,14 +61,14 @@ function CardView({
   card,
   token,
 }: {
-  card: ClientBoardCard;
+  card: ClientBoardFeedCard;
   token: string;
 }) {
   const queryClient = useQueryClient();
-  const move = useUpdateClientBoardCard({
+  const move = useUpdateClientBoardFeedCard({
     mutation: {
       onSuccess: () =>
-        queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) }),
+        queryClient.invalidateQueries({ queryKey: getGetClientBoardFeedQueryKey(token) }),
     },
   });
   const meta = KIND_META[card.kind] ?? KIND_META.manual;
@@ -153,7 +153,7 @@ function WebhookBox({ token, current }: { token: string; current: string | null 
   const save = useUpdateClientBoardWebhook({
     mutation: {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+        queryClient.invalidateQueries({ queryKey: getGetClientBoardFeedQueryKey(token) });
         setOpen(false);
       },
     },
@@ -214,9 +214,9 @@ function WebhookBox({ token, current }: { token: string; current: string | null 
 export default function ClientBoard() {
   const { token = "" } = useParams<{ token: string }>();
   const [tourOpen, setTourOpen] = useState(false);
-  const boardQuery = useGetClientBoard(token, {
+  const boardQuery = useGetClientBoardFeed(token, {
     query: {
-      queryKey: getGetClientBoardQueryKey(token),
+      queryKey: getGetClientBoardFeedQueryKey(token),
       enabled: !!token,
       retry: false,
     },

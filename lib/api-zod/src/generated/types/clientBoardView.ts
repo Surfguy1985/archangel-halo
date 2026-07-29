@@ -5,11 +5,23 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
-import type { ClientBoardCard } from './clientBoardCard';
+import type { ClientBoardAuditEntry } from './clientBoardAuditEntry';
+import type { ClientBoardCardView } from './clientBoardCardView';
+import type { ClientBoardLane } from './clientBoardLane';
+import type { ClientBoardViewer } from './clientBoardViewer';
 
 export interface ClientBoardView {
   propertyName: string;
   /** @nullable */
-  webhookUrl?: string | null;
-  cards: ClientBoardCard[];
+  propertyAddress?: string | null;
+  /** @nullable */
+  logoUrl: string | null;
+  /** @nullable */
+  servicesOverview?: string | null;
+  /** @nullable */
+  businessName?: string | null;
+  viewer: ClientBoardViewer;
+  lanes: ClientBoardLane[];
+  cards: ClientBoardCardView[];
+  audit: ClientBoardAuditEntry[];
 }

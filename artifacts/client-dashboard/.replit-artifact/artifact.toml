@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/dashboard/"
+title = "HALO Client Dashboard"
+version = "1.0.0"
+id = "artifacts/client-dashboard"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/dashboard/" ]
+localPort = 22750
+
+[services.development]
+run = "pnpm --filter @workspace/client-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/client-dashboard", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/client-dashboard/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22750"
+BASE_PATH = "/dashboard/"
