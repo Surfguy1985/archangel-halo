@@ -90,3 +90,9 @@ id = "P1Z3iFZjUWqjkMDe4-BC8"
 uri = "file://exports/halo-backend-codebase.md"
 type = "text"
 title = "halo-backend-codebase.md"
+
+[[outputs]]
+id = "BDaDIhqxrPS3F8syNOZl4"
+uri = "file://exports/halo-dev-docs-and-api.zip"
+type = "unspecified"
+title = "HALO Dev Docs + API Spec (ZIP)"
