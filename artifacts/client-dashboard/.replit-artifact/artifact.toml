@@ -1,5 +1,5 @@
 kind = "web"
-previewPath = "/dashboard/"
+previewPath = "/board/"
 title = "HALO Client Dashboard"
 version = "1.0.0"
 id = "artifacts/client-dashboard"
@@ -7,7 +7,7 @@ router = "path"
 
 [[services]]
 name = "web"
-paths = [ "/dashboard/" ]
+paths = [ "/board/" ]
 localPort = 22750
 
 [services.development]
@@ -24,4 +24,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "22750"
-BASE_PATH = "/dashboard/"
+BASE_PATH = "/board/"

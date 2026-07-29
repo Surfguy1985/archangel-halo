@@ -14,7 +14,7 @@ import "./index.css";
   if (!isDesktop) return;
   const path = window.location.pathname;
   if (path.startsWith("/desktop")) return;
-  if (/^\/(pay|portal|track|photos|recap|summary|client)\//.test(path)) return;
+  if (/^\/(pay|portal|track|photos|recap|summary|client|dashboard)\//.test(path)) return;
   // Only redirect paths that exist in the desktop app; everything else lands on its home.
   const known =
     /^\/(properties|jobs|invoices|money|calendar|crews|wings|pipeline|catalog|supply|vendors|import|jobboard)(\/|$)|^\/$/;
