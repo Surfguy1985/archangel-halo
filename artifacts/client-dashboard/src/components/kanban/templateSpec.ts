@@ -13,11 +13,16 @@ const CATEGORY_HUES: Record<string, number> = {
   intel: 277,
 };
 
-const accentFor = (h: number) => `oklch(0.54 0.14 ${h})`;
-
-const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
-  Object.entries(CATEGORY_HUES).map(([k, h]) => [k, accentFor(h)]),
-);
+export const CATEGORY_COLORS: Record<string, string> = {
+  maintenance: '#33639f',
+  money: '#1f7a52',
+  vendor: '#7a4a9e',
+  compliance: '#a65a2b',
+  leasing: '#1e6f92',
+  access: '#5c7a28',
+  people: '#a2447a',
+  intel: '#5a50a8',
+};
 
 /** Mix the accent into white at pct% — the reference's card surface scale. */
 export const mixp = (accent: string, pct: number) =>
@@ -51,18 +56,18 @@ export function cardTint(spec: TemplateSpec): CardTint {
 }
 
 export const TONES = {
-  good: '#1f7a52',
-  warn: '#a86c14',
-  bad: '#a5311f',
-  ink: '#101c33',
-  mute: '#6e6c63',
+  good: 'oklch(0.50 0.14 155)',
+  warn: 'oklch(0.55 0.15 68)',
+  bad: 'oklch(0.50 0.20 27)',
+  ink: '#101C33',
+  mute: '#6E6C63',
 } as const;
 
 export function heatColor(pct: number): string {
-  if (pct < 62) return '#1f7a52';
-  if (pct < 85) return '#b8891a';
-  if (pct < 100) return '#c25a1e';
-  return '#a5311f';
+  if (pct < 62) return 'oklch(0.63 0.13 155)';
+  if (pct < 85) return 'oklch(0.75 0.15 92)';
+  if (pct < 100) return 'oklch(0.68 0.17 55)';
+  return 'oklch(0.56 0.21 27)';
 }
 
 export const PRIORITY_CHIP: Record<string, { bg: string; fg: string }> = {

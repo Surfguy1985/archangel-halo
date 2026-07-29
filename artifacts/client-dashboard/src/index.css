@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
 
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -41,7 +41,7 @@
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-destructive-border: hsl(var(--destructive-border));
 
-  --font-sans: "Geist", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: ui-monospace, Menlo, monospace;
 
@@ -49,6 +49,29 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  
+  --color-ink: #101C33;
+  --color-canvas: #F1F0EC;
+  --color-action: #D8F84E;
+  --color-action-hover: #C8EC33;
+  --color-gold: #B08D57;
+  --color-faint: #96948B;
+  --color-hairline: #E4E2DB;
+  --color-tray: #E7E5DD;
+  --color-tray-border: #DCD9D1;
+  --color-triage-tray: #F6EEE2;
+  --color-triage-border: #E8D2AF;
+  --color-gallery: #FBFAF7;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 :root {
@@ -132,7 +155,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-canvas text-ink antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
     /* Adding subtle grain to make it more "warm paper" */
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");

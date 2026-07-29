@@ -6,14 +6,15 @@ import { BoardCard } from '@/components/kanban/BoardCard';
 import { CardDetailDialog } from '@/components/kanban/CardDetailDialog';
 import { CreateCardDialog } from '@/components/kanban/CreateCardDialog';
 import { Button } from '@/components/ui/button';
-import { MapPin, User, Loader2, Info, Plus, LayoutGrid, BookOpen, Headphones, Layers, LayoutList, AlertCircle, X, Check, Calendar, ArrowRight } from 'lucide-react';
+import { MapPin, User, Loader2, Info, Plus, LayoutGrid, BookOpen, Headphones, Layers, LayoutList, AlertCircle, X, Check, Calendar, ArrowRight, Search, LogOut, Zap } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { formatDistanceToNow, isBefore, parseISO, startOfDay } from 'date-fns';
+import { formatDistanceToNow, isBefore, parseISO, startOfDay, format } from 'date-fns';
 import { DashboardTour } from '@/components/DashboardTour';
 import { motion, AnimatePresence } from 'framer-motion';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { specFor, CATEGORY_COLORS } from '@/components/kanban/templateSpec';
 
 import {
   Sheet,
@@ -24,7 +25,7 @@ import {
 } from '@/components/ui/sheet';
 
 // hint: Logic changed on both sides. Requires understanding intent of each change.
-export default function KanbanBoard() {
+function Board() {
   const { token } = useParams<{ token: string }>();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -33,6 +34,8 @@ export default function KanbanBoard() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [draggedCard, setDraggedCard] = useState<string | null>(null);
   const [dragOverLane, setDragOverLane] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedCard, setSelectedCard] = useState<ClientBoardCardView | null>(null);
   const [hoveredLane, setHoveredLane] = useState<string | null>(null);
   const [expandedLane, setExpandedLane] = useState<string | null>(null);
@@ -167,6 +170,14 @@ export default function KanbanBoard() {
   // A card needs a decision if: priority is urgent/high OR it is past dueOn OR it is in the "requested" lane
   const [localDismissedTriage, setLocalDismissedTriage] = useState<Set<string>>(new Set());
 
+  // Update currentTime every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   const triageCards = useMemo(() => {
     if (!board?.cards) return [];
     
@@ -199,6 +210,29 @@ export default function KanbanBoard() {
     });
   }, [board?.cards, localDismissedTriage]);
 
+  // REGRESSION FIX #3: Derive categories from templateSpec.ts specFor() — must be before early returns
+  const categoryCounts = useMemo(() => {
+    if (!board?.cards) return {};
+    const counts: Record<string, number> = {};
+    board.cards.forEach(c => {
+      const spec = specFor(c.template);
+      const cat = spec.categoryLabel;
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return counts;
+  }, [board?.cards]);
+
+  const categoryChips = useMemo(() => [
+    { key: 'maintenance', label: 'Maintenance', color: CATEGORY_COLORS.maintenance },
+    { key: 'money', label: 'Money', color: CATEGORY_COLORS.money },
+    { key: 'vendor', label: 'Vendor', color: CATEGORY_COLORS.vendor },
+    { key: 'compliance', label: 'Compliance', color: CATEGORY_COLORS.compliance },
+    { key: 'leasing', label: 'Leasing', color: CATEGORY_COLORS.leasing },
+    { key: 'access', label: 'Access', color: CATEGORY_COLORS.access },
+    { key: 'people', label: 'People', color: CATEGORY_COLORS.people },
+    { key: 'intel', label: 'Intel', color: CATEGORY_COLORS.intel },
+  ].map(cat => ({ ...cat, count: categoryCounts[cat.key] || 0 }))
+   .filter(cat => cat.count > 0), [categoryCounts]);
 
   if (isLoading) {
     return (
@@ -634,350 +668,308 @@ export default function KanbanBoard() {
     );
   };
 
+  const overdueCount = cards.filter(c => c.dueOn && isBefore(parseISO(c.dueOn), startOfDay(new Date())) && c.lane !== 'done').length;
+  const urgentCount = cards.filter(c => (c.priority === 'urgent' || c.priority === 'high') && c.lane !== 'done').length;
+  const doneCount = cards.filter(c => c.lane === 'done').length;
+  const openCount = cards.filter(c => c.lane !== 'done').length;
+  
+  // Real metrics from card data for the Pulse rail
+  const pulseMetrics = [
+    { label: 'OPEN WORK', value: openCount.toString(), delta: '', note: 'active cards', bg: '#4a6070' },
+    { label: 'SLA AT RISK', value: urgentCount.toString(), delta: '', note: 'urgent/high priority', bg: '#c25a1e' },
+    { label: 'OVERDUE', value: overdueCount.toString(), delta: '', note: 'past due dates', bg: '#b23a2e' },
+    { label: 'SETTLED', value: doneCount.toString(), delta: '', note: 'closed cards', bg: '#1f7a52' },
+  ];
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="flex h-screen flex-col bg-[#f4f3f0] font-sans relative overflow-hidden"
+      className="flex h-screen flex-col bg-[#f1f0ec] font-sans relative overflow-hidden"
     >
-      {/* Header */}
-      <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-black/5 bg-[#fdfdfc] px-6 shadow-sm z-50">
-        <div className="flex items-center gap-5">
+      {/* 4. App Chrome - Header */}
+      <header className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#e4e2db] bg-[#ffffff] px-[20px] shadow-[0_1px_2px_rgba(16,28,51,0.05)] z-50 sticky top-0">
+        <div className="flex items-center gap-[16px]">
           {logoUrl ? (
-            <img src={logoUrl} alt={propertyName} className="h-9 max-w-[140px] object-contain drop-shadow-sm" />
+            <img src={logoUrl} alt={propertyName} className="h-[26px] object-contain drop-shadow-sm" />
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[#d8f84e] text-[#101c33] font-[900] text-lg shadow-sm border border-black/5">
-              {propertyName.charAt(0).toUpperCase()}
-            </div>
+            <div className="text-[20px] font-[800] text-[#101c33] tracking-tight">HALO</div>
           )}
-          <div className="h-7 w-[1px] bg-black/10" />
-          <div>
-            <h1 className="text-[15px] font-[800] tracking-tight text-[#101c33] leading-tight">{propertyName}</h1>
+          <div className="h-[26px] w-[1px] bg-[#e4e2db]" />
+          <div className="flex flex-col justify-center">
+            <h1 className="text-[13px] font-[700] text-[#101c33] leading-tight">{propertyName}</h1>
             {board.propertyAddress && (
-              <p className="text-[11px] font-[600] text-muted-foreground">{board.propertyAddress}</p>
+              <p className="text-[10.5px] font-[600] text-[#8C8A81] leading-tight">{board.propertyAddress}</p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 border border-black/5 shadow-sm">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#d8f84e] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#b6d338]"></span>
+        <div className="flex items-center gap-[16px]">
+          <div className="flex items-center h-[32px] gap-2 rounded-[8px] bg-[#101c33] px-3 border border-[#101c33]/20 shadow-sm overflow-hidden group">
+            <span className="relative flex h-[6px] w-[6px]">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-[#D8F84E] opacity-75" style={{ animation: 'pulseDot 1.6s infinite' }}></span>
+              <span className="relative inline-flex rounded-full h-[6px] w-[6px] bg-[#D8F84E]"></span>
             </span>
-            <span className="text-[10px] font-[800] tracking-widest text-[#101c33] uppercase">Live</span>
+            <span className="text-[10px] font-[800] text-[#D8F84E] tracking-widest uppercase">LIVE</span>
+            <span className="font-mono text-[10px] font-[700] text-white/80 group-hover:text-white transition-colors border-l border-white/20 pl-2 ml-1">
+              {format(currentTime, 'HH:mm')}
+            </span>
           </div>
 
-          <div className="h-5 w-[1px] bg-black/10 mx-1" />
-
-          {/* Triage Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setTriageOpen(true)}
-            className="h-10 rounded-[10px] gap-2 text-[12px] font-[800] border-black/10 bg-white hover:bg-black/[0.02] shadow-sm text-[#101c33] px-4 relative"
-          >
-            <AlertCircle className={`h-4 w-4 ${triageCards.length > 0 ? 'text-[#e11d48]' : 'text-muted-foreground'}`} />
-            Triage
-            {triageCards.length > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#e11d48] text-[9px] font-bold text-white shadow-sm border border-white">
-                {triageCards.length}
-              </span>
-            )}
-          </Button>
-
-          {/* Big Create Button — visible to guests too; prompts sign-in */}
-          {(
-            <Button
-              size="sm"
-              onClick={() => {
-                if (viewer.readOnly) {
-                  setLoginOpen(true);
-                  return;
-                }
-                setCreateLaneKey(null);
-                setCreateCardOpen(true);
-              }}
-              className="h-10 rounded-[10px] gap-2 text-[12px] font-[800] bg-[#d8f84e] hover:bg-[#d8f84e]/90 text-[#101c33] px-5 shadow-sm hover:shadow-md transition-all active:scale-95"
-            >
-              <Plus className="h-4 w-4" />
-              Create Card
-            </Button>
+          {/* REGRESSION FIX #2: Restore Map View, Site Map, Hub buttons with testids */}
+          {viewer.permissions?.includes('unit_map') && (
+            <>
+              <button
+                data-testid="button-map-view"
+                className="h-[32px] px-3 rounded-[8px] bg-white border border-[#e4e2db] text-[#101c33] text-[11px] font-[700] hover:bg-[#F4F2EC] transition-colors flex items-center gap-1.5"
+                onClick={() => setLocation(`/${token}/map`)}
+              >
+                <MapPin className="h-3.5 w-3.5" /> Map
+              </button>
+              <button
+                data-testid="button-site-map"
+                className="h-[32px] px-3 rounded-[8px] bg-white border border-[#e4e2db] text-[#101c33] text-[11px] font-[700] hover:bg-[#F4F2EC] transition-colors flex items-center gap-1.5"
+                onClick={() => setLocation(`/${token}/units`)}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" /> Units
+              </button>
+            </>
           )}
-
-          <div className="h-5 w-[1px] bg-black/10 mx-1" />
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 rounded-[10px] bg-black/5 p-1 shadow-inner">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => { setViewMode('stacked'); setExpandedLane(null); }}
-                  className={`flex h-[30px] w-[30px] items-center justify-center rounded-[8px] transition-all duration-300 ${viewMode === 'stacked' ? 'bg-white shadow-sm text-foreground scale-105' : 'text-muted-foreground hover:text-foreground hover:bg-black/5'}`}
-                >
-                  <Layers className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs font-bold"><p>Stacked view</p></TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => { setViewMode('unstacked'); setExpandedLane(null); }}
-                  className={`flex h-[30px] w-[30px] items-center justify-center rounded-[8px] transition-all duration-300 ${viewMode === 'unstacked' ? 'bg-white shadow-sm text-foreground scale-105' : 'text-muted-foreground hover:text-foreground hover:bg-black/5'}`}
-                >
-                  <LayoutList className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs font-bold"><p>List view</p></TooltipContent>
-            </Tooltip>
-          </div>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-[10px] hover:bg-black/5" onClick={() => setTourOpen(true)} data-testid="button-board-tour">
-                <Headphones className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs font-bold"><p>Take the guided tour</p></TooltipContent>
-          </Tooltip>
-
-          {viewer.permissions?.includes('unit_map') && (<>
-            <Button variant="outline" size="sm" data-testid="button-map-view" className="h-10 rounded-[10px] gap-2 text-xs font-[800] border-black/10 bg-white hover:bg-black/[0.02] shadow-sm text-[#101c33]" onClick={() => setLocation(`/${token}/map`)}>
-              <MapPin className="h-4 w-4" /> Map View
-            </Button>
-            <Button variant="outline" size="sm" data-testid="button-site-map" className="h-10 rounded-[10px] gap-2 text-xs font-[800] border-black/10 bg-white hover:bg-black/[0.02] shadow-sm text-[#101c33]" onClick={() => setLocation(`/${token}/units`)}>
-              <LayoutGrid className="h-4 w-4" /> Site Map
-            </Button>
-          </>)}
 
           {viewer.permissions?.includes('hub') && (
-            <Button variant="outline" size="sm" className="h-10 rounded-[10px] gap-2 text-xs font-[800] border-black/10 bg-white hover:bg-black/[0.02] shadow-sm text-[#101c33]" onClick={() => setLocation(`/${token}/hub`)}>
-              <BookOpen className="h-4 w-4" /> Hub
-            </Button>
+            <button
+              className="h-[32px] px-3 rounded-[8px] bg-white border border-[#e4e2db] text-[#101c33] text-[11px] font-[700] hover:bg-[#F4F2EC] transition-colors flex items-center gap-1.5"
+              onClick={() => setLocation(`/${token}/hub`)}
+            >
+              <BookOpen className="h-3.5 w-3.5" /> Hub
+            </button>
           )}
 
-          {viewer.authenticated ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-[10px] ml-1" onClick={handleLogout}>
-                  <div className="flex h-full w-full items-center justify-center rounded-[8px] bg-[#101c33] text-white shadow-sm hover:scale-105 transition-transform">
-                    {viewer.name?.charAt(0).toUpperCase() || <User className="h-4 w-4" />}
-                  </div>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" align="end" className="rounded-xl p-2 border-black/10">
-                <div className="flex flex-col gap-1 text-xs">
-                  <span className="font-[800] text-[#101c33] px-1">{viewer.name || viewer.email}</span>
-                  <span className="text-muted-foreground font-semibold hover:bg-black/5 p-1 rounded-md cursor-pointer transition-colors">Sign out</span>
-                </div>
-              </TooltipContent>
-            </Tooltip>
+          <button
+            data-testid="button-board-tour"
+            onClick={() => setTourOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F1F0EC] text-[#96948B] hover:bg-[#E7E5DD] hover:text-[#101c33] transition-colors"
+            title="Take the guided tour"
+          >
+            <Headphones className="h-4 w-4" />
+          </button>
+
+          <div className="h-[26px] w-[1px] bg-[#e4e2db]" />
+
+          {viewerAuthenticated ? (
+            <button onClick={handleLogout} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F1F0EC] text-[#101c33] hover:bg-[#E7E5DD] transition-colors" title="Sign out">
+              <LogOut className="h-4 w-4" />
+            </button>
           ) : (
-            <Button variant="ghost" size="sm" className="h-10 rounded-[10px] gap-1.5 text-xs font-[800] text-muted-foreground hover:text-[#101c33] hover:bg-black/5 ml-1" onClick={() => setLoginOpen(true)}>
-              <User className="h-4 w-4" /> Sign In
-            </Button>
+            <button onClick={() => setLoginOpen(true)} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#F1F0EC] text-[#101c33] hover:bg-[#E7E5DD] transition-colors" title="Sign in">
+              <User className="h-4 w-4" />
+            </button>
           )}
         </div>
       </header>
 
-      {/* Main Board */}
-      <main ref={boardScrollRef} className="flex-1 overflow-x-auto overflow-y-hidden pt-6">
+      {/* Pulse rail */}
+      <div className="flex h-[56px] shrink-0 bg-[#101c33] overflow-x-auto kanban-lane-scroll hide-scrollbar items-center gap-[1px]">
+        {pulseMetrics.map((m, i) => (
+          <div key={i} className="flex-1 min-w-[186px] h-full flex flex-col justify-center px-4 hover:bg-white/5 transition-colors cursor-pointer group relative">
+            <div className="flex items-center gap-2">
+              <div className="w-[5px] h-[5px]" style={{ background: m.bg }} />
+              <span className="text-[9px] font-[800] tracking-[0.12em] text-[#8FA0B8] uppercase">{m.label}</span>
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-[23px] font-[700] tracking-[-0.035em] text-white leading-none">{m.value}</span>
+              <span className="text-[9.5px] text-[#7E8FA8]">{m.note}</span>
+            </div>
+            <div className="absolute bottom-0 left-0 w-full h-[4px] bg-white/10 group-hover:bg-white/20 transition-colors">
+              <div className="h-full bg-[#D8F84E]/50 w-1/3" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex items-center px-[20px] py-[10px] shrink-0 bg-[#FBFAF7] border-b border-[#e4e2db] gap-4">
+        <span className="text-[10px] font-[800] tracking-widest text-[#96948B] uppercase">LENS</span>
         
-        {viewer.readOnly && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0, y: -10 }}
-            animate={{ opacity: 1, height: 'auto', y: 0 }}
-            className="mx-6 mb-6 flex items-center justify-center rounded-[16px] border border-primary/30 bg-[#d8f84e]/10 px-5 py-3.5 text-sm font-[700] text-[#101c33] shadow-sm backdrop-blur-md"
+        <div className="flex p-[2px] bg-[#E7E5DD] border border-[#DCD9D1] rounded-[10px]">
+          <button className="px-3 py-1 text-[11px] font-[700] rounded-[8px] bg-white text-[#101c33] shadow-[0_1px_3px_rgba(16,28,51,0.13)]">Flow</button>
+        </div>
+
+        <div className="w-[1px] h-[20px] bg-[#e4e2db]" />
+
+        <div className="flex flex-1 overflow-x-auto hide-scrollbar gap-2 items-center kanban-lane-scroll">
+          <button 
+            onClick={() => setActiveCategory(null)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[12px] text-[11px] font-[700] transition-colors ${!activeCategory ? 'bg-[#101c33] text-white' : 'bg-transparent text-[#96948B] hover:bg-[#E7E5DD] border border-transparent hover:border-[#DCD9D1]'}`}
           >
-            <Info className="mr-2 h-5 w-5 text-[#b6d338]" />
-            You are viewing this board as a guest. 
-            <button className="ml-1 underline decoration-2 underline-offset-2 font-[800] hover:text-[#b6d338] transition-colors" onClick={() => setLoginOpen(true)}>
-              Sign in to make changes.
+            All
+          </button>
+          {categoryChips.map(cat => (
+            <button 
+              key={cat.key}
+              onClick={() => setActiveCategory(activeCategory === cat.key ? null : cat.key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[12px] text-[11px] font-[700] border transition-colors ${activeCategory === cat.key ? 'bg-[#101c33] text-white border-[#101c33]' : 'bg-white text-[#101c33] border-[#DCD9D1] shadow-sm hover:border-[#101c33]/20'}`}
+            >
+              <div className="w-2.5 h-2.5 rounded-[2px]" style={{ background: cat.color }} />
+              {cat.label}
+              <span className={`font-mono ml-1 ${activeCategory === cat.key ? 'text-white/70' : 'text-[#96948B]'}`}>{cat.count}</span>
             </button>
-          </motion.div>
-        )}
+          ))}
+        </div>
 
-        <div className={`flex h-full items-start gap-4 px-6 pb-6 min-w-max`}>
-          {lanes.map((lane, index) => {
-            const laneCards = cards.filter(c => c.lane === lane.key).sort((a, b) => (a.position || 0) - (b.position || 0));
-            const isLaneHovered =
-              hoveredLane === lane.key || dragOverLane === lane.key || expandedLane === lane.key;
+        <div className="w-[1px] h-[20px] bg-[#e4e2db]" />
 
-            return (
-              <motion.div 
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.08, duration: 0.6, ease: [0.2, 0.65, 0.3, 0.9] }}
-                key={lane.key} 
-                data-testid={`lane-${lane.key}`}
-                data-lane-key={lane.key}
-                className={`flex h-full w-[360px] shrink-0 flex-col rounded-[20px] transition-all duration-300 relative bg-[#fdfdfc] border border-black/10 shadow-[0_2px_8px_rgba(0,0,0,0.02)] ${
-                  dragOverLane === lane.key && draggedCard
-                    ? 'ring-2 ring-primary ring-offset-4 ring-offset-[#f4f3f0] shadow-xl'
-                    : 'hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)]'
-                }`}
-                onMouseEnter={() => {
-                  if (!isCoarsePointer) setHoveredLane(lane.key);
-                  setExpandedLane((prev) => (prev === lane.key ? prev : null));
-                }}
-                onMouseLeave={() => {
-                  setHoveredLane(null);
-                  if (expandedLane === lane.key) setExpandedLane(null);
-                }}
-                onDragOver={(e) => handleDragOver(e, lane.key)}
-                onDragLeave={(e) => handleDragLeave(e, lane.key)}
-                onDrop={(e) => handleDrop(e, lane.key)}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* REGRESSION FIX #4: Wire Site map button or remove if not feasible */}
+          {viewer.permissions?.includes('unit_map') && (
+            <div className="flex p-[2px] bg-[#E7E5DD] border border-[#DCD9D1] rounded-[10px] mr-2">
+              <button className="px-3 py-1 text-[11px] font-[700] rounded-[8px] bg-white text-[#101c33] shadow-[0_1px_3px_rgba(16,28,51,0.13)]">Board view</button>
+              <button 
+                onClick={() => setLocation(`/${token}/units`)}
+                className="px-3 py-1 text-[11px] font-[700] rounded-[8px] text-[#96948B] hover:text-[#101c33]"
               >
-                {/* Lane Header */}
-                <div className="flex items-center justify-between px-4 pt-4 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#101c33' }}></span>
-                    <span className="text-[13px] font-[800] uppercase tracking-widest text-[#101c33] leading-none">{lane.label}</span>
-                    <span className="flex h-5 min-w-[20px] items-center justify-center rounded-[6px] bg-black/5 px-1.5 text-[10px] font-[800] text-muted-foreground ml-1">
-                      {laneCards.length}
+                Site map
+              </button>
+            </div>
+          )}
+          
+          <button
+            onClick={() => setTriageOpen(true)}
+            data-testid="button-triage"
+            className="flex items-center gap-2 h-[32px] px-4 rounded-[8px] bg-[#101c33] text-white text-[11px] font-[800] uppercase tracking-wider shadow-[0_1px_2px_rgba(16,28,51,0.2)] hover:bg-[#101c33]/90 transition-colors"
+          >
+            <Zap className={`h-3.5 w-3.5 ${triageCards.length > 0 ? 'text-[#D8F84E]' : 'text-white/50'}`} />
+            Triage {triageCards.length > 0 ? triageCards.length : ''}
+          </button>
+          
+          <button
+            onClick={() => {
+              if (viewer.readOnly) {
+                setLoginOpen(true);
+                return;
+              }
+              setCreateLaneKey(null);
+              setCreateLaneLabel('');
+              setCreateCardOpen(true);
+            }}
+            data-testid="button-create-card"
+            className="flex items-center gap-1 h-[32px] px-3 rounded-[8px] bg-[#D8F84E] text-[#101c33] text-[11px] font-[800] uppercase tracking-wider shadow-sm hover:bg-[#C8EC33] transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Card
+          </button>
+        </div>
+      </div>
+
+      {/* 5. The board */}
+      <main
+        ref={boardScrollRef}
+        className="flex-1 flex overflow-x-auto kanban-lane-scroll p-[18px] px-[20px] gap-[14px]"
+      >
+        {lanes.map((lane) => {
+          const laneCards = cards
+            .filter((c) => c.lane === lane.key)
+            .filter(c => {
+              // REGRESSION FIX #3: Filter by specFor category instead of hardcoded templates
+              if (!activeCategory) return true;
+              const spec = specFor(c.template);
+              return spec.categoryLabel === activeCategory;
+            })
+            // REGRESSION FIX #1: Sort by position (persisted drag order), NOT by SLA heat
+            .sort((a, b) => (a.position || 0) - (b.position || 0));
+
+          const isOver = dragOverLane === lane.key;
+          // Compute hot count for the "N hot" indicator (uses heat, but doesn't reorder)
+          const hasHotCards = laneCards.some(c => c.dueOn && isBefore(parseISO(c.dueOn), startOfDay(new Date())));
+          const hotCount = laneCards.filter(c => c.dueOn && isBefore(parseISO(c.dueOn), startOfDay(new Date()))).length;
+
+          // Spec colors and descriptions for Flow lens
+          let statusColor = '#8c8a81';
+          let description = 'Unknown column.';
+          
+          if (lane.key === 'inbox') { statusColor = '#4a6070'; description = 'Auto-detected by sensors, portals and inboxes.'; }
+          if (lane.key === 'requested') { statusColor = '#c25a1e'; description = 'A decision only the manager can make.'; }
+          if (lane.key === 'scheduled') { statusColor = '#33639f'; description = 'Crews on site, money moving, clocks running.'; }
+          if (lane.key === 'in_progress') { statusColor = '#b23a2e'; description = 'Waiting on a part, a signature, or vendor.'; }
+          if (lane.key === 'billing') { statusColor = '#7a4a9e'; description = 'Work claimed done — QC to confirm.'; }
+          if (lane.key === 'done') { statusColor = '#1f7a52'; description = 'Closed today. Auto-archives at midnight.'; }
+
+          return (
+            <div
+              key={lane.key}
+              data-lane-key={lane.key}
+              className={`flex shrink-0 flex-col w-[362px] bg-[#E7E5DD] border border-[#DCD9D1] rounded-[14px] p-[10px] transition-all duration-200 ${isOver ? 'ring-2 ring-[#101c33] ring-offset-2 ring-offset-[#F1F0EC]' : ''}`}
+              onDragOver={(e) => handleDragOver(e, lane.key)}
+              onDragLeave={(e) => handleDragLeave(e, lane.key)}
+              onDrop={(e) => handleDrop(e, lane.key)}
+            >
+              {/* Column header */}
+              <div className="flex flex-col gap-1.5 px-2 py-1 mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-[8px] h-[8px]" style={{ background: statusColor }} />
+                  <h2 className="text-[11px] font-[800] uppercase tracking-[0.09em] text-[#101c33]">{lane.label}</h2>
+                  <span className="flex items-center justify-center h-4 min-w-[16px] px-1 rounded-[8px] bg-black/5 text-[9px] font-[800] text-[#96948B]">
+                    {laneCards.length}
+                  </span>
+                  <div className="flex-1" />
+                  {hasHotCards && (
+                    <span className="text-[10px] font-[800] text-[#e11d48]">
+                      {hotCount} hot
                     </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {lane.hint && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-4 w-4 text-muted-foreground opacity-40 hover:opacity-100 transition-opacity cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="rounded-xl border-black/10 font-medium text-xs">
-                          <p>{lane.hint}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
+                  )}
                 </div>
-                {lane.hint && (
-                  <div className="px-4 pb-3">
-                    <p className="text-[11px] font-[600] text-muted-foreground line-clamp-1">{lane.hint}</p>
+                <p className="text-[10px] font-[500] text-[#8C8A81]">{description}</p>
+              </div>
+
+              <div className="flex-1 overflow-y-auto kanban-lane-scroll hide-scrollbar px-1 flex flex-col gap-[14px] min-h-[100px] relative pb-[10px]">
+                {laneCards.map((card) => (
+                  <div key={card.cardKey} className="card-snap" onTouchStart={(e) => handleTouchStart(e, card.cardKey)} onClick={() => { if (!draggedCard) setSelectedCard(card); }}>
+                    <BoardCard
+                      card={card}
+                      token={token}
+                      readOnly={viewer.readOnly}
+                      onDragStart={(e) => handleDragStart(e, card.cardKey)}
+                      onDragEnd={(e) => handleDragEnd(e, card.cardKey)}
+                    />
+                  </div>
+                ))}
+
+                {laneCards.length === 0 && (
+                  <div className="absolute inset-x-2 top-0 bottom-2 border-2 border-dashed border-[#DCD9D1] rounded-[14px] flex items-center justify-center text-[12px] font-[600] text-[#96948B] opacity-50 pointer-events-none">
+                    Drop a card here
                   </div>
                 )}
-
-                {/* Lane Cards Scroll Area */}
-                <div
-                  className="kanban-lane-scroll flex-1 overflow-y-auto overflow-x-hidden px-3 pt-1 pb-16"
-                  onClickCapture={(e) => {
-                    if (viewMode !== 'stacked' || laneCards.length <= 1) return;
-                    const laneOpen =
-                      hoveredLane === lane.key ||
-                      expandedLane === lane.key ||
-                      dragOverLane === lane.key;
-                    if (!laneOpen) {
-                      e.stopPropagation();
-                      e.preventDefault();
-                    }
-                    if (expandedLane !== lane.key) setExpandedLane(lane.key);
-                  }}
-                >
-                  <div className="flex flex-col gap-3 min-h-[150px] relative">
-                    <AnimatePresence mode="popLayout">
-                      {laneCards.map((card, i) => {
-                        const isStackedMode = viewMode === 'stacked';
-                        const isStacked = isStackedMode && !isLaneHovered;
-                        
-                        // We want dense cards so overlap is quite a lot
-                        // the card is around ~260px high maybe.
-                        const overlap = 220; 
-                        const mt = i === 0 ? 0 : (isStacked ? -overlap : 0);
-                        const scale = isStacked ? Math.max(0.9, 1 - (laneCards.length - 1 - i) * 0.015) : 1;
-                        
-                        return (
-                          <motion.div
-                            layout="position"
-                            key={card.cardKey}
-                            initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                            animate={{ 
-                              opacity: 1, 
-                              y: 0, 
-                              marginTop: mt,
-                              scale: scale,
-                              zIndex: i
-                            }}
-                            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-                            transition={{ 
-                              type: "spring", 
-                              stiffness: 350, 
-                              damping: 35, 
-                              mass: 0.8 
-                            }}
-                            style={{ transformOrigin: "top center" }}
-                          >
-                            <div
-                              onClick={() => {
-                                if (suppressClick.current) return;
-                                setSelectedCard(card);
-                              }}
-                              onTouchStart={(e) => handleTouchStart(e, card.cardKey)}
-                            >
-                              <BoardCard
-                                card={card}
-                                token={token}
-                                readOnly={viewer.readOnly}
-                                onDragStart={(e) => handleDragStart(e, card.cardKey)}
-                                onDragEnd={(e) => handleDragEnd(e, card.cardKey)}
-                              />
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
-                    
-                    {laneCards.length === 0 && (
-                      <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                        className="flex flex-col items-center justify-center py-10 opacity-40 border-2 border-dashed border-black/10 rounded-[16px] bg-black/[0.02] h-[200px]"
-                      >
-                        <Layers className="h-6 w-6 text-muted-foreground mb-2" />
-                        <p className="text-[12px] font-[800] text-muted-foreground uppercase tracking-widest">Empty</p>
-                      </motion.div>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+              </div>
+            </div>
+          );
+        })}
       </main>
 
-      {renderTriageSheet()}
+      <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} token={token} />
 
-      {/* Modals */}
-      <CreateCardDialog 
+      {selectedCard && (
+        <CardDetailDialog
+          card={selectedCard}
+          token={token}
+          readOnly={viewer.readOnly}
+          onClose={() => setSelectedCard(null)}
+        />
+      )}
+
+      <CreateCardDialog
         token={token}
-        availableLanes={lanes}
         defaultLaneKey={createLaneKey || undefined}
         defaultLaneLabel={createLaneLabel}
-        open={createCardOpen || createLaneKey !== null} 
-        onOpenChange={(open) => {
-          setCreateCardOpen(open);
-          if (!open) setCreateLaneKey(null);
-        }} 
-      />
-      
-      <CardDetailDialog 
-        card={selectedCard} 
-        token={token} 
-        readOnly={viewer.readOnly}
-        onClose={() => setSelectedCard(null)} 
+        availableLanes={lanes}
+        open={createCardOpen}
+        onOpenChange={setCreateCardOpen}
       />
 
-      <LoginDialog
-        open={loginOpen}
-        onOpenChange={setLoginOpen}
-        token={token}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
-        }}
-      />
-      
       {tourOpen && <DashboardTour onClose={() => setTourOpen(false)} />}
+      {renderTriageSheet()}
     </motion.div>
   );
 }
+
+export default Board;
