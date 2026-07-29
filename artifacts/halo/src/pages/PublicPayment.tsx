@@ -176,32 +176,34 @@ export default function PublicPayment() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="bg-card border-b border-border px-[18px] pt-[20px] pb-[16px]">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary">
-          {req.companyName}
+      <header className="bg-card border-b border-border px-[18px] pt-[20px] pb-[16px] lg:px-0 lg:pt-[28px] lg:pb-[22px]">
+        <div className="lg:max-w-[1060px] lg:mx-auto lg:px-[24px]">
+          <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary lg:text-[12px]">
+            {req.companyName}
+          </div>
+          <div className="font-display font-bold text-[22px] tracking-[-0.01em] text-foreground lg:text-[28px]">
+            {req.approvedAt ? "Payment Request" : "Invoice Approval"}
+          </div>
+          {req.companyTagline && (
+            <div className="text-[12.5px] text-muted-foreground lg:text-[14px]">{req.companyTagline}</div>
+          )}
         </div>
-        <div className="font-display font-bold text-[22px] tracking-[-0.01em] text-foreground">
-          {req.approvedAt ? "Payment Request" : "Invoice Approval"}
-        </div>
-        {req.companyTagline && (
-          <div className="text-[12.5px] text-muted-foreground">{req.companyTagline}</div>
-        )}
       </header>
 
-      <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto w-full flex-1">
-        <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[24px] mb-[20px] relative overflow-hidden">
+      <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto w-full flex-1 lg:max-w-[1060px] lg:px-[24px] lg:py-[32px] lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-[28px] lg:items-start">
+        <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[24px] mb-[20px] relative overflow-hidden lg:p-[36px] lg:mb-0 lg:rounded-[24px]">
           <div className="absolute top-0 right-0 p-[24px] opacity-[0.04] pointer-events-none">
             <FileText className="w-[120px] h-[120px]" />
           </div>
           
           <div className="flex items-start justify-between mb-[20px] relative z-10">
             <div>
-              <div className="font-display font-bold text-[24px] text-[var(--ink)]">INVOICE</div>
+              <div className="font-display font-bold text-[24px] lg:text-[30px] text-[var(--ink)]">INVOICE</div>
               <div className="font-mono text-[13px] text-muted-foreground mt-[2px]">{req.requestNo}</div>
             </div>
             <div className="text-right">
               <div className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-[2px]">Amount Due</div>
-              <div className="font-display font-bold text-[28px] tracking-[-0.02em] tabular-nums leading-none text-[var(--ink)]">
+              <div className="font-display font-bold text-[28px] lg:text-[36px] tracking-[-0.02em] tabular-nums leading-none text-[var(--ink)]">
                 {fmtMoney(req.total)}
               </div>
             </div>
@@ -249,7 +251,7 @@ export default function PublicPayment() {
         </div>
 
         {!req.approvedAt ? (
-          <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[24px] text-center">
+          <div className="bg-card rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.05)] p-[24px] text-center lg:sticky lg:top-[24px]">
             <div className="w-[48px] h-[48px] rounded-full bg-[rgba(143,106,31,0.12)] grid place-items-center mx-auto mb-[16px]">
               <FileText className="w-[24px] h-[24px] text-[var(--gold-dark)]" />
             </div>
@@ -269,7 +271,7 @@ export default function PublicPayment() {
             </button>
           </div>
         ) : (
-          <>
+          <div className="lg:sticky lg:top-[24px]">
             <div className="bg-[rgba(60,122,78,0.08)] border border-[rgba(60,122,78,0.2)] rounded-[16px] p-[16px] mb-[20px] flex items-center gap-[12px]">
               <div className="w-[36px] h-[36px] rounded-full bg-[var(--green)] flex items-center justify-center shrink-0">
                 <Check className="w-[18px] h-[18px] text-white" />
@@ -473,7 +475,7 @@ export default function PublicPayment() {
                 Secure payment powered by {req.companyName}
               </div>
             </div>
-          </>
+          </div>
         )}
       </main>
     </div>

@@ -115,7 +115,8 @@ export default function JobTracker() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="bg-card border-b border-[var(--hairline)] px-[20px] pt-[32px] pb-[24px]">
+      <header className="bg-card border-b border-[var(--hairline)] px-[20px] pt-[32px] pb-[24px] lg:px-0">
+        <div className="lg:max-w-[1080px] lg:mx-auto lg:px-[24px]">
         <div className="text-[11px] font-display font-bold tracking-[0.2em] uppercase text-[var(--gold)]">
           {data.businessName || "ArchAngel Contractors"} · Live job tracker
         </div>
@@ -142,9 +143,11 @@ export default function JobTracker() {
           {STATUS_LABEL[data.status] ?? data.status}
           {isDone && data.completedAt ? ` · ${fmtWhen(data.completedAt)}` : ""}
         </div>
+        </div>
       </header>
 
-      <main className="px-[16px] py-[24px] pb-[44px] max-w-[720px] mx-auto">
+      <main className="px-[16px] py-[24px] pb-[44px] max-w-[720px] mx-auto lg:max-w-[1080px] lg:px-[24px] lg:py-[32px] lg:grid lg:grid-cols-2 lg:gap-x-[28px] lg:items-start">
+        <div className="min-w-0">
         <div className="bg-card rounded-[24px] border border-[var(--hairline)] p-[20px] mb-[16px]">
           <div className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--gold)] mb-[16px]">
             Job details
@@ -239,7 +242,9 @@ export default function JobTracker() {
             ))}
           </div>
         )}
+        </div>
 
+        <div className="min-w-0">
         {(pairs > 0 || others.length > 0) && (
           <div className="mb-[16px]">
             <div className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--gold)] mb-[16px] flex items-center gap-[8px] px-[4px]">
@@ -290,13 +295,16 @@ export default function JobTracker() {
             location. These records can't be edited after the fact.
           </div>
         </div>
+        </div>
 
+        <div className="lg:col-span-2">
         <div className="text-[12px] text-muted-foreground/60 leading-relaxed text-center px-[20px]">
           {data.businessName || "ArchAngel Contractors"} · Live tracker powered
           by HALO. This page refreshes automatically as the crew works.
         </div>
         
         <FalkonBadge className="mt-12" />
+        </div>
       </main>
     </div>
   );

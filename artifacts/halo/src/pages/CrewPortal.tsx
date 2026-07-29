@@ -217,19 +217,21 @@ export default function CrewPortal() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="bg-card border-b border-border px-[18px] pt-[20px] pb-[16px]">
-        <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(180,255,68,0.4)]">
-          ArchAngel · HALO
-        </div>
-        <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[3px] text-foreground">
-          {portal.crew.name}
-        </div>
-        <div className="text-[12.5px] text-muted-foreground">
-          {portal.crew.trade || "Crew portal"}
+      <header className="bg-card border-b border-border px-[18px] pt-[20px] pb-[16px] lg:px-0 lg:pt-[26px] lg:pb-[20px]">
+        <div className="lg:max-w-[1160px] lg:mx-auto lg:px-[24px]">
+          <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-primary drop-shadow-[0_0_8px_rgba(180,255,68,0.4)] lg:text-[12px]">
+            ArchAngel · HALO
+          </div>
+          <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[3px] text-foreground lg:text-[28px]">
+            {portal.crew.name}
+          </div>
+          <div className="text-[12.5px] text-muted-foreground lg:text-[14px]">
+            {portal.crew.trade || "Crew portal"}
+          </div>
         </div>
       </header>
 
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md px-[12px] pt-[10px] pb-[8px] border-b border-border shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md px-[12px] pt-[10px] pb-[8px] border-b border-border shadow-[0_4px_20px_rgba(0,0,0,0.4)] lg:hidden">
         <div className="flex gap-[4px] overflow-x-auto no-scrollbar pb-[2px]">
           {tabs.map((t) => {
             const Icon = t.icon;
@@ -259,7 +261,40 @@ export default function CrewPortal() {
         </div>
       </div>
 
-      <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto w-full flex-1">
+      <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto w-full flex-1 lg:max-w-[1160px] lg:px-[24px] lg:py-[28px] lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-[32px] lg:items-start">
+        <aside className="hidden lg:block lg:sticky lg:top-[24px]">
+          <nav className="flex flex-col gap-[4px]">
+            {tabs.map((t) => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={`flex items-center gap-[10px] rounded-[12px] px-[14px] py-[11px] text-[14px] font-display font-bold text-left transition-all ${
+                    tab === t.key
+                      ? "bg-[var(--gold-light)] text-primary-foreground shadow-[0_0_15px_rgba(180,255,68,0.4)]"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                  data-testid={`sidebar-tab-${t.key}`}
+                >
+                  <Icon className="w-[16px] h-[16px] shrink-0" />
+                  <span className="flex-1">{t.label}</span>
+                  {t.alert ? (
+                    <span className="bg-red-500 text-white px-[6px] py-[1px] rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-[0_0_8px_rgba(239,68,68,0.6)]">
+                      {t.alert}
+                    </span>
+                  ) : t.badge ? (
+                    <span className="bg-background text-foreground px-[6px] py-[1px] rounded-full text-[10px] font-bold border border-border">
+                      {t.badge}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        <div className="min-w-0 lg:max-w-[720px]">
         {tab === "schedule" && <SaveLinkCard />}
         {tab === "offers" && <OffersTab portal={portal} token={token} />}
         {tab === "schedule" && <ScheduleTab portal={portal} />}
@@ -273,6 +308,7 @@ export default function CrewPortal() {
         {tab === "w9" && <W9Tab token={token} />}
         {tab === "wings" && <WingsTab token={token} />}
         {tab === "guide" && <GuideTab lang={guideLang} onLangChange={setGuideLang} />}
+        </div>
       </main>
 
       {!portal.crew.agreementAcceptedAt && (
