@@ -24,4 +24,6 @@ export interface BusinessSettings {
   autopilotEnabled?: boolean;
   /** When true, Autopilot executes its proposed actions immediately instead of waiting for approval */
   autopilotAutoApprove?: boolean;
+  /** When true, a job can't close out until its job summary has been sent to the PM */
+  requireSummaryBeforeCloseOut?: boolean;
 }

@@ -23,6 +23,7 @@ import {
   jobLineItemsTable,
   businessSettingsTable,
   invoicesTable,
+  jobSummariesTable,
 } from "@workspace/db";
 import {
   ListJobsResponse,
@@ -492,6 +493,18 @@ async function computeCloseOutMissing(
       );
     if (!payments.some((p) => p.status === "completed")) {
       missing.push("Mark the crew member as paid for this job.");
+    }
+  }
+  // Optional gate: businesses can require the job summary (recap) to be sent
+  // to the property manager before a job may close out.
+  const [settings] = await db.select().from(businessSettingsTable).limit(1);
+  if (settings?.requireSummaryBeforeCloseOut) {
+    const [summary] = await db
+      .select({ status: jobSummariesTable.status })
+      .from(jobSummariesTable)
+      .where(eq(jobSummariesTable.jobId, job.id));
+    if (summary?.status !== "sent") {
+      missing.push("Send the job summary to the property manager first.");
     }
   }
   return missing;

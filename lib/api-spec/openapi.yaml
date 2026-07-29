@@ -8025,6 +8025,7 @@ components:
         autoSendRecapLinks: { type: boolean, description: "Auto-email property contacts a live job link on schedule/completion" }
         autopilotEnabled: { type: boolean, description: "Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs" }
         autopilotAutoApprove: { type: boolean, description: "When true, Autopilot executes its proposed actions immediately instead of waiting for approval" }
+        requireSummaryBeforeCloseOut: { type: boolean, description: "When true, a job can't close out until its job summary has been sent to the PM" }
     BusinessSettingsInput:
       type: object
       properties:
@@ -8041,6 +8042,7 @@ components:
         autoSendRecapLinks: { type: boolean }
         autopilotEnabled: { type: boolean }
         autopilotAutoApprove: { type: boolean }
+        requireSummaryBeforeCloseOut: { type: boolean }
     AutopilotAction:
       type: object
       required: [id, kind, entityType, entityId, title, body, status, createdAt]

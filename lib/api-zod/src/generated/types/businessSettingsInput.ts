@@ -20,4 +20,5 @@ export interface BusinessSettingsInput {
   autoSendRecapLinks?: boolean;
   autopilotEnabled?: boolean;
   autopilotAutoApprove?: boolean;
+  requireSummaryBeforeCloseOut?: boolean;
 }

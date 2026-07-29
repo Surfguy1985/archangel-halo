@@ -2463,7 +2463,8 @@ export const GetBusinessSettingsResponse = zod.object({
   "expenseApprovalThreshold": zod.number().optional().describe('Expenses at or above this amount need approval; 0 = off'),
   "autoSendRecapLinks": zod.boolean().optional().describe('Auto-email property contacts a live job link on schedule\/completion'),
   "autopilotEnabled": zod.boolean().optional().describe('Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs'),
-  "autopilotAutoApprove": zod.boolean().optional().describe('When true, Autopilot executes its proposed actions immediately instead of waiting for approval')
+  "autopilotAutoApprove": zod.boolean().optional().describe('When true, Autopilot executes its proposed actions immediately instead of waiting for approval'),
+  "requireSummaryBeforeCloseOut": zod.boolean().optional().describe('When true, a job can\'t close out until its job summary has been sent to the PM')
 })
 
 
@@ -2483,7 +2484,8 @@ export const UpdateBusinessSettingsBody = zod.object({
   "expenseApprovalThreshold": zod.number().optional(),
   "autoSendRecapLinks": zod.boolean().optional(),
   "autopilotEnabled": zod.boolean().optional(),
-  "autopilotAutoApprove": zod.boolean().optional()
+  "autopilotAutoApprove": zod.boolean().optional(),
+  "requireSummaryBeforeCloseOut": zod.boolean().optional()
 })
 
 export const UpdateBusinessSettingsResponse = zod.object({
@@ -2499,7 +2501,8 @@ export const UpdateBusinessSettingsResponse = zod.object({
   "expenseApprovalThreshold": zod.number().optional().describe('Expenses at or above this amount need approval; 0 = off'),
   "autoSendRecapLinks": zod.boolean().optional().describe('Auto-email property contacts a live job link on schedule\/completion'),
   "autopilotEnabled": zod.boolean().optional().describe('Autopilot background agent watches for overdue invoices, stale crew offers, and aging jobs'),
-  "autopilotAutoApprove": zod.boolean().optional().describe('When true, Autopilot executes its proposed actions immediately instead of waiting for approval')
+  "autopilotAutoApprove": zod.boolean().optional().describe('When true, Autopilot executes its proposed actions immediately instead of waiting for approval'),
+  "requireSummaryBeforeCloseOut": zod.boolean().optional().describe('When true, a job can\'t close out until its job summary has been sent to the PM')
 })
 
 

@@ -90,12 +90,14 @@ function serialize(row: {
   autoSendRecapLinks?: boolean | null;
   autopilotEnabled?: boolean | null;
   autopilotAutoApprove?: boolean | null;
+  requireSummaryBeforeCloseOut?: boolean | null;
 }) {
   return {
     expenseApprovalThreshold: row.expenseApprovalThreshold ?? 0,
     autoSendRecapLinks: row.autoSendRecapLinks ?? true,
     autopilotEnabled: row.autopilotEnabled ?? true,
     autopilotAutoApprove: row.autopilotAutoApprove ?? false,
+    requireSummaryBeforeCloseOut: row.requireSummaryBeforeCloseOut ?? false,
     companyName: row.companyName,
     tagline: row.tagline,
     street: row.street,
@@ -143,6 +145,9 @@ router.put("/settings/business", async (req, res): Promise<void> => {
         : {}),
       ...(body.autopilotAutoApprove != null
         ? { autopilotAutoApprove: body.autopilotAutoApprove }
+        : {}),
+      ...(body.requireSummaryBeforeCloseOut != null
+        ? { requireSummaryBeforeCloseOut: body.requireSummaryBeforeCloseOut }
         : {}),
       updatedAt: new Date(),
     })

@@ -45,6 +45,7 @@ export function JobSummaryDialog({
   const send = useSendJobSummary();
 
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [confirmUnsentClose, setConfirmUnsentClose] = useState(false);
   const [sendTo, setSendTo] = useState("");
   const [sendToTouched, setSendToTouched] = useState(false);
 
@@ -311,6 +312,35 @@ export function JobSummaryDialog({
               </div>
             )}
 
+            {confirmUnsentClose && (
+              <div
+                className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex flex-wrap items-center gap-3"
+                data-testid="banner-unsent-summary-confirm"
+              >
+                <div className="flex-1 min-w-[220px]">
+                  <p className="text-sm font-bold text-amber-900">Send the summary first?</p>
+                  <p className="text-xs font-medium text-amber-800">
+                    This recap hasn't been sent to the property manager yet. You can still close out without sending it.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setConfirmUnsentClose(false)}
+                  className="px-4 py-2 text-sm font-bold rounded-xl border border-amber-300 text-amber-900 hover:bg-amber-100"
+                  data-testid="button-confirm-go-back"
+                >
+                  Go back
+                </button>
+                <button
+                  onClick={() => { setConfirmUnsentClose(false); onCloseOut(); }}
+                  disabled={closeOutPending}
+                  className="px-4 py-2 bg-[var(--ink)] text-white text-sm font-bold rounded-xl hover:opacity-90 disabled:opacity-50"
+                  data-testid="button-confirm-close-anyway"
+                >
+                  Close out anyway
+                </button>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
               <input
                 value={sendTo}
@@ -336,7 +366,10 @@ export function JobSummaryDialog({
                 {save.isPending ? "Saving…" : "Save draft"}
               </button>
               <button
-                onClick={onCloseOut}
+                onClick={() => {
+                  if (doc.status !== "sent") setConfirmUnsentClose(true);
+                  else onCloseOut();
+                }}
                 disabled={closeOutPending}
                 className="ml-auto px-5 py-2.5 bg-[var(--ink)] text-white text-sm font-bold rounded-xl hover:opacity-90 disabled:opacity-50"
                 data-testid="button-summary-close-out"

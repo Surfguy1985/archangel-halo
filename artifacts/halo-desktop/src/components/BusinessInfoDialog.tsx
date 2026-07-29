@@ -75,6 +75,7 @@ export function BusinessInfoDialog({
   const [autoSendLinks, setAutoSendLinks] = useState(true);
   const [autopilot, setAutopilot] = useState(true);
   const [autoApprove, setAutoApprove] = useState(false);
+  const [requireSummary, setRequireSummary] = useState(false);
 
   useEffect(() => {
     if (open && settings) {
@@ -93,6 +94,7 @@ export function BusinessInfoDialog({
       setAutoSendLinks(settings.autoSendRecapLinks ?? true);
       setAutopilot(settings.autopilotEnabled ?? true);
       setAutoApprove(settings.autopilotAutoApprove ?? false);
+      setRequireSummary(settings.requireSummaryBeforeCloseOut ?? false);
    }
  }, [open, settings]);
 
@@ -115,6 +117,7 @@ export function BusinessInfoDialog({
           autoSendRecapLinks: autoSendLinks,
           autopilotEnabled: autopilot,
           autopilotAutoApprove: autoApprove,
+          requireSummaryBeforeCloseOut: requireSummary,
        },
      },
       {
@@ -274,6 +277,21 @@ export function BusinessInfoDialog({
                 checked={autoApprove}
                 onCheckedChange={setAutoApprove}
                 data-testid="switch-autopilot-auto-approve"
+              />
+            </div>
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-3">
+              <div>
+                <Label>Require summary before close-out</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  A job can't close out until its job summary (recap) has been sent
+                  to the property manager. When off, closing with an unsent summary
+                  just asks you to confirm.
+                </p>
+              </div>
+              <Switch
+                checked={requireSummary}
+                onCheckedChange={setRequireSummary}
+                data-testid="switch-require-summary"
               />
             </div>
           </TabsContent>

@@ -25,6 +25,11 @@ export const businessSettingsTable = pgTable("business_settings", {
   // When true, Autopilot executes its proposed actions (reminder emails,
   // rebroadcasts) immediately. When false, actions wait for one-tap approval.
   autopilotAutoApprove: boolean("autopilot_auto_approve").notNull().default(false),
+  // When true, a job cannot close out until its job summary (recap) has been
+  // sent to the property manager — enforced server-side in the close-out checklist.
+  requireSummaryBeforeCloseOut: boolean("require_summary_before_close_out")
+    .notNull()
+    .default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
