@@ -76,7 +76,7 @@ function NotificationRow({
         <Trash2 className="w-[19px] h-[19px] text-destructive-foreground" />
       </div>
       <div
-        className={`relative flex gap-[10px] bg-card shadow-[var(--shadow)] p-[12px_13px] rounded-[14px] cursor-pointer touch-pan-y ${n.readAt ? "opacity-55" : ""}`}
+        className={`relative flex gap-[10px] bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[12px_13px] rounded-[14px] cursor-pointer touch-pan-y ${n.readAt ? "opacity-55" : ""}`}
         style={{
           transform: `translateX(${dx}px)`,
           transition: startX.current === null ? "transform 0.18s ease" : undefined,

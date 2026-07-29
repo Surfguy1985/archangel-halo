@@ -7,7 +7,7 @@ import {
 } from "@workspace/api-client-react";
 
 const fieldCls =
-  "w-full bg-card border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] shadow-[var(--shadow)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
+  "w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[14px] px-[16px] text-[15px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 focus:border-[var(--gold)]";
 
 export function AddCrewSheet({
   open,
@@ -117,7 +117,7 @@ export function AddCrewSheet({
             <button
               type="button"
               onClick={() => setIsLeader((v) => !v)}
-              className="flex items-center justify-between bg-card border border-border rounded-[13px] py-[11px] px-[14px] shadow-[var(--shadow)] text-left"
+              className="flex items-center justify-between bg-card border border-[var(--hairline)] rounded-[18px] py-[11px] px-[14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-left"
             >
               <div>
                 <div className="text-[14.5px] font-semibold">Crew leader</div>
@@ -154,7 +154,7 @@ export function AddCrewSheet({
                     className={`px-[13px] py-[8px] rounded-full text-[13px] font-semibold border transition-colors ${
                       paymentTerms === t.value
                         ? "bg-[var(--gold-light)] border-[var(--gold)] text-[var(--ink)]"
-                        : "bg-card border-border text-muted-foreground"
+                        : "bg-card border-[var(--hairline)] text-muted-foreground"
                     }`}
                   >
                     {t.label}
@@ -196,7 +196,7 @@ export function AddCrewSheet({
                     type="button"
                     aria-label="Remove service"
                     onClick={() => setServices((list) => list.filter((_, j) => j !== i))}
-                    className="shrink-0 w-[36px] rounded-[13px] border border-border text-muted-foreground text-[16px]"
+                    className="shrink-0 w-[36px] rounded-[18px] border border-[var(--hairline)] text-muted-foreground text-[16px]"
                   >
                     ×
                   </button>
@@ -206,7 +206,7 @@ export function AddCrewSheet({
           </div>
 
           <button
-            className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full mt-[18px] rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 transition-transform active:scale-[0.98]"
             onClick={submit}
             disabled={!name.trim() || create.isPending}
           >

@@ -19,7 +19,7 @@ import {
 } from "@workspace/api-client-react";
 
 const fieldCls =
-  "w-full bg-card border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] shadow-[var(--shadow)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
+  "w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[14px] px-[16px] text-[15px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 focus:border-[var(--gold)]";
 
 type ContactLike = {
   id: string;
@@ -117,14 +117,14 @@ export function EditContactSheet({
               <input className={fieldCls} placeholder="Prefers (e.g. text before 3pm)" value={prefers} onChange={(e) => setPrefers(e.target.value)} />
             </div>
             <button
-              className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+              className="w-full mt-[18px] rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 transition-transform active:scale-[0.98]"
               onClick={submit}
               disabled={!name.trim() || update.isPending}
             >
               {update.isPending ? "Saving…" : "Save changes"}
             </button>
             <button
-              className="w-full mt-[10px] rounded-[13px] py-[12px] font-semibold text-[14px] text-destructive border border-destructive/30 bg-destructive/5 flex items-center justify-center gap-[7px] disabled:opacity-50"
+              className="w-full mt-[10px] rounded-[18px] py-[12px] font-semibold text-[14px] text-destructive border border-destructive/30 bg-destructive/5 flex items-center justify-center gap-[7px] disabled:opacity-50"
               onClick={() => setConfirmOpen(true)}
               disabled={del.isPending}
             >

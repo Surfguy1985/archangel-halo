@@ -35,17 +35,17 @@ import {
 import { useToast} from "@/hooks/use-toast";
 
 const fieldCls =
-  "w-full bg-card border border-input rounded-md py-2.5 px-3.5 text-sm shadow-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "w-full bg-white border border-border rounded-[11px] py-2.5 px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40";
 
 const primaryBtn =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-[var(--ink)] text-[var(--paper)] px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-md bg-[var(--gold-light)] text-black px-4 py-2.5 text-sm font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none";
 
 const errorCls = "text-xs text-destructive mt-1";
 
 function Field({ label, children}: { label: string; children: React.ReactNode}) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-semibold text-muted-foreground">
+      <span className="text-[10px] font-bold text-[var(--gold-dark)]">
         {label}
       </span>
       {children}
@@ -181,7 +181,7 @@ export function VendorDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md border-none shadow-xl">
           <DialogHeader>
             <DialogTitle className="font-display">
               {isEdit ? "Edit vendor" : "Add vendor"}

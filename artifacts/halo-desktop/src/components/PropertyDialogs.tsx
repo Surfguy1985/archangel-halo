@@ -42,9 +42,9 @@ import {
 } from "@workspace/api-client-react";
 
 const fieldCls =
-  "w-full bg-card border border-input rounded-md py-2.5 px-3.5 text-sm shadow-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "w-full bg-white border border-border rounded-[11px] py-2.5 px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40";
 
-const labelCls = "text-xs font-semibold text-muted-foreground";
+const labelCls = "text-[10px] font-bold text-[var(--gold-dark)]";
 
 const primaryBtn =
   "flex items-center justify-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none";
@@ -134,7 +134,7 @@ export function AddPropertyDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="border-none shadow-xl">
         <DialogHeader>
           <DialogTitle className="font-display">Add property</DialogTitle>
           <DialogDescription>
@@ -315,7 +315,7 @@ export function EditPropertyDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
+        <DialogContent className="border-none shadow-xl">
           <DialogHeader>
             <DialogTitle className="font-display">Edit property</DialogTitle>
             <DialogDescription>
@@ -485,7 +485,7 @@ export function AddPriceItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="border-none shadow-xl">
         <DialogHeader>
           <DialogTitle className="font-display">Add price item</DialogTitle>
           <DialogDescription>
@@ -616,7 +616,7 @@ export function AddContactDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="border-none shadow-xl">
         <DialogHeader>
           <DialogTitle className="font-display">Add contact</DialogTitle>
           <DialogDescription>
@@ -787,7 +787,7 @@ export function AddJobDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="border-none shadow-xl">
         <DialogHeader>
           <DialogTitle className="font-display">New job</DialogTitle>
           <DialogDescription>
@@ -1071,7 +1071,7 @@ export function EditPriceItemDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
+        <DialogContent className="border-none shadow-xl">
           <DialogHeader>
             <DialogTitle className="font-display">Edit price item</DialogTitle>
             <DialogDescription>Update the agreed rate, or remove it.</DialogDescription>
@@ -1215,7 +1215,7 @@ export function EditContactDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
+        <DialogContent className="border-none shadow-xl">
           <DialogHeader>
             <DialogTitle className="font-display">Edit contact</DialogTitle>
             <DialogDescription>Update their details, or remove them.</DialogDescription>
@@ -1395,7 +1395,7 @@ export function EditJobDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
+        <DialogContent className="border-none shadow-xl">
           <DialogHeader>
             <DialogTitle className="font-display">Edit job</DialogTitle>
             <DialogDescription>Update the work order details, or delete it.</DialogDescription>

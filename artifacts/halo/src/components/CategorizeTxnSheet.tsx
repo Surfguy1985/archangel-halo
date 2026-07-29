@@ -16,7 +16,7 @@ import { Receipt, HardHat, FileCheck2, CircleDollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const fieldCls =
-  "w-full bg-card border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] shadow-[var(--shadow)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
+  "w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[14px] px-[16px] text-[15px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 focus:border-[var(--gold)]";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -131,7 +131,7 @@ export function CategorizeTxnSheet({
         </SheetHeader>
         {item && (
           <div className="flex flex-col gap-[14px] pt-[8px] pb-[10px]">
-            <div className="bg-card border border-border rounded-[13px] p-[12px_14px] shadow-[var(--shadow)]">
+            <div className="bg-card border border-[var(--hairline)] rounded-[18px] p-[12px_14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
               <div className="font-semibold text-[14px] truncate">{item.name}</div>
               <div className="text-[12.5px] text-muted-foreground mt-[2px]">
                 {money(item.amount)}
@@ -148,10 +148,10 @@ export function CategorizeTxnSheet({
                   <button
                     key={opt.kind}
                     onClick={() => setKind(opt.kind)}
-                    className={`flex items-center gap-[7px] rounded-[13px] border px-[12px] py-[11px] text-[13.5px] font-display font-bold transition-colors ${
+                    className={`flex items-center gap-[7px] rounded-[18px] border px-[12px] py-[11px] text-[13.5px] font-display font-bold transition-colors ${
                       kind === opt.kind
                         ? "bg-[var(--ink)] text-[var(--paper,#f5f1e8)] border-[var(--ink)]"
-                        : "bg-card border-border text-foreground"
+                        : "bg-card border-[var(--hairline)] text-foreground"
                     }`}
                   >
                     {opt.icon}
@@ -220,7 +220,7 @@ export function CategorizeTxnSheet({
             <button
               onClick={submit}
               disabled={categorize.isPending || needsInvoice}
-              className="w-full rounded-[13px] bg-[var(--ink)] text-[var(--paper,#f5f1e8)] font-display font-bold text-[14.5px] py-[13px] shadow-[var(--shadow)] disabled:opacity-40 transition-transform active:scale-[0.99]"
+              className="w-full rounded-[18px] bg-[var(--ink)] text-[var(--paper,#f5f1e8)] font-display font-bold text-[14.5px] py-[13px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-40 transition-transform active:scale-[0.99]"
             >
               {categorize.isPending
                 ? "Saving…"

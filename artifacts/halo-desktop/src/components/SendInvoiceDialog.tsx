@@ -98,7 +98,7 @@ export function SendInvoiceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg border-none shadow-xl">
         <DialogHeader>
           <DialogTitle className="font-display">Send {invoice.invoiceNo}</DialogTitle>
           <DialogDescription>

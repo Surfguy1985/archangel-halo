@@ -14,7 +14,7 @@ import {
 } from "@workspace/api-client-react";
 
 const fieldCls =
-  "w-full bg-card border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] shadow-[var(--shadow)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
+  "w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[14px] px-[16px] text-[15px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 focus:border-[var(--gold)]";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -83,7 +83,7 @@ export function BidDetailSheet({
   const btnGold =
     "flex-1 rounded-[11px] py-[10px] text-[13px] font-display font-bold text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]";
   const btnCard =
-    "flex-1 rounded-[11px] py-[10px] text-[13px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] disabled:opacity-50 transition-transform active:scale-[0.98]";
+    "flex-1 rounded-[11px] py-[10px] text-[13px] font-display font-bold bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 transition-transform active:scale-[0.98]";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -113,16 +113,16 @@ export function BidDetailSheet({
 
               {bid.scope && <div className="text-[13.5px] mb-[10px]">{bid.scope}</div>}
               {bid.welcomeMessage && (
-                <div className="bg-card border border-[var(--gold)]/25 rounded-[13px] p-[12px] mb-[12px]">
+                <div className="bg-card border border-[var(--gold)]/25 rounded-[18px] p-[12px] mb-[12px]">
                   <div className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-[var(--gold-dark)] mb-[3px]">Welcome message</div>
                   <div className="text-[13px]">{bid.welcomeMessage}</div>
                 </div>
               )}
 
-              <div className="bg-card rounded-[13px] shadow-[var(--shadow)] overflow-hidden mb-[12px]">
+              <div className="bg-card rounded-[18px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden mb-[12px]">
                 {bid.lineItems?.length ? (
                   bid.lineItems.map((it) => (
-                    <div key={it.id} className="flex justify-between items-start px-[14px] py-[10px] border-b border-border last:border-b-0">
+                    <div key={it.id} className="flex justify-between items-start px-[14px] py-[10px] border-b border-[var(--hairline)] last:border-b-0">
                       <div className="min-w-0 pr-[10px]">
                         <div className="text-[13.5px] font-semibold">{it.service}</div>
                         <div className="text-[12px] text-muted-foreground">
@@ -152,7 +152,7 @@ export function BidDetailSheet({
               </div>
 
               {sendOpen && (
-                <div className="bg-card rounded-[13px] shadow-[var(--shadow)] p-[12px] mb-[8px] flex flex-col gap-[8px]">
+                <div className="bg-card rounded-[18px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[12px] mb-[8px] flex flex-col gap-[8px]">
                   <input
                     className={fieldCls}
                     type="email"
@@ -192,7 +192,7 @@ export function BidDetailSheet({
               </div>
 
               <button
-                className="w-full rounded-[11px] py-[10px] text-[13px] font-display font-bold text-destructive bg-card border border-border shadow-[var(--shadow)] disabled:opacity-50 transition-transform active:scale-[0.98] flex items-center justify-center gap-[6px]"
+                className="w-full rounded-[11px] py-[10px] text-[13px] font-display font-bold text-destructive bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 transition-transform active:scale-[0.98] flex items-center justify-center gap-[6px]"
                 onClick={() =>
                   confirmDelete
                     ? del.mutate(

@@ -131,7 +131,7 @@ export function BusinessInfoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg border-none shadow-xl">
         <DialogHeader>
           <DialogTitle className="font-display">Business info</DialogTitle>
           <DialogDescription>

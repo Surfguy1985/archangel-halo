@@ -84,14 +84,14 @@ export function ImportFromCatalogSheet({
           <div className="relative mb-[10px]">
             <Search className="w-[16px] h-[16px] absolute left-[13px] top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
-              className="w-full bg-card border border-border rounded-[13px] py-[10px] pl-[38px] pr-[14px] text-[14px] shadow-[var(--shadow)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
+              className="w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[10px] pl-[38px] pr-[14px] text-[14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
               placeholder="Search services…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
-          <div className="bg-card rounded-[16px] border border-border divide-y divide-border overflow-y-auto max-h-[42vh]">
+          <div className="bg-card rounded-[16px] border border-[var(--hairline)] divide-y divide-border overflow-y-auto max-h-[42vh]">
             {isLoading && <div className="p-[16px] text-[13px] text-muted-foreground">Loading…</div>}
             {!isLoading && filtered.length === 0 && (
               <div className="p-[22px] text-center text-[13px] text-muted-foreground">
@@ -119,7 +119,7 @@ export function ImportFromCatalogSheet({
                   className={`w-full flex items-center gap-[12px] p-[13px] text-left ${already ? "opacity-45" : "active:bg-black/[0.03]"}`}
                 >
                   <div
-                    className={`w-[22px] h-[22px] rounded-[7px] border shrink-0 grid place-items-center transition-colors ${checked ? "bg-[var(--gold-light)] border-[var(--gold)]" : "border-border bg-background"}`}
+                    className={`w-[22px] h-[22px] rounded-[7px] border shrink-0 grid place-items-center transition-colors ${checked ? "bg-[var(--gold-light)] border-[var(--gold)]" : "border-[var(--hairline)] bg-background"}`}
                   >
                     {checked && <Check className="w-[15px] h-[15px] text-white" />}
                   </div>
@@ -143,7 +143,7 @@ export function ImportFromCatalogSheet({
           )}
 
           <button
-            className="w-full mt-[14px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full mt-[14px] rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 transition-transform active:scale-[0.98]"
             onClick={submit}
             disabled={selected.size === 0 || importMut.isPending}
           >

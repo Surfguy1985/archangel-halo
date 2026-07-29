@@ -150,7 +150,7 @@ export function RecordPaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="border-none shadow-xl">
         <DialogHeader>
           <DialogTitle>Record payment</DialogTitle>
           <DialogDescription>
@@ -366,7 +366,7 @@ export function AddExpenseDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto border-none shadow-xl">
         <DialogHeader>
           <DialogTitle>{billMode ? "Upload a bill" : "Log expense"}</DialogTitle>
           <DialogDescription>
@@ -620,7 +620,7 @@ export function AddCrewPaymentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="border-none shadow-xl">
         <DialogHeader>
           <DialogTitle>Record crew payment</DialogTitle>
           <DialogDescription>Pay or schedule a payout to a crew.</DialogDescription>

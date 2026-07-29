@@ -14,7 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 
 const fieldCls =
-  "w-full bg-card border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] shadow-[var(--shadow)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
+  "w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[14px] px-[16px] text-[15px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 focus:border-[var(--gold)]";
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -197,7 +197,7 @@ export function ScheduleJobSheet({
           <button
             onClick={submit}
             disabled={schedule.isPending || !scheduledOn || !effectiveJobId}
-            className="w-full mt-[4px] flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full mt-[4px] flex items-center justify-center gap-[8px] rounded-[18px] py-[12px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
           >
             <CalendarDays className="w-[17px] h-[17px]" />
             {schedule.isPending ? "Scheduling…" : "Schedule job"}

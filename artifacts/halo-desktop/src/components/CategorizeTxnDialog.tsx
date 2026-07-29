@@ -22,7 +22,7 @@ import { Receipt, HardHat, FileCheck2, CircleDollarSign} from "lucide-react";
 import { useToast} from "@/hooks/use-toast";
 
 const fieldCls =
-  "w-full bg-background border border-border rounded-lg py-2 px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
+  "w-full bg-white border border-border rounded-[11px] py-2.5 px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40";
 
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD"});
@@ -123,7 +123,7 @@ export function CategorizeTxnDialog({
 
   return (
     <Dialog open={!!item} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md border-none shadow-xl">
         <DialogHeader>
           <DialogTitle className="font-display">Categorize transaction</DialogTitle>
         </DialogHeader>

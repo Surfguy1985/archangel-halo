@@ -68,7 +68,7 @@ function metersBetween(a: { lat: number; lng: number }, b: { lat: number; lng: n
 }
 
 const fieldCls =
-  "w-full bg-card border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] shadow-[var(--shadow)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
+  "w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[14px] px-[16px] text-[15px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 focus:border-[var(--gold)]";
 
 export function ArrivalDetection() {
   const [result, setResult] = useState<ArrivalCheckResult | null>(null);
@@ -230,7 +230,7 @@ export function ArrivalSheet({
                     {suggestion.openJobs.slice(0, 3).map((j) => (
                       <button
                         key={j.id}
-                        className="flex items-center gap-[10px] bg-card border border-border rounded-[13px] p-[11px_13px] shadow-[var(--shadow)] text-left transition-transform active:scale-[0.98]"
+                        className="flex items-center gap-[10px] bg-card border border-[var(--hairline)] rounded-[18px] p-[11px_13px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-left transition-transform active:scale-[0.98]"
                         onClick={() => {
                           onOpenChange(false);
                           navigate(`/jobs/${j.id}`);
@@ -259,7 +259,7 @@ export function ArrivalSheet({
                     {suggestion.jobIdeas.map((idea, i) => (
                       <button
                         key={i}
-                        className="flex items-center gap-[10px] bg-card border border-[var(--gold)]/40 rounded-[13px] p-[11px_13px] shadow-[var(--shadow)] text-left transition-transform active:scale-[0.98]"
+                        className="flex items-center gap-[10px] bg-card border border-[var(--gold)]/40 rounded-[18px] p-[11px_13px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-left transition-transform active:scale-[0.98]"
                         onClick={() => pickIdea(idea)}
                       >
                         <div className="flex-1 min-w-0">
@@ -277,13 +277,13 @@ export function ArrivalSheet({
               )}
 
               <button
-                className="w-full rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
+                className="w-full rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]"
                 onClick={() => setStep("form")}
               >
                 Start a job here
               </button>
               <button
-                className="w-full mt-[10px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border text-muted-foreground shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+                className="w-full mt-[10px] rounded-[18px] py-[12px] font-display font-bold text-[14px] bg-card border border-[var(--hairline)] text-muted-foreground shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]"
                 onClick={() => onOpenChange(false)}
               >
                 Not now
@@ -324,14 +324,14 @@ export function ArrivalSheet({
                 </div>
               </div>
               <button
-                className="w-full mt-[16px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+                className="w-full mt-[16px] rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 transition-transform active:scale-[0.98]"
                 onClick={submit}
                 disabled={!description.trim() || create.isPending}
               >
                 {create.isPending ? "Creating…" : "Create job"}
               </button>
               <button
-                className="w-full mt-[10px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border text-muted-foreground shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+                className="w-full mt-[10px] rounded-[18px] py-[12px] font-display font-bold text-[14px] bg-card border border-[var(--hairline)] text-muted-foreground shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]"
                 onClick={() => setStep("prompt")}
               >
                 Back
@@ -352,7 +352,7 @@ export function ArrivalSheet({
                 It's on the board at {result.propertyName}.
               </div>
               <button
-                className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
+                className="w-full mt-[18px] rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]"
                 onClick={() => {
                   onOpenChange(false);
                   if (createdJobId) navigate(`/jobs/${createdJobId}`);
@@ -361,7 +361,7 @@ export function ArrivalSheet({
                 Open the job
               </button>
               <button
-                className="w-full mt-[10px] rounded-[13px] py-[12px] font-display font-bold text-[14px] bg-card border border-border text-muted-foreground shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+                className="w-full mt-[10px] rounded-[18px] py-[12px] font-display font-bold text-[14px] bg-card border border-[var(--hairline)] text-muted-foreground shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]"
                 onClick={() => onOpenChange(false)}
               >
                 Done

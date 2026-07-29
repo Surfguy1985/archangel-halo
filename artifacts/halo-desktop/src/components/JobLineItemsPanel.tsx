@@ -103,7 +103,7 @@ export function JobLineItemsPanel({
           <select
             value={selectedId}
             onChange={(e) => setSelectedId(e.target.value)}
-            className="flex-1 min-w-0 bg-card border border-border rounded-md py-1.5 px-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
+            className="flex-1 min-w-0 bg-white border border-border rounded-[11px] py-1.5 px-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40"
           >
             <option value="">Add from price list…</option>
             {priceItems.map((p) => (

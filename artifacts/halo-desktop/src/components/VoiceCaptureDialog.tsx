@@ -373,7 +373,7 @@ export function VoiceCaptureDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto border-none shadow-xl">
         {phase === "capture" && (
           <>
             <DialogHeader>
@@ -450,7 +450,7 @@ export function VoiceCaptureDialog({
             )}
 
             <textarea
-              className="w-full bg-card rounded-lg border border-border shadow-sm p-3 text-sm min-h-[96px] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
+              className="w-full bg-white rounded-[11px] border border-border shadow-sm p-3 text-sm min-h-[96px] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40"
               placeholder={
                 speechSupported
                   ? "Your words appear here — or type them. e.g. “Log an expense. I paid Home Depot 240 dollars for paint at Maple Grove Apartments.”"

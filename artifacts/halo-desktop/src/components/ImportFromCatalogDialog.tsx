@@ -76,14 +76,14 @@ export function ImportFromCatalogDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg border-none shadow-xl">
         <DialogHeader>
           <DialogTitle className="font-display">Add from master price list</DialogTitle>
         </DialogHeader>
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
-            className="w-full bg-background border border-border rounded-md py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
+            className="w-full bg-white border border-border rounded-[11px] py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40"
             placeholder="Search services…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

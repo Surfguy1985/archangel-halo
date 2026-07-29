@@ -15,7 +15,7 @@ import {
 import { Camera, Sparkles, Landmark, X } from "lucide-react";
 
 const fieldCls =
-  "w-full bg-card border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] shadow-[var(--shadow)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
+  "w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[14px] px-[16px] text-[15px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 focus:border-[var(--gold)]";
 
 import { prepareScanImage } from "@/lib/scanImage";
 
@@ -234,13 +234,13 @@ export function AddExpenseSheet({
               </div>
             </button>
           ) : (
-            <div className="mb-[12px] rounded-[15px] border border-border bg-card p-[12px] space-y-[8px] shadow-[var(--shadow)]">
+            <div className="mb-[12px] rounded-[15px] border border-[var(--hairline)] bg-card p-[12px] space-y-[8px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
               <div className="flex items-center gap-[10px]">
                 {receiptPreview && (
                   <img
                     src={receiptPreview}
                     alt="Receipt"
-                    className="w-[46px] h-[46px] rounded-[10px] object-cover border border-border shrink-0"
+                    className="w-[46px] h-[46px] rounded-[10px] object-cover border border-[var(--hairline)] shrink-0"
                   />
                 )}
                 <div className="flex-1 min-w-0 text-[13px]">
@@ -310,7 +310,7 @@ export function AddExpenseSheet({
             )}
           </div>
           <button
-            className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-50 transition-transform active:scale-[0.98]"
+            className="w-full mt-[18px] rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 transition-transform active:scale-[0.98]"
             onClick={submit}
             disabled={!amount.trim() || create.isPending || saving || extract.isPending}
           >

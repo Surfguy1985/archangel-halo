@@ -105,24 +105,24 @@ export function CalendarEventSheet({
           </SheetHeader>
 
           <div className="flex flex-col gap-[10px]">
-            <div className="flex items-center gap-[12px] bg-card border border-border rounded-[14px] p-[13px_14px] shadow-[var(--shadow)]">
+            <div className="flex items-center gap-[12px] bg-card border border-[var(--hairline)] rounded-[14px] p-[13px_14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
               <CalendarIcon className="w-[18px] h-[18px] text-[var(--gold-dark)] shrink-0" strokeWidth={1.9} />
               <div className="text-[14.5px] font-semibold">{fmtDate(event.date)}</div>
             </div>
-            <div className="flex items-center gap-[12px] bg-card border border-border rounded-[14px] p-[13px_14px] shadow-[var(--shadow)]">
+            <div className="flex items-center gap-[12px] bg-card border border-[var(--hairline)] rounded-[14px] p-[13px_14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
               <Clock className="w-[18px] h-[18px] text-[var(--gold-dark)] shrink-0" strokeWidth={1.9} />
               <div className="text-[14.5px] font-semibold">{timeLabel}</div>
             </div>
 
             {event.propertyName && (
-              <div className="flex items-center gap-[12px] bg-card border border-border rounded-[14px] p-[13px_14px] shadow-[var(--shadow)]">
+              <div className="flex items-center gap-[12px] bg-card border border-[var(--hairline)] rounded-[14px] p-[13px_14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
                 <MapPin className="w-[18px] h-[18px] text-[var(--gold-dark)] shrink-0" strokeWidth={1.9} />
                 <div className="text-[14.5px] font-semibold">{event.propertyName}</div>
               </div>
             )}
 
             {event.notes && (
-              <div className="bg-card border border-border rounded-[14px] p-[13px_14px] shadow-[var(--shadow)]">
+              <div className="bg-card border border-[var(--hairline)] rounded-[14px] p-[13px_14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
                 <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground mb-[5px]">
                   Notes
                 </div>
@@ -133,7 +133,7 @@ export function CalendarEventSheet({
             )}
 
             {event.crewName && (
-              <div className="bg-card border border-border rounded-[14px] p-[13px_14px] shadow-[var(--shadow)]">
+              <div className="bg-card border border-[var(--hairline)] rounded-[14px] p-[13px_14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
                 <div className="flex items-center gap-[12px]">
                   <Users className="w-[18px] h-[18px] text-[var(--gold-dark)] shrink-0" strokeWidth={1.9} />
                   <div className="flex-1 min-w-0">
@@ -152,17 +152,17 @@ export function CalendarEventSheet({
                 </div>
 
                 {portalUrl && (
-                  <div className="mt-[12px] pt-[12px] border-t border-border">
+                  <div className="mt-[12px] pt-[12px] border-t border-[var(--hairline)]">
                     <div className="flex items-center gap-[7px] text-[11px] uppercase tracking-[0.12em] text-muted-foreground mb-[7px]">
                       <Link2 className="w-[13px] h-[13px]" /> Crew portal link
                     </div>
-                    <div className="text-[12.5px] text-muted-foreground break-all bg-[var(--paper)] border border-border rounded-[10px] p-[9px_11px] mb-[10px]">
+                    <div className="text-[12.5px] text-muted-foreground break-all bg-[var(--paper)] border border-[var(--hairline)] rounded-[10px] p-[9px_11px] mb-[10px]">
                       {portalUrl}
                     </div>
                     <div className="flex gap-[9px]">
                       <button
                         onClick={copyLink}
-                        className="flex-1 rounded-[12px] py-[11px] font-semibold text-[13.5px] flex items-center justify-center gap-[7px] bg-card border border-border shadow-[var(--shadow)] transition-transform active:scale-[0.98]"
+                        className="flex-1 rounded-[12px] py-[11px] font-semibold text-[13.5px] flex items-center justify-center gap-[7px] bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]"
                       >
                         {copied ? (
                           <>
@@ -191,14 +191,14 @@ export function CalendarEventSheet({
 
           {event.kind === "job" && event.jobId ? (
             <Link href={`/jobs/${event.jobId}`} onClick={() => onOpenChange(false)}>
-              <button className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] flex items-center justify-center gap-[8px] transition-transform active:scale-[0.98]">
+              <button className="w-full mt-[18px] rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center justify-center gap-[8px] transition-transform active:scale-[0.98]">
                 <Briefcase className="w-[16px] h-[16px]" /> View job
               </button>
             </Link>
           ) : (
             <button
               onClick={() => onEdit(event)}
-              className="w-full mt-[18px] rounded-[13px] py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] flex items-center justify-center gap-[8px] transition-transform active:scale-[0.98]"
+              className="w-full mt-[18px] rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex items-center justify-center gap-[8px] transition-transform active:scale-[0.98]"
             >
               <Pencil className="w-[16px] h-[16px]" /> Edit event
             </button>

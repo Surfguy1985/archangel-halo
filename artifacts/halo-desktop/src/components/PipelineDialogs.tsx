@@ -122,7 +122,7 @@ export function AddLeadDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg border-none shadow-xl">
         <DialogHeader>
           <DialogTitle className="font-display">New Lead</DialogTitle>
           <DialogDescription>
@@ -376,7 +376,7 @@ export function LeadDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto border-none shadow-xl">
         <DialogHeader>
           <DialogTitle className="font-display flex items-center gap-2">
             {lead.propertyName || "Lead"}
@@ -761,7 +761,7 @@ export function BidBuilderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto border-none shadow-xl">
         <DialogHeader>
           <DialogTitle className="font-display">
             {editBidId ? "Edit Bid" : "New Bid"}
@@ -1019,7 +1019,7 @@ export function BidDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto border-none shadow-xl">
         {!bid ? (
           <p className="text-sm text-muted-foreground p-4">Loading…</p>
         ) : (

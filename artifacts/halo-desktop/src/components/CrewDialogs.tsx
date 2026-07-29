@@ -31,9 +31,9 @@ import {
 } from "@workspace/api-client-react";
 
 const fieldCls =
-  "w-full bg-card border border-input rounded-md py-2.5 px-3.5 text-sm shadow-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "w-full bg-white border border-border rounded-[11px] py-2.5 px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40";
 
-const labelCls = "text-xs font-semibold text-muted-foreground";
+const labelCls = "text-[10px] font-bold text-[var(--gold-dark)]";
 
 const primaryBtn =
   "flex items-center justify-center gap-2 bg-[var(--gold-light)] text-black px-4 py-2 rounded-md font-medium hover:bg-[var(--gold-dark)] transition-colors shadow-sm disabled:opacity-50 disabled:pointer-events-none";
@@ -70,7 +70,7 @@ function Toggle({
     <button
       type="button"
       onClick={onChange}
-      className="flex items-center justify-between bg-card border border-input rounded-md py-2.5 px-3.5 shadow-sm text-left"
+      className="flex items-center justify-between bg-white border border-border rounded-[11px] py-2.5 px-3.5 shadow-sm text-left"
     >
       <div>
         <div className="text-sm font-semibold">{title}</div>
@@ -172,7 +172,7 @@ function TermsAndServices({
               type="button"
               aria-label="Remove service"
               onClick={() => setServices((list) => list.filter((_, j) => j !== i))}
-              className="shrink-0 w-9 rounded-md border border-input text-muted-foreground hover:bg-black/[0.03]"
+              className="shrink-0 w-9 rounded-full border border-border bg-white text-muted-foreground hover:bg-black/5"
             >
               ×
             </button>
@@ -241,7 +241,7 @@ export function AddCrewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="border-none shadow-xl">
         <DialogHeader>
           <DialogTitle className="font-display">Add crew member</DialogTitle>
           <DialogDescription>
@@ -438,7 +438,7 @@ export function EditCrewDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
+        <DialogContent className="border-none shadow-xl">
           <DialogHeader>
             <DialogTitle className="font-display">Edit crew member</DialogTitle>
             <DialogDescription>

@@ -392,7 +392,7 @@ export function VoiceCaptureSheet({
 
               <div className="flex flex-col items-center justify-center my-[18px]">
                 <button
-                  className={`w-[66px] h-[66px] rounded-full relative grid place-items-center shadow-[0_6px_20px_rgba(180,255,68,0.35)] before:content-[''] before:absolute before:inset-0 before:rounded-full before:bg-[var(--primary)] after:content-[''] after:absolute after:inset-[3.5px] after:rounded-full after:bg-[var(--ink)] ${listening ? "animate-pulse" : ""}`}
+                  className={`w-[66px] h-[66px] rounded-full relative grid place-items-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] before:content-[''] before:absolute before:inset-0 before:rounded-full before:bg-[var(--primary)] after:content-[''] after:absolute after:inset-[3.5px] after:rounded-full after:bg-[var(--ink)] ${listening ? "animate-pulse" : ""}`}
                   onClick={toggleListen}
                 >
                   <Mic className="relative z-10 w-[24px] h-[24px] text-[var(--gold-light)]" />
@@ -420,7 +420,7 @@ export function VoiceCaptureSheet({
                         className={`shrink-0 flex items-center gap-[6px] rounded-full py-[8px] px-[13px] text-[13px] font-semibold border transition-colors ${
                           on
                             ? "bg-[var(--ink)] text-[var(--paper)] border-[var(--ink)]"
-                            : "bg-card text-foreground border-border shadow-[var(--shadow)]"
+                            : "bg-card text-foreground border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
                         }`}
                       >
                         <s.Icon
@@ -454,7 +454,7 @@ export function VoiceCaptureSheet({
               )}
 
               <textarea
-                className="w-full bg-card rounded-[14px] border border-border shadow-[var(--shadow)] p-[14px_15px] text-[15px] text-[var(--ink2)] min-h-[92px] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
+                className="w-full bg-card rounded-[14px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[14px_15px] text-[15px] text-[var(--ink2)] min-h-[92px] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--gold)]"
                 placeholder={
                   speechSupported
                     ? "Your words appear here — or type them. e.g. “Add a new property called Cedar Point Apartments, managed by Sterling, 48 units in Austin.”"
@@ -509,7 +509,7 @@ export function VoiceCaptureSheet({
               </SheetHeader>
 
               {actions.length === 0 ? (
-                <div className="bg-card rounded-[14px] border border-border shadow-[var(--shadow)] p-[16px] text-[14px] text-muted-foreground">
+                <div className="bg-card rounded-[14px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[16px] text-[14px] text-muted-foreground">
                   Nothing actionable found. Go back and add more detail.
                 </div>
               ) : (
@@ -522,8 +522,8 @@ export function VoiceCaptureSheet({
                         onClick={() => toggleSelected(i)}
                         className={`text-left rounded-[14px] border p-[13px_14px] transition-colors ${
                           on
-                            ? "bg-card border-[var(--gold)] shadow-[var(--shadow)]"
-                            : "bg-transparent border-border opacity-55"
+                            ? "bg-card border-[var(--gold)] shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+                            : "bg-transparent border-[var(--hairline)] opacity-55"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-[10px] mb-[4px]">
@@ -560,7 +560,7 @@ export function VoiceCaptureSheet({
               <div className="flex gap-[10px] mt-[16px]">
                 <button
                   onClick={() => setPhase("capture")}
-                  className="py-[13px] px-[16px] rounded-[14px] border border-border bg-card font-semibold text-[15px] flex items-center gap-[6px]"
+                  className="py-[13px] px-[16px] rounded-[14px] border border-[var(--hairline)] bg-card font-semibold text-[15px] flex items-center gap-[6px]"
                 >
                   <ChevronLeft className="w-[16px] h-[16px]" /> Back
                 </button>
@@ -593,7 +593,7 @@ export function VoiceCaptureSheet({
           {phase === "done" && (
             <>
               <div className="flex flex-col items-center text-center my-[14px]">
-                <span className="w-[54px] h-[54px] rounded-full bg-[var(--gold-light)] grid place-items-center shadow-[0_6px_20px_rgba(180,255,68,0.35)]">
+                <span className="w-[54px] h-[54px] rounded-full bg-[var(--gold-light)] grid place-items-center shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
                   <Check className="w-[26px] h-[26px] text-black" />
                 </span>
                 <SheetTitle className="font-display font-bold text-[19px] mt-[12px]">
@@ -608,7 +608,7 @@ export function VoiceCaptureSheet({
                   {resultMessages.map((m, i) => (
                     <div
                       key={i}
-                      className="bg-card rounded-[12px] border border-border shadow-[var(--shadow)] p-[11px_13px] text-[13.5px] text-[var(--ink2)]"
+                      className="bg-card rounded-[12px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[11px_13px] text-[13.5px] text-[var(--ink2)]"
                     >
                       {m}
                     </div>
@@ -619,7 +619,7 @@ export function VoiceCaptureSheet({
               <div className="flex gap-[10px] mt-[16px]">
                 <button
                   onClick={resetAll}
-                  className="flex-1 py-[13px] rounded-[14px] border border-border bg-card font-semibold text-[15px]"
+                  className="flex-1 py-[13px] rounded-[14px] border border-[var(--hairline)] bg-card font-semibold text-[15px]"
                 >
                   Say something else
                 </button>

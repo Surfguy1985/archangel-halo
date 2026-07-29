@@ -15,7 +15,7 @@ import {
 } from "@workspace/api-client-react";
 
 const fieldCls =
-  "w-full bg-card border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] shadow-[var(--shadow)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
+  "w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[14px] px-[16px] text-[15px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 focus:border-[var(--gold)]";
 
 const LEAD_STATUSES = ["new", "contacted", "qualified", "converted", "dead"];
 
@@ -156,7 +156,7 @@ export function LeadDetailSheet({
             </div>
             <input className={fieldCls} type="tel" placeholder="Contact phone" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
             {lead.callTranscript && (
-              <div className="bg-card rounded-[16px] shadow-[var(--shadow)]">
+              <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
                 <button
                   className="w-full flex items-center justify-between px-[14px] py-[11px] text-[13px] font-display font-bold"
                   onClick={() => setShowTranscript((v) => !v)}
@@ -180,7 +180,7 @@ export function LeadDetailSheet({
             )}
           </div>
 
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px] mb-[12px]">
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[14px] mb-[12px]">
             <div className="flex items-center gap-[6px] font-display font-bold text-[14px] mb-[10px]">
               <Mail className="w-[15px] h-[15px] text-[var(--gold-dark)]" /> One-tap follow-up
             </div>
@@ -196,7 +196,7 @@ export function LeadDetailSheet({
                     className={`text-[12.5px] font-bold px-[10px] py-[6px] rounded-full border transition-colors ${
                       selectedTemplate === t.key
                         ? "bg-[var(--ink)] text-white border-[var(--ink)]"
-                        : "bg-[var(--paper)] border-border text-foreground"
+                        : "bg-[var(--paper)] border-[var(--hairline)] text-foreground"
                     }`}
                     onClick={() => setSelectedTemplate(selectedTemplate === t.key ? null : t.key)}
                   >
@@ -206,7 +206,7 @@ export function LeadDetailSheet({
               </div>
             )}
             {tpl && (
-              <div className="mt-[10px] bg-[var(--paper)] border border-border rounded-[13px] p-[12px]">
+              <div className="mt-[10px] bg-[var(--paper)] border border-[var(--hairline)] rounded-[18px] p-[12px]">
                 <div className="text-[12.5px] font-bold mb-[4px]">{tpl.subject}</div>
                 <div className="text-[12px] text-muted-foreground whitespace-pre-line max-h-[140px] overflow-y-auto mb-[10px]">{tpl.body}</div>
                 <button
@@ -242,7 +242,7 @@ export function LeadDetailSheet({
             )}
           </div>
 
-          <div className="bg-card rounded-[16px] shadow-[var(--shadow)] p-[14px]">
+          <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[14px]">
             <div className="flex items-center gap-[6px] font-display font-bold text-[14px] mb-[10px]">
               <Zap className="w-[15px] h-[15px] text-[var(--gold-dark)]" /> Drip campaign
             </div>
@@ -259,7 +259,7 @@ export function LeadDetailSheet({
                   )}
                 </div>
                 <button
-                  className="shrink-0 flex items-center gap-[5px] text-[12.5px] font-bold px-[12px] py-[8px] rounded-[11px] bg-[var(--paper)] border border-border"
+                  className="shrink-0 flex items-center gap-[5px] text-[12.5px] font-bold px-[12px] py-[8px] rounded-[11px] bg-[var(--paper)] border border-[var(--hairline)]"
                   disabled={stopCampaign.isPending}
                   onClick={() =>
                     stopCampaign.mutate(
@@ -283,7 +283,7 @@ export function LeadDetailSheet({
             ) : (
               <div className="flex flex-col gap-[8px]">
                 {campaignDefs?.map((c) => (
-                  <div key={c.kind} className="flex items-center justify-between gap-[10px] bg-[var(--paper)] border border-border rounded-[13px] p-[11px]">
+                  <div key={c.kind} className="flex items-center justify-between gap-[10px] bg-[var(--paper)] border border-[var(--hairline)] rounded-[18px] p-[11px]">
                     <div className="min-w-0">
                       <div className="text-[13px] font-semibold">{c.name}</div>
                       <div className="text-[11.5px] text-muted-foreground">{c.description}</div>

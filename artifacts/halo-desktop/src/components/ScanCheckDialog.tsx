@@ -25,7 +25,7 @@ import { Input} from "@/components/ui/input";
 import { Camera, Sparkles, X} from "lucide-react";
 
 const selectCls =
-  "w-full h-9 bg-background border border-input rounded-md px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+  "w-full h-9 bg-white border border-border rounded-[11px] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40";
 
 import { prepareScanImage} from "@/lib/scanImage";
 
@@ -201,7 +201,7 @@ export function ScanCheckDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="sm:max-w-[440px]">
+      <DialogContent className="sm:max-w-[440px] border-none shadow-xl">
         <DialogHeader>
           <DialogTitle>Scan a check</DialogTitle>
           <DialogDescription>

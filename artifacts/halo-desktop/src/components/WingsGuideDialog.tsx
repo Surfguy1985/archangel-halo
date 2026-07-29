@@ -166,7 +166,7 @@ export function WingsGuideDialog({
   const [lang, setLang] = useState<GuideLang>("en");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-card border-border">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto border-none shadow-xl">
         <DialogHeader>
           <div className="flex items-center justify-between gap-3">
             <DialogTitle className="flex items-center gap-2 font-display">

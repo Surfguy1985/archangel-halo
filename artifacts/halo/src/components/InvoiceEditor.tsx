@@ -19,9 +19,9 @@ import {
 } from "@workspace/api-client-react";
 
 const fieldCls =
-  "w-full bg-card border border-border rounded-[13px] py-[11px] px-[14px] text-[14.5px] shadow-[var(--shadow)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
+  "w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[14px] px-[16px] text-[15px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 focus:border-[var(--gold)]";
 const smallField =
-  "w-full bg-card border border-border rounded-[10px] py-[8px] px-[10px] text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
+  "w-full bg-card border border-[var(--hairline)] rounded-[10px] py-[8px] px-[10px] text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]";
 const labelCls =
   "text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-[5px] block";
 
@@ -292,7 +292,7 @@ export function InvoiceEditor({
                   setPropertyId("");
                   setJobId("");
                 }}
-                className="w-full flex items-center gap-[12px] bg-card rounded-[16px] border-2 border-[var(--gold)] p-[12px] shadow-[var(--shadow)] active:scale-[0.98] transition-transform"
+                className="w-full flex items-center gap-[12px] bg-card rounded-[16px] border-2 border-[var(--gold)] p-[12px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] active:scale-[0.98] transition-transform"
               >
                 {selectedProperty.imagePath ? (
                   <img
@@ -339,7 +339,7 @@ export function InvoiceEditor({
                   <button
                     key={p.id}
                     onClick={() => setPropertyId(p.id)}
-                    className="relative overflow-hidden rounded-[16px] bg-card border border-border shadow-[var(--shadow)] text-left active:scale-[0.97] transition-transform"
+                    className="relative overflow-hidden rounded-[16px] bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-left active:scale-[0.97] transition-transform"
                   >
                     <div className="relative h-[64px] bg-[linear-gradient(135deg,#2a2b31,#17181c)]">
                       {p.imagePath && (
@@ -357,7 +357,7 @@ export function InvoiceEditor({
                   </button>
                 ))}
                 {(properties?.length ?? 0) === 0 && (
-                  <div className="col-span-2 text-[13px] text-muted-foreground bg-card rounded-[14px] border border-border p-[14px] text-center">
+                  <div className="col-span-2 text-[13px] text-muted-foreground bg-card rounded-[14px] border border-[var(--hairline)] p-[14px] text-center">
                     Add a property first — invoices bill to a property.
                   </div>
                 )}
@@ -379,7 +379,7 @@ export function InvoiceEditor({
                       <button
                         key={pi.id}
                         onClick={() => quickAdd(pi.service, pi.rate)}
-                        className="inline-flex items-center gap-[6px] pl-[12px] pr-[10px] py-[8px] rounded-full bg-card border border-border shadow-[var(--shadow)] text-[13px] font-semibold text-[var(--ink)] active:scale-[0.94] transition-transform"
+                        className="inline-flex items-center gap-[6px] pl-[12px] pr-[10px] py-[8px] rounded-full bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[13px] font-semibold text-[var(--ink)] active:scale-[0.94] transition-transform"
                       >
                         {pi.service}
                         <span className="text-[12px] font-bold text-[var(--gold-dark)] tabular-nums">
@@ -405,7 +405,7 @@ export function InvoiceEditor({
                   </span>
                 </div>
                 {rows.length === 0 && (
-                  <div className="text-[13px] text-muted-foreground bg-card/60 border border-dashed border-border rounded-[14px] p-[14px] text-center mb-[10px]">
+                  <div className="text-[13px] text-muted-foreground bg-card/60 border border-dashed border-[var(--hairline)] rounded-[14px] p-[14px] text-center mb-[10px]">
                     {priceItems.length > 0
                       ? "Tap a service above, or add a custom line."
                       : "Add your first line item below."}
@@ -415,7 +415,7 @@ export function InvoiceEditor({
                   {rows.map((r) => (
                     <div
                       key={r.key}
-                      className="bg-card rounded-[16px] border border-border shadow-[var(--shadow)] p-[12px]"
+                      className="bg-card rounded-[16px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[12px]"
                     >
                       <div className="flex items-center gap-[8px] mb-[10px]">
                         <input
@@ -503,7 +503,7 @@ export function InvoiceEditor({
                 </div>
                 <button
                   onClick={() => setRows((rs) => [...rs, blankRow()])}
-                  className="w-full mt-[10px] flex items-center justify-center gap-[6px] rounded-full py-[11px] text-[13.5px] font-display font-bold bg-card border border-border shadow-[var(--shadow)] text-[var(--ink)] active:scale-[0.98] transition-transform"
+                  className="w-full mt-[10px] flex items-center justify-center gap-[6px] rounded-full py-[11px] text-[13.5px] font-display font-bold bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] active:scale-[0.98] transition-transform"
                 >
                   <Plus className="w-[15px] h-[15px]" /> Custom line
                 </button>
@@ -626,7 +626,7 @@ export function InvoiceEditor({
           )}
 
           <button
-            className="w-full mt-[18px] rounded-full py-[15px] font-display font-bold text-[16px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_6px_20px_rgba(180,255,68,0.35)] disabled:opacity-40 transition-transform active:scale-[0.98]"
+            className="w-full mt-[18px] rounded-full py-[15px] font-display font-bold text-[16px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-40 transition-transform active:scale-[0.98]"
             onClick={submit}
             disabled={!canSubmit}
           >

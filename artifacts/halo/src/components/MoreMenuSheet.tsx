@@ -58,8 +58,8 @@ export function MoreMenuSheet({
                 <div className="flex flex-col gap-[10px]">
                   {group.items.map(({ href, label, sub, Icon }) => (
                     <Link key={href} href={href} onClick={() => onOpenChange(false)}>
-                      <div className="flex items-center gap-[13px] bg-card border border-border rounded-[14px] p-[13px_14px] shadow-[var(--shadow)] transition-transform active:scale-[0.98]">
-                        <div className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--paper)] border border-border shrink-0">
+                      <div className="flex items-center gap-[13px] bg-card border border-[var(--hairline)] rounded-[14px] p-[13px_14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]">
+                        <div className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--paper)] border border-[var(--hairline)] shrink-0">
                           <Icon className="w-[19px] h-[19px] text-[var(--gold-dark)]" strokeWidth={1.9} />
                         </div>
                         <div className="flex-1 min-w-0">
