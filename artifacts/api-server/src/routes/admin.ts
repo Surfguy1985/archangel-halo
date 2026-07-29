@@ -399,7 +399,7 @@ async function emailCredentials(
           <b>Email:</b> ${escHtml(user.email)}<br/>
           <b>Temporary password:</b> <code>${tempPassword}</code>
         </p>
-        <p><a href="${link}" style="background:#B4FF44;color:#000;text-decoration:none;font-weight:bold;padding:10px 18px;border-radius:10px;display:inline-block">Open your dashboard</a></p>
+        <p><a href="${link}" style="background:#B4FF44;color:#000;text-decoration:none;font-weight:bold;padding:10px 18px;border-radius:10px;display:inline-block">Open your board</a></p>
         <p style="color:#667085;font-size:13px">Keep this password safe — you can ask us for a reset any time.</p>
       </div>`,
   });
@@ -797,7 +797,7 @@ router.post(
             track work orders, crews on site, invoices, and photos in real time.
             Open it on your phone and add it to your home screen to install the app.</p>
             ${note}
-            <p><a href="${link}" style="background:#B4FF44;color:#000;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:10px;display:inline-block">Open your dashboard</a></p>
+            <p><a href="${link}" style="background:#B4FF44;color:#000;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:10px;display:inline-block">Open your board</a></p>
             <p style="color:#667085;font-size:13px">Or copy this link: ${link}</p>
           </div>`,
       });
