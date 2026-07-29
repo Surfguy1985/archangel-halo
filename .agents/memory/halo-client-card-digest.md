@@ -1,4 +1,6 @@
 ---
+Push composer (desktop ClientBoardOffice) is a two-step tile picker: templates map onto the 7 card kinds; property "To" dropdown switches target board — switching property or manually editing prefilled fields must reset/clear the quick-pick source or stale invoice/tracker data leaks to the wrong client. Office board polls every 4s to mirror client column moves.
+
 name: HALO client card digest
 description: Hourly batched email pings to clients when new board cards land
 ---

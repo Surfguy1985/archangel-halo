@@ -10,11 +10,15 @@ import {
   usePushClientBoardCard,
   useGetClientBoardPushQuickPicks,
   getGetClientBoardPushQuickPicksQueryKey,
+  useListClientAccounts,
   type ClientBoardFeedCard,
 } from "@workspace/api-client-react";
 import {
   ChevronLeft,
   Pencil,
+  Briefcase,
+  CalendarClock,
+  Camera,
   CheckCircle2,
   CreditCard,
   ExternalLink,
@@ -28,6 +32,7 @@ import {
   Play,
   Plus,
   Send,
+  StickyNote,
   Trash2,
   Webhook,
   X,
@@ -296,14 +301,33 @@ function SendCardForm({
   );
 }
 
-const PUSH_KINDS = [
-  { value: "invoice", label: "Invoice" },
-  { value: "payment_request", label: "Payment request" },
-  { value: "summary", label: "Job summary" },
-  { value: "tracker", label: "Live tracker" },
-  { value: "photos", label: "Photos" },
-  { value: "flag", label: "Heads-up" },
-  { value: "manual", label: "Note" },
+// Apple-watch-tile templates. Each tile is one thing the office tells the
+// client, mapped onto a board card kind with sensible prefills.
+type PushTemplate = {
+  id: string;
+  kind: string;
+  label: string;
+  desc: string;
+  icon: typeof FileText;
+  tint: string; // tile icon chip
+  quick?: "invoices" | "trackers";
+  money?: boolean; // show amount + due
+  due?: boolean; // show due only
+  titlePrefill?: string;
+  bodyPlaceholder?: string;
+  linkLabel?: string;
+};
+
+const TEMPLATES: PushTemplate[] = [
+  { id: "invoice", kind: "invoice", label: "Invoice", desc: "Bill with a pay link", icon: FileText, tint: "bg-amber-100 text-amber-700", quick: "invoices", money: true, linkLabel: "Pay now" },
+  { id: "payment", kind: "payment_request", label: "Payment notice", desc: "Payment due or received", icon: CreditCard, tint: "bg-emerald-100 text-emerald-700", quick: "invoices", money: true, linkLabel: "Pay now" },
+  { id: "crew_on_site", kind: "tracker", label: "Crew on site", desc: "Live tracker + scope", icon: MapPin, tint: "bg-violet-100 text-violet-700", quick: "trackers", bodyPlaceholder: "Short scope summary — what the crew is doing today", linkLabel: "Watch live" },
+  { id: "crew_checkout", kind: "summary", label: "Crew checked out", desc: "Work wrapped for the day", icon: CheckCircle2, tint: "bg-sky-100 text-sky-700", quick: "trackers", titlePrefill: "Crew checked out", bodyPlaceholder: "What got done today, in one or two lines" },
+  { id: "photos", kind: "photos", label: "Before & after", desc: "Photo report link", icon: Camera, tint: "bg-pink-100 text-pink-700", titlePrefill: "Before & after photos", linkLabel: "View photos" },
+  { id: "new_job", kind: "manual", label: "New job created", desc: "Work scheduled for you", icon: Briefcase, tint: "bg-indigo-100 text-indigo-700", quick: "trackers", titlePrefill: "New job created", bodyPlaceholder: "What the job covers and when it starts" },
+  { id: "reminder", kind: "manual", label: "Schedule reminder", desc: "A date to know about", icon: CalendarClock, tint: "bg-orange-100 text-orange-700", due: true, bodyPlaceholder: "What's happening and what (if anything) you need to do" },
+  { id: "flag", kind: "flag", label: "Flagged item", desc: "Needs your attention", icon: Flag, tint: "bg-red-100 text-red-700", bodyPlaceholder: "Why it's flagged — from the summary report or a walkthrough" },
+  { id: "note", kind: "manual", label: "Note", desc: "Anything else", icon: StickyNote, tint: "bg-neutral-200 text-neutral-700" },
 ];
 
 function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string; open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -311,7 +335,9 @@ function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string
   const { toast } = useToast();
   const push = usePushClientBoardCard();
 
-  const [kind, setKind] = useState("manual");
+  // Which client board this card lands on — defaults to the board being viewed.
+  const [targetId, setTargetId] = useState(propertyId);
+  const [template, setTemplate] = useState<PushTemplate | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [amount, setAmount] = useState("");
@@ -321,28 +347,43 @@ function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string
   // Dedupe source + job ref set by quick-picks; cleared when the user edits by hand.
   const [source, setSource] = useState<{ type: string; id: string; jobId?: string } | null>(null);
 
-  const { data: quickPicks } = useGetClientBoardPushQuickPicks(propertyId, {
+  const { data: accounts } = useListClientAccounts({
+    query: { queryKey: ["push-card-accounts"], enabled: open },
+  });
+
+  const { data: quickPicks } = useGetClientBoardPushQuickPicks(targetId, {
     query: {
-      queryKey: getGetClientBoardPushQuickPicksQueryKey(propertyId),
-      enabled: open,
+      queryKey: getGetClientBoardPushQuickPicksQueryKey(targetId),
+      enabled: open && !!targetId,
     },
   });
 
+  const resetFields = () => {
+    setTitle("");
+    setBody("");
+    setAmount("");
+    setDueDate("");
+    setLinkUrl("");
+    setLinkLabel("Open");
+    setSource(null);
+  };
+
   useEffect(() => {
     if (open) {
-      setKind("manual");
-      setTitle("");
-      setBody("");
-      setAmount("");
-      setDueDate("");
-      setLinkUrl("");
-      setLinkLabel("Open");
-      setSource(null);
+      setTargetId(propertyId);
+      setTemplate(null);
+      resetFields();
     }
-  }, [open]);
+  }, [open, propertyId]);
+
+  const chooseTemplate = (t: PushTemplate) => {
+    resetFields();
+    setTemplate(t);
+    setTitle(t.titlePrefill ?? "");
+    if (t.linkLabel) setLinkLabel(t.linkLabel);
+  };
 
   const pickInvoice = (inv: NonNullable<typeof quickPicks>["invoices"][number]) => {
-    setKind("invoice");
     setTitle(`Invoice ${inv.invoiceNo}`);
     setAmount(String(inv.amount));
     setDueDate(inv.dueDate ?? "");
@@ -352,26 +393,33 @@ function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string
   };
 
   const pickTracker = (t: NonNullable<typeof quickPicks>["trackers"][number]) => {
-    setKind("tracker");
-    setTitle(`Live tracker — Job ${t.jobNo}`);
-    setBody(t.description || `Watch crew arrivals, GPS check-ins, and photos live for job ${t.jobNo}.`);
-    setAmount("");
-    setDueDate("");
-    setLinkUrl(t.trackerUrl);
-    setLinkLabel("Watch live");
+    const base = template?.titlePrefill;
+    setTitle(base ? `${base} — Job ${t.jobNo}` : `Live tracker — Job ${t.jobNo}`);
+    if (template?.id === "crew_on_site") {
+      setBody(t.description || "");
+      setLinkUrl(t.trackerUrl);
+      setLinkLabel("Watch live");
+    } else if (template?.id === "new_job") {
+      setBody(t.description || "");
+    } else {
+      setLinkUrl(t.trackerUrl);
+      setLinkLabel("Watch live");
+    }
     setSource({ type: "tracker", id: t.jobId, jobId: t.jobId });
   };
 
   const handleSubmit = () => {
+    if (!template) return;
+    const kind = template.kind;
     push.mutate(
       {
-        propertyId,
+        propertyId: targetId,
         data: {
           kind,
           title: title.trim(),
           body: body.trim() || null,
-          amount: (kind === "invoice" || kind === "payment_request") && amount ? Number(amount) : null,
-          dueDate: (kind === "invoice" || kind === "payment_request") && dueDate ? dueDate : null,
+          amount: template.money && amount ? Number(amount) : null,
+          dueDate: (template.money || template.due) && dueDate ? dueDate : null,
           linkUrl: linkUrl.trim() || null,
           linkLabel: linkUrl.trim() ? linkLabel.trim() || "Open" : null,
           sourceType: source?.type ?? null,
@@ -381,7 +429,7 @@ function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string
       },
       {
         onSuccess: (res) => {
-          queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId) });
+          queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(targetId) });
 
           let desc = "Card added to board";
           if (res.notified) {
@@ -405,130 +453,193 @@ function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string
   const inputCls =
     "w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm font-medium outline-none focus:ring-2 focus:ring-[#B4FF44] focus:border-[#101c33]/20";
 
+  const showQuick =
+    template?.quick === "invoices"
+      ? (quickPicks?.invoices ?? []).length > 0
+      : template?.quick === "trackers"
+        ? (quickPicks?.trackers ?? []).length > 0
+        : false;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-6 sm:rounded-3xl border-[#101c33]/10">
-        <DialogHeader className="mb-4">
-          <DialogTitle className="text-xl font-display font-bold text-[#101c33]">Push a card</DialogTitle>
+        <DialogHeader className="mb-3">
+          <DialogTitle className="text-xl font-display font-bold text-[#101c33] flex items-center gap-2">
+            {template && (
+              <button
+                type="button"
+                onClick={() => setTemplate(null)}
+                className="text-muted-foreground hover:text-foreground -ml-1"
+                data-testid="button-push-back"
+                aria-label="Back to card types"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+            {template ? template.label : "Push a card"}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5">
-          {quickPicks && (quickPicks.invoices.length > 0 || quickPicks.trackers.length > 0) && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#101c33]">Quick picks</label>
-                {source && (
-                  <button
-                    type="button"
-                    onClick={() => setSource(null)}
-                    className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-                    data-testid="button-clear-quick-pick"
-                  >
-                    Clear selection
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto">
-                {quickPicks.invoices.map((inv) => (
-                  <button
-                    key={inv.id}
-                    type="button"
-                    onClick={() => pickInvoice(inv)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors flex items-center gap-1.5 ${
-                      source?.type === "invoice" && source.id === inv.id
-                        ? "bg-[#B4FF44] border-[#B4FF44] text-black"
-                        : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                    }`}
-                    data-testid={`button-quick-pick-invoice-${inv.invoiceNo}`}
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    {inv.invoiceNo} · ${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </button>
-                ))}
-                {quickPicks.trackers.map((t) => (
-                  <button
-                    key={t.jobId}
-                    type="button"
-                    onClick={() => pickTracker(t)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors flex items-center gap-1.5 ${
-                      source?.type === "tracker" && source.id === t.jobId
-                        ? "bg-[#B4FF44] border-[#B4FF44] text-black"
-                        : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                    }`}
-                    data-testid={`button-quick-pick-tracker-${t.jobNo}`}
-                  >
-                    <MapPin className="w-3.5 h-3.5" />
-                    Job {t.jobNo}{t.unitNo ? ` · Unit ${t.unitNo}` : ""} tracker
-                  </button>
-                ))}
-              </div>
-              <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Tap an unpaid invoice or a live job tracker to prefill the card.
-              </p>
-            </div>
-          )}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-[#101c33] mb-2">Card Type</label>
-            <div className="flex flex-wrap gap-2">
-              {PUSH_KINDS.map((k) => (
-                <button
-                  key={k.value}
-                  onClick={() => setKind(k.value)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
-                    kind === k.value
-                      ? "bg-[#101c33] border-[#101c33] text-white"
-                      : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                  }`}
-                  type="button"
-                >
-                  {k.label}
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Property picker — which client board this lands on */}
+        <div className="mb-4">
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">To</label>
+          <select
+            value={targetId}
+            onChange={(e) => {
+              // Different client — nothing from the previous property may leak
+              // into their card. Start the compose over.
+              setTargetId(e.target.value);
+              resetFields();
+              if (template) {
+                setTitle(template.titlePrefill ?? "");
+                if (template.linkLabel) setLinkLabel(template.linkLabel);
+              }
+            }}
+            className={inputCls}
+            data-testid="select-push-property"
+          >
+            {(accounts ?? []).map((a) => (
+              <option key={a.propertyId} value={a.propertyId}>
+                {a.propertyName}
+              </option>
+            ))}
+            {(accounts ?? []).every((a) => a.propertyId !== targetId) && (
+              <option value={targetId}>This property</option>
+            )}
+          </select>
+        </div>
 
+        {!template ? (
+          <div className="grid grid-cols-3 gap-2.5" data-testid="grid-push-templates">
+            {TEMPLATES.map((t) => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => chooseTemplate(t)}
+                  className="group rounded-2xl border border-border bg-card p-3 text-left hover:border-[#101c33]/30 hover:shadow-sm transition-all active:scale-[0.97]"
+                  data-testid={`tile-push-${t.id}`}
+                >
+                  <span className={`inline-flex items-center justify-center w-9 h-9 rounded-xl ${t.tint} mb-2`}>
+                    <Icon className="w-4.5 h-4.5" />
+                  </span>
+                  <div className="text-[13px] font-bold leading-tight text-[#101c33]">{t.label}</div>
+                  <div className="text-[11px] text-muted-foreground leading-tight mt-0.5">{t.desc}</div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
           <div className="space-y-4">
+            {showQuick && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {template.quick === "invoices" ? "Pick an unpaid invoice" : "Pick a job"}
+                  </label>
+                  {source && (
+                    <button
+                      type="button"
+                      onClick={() => setSource(null)}
+                      className="text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                      data-testid="button-clear-quick-pick"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto">
+                  {template.quick === "invoices" &&
+                    (quickPicks?.invoices ?? []).map((inv) => (
+                      <button
+                        key={inv.id}
+                        type="button"
+                        onClick={() => pickInvoice(inv)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors flex items-center gap-1.5 ${
+                          source?.type === "invoice" && source.id === inv.id
+                            ? "bg-[#B4FF44] border-[#B4FF44] text-black"
+                            : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                        }`}
+                        data-testid={`button-quick-pick-invoice-${inv.invoiceNo}`}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        {inv.invoiceNo} · ${inv.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </button>
+                    ))}
+                  {template.quick === "trackers" &&
+                    (quickPicks?.trackers ?? []).map((t) => (
+                      <button
+                        key={t.jobId}
+                        type="button"
+                        onClick={() => pickTracker(t)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors flex items-center gap-1.5 ${
+                          source?.type === "tracker" && source.id === t.jobId
+                            ? "bg-[#B4FF44] border-[#B4FF44] text-black"
+                            : "bg-transparent border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+                        }`}
+                        data-testid={`button-quick-pick-tracker-${t.jobNo}`}
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        Job {t.jobNo}
+                        {t.unitNo ? ` · Unit ${t.unitNo}` : ""}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-[#101c33]">Title</label>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Title</label>
               <input
                 className={inputCls}
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  setSource(null);
+                }}
                 data-testid="input-push-title"
-                placeholder="e.g. Please clear unit 4B by Friday"
+                placeholder="Short and clear"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-[#101c33]">Message</label>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Message</label>
               <textarea
-                className={`${inputCls} min-h-[80px] resize-none`}
+                className={`${inputCls} min-h-[72px] resize-none`}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 data-testid="input-push-body"
-                placeholder="Optional details..."
+                placeholder={template.bodyPlaceholder ?? "Optional details…"}
               />
             </div>
 
-            {(kind === "invoice" || kind === "payment_request") && (
+            {(template.money || template.due) && (
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#101c33]">Amount</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-medium">$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className={`${inputCls} pl-7`}
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      data-testid="input-push-amount"
-                      placeholder="0.00"
-                    />
+                {template.money && (
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Amount</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-muted-foreground text-sm font-medium">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className={`${inputCls} pl-7`}
+                        value={amount}
+                        onChange={(e) => {
+                          setAmount(e.target.value);
+                          setSource(null);
+                        }}
+                        data-testid="input-push-amount"
+                        placeholder="0.00"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#101c33]">Due Date</label>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {template.due ? "Date" : "Due date"}
+                  </label>
                   <input
                     type="date"
                     className={inputCls}
@@ -542,17 +653,20 @@ function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#101c33]">Link URL</label>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Link (optional)</label>
                 <input
                   className={inputCls}
                   value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.target.value)}
+                  onChange={(e) => {
+                    setLinkUrl(e.target.value);
+                    setSource(null);
+                  }}
                   data-testid="input-push-link-url"
-                  placeholder="https://..."
+                  placeholder="https://…"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#101c33]">Link Label</label>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Link label</label>
                 <input
                   className={inputCls}
                   value={linkLabel}
@@ -562,17 +676,18 @@ function PushCardDialog({ propertyId, open, onOpenChange }: { propertyId: string
                 />
               </div>
             </div>
-          </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={!title.trim() || push.isPending}
-            className="w-full mt-2 py-3 bg-[#B4FF44] text-black text-sm font-bold uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {push.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <BellRing className="w-5 h-5" />}
-            Push Card
-          </button>
-        </div>
+            <button
+              onClick={handleSubmit}
+              disabled={!title.trim() || push.isPending}
+              className="w-full mt-1 py-3 bg-[#B4FF44] text-black text-sm font-bold uppercase tracking-widest rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+              data-testid="button-push-submit"
+            >
+              {push.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <BellRing className="w-5 h-5" />}
+              Push to their board
+            </button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -585,7 +700,9 @@ export default function ClientBoardOffice() {
   const { data: board, isLoading } = useGetOfficeClientBoard(propertyId, {
     query: {
       queryKey: getGetOfficeClientBoardQueryKey(propertyId),
-      refetchInterval: 15000,
+      // Live-sync with the client's board: when they drag a card to another
+      // column, the office view catches up within a few seconds.
+      refetchInterval: 4000,
       refetchOnWindowFocus: true,
     },
   });
