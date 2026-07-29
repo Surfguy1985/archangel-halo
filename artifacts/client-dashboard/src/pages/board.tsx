@@ -23,6 +23,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 
+// hint: Logic changed on both sides. Requires understanding intent of each change.
 export default function KanbanBoard() {
   const { token } = useParams<{ token: string }>();
   const [, setLocation] = useLocation();
@@ -53,6 +54,53 @@ export default function KanbanBoard() {
     cleanup: () => void;
   } | null>(null);
   const suppressClick = useRef(false);
+  // Edge auto-scroll while a drag is active (touch or HTML5). The pointer
+  // position is written into autoScrollPoint and a rAF loop nudges the board
+  // horizontally / the lane under the pointer vertically when near an edge.
+  const boardScrollRef = useRef<HTMLElement | null>(null);
+  const autoScrollPoint = useRef<{ x: number; y: number } | null>(null);
+  const autoScrollRaf = useRef<number | null>(null);
+
+  const stopAutoScroll = () => {
+    if (autoScrollRaf.current !== null) {
+      cancelAnimationFrame(autoScrollRaf.current);
+      autoScrollRaf.current = null;
+    }
+    autoScrollPoint.current = null;
+  };
+
+  const startAutoScroll = () => {
+    if (autoScrollRaf.current !== null) return;
+    const EDGE = 56; // px from an edge where scrolling kicks in
+    const MAX_SPEED = 18; // px per frame at the very edge
+    const speedFor = (dist: number) =>
+      Math.ceil(((EDGE - Math.max(0, dist)) / EDGE) * MAX_SPEED);
+    const step = () => {
+      autoScrollRaf.current = null;
+      const p = autoScrollPoint.current;
+      if (!p) return;
+      // Horizontal: the main board container.
+      const board = boardScrollRef.current;
+      if (board) {
+        const r = board.getBoundingClientRect();
+        if (p.x < r.left + EDGE) board.scrollLeft -= speedFor(p.x - r.left);
+        else if (p.x > r.right - EDGE) board.scrollLeft += speedFor(r.right - p.x);
+      }
+      // Vertical: the lane scroll area under the pointer.
+      const laneScroll = document
+        .elementFromPoint(p.x, p.y)
+        ?.closest('.kanban-lane-scroll') as HTMLElement | null;
+      if (laneScroll) {
+        const r = laneScroll.getBoundingClientRect();
+        if (p.y < r.top + EDGE) laneScroll.scrollTop -= speedFor(p.y - r.top);
+        else if (p.y > r.bottom - EDGE) laneScroll.scrollTop += speedFor(r.bottom - p.y);
+      }
+      autoScrollRaf.current = requestAnimationFrame(step);
+    };
+    autoScrollRaf.current = requestAnimationFrame(step);
+  };
+
+  useEffect(() => stopAutoScroll, []);
   const moveCardRef = useRef<(cardKey: string, laneKey: string, dropIndex?: number) => void>(() => {});
   const dropIndexRef = useRef<(laneKey: string, clientY: number, draggedKey: string) => number>(() => 0);
   const readOnlyRef = useRef(false);
@@ -182,6 +230,8 @@ export default function KanbanBoard() {
 
   const handleDragStart = (e: React.DragEvent, cardKey: string) => {
     setDraggedCard(cardKey);
+    autoScrollPoint.current = { x: e.clientX, y: e.clientY };
+    startAutoScroll();
     e.dataTransfer.effectAllowed = 'move';
     setTimeout(() => {
       const el = document.getElementById(`card-${cardKey}`);
@@ -190,6 +240,7 @@ export default function KanbanBoard() {
   };
 
   const handleDragEnd = (e: React.DragEvent, cardKey: string) => {
+    stopAutoScroll();
     setDraggedCard(null);
     const el = document.getElementById(`card-${cardKey}`);
     if (el) el.classList.remove('opacity-40', 'scale-95');
@@ -198,6 +249,7 @@ export default function KanbanBoard() {
   const handleDragOver = (e: React.DragEvent, laneKey: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    autoScrollPoint.current = { x: e.clientX, y: e.clientY };
     if (dragOverLane !== laneKey) setDragOverLane(laneKey);
   };
 
@@ -209,6 +261,7 @@ export default function KanbanBoard() {
 
   const handleDrop = (e: React.DragEvent, laneKey: string) => {
     e.preventDefault();
+    stopAutoScroll();
     setDragOverLane(null);
     if (!draggedCard || viewer.readOnly) {
       if (viewer.readOnly) {
@@ -335,6 +388,7 @@ export default function KanbanBoard() {
       if (s.timer) clearTimeout(s.timer);
       s.cleanup();
       touchDrag.current = null;
+      stopAutoScroll();
       if (!s.active) return;
       s.ghost?.remove();
       s.el.classList.remove('opacity-40', 'scale-95');
@@ -365,6 +419,9 @@ export default function KanbanBoard() {
         return;
       }
       ev.preventDefault();
+      // Feed the auto-scroll loop so the board scrolls when the finger
+      // holds near a screen edge (lanes off-screen become reachable).
+      autoScrollPoint.current = { x: t.clientX, y: t.clientY };
       if (s.ghost) {
         s.ghost.style.left = `${t.clientX - s.offsetX}px`;
         s.ghost.style.top = `${t.clientY - s.offsetY}px`;
@@ -406,6 +463,8 @@ export default function KanbanBoard() {
       }
       s.active = true;
       setDraggedCard(cardKey);
+      autoScrollPoint.current = { x: s.startX, y: s.startY };
+      startAutoScroll();
       const rect = s.el.getBoundingClientRect();
       const ghost = s.el.cloneNode(true) as HTMLElement;
       ghost.id = '';
@@ -724,7 +783,7 @@ export default function KanbanBoard() {
       </header>
 
       {/* Main Board */}
-      <main className="flex-1 overflow-x-auto overflow-y-hidden pt-6">
+      <main ref={boardScrollRef} className="flex-1 overflow-x-auto overflow-y-hidden pt-6">
         
         {viewer.readOnly && (
           <motion.div 
