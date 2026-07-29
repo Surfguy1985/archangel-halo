@@ -21,6 +21,7 @@ export function AddLeadSheet({
   const [source, setSource] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const [propertyId, setPropertyId] = useState(fixedPropertyId ?? "");
   const create = useCreateLead();
 
@@ -29,6 +30,7 @@ export function AddLeadSheet({
     setSource("");
     setContactName("");
     setContactEmail("");
+    setContactPhone("");
     setPropertyId(fixedPropertyId ?? "");
   };
 
@@ -42,6 +44,7 @@ export function AddLeadSheet({
           propertyId: propertyId || undefined,
           contactName: contactName.trim() || undefined,
           contactEmail: contactEmail.trim() || undefined,
+          contactPhone: contactPhone.trim() || undefined,
         },
       },
       {
@@ -72,6 +75,7 @@ export function AddLeadSheet({
               <input className={`${fieldCls} flex-1`} placeholder="Contact name" value={contactName} onChange={(e) => setContactName(e.target.value)} />
               <input className={`${fieldCls} flex-1`} type="email" placeholder="Contact email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
             </div>
+            <input className={fieldCls} type="tel" placeholder="Phone number" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
             <input className={fieldCls} placeholder="Source (e.g. referral, PMC email)" value={source} onChange={(e) => setSource(e.target.value)} />
             {!fixedPropertyId && (
               <select className={fieldCls} value={propertyId} onChange={(e) => setPropertyId(e.target.value)}>

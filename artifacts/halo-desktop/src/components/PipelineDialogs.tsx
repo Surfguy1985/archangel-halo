@@ -82,6 +82,7 @@ export function AddLeadDialog({
   const [summary, setSummary] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -90,6 +91,7 @@ export function AddLeadDialog({
       setSummary("");
       setContactName("");
       setContactEmail("");
+      setContactPhone("");
    }
  }, [open]);
 
@@ -106,6 +108,7 @@ export function AddLeadDialog({
           summary: summary.trim(),
           contactName: contactName.trim() || undefined,
           contactEmail: contactEmail.trim() || undefined,
+          contactPhone: contactPhone.trim() || undefined,
        },
      },
       {
@@ -175,6 +178,16 @@ export function AddLeadDialog({
                 data-testid="input-lead-contact-email"
               />
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Phone number</Label>
+            <Input
+              type="tel"
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
+              placeholder="(555) 123-4567"
+              data-testid="input-lead-contact-phone"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Source (optional)</Label>
