@@ -10,11 +10,70 @@ interface AppleCardProps {
   isDragged?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
   onDragEnd?: (e: React.DragEvent) => void;
+  onTouchDragBegin?: (x: number, y: number) => void;
+  onTouchDragMove?: (x: number, y: number) => void;
+  onTouchDragEnd?: (x: number, y: number, cancelled: boolean) => void;
   onClick?: () => void;
   token?: string;
 }
 
-export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, onClick, token }: AppleCardProps) {
+export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, onTouchDragBegin, onTouchDragMove, onTouchDragEnd, onClick, token }: AppleCardProps) {
+  // Long-press touch drag: HTML5 DnD doesn't exist on mobile browsers.
+  // Hold ~250ms to lift the card; moving early is treated as a scroll.
+  const justDragged = React.useRef(false);
+  const gestureCleanup = React.useRef<(() => void) | null>(null);
+  React.useEffect(() => () => gestureCleanup.current?.(), []);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (readOnly || !onTouchDragBegin) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const startX = t.clientX;
+    const startY = t.clientY;
+    let active = false;
+    const timer = setTimeout(() => {
+      active = true;
+      onTouchDragBegin(startX, startY);
+    }, 250);
+    const detach = () => {
+      clearTimeout(timer);
+      document.removeEventListener('touchmove', move);
+      document.removeEventListener('touchend', end);
+      document.removeEventListener('touchcancel', cancel);
+      gestureCleanup.current = null;
+    };
+    const move = (ev: TouchEvent) => {
+      const tt = ev.touches[0];
+      if (!tt) return;
+      if (!active) {
+        // Finger moved before the long-press fired — it's a scroll.
+        if (Math.hypot(tt.clientX - startX, tt.clientY - startY) > 8) detach();
+        return;
+      }
+      if (ev.cancelable) ev.preventDefault();
+      onTouchDragMove?.(tt.clientX, tt.clientY);
+    };
+    const end = (ev: TouchEvent) => {
+      const tt = ev.changedTouches[0];
+      detach();
+      if (active) {
+        justDragged.current = true;
+        setTimeout(() => { justDragged.current = false; }, 400);
+        onTouchDragEnd?.(tt?.clientX ?? startX, tt?.clientY ?? startY, false);
+      }
+    };
+    const cancel = () => {
+      detach();
+      if (active) onTouchDragEnd?.(startX, startY, true);
+    };
+    document.addEventListener('touchmove', move, { passive: false });
+    document.addEventListener('touchend', end);
+    document.addEventListener('touchcancel', cancel);
+    // Unmount-safe: if the card disappears mid-gesture, listeners still go away.
+    gestureCleanup.current = () => {
+      detach();
+      if (active) onTouchDragEnd?.(startX, startY, true);
+    };
+  };
   // Find template across both PM and Vendor
   let template = PM_TEMPLATES.find(t => t.key === card.template) 
               || VENDOR_TEMPLATES.find(t => t.key === card.template);
@@ -69,8 +128,13 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
       draggable={!readOnly}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      onClick={onClick}
-      className="flex flex-col p-4 bg-white border border-black/[0.06] rounded-[18px] hover:border-black/[0.12] hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all cursor-pointer active:scale-[0.98]"
+      onTouchStart={handleTouchStart}
+      onClick={() => {
+        if (justDragged.current) return; // swallow the tap that ends a touch drag
+        onClick?.();
+      }}
+      className="flex flex-col p-4 bg-white border border-black/[0.06] rounded-[18px] hover:border-black/[0.12] hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all cursor-pointer active:scale-[0.98] max-sm:select-none"
+      style={{ WebkitTouchCallout: 'none' } as React.CSSProperties}
     >
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">

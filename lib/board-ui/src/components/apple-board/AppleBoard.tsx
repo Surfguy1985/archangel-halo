@@ -140,11 +140,8 @@ export function AppleBoard({
     }
   };
 
-  const handleDrop = (e: React.DragEvent, laneKey: string) => {
-    e.preventDefault();
-    stopAutoScroll();
-    setDragOverLane(null);
-    if (!draggedCard || viewer.readOnly) {
+  const performMove = (cardKey: string | null, laneKey: string, clientY: number) => {
+    if (!cardKey || viewer.readOnly) {
       if (viewer.readOnly && showToast) {
         showToast({
           title: "Sign in required",
@@ -154,9 +151,9 @@ export function AppleBoard({
       }
       return;
     }
-    
+
     if (!isPm && laneKey === 'done') {
-      const card = board?.cards?.find((c: any) => c.cardKey === draggedCard);
+      const card = board?.cards?.find((c: any) => c.cardKey === cardKey);
       if (card && (card.template === 'job' || card.template === 'invoice' || card.template === 'request')) {
         if (showToast) {
           showToast({
@@ -168,9 +165,80 @@ export function AppleBoard({
         return;
       }
     }
-    
-    const dropIndex = computeDropIndex(laneKey, e.clientY, draggedCard);
-    onCardMove(draggedCard, laneKey, dropIndex);
+
+    const dropIndex = computeDropIndex(laneKey, clientY, cardKey);
+    onCardMove(cardKey, laneKey, dropIndex);
+  };
+
+  const handleDrop = (e: React.DragEvent, laneKey: string) => {
+    e.preventDefault();
+    stopAutoScroll();
+    setDragOverLane(null);
+    performMove(draggedCard, laneKey, e.clientY);
+    setDraggedCard(null);
+  };
+
+  // ---- Touch drag (mobile) ----------------------------------------------
+  // HTML5 drag-and-drop is unavailable on iOS/Android browsers, so cards
+  // support a long-press pointer drag on touch devices. Desktop keeps the
+  // native DnD path untouched.
+  const touchDrag = useRef<{ cardKey: string; startX: number; startY: number } | null>(null);
+
+  const laneKeyAt = (x: number, y: number): string | null => {
+    const el = document.elementFromPoint(x, y)?.closest('[data-apple-lane-key]');
+    return el?.getAttribute('data-apple-lane-key') ?? null;
+  };
+
+  const beginTouchDrag = (cardKey: string, x: number, y: number) => {
+    touchDrag.current = { cardKey, startX: x, startY: y };
+    setDraggedCard(cardKey);
+    const el = document.getElementById(`card-${cardKey}`);
+    if (el) {
+      el.style.transition = 'none';
+      el.style.zIndex = '50';
+      el.style.position = 'relative';
+      el.style.pointerEvents = 'none';
+      el.style.transform = 'scale(1.04)';
+      el.style.boxShadow = '0 12px 32px rgba(0,0,0,0.18)';
+    }
+    autoScrollPoint.current = { x, y };
+    startAutoScroll();
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try { navigator.vibrate(10); } catch { /* noop */ }
+    }
+  };
+
+  const moveTouchDrag = (x: number, y: number) => {
+    const st = touchDrag.current;
+    if (!st) return;
+    autoScrollPoint.current = { x, y };
+    const el = document.getElementById(`card-${st.cardKey}`);
+    if (el) {
+      el.style.transform = `translate(${x - st.startX}px, ${y - st.startY}px) scale(1.04) rotate(1.5deg)`;
+    }
+    setDragOverLane(laneKeyAt(x, y));
+  };
+
+  const endTouchDrag = (x: number, y: number, cancelled: boolean) => {
+    const st = touchDrag.current;
+    touchDrag.current = null;
+    stopAutoScroll();
+    setDragOverLane(null);
+    setDraggedCard(null);
+    if (!st) return;
+    const el = document.getElementById(`card-${st.cardKey}`);
+    if (el) {
+      el.style.transition = '';
+      el.style.zIndex = '';
+      el.style.position = '';
+      el.style.pointerEvents = '';
+      el.style.transform = '';
+      el.style.boxShadow = '';
+    }
+    if (!cancelled) {
+      const laneKey = laneKeyAt(x, y);
+      if (laneKey) performMove(st.cardKey, laneKey, y);
+    }
   };
 
   const computeDropIndex = (laneKey: string, clientY: number, draggedKey: string): number => {
@@ -222,7 +290,7 @@ export function AppleBoard({
     <div className="flex-1 flex flex-col bg-[#fafafa] overflow-hidden">
       {/* AI Card Builder — only on vendor tab */}
       {!isPm && onCreateAiCard && (
-        <div className="px-5 py-4 bg-white border-b border-black/[0.06]">
+        <div className="px-3 py-3 sm:px-5 sm:py-4 bg-white border-b border-black/[0.06]">
           <div
             className={`relative flex items-center gap-3 px-4 py-3 rounded-[16px] bg-gradient-to-r from-[#007AFF]/5 to-[#5856D6]/5 border transition-all ${
               isAiFocused ? 'border-[#007AFF]/40 shadow-[0_0_0_4px_rgba(0,122,255,0.08)]' : 'border-black/[0.06]'
@@ -284,7 +352,7 @@ export function AppleBoard({
       {/* Lanes Container */}
       <main
         ref={boardScrollRef as any}
-        className="flex-1 flex overflow-x-auto px-5 py-4 gap-4"
+        className="flex-1 flex overflow-x-auto px-3 py-3 gap-3 snap-x snap-proximity sm:px-5 sm:py-4 sm:gap-4 sm:snap-none"
         style={{
           scrollbarWidth: 'thin',
           scrollbarColor: 'rgba(0, 0, 0, 0.2) transparent'
@@ -301,7 +369,7 @@ export function AppleBoard({
               key={lane.key}
               data-apple-lane-key={lane.key}
               data-testid={`lane-${lane.key}`}
-              className={`flex shrink-0 flex-col w-[340px] rounded-[20px] transition-all ${
+              className={`flex shrink-0 flex-col w-[85vw] max-w-[340px] snap-start sm:w-[340px] sm:max-w-none sm:snap-align-none rounded-[20px] transition-all ${
                 dragOverLane === lane.key ? 'bg-black/[0.02] ring-2 ring-[#007AFF]/30' : ''
               }`}
               onDragOver={(e) => handleDragOver(e, lane.key)}
@@ -328,7 +396,7 @@ export function AppleBoard({
                       setDefaultLane(lane.key);
                       setTemplateGalleryOpen(true);
                     }}
-                    className="h-7 w-7 rounded-[8px] bg-black/[0.04] hover:bg-black/[0.08] transition-colors flex items-center justify-center"
+                    className="h-9 w-9 sm:h-7 sm:w-7 rounded-[8px] bg-black/[0.04] hover:bg-black/[0.08] transition-colors flex items-center justify-center"
                     title="Add card"
                   >
                     <Plus className="h-4 w-4 text-[#1d1d1f]" />
@@ -348,6 +416,9 @@ export function AppleBoard({
                       readOnly={viewer.readOnly}
                       onDragStart={(e) => handleDragStart(e, card.cardKey)}
                       onDragEnd={(e) => handleDragEnd(e, card.cardKey)}
+                      onTouchDragBegin={(x, y) => beginTouchDrag(card.cardKey, x, y)}
+                      onTouchDragMove={moveTouchDrag}
+                      onTouchDragEnd={endTouchDrag}
                       onClick={() => onCardClick(card)}
                     />
                   ))}

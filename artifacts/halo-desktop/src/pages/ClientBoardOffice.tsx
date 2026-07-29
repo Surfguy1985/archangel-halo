@@ -180,7 +180,7 @@ function CardView({
 
   return (
     <div
-      className="group flex flex-col h-[220px] rounded-2xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
+      className="group flex flex-col min-h-[220px] sm:h-[220px] rounded-2xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
       data-testid={`card-${card.id}`}
     >
       <div className="flex items-start gap-3 mb-3 shrink-0">
@@ -197,7 +197,7 @@ function CardView({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
           {onComment && (
             <button
               onClick={onComment}
@@ -659,7 +659,7 @@ function CommentsDialog({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md p-0 overflow-hidden bg-background h-[600px] flex flex-col sm:rounded-3xl">
+      <DialogContent className="max-w-md p-0 overflow-hidden bg-background h-[600px] max-sm:h-[min(600px,85dvh)] flex flex-col sm:rounded-3xl">
         <div className="p-5 border-b border-border bg-card shrink-0">
           <DialogTitle className="text-lg font-display font-bold truncate pr-6">{title}</DialogTitle>
           <div className="text-xs font-medium text-muted-foreground mt-1">Internal & Client Thread</div>
@@ -1839,30 +1839,30 @@ export default function ClientBoardOffice() {
 
   return (
     <div className="h-full flex flex-col bg-[#F1F5F9] min-h-0">
-      <div className="flex-none p-6 pb-0 border-b border-border bg-card">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
+      <div className="flex-none p-4 sm:p-6 pb-0 border-b border-border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 sm:gap-4 max-sm:min-w-0">
             <Link
               href={`/admin/${propertyId}`}
               className="p-2 -ml-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             >
               <ChevronLeft className="w-5 h-5" />
             </Link>
-            <div>
-              <h1 className="text-2xl font-display font-bold text-foreground">
+            <div className="max-sm:min-w-0">
+              <h1 className="text-xl sm:text-2xl font-display font-bold text-foreground max-sm:truncate">
                 {boardFull?.propertyName || "Client Collaboration"}
               </h1>
-              <p className="text-sm font-medium text-muted-foreground mt-0.5">
+              <p className="text-sm font-medium text-muted-foreground mt-0.5 max-sm:truncate">
                 What the client sees and sends
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="flex p-1.5 bg-muted rounded-xl">
               <button
                 onClick={() => setView("board")}
-                className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${
+                className={`px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${
                   view === "board"
                     ? "bg-card text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -1872,7 +1872,7 @@ export default function ClientBoardOffice() {
               </button>
               <button
                 onClick={() => setView("inbox")}
-                className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
+                className={`px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
                   view === "inbox"
                     ? "bg-card text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -1900,7 +1900,7 @@ export default function ClientBoardOffice() {
       </div>
 
       {view === "inbox" ? (
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="max-w-4xl mx-auto space-y-4 pb-10">
             {inboxLoading && !inbox ? (
               <div className="space-y-4">

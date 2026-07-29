@@ -13,3 +13,7 @@ Rules learned the hard way:
 - Vendor board AI card composer: POST /client/:token/board/ai-card — AI only picks kind + ids from a property-scoped snapshot; server validates ids and builds modules deterministically via cardModules builders, inserts via raiseClientCard. Never let AI supply URLs/amounts.
 - Office drags go through `POST /admin/accounts/:propertyId/board/actions` — same ACTIONS table as the client route with a synthetic office viewer, so lane guards stay enforced. Board projection: EVERY card family must pass through `applyOverride` or client/office drags silently snap back (pushed cards were the miss).
 - pnpm catalog gotcha: `"dep": "catalog:"` with no entry in pnpm-workspace.yaml catalog breaks `pnpm install` for the whole repo (post-merge setup fails).
+
+## Mobile optimization (Jul 2026)
+- AppleBoard/AppleCard are mobile-optimized with STRICT desktop parity: all mobile styles use base+`sm:` restore or `max-sm:` variants (Tailwind v4). Lanes are w-[85vw] max-w-[340px] snap-start on phones.
+- Touch drag: HTML5 DnD doesn't exist on iOS/Android — AppleCard implements long-press (250ms) touch drag with document-level non-passive touchmove, ghost transform on the card, elementFromPoint lane detection, click suppression after drop, and unmount-safe listener cleanup. Don't remove `pointerEvents:none` during drag or lane detection breaks.
