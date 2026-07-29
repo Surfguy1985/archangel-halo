@@ -107,137 +107,158 @@ export default function Today() {
  }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8 bg-[var(--background)] min-h-[100dvh]">
+    <div className="p-8 max-w-7xl mx-auto space-y-8 bg-[var(--background)] min-h-[100dvh] animate-in fade-in duration-500">
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-display font-bold text-foreground">Today</h1>
-          <p className="text-muted-foreground font-mono mt-1 text-sm">{today?.date}</p>
+          <p className="text-muted-foreground mt-1 text-sm">{today?.date}</p>
         </div>
       </header>
 
-      {/* Brief */}
-      {today?.brief && (
-        <Card data-tour="morning-brief" className="bg-[var(--secondary)] text-white border-none rounded-3xl shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10">
-            <Sparkles className="w-48 h-48 text-white" />
-          </div>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between border-b border-white/10">
-            <CardTitle className="text-sm font-display font-bold flex items-center gap-2 text-[var(--primary)]">
-              <Sparkles className="w-4 h-4" /> Morning Brief
-            </CardTitle>
-            <button 
-              onClick={handleRefresh}
-              disabled={refreshBrief.isPending}
-              className="text-white/60 hover:text-[var(--primary)] transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshBrief.isPending ? "animate-spin" : ""}`} />
-            </button>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <p className="text-white/90 leading-relaxed text-lg max-w-4xl font-normal">
-              {today.brief.body}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Feed */}
+        {/* Left Column */}
         <div data-tour="needs-attention" className="lg:col-span-2 space-y-6">
-          <div className="flex items-center gap-3 border-b border-border pb-2">
-            <h2 className="text-xl font-display font-bold text-foreground">Needs Attention</h2>
-            {queueFilter && (
-              <button
-                onClick={() => setQueueFilter(null)}
-                className="inline-flex items-center gap-1 text-[10px] font-bold px-3 py-1.5 bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90 transition-colors rounded-full"
-              >
-                {queues?.find(q => q.key === queueFilter)?.label ?? queueFilter}
-                <X className="w-3 h-3" />
-              </button>
-            )}
-          </div>
+          
+          {/* Brief */}
+          {today?.brief && (
+            <Card data-tour="morning-brief" className="bg-[var(--primary)] text-black border-none rounded-3xl shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Sparkles className="w-48 h-48 text-black" />
+              </div>
+              <CardHeader className="pb-2 flex flex-row items-center justify-between border-b border-black/10">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-black">
+                  <Sparkles className="w-4 h-4" /> Morning brief
+                </CardTitle>
+                <button 
+                  onClick={handleRefresh}
+                  disabled={refreshBrief.isPending}
+                  className="text-black/60 hover:text-black transition-colors"
+                >
+                  <RefreshCw className={`w-4 h-4 ${refreshBrief.isPending ? "animate-spin" : ""}`} />
+                </button>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <p className="text-black/90 leading-relaxed text-lg max-w-4xl font-normal">
+                  {today.brief.body}
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
-          <div className="space-y-4">
-            {(today?.feed.filter(item => !queueFilter || item.queue === queueFilter) ?? []).map(item => {
-              const route = entityRoute(item.entityType, item.entityId);
-              const qc = queueColor(item.queue);
-              return (
-              <Card
-                key={item.id}
-                onClick={route ? () => navigate(route) : undefined}
-                className={`relative overflow-hidden group ${route ? "cursor-pointer hover:border-[var(--secondary)]" : ""} rounded-2xl border border-border bg-card shadow-sm transition-colors`}
+          {/* Needs Attention */}
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-border">
+            <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-display font-bold text-foreground">Needs attention</h2>
+                {queueFilter && (
+                  <button
+                    onClick={() => setQueueFilter(null)}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold px-3 py-1.5 bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90 transition-colors rounded-full"
+                  >
+                    {queues?.find(q => q.key === queueFilter)?.label ?? queueFilter}
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              <button 
+                onClick={() => queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()})}
+                className="text-xs font-bold text-muted-foreground bg-black/5 hover:bg-black/10 px-4 py-2 rounded-full transition-colors"
               >
-                <CardContent className="p-5 flex items-start gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className={`text-[10px] font-bold   px-2.5 py-1 rounded-full ${qc.bg} ${qc.text}`}>
-                        {item.queue}
-                      </span>
-                      {item.amount != null && (
-                        <span className="text-sm font-mono font-medium tabular-nums text-[var(--secondary)]">
-                          ${item.amount.toLocaleString()}
+                Refresh
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {(today?.feed.filter(item => !queueFilter || item.queue === queueFilter) ?? []).map(item => {
+                const route = entityRoute(item.entityType, item.entityId);
+                return (
+                  <div
+                    key={item.id}
+                    onClick={route ? () => navigate(route) : undefined}
+                    className={`group flex items-center gap-4 p-4 rounded-2xl bg-black/[0.02] hover:bg-black/[0.04] border border-transparent transition-colors ${route ? "cursor-pointer" : ""}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-1.5">
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-fuchsia-100 text-fuchsia-800 uppercase tracking-widest">
+                          {item.queue}
                         </span>
+                        {item.amount != null && (
+                          <span className="text-sm font-mono font-bold text-[var(--secondary)]">
+                            ${item.amount.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="font-bold text-foreground text-base truncate">{item.title}</h3>
+                      <p className="text-muted-foreground text-sm truncate">{item.sub}</p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <button
+                        onClick={(e) => handleDismiss(e, item.id)}
+                        disabled={dismissItem.isPending}
+                        aria-label="Clear"
+                        title="Clear from feed"
+                        data-testid={`button-dismiss-${item.id}`}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-black hover:bg-black/10 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      {route && (
+                        <div className="w-10 h-10 rounded-xl bg-[var(--secondary)] text-white flex items-center justify-center group-hover:opacity-90 transition-opacity">
+                          <ArrowRight className="w-5 h-5" />
+                        </div>
                       )}
                     </div>
-                    <h3 className="font-semibold text-foreground text-lg mb-1">{item.title}</h3>
-                    <p className="text-muted-foreground text-sm font-light">{item.sub}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {route && (
-                      <div className="w-8 h-8 flex items-center justify-center text-muted-foreground group-hover:text-[var(--secondary)] transition-colors">
-                        <ArrowRight className="w-5 h-5" />
-                      </div>
-                    )}
-                    <button
-                      onClick={(e) => handleDismiss(e, item.id)}
-                      disabled={dismissItem.isPending}
-                      aria-label="Clear"
-                      title="Clear from feed"
-                      data-testid={`button-dismiss-${item.id}`}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-[var(--secondary)] hover:bg-muted transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
-              );
-           })}
-            {today?.feed.length === 0 && (
-              <div className="p-8 text-center border border-border text-muted-foreground font-mono text-sm bg-card">
-                All caught up for now.
-              </div>
-            )}
-            {(today?.feed.length ?? 0) > 0 && queueFilter && today?.feed.every(item => item.queue !== queueFilter) && (
-              <div className="p-8 text-center border border-border text-muted-foreground font-mono text-sm bg-card">
-                Nothing needs attention in this queue.
-              </div>
-            )}
+                );
+              })}
+              {today?.feed.length === 0 && (
+                <div className="p-12 text-center text-muted-foreground text-sm">
+                  All caught up for now.
+                </div>
+              )}
+              {(today?.feed.length ?? 0) > 0 && queueFilter && today?.feed.every(item => item.queue !== queueFilter) && (
+                <div className="p-12 text-center text-muted-foreground text-sm">
+                  Nothing needs attention in this queue.
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Sidebar Widgets */}
-        <div className="space-y-8">
+        {/* Right Column */}
+        <div className="space-y-6">
           <AutopilotActions />
 
-          {/* Queues */}
-          <div data-tour="operations">
-            <h2 className="text-[10px] font-bold tracking-[0.2em] text-muted-foreground mb-4 border-b border-border pb-2">Operations</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {queues?.map(q => {
-                const active = queueFilter === q.key;
+          {/* Queues as Stat Cards */}
+          <div data-tour="operations" className="grid grid-cols-2 gap-4">
+            {queues?.map((q, idx) => {
+              const active = queueFilter === q.key;
+              const isFirst = idx === 0;
+              
+              if (isFirst) {
                 return (
+                  <button
+                    key={q.key}
+                    onClick={() => setQueueFilter(prev => (prev === q.key ? null : q.key))}
+                    className={`col-span-2 p-6 flex flex-col justify-center text-left transition-colors cursor-pointer rounded-3xl border ${active ? "bg-[var(--primary)] text-black border-transparent" : "bg-white text-foreground border-border hover:border-[var(--secondary)]"} shadow-sm`}
+                  >
+                    <span className="text-sm font-bold text-muted-foreground mb-2">{q.label}</span>
+                    <span className={`text-6xl font-display font-bold ${active ? "text-black" : "text-foreground"}`}>{q.count}</span>
+                  </button>
+                );
+              }
+
+              return (
                 <button
                   key={q.key}
                   onClick={() => setQueueFilter(prev => (prev === q.key ? null : q.key))}
-                  className={`p-5 flex flex-col justify-between aspect-square text-left transition-colors cursor-pointer rounded-3xl border ${active ?`bg-[var(--primary)] text-black border-transparent` :`bg-card text-foreground border-border hover:border-[var(--secondary)]`}`}
+                  className={`p-5 flex flex-col justify-between aspect-square text-left transition-colors cursor-pointer rounded-3xl border ${active ? "bg-[var(--primary)] text-black border-transparent" : "bg-white text-foreground border-border hover:border-[var(--secondary)]"} shadow-sm`}
                 >
-                  <span className={`text-4xl font-display font-bold ${active ? "text-black" : "text-[var(--secondary)]"}`}>{q.count}</span>
-                  <span className={`text-[10px] font-bold   ${active ? "text-black/80" : "text-muted-foreground"}`}>{q.label}</span>
+                  <span className={`text-4xl font-display font-bold ${active ? "text-black" : "text-foreground"}`}>{q.count}</span>
+                  <span className={`text-xs font-bold leading-tight ${active ? "text-black/80" : "text-muted-foreground"}`}>{q.label}</span>
                 </button>
-                );
-             })}
-            </div>
+              );
+            })}
           </div>
 
           {/* Activity Log */}

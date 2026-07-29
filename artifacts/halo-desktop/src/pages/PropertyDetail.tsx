@@ -8,7 +8,6 @@ import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Penc
 import { Skeleton} from "@/components/ui/skeleton";
 import { useState} from "react";
 import { JobLineItemsPanel} from "@/components/JobLineItemsPanel";
-import { JobFunnel} from "@/components/JobFunnel";
 import { ImportFromCatalogDialog} from "@/components/ImportFromCatalogDialog";
 import {
   EditPropertyDialog,
@@ -242,52 +241,78 @@ export default function PropertyDetail() {
               ))}
             </div>
             {jobTab !== "history" && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {activeJobs.map(job => (
-                <div key={job.id} className="bg-card rounded-xl shadow-sm border border-border border-l-4 border-l-[var(--primary)] p-4 hover:bg-black/[0.02] transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Link href={`/jobs/${job.id}`} className="flex-1 min-w-0">
-                      <div className="font-semibold flex items-center gap-2">
-                        <span className="truncate">{job.category || 'General'} · {job.unitNo || 'Common'}</span>
-                        {job.status === "complete" && (
-                          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-                            <Check className="w-2.5 h-2.5" /> Completed
-                          </span>
-                        )}
+                <div key={job.id} className="bg-[var(--secondary)] rounded-2xl shadow-sm p-5 text-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex-1 min-w-0 pr-4">
+                      <div className="font-display font-bold text-xl truncate">
+                        {job.category || 'General'} · {job.unitNo || 'Common'}
                       </div>
-                      <div className="text-sm text-muted-foreground">{job.description}</div>
+                    </div>
+                    {job.status === "complete" ? (
+                      <span className="shrink-0 inline-flex items-center text-[10px] font-bold text-black bg-[var(--primary)] rounded-full px-3 py-1">
+                        Completed
+                      </span>
+                    ) : (
+                      <span className="shrink-0 inline-flex items-center text-[10px] font-bold text-white border border-white/20 rounded-full px-3 py-1 bg-white/5">
+                        {job.status.replace('_', ' ')}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Progress Track */}
+                  <div className="mb-6">
+                    <div className="flex items-center gap-1 mb-2">
+                      <div className={`h-1 flex-1 rounded-full ${job.crewsFilled ? 'bg-[var(--primary)]' : 'bg-white/10'}`} />
+                      <div className={`h-1 flex-1 rounded-full ${job.status === 'in_progress' || job.status === 'complete' || job.status === 'invoiced' || job.status === 'paid' ? 'bg-[var(--primary)]' : 'bg-white/10'}`} />
+                      <div className={`h-1 flex-1 rounded-full ${job.status === 'invoiced' || job.status === 'paid' ? 'bg-[var(--primary)]' : 'bg-white/10'}`} />
+                      <div className={`h-1 flex-1 rounded-full ${job.status === 'paid' || job.status === 'complete' ? 'bg-[var(--primary)]' : 'bg-white/10'}`} />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-white/50">
+                      <span className={job.crewsFilled ? 'text-white' : ''}>Crew</span>
+                      <span className={job.status === 'in_progress' || job.status === 'complete' || job.status === 'invoiced' || job.status === 'paid' ? 'text-white text-center flex-1' : 'text-center flex-1'}>Work</span>
+                      <span className={job.status === 'invoiced' || job.status === 'paid' ? 'text-white text-center flex-1' : 'text-center flex-1'}>Invoice</span>
+                      <span className={job.status === 'paid' || job.status === 'complete' ? 'text-white' : ''}>Close</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 mb-4 text-white/80 text-sm border-b border-white/10 pb-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate">{job.description}</div>
                       {job.isRecurring && (
-                        <div className="flex items-center gap-1.5 mt-1 text-xs font-semibold text-[var(--gold-dark)]">
+                        <div className="flex items-center gap-1.5 mt-1 text-[var(--primary)]">
                           <Repeat className="w-3 h-3" />
                           {{ daily: "Daily", weekly: "Weekly", biweekly: "Bi-weekly", monthly: "Monthly", quarterly: "Quarterly"}[job.recurrence ?? ""] ?? "Recurring"}
-                          <span className="text-muted-foreground font-normal">
+                          <span className="text-white/50">
                             · {job.crewLeaderName ?`${job.crewLeaderName} goes` : "No crew assigned"}
                           </span>
                         </div>
                       )}
-                    </Link>
+                    </div>
                     <div className="text-right shrink-0">
-                      <div className="font-mono text-sm text-muted-foreground">{job.jobNo}</div>
+                      <div className="font-mono text-white/50">{job.jobNo}</div>
                       {!job.isRecurring && job.crewLeaderName && (
-                        <div className="text-xs text-muted-foreground">{job.crewLeaderName}</div>
+                        <div>{job.crewLeaderName}</div>
                       )}
                     </div>
                     <button
                       aria-label="Edit job"
                       onClick={() => setEditJobId(job.id)}
-                      className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
+                      className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white/50 hover:bg-white/10 transition-colors"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                   </div>
+
                   <button
                     onClick={() => setOpenLineItemsJobId(openLineItemsJobId === job.id ? null : job.id)}
-                    className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+                    className="flex items-center gap-1.5 mb-4 text-xs font-bold text-[var(--primary)] hover:opacity-80 transition-colors"
                   >
                     <ChevronDown className={`w-3.5 h-3.5 transition-transform ${openLineItemsJobId === job.id ? 'rotate-180' : ''}`} />
                     Line items
                     {(job.lineItems?.length ?? 0) > 0 && (
-                      <span className="text-muted-foreground font-normal">
+                      <span className="text-white/50 font-normal">
                         · {job.lineItems!.length} · ${(job.lineTotal ?? 0).toLocaleString()}
                       </span>
                     )}
@@ -300,7 +325,7 @@ export default function PropertyDetail() {
                       priceItems={priceItems}
                     />
                   )}
-                  <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 mt-2 text-xs text-muted-foreground">
+                  <div className="flex items-center flex-wrap gap-x-4 gap-y-2 mb-6 text-xs text-white/60">
                     {rateJobId === job.id ? (
                       <span className="inline-flex items-center gap-1.5">
                         Crew $
@@ -310,12 +335,12 @@ export default function PropertyDetail() {
                           value={rateDraft}
                           onChange={(e) => setRateDraft(e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") saveRate(job.id); if (e.key === "Escape") setRateJobId(null);}}
-                          className="w-20 px-1.5 py-0.5 rounded-md border border-border bg-background text-xs tabular-nums"
+                          className="w-20 px-2 py-1 rounded-md bg-white/10 border border-white/20 text-white tabular-nums outline-none focus:border-[var(--primary)]"
                         />
                         <button
                           disabled={updateJob.isPending}
                           onClick={() => saveRate(job.id)}
-                          className="font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] disabled:opacity-50"
+                          className="font-bold text-[var(--primary)] hover:opacity-80 disabled:opacity-50"
                         >
                           Save
                         </button>
@@ -323,40 +348,73 @@ export default function PropertyDetail() {
                     ) : (
                       <button
                         onClick={() => { setRateJobId(job.id); setRateDraft(job.crewRate != null ? String(job.crewRate) : "");}}
-                        className="inline-flex items-center gap-1 font-semibold text-[var(--ink)] hover:opacity-70"
+                        className="inline-flex items-center gap-1 font-bold text-white hover:opacity-70"
                       >
                         Crew {job.crewRate != null ?`$${job.crewRate.toLocaleString()}` : "rate —"}
-                        <Pencil className="w-2.5 h-2.5 text-muted-foreground" />
+                        <Pencil className="w-2.5 h-2.5 text-white/40" />
                       </button>
                     )}
-                    <span>Invoiced <b className="text-[var(--ink)] tabular-nums">${(job.invoicedTotal ?? 0).toLocaleString()}</b></span>
-                    <span>Paid <b className="text-emerald-700 tabular-nums">${(job.paidTotal ?? 0).toLocaleString()}</b></span>
-                    <span>Expenses <b className="text-[var(--ink)] tabular-nums">${(job.expensesTotal ?? 0).toLocaleString()}</b></span>
-                    {marginBadge(job.marginPct)}
+                    <span>Invoiced <b className="text-white tabular-nums">${(job.invoicedTotal ?? 0).toLocaleString()}</b></span>
+                    <span>Paid <b className="text-[var(--primary)] tabular-nums">${(job.paidTotal ?? 0).toLocaleString()}</b></span>
+                    <span>Expenses <b className="text-white tabular-nums">${(job.expensesTotal ?? 0).toLocaleString()}</b></span>
+                    {job.marginPct != null && (
+                      <span className={`inline-flex items-center font-bold px-2 py-0.5 rounded-full ${
+                        job.marginPct < (property.marginMin ?? 0.25)
+                          ? "bg-rose-500/20 text-rose-300"
+                          : "bg-emerald-500/20 text-emerald-300"
+                      }`}>
+                        {Math.round(job.marginPct * 100)}% margin
+                      </span>
+                    )}
                   </div>
-                  <JobFunnel
-                    job={job}
-                    invoice={invoiceForJob(job.id)}
-                    propertyId={id}
-                    onCompleteWork={() => completeJob.mutate({ id: job.id}, { onSuccess: () => invalidateJobLists()})}
-                    completePending={completeJob.isPending}
-                  />
-                  <div className="flex items-center gap-2 mt-2">
+                  
+                  <div className="flex items-center gap-3">
+                    {(() => {
+                      const inv = invoiceForJob(job.id);
+                      if (inv && (inv.status === "draft" || inv.status === "sent" || inv.status === "past_due")) {
+                        return (
+                          <Link href={`/invoices/${inv.id}`}>
+                            <button className="flex-1 whitespace-nowrap px-5 py-3 rounded-xl bg-white text-[var(--secondary)] font-bold hover:bg-white/90 transition-colors">
+                              Open invoice
+                            </button>
+                          </Link>
+                        );
+                      }
+                      if (job.status === "complete") {
+                         return (
+                          <button
+                            disabled={restartJob.isPending}
+                            onClick={() => restartJob.mutate({ id: job.id}, { onSuccess: invalidateJobLists})}
+                            className="flex-1 whitespace-nowrap px-5 py-3 rounded-xl bg-white/10 text-white font-bold hover:bg-white/20 transition-colors disabled:opacity-50"
+                          >
+                            Reopen for corrections
+                          </button>
+                         );
+                      }
+                      if (job.status === "paid" || (inv && inv.status === "paid")) {
+                         return (
+                          <button disabled className="flex-1 whitespace-nowrap px-5 py-3 rounded-xl bg-white/5 text-white/50 font-bold">
+                            Fully paid
+                          </button>
+                         );
+                      }
+                      return (
+                        <button
+                          disabled={completeJob.isPending}
+                          onClick={() => completeJob.mutate({ id: job.id}, { onSuccess: () => invalidateJobLists()})}
+                          className="flex-1 whitespace-nowrap px-5 py-3 rounded-xl bg-[var(--primary)] text-black font-bold hover:bg-[var(--primary)]/90 transition-colors disabled:opacity-50"
+                        >
+                          {completeJob.isPending ? "Completing..." : "Complete work"}
+                        </button>
+                      );
+                    })()}
+                    
                     <button
                       onClick={() => setExpenseJobId(job.id)}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-[var(--ink)] hover:bg-black/[0.08] transition-colors"
+                      className="px-5 py-3 rounded-xl border border-white/20 text-white font-bold hover:bg-white/10 transition-colors"
                     >
-                      <Plus className="w-3 h-3" /> Expense
+                      Log expense
                     </button>
-                    {job.status === "complete" && (
-                      <button
-                        disabled={restartJob.isPending}
-                        onClick={() => restartJob.mutate({ id: job.id}, { onSuccess: invalidateJobLists})}
-                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[rgba(143,106,31,0.1)] text-[var(--gold-dark)] hover:bg-[rgba(143,106,31,0.16)] transition-colors disabled:opacity-50"
-                      >
-                        <RotateCcw className="w-3 h-3" /> Reopen for corrections
-                      </button>
-                    )}
                   </div>
                 </div>
               ))}

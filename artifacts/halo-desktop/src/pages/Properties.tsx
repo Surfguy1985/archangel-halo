@@ -42,31 +42,29 @@ export default function Properties() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <header className="flex items-center justify-between border-b border-[var(--border)] pb-4">
-        <div>
-          <h1 className="text-4xl font-display font-bold text-foreground">Properties</h1>
-          <p className="text-muted-foreground font-mono mt-1 text-sm">{properties?.length || 0} active locations</p>
+      <header className="flex items-center justify-between pb-4">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input 
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search properties or PMCs..."
+            className="w-full pl-12 pr-4 py-3.5 rounded-full border-none bg-black/5 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] font-medium text-foreground"
+          />
         </div>
         <button
           data-tour="new-property"
           onClick={() => setAddOpen(true)}
-          className="bg-[var(--primary)] text-black hover:opacity-90 font-bold px-6 py-3 flex items-center gap-2 rounded-full"
+          className="bg-[var(--primary)] text-black hover:opacity-90 font-bold px-6 py-3.5 flex items-center gap-2 rounded-full"
         >
-          <Plus className="w-4 h-4" /> New Property
+          <Plus className="w-5 h-5" /> New Property
         </button>
       </header>
 
-      <AddPropertyDialog open={addOpen} onOpenChange={setAddOpen} />
-
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input 
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search properties or PMCs..."
-          className="w-full max-w-md pl-12 pr-4 py-3 rounded-full border border-[var(--border)] bg-[var(--card)] text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-[var(--primary)] focus-visible:ring-1 focus-visible:ring-[var(--primary)] font-mono text-foreground"
-        />
+      <div className="pb-2">
+        <h1 className="text-4xl font-display font-bold text-foreground">Properties</h1>
+        <p className="text-muted-foreground mt-1 text-sm">{properties?.length || 0} active location{(properties?.length === 1) ? '' : 's'}</p>
       </div>
 
       {isLoading ? (
@@ -84,68 +82,54 @@ export default function Properties() {
               <Link
                 key={p.id}
                 href={`/properties/${p.id}`}
-                className="group relative block rounded-3xl overflow-hidden bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] shadow-sm hover:shadow-[0_0_20px_rgba(180,255,68,0.15)] hover:-translate-y-1 transition-all duration-300"
+                className="group relative block rounded-3xl overflow-hidden bg-white border border-border hover:border-[var(--primary)] shadow-sm hover:shadow-[0_0_20px_rgba(180,255,68,0.15)] hover:-translate-y-1 transition-all duration-300"
               >
-                <div className="relative w-full aspect-[3/2]">
+                <div className="relative w-full aspect-[3/2] overflow-hidden">
                   {p.imagePath ? (
                     <img
                       src={`/api/storage${p.imagePath}`}
                       alt={p.name}
                       loading="lazy"
-                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 mix-blend-luminosity group-hover:mix-blend-normal opacity-80 group-hover:opacity-100"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                     />
                   ) : (
-                    <div className="absolute inset-0 bg-[var(--muted)] flex flex-col items-center justify-center gap-3">
-                      <div className="w-12 h-12 bg-black/40 border border-[var(--border)] grid place-items-center rounded-none">
-                        <Building2 className="w-5 h-5 text-[var(--primary)]/50" />
+                    <div className="absolute inset-0 bg-muted flex flex-col items-center justify-center gap-3">
+                      <div className="w-12 h-12 bg-black/5 border border-border grid place-items-center rounded-2xl">
+                        <Building2 className="w-5 h-5 text-[var(--secondary)]/50" />
                       </div>
                       <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground tracking-[0.2em]">
-                        <Sparkles className="w-3 h-3 text-[var(--primary)] animate-pulse" />
+                        <Sparkles className="w-3 h-3 text-[var(--secondary)] animate-pulse" />
                         Creating photo
                       </div>
                     </div>
                   )}
 
-                  {/* Bottom scrim */}
-                  <div className="absolute inset-x-0 bottom-0 h-[70%] bg-gradient-to-t from-[#050505] via-[#050505]/80 to-transparent" />
-
-                  {/* Badges */}
-                  <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+                  {/* Badges - Floating top-left */}
+                  <div className="absolute top-4 left-4 flex flex-col items-start gap-2">
                     {hasOwed && (
-                      <span className="px-3 py-1 bg-[var(--primary)] text-black text-[10px] font-bold tabular-nums rounded-full">
-                        ${p.owed.toLocaleString()} owed
-                      </span>
-                    )}
-                    {hasJobs && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[var(--secondary)] text-white text-[10px] font-bold rounded-full">
-                        <Briefcase className="w-3 h-3 text-[var(--primary)]" />
-                        {p.openJobs} active
+                      <span className="px-4 py-1.5 bg-[var(--primary)] text-black text-xs font-bold tabular-nums rounded-full shadow-sm">
+                        ${p.owed.toLocaleString()} Owed
                       </span>
                     )}
                   </div>
-
-                  {/* Text */}
-                  <div className="absolute inset-x-0 bottom-0 p-5">
-                    <div className="font-display font-bold text-2xl text-white drop-shadow-md mb-2 group-hover:text-[var(--primary)] transition-colors">
-                      {p.name}
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] font-mono text-white/70">
-                      {p.city && (
-                        <span className="flex items-center gap-1 shrink-0">
-                          <MapPin className="w-3 h-3 text-[var(--primary)]" />
-                          {p.city}
-                        </span>
-                      )}
-                      {p.city && p.pmcName && <span className="text-[var(--primary)]">•</span>}
-                      {p.pmcName && <span className="truncate">{p.pmcName}</span>}
-                      {!p.city && !p.pmcName && <span>No location set</span>}
-                      {p.units ? (
-                        <>
-                          <span className="text-[var(--primary)]">•</span>
-                          <span className="shrink-0">{p.units} units</span>
-                        </>
-                      ) : null}
-                    </div>
+                </div>
+                
+                {/* Text section under image */}
+                <div className="p-6 bg-white">
+                  <div className="font-display font-bold text-2xl text-foreground mb-1 group-hover:text-[var(--primary)] transition-colors">
+                    {p.name}
+                  </div>
+                  <div className="text-base text-muted-foreground font-medium">
+                    {p.city && p.pmcName ? (
+                      <span className="truncate">{p.city}, {p.pmcName}</span>
+                    ) : p.city ? (
+                      <span>{p.city}</span>
+                    ) : p.pmcName ? (
+                      <span className="truncate">{p.pmcName}</span>
+                    ) : (
+                      <span>No location set</span>
+                    )}
+                    {p.units ? ` · ${p.units} units` : null}
                   </div>
                 </div>
               </Link>

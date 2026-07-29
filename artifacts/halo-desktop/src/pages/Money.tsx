@@ -83,15 +83,15 @@ const fmtDate = (s?: string | null) => {
 };
 
 const statusColor: Record<string, string> = {
-  paid: "bg-emerald-100 text-emerald-800",
-  past_due: "bg-red-100 text-red-800",
-  sent: "bg-blue-100 text-blue-800",
+  paid: "bg-[var(--primary)] text-black",
+  past_due: "bg-rose-100 text-rose-900",
+  sent: "bg-[var(--secondary)] text-white",
   draft: "bg-gray-100 text-gray-800",
 };
 const statusLabel: Record<string, string> = {
   paid: "Paid",
   past_due: "Past due",
-  sent: "Sent",
+  sent: "Pending",
   draft: "Draft",
 };
 
@@ -118,54 +118,54 @@ function SummaryCards() {
  }
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-      <Card className="bg-[var(--secondary)] text-white border-none shadow-sm rounded-none">
+      <Card className="bg-[var(--primary)] text-black border-none shadow-sm rounded-2xl">
         <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-4 opacity-90 text-[var(--primary)]">
+          <div className="flex items-center gap-2 mb-4 opacity-90 text-black">
             <ArrowDownRight className="w-5 h-5" />
-            <span className="font-semibold text-xs">Landing (Owed)</span>
+            <span className="font-semibold text-sm">Landing (Owed)</span>
           </div>
-          <div className="text-3xl font-mono font-bold">
+          <div className="text-4xl font-display font-bold">
             {money(summary?.landing ?? 0)}
           </div>
         </CardContent>
       </Card>
 
-      <Card className="bg-destructive text-white border-none shadow-sm rounded-none">
+      <Card className="bg-rose-100 text-rose-900 border-none shadow-sm rounded-2xl">
         <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-4 opacity-90 text-white">
+          <div className="flex items-center gap-2 mb-4 opacity-90 text-rose-900">
             <AlertCircle className="w-5 h-5" />
-            <span className="font-semibold text-xs">At Risk (&gt;30d)</span>
+            <span className="font-semibold text-sm">At Risk</span>
           </div>
-          <div className="text-3xl font-mono font-bold">
+          <div className="text-4xl font-display font-bold">
             {money(summary?.atRisk ?? 0)}
           </div>
         </CardContent>
       </Card>
 
-      <Card className="bg-white border border-border shadow-sm rounded-none">
+      <Card className="bg-[var(--secondary)] text-white border-none shadow-sm rounded-2xl">
         <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-4 text-muted-foreground">
+          <div className="flex items-center gap-2 mb-4 text-white/80">
             <ArrowUpRight className="w-5 h-5" />
-            <span className="font-semibold text-xs">MTD Revenue</span>
+            <span className="font-semibold text-sm">MTD Revenue</span>
           </div>
-          <div className="text-3xl font-mono font-bold text-[var(--secondary)]">
+          <div className="text-4xl font-display font-bold text-white">
             {money(summary?.mtd ?? 0)}
           </div>
-          <div className="mt-2 text-sm font-medium text-[var(--primary)] text-emerald-600">
-            {summary?.marginPct}% {summary?.bankConnected ? "Cash Margin" : "Margin"}
+          <div className="mt-2 text-sm font-medium text-[var(--primary)]">
+            {summary?.marginPct}% {summary?.bankConnected ? "Cash margin" : "Margin"}
           </div>
         </CardContent>
       </Card>
 
-      <Card className="bg-white border border-border shadow-sm rounded-none">
+      <Card className="bg-[var(--secondary)] text-white border-none shadow-sm rounded-2xl">
         <CardContent className="p-6">
-          <div className="flex items-center gap-2 mb-4 text-muted-foreground">
+          <div className="flex items-center gap-2 mb-4 text-white/80">
             <CreditCard className="w-5 h-5" />
-            <span className="font-semibold text-xs">
+            <span className="font-semibold text-sm">
               {summary?.bankConnected ? "Spent MTD" : "Collected MTD"}
             </span>
           </div>
-          <div className="text-3xl font-mono font-bold text-[var(--secondary)]">
+          <div className="text-4xl font-display font-bold text-white">
             {money(
               summary?.bankConnected
                 ? summary?.spentMtd ?? 0
@@ -173,7 +173,7 @@ function SummaryCards() {
             )}
           </div>
           {summary?.bankConnected && (
-            <div className="mt-2 text-xs text-muted-foreground">
+            <div className="mt-2 text-xs text-white/60">
               From bank transactions
             </div>
           )}
@@ -212,7 +212,7 @@ function AgingReceivables() {
 function InvoiceStatusBadge({ inv}: { inv: Invoice}) {
   return (
     <span
-      className={`text-[10.5px] font-bold  tracking-[0.06em] px-2 py-0.5 rounded-full shrink-0 ${statusColor[inv.status] || statusColor.draft}`}
+      className={`text-xs font-bold px-3 py-1 rounded-full shrink-0 ${statusColor[inv.status] || statusColor.draft}`}
     >
       {statusLabel[inv.status] || inv.status}
       {inv.status === "past_due" && inv.daysLate ?` · ${inv.daysLate}d` : ""}
@@ -287,10 +287,10 @@ function Invoices() {
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`px-4 py-1.5 rounded-full text-sm font-bold   transition-colors ${
+              className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${
                 filter === f.key
-                  ? "bg-[var(--secondary)] text-white shadow-sm"
-                  : "bg-white border border-border text-muted-foreground hover:border-[var(--secondary)] hover:text-[var(--secondary)]"
+                  ? "bg-[var(--primary)] text-black shadow-sm"
+                  : "bg-[var(--secondary)] text-white hover:opacity-90"
              }`}
             >
               {f.label}
@@ -306,11 +306,11 @@ function Invoices() {
             size="sm"
             onClick={() => setScanOpen(true)}
             data-testid="button-open-scan-check"
-            className="rounded-none text-[var(--secondary)] border-border"
+            className="rounded-full text-[var(--secondary)] border-border px-4"
           >
             <ScanLine className="w-4 h-4 mr-1.5" /> Scan check
           </Button>
-          <Button size="sm" onClick={() => navigate("/invoices/new")} className="bg-[var(--primary)] hover:opacity-90 text-[var(--secondary)] rounded-none font-bold">
+          <Button size="sm" onClick={() => navigate("/invoices/new")} className="bg-[var(--primary)] hover:opacity-90 text-black rounded-full px-4 font-bold">
             <Plus className="w-4 h-4 mr-1.5" /> New invoice
           </Button>
           <DropdownMenu>
@@ -318,7 +318,7 @@ function Invoices() {
               <Button
                 variant="outline"
                 size="sm"
-                className="px-2 rounded-none border-border"
+                className="px-3 rounded-full border-border"
                 aria-label="More actions"
                 data-testid="button-invoices-overflow"
               >
@@ -338,97 +338,58 @@ function Invoices() {
       </div>
 
       {isLoading ? (
-        <Skeleton className="h-64 w-full rounded-none" />
+        <Skeleton className="h-64 w-full rounded-2xl" />
       ) : filtered.length === 0 ? (
-        <div className="p-12 text-center border border-dashed border-border text-muted-foreground bg-white">
+        <div className="p-12 text-center border border-dashed border-border text-muted-foreground bg-white rounded-2xl">
           No invoices in this view.
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {filtered.map((inv) => (
-            <div
-              key={inv.id}
-              onClick={() => navigate(`/invoices/${inv.id}`)}
-              className="group bg-white border border-border shadow-sm p-4 cursor-pointer hover:border-[var(--secondary)] transition-colors"
-            >
-              <div className="flex items-center gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2.5">
-                    <span className="font-mono text-[13px] text-muted-foreground">{inv.invoiceNo}</span>
-                    <InvoiceStatusBadge inv={inv} />
-                  </div>
-                  <div className="font-semibold text-[15px] text-[var(--secondary)] truncate mt-1">
+        <div className="flex flex-col bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-6 py-3 border-b border-border text-sm font-semibold text-muted-foreground bg-black/5">
+            <div>Property</div>
+            <div className="w-32 text-right">Amount</div>
+            <div className="w-40 pl-4">Status</div>
+          </div>
+          
+          <div className="flex flex-col divide-y divide-border">
+            {filtered.map((inv) => (
+              <div
+                key={inv.id}
+                onClick={() => navigate(`/invoices/${inv.id}`)}
+                className="group grid grid-cols-[1fr_auto_auto] items-center gap-4 px-6 py-4 cursor-pointer hover:bg-black/5 transition-colors"
+              >
+                <div className="min-w-0">
+                  <div className="font-display font-bold text-xl text-foreground truncate">
                     {inv.propertyName || "—"}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {[
-                      inv.sentAt ?`Sent ${fmtDate(inv.sentAt)}` : null,
-                      inv.dueAt ?`Due ${fmtDate(inv.dueAt)}` : null,
-                      inv.paidAt ?`Paid ${fmtDate(inv.paidAt)}` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "Not sent yet"}
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-mono text-xs text-muted-foreground">{inv.invoiceNo}</span>
+                    <span className="text-muted-foreground text-xs">•</span>
+                    <span className="text-xs text-muted-foreground">
+                      {[
+                        inv.sentAt ? `Sent ${fmtDate(inv.sentAt)}` : null,
+                        inv.dueAt ? `Due ${fmtDate(inv.dueAt)}` : null,
+                        inv.paidAt ? `Paid ${fmtDate(inv.paidAt)}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "Not sent yet"}
+                    </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-4 shrink-0">
-                  <span className="font-display font-bold text-xl tabular-nums text-[var(--secondary)]">
+                
+                <div className="w-32 text-right">
+                  <span className="font-display font-bold text-xl tabular-nums text-foreground">
                     {money(inv.amount)}
                   </span>
-                  <div className="flex items-center gap-2">
-                    {inv.status === "draft" && (
-                      <Button
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setInvoiceToSend(inv);
-                       }}
-                        className="bg-[var(--secondary)] text-white rounded-none"
-                      >
-                        <Send className="w-4 h-4 mr-1.5" /> Send
-                      </Button>
-                    )}
-                    {inv.status === "past_due" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          remind.mutate(
-                            { id: inv.id},
-                            {
-                              onSuccess: () => {
-                                invalidate();
-                                toast({ title: "Reminder sent", description:`Past-due notice emailed for ${inv.invoiceNo}.`});
-                             },
-                              onError: (err) =>
-                                toast({ title: "Couldn't send reminder", description: err.message, variant: "destructive"}),
-                           },
-                          );
-                       }}
-                        disabled={remind.isPending}
-                        className="rounded-none border-red-200 text-red-600 hover:bg-red-50"
-                      >
-                        <BellRing className="w-4 h-4 mr-1.5" /> Remind
-                      </Button>
-                    )}
-                    {inv.status !== "paid" && inv.status !== "draft" && (
-                      <Button
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setInvoiceToPay(inv);
-                       }}
-                        className="bg-[var(--secondary)] text-white rounded-none"
-                      >
-                        <CreditCard className="w-4 h-4 mr-1.5" /> Record payment
-                      </Button>
-                    )}
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-[var(--primary)] transition-colors" />
-                  </div>
+                </div>
+
+                <div className="w-40 pl-4 flex items-center justify-between">
+                  <InvoiceStatusBadge inv={inv} />
+                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-[var(--primary)] transition-colors" />
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
@@ -825,15 +786,15 @@ export default function Money() {
     if (urlTab && MONEY_TABS.includes(urlTab)) setTab(urlTab);
  }, [urlTab]);
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8 min-h-[100dvh] bg-[var(--background)]">
+    <div className="p-8 max-w-7xl mx-auto space-y-8 min-h-[100dvh] bg-[var(--background)]">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-display font-bold text-[var(--secondary)]">Money</h1>
-          <p className="text-muted-foreground font-mono mt-1 text-sm">{todayLocal()}</p>
+          <h1 className="text-4xl font-display font-bold text-foreground">Money</h1>
+          <p className="text-muted-foreground mt-1">Financial overview and invoicing</p>
         </div>
         <Link href="/money/payments">
-          <Button variant="default" className="bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90 gap-2 rounded-none font-bold text-xs px-6 py-2">
-            <ScanLine className="w-4 h-4" /> Pay Hub
+          <Button variant="default" className="bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90 gap-2 rounded-xl font-bold px-6 py-6 h-auto text-base">
+            Pay Hub <ArrowUpRight className="w-5 h-5 text-[var(--primary)]" />
           </Button>
         </Link>
       </header>
