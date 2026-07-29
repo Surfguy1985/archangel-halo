@@ -715,6 +715,11 @@ export interface ClientCredentialIssued {
   emailed: boolean;
 }
 
+export type ClientCardPushInputAttachmentsItem = {
+  name: string;
+  url: string;
+};
+
 export interface ClientCardPushInput {
   /** invoice | payment_request | summary | tracker | photos | flag | manual | referral | crewmap | invoice_batch | bid | document */
   kind: string;
@@ -751,6 +756,11 @@ export interface ClientCardPushInput {
      * @nullable
      */
   sourceIds?: string[] | null;
+  /**
+     * Uploaded files attached to the card as open-able links (url is an /api/storage path or https URL)
+     * @nullable
+     */
+  attachments?: ClientCardPushInputAttachmentsItem[] | null;
 }
 
 export interface ClientCardPushRec {

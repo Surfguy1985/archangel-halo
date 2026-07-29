@@ -623,6 +623,28 @@ router.post(
       }
       links = [{ label: body.linkLabel?.trim() || "Open", url: raw }];
     }
+    // Uploaded file attachments become open-able links on the card. Only our
+    // own storage paths or https URLs are allowed — never arbitrary schemes.
+    for (const att of body.attachments ?? []) {
+      const name = att.name.trim() || "Attachment";
+      const url = att.url.trim();
+      const isStorage = url.startsWith("/api/storage/") || url.startsWith("/api/invoices/");
+      let isHttp = false;
+      if (!isStorage) {
+        try {
+          const u = new URL(url);
+          isHttp = u.protocol === "https:" || u.protocol === "http:";
+        } catch {
+          isHttp = false;
+        }
+      }
+      if (!isStorage && !isHttp) {
+        res.status(400).json({ error: `Attachment "${name}" has an invalid URL` });
+        return;
+      }
+      if (links.length >= 8) break; // keep cards sane
+      links.push({ label: name, url });
+    }
     // "referral" is a composer template, stored as a manual card whose module
     // carries the interactive refer-us form.
     const cardKind = (
@@ -667,9 +689,10 @@ router.post(
       sourceType = "bid";
       sourceId = bidId;
     } else if (body.kind === "document") {
+      // A pasted link or an uploaded file both satisfy the document card.
       module = buildDocumentModule(links[0]?.url ?? null, links[0]?.label ?? null);
       if (!module) {
-        res.status(400).json({ error: "A document card needs a file link" });
+        res.status(400).json({ error: "A document card needs a file link or an uploaded file" });
         return;
       }
     } else if (body.kind === "invoice" && body.sourceType === "invoice" && body.sourceId) {

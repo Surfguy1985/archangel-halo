@@ -8480,6 +8480,15 @@ components:
           type: ["array", "null"]
           description: "Multiple entity ids for batch cards (invoice_batch)"
           items: { type: string }
+        attachments:
+          type: ["array", "null"]
+          description: "Uploaded files attached to the card as open-able links (url is an /api/storage path or https URL)"
+          items:
+            type: object
+            required: [name, url]
+            properties:
+              name: { type: string }
+              url: { type: string }
     ClientCardPushRec:
       type: object
       required: [cardId, notified]

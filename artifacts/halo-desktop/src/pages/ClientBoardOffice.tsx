@@ -40,6 +40,7 @@ import {
   ListTodo,
   Loader2,
   MapPin,
+  Paperclip,
   Play,
   Plus,
   Send,
@@ -1200,6 +1201,36 @@ function PushCardDialog({
   const [linkLabel, setLinkLabel] = useState("Open");
   const [source, setSource] = useState<{ type: string; id: string; jobId?: string } | null>(null);
   const [sourceIds, setSourceIds] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<{ name: string; url: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const uploadFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files).slice(0, 5)) {
+        // Manual /api URLs must stay root-absolute in the desktop app.
+        const r = await fetch("/api/storage/uploads/request-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "application/octet-stream" }),
+        });
+        if (!r.ok) throw new Error("Could not start the upload");
+        const { uploadURL, objectPath } = await r.json();
+        const put = await fetch(uploadURL, {
+          method: "PUT",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        });
+        if (!put.ok) throw new Error(`Upload failed for ${file.name}`);
+        setAttachments((prev) => [...prev, { name: file.name, url: `/api/storage${objectPath}` }]);
+      }
+    } catch (e) {
+      toast({ title: "Upload failed", description: e instanceof Error ? e.message : "Try again.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const { data: accounts } = useListClientAccounts({
     query: { queryKey: ["push-card-accounts"], enabled: open },
@@ -1221,6 +1252,7 @@ function PushCardDialog({
     setLinkLabel("Open");
     setSource(null);
     setSourceIds([]);
+    setAttachments([]);
   };
 
   useEffect(() => {
@@ -1251,6 +1283,7 @@ function PushCardDialog({
       sourceId: source?.id || null,
       sourceIds: sourceIds.length > 0 ? sourceIds : undefined,
       jobId: source?.jobId || null,
+      attachments: attachments.length > 0 ? attachments : undefined,
     };
 
     push.mutate(
@@ -1607,6 +1640,50 @@ function PushCardDialog({
                   />
                 </div>
               </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Attachments (PDF, documents, images)
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {attachments.map((a, i) => (
+                    <span
+                      key={`${a.url}-${i}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border rounded-xl text-sm font-medium max-w-[240px]"
+                      data-testid={`chip-attachment-${i}`}
+                    >
+                      <Paperclip className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate">{a.name}</span>
+                      <button
+                        onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label={`Remove ${a.name}`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                  <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-dashed border-border bg-background text-sm font-bold cursor-pointer hover:bg-muted transition-colors">
+                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    {uploading ? "Uploading…" : "Attach file"}
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.webp,.txt"
+                      className="hidden"
+                      disabled={uploading}
+                      onChange={(e) => {
+                        void uploadFiles(e.target.files);
+                        e.target.value = "";
+                      }}
+                      data-testid="input-card-attachments"
+                    />
+                  </label>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Files open right from the card on the client's board.
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1622,7 +1699,8 @@ function PushCardDialog({
                 push.isPending || 
                 !title.trim() || 
                 !targetId || 
-                (template.requireUrl ? !linkUrl.trim() : false) || 
+                uploading ||
+                (template.requireUrl ? !linkUrl.trim() && attachments.length === 0 : false) || 
                 (template.multiSelect ? sourceIds.length === 0 : false)
               }
               className="px-6 py-2.5 bg-[#B4FF44] text-[#041029] text-sm font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"

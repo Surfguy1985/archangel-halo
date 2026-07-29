@@ -27,12 +27,77 @@ import {
   paymentRequestJobsTable,
   propertiesTable,
 } from "@workspace/db";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 
 function publicBaseUrl(): string {
   const domain =
     process.env.REPLIT_DOMAINS?.split(",")[0] ?? process.env.REPLIT_DEV_DOMAIN;
   return domain ? `https://${domain}` : "";
+}
+
+// PayHub module guarantee: an invoice card must always ship with a working
+// pay link. When no live (unpaid, unreturned) payment request covers the
+// invoice, mint one on the spot — same shape the Pay Hub composer creates.
+async function createPayLinkForInvoice(
+  inv: typeof invoicesTable.$inferSelect,
+): Promise<string | null> {
+  if (inv.status === "paid") return null;
+  const total = inv.amount + (inv.taxAmount ?? 0);
+  if (!(total > 0)) return null;
+  const token = randomBytes(18).toString("base64url");
+  const finalToken = await db.transaction(async (tx) => {
+    // Serialize per-invoice so concurrent pushes can't mint duplicate requests.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${"paylink:" + inv.id}))`);
+    const [existing] = await tx
+      .select({ token: paymentRequestsTable.token })
+      .from(paymentRequestJobsTable)
+      .innerJoin(paymentRequestsTable, eq(paymentRequestJobsTable.requestId, paymentRequestsTable.id))
+      .where(
+        and(
+          eq(paymentRequestJobsTable.invoiceId, inv.id),
+          notInArray(paymentRequestsTable.status, ["paid", "returned"]),
+        ),
+      )
+      .orderBy(desc(paymentRequestsTable.createdAt))
+      .limit(1);
+    if (existing) return existing.token;
+    // Serialize request numbering globally — count-based PR numbers collide
+    // under concurrency otherwise.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('payhub:request_no'))`);
+    const count = (await tx.select({ id: paymentRequestsTable.id }).from(paymentRequestsTable)).length;
+    const [row] = await tx
+      .insert(paymentRequestsTable)
+      .values({
+        requestNo: `PR-${1001 + count}`,
+        token,
+        propertyId: inv.propertyId,
+        total,
+        memo: `Invoice ${inv.invoiceNo}`,
+        // The card is the delivery: live immediately, stamped as sent via board.
+        status: "sent",
+        sentVia: "board",
+        sentAt: new Date(),
+        attachments: [
+          {
+            kind: "invoice" as const,
+            invoiceId: inv.id,
+            label: `Invoice ${inv.invoiceNo}.pdf`,
+            url: `/api/invoices/${inv.id}/pdf`,
+          },
+        ],
+      })
+      .returning();
+    await tx.insert(paymentRequestJobsTable).values({
+      requestId: row!.id,
+      jobId: inv.jobId ?? null,
+      invoiceId: inv.id,
+      label: `Invoice ${inv.invoiceNo}`,
+      amount: total,
+    });
+    return token;
+  });
+  return `${publicBaseUrl()}/pay/${finalToken}`;
 }
 
 function localDate(d: Date | null | undefined): string | null {
@@ -61,6 +126,9 @@ export async function buildInvoiceModule(
     .where(eq(paymentRequestJobsTable.invoiceId, inv.id))
     .orderBy(desc(paymentRequestsTable.createdAt));
   const live = linkRows.find((r) => r.status !== "paid" && r.status !== "returned");
+  const payUrl = live
+    ? `${publicBaseUrl()}/pay/${live.token}`
+    : await createPayLinkForInvoice(inv);
   return {
     type: "invoice",
     invoiceId: inv.id,
@@ -68,7 +136,7 @@ export async function buildInvoiceModule(
     amount: inv.amount + (inv.taxAmount ?? 0),
     status: inv.status,
     dueDate: localDate(inv.dueAt),
-    payUrl: live ? `${publicBaseUrl()}/pay/${live.token}` : null,
+    payUrl,
     pdfUrl: `/api/invoices/${inv.id}/pdf`,
     canApprove: inv.status !== "paid",
   };
@@ -106,15 +174,20 @@ export async function buildInvoiceBatchModule(
   const ordered = ids
     .map((id) => rows.find((r) => r.id === id))
     .filter((r): r is (typeof rows)[number] => !!r);
-  const invoices = ordered.map((inv) => ({
-    invoiceId: inv.id,
-    invoiceNo: inv.invoiceNo,
-    amount: inv.amount + (inv.taxAmount ?? 0),
-    status: inv.status,
-    dueDate: localDate(inv.dueAt),
-    payUrl: payByInvoice.get(inv.id) ?? null,
-    pdfUrl: `/api/invoices/${inv.id}/pdf`,
-  }));
+  const invoices = [];
+  for (const inv of ordered) {
+    let payUrl = payByInvoice.get(inv.id) ?? null;
+    if (!payUrl) payUrl = await createPayLinkForInvoice(inv);
+    invoices.push({
+      invoiceId: inv.id,
+      invoiceNo: inv.invoiceNo,
+      amount: inv.amount + (inv.taxAmount ?? 0),
+      status: inv.status,
+      dueDate: localDate(inv.dueAt),
+      payUrl,
+      pdfUrl: `/api/invoices/${inv.id}/pdf`,
+    });
+  }
   return {
     type: "invoice_batch",
     invoiceIds: invoices.map((i) => i.invoiceId), // refresh source

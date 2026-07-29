@@ -119,6 +119,7 @@ export * from './clientBoardWebhookInput';
 export * from './clientBoardWebhookView';
 export * from './clientCardActionInput';
 export * from './clientCardPushInput';
+export * from './clientCardPushInputAttachmentsItem';
 export * from './clientCardPushRec';
 export * from './clientCardQuickPickBid';
 export * from './clientCardQuickPickInvoice';

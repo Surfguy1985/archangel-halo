@@ -7756,7 +7756,11 @@ export const PushClientBoardCardBody = zod.object({
   "jobId": zod.string().nullish(),
   "sourceType": zod.string().nullish().describe('Entity ref for dedupe, e.g. invoice; defaults to office_push'),
   "sourceId": zod.string().nullish().describe('Entity id for dedupe; defaults to a fresh id (always a new card)'),
-  "sourceIds": zod.array(zod.string()).nullish().describe('Multiple entity ids for batch cards (invoice_batch)')
+  "sourceIds": zod.array(zod.string()).nullish().describe('Multiple entity ids for batch cards (invoice_batch)'),
+  "attachments": zod.array(zod.object({
+  "name": zod.string(),
+  "url": zod.string()
+})).nullish().describe('Uploaded files attached to the card as open-able links (url is an \/api\/storage path or https URL)')
 })
 
 export const PushClientBoardCardResponse = zod.object({

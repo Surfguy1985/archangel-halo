@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { ClientCardPushInputAttachmentsItem } from './clientCardPushInputAttachmentsItem';
 
 export interface ClientCardPushInput {
   /** invoice | payment_request | summary | tracker | photos | flag | manual | referral | crewmap | invoice_batch | bid | document */
@@ -42,4 +43,9 @@ export interface ClientCardPushInput {
      * @nullable
      */
   sourceIds?: string[] | null;
+  /**
+     * Uploaded files attached to the card as open-able links (url is an /api/storage path or https URL)
+     * @nullable
+     */
+  attachments?: ClientCardPushInputAttachmentsItem[] | null;
 }
