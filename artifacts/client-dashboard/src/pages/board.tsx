@@ -11,9 +11,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow } from 'date-fns';
-import React, { useEffect, useState } from 'react';
 import { DashboardTour } from '@/components/DashboardTour';
 import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
 
 export default function KanbanBoard() {
   const { token } = useParams<{ token: string }>();
@@ -34,6 +34,25 @@ export default function KanbanBoard() {
     () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches,
     [],
   );
+
+  // Touch-drag state (see handleTouchStart below). Declared up here so hook
+  // order stays stable across the loading/error early returns.
+  const touchDrag = useRef<{
+    cardKey: string;
+    startX: number;
+    startY: number;
+    timer: ReturnType<typeof setTimeout> | null;
+    active: boolean;
+    ghost: HTMLElement | null;
+    offsetX: number;
+    offsetY: number;
+    el: HTMLElement;
+    cleanup: () => void;
+  } | null>(null);
+  const suppressClick = useRef(false);
+  // Latest values for native listeners without re-binding.
+  const moveCardRef = useRef<(cardKey: string, laneKey: string) => void>(() => {});
+  const readOnlyRef = useRef(false);
   
   const [createLaneKey, setCreateLaneKey] = useState<string | null>(null);
   const [createLaneLabel, setCreateLaneLabel] = useState<string>('');
@@ -158,8 +177,13 @@ export default function KanbanBoard() {
       }
       return;
     }
+    moveCard(draggedCard, laneKey);
+  };
 
-    const card = cards.find(c => c.cardKey === draggedCard);
+  // Shared by both the HTML5 drop handler (desktop) and the touch drag
+  // handler (phones/tablets): optimistic move + dispatch + revert on failure.
+  const moveCard = (cardKey: string, laneKey: string) => {
+    const card = cards.find(c => c.cardKey === cardKey);
     if (!card || card.lane === laneKey) return;
 
     const previousLane = card.lane;
@@ -168,7 +192,7 @@ export default function KanbanBoard() {
       return {
         ...old,
         cards: old.cards.map((c: any) => 
-          c.cardKey === draggedCard ? { ...c, lane: laneKey } : c
+          c.cardKey === cardKey ? { ...c, lane: laneKey } : c
         )
       };
     });
@@ -177,7 +201,7 @@ export default function KanbanBoard() {
       token,
       data: {
         action: "card.moved",
-        cardKey: draggedCard,
+        cardKey,
         payload: { lane: laneKey, position: 0 }
       }
     }, {
@@ -188,7 +212,7 @@ export default function KanbanBoard() {
             return {
               ...old,
               cards: old.cards.map((c: any) => 
-                c.cardKey === draggedCard ? { ...c, lane: previousLane } : c
+                c.cardKey === cardKey ? { ...c, lane: previousLane } : c
               )
             };
           });
@@ -211,7 +235,7 @@ export default function KanbanBoard() {
           return {
             ...old,
             cards: old.cards.map((c: any) => 
-              c.cardKey === draggedCard ? { ...c, lane: previousLane } : c
+              c.cardKey === cardKey ? { ...c, lane: previousLane } : c
             )
           };
         });
@@ -222,6 +246,137 @@ export default function KanbanBoard() {
         });
       }
     });
+  };
+
+  // -------------------------------------------------------------------------
+  // Touch drag (phones/tablets). HTML5 drag events never fire on touch
+  // screens, so a long-press (200ms) picks the card up, a floating ghost
+  // follows the finger, and elementFromPoint finds the lane under it.
+  // Short swipes still scroll the lane; taps still open the card detail.
+  // -------------------------------------------------------------------------
+  moveCardRef.current = moveCard;
+  readOnlyRef.current = viewer.readOnly;
+
+  const handleTouchStart = (e: React.TouchEvent, cardKey: string) => {
+    if (e.touches.length !== 1) return;
+    const cardEl = document.getElementById(`card-${cardKey}`);
+    if (!cardEl) return;
+    const touch = e.touches[0];
+    const startX = touch.clientX;
+    const startY = touch.clientY;
+
+    const endDrag = (drop: boolean, clientX: number, clientY: number) => {
+      const s = touchDrag.current;
+      if (!s) return;
+      if (s.timer) clearTimeout(s.timer);
+      s.cleanup();
+      touchDrag.current = null;
+      if (!s.active) return;
+      s.ghost?.remove();
+      s.el.classList.remove('opacity-40', 'scale-95');
+      setDraggedCard(null);
+      setDragOverLane(null);
+      suppressClick.current = true;
+      setTimeout(() => { suppressClick.current = false; }, 300);
+      if (!drop) return;
+      const laneEl = document
+        .elementFromPoint(clientX, clientY)
+        ?.closest('[data-lane-key]') as HTMLElement | null;
+      const laneKey = laneEl?.dataset.laneKey;
+      if (laneKey) moveCardRef.current(s.cardKey, laneKey);
+    };
+
+    const onMove = (ev: TouchEvent) => {
+      const s = touchDrag.current;
+      if (!s || ev.touches.length !== 1) return;
+      const t = ev.touches[0]!;
+      if (!s.active) {
+        // Finger moved before the long-press fired — it's a scroll, not a drag.
+        if (Math.hypot(t.clientX - s.startX, t.clientY - s.startY) > 10) {
+          if (s.timer) clearTimeout(s.timer);
+          s.cleanup();
+          touchDrag.current = null;
+        }
+        return;
+      }
+      ev.preventDefault(); // block page/lane scrolling while dragging
+      if (s.ghost) {
+        s.ghost.style.left = `${t.clientX - s.offsetX}px`;
+        s.ghost.style.top = `${t.clientY - s.offsetY}px`;
+      }
+      const laneEl = document
+        .elementFromPoint(t.clientX, t.clientY)
+        ?.closest('[data-lane-key]') as HTMLElement | null;
+      setDragOverLane(laneEl?.dataset.laneKey ?? null);
+    };
+
+    const onEnd = (ev: TouchEvent) => {
+      const t = ev.changedTouches[0];
+      endDrag(true, t?.clientX ?? startX, t?.clientY ?? startY);
+      if (touchDrag.current === null && suppressClick.current) ev.preventDefault();
+    };
+    const onCancel = () => endDrag(false, startX, startY);
+
+    const cleanup = () => {
+      cardEl.removeEventListener('touchmove', onMove);
+      cardEl.removeEventListener('touchend', onEnd);
+      cardEl.removeEventListener('touchcancel', onCancel);
+    };
+    cardEl.addEventListener('touchmove', onMove, { passive: false });
+    cardEl.addEventListener('touchend', onEnd);
+    cardEl.addEventListener('touchcancel', onCancel);
+
+    const timer = setTimeout(() => {
+      const s = touchDrag.current;
+      if (!s) return;
+      if (readOnlyRef.current) {
+        // Guests get the same sign-in prompt as on desktop when they try
+        // to pick a card up.
+        toast({
+          title: "Sign in required",
+          description: "You are viewing as a guest. Sign in to make changes.",
+          variant: "destructive"
+        });
+        s.cleanup();
+        touchDrag.current = null;
+        return;
+      }
+      s.active = true;
+      setDraggedCard(cardKey);
+      // Floating ghost that follows the finger.
+      const rect = s.el.getBoundingClientRect();
+      const ghost = s.el.cloneNode(true) as HTMLElement;
+      ghost.id = '';
+      ghost.style.position = 'fixed';
+      ghost.style.left = `${rect.left}px`;
+      ghost.style.top = `${rect.top}px`;
+      ghost.style.width = `${rect.width}px`;
+      ghost.style.height = `${rect.height}px`;
+      ghost.style.zIndex = '9999';
+      ghost.style.pointerEvents = 'none';
+      ghost.style.transform = 'scale(1.03) rotate(1.5deg)';
+      ghost.style.boxShadow = '0 16px 40px rgba(0,0,0,0.25)';
+      ghost.style.opacity = '0.95';
+      document.body.appendChild(ghost);
+      s.ghost = ghost;
+      s.offsetX = s.startX - rect.left;
+      s.offsetY = s.startY - rect.top;
+      s.el.classList.add('opacity-40', 'scale-95');
+      try { navigator.vibrate?.(30); } catch { /* unsupported */ }
+    }, 200);
+
+    touchDrag.current = {
+      cardKey,
+      startX,
+      startY,
+      timer,
+      active: false,
+      ghost: null,
+      offsetX: 0,
+      offsetY: 0,
+      el: cardEl,
+      cleanup,
+    };
   };
 
   const handleLogout = () => {
@@ -372,6 +527,7 @@ export default function KanbanBoard() {
                 transition={{ delay: index * 0.08, duration: 0.6, ease: [0.2, 0.65, 0.3, 0.9] }}
                 key={lane.key} 
                 data-testid={`lane-${lane.key}`}
+                data-lane-key={lane.key}
                 className={`flex h-full w-[360px] shrink-0 flex-col rounded-[32px] transition-all duration-300 relative ${
                   dragOverLane === lane.key && draggedCard
                     ? 'bg-primary/10 border-2 border-[#d8f84e]/60 shadow-[0_0_40px_rgba(216,248,78,0.25)]'
@@ -481,7 +637,13 @@ export default function KanbanBoard() {
                             }}
                             style={{ transformOrigin: "top center" }}
                           >
-                            <div onClick={() => setSelectedCard(card)}>
+                            <div
+                              onClick={() => {
+                                if (suppressClick.current) return;
+                                setSelectedCard(card);
+                              }}
+                              onTouchStart={(e) => handleTouchStart(e, card.cardKey)}
+                            >
                               <BoardCard
                                 card={card}
                                 token={token}
