@@ -20,8 +20,12 @@ import {
   UpdateClientBoardCardResponse,
   UpdateClientBoardWebhookBody,
   UpdateClientBoardWebhookResponse,
+  GetOfficeClientBoardResponse,
+  CreateOfficeClientBoardCardBody,
+  CreateOfficeClientBoardCardResponse,
 } from "@workspace/api-zod";
-import { webhookUrlProblem } from "../lib/clientBoard";
+import { randomUUID } from "node:crypto";
+import { raiseClientCard, webhookUrlProblem } from "../lib/clientBoard";
 
 const router: IRouter = Router();
 
@@ -629,5 +633,130 @@ router.patch("/client/:token/board/webhook", async (req, res): Promise<void> => 
   });
   res.json(UpdateClientBoardWebhookResponse.parse({ webhookUrl: raw }));
 });
+
+// ---------------------------------------------------------------------------
+// Office window into a client's board — see exactly what the client sees on
+// /client/:token/board, and drop an ad-hoc manual card on it.
+// ---------------------------------------------------------------------------
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function officeDashboardUrl(token: string): string {
+  const domain =
+    process.env.REPLIT_DOMAINS?.split(",")[0] ?? process.env.REPLIT_DEV_DOMAIN;
+  const path = `/client/${token}/board`;
+  return domain ? `https://${domain}${path}` : path;
+}
+
+router.get("/admin/accounts/:propertyId/board", async (req, res): Promise<void> => {
+  const propertyId = String(req.params.propertyId);
+  if (!UUID_RE.test(propertyId)) {
+    res.status(404).json({ error: "Property not found" });
+    return;
+  }
+  const [prop] = await db
+    .select({ name: propertiesTable.name })
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, propertyId))
+    .limit(1);
+  if (!prop) {
+    res.status(404).json({ error: "Property not found" });
+    return;
+  }
+  const [account] = await db
+    .select()
+    .from(clientAccountsTable)
+    .where(eq(clientAccountsTable.propertyId, propertyId))
+    .limit(1);
+  const cards = await db
+    .select()
+    .from(clientBoardCardsTable)
+    .where(eq(clientBoardCardsTable.propertyId, propertyId))
+    .orderBy(desc(clientBoardCardsTable.updatedAt));
+  res.json(
+    GetOfficeClientBoardResponse.parse({
+      propertyName: prop.name,
+      accountStatus: account?.status ?? "active",
+      dashboardUrl:
+        account && account.status === "active"
+          ? officeDashboardUrl(account.dashboardToken)
+          : null,
+      webhookConnected: !!account?.webhookUrl,
+      cards: cards.map(serCard),
+    }),
+  );
+});
+
+router.post(
+  "/admin/accounts/:propertyId/board/cards",
+  async (req, res): Promise<void> => {
+    const parsed = CreateOfficeClientBoardCardBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const body = parsed.data;
+    const title = body.title.trim();
+    if (!title) {
+      res.status(400).json({ error: "The card needs a title" });
+      return;
+    }
+    if (body.dueDate != null && body.dueDate !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(body.dueDate)) {
+      res.status(400).json({ error: "Due date must be YYYY-MM-DD" });
+      return;
+    }
+    const links = (body.links ?? [])
+      .map((l) => ({ label: l.label.trim(), url: l.url.trim(), kind: l.kind ?? null }))
+      .filter((l) => l.label && l.url);
+    for (const l of links) {
+      let u: URL;
+      try {
+        u = new URL(l.url);
+      } catch {
+        res.status(400).json({ error: `Link "${l.label}" must be a valid URL` });
+        return;
+      }
+      if (u.protocol !== "https:" && u.protocol !== "http:") {
+        res.status(400).json({ error: `Link "${l.label}" must be an http(s) URL` });
+        return;
+      }
+    }
+    const propertyId = String(req.params.propertyId);
+    if (!UUID_RE.test(propertyId)) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const [prop] = await db
+      .select({ name: propertiesTable.name })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, propertyId))
+      .limit(1);
+    if (!prop) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const card = await raiseClientCard({
+      propertyId,
+      kind: "manual",
+      title,
+      body: body.body?.trim() || null,
+      dueDate: body.dueDate || null,
+      links,
+      sourceType: "manual",
+      sourceId: randomUUID(), // every manual card is its own card — never merged
+    });
+    if (!card) {
+      res.status(500).json({ error: "Could not create the card" });
+      return;
+    }
+    await db.insert(activitiesTable).values({
+      entityType: "property",
+      entityId: propertyId,
+      kind: "note",
+      body: `Card sent to the client board: ${title}`,
+    });
+    res.json(CreateOfficeClientBoardCardResponse.parse(serCard(card)));
+  },
+);
 
 export default router;

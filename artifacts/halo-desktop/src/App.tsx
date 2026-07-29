@@ -30,6 +30,7 @@ import AdminAccount from "@/pages/AdminAccount";
 // Live cross-device sync: every device polls the shared server every 15s,
 // refetches when the app regains focus or reconnects, so updates made on any
 // phone or desktop appear everywhere without a manual reload.
+import ClientBoardOffice from "@/pages/ClientBoardOffice";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -73,6 +74,7 @@ function App() {
                   <Route path="/jobboard" component={JobBoard} />
                   <Route path="/admin" component={Admin} />
                   <Route path="/admin/:propertyId" component={AdminAccount} />
+                  <Route path="/admin/:propertyId/board" component={ClientBoardOffice} />
                   <Route component={NotFound} />
                 </Switch>
               </DesktopLayout>

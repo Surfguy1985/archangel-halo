@@ -7633,7 +7633,12 @@ export const SendClientOnboardingResponse = zod.object({
   "createdAt": zod.string()
 })
 
-
+/**
+ * @summary Office view of a property's client board — same cards the client sees
+ */
+export const GetOfficeClientBoardParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
 /**
  * @summary Client dashboard admin — team members and their feature access
  */
@@ -8109,3 +8114,67 @@ export const BuildInvoiceJobDraftResponse = zod.object({
 }))
 })
 
+
+export const CreateOfficeClientBoardCardBody = zod.object({
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
+})).optional()
+})
+
+export const GetOfficeClientBoardResponse = zod.object({
+  "propertyName": zod.string(),
+  "accountStatus": zod.string().describe('active | paused | cancelled'),
+  "dashboardUrl": zod.string().nullish(),
+  "webhookConnected": zod.boolean().optional(),
+  "cards": zod.array(zod.object({
+  "id": zod.string(),
+  "column": zod.string().describe('inbox | todo | in_progress | done'),
+  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "actionLabel": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "dueDate": zod.string().nullish(),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
+})),
+  "jobId": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}))
+})
+
+/**
+ * @summary Drop a manual card on the client's board (title, note, optional links)
+ */
+export const CreateOfficeClientBoardCardParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const CreateOfficeClientBoardCardResponse = zod.object({
+  "id": zod.string(),
+  "column": zod.string().describe('inbox | todo | in_progress | done'),
+  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "title": zod.string(),
+  "body": zod.string().nullish(),
+  "actionLabel": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "dueDate": zod.string().nullish(),
+  "links": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
+})),
+  "jobId": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})

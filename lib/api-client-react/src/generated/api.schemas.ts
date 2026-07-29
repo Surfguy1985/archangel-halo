@@ -409,6 +409,28 @@ export interface ClientBoardView {
   cards: ClientBoardCard[];
 }
 
+export interface OfficeClientBoardView {
+  propertyName: string;
+  /** active | paused | cancelled */
+  accountStatus: string;
+  /** @nullable */
+  dashboardUrl?: string | null;
+  webhookConnected?: boolean;
+  cards: ClientBoardCard[];
+}
+
+export interface OfficeClientBoardCardInput {
+  title: string;
+  /** @nullable */
+  body?: string | null;
+  /**
+     * YYYY-MM-DD
+     * @nullable
+     */
+  dueDate?: string | null;
+  links?: ClientBoardCardLink[];
+}
+
 export interface ClientBoardCardUpdateInput {
   /** inbox | todo | in_progress | done */
   column: string;
@@ -4729,3 +4751,4 @@ jobId?: string;
 export type ListWorkRequestsParams = {
 status?: string;
 };
+

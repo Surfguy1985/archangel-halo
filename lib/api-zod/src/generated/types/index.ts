@@ -238,6 +238,8 @@ export * from './messageInput';
 export * from './moneySummary';
 export * from './newCalendarEvent';
 export * from './notification';
+export * from './officeClientBoardCardInput';
+export * from './officeClientBoardView';
 export * from './okResponse';
 export * from './onboardingSendInput';
 export * from './onboardingSendRec';
