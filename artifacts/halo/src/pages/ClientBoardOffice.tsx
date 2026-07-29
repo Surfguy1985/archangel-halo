@@ -79,7 +79,7 @@ function CardView({ card }: { card: ClientBoardFeedCard }) {
       {card.dueDate && <div className="text-[11px] text-muted-foreground">Due {card.dueDate}</div>}
       {card.links.length > 0 && (
         <div className="space-y-1">
-          {card.links.map((l, i) => {
+          {card.links.map((l: { kind: string; label: string; url: string }, i: number) => {
             const Icon = linkIcon(l.kind);
             return (
               <a

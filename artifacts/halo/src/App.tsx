@@ -18,7 +18,6 @@ import PhotoShare from "./pages/PhotoShare";
 import RecapShare from "./pages/RecapShare";
 import SummaryShare from "./pages/SummaryShare";
 import ClientAdmin from "./pages/ClientAdmin";
-import ClientBoard from "./pages/ClientBoard";
 import ClientBoardOffice from "./pages/ClientBoardOffice";
 import ClientRequest from "./pages/ClientRequest";
 import JobTracker from "./pages/JobTracker";
@@ -99,7 +98,13 @@ function App() {
               }}
             </Route>
             <Route path="/client/:token/admin" component={ClientAdmin} />
-            <Route path="/client/:token/board" component={ClientBoard} />
+            {/* Old client board retired — bookmarked links land on the new dashboard. */}
+            <Route path="/client/:token/board">
+              {(params) => {
+                window.location.replace(`/dashboard/${params.token}`);
+                return null;
+              }}
+            </Route>
             <Route path="/client/:token/requests" component={ClientRequest} />
             <Route path="/track/:token" component={JobTracker} />
             <Route path="/pay/:token" component={PublicPayment} />
