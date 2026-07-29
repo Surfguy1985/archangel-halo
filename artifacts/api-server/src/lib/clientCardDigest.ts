@@ -43,7 +43,7 @@ function publicBaseUrl(): string {
 
 function boardUrl(token: string): string {
   const base = publicBaseUrl();
-  return base ? `${base}/client/${token}/board` : `/client/${token}/board`;
+  return base ? `${base}/dashboard/${token}` : `/dashboard/${token}`;
 }
 
 const KIND_LABEL: Record<string, string> = {

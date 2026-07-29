@@ -241,7 +241,7 @@ router.get("/admin/accounts/:propertyId", async (req, res): Promise<void> => {
 
 router.put("/admin/accounts/:propertyId", async (req, res): Promise<void> => {
     const propertyId = req.params.propertyId;
-    const body = SendClientOnboardingBody.parse(req.body);
+    const body = UpsertClientAccountBody.parse(req.body);
     const [property] = await db
       .select()
       .from(propertiesTable)
@@ -263,7 +263,7 @@ router.post(
   "/admin/accounts/:propertyId/users",
   async (req, res): Promise<void> => {
     const propertyId = req.params.propertyId;
-    const body = SendClientOnboardingBody.parse(req.body);
+    const body = CreateClientUserBody.parse(req.body);
     const email = body.email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       res.status(400).json({ error: "Enter a valid email address" });
@@ -371,7 +371,7 @@ async function emailCredentials(
 }
 
 router.patch("/admin/client-users/:id", async (req, res): Promise<void> => {
-    const body = SendClientOnboardingBody.parse(req.body);
+    const body = UpdateClientUserBody.parse(req.body);
     const [user] = await db
       .select()
       .from(clientUsersTable)
@@ -458,7 +458,7 @@ router.delete("/admin/client-users/:id", async (req, res): Promise<void> => {
 router.post(
   "/admin/client-users/:id/reset-password",
   async (req, res): Promise<void> => {
-    const body = SendClientOnboardingBody.parse(req.body);
+    const body = ResetClientUserPasswordBody.parse(req.body);
     const [user] = await db
       .select()
       .from(clientUsersTable)
@@ -469,13 +469,16 @@ router.post(
     }
     const tempPassword = newTempPassword();
     const [updated] = await db
-      .update(clientAccountsTable)
-      .set({ dashboardToken: newToken(), updatedAt: new Date() })
-      .where(eq(clientAccountsTable.id, account.id))
+      .update(clientUsersTable)
+      .set({
+        passwordHash: hashPassword(tempPassword),
+        lastPasswordResetAt: new Date(),
+      })
+      .where(eq(clientUsersTable.id, user.id))
       .returning();
     let emailed = false;
     if (body.sendEmail) {
-    const account = await ensureAccount(property.id);
+      const account = await ensureAccount(user.propertyId);
       emailed = await emailCredentials(updated, tempPassword, account);
     }
     res.json(

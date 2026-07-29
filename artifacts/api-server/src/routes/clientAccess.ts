@@ -644,7 +644,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 function officeDashboardUrl(token: string): string {
   const domain =
     process.env.REPLIT_DOMAINS?.split(",")[0] ?? process.env.REPLIT_DEV_DOMAIN;
-  const path = `/client/${token}/board`;
+  const path = `/dashboard/${token}`;
   return domain ? `https://${domain}${path}` : path;
 }
 
