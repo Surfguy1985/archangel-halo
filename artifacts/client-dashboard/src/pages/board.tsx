@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { BoardCard } from '@/components/kanban/BoardCard';
 import { CardDetailDialog } from '@/components/kanban/CardDetailDialog';
 import { CreateCardDialog } from '@/components/kanban/CreateCardDialog';
+import { CommandPalette } from '@/components/kanban/CommandPalette';
 import { Button } from '@/components/ui/button';
 import { MapPin, User, Loader2, Info, Plus, LayoutGrid, BookOpen, Headphones, Layers, LayoutList, AlertCircle, X, Check, Calendar, ArrowRight, Search, LogOut, Zap } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -114,6 +115,19 @@ function Board() {
   
   const [tourOpen, setTourOpen] = useState(false);
   const [triageOpen, setTriageOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // ⌘K / Ctrl+K opens the search palette from anywhere on the board.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   type Lens = 'flow' | 'time' | 'service' | 'building';
   const [lens, setLens] = useState<Lens>('flow');
@@ -739,6 +753,17 @@ function Board() {
             </span>
           </div>
 
+          <button
+            data-testid="button-search"
+            onClick={() => setPaletteOpen(true)}
+            className="flex items-center h-[32px] gap-2 rounded-[8px] bg-white border border-[#e4e2db] px-3 text-[#96948B] hover:bg-[#F4F2EC] hover:text-[#101c33] transition-colors"
+            title="Search the board (⌘K)"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="text-[11px] font-[600] hidden sm:inline">Search…</span>
+            <kbd className="hidden md:inline rounded-[5px] border border-[#e4e2db] bg-[#F4F2EC] px-1.5 py-[1px] text-[9px] font-[700] font-mono">⌘K</kbd>
+          </button>
+
           {/* REGRESSION FIX #2: Restore Map View, Site Map, Hub buttons with testids */}
           {viewer.permissions?.includes('unit_map') && (
             <>
@@ -1097,6 +1122,14 @@ function Board() {
           });
         })()}
       </main>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        cards={cards}
+        lanes={lanes}
+        onSelectCard={(card) => setSelectedCard(card)}
+      />
 
       <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} token={token} />
 

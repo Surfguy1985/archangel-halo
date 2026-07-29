@@ -78,7 +78,7 @@ function metricsFor(card: ClientBoardCardView, spec: any): [Metric, Metric, Metr
   ];
 }
 
-function cardCode(card: ClientBoardCardView, spec: any): string {
+export function cardCode(card: ClientBoardCardView, spec: any): string {
   const m = card.subtitle?.match(/(?:Job|WO)\s+([\w-]+)/i);
   if (m) return `${spec.codePrefix}-${m[1]!.replace(/^J-/, '')}`;
   return `${spec.codePrefix}-${card.cardKey.slice(-4).toUpperCase()}`;
