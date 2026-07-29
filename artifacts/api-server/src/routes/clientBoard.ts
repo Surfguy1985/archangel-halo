@@ -11,6 +11,7 @@ import {
   clientDashboardActionsTable,
   clientBoardCardsTable,
   propertiesTable,
+  propertyUnitsTable,
   jobsTable,
   crewsTable,
   crewCheckinsTable,
@@ -54,6 +55,7 @@ import {
   buildSummaryModule,
 } from "../lib/cardModules";
 import { bidsTable } from "@workspace/db";
+import { computeUnitStatuses, normUnit } from "./clientCms";
 
 const router: IRouter = Router();
 
@@ -2033,16 +2035,15 @@ router.get("/client/:token/board/kpis", async (req, res): Promise<void> => {
     return;
   }
   const propertyId = account.propertyId;
-  const [jobs, requests, invoices, prop] = await Promise.all([
+  const [jobs, requests, invoices, mappedUnits, { byUnit: unitStatuses }] = await Promise.all([
     db.select().from(jobsTable).where(eq(jobsTable.propertyId, propertyId)),
     db.select().from(workRequestsTable).where(eq(workRequestsTable.propertyId, propertyId)),
     db.select().from(invoicesTable).where(eq(invoicesTable.propertyId, propertyId)),
     db
-      .select()
-      .from(propertiesTable)
-      .where(eq(propertiesTable.id, propertyId))
-      .limit(1)
-      .then((r) => r[0]),
+      .select({ label: propertyUnitsTable.label })
+      .from(propertyUnitsTable)
+      .where(eq(propertyUnitsTable.propertyId, propertyId)),
+    computeUnitStatuses(propertyId),
   ]);
   const now = Date.now();
   const DAY = 86_400_000;
@@ -2061,24 +2062,27 @@ router.get("/client/:token/board/kpis", async (req, res): Promise<void> => {
   const paidLast30 = invoices
     .filter((i) => i.status === "paid" && i.paidAt && now - i.paidAt.getTime() < 30 * DAY)
     .reduce((s, i) => s + i.amount + (i.taxAmount ?? 0), 0);
-  // Unit health from the live unit-status map (normalized labels).
-  const unitCount = prop?.units ?? 0;
-  const openByUnit = new Set(
-    open.map((j) => (j.unitNo ?? "").trim().toLowerCase()).filter(Boolean),
-  );
-  const urgentByUnit = new Set(
-    open
-      .filter((j) => !j.scheduledOn)
-      .map((j) => (j.unitNo ?? "").trim().toLowerCase())
-      .filter(Boolean),
-  );
-  const unitsTotal = Math.max(unitCount, openByUnit.size);
-  const unitsUrgent = urgentByUnit.size;
-  const unitsAttention = Math.max(openByUnit.size - unitsUrgent, 0);
+  // Unit health from the same status source as the Units page (/unit-map):
+  // union of mapped units and units seen in HALO data, each colored by
+  // computeUnitStatuses (red/yellow/green keyed by normalized unit label).
+  const unitKeys = new Set<string>();
+  for (const u of mappedUnits) {
+    const k = normUnit(u.label);
+    if (k) unitKeys.add(k);
+  }
+  for (const k of unitStatuses.keys()) if (k) unitKeys.add(k);
+  let unitsUrgent = 0;
+  let unitsAttention = 0;
+  for (const k of unitKeys) {
+    const status = unitStatuses.get(k)?.status ?? "green";
+    if (status === "red") unitsUrgent += 1;
+    else if (status === "yellow") unitsAttention += 1;
+  }
+  const unitsTotal = unitKeys.size;
   res.json(
     GetClientBoardKpisResponse.parse({
       unitsTotal,
-      unitsOk: Math.max(unitsTotal - openByUnit.size, 0),
+      unitsOk: Math.max(unitsTotal - unitsAttention - unitsUrgent, 0),
       unitsAttention,
       unitsUrgent,
       openJobs: open.length,

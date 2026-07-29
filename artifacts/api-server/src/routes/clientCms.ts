@@ -136,7 +136,7 @@ type UnitStatus = {
 
 const OPEN_JOB = (j: Job) => j.status !== "cancelled" && j.status !== "complete" && !j.clearedAt && !j.completedAt;
 
-async function computeUnitStatuses(
+export async function computeUnitStatuses(
   propertyId: string,
 ): Promise<{ byUnit: Map<string, UnitStatus>; display: Map<string, string> }> {
   // Remember the first raw label seen for each normalized key so units that
