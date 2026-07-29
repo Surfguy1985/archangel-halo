@@ -818,6 +818,38 @@ async function jobFromCardKey(
   return job;
 }
 
+// Current lane check for the "can't drag into Done" guards: a card already
+// sitting in Done (via client override or HALO's own computed lane) may be
+// reordered within Done.
+async function cardCurrentlyInDone(ctx: ActionCtx): Promise<boolean> {
+  if (!ctx.cardKey) return false;
+  const [override] = await db
+    .select()
+    .from(clientDashboardCardsTable)
+    .where(
+      and(
+        eq(clientDashboardCardsTable.propertyId, ctx.account.propertyId),
+        eq(clientDashboardCardsTable.cardKey, ctx.cardKey),
+      ),
+    )
+    .limit(1);
+  if (override?.lane) return override.lane === "done";
+  if (ctx.cardKey.startsWith("job:") || ctx.cardKey.startsWith("crew:")) {
+    const job = await jobFromCardKey(ctx, ctx.cardKey.startsWith("job:") ? "job" : "crew");
+    return !!job && jobLane(job).lane === "done";
+  }
+  if (ctx.cardKey.startsWith("invoice:")) {
+    const id = ctx.cardKey.slice("invoice:".length);
+    const [inv] = await db
+      .select()
+      .from(invoicesTable)
+      .where(and(eq(invoicesTable.id, id), eq(invoicesTable.propertyId, ctx.account.propertyId)))
+      .limit(1);
+    return !!inv && inv.status === "paid";
+  }
+  return false;
+}
+
 const ACTIONS: Record<
   string,
   { requiresWrite: boolean; run: (ctx: ActionCtx) => Promise<ActionOutcome> }
@@ -829,53 +861,98 @@ const ACTIONS: Record<
     run: async (ctx) => {
       const lane = String(ctx.payload.lane ?? "");
       const position = Number(ctx.payload.position ?? Date.now());
+      // Full order of the target lane after the drop (drop-position support).
+      // When present, every card in the lane gets position = its index, so the
+      // moved card's `position` payload is the literal drop index.
+      const orderedCardKeys = Array.isArray(ctx.payload.orderedCardKeys)
+        ? (ctx.payload.orderedCardKeys as unknown[]).filter(
+            (k): k is string => typeof k === "string" && k.length > 0,
+          )
+        : null;
       if (!ctx.cardKey) return { ok: false, blocked: false, reason: "cardKey required" };
       if (!LANE_KEYS.has(lane)) return { ok: false, blocked: false, reason: "Unknown lane" };
-      if ((ctx.cardKey.startsWith("job:") || ctx.cardKey.startsWith("crew:")) && lane === "done") {
+      // Dropping INTO Done is HALO's call — but reordering a card that is
+      // already in Done stays allowed (same-lane drops target "done" too).
+      const alreadyInDone = lane === "done" ? await cardCurrentlyInDone(ctx) : false;
+      if (
+        (ctx.cardKey.startsWith("job:") || ctx.cardKey.startsWith("crew:")) &&
+        lane === "done" &&
+        !alreadyInDone
+      ) {
         return {
           ok: false,
           blocked: true,
           reason: "Only the crew in the field can mark work done — it moves when HALO confirms completion",
         };
       }
-      if (ctx.cardKey.startsWith("invoice:") && lane === "done") {
+      if (ctx.cardKey.startsWith("invoice:") && lane === "done" && !alreadyInDone) {
         return {
           ok: false,
           blocked: true,
           reason: "Invoices move to Done when payment clears in HALO",
         };
       }
+      const movedPosition = orderedCardKeys
+        ? Math.max(0, orderedCardKeys.indexOf(ctx.cardKey))
+        : Number.isFinite(position)
+          ? position
+          : Date.now();
       if (ctx.cardKey.startsWith("custom:")) {
         await db
           .update(clientDashboardCardsTable)
-          .set({ lane, position: Number.isFinite(position) ? position : Date.now(), updatedAt: new Date() })
+          .set({ lane, position: movedPosition, updatedAt: new Date() })
           .where(
             and(
               eq(clientDashboardCardsTable.propertyId, ctx.account.propertyId),
               eq(clientDashboardCardsTable.cardKey, ctx.cardKey),
             ),
           );
-        return { ok: true, blocked: false, message: "Card moved" };
-      }
-      // Override placement for HALO-fed cards
-      await db
-        .insert(clientDashboardCardsTable)
-        .values({
-          propertyId: ctx.account.propertyId,
-          cardKey: ctx.cardKey,
-          kind: "override",
-          lane,
-          position: Number.isFinite(position) ? position : Date.now(),
-          createdBy: ctx.viewer.name,
-        })
-        .onConflictDoUpdate({
-          target: [clientDashboardCardsTable.propertyId, clientDashboardCardsTable.cardKey],
-          set: {
+      } else {
+        // Override placement for HALO-fed cards
+        await db
+          .insert(clientDashboardCardsTable)
+          .values({
+            propertyId: ctx.account.propertyId,
+            cardKey: ctx.cardKey,
+            kind: "override",
             lane,
-            position: Number.isFinite(position) ? position : Date.now(),
-            updatedAt: new Date(),
-          },
-        });
+            position: movedPosition,
+            createdBy: ctx.viewer.name,
+          })
+          .onConflictDoUpdate({
+            target: [clientDashboardCardsTable.propertyId, clientDashboardCardsTable.cardKey],
+            set: {
+              lane,
+              position: movedPosition,
+              updatedAt: new Date(),
+            },
+          });
+      }
+      // Re-index the rest of the target lane so the drop order sticks. These
+      // writes touch position ONLY — never lane — so HALO keeps recomputing
+      // lanes for cards the client didn't move.
+      if (orderedCardKeys) {
+        for (let i = 0; i < orderedCardKeys.length; i++) {
+          const key = orderedCardKeys[i]!;
+          if (key === ctx.cardKey) continue;
+          await db
+            .insert(clientDashboardCardsTable)
+            .values({
+              propertyId: ctx.account.propertyId,
+              cardKey: key,
+              kind: "override",
+              position: i,
+              createdBy: ctx.viewer.name,
+            })
+            .onConflictDoUpdate({
+              target: [
+                clientDashboardCardsTable.propertyId,
+                clientDashboardCardsTable.cardKey,
+              ],
+              set: { position: i, updatedAt: new Date() },
+            });
+        }
+      }
       return { ok: true, blocked: false, message: "Card moved" };
     },
   },

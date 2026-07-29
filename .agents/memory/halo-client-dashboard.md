@@ -16,3 +16,9 @@ description: Client-facing kanban PWA artifact — session auth, card projection
 **Card template anatomy:** all board cards follow the uploaded 9-region template (fixed 340×430 frame, SLA heat rail, identity row, metric triad, evidence block, two decision buttons, footer); spec distilled in `client-dashboard/src/components/kanban/templateSpec.ts`; lane pipelines mirror the JSON template keys (work_order, make_ready, invoice, vendor_crew_live).
 
 **Two board systems coexist:** the office "raise card" feed (table `client_board_cards` in clients.ts, API `/client/{token}/board/feed`, opIds `getClientBoardFeed`/`updateClientBoardFeedCard`, `ClientBoardFeed*` schemas, halo page) is separate from the client dashboard board (tables `client_dashboard_cards`/`client_dashboard_actions`, API `/client/{token}/board*`). Don't collapse or rename one into the other — both names are deliberate to avoid openapi/schema/table collisions.
+
+## Card reordering (drop-position)
+- `card.moved` payload may carry `orderedCardKeys` (full target-lane order after drop); server sets position=index for every card in it. Moved card's `position` is the literal drop index.
+- Neighbor re-index writes are position-ONLY overrides (lane stays null) so HALO keeps recomputing lanes for cards the client never moved.
+- The "can't drag into Done" guards allow same-lane reorder: `cardCurrentlyInDone` checks override lane, else computed lane (jobLane / invoice paid).
+- Client computes drop index from card midpoints via getBoundingClientRect (shared by desktop drop + touch drag).

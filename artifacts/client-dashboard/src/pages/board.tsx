@@ -53,7 +53,8 @@ export default function KanbanBoard() {
     cleanup: () => void;
   } | null>(null);
   const suppressClick = useRef(false);
-  const moveCardRef = useRef<(cardKey: string, laneKey: string) => void>(() => {});
+  const moveCardRef = useRef<(cardKey: string, laneKey: string, dropIndex?: number) => void>(() => {});
+  const dropIndexRef = useRef<(laneKey: string, clientY: number, draggedKey: string) => number>(() => 0);
   const readOnlyRef = useRef(false);
   
   const [createCardOpen, setCreateCardOpen] = useState(false);
@@ -219,21 +220,65 @@ export default function KanbanBoard() {
       }
       return;
     }
-    moveCard(draggedCard, laneKey);
+    moveCard(draggedCard, laneKey, computeDropIndex(laneKey, e.clientY, draggedCard));
   };
 
-  const moveCard = (cardKey: string, laneKey: string) => {
-    const card = cards.find(c => c.cardKey === cardKey);
-    if (!card || card.lane === laneKey) return;
+  // Where in the lane the pointer/finger dropped: index of the first card
+  // whose vertical midpoint sits below the drop point (dragged card excluded).
+  const computeDropIndex = (laneKey: string, clientY: number, draggedKey: string): number => {
+    const laneCards = cards
+      .filter(c => c.lane === laneKey && c.cardKey !== draggedKey)
+      .sort((a, b) => (a.position || 0) - (b.position || 0));
+    for (let i = 0; i < laneCards.length; i++) {
+      const el = document.getElementById(`card-${laneCards[i].cardKey}`);
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      if (clientY < rect.top + rect.height / 2) return i;
+    }
+    return laneCards.length;
+  };
 
-    const previousLane = card.lane;
+  // Shared by both the HTML5 drop handler (desktop) and the touch drag
+  // handler (phones/tablets): optimistic move + dispatch + revert on failure.
+  // dropIndex is the insertion index within the target lane (dragged card
+  // excluded); the full lane order is sent so the server can persist it.
+  const moveCard = (cardKey: string, laneKey: string, dropIndex?: number) => {
+    const card = cards.find(c => c.cardKey === cardKey);
+    if (!card) return;
+
+    const targetLaneKeys = cards
+      .filter(c => c.lane === laneKey && c.cardKey !== cardKey)
+      .sort((a, b) => (a.position || 0) - (b.position || 0))
+      .map(c => c.cardKey);
+    const insertAt = Math.max(0, Math.min(dropIndex ?? 0, targetLaneKeys.length));
+    // No-op: same lane, same slot.
+    if (card.lane === laneKey) {
+      const currentOrder = cards
+        .filter(c => c.lane === laneKey)
+        .sort((a, b) => (a.position || 0) - (b.position || 0))
+        .map(c => c.cardKey);
+      if (currentOrder.indexOf(cardKey) === insertAt) return;
+    }
+    const orderedCardKeys = [...targetLaneKeys];
+    orderedCardKeys.splice(insertAt, 0, cardKey);
+
+    const previousCards = cards.map(c => ({ ...c }));
+    const revert = () => {
+      queryClient.setQueryData(getGetClientBoardQueryKey(token), (old: any) => {
+        if (!old) return old;
+        return { ...old, cards: previousCards };
+      });
+    };
     queryClient.setQueryData(getGetClientBoardQueryKey(token), (old: any) => {
       if (!old) return old;
       return {
         ...old,
-        cards: old.cards.map((c: any) => 
-          c.cardKey === cardKey ? { ...c, lane: laneKey } : c
-        )
+        cards: old.cards.map((c: any) => {
+          const idx = orderedCardKeys.indexOf(c.cardKey);
+          if (c.cardKey === cardKey) return { ...c, lane: laneKey, position: insertAt };
+          if (idx >= 0) return { ...c, position: idx };
+          return c;
+        })
       };
     });
 
@@ -242,20 +287,12 @@ export default function KanbanBoard() {
       data: {
         action: "card.moved",
         cardKey,
-        payload: { lane: laneKey, position: 0 }
+        payload: { lane: laneKey, position: insertAt, orderedCardKeys }
       }
     }, {
       onSuccess: (outcome) => {
         if (!outcome.ok) {
-          queryClient.setQueryData(getGetClientBoardQueryKey(token), (old: any) => {
-            if (!old) return old;
-            return {
-              ...old,
-              cards: old.cards.map((c: any) => 
-                c.cardKey === cardKey ? { ...c, lane: previousLane } : c
-              )
-            };
-          });
+          revert();
           toast({
             title: "Move blocked",
             description: outcome.reason || outcome.message || "Cannot move card",
@@ -270,15 +307,7 @@ export default function KanbanBoard() {
         }
       },
       onError: () => {
-        queryClient.setQueryData(getGetClientBoardQueryKey(token), (old: any) => {
-          if (!old) return old;
-          return {
-            ...old,
-            cards: old.cards.map((c: any) => 
-              c.cardKey === cardKey ? { ...c, lane: previousLane } : c
-            )
-          };
-        });
+        revert();
         toast({
           title: "Error",
           description: "Network error while moving card",
@@ -289,6 +318,7 @@ export default function KanbanBoard() {
   };
 
   moveCardRef.current = moveCard;
+  dropIndexRef.current = computeDropIndex;
   readOnlyRef.current = viewer.readOnly;
 
   const handleTouchStart = (e: React.TouchEvent, cardKey: string) => {
@@ -317,7 +347,9 @@ export default function KanbanBoard() {
         .elementFromPoint(clientX, clientY)
         ?.closest('[data-lane-key]') as HTMLElement | null;
       const laneKey = laneEl?.dataset.laneKey;
-      if (laneKey) moveCardRef.current(s.cardKey, laneKey);
+      if (laneKey) {
+        moveCardRef.current(s.cardKey, laneKey, dropIndexRef.current(laneKey, clientY, s.cardKey));
+      }
     };
 
     const onMove = (ev: TouchEvent) => {
