@@ -428,6 +428,7 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
               })}
             </div>
 
+            {!readOnly && (
             <div className="flex gap-2">
               <Textarea
                 placeholder="Write a comment..."
@@ -457,6 +458,7 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
                 )}
               </Button>
             </div>
+            )}
           </div>
         </div>
       </ScrollArea>

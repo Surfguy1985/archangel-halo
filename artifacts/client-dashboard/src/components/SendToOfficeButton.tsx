@@ -72,7 +72,7 @@ export function SendToOfficeButton({ card, token }: SendToOfficeButtonProps) {
     );
   };
 
-  if (sentToOffice) {
+  if (sentToOffice && sentToOffice.status !== 'declined') {
     const statusIcon = {
       pending: <Clock className="w-4 h-4 text-muted-foreground" />,
       accepted: <Check className="w-4 h-4 text-primary" />,
@@ -96,23 +96,39 @@ export function SendToOfficeButton({ card, token }: SendToOfficeButtonProps) {
     );
   }
 
+  const wasDeclined = sentToOffice?.status === 'declined';
+
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setShowDialog(true)}
-        className="gap-2"
-        data-testid="button-send-to-office"
-      >
-        <Send className="w-4 h-4" />
-        Send to office
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        {wasDeclined && (
+          <div
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-muted text-sm"
+            data-testid="status-declined"
+          >
+            <X className="w-4 h-4 text-destructive" />
+            <span className="font-medium">Declined</span>
+            {sentToOffice?.note && (
+              <span className="text-muted-foreground">— {sentToOffice.note}</span>
+            )}
+          </div>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowDialog(true)}
+          className="gap-2"
+          data-testid="button-send-to-office"
+        >
+          <Send className="w-4 h-4" />
+          {wasDeclined ? 'Send again' : 'Send to office'}
+        </Button>
+      </div>
 
       <AlertDialog open={showDialog} onOpenChange={setShowDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Send card to office?</AlertDialogTitle>
+            <AlertDialogTitle>{wasDeclined ? 'Send card again?' : 'Send card to office?'}</AlertDialogTitle>
             <AlertDialogDescription>
               This will submit your custom card to the office for review. They'll be notified
               and can accept or decline your request.
