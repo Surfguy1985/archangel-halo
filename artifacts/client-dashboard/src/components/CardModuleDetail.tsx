@@ -49,7 +49,7 @@ function PhotoGallery({ photos }: { photos: { url: string; phase?: string | null
   );
 }
 
-export function CardModuleDetail({ module, token, cardKey, readOnly }: { module: any; token: string; cardKey?: string; readOnly?: boolean }) {
+export function CardModuleDetail({ module, token, cardKey, readOnly, onReadOnlyClick }: { module: any; token: string; cardKey?: string; readOnly?: boolean; onReadOnlyClick?: () => void }) {
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
   const [birdseyeOpen, setBirdseyeOpen] = useState(false);
 
@@ -87,7 +87,7 @@ export function CardModuleDetail({ module, token, cardKey, readOnly }: { module:
             </button>
           )}
           {cardKey && (
-            <ModuleDecision cardKey={cardKey} token={token} module={module} readOnly={!!readOnly} tint={{ bd: '#e8e8ed' }} />
+            <ModuleDecision cardKey={cardKey} token={token} module={module} readOnly={!!readOnly} onReadOnlyClick={onReadOnlyClick} tint={{ bd: '#e8e8ed' }} />
           )}
         </div>
       )}
@@ -114,7 +114,7 @@ export function CardModuleDetail({ module, token, cardKey, readOnly }: { module:
               <CheckCircle2 className="w-4 h-4" /> Work requested — the office is on it.
             </div>
           ) : cardKey ? (
-            <ModuleDecision cardKey={cardKey} token={token} module={module} readOnly={!!readOnly} tint={{ bd: '#e8e8ed' }} />
+            <ModuleDecision cardKey={cardKey} token={token} module={module} readOnly={!!readOnly} onReadOnlyClick={onReadOnlyClick} tint={{ bd: '#e8e8ed' }} />
           ) : null}
         </div>
       )}

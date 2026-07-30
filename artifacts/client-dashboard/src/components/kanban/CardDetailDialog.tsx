@@ -13,10 +13,11 @@ interface CardDetailDialogProps {
   card: ClientBoardCardView | null;
   token: string;
   readOnly: boolean;
+  onReadOnlyClick?: () => void;
   onClose: () => void;
 }
 
-export function CardDetailDialog({ card, token, readOnly, onClose }: CardDetailDialogProps) {
+export function CardDetailDialog({ card, token, readOnly, onClose, onReadOnlyClick }: CardDetailDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const updateCard = useUpdateClientBoardCard();
@@ -150,7 +151,7 @@ export function CardDetailDialog({ card, token, readOnly, onClose }: CardDetailD
             
             {card.module && (
               <div className="mt-2 p-4 rounded-xl bg-black/[0.02] border border-black/5">
-                <CardModuleDetail module={card.module} token={token} cardKey={card.cardKey} readOnly={readOnly} />
+                <CardModuleDetail module={card.module} token={token} cardKey={card.cardKey} readOnly={readOnly} onReadOnlyClick={onReadOnlyClick} />
               </div>
             )}
           </div>

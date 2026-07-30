@@ -7,6 +7,7 @@ import { ModuleMetrics, ModuleEvidence, ModuleDecision } from '../kanban/BoardCa
 interface AppleCardProps {
   card: any;
   readOnly?: boolean;
+  onReadOnlyClick?: () => void;
   isDragged?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
   onDragEnd?: (e: React.DragEvent) => void;
@@ -17,7 +18,7 @@ interface AppleCardProps {
   token?: string;
 }
 
-export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, onTouchDragBegin, onTouchDragMove, onTouchDragEnd, onClick, token }: AppleCardProps) {
+export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, onTouchDragBegin, onTouchDragMove, onTouchDragEnd, onClick, token, onReadOnlyClick }: AppleCardProps) {
   // Long-press touch drag: HTML5 DnD doesn't exist on mobile browsers.
   // Hold ~250ms to lift the card; moving early is treated as a scroll.
   const justDragged = React.useRef(false);
@@ -90,6 +91,17 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
       case 'request': fallbackCategory = 'maintenance'; fallbackIcon = Wrench; break;
       case 'makeready': fallbackCategory = 'maintenance'; fallbackIcon = FileSignature; break;
       case 'job': fallbackCategory = 'maintenance'; fallbackIcon = Wrench; break;
+      // Office-pushed cards ("push_<kind>") — color-code by what they carry.
+      case 'push_invoice':
+      case 'push_invoice_batch': fallbackCategory = 'billing'; fallbackIcon = FileText; break;
+      case 'push_bid': fallbackCategory = 'rent'; fallbackIcon = FileSignature; break;
+      case 'push_flag': fallbackCategory = 'vendor'; fallbackIcon = Wrench; break;
+      case 'push_photos': fallbackCategory = 'move'; fallbackIcon = FileSearch; break;
+      case 'push_summary': fallbackCategory = 'lease'; fallbackIcon = FileSearch; break;
+      case 'push_crewmap': fallbackCategory = 'coordination'; fallbackIcon = HardHat; break;
+      case 'push_document': fallbackCategory = 'access'; fallbackIcon = FileText; break;
+      case 'push_note': fallbackCategory = 'coordination'; fallbackIcon = MessageSquare; break;
+      case 'push_referral': fallbackCategory = 'lease'; fallbackIcon = MessageSquare; break;
       default: fallbackCategory = 'blank'; fallbackIcon = Layers; break;
     }
 
@@ -133,8 +145,15 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
         if (justDragged.current) return; // swallow the tap that ends a touch drag
         onClick?.();
       }}
-      className="flex flex-col p-4 bg-white border border-black/[0.06] rounded-[18px] hover:border-black/[0.12] hover:shadow-[0_4px_20px_rgba(0,0,0,0.08)] transition-all cursor-pointer active:scale-[0.98] max-sm:select-none"
-      style={{ WebkitTouchCallout: 'none' } as React.CSSProperties}
+      className="flex flex-col p-4 border rounded-[18px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.10)] transition-all cursor-pointer active:scale-[0.98] max-sm:select-none overflow-hidden relative"
+      style={{
+        WebkitTouchCallout: 'none',
+        // Category-coded card: soft tint wash of the category color over white,
+        // stronger at the top, with a matching border + left accent bar.
+        background: `linear-gradient(160deg, ${color}2E 0%, ${color}14 45%, ${color}0A 100%), #ffffff`,
+        borderColor: `${color}59`,
+        boxShadow: `inset 3px 0 0 0 ${color}`,
+      } as React.CSSProperties}
     >
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
@@ -161,8 +180,10 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
         <div className="mb-3 space-y-2">
           <ModuleMetrics module={card.module} tint={{ bd: '#f5f5f7' }} />
           <ModuleEvidence module={card.module} tint={{ bg: '#fafafa', border: '#e8e8ed', hairline: '#e8e8ed', bd: '#e8e8ed' }} />
-          {!readOnly && token && card.actions && card.actions.length > 0 && (
-            <ModuleDecision cardKey={card.cardKey} token={token} module={card.module} readOnly={!!readOnly} tint={{ bd: '#e8e8ed' }} />
+          {/* Rendered for read-only viewers too — tapping an action prompts
+              sign-in via onReadOnlyClick instead of hiding the buttons. */}
+          {token && card.actions && card.actions.length > 0 && (
+            <ModuleDecision cardKey={card.cardKey} token={token} module={card.module} readOnly={!!readOnly} onReadOnlyClick={onReadOnlyClick} tint={{ bd: '#e8e8ed' }} />
           )}
         </div>
       )}

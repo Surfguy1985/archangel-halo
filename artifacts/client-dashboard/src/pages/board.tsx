@@ -390,14 +390,26 @@ function Board() {
           cards={board?.cards || []}
           readOnly={viewer.readOnly}
           onOpenDetails={(card) => setDetailCard(card)}
+          onReadOnlyClick={() => {
+            if (!viewerAuthenticated) setLoginOpen(true);
+            else toast({ title: 'Read-only access', description: 'Ask your property manager for edit access.' });
+          }}
         />
       )}
 
       <CardDetailDialog
         token={token}
-        card={detailCard}
+        card={detailCard ? ((activeBoardData?.cards || []).find((c: any) => c.cardKey === detailCard.cardKey) ?? detailCard) : null}
         onClose={() => setDetailCard(null)}
         readOnly={viewer.readOnly}
+        onReadOnlyClick={() => {
+          if (!viewerAuthenticated) {
+            setDetailCard(null);
+            setLoginOpen(true);
+          } else {
+            toast({ title: 'Read-only access', description: 'Ask your property manager for edit access.' });
+          }
+        }}
       />
     </motion.div>
   );

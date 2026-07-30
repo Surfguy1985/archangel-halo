@@ -43,11 +43,13 @@ export function NewCardSpotlight({
   cards,
   readOnly,
   onOpenDetails,
+  onReadOnlyClick,
 }: {
   token: string;
   cards: any[];
   readOnly: boolean;
   onOpenDetails: (card: any) => void;
+  onReadOnlyClick?: () => void;
 }) {
   const [queue, setQueue] = useState<any[] | null>(null);
   const [index, setIndex] = useState(0);
@@ -96,17 +98,21 @@ export function NewCardSpotlight({
   };
 
   const total = queue?.length ?? 0;
-  const isPush = current ? String(current.cardKey).startsWith('push:') : false;
+  // Keep rendering the last card while the dialog animates closed. NEVER
+  // unmount the Dialog while it is open — Radix leaves pointer-events:none on
+  // <body>, which freezes the whole board (no drags, no buttons).
+  const display = current ?? (queue && total > 0 ? queue[total - 1] : null);
+  const isPush = display ? String(display.cardKey).startsWith('push:') : false;
 
   const amountText = useMemo(() => {
-    if (!current || typeof current.amount !== 'number') return null;
-    return current.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-  }, [current]);
+    if (!display || typeof display.amount !== 'number') return null;
+    return display.amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  }, [display]);
 
-  if (!current) return null;
+  if (!display) return null;
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) dismissAll(); }}>
+    <Dialog open={!!current} onOpenChange={(open) => { if (!open) dismissAll(); }}>
       <DialogContent
         className="max-w-[420px] rounded-[24px] p-0 overflow-hidden border-0 shadow-[0_24px_80px_rgba(0,0,0,0.35)] gap-0 text-white"
         data-testid="new-card-spotlight"
@@ -123,7 +129,7 @@ export function NewCardSpotlight({
         </div>
         <AnimatePresence mode="wait">
           <motion.div
-            key={String(current.cardKey)}
+            key={String(display.cardKey)}
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
@@ -135,21 +141,21 @@ export function NewCardSpotlight({
                 From Archangel
               </div>
             )}
-            <div className="text-[19px] font-bold text-[#1d1d1f] leading-snug">{current.title}</div>
-            {current.subtitle && !isPush && (
-              <div className="text-[13px] text-[#6e6e73] mt-0.5">{current.subtitle}</div>
+            <div className="text-[19px] font-bold text-[#1d1d1f] leading-snug">{display.title}</div>
+            {display.subtitle && !isPush && (
+              <div className="text-[13px] text-[#6e6e73] mt-0.5">{display.subtitle}</div>
             )}
-            {amountText && !current.module && (
+            {amountText && !display.module && (
               <div className="text-[15px] font-semibold text-[#1d1d1f] mt-1">{amountText}</div>
             )}
-            {current.description && (
-              <p className="text-[13px] text-[#3a3a3c] mt-2 leading-relaxed line-clamp-4">{current.description}</p>
+            {display.description && (
+              <p className="text-[13px] text-[#3a3a3c] mt-2 leading-relaxed line-clamp-4">{display.description}</p>
             )}
-            {current.module && (
+            {display.module && (
               <div className="mt-3 space-y-2">
-                <ModuleMetrics module={current.module} tint={{ bd: '#f5f5f7' }} />
-                <ModuleEvidence module={current.module} tint={{ bg: '#fafafa', border: '#e8e8ed', hairline: '#e8e8ed', bd: '#e8e8ed' }} />
-                <ModuleDecision cardKey={current.cardKey} token={token} module={current.module} readOnly={readOnly} tint={{ bd: '#e8e8ed' }} />
+                <ModuleMetrics module={display.module} tint={{ bd: '#f5f5f7' }} />
+                <ModuleEvidence module={display.module} tint={{ bg: '#fafafa', border: '#e8e8ed', hairline: '#e8e8ed', bd: '#e8e8ed' }} />
+                <ModuleDecision cardKey={display.cardKey} token={token} module={display.module} readOnly={readOnly} onReadOnlyClick={onReadOnlyClick} tint={{ bd: '#e8e8ed' }} />
               </div>
             )}
             <div className="flex items-center gap-2 mt-5">
@@ -157,8 +163,8 @@ export function NewCardSpotlight({
                 type="button"
                 data-testid="spotlight-details"
                 onClick={() => {
-                  markSeen([String(current.cardKey)]);
-                  onOpenDetails(current);
+                  markSeen([String(display.cardKey)]);
+                  onOpenDetails(display);
                   dismissAll();
                 }}
                 className="h-[40px] px-4 rounded-[12px] bg-black/[0.05] text-[#1d1d1f] text-[13px] font-semibold hover:bg-black/[0.08] transition-colors"

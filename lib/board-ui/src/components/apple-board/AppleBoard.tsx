@@ -421,6 +421,10 @@ export function AppleBoard({
                       token={token}
                       isDragged={draggedCard === card.cardKey}
                       readOnly={viewer.readOnly}
+                      onReadOnlyClick={() => {
+                        if (!viewer.authenticated) onLoginRequired();
+                        else if (showToast) showToast({ title: 'Read-only access', description: 'Ask your property manager for edit access.' });
+                      }}
                       onDragStart={(e) => handleDragStart(e, card.cardKey)}
                       onDragEnd={(e) => handleDragEnd(e, card.cardKey)}
                       onTouchDragBegin={(x, y) => beginTouchDrag(card.cardKey, x, y)}

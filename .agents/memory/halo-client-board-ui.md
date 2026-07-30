@@ -31,3 +31,9 @@ Board now follows the uploaded fixed-seed spec (attached_assets/REPLIT_PROMPT_17
 - Board open pops unseen cards front-and-center (NewCardSpotlight): seen-set in localStorage per token with in-memory fallback; first visit baselines quietly except pushed cards still in Sent stage. Keep it gated behind the tour so they never overlap.
 - Add-card button is intentionally visible to guests; unauthenticated click opens the sign-in dialog instead of hiding the affordance ("clients can't create" complaints were guests with no visible entry point).
 - Never call the parent's onClose/setState inside a React setState updater (DashboardTour advance) — triggers "cannot update a component while rendering".
+
+## Read-only viewers & module action buttons (Jul 2026)
+- ModuleDecision action buttons are now ALWAYS rendered (even for guests/read-only); clicking while readOnly calls optional `onReadOnlyClick` (wired to the Sign In dialog for guests, a toast for read-only members). Never hide or `disabled=` the buttons for readOnly — silent dead buttons were the "clients can't do anything" complaint.
+- **Every button inside ModuleDecision/card modules must have `type="button"`** — these components render inside the Card Details dialog whose body is a form; untyped buttons fire a phantom form submit ("Form submission canceled because the form is not connected") and the click does nothing.
+- CardDetailDialog must receive a LIVE card (re-derived from board query data by cardKey), not a snapshot, or post-action flips (e.g. flags WORK REQUESTED) never appear in the dialog.
+- Playwright HTML5 drag simulation is flaky (dragstart often never fires); a failed synthetic drag is not proof the board broke — check for AppleCard console errors instead.

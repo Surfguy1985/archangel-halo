@@ -389,7 +389,7 @@ export function ModuleEvidence({ module, tint }: { module: any; tint: any }) {
   return null;
 }
 
-export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { module: any; tint: any; cardKey: string; token: string; readOnly: boolean }) {
+export function ModuleDecision({ module, tint, cardKey, token, readOnly, onReadOnlyClick }: { module: any; tint: any; cardKey: string; token: string; readOnly: boolean; onReadOnlyClick?: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const actionMut = useClientBoardCardAction();
@@ -407,7 +407,9 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
   const handleAction = (e: React.MouseEvent, action: string, data: any = {}, openUrl?: string | null) => {
     e.stopPropagation();
     if (readOnly) {
-      toast({ title: 'Sign in required', description: 'You are viewing as a guest.', variant: 'destructive' });
+      // Guests get a sign-in prompt instead of a silently dead button.
+      if (onReadOnlyClick) onReadOnlyClick();
+      else toast({ title: 'Sign in required', description: 'You are viewing as a guest.', variant: 'destructive' });
       return;
     }
     // Open synchronously so mobile popup blockers allow it; the event is
@@ -447,7 +449,7 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
               </button>
             )}
             {module.canApprove ? (
-              <button type="button" disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'approve')} className="flex-[1.4] h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] disabled:opacity-50 transition-colors">
+              <button type="button" disabled={isPending} onClick={(e) => handleAction(e, 'approve')} className="flex-[1.4] h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] disabled:opacity-50 transition-colors">
                 {isPending ? 'Wait...' : 'Approve Invoice'}
               </button>
             ) : !module.pdfUrl ? (
@@ -461,10 +463,10 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
               <CheckCircle2 className="w-3 h-3" /> Approved — how will you pay?
             </div>
             <div className="flex items-center h-[36px] gap-2">
-              <button type="button" disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'pay_method', { method: 'ach' }, module.payUrl)} className="flex-[1.4] h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 disabled:opacity-50 transition-colors">
+              <button type="button" disabled={isPending} onClick={(e) => handleAction(e, 'pay_method', { method: 'ach' }, module.payUrl)} className="flex-[1.4] h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 disabled:opacity-50 transition-colors">
                 <CreditCard className="w-3.5 h-3.5 mr-1.5" /> Pay by ACH
               </button>
-              <button type="button" disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'pay_method', { method: 'check' })} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 disabled:opacity-50 transition-colors">
+              <button type="button" disabled={isPending} onClick={(e) => handleAction(e, 'pay_method', { method: 'check' })} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 disabled:opacity-50 transition-colors">
                 Mail a Check
               </button>
             </div>
@@ -475,7 +477,7 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
             <a href={module.payUrl || '#'} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex-[1.6] h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] transition-colors">
               Open Pay Hub <ArrowUpRight className="w-3.5 h-3.5 ml-1" />
             </a>
-            <button type="button" disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'pay_method', { method: 'check' })} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#6e6e73] text-[10px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 disabled:opacity-50 transition-colors">
+            <button type="button" disabled={isPending} onClick={(e) => handleAction(e, 'pay_method', { method: 'check' })} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#6e6e73] text-[10px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 disabled:opacity-50 transition-colors">
               Check instead
             </button>
           </div>
@@ -485,7 +487,7 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
             <div className="flex-[1.6] h-full rounded-[8px] bg-[#5c7a28]/10 text-[#5c7a28] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center pointer-events-none border border-[#5c7a28]/20">
               <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> CHECK ON THE WAY
             </div>
-            <button type="button" disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'pay_method', { method: 'ach' }, module.payUrl)} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#6e6e73] text-[10px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 disabled:opacity-50 transition-colors">
+            <button type="button" disabled={isPending} onClick={(e) => handleAction(e, 'pay_method', { method: 'ach' }, module.payUrl)} className="flex-1 h-full rounded-[8px] bg-white border border-black/10 text-[#6e6e73] text-[10px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-black/5 disabled:opacity-50 transition-colors">
               ACH instead
             </button>
           </div>
@@ -529,14 +531,14 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
               <input type="date" value={neededBy} onChange={e => setNeededBy(e.target.value)} className="flex-1 min-w-0 h-8 text-[11px] px-2 rounded-[6px] border border-black/10 bg-black/[0.02] focus:outline-none focus:border-black/30" />
             </div>
             <div className="flex gap-2 mt-1">
-              <button onClick={() => setFormOpen(false)} className="flex-1 h-8 rounded-[6px] bg-white border border-black/10 text-[10px] font-[800] uppercase tracking-wider hover:bg-black/5">Cancel</button>
-              <button disabled={isPending || readOnly} onClick={(e) => handleAction(e, 'schedule', { name, note, unitNo, neededBy })} className="flex-1 h-8 rounded-[6px] bg-[#B4FF44] text-[#101C33] text-[10px] font-[800] uppercase tracking-wider hover:bg-[#9EE622] disabled:opacity-50">Submit</button>
+              <button type="button" onClick={() => setFormOpen(false)} className="flex-1 h-8 rounded-[6px] bg-white border border-black/10 text-[10px] font-[800] uppercase tracking-wider hover:bg-black/5">Cancel</button>
+              <button type="button" disabled={isPending} onClick={(e) => handleAction(e, 'schedule', { name, note, unitNo, neededBy })} className="flex-1 h-8 rounded-[6px] bg-[#B4FF44] text-[#101C33] text-[10px] font-[800] uppercase tracking-wider hover:bg-[#9EE622] disabled:opacity-50">Submit</button>
             </div>
           </div>
         )}
         
         {module.canSchedule ? (
-           <button disabled={readOnly} onClick={(e) => { e.stopPropagation(); setFormOpen(!formOpen); }} className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] disabled:opacity-50 transition-colors">
+           <button type="button" onClick={(e) => { e.stopPropagation(); if (readOnly) { onReadOnlyClick?.(); return; } setFormOpen(!formOpen); }} className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] disabled:opacity-50 transition-colors">
               Schedule Work / Get Bid
            </button>
         ) : (
@@ -567,14 +569,14 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
             <input type="text" placeholder="Contact email or phone" value={contact} onChange={e => setContact(e.target.value)} className="h-8 text-[11px] px-2 rounded-[6px] border border-white/20 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:border-[#B4FF44]" />
             <input type="text" placeholder="Your name (optional)" value={name} onChange={e => setName(e.target.value)} className="h-8 text-[11px] px-2 rounded-[6px] border border-white/20 bg-white/5 text-white placeholder-white/40 focus:outline-none focus:border-[#B4FF44]" />
             <div className="flex gap-2 mt-1">
-              <button onClick={() => setFormOpen(false)} className="flex-1 h-8 rounded-[6px] bg-transparent border border-white/20 text-white text-[10px] font-[800] uppercase tracking-wider hover:bg-white/5">Cancel</button>
-              <button disabled={isPending || readOnly || !contact} onClick={(e) => handleAction(e, 'refer', { contact, name })} className="flex-1 h-8 rounded-[6px] bg-[#B4FF44] text-[#101C33] text-[10px] font-[800] uppercase tracking-wider hover:bg-[#9EE622] disabled:opacity-50">Send</button>
+              <button type="button" onClick={() => setFormOpen(false)} className="flex-1 h-8 rounded-[6px] bg-transparent border border-white/20 text-white text-[10px] font-[800] uppercase tracking-wider hover:bg-white/5">Cancel</button>
+              <button type="button" disabled={isPending || readOnly || !contact} onClick={(e) => handleAction(e, 'refer', { contact, name })} className="flex-1 h-8 rounded-[6px] bg-[#B4FF44] text-[#101C33] text-[10px] font-[800] uppercase tracking-wider hover:bg-[#9EE622] disabled:opacity-50">Send</button>
             </div>
           </div>
         )}
         
         {module.canRefer && (
-           <button disabled={readOnly} onClick={(e) => { e.stopPropagation(); setFormOpen(!formOpen); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 disabled:opacity-50 transition-colors shadow-sm">
+           <button type="button" onClick={(e) => { e.stopPropagation(); if (readOnly) { onReadOnlyClick?.(); return; } setFormOpen(!formOpen); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 disabled:opacity-50 transition-colors shadow-sm">
               Send Referral
            </button>
         )}
@@ -616,7 +618,7 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
     return (
       <>
         <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
-          <button onClick={(e) => { e.stopPropagation(); setBirdseyeOpen(true); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
+          <button type="button" onClick={(e) => { e.stopPropagation(); setBirdseyeOpen(true); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
             Open live map <MapIcon className="w-3.5 h-3.5 ml-1.5" />
           </button>
         </div>
@@ -631,7 +633,7 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
 
     return (
       <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
-        <button className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors pointer-events-none">
+        <button type="button" className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors pointer-events-none">
           View Invoices
         </button>
         {singlePayUrl && (
@@ -647,7 +649,7 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
     return (
       <>
         <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
-          <button onClick={(e) => { e.stopPropagation(); setPdfViewerUrl(module.pdfUrl); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
+          <button type="button" onClick={(e) => { e.stopPropagation(); setPdfViewerUrl(module.pdfUrl); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
             View Proposal
           </button>
         </div>
@@ -661,7 +663,7 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly }: { mod
       <>
         <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
           {module.isPdf ? (
-            <button onClick={(e) => { e.stopPropagation(); setPdfViewerUrl(module.url); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
+            <button type="button" onClick={(e) => { e.stopPropagation(); setPdfViewerUrl(module.url); }} className="flex-1 h-full rounded-[8px] bg-[#101C33] text-white text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#101C33]/90 transition-colors">
               View Document
             </button>
           ) : (
