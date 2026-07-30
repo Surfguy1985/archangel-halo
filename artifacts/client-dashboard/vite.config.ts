@@ -60,6 +60,12 @@ export default defineConfig({
       workbox: {
         navigateFallbackDenylist: [/^\/api/],
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // Bust every previous version: take control immediately and drop
+        // caches from older service-worker builds so devices stop serving
+        // stale bundles after a publish.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
       },
     }),
     ...(process.env.NODE_ENV !== 'production' &&
