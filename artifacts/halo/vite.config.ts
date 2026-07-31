@@ -68,6 +68,12 @@ export default defineConfig({
       workbox: {
         // Main bundle exceeds workbox's 2 MiB default precache cap.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Purge every previous build's precache and take over open tabs as
+        // soon as a new publish is downloaded — otherwise installed PWAs keep
+        // serving stale builds until every tab is closed.
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         // Never let this app's service worker hijack navigations that belong
         // to sibling artifacts — otherwise an installed HALO PWA serves its
         // cached shell at /board/<token> and the desktop-redirect bounces the
