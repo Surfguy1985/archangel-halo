@@ -152,13 +152,22 @@ export function AppleBoard({
       return;
     }
 
+    // Mirror the server's card.moved gate exactly: only job:, crew: and
+    // invoice: cards are barred from ENTERING Done (HALO moves them when the
+    // work/payment actually completes). Reordering a card already in Done is
+    // allowed, and every other card type (push:, request:, custom:) may move
+    // to any lane on its board.
     if (!isPm && laneKey === 'done') {
       const card = board?.cards?.find((c: any) => c.cardKey === cardKey);
-      if (card && (card.template === 'job' || card.template === 'invoice' || card.template === 'request')) {
+      const officeControlled =
+        cardKey.startsWith('job:') || cardKey.startsWith('crew:') || cardKey.startsWith('invoice:');
+      if (card && officeControlled && card.lane !== 'done') {
         if (showToast) {
           showToast({
             title: "Cannot move to Done",
-            description: "This card must be completed by the office.",
+            description: cardKey.startsWith('invoice:')
+              ? "Invoices move to Done when payment clears in HALO."
+              : "It moves when HALO confirms the work is complete.",
             variant: "destructive"
           });
         }

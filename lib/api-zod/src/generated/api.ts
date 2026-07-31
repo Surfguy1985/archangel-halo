@@ -2587,6 +2587,36 @@ export const ResetAllDataResponse = zod.object({
 
 
 /**
+ * @summary Whether the Presentation Mode demo property is seeded, and its dashboard token
+ */
+export const GetPresentationDemoResponse = zod.object({
+  "active": zod.boolean(),
+  "dashboardToken": zod.string().nullable(),
+  "propertyId": zod.string().nullable()
+})
+
+
+/**
+ * @summary Seed (or re-seed) the mock demo property, crews, jobs, invoices, and board cards for Presentation Mode
+ */
+export const ActivatePresentationDemoResponse = zod.object({
+  "active": zod.boolean(),
+  "dashboardToken": zod.string().nullable(),
+  "propertyId": zod.string().nullable()
+})
+
+
+/**
+ * @summary Remove all Presentation Mode demo data
+ */
+export const DeactivatePresentationDemoResponse = zod.object({
+  "active": zod.boolean(),
+  "dashboardToken": zod.string().nullable(),
+  "propertyId": zod.string().nullable()
+})
+
+
+/**
  * @summary Run the Autopilot background checks immediately
  */
 export const RunAutopilotNowResponse = zod.object({

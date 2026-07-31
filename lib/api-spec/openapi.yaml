@@ -1750,6 +1750,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/OkResponse"
 
+  /presentation/demo:
+    get:
+      operationId: getPresentationDemo
+      tags: [money]
+      summary: Whether the Presentation Mode demo property is seeded, and its dashboard token
+      responses:
+        "200":
+          description: Presentation demo state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresentationDemoState"
+    post:
+      operationId: activatePresentationDemo
+      tags: [money]
+      summary: Seed (or re-seed) the mock demo property, crews, jobs, invoices, and board cards for Presentation Mode
+      responses:
+        "200":
+          description: Demo seeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresentationDemoState"
+    delete:
+      operationId: deactivatePresentationDemo
+      tags: [money]
+      summary: Remove all Presentation Mode demo data
+      responses:
+        "200":
+          description: Demo removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PresentationDemoState"
+
   /autopilot/run:
     post:
       operationId: runAutopilotNow
@@ -9665,6 +9700,13 @@ components:
         lastCheckinKind: { type: ["string", "null"], description: "checkin | checkout" }
         lastCheckinLabel: { type: ["string", "null"] }
         lastCheckinAt: { type: ["string", "null"] }
+    PresentationDemoState:
+      type: object
+      required: [active, dashboardToken, propertyId]
+      properties:
+        active: { type: boolean }
+        dashboardToken: { type: ["string", "null"] }
+        propertyId: { type: ["string", "null"] }
     CrewInput:
       type: object
       required: [name]

@@ -63,4 +63,6 @@
 - [HALO card modules](halo-card-modules.md) — invoice pay-flow state machine, projected-vs-pushed invoice dedupe, TWO BoardCardModules copies, type="button" inside dialog form.
 - [HALO crew message attachments](halo-message-attachments.md) — crew_messages carry attachmentName/Path; invoice PDFs are client-generated (jsPDF) and delivered into the thread; all thread UIs must render attachments.
 - [HALO Falkon waybill cards](halo-falkon-waybill.md) — FLK codes + volt dot strips derived on read from lane/column; required spec fields; strip push: prefix before hashing.
+- [HALO Presentation Mode](halo-presentation-mode.md) — More-sheet toggle seeds/removes a double-marker demo property; narrated ?present=1 walkthrough; never single-marker teardown.
+- [HALO card create/move contract](halo-card-create-contract.md) — checklist must be {id,text,done} objects (strings 400); drag gate mirrors server by cardKey prefix, never template type.
 - [HALO kanban hardening](halo-kanban-hardening.md) — board contract enums/unions + ModuleBoundary + useBoardEvents + session cookie + rate limits; clientAuth must pass through unresolved tokens; pay limiter POST-only.

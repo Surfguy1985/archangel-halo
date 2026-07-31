@@ -33,6 +33,7 @@ import workRequestsRouter from "./workRequests";
 import invoiceJobDraftRouter from "./invoiceJobDraft";
 import clientBoardRouter from "./clientBoard";
 import clientCmsRouter from "./clientCms";
+import presentationRouter from "./presentation";
 
 const router: IRouter = Router();
 
@@ -86,5 +87,6 @@ router.use(clientBoardRouter);
 router.use(clientCmsRouter);
 router.use(workRequestsRouter);
 router.use(invoiceJobDraftRouter);
+router.use(presentationRouter);
 
 export default router;

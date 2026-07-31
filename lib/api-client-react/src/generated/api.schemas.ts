@@ -2484,6 +2484,14 @@ export interface CrewMapPin {
   lastCheckinAt?: string | null;
 }
 
+export interface PresentationDemoState {
+  active: boolean;
+  /** @nullable */
+  dashboardToken: string | null;
+  /** @nullable */
+  propertyId: string | null;
+}
+
 export interface CrewInput {
   /** @minLength 1 */
   name: string;

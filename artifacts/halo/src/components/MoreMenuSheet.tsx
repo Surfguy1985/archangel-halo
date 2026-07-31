@@ -1,6 +1,97 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Link } from "wouter";
-import { CalendarDays, GitBranch, Package, ShieldCheck, FileUp, BookOpen, ChevronRight, ClipboardList, Settings, Feather } from "lucide-react";
+import { CalendarDays, GitBranch, Package, ShieldCheck, FileUp, BookOpen, ChevronRight, ClipboardList, Settings, Feather, Presentation, ExternalLink, Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetPresentationDemo,
+  useActivatePresentationDemo,
+  useDeactivatePresentationDemo,
+  getGetPresentationDemoQueryKey,
+} from "@workspace/api-client-react";
+
+// Presentation Mode: seeds a clearly-marked mock property (mock crews, jobs,
+// invoices, live crew pings) and opens the real client board in a narrated,
+// spotlight-guided walkthrough. Turning it off removes every demo row.
+function PresentationModeRow() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: state } = useGetPresentationDemo({
+    query: { queryKey: getGetPresentationDemoQueryKey() },
+  });
+  const activate = useActivatePresentationDemo();
+  const deactivate = useDeactivatePresentationDemo();
+  const busy = activate.isPending || deactivate.isPending;
+  const active = state?.active ?? false;
+  const demoUrl = state?.dashboardToken
+    ? `${window.location.origin}/board/${state.dashboardToken}?present=1`
+    : null;
+
+  const refresh = () =>
+    queryClient.invalidateQueries({ queryKey: getGetPresentationDemoQueryKey() });
+
+  const onToggle = (next: boolean) => {
+    if (busy) return;
+    if (next) {
+      activate.mutate(undefined, {
+        onSuccess: (s) => {
+          refresh();
+          toast({ title: "Presentation Mode is on", description: "Demo property seeded. Opening the guided demo board…" });
+          if (s?.dashboardToken) {
+            window.open(`${window.location.origin}/board/${s.dashboardToken}?present=1`, "_blank");
+          }
+        },
+        onError: () => toast({ title: "Couldn't start Presentation Mode", variant: "destructive" }),
+      });
+    } else {
+      deactivate.mutate(undefined, {
+        onSuccess: () => {
+          refresh();
+          toast({ title: "Presentation Mode is off", description: "All demo data removed." });
+        },
+        onError: () => toast({ title: "Couldn't remove demo data", variant: "destructive" }),
+      });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-[10px]">
+      <div className="flex items-center gap-[13px] bg-card border border-[var(--hairline)] rounded-[14px] p-[13px_14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+        <div className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--paper)] border border-[var(--hairline)] shrink-0">
+          {busy ? (
+            <Loader2 className="w-[19px] h-[19px] text-[var(--gold-dark)] animate-spin" strokeWidth={1.9} />
+          ) : (
+            <Presentation className="w-[19px] h-[19px] text-[var(--gold-dark)]" strokeWidth={1.9} />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-display font-bold text-[15px]">Presentation Mode</div>
+          <div className="text-[12.5px] text-muted-foreground">
+            {active
+              ? "Demo property is live — mock crews, jobs & invoices"
+              : "Seed a mock demo board with a guided voice walkthrough"}
+          </div>
+        </div>
+        <Switch checked={active} disabled={busy} onCheckedChange={onToggle} data-testid="switch-presentation-mode" />
+      </div>
+      {active && demoUrl && (
+        <a href={demoUrl} target="_blank" rel="noreferrer" data-testid="link-presentation-demo">
+          <div className="flex items-center gap-[13px] bg-card border border-[var(--hairline)] rounded-[14px] p-[13px_14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]">
+            <div className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--paper)] border border-[var(--hairline)] shrink-0">
+              <ExternalLink className="w-[19px] h-[19px] text-[var(--gold-dark)]" strokeWidth={1.9} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-display font-bold text-[15px]">Open the guided demo board</div>
+              <div className="text-[12.5px] text-muted-foreground">Narrated walkthrough on the live client board</div>
+            </div>
+            <ChevronRight className="w-[18px] h-[18px] text-muted-foreground shrink-0" />
+          </div>
+        </a>
+      )}
+    </div>
+  );
+}
 
 const groups = [
   {
@@ -50,6 +141,12 @@ export function MoreMenuSheet({
             <div className="text-[13px] text-muted-foreground">The back office — quiet until it matters.</div>
           </SheetHeader>
           <div className="flex flex-col gap-[18px]">
+            <div>
+              <div className="text-[11.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground/70 mb-[8px] px-[4px]">
+                Showcase
+              </div>
+              <PresentationModeRow />
+            </div>
             {groups.map((group) => (
               <div key={group.label}>
                 <div className="text-[11.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground/70 mb-[8px] px-[4px]">

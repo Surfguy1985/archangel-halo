@@ -7,6 +7,7 @@ import { CommandPalette } from '@/components/kanban/CommandPalette';
 import { MapPin, User, Loader2, LayoutGrid, BookOpen, Headphones, Search, LogOut } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { DashboardTour } from '@/components/DashboardTour';
+import { PresentationMode } from '@/components/PresentationMode';
 import { motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -43,6 +44,10 @@ function Board() {
   };
 
   const [loginOpen, setLoginOpen] = useState(false);
+  // Presentation Mode: ?present=1 launches the narrated investor walkthrough.
+  const [presentationOpen, setPresentationOpen] = useState(
+    () => searchParams.get('present') === '1',
+  );
   const [birdseyeOpen, setBirdseyeOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -95,6 +100,7 @@ function Board() {
   
   useEffect(() => {
     if (!boardLoaded) return;
+    if (presentationOpen) return; // presentation replaces the intro tour
     const tourSeenKey = `halo_dashboard_tour_seen_${token}`;
     if (viewerAuthenticated) {
       if (!viewerTourSeen) {
@@ -112,7 +118,29 @@ function Board() {
       try { localStorage.setItem(tourSeenKey, '1'); } catch {}
       setTourOpen(true);
     }
-  }, [boardLoaded, viewerAuthenticated, viewerTourSeen, token, markTourSeen]);
+  }, [boardLoaded, viewerAuthenticated, viewerTourSeen, token, markTourSeen, presentationOpen]);
+
+  // Presentation Mode live actions: driven through the office API so the
+  // audience watches the real SSE pipeline update the board. Manual /api URLs
+  // must be absolute — never BASE_URL-prefixed.
+  const runPresentationAction = async (action: string) => {
+    try {
+      const state = await fetch('/api/presentation/demo').then((r) => r.json());
+      if (!state?.active || !state.propertyId || state.dashboardToken !== token) return;
+      const card = (board?.cards || []).find((c: any) =>
+        String(c.title || '').toLowerCase().includes('landscaping'),
+      );
+      if (!card) return;
+      const lane = action === 'move-demo-card-in-progress' ? 'in_progress' : 'scheduled';
+      await fetch(`/api/admin/accounts/${state.propertyId}/board/actions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'card.moved', cardKey: card.cardKey, payload: { lane, position: 0 } }),
+      });
+    } catch {
+      // The narration carries on even if the live move fails.
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem(`halo_client_session_${token}`);
@@ -378,11 +406,18 @@ function Board() {
         onOpenChange={setBirdseyeOpen}
       />
 
-      {tourOpen && <DashboardTour onClose={() => setTourOpen(false)} />}
+      {tourOpen && !presentationOpen && <DashboardTour onClose={() => setTourOpen(false)} />}
+
+      {presentationOpen && (
+        <PresentationMode
+          onClose={() => setPresentationOpen(false)}
+          onDemoAction={(a) => void runPresentationAction(a)}
+        />
+      )}
 
       {/* Front-and-center popups for cards the viewer hasn't seen yet. Held
           back while the tour runs so the two never fight for the screen. */}
-      {boardLoaded && !tourOpen && (
+      {boardLoaded && !tourOpen && !presentationOpen && (
         <NewCardSpotlight
           token={token}
           cards={board?.cards || []}

@@ -256,6 +256,7 @@ import type {
   PortalSelfieResult,
   PortalUnseen,
   PortalWings,
+  PresentationDemoState,
   PriceItem,
   PriceItemImportInput,
   PriceItemImportResult,
@@ -6142,6 +6143,225 @@ export const useResetAllData = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getResetAllDataMutationOptions(options));
+    }
+
+export const getGetPresentationDemoUrl = () => {
+
+
+
+
+  return `/api/presentation/demo`
+}
+
+/**
+ * @summary Whether the Presentation Mode demo property is seeded, and its dashboard token
+ */
+export const getPresentationDemo = async ( options?: RequestInit): Promise<PresentationDemoState> => {
+
+  return customFetch<PresentationDemoState>(getGetPresentationDemoUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPresentationDemoQueryKey = () => {
+    return [
+    `/api/presentation/demo`
+    ] as const;
+    }
+
+
+export const getGetPresentationDemoQueryOptions = <TData = Awaited<ReturnType<typeof getPresentationDemo>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPresentationDemo>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPresentationDemoQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPresentationDemo>>> = ({ signal }) => getPresentationDemo({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPresentationDemo>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPresentationDemoQueryResult = NonNullable<Awaited<ReturnType<typeof getPresentationDemo>>>
+export type GetPresentationDemoQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Whether the Presentation Mode demo property is seeded, and its dashboard token
+ */
+
+export function useGetPresentationDemo<TData = Awaited<ReturnType<typeof getPresentationDemo>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPresentationDemo>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPresentationDemoQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getActivatePresentationDemoUrl = () => {
+
+
+
+
+  return `/api/presentation/demo`
+}
+
+/**
+ * @summary Seed (or re-seed) the mock demo property, crews, jobs, invoices, and board cards for Presentation Mode
+ */
+export const activatePresentationDemo = async ( options?: RequestInit): Promise<PresentationDemoState> => {
+
+  return customFetch<PresentationDemoState>(getActivatePresentationDemoUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getActivatePresentationDemoMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activatePresentationDemo>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof activatePresentationDemo>>, TError,void, TContext> => {
+
+const mutationKey = ['activatePresentationDemo'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof activatePresentationDemo>>, void> = () => {
+
+
+          return  activatePresentationDemo(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActivatePresentationDemoMutationResult = NonNullable<Awaited<ReturnType<typeof activatePresentationDemo>>>
+
+    export type ActivatePresentationDemoMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Seed (or re-seed) the mock demo property, crews, jobs, invoices, and board cards for Presentation Mode
+ */
+export const useActivatePresentationDemo = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof activatePresentationDemo>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof activatePresentationDemo>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getActivatePresentationDemoMutationOptions(options));
+    }
+
+export const getDeactivatePresentationDemoUrl = () => {
+
+
+
+
+  return `/api/presentation/demo`
+}
+
+/**
+ * @summary Remove all Presentation Mode demo data
+ */
+export const deactivatePresentationDemo = async ( options?: RequestInit): Promise<PresentationDemoState> => {
+
+  return customFetch<PresentationDemoState>(getDeactivatePresentationDemoUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeactivatePresentationDemoMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deactivatePresentationDemo>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deactivatePresentationDemo>>, TError,void, TContext> => {
+
+const mutationKey = ['deactivatePresentationDemo'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deactivatePresentationDemo>>, void> = () => {
+
+
+          return  deactivatePresentationDemo(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeactivatePresentationDemoMutationResult = NonNullable<Awaited<ReturnType<typeof deactivatePresentationDemo>>>
+
+    export type DeactivatePresentationDemoMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove all Presentation Mode demo data
+ */
+export const useDeactivatePresentationDemo = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deactivatePresentationDemo>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deactivatePresentationDemo>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeactivatePresentationDemoMutationOptions(options));
     }
 
 export const getRunAutopilotNowUrl = () => {

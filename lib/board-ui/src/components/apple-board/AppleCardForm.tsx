@@ -51,7 +51,17 @@ export function AppleCardForm({ template, open, onClose, onBack, defaultLane = '
         dueOn: dueOn || undefined,
         category: template?.category || 'blank',
         priority: template?.priority || 'normal',
-        checklist,
+        // Server contract: checklist items are {id, text, done} objects, not
+        // bare strings — sending strings makes the create 400 with a blank
+        // "Invalid input" for every template that ships a checklist.
+        checklist: checklist.map((text) => ({
+          id:
+            typeof crypto !== 'undefined' && 'randomUUID' in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          text,
+          done: false,
+        })),
         labels: template?.labelPreset ? [template.labelPreset] : [],
         board: boardKey,
       });

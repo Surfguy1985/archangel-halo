@@ -386,6 +386,7 @@ export * from './portalUnseen';
 export * from './portalWings';
 export * from './portalWingsRecruitsItem';
 export * from './portalWingsReserve';
+export * from './presentationDemoState';
 export * from './priceItem';
 export * from './priceItemImportInput';
 export * from './priceItemImportResult';
