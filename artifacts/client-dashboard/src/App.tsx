@@ -7,6 +7,7 @@ import MapView from '@/pages/map';
 import UnitsPage from '@/pages/units';
 import HubPage from '@/pages/hub';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
+import { UpdatePrompt } from '@/components/UpdatePrompt';
 import './auth-init';
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ function App() {
           <Router />
         </WouterRouter>
         <Toaster />
+        <UpdatePrompt />
       </TooltipProvider>
     </QueryClientProvider>
   );

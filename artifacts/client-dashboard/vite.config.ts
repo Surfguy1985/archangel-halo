@@ -35,8 +35,11 @@ export default defineConfig({
     tailwindcss(),
     runtimeErrorOverlay(),
     VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      // 'prompt' lets the app detect a freshly published build while open and
+      // show an "Update available — Refresh" toast instead of silently waiting
+      // for the next launch (see src/components/UpdatePrompt.tsx).
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'HALO Client Dashboard',

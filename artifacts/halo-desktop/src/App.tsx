@@ -4,6 +4,7 @@ import { Toaster} from "@/components/ui/toaster";
 import { TooltipProvider} from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { DesktopLayout} from "@/components/DesktopLayout";
+import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { SplashScreen} from "@/components/SplashScreen";
 import Today from "@/pages/Today";
 import Properties from "@/pages/Properties";
@@ -82,6 +83,7 @@ function App() {
           </Switch>
         </WouterRouter>
         <Toaster />
+        <UpdatePrompt />
       </TooltipProvider>
     </QueryClientProvider>
   );
