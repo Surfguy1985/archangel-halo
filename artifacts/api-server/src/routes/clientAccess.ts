@@ -1,3 +1,4 @@
+import { deriveWaybill, waybillCodeFor } from "../lib/waybill";
 import { limits } from "../lib/rateLimit";
 import { Router, type IRouter } from "express";
 import { and, desc, eq, inArray, isNull, isNotNull, sql } from "drizzle-orm";
@@ -566,6 +567,8 @@ function serCard(c: typeof clientBoardCardsTable.$inferSelect) {
     completedAt: c.completedAt?.toISOString() ?? null,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
+    waybillCode: waybillCodeFor(c.id),
+    waybill: deriveWaybill(c),
   };
 }
 

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BoardColumn } from './boardColumn';
+import type { CardWaybill } from './cardWaybill';
 import type { ClientBoardFeedCardKind } from './clientBoardFeedCardKind';
 import type { ClientBoardFeedCardLink } from './clientBoardFeedCardLink';
 import type { ClientCardModule } from './clientCardModule';
@@ -33,4 +34,7 @@ export interface ClientBoardFeedCard {
   completedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  /** FLK-XXXXX network code, deterministic per card (Crockford base32). */
+  waybillCode: string;
+  waybill: CardWaybill;
 }

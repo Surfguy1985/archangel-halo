@@ -8286,9 +8286,36 @@ components:
         url: { type: string }
         kind: { type: ["string", "null"], description: "pay | pdf | summary | tracker" }
 
+    WaybillStage:
+      type: string
+      description: "Network progress stage — one dot on the card's waybill strip."
+      enum: [sealed, routed, delivered, opened, in_review, settled]
+
+    WaybillStageEntry:
+      type: object
+      required: [stage, at]
+      properties:
+        stage:
+          $ref: "#/components/schemas/WaybillStage"
+        at: { type: string, description: "ISO timestamp the stage completed" }
+        byLabel: { type: ["string", "null"], description: "Who moved it, if known" }
+
+    CardWaybill:
+      type: object
+      required: [stages, holder, live]
+      properties:
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/WaybillStageEntry"
+        holder:
+          type: string
+          enum: [sender, network, recipient, done]
+        live: { type: boolean }
+
     ClientBoardFeedCard:
       type: object
-      required: [id, column, kind, title, links, createdAt, updatedAt]
+      required: [id, column, kind, title, links, createdAt, updatedAt, waybillCode, waybill]
       properties:
         id: { type: string }
         column:
@@ -8315,6 +8342,11 @@ components:
         completedAt: { type: ["string", "null"] }
         createdAt: { type: string }
         updatedAt: { type: string }
+        waybillCode:
+          type: string
+          description: "FLK-XXXXX network code, deterministic per card (Crockford base32)."
+        waybill:
+          $ref: "#/components/schemas/CardWaybill"
 
     ClientCardActionInput:
       description: "Module action. Wire format is unchanged from the legacy flat shape — the union only narrows which fields are valid per action."
@@ -12270,7 +12302,7 @@ components:
 
     ClientBoardCardView:
       type: object
-      required: [cardKey, template, title, lane, position, editable, pipeline, stageIndex, actions, photos]
+      required: [cardKey, template, title, lane, position, editable, pipeline, stageIndex, actions, photos, waybillCode, waybill]
       properties:
         cardKey: { type: string }
         # HALO-fed ids (job, makeready, invoice, crew, request), "custom", or a
@@ -12322,6 +12354,11 @@ components:
           items:
             $ref: "#/components/schemas/BoardChecklistItem"
         commentCount: { type: integer }
+        waybillCode:
+          type: string
+          description: "FLK-XXXXX network code, deterministic per card (Crockford base32)."
+        waybill:
+          $ref: "#/components/schemas/CardWaybill"
         sentToOffice:
           oneOf:
             - $ref: "#/components/schemas/BoardCardOfficeSendState"

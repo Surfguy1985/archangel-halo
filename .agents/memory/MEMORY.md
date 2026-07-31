@@ -62,4 +62,5 @@
 - [HALO shared board UI](halo-board-ui.md) — @workspace/board-ui Apple board used by client + office views; Tailwind @source, composite build, token threading gotchas.
 - [HALO card modules](halo-card-modules.md) — invoice pay-flow state machine, projected-vs-pushed invoice dedupe, TWO BoardCardModules copies, type="button" inside dialog form.
 - [HALO crew message attachments](halo-message-attachments.md) — crew_messages carry attachmentName/Path; invoice PDFs are client-generated (jsPDF) and delivered into the thread; all thread UIs must render attachments.
+- [HALO Falkon waybill cards](halo-falkon-waybill.md) — FLK codes + volt dot strips derived on read from lane/column; required spec fields; strip push: prefix before hashing.
 - [HALO kanban hardening](halo-kanban-hardening.md) — board contract enums/unions + ModuleBoundary + useBoardEvents + session cookie + rate limits; clientAuth must pass through unresolved tokens; pay limiter POST-only.

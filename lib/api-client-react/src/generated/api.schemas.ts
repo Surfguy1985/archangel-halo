@@ -381,6 +381,48 @@ export interface ClientBoardFeedCardLink {
 }
 
 /**
+ * Network progress stage — one dot on the card's waybill strip.
+ */
+export type WaybillStage = typeof WaybillStage[keyof typeof WaybillStage];
+
+
+export const WaybillStage = {
+  sealed: 'sealed',
+  routed: 'routed',
+  delivered: 'delivered',
+  opened: 'opened',
+  in_review: 'in_review',
+  settled: 'settled',
+} as const;
+
+export interface WaybillStageEntry {
+  stage: WaybillStage;
+  /** ISO timestamp the stage completed */
+  at: string;
+  /**
+     * Who moved it, if known
+     * @nullable
+     */
+  byLabel?: string | null;
+}
+
+export type CardWaybillHolder = typeof CardWaybillHolder[keyof typeof CardWaybillHolder];
+
+
+export const CardWaybillHolder = {
+  sender: 'sender',
+  network: 'network',
+  recipient: 'recipient',
+  done: 'done',
+} as const;
+
+export interface CardWaybill {
+  stages: WaybillStageEntry[];
+  holder: CardWaybillHolder;
+  live: boolean;
+}
+
+/**
  * What raised the card. Note: kind `flag` carries a module of type `flags` (legacy plural; kept for stored-card compatibility).
  */
 export type ClientBoardFeedCardKind = typeof ClientBoardFeedCardKind[keyof typeof ClientBoardFeedCardKind];
@@ -706,6 +748,9 @@ export interface ClientBoardFeedCard {
   completedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  /** FLK-XXXXX network code, deterministic per card (Crockford base32). */
+  waybillCode: string;
+  waybill: CardWaybill;
 }
 
 export type CardApproveActionAction = typeof CardApproveActionAction[keyof typeof CardApproveActionAction];
@@ -5347,6 +5392,9 @@ export interface ClientBoardCardView {
   labels?: string[];
   checklist?: BoardChecklistItem[];
   commentCount?: number;
+  /** FLK-XXXXX network code, deterministic per card (Crockford base32). */
+  waybillCode: string;
+  waybill: CardWaybill;
   sentToOffice?: BoardCardOfficeSendState | null;
 }
 

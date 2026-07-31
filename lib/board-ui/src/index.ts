@@ -6,3 +6,5 @@ export * from './components/apple-board/templates';
 export * from './components/kanban/BoardCardModules';export * from './components/kanban/moduleSchemas';
 export * from './components/kanban/ModuleBoundary';
 export * from './hooks/useBoardEvents';
+export { WaybillStrip, WAYBILL_STAGE_ORDER } from './components/card/WaybillStrip';
+export type { WaybillStage, WaybillStageEntryView } from './components/card/WaybillStrip';

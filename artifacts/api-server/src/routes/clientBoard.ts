@@ -59,6 +59,20 @@ import {
 import { bidsTable } from "@workspace/db";
 import { computeUnitStatuses, normUnit } from "./clientCms";
 import { emitBoardEvent } from "../lib/boardEvents";
+import { deriveLaneWaybill, waybillCodeFor } from "../lib/waybill";
+
+// Every projected card gets a network waybill: the FLK code is deterministic
+// per cardKey, and the six-dot progress derives from the card's LANE — so a
+// drag on either board lights the dots through the normal SSE→refetch path.
+function decorateWaybill<T extends { cardKey: string; lane: string }>(card: T) {
+  return {
+    ...card,
+    // Strip the board projection's "push:" prefix so the SAME card shows the
+    // SAME FLK code on the client board and the office mirror.
+    waybillCode: waybillCodeFor(card.cardKey.replace(/^push:/, "")),
+    waybill: deriveLaneWaybill(card.lane, card as Record<string, unknown>),
+  };
+}
 
 const router: IRouter = Router();
 
@@ -761,7 +775,7 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   }
 
   cards.sort((a, b) => (a.position as number) - (b.position as number));
-  return cards;
+  return cards.map(decorateWaybill);
 }
 
 // The client's own property-management board: only their cards, no HALO feed.
@@ -827,7 +841,8 @@ async function projectPmBoard(account: typeof clientAccountsTable.$inferSelect) 
             note: c.officeNote ?? null,
           }
         : null,
-    }));
+    }))
+    .map(decorateWaybill);
   cards.sort((a, b) => a.position - b.position);
   return cards;
 }

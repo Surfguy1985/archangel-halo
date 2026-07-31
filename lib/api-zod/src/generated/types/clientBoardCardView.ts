@@ -7,6 +7,7 @@
  */
 import type { BoardCardOfficeSendState } from './boardCardOfficeSendState';
 import type { BoardChecklistItem } from './boardChecklistItem';
+import type { CardWaybill } from './cardWaybill';
 import type { ClientBoardCardButton } from './clientBoardCardButton';
 import type { ClientBoardCardViewModule } from './clientBoardCardViewModule';
 import type { ClientBoardCrew } from './clientBoardCrew';
@@ -60,5 +61,8 @@ export interface ClientBoardCardView {
   labels?: string[];
   checklist?: BoardChecklistItem[];
   commentCount?: number;
+  /** FLK-XXXXX network code, deterministic per card (Crockford base32). */
+  waybillCode: string;
+  waybill: CardWaybill;
   sentToOffice?: BoardCardOfficeSendState | null;
 }

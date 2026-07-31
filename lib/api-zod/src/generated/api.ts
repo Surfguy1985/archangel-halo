@@ -7966,7 +7966,17 @@ export const GetOfficeClientBoardResponse = zod.object({
 })]).describe('Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.'),zod.null()]).optional().describe('Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request).'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "waybillCode": zod.string().describe('FLK-XXXXX network code, deterministic per card (Crockford base32).'),
+  "waybill": zod.object({
+  "stages": zod.array(zod.object({
+  "stage": zod.enum(['sealed', 'routed', 'delivered', 'opened', 'in_review', 'settled']).describe('Network progress stage — one dot on the card\'s waybill strip.'),
+  "at": zod.string().describe('ISO timestamp the stage completed'),
+  "byLabel": zod.string().nullish().describe('Who moved it, if known')
+})),
+  "holder": zod.enum(['sender', 'network', 'recipient', 'done']),
+  "live": zod.boolean()
+})
 }))
 })
 
@@ -8097,7 +8107,17 @@ export const CreateOfficeClientBoardCardResponse = zod.object({
 })]).describe('Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.'),zod.null()]).optional().describe('Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request).'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "waybillCode": zod.string().describe('FLK-XXXXX network code, deterministic per card (Crockford base32).'),
+  "waybill": zod.object({
+  "stages": zod.array(zod.object({
+  "stage": zod.enum(['sealed', 'routed', 'delivered', 'opened', 'in_review', 'settled']).describe('Network progress stage — one dot on the card\'s waybill strip.'),
+  "at": zod.string().describe('ISO timestamp the stage completed'),
+  "byLabel": zod.string().nullish().describe('Who moved it, if known')
+})),
+  "holder": zod.enum(['sender', 'network', 'recipient', 'done']),
+  "live": zod.boolean()
+})
 })
 
 
@@ -8231,7 +8251,17 @@ export const UpdateOfficeClientBoardCardResponse = zod.object({
 })]).describe('Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.'),zod.null()]).optional().describe('Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request).'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "waybillCode": zod.string().describe('FLK-XXXXX network code, deterministic per card (Crockford base32).'),
+  "waybill": zod.object({
+  "stages": zod.array(zod.object({
+  "stage": zod.enum(['sealed', 'routed', 'delivered', 'opened', 'in_review', 'settled']).describe('Network progress stage — one dot on the card\'s waybill strip.'),
+  "at": zod.string().describe('ISO timestamp the stage completed'),
+  "byLabel": zod.string().nullish().describe('Who moved it, if known')
+})),
+  "holder": zod.enum(['sender', 'network', 'recipient', 'done']),
+  "live": zod.boolean()
+})
 })
 
 
@@ -8809,7 +8839,17 @@ export const GetClientBoardFeedResponse = zod.object({
 })]).describe('Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.'),zod.null()]).optional().describe('Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request).'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "waybillCode": zod.string().describe('FLK-XXXXX network code, deterministic per card (Crockford base32).'),
+  "waybill": zod.object({
+  "stages": zod.array(zod.object({
+  "stage": zod.enum(['sealed', 'routed', 'delivered', 'opened', 'in_review', 'settled']).describe('Network progress stage — one dot on the card\'s waybill strip.'),
+  "at": zod.string().describe('ISO timestamp the stage completed'),
+  "byLabel": zod.string().nullish().describe('Who moved it, if known')
+})),
+  "holder": zod.enum(['sender', 'network', 'recipient', 'done']),
+  "live": zod.boolean()
+})
 }))
 })
 
@@ -8934,7 +8974,17 @@ export const UpdateClientBoardFeedCardResponse = zod.object({
 })]).describe('Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.'),zod.null()]).optional().describe('Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request).'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "waybillCode": zod.string().describe('FLK-XXXXX network code, deterministic per card (Crockford base32).'),
+  "waybill": zod.object({
+  "stages": zod.array(zod.object({
+  "stage": zod.enum(['sealed', 'routed', 'delivered', 'opened', 'in_review', 'settled']).describe('Network progress stage — one dot on the card\'s waybill strip.'),
+  "at": zod.string().describe('ISO timestamp the stage completed'),
+  "byLabel": zod.string().nullish().describe('Who moved it, if known')
+})),
+  "holder": zod.enum(['sender', 'network', 'recipient', 'done']),
+  "live": zod.boolean()
+})
 })
 
 
@@ -9077,7 +9127,17 @@ export const ClientBoardCardActionResponse = zod.object({
 })]).describe('Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.'),zod.null()]).optional().describe('Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request).'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
-  "updatedAt": zod.string()
+  "updatedAt": zod.string(),
+  "waybillCode": zod.string().describe('FLK-XXXXX network code, deterministic per card (Crockford base32).'),
+  "waybill": zod.object({
+  "stages": zod.array(zod.object({
+  "stage": zod.enum(['sealed', 'routed', 'delivered', 'opened', 'in_review', 'settled']).describe('Network progress stage — one dot on the card\'s waybill strip.'),
+  "at": zod.string().describe('ISO timestamp the stage completed'),
+  "byLabel": zod.string().nullish().describe('Who moved it, if known')
+})),
+  "holder": zod.enum(['sender', 'network', 'recipient', 'done']),
+  "live": zod.boolean()
+})
 })
 
 
@@ -9251,6 +9311,16 @@ export const GetClientBoardResponse = zod.object({
   "done": zod.boolean()
 })).optional(),
   "commentCount": zod.number().optional(),
+  "waybillCode": zod.string().describe('FLK-XXXXX network code, deterministic per card (Crockford base32).'),
+  "waybill": zod.object({
+  "stages": zod.array(zod.object({
+  "stage": zod.enum(['sealed', 'routed', 'delivered', 'opened', 'in_review', 'settled']).describe('Network progress stage — one dot on the card\'s waybill strip.'),
+  "at": zod.string().describe('ISO timestamp the stage completed'),
+  "byLabel": zod.string().nullish().describe('Who moved it, if known')
+})),
+  "holder": zod.enum(['sender', 'network', 'recipient', 'done']),
+  "live": zod.boolean()
+}),
   "sentToOffice": zod.union([zod.object({
   "sentAt": zod.string(),
   "status": zod.string().describe('pending | accepted | declined'),
@@ -9346,6 +9416,16 @@ export const GetClientPmBoardResponse = zod.object({
   "done": zod.boolean()
 })).optional(),
   "commentCount": zod.number().optional(),
+  "waybillCode": zod.string().describe('FLK-XXXXX network code, deterministic per card (Crockford base32).'),
+  "waybill": zod.object({
+  "stages": zod.array(zod.object({
+  "stage": zod.enum(['sealed', 'routed', 'delivered', 'opened', 'in_review', 'settled']).describe('Network progress stage — one dot on the card\'s waybill strip.'),
+  "at": zod.string().describe('ISO timestamp the stage completed'),
+  "byLabel": zod.string().nullish().describe('Who moved it, if known')
+})),
+  "holder": zod.enum(['sender', 'network', 'recipient', 'done']),
+  "live": zod.boolean()
+}),
   "sentToOffice": zod.union([zod.object({
   "sentAt": zod.string(),
   "status": zod.string().describe('pending | accepted | declined'),
@@ -9444,6 +9524,16 @@ export const GetOfficeBoardFullResponse = zod.object({
   "done": zod.boolean()
 })).optional(),
   "commentCount": zod.number().optional(),
+  "waybillCode": zod.string().describe('FLK-XXXXX network code, deterministic per card (Crockford base32).'),
+  "waybill": zod.object({
+  "stages": zod.array(zod.object({
+  "stage": zod.enum(['sealed', 'routed', 'delivered', 'opened', 'in_review', 'settled']).describe('Network progress stage — one dot on the card\'s waybill strip.'),
+  "at": zod.string().describe('ISO timestamp the stage completed'),
+  "byLabel": zod.string().nullish().describe('Who moved it, if known')
+})),
+  "holder": zod.enum(['sender', 'network', 'recipient', 'done']),
+  "live": zod.boolean()
+}),
   "sentToOffice": zod.union([zod.object({
   "sentAt": zod.string(),
   "status": zod.string().describe('pending | accepted | declined'),

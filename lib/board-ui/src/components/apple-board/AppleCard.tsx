@@ -4,6 +4,14 @@ import { MessageSquare, Calendar, Wrench, FileText, FileSearch, HardHat, FileSig
 import { formatDistanceToNow, parseISO, isBefore, startOfDay } from 'date-fns';
 import { ModuleMetrics, ModuleEvidence, ModuleDecision } from '../kanban/BoardCardModules';
 import { ModuleBoundary } from '../kanban/ModuleBoundary';
+import { WaybillStrip } from '../card/WaybillStrip';
+
+// Falkon money-card face: invoices and payment requests get the full-bleed
+// branded header from the card pack; everything else keeps the Apple face
+// and gains the compact waybill strip.
+const MONEY_TEMPLATES = new Set(['invoice', 'push_invoice', 'push_invoice_batch', 'push_payment_request']);
+const MONEY_MODULE_TYPES = new Set(['invoice', 'invoice_batch']);
+const MONEY_GRADIENT: [string, string] = ['#2C7BF2', '#1B57C4'];
 
 interface AppleCardProps {
   card: any;
@@ -136,6 +144,95 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
 
   const priorityDot = priorityColors[card.priority || 'normal'] || priorityColors.normal;
 
+  const isMoney =
+    MONEY_TEMPLATES.has(card.template) ||
+    MONEY_MODULE_TYPES.has((card.module as any)?.type) ||
+    MONEY_TEMPLATES.has(card.kind);
+  const waybill = card.waybill as { stages: Array<{ stage: string; at: string; byLabel?: string | null }>; holder?: string; live?: boolean } | undefined;
+
+  if (isMoney && waybill) {
+    // ── Falkon face — branded header, FLK code + live dots, existing modules ──
+    return (
+      <div
+        id={`card-${card.cardKey}`}
+        draggable={!readOnly}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onTouchStart={handleTouchStart}
+        onClick={() => {
+          if (justDragged.current) return;
+          onClick?.();
+        }}
+        className="flex flex-col border rounded-[18px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.12)] transition-all cursor-pointer active:scale-[0.98] max-sm:select-none overflow-hidden relative bg-white"
+        style={{ WebkitTouchCallout: 'none', borderColor: '#1B57C440' } as React.CSSProperties}
+      >
+        <div
+          className="px-4 pt-3 pb-3 text-white"
+          style={{ backgroundImage: `linear-gradient(135deg, ${MONEY_GRADIENT[0]}, ${MONEY_GRADIENT[1]})` }}
+        >
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className="w-6 h-6 rounded-[7px] border-[1.5px] grid place-items-center text-[10px] font-extrabold shrink-0"
+              style={{ borderColor: '#B4FF44', color: '#B4FF44' }}
+            >
+              HA
+            </span>
+            <span className="text-[9px] font-extrabold tracking-[.09em] uppercase bg-white/20 px-2 py-[3px] rounded-md">
+              {String(card.module?.type === 'invoice_batch' ? 'invoices' : 'invoice')}
+            </span>
+            <span className="ml-auto inline-flex items-center gap-1 text-[9px] font-bold px-2 py-[3px] rounded-md whitespace-nowrap" style={{ background: 'rgba(11,20,40,.42)', color: '#B4FF44' }}>
+              Sealed to you
+            </span>
+          </div>
+          <h3 className="text-[15px] font-bold leading-[1.25] tracking-[-0.02em] mt-2 line-clamp-2">{card.title}</h3>
+          {card.subtitle && <p className="text-[11px] leading-[1.4] opacity-85 mt-0.5 line-clamp-1">{card.subtitle}</p>}
+        </div>
+
+        <div className="px-2 pt-2">
+          <WaybillStrip code={card.waybillCode} stages={waybill.stages} holder={waybill.holder} live={waybill.live !== false} />
+        </div>
+
+        <div className="flex flex-col p-4 pt-3">
+          {card.module && (
+            <div className="mb-3 space-y-2">
+              <ModuleBoundary module={card.module} surface="metrics" links={card.links}>
+                <ModuleMetrics module={card.module} tint={{ bd: '#f5f5f7' }} />
+              </ModuleBoundary>
+              <ModuleBoundary module={card.module} surface="evidence">
+                <ModuleEvidence module={card.module} tint={{ bg: '#fafafa', border: '#e8e8ed', hairline: '#e8e8ed', bd: '#e8e8ed' }} />
+              </ModuleBoundary>
+              {token && card.actions && card.actions.length > 0 && (
+                <ModuleBoundary module={card.module} surface="decision">
+                  <ModuleDecision cardKey={card.cardKey} token={token} module={card.module} readOnly={!!readOnly} onReadOnlyClick={onReadOnlyClick} tint={{ bd: '#e8e8ed' }} />
+                </ModuleBoundary>
+              )}
+            </div>
+          )}
+          <div className="flex items-center gap-2 mt-auto pt-1">
+            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: priorityDot }} />
+            {(card.dueOn || card.scheduledOn) && (
+              <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${isPastDue ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-[#f5f5f7] text-[#6e6e73]'}`}>
+                <Calendar className="h-3 w-3" strokeWidth={2.5} />
+                <span>
+                  {card.scheduledOn
+                    ? `Sched ${formatDistanceToNow(parseISO(card.scheduledOn), { addSuffix: true })}`
+                    : formatDistanceToNow(parseISO(card.dueOn!), { addSuffix: true })}
+                </span>
+              </div>
+            )}
+            <div className="flex-1" />
+            {(card.commentCount ?? 0) > 0 && (
+              <div className="flex items-center gap-1 text-[#6e6e73]">
+                <MessageSquare className="h-3.5 w-3.5" strokeWidth={2.5} />
+                <span className="text-[12px] font-medium">{card.commentCount}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       id={`card-${card.cardKey}`}
@@ -176,6 +273,13 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
           )}
         </div>
       </div>
+
+      {/* Network waybill — six live dots synced to the card's lane */}
+      {waybill && (
+        <div className="mb-3">
+          <WaybillStrip code={card.waybillCode} stages={waybill.stages} holder={waybill.holder} live={waybill.live !== false} compact />
+        </div>
+      )}
 
       {/* Modules (if any) */}
       {card.module && (
