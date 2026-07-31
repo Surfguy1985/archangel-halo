@@ -9,4 +9,6 @@ description: FLK network codes + six volt-dot waybill strips on client/office bo
 - Money cards (invoice templates / invoice module types) get the Falkon gradient face in AppleCard but KEEP ModuleBoundary/ModuleDecision wiring — do not fork the pay-flow state machine into the new face.
 - Both boards move cards via the same `card.moved` dispatch + shared override storage, and both dispatch routes emitBoardEvent — that's why dots stay in sync by construction.
 - ALL cards now use the Falkon face, gradient color-coded by APPLE_CATEGORY_COLORS[template.category]; `headerBase()` darkens light service colors until white header text passes ~4.5:1 — keep that guard if palette changes.
+- `acknowledge` on a module-less card must keep `module` null — a bare `{ acknowledgedAt }` has no `type`, violates the discriminated ClientCardModule union, and 500s the action response parse.
+- Waybill contract is pinned by vitest suites: api-server (unit + supertest contract tests over every board/feed variant, seeded throwaway rows in dev DB) and board-ui (WaybillStrip ping behaviour, jsdom). Run with `pnpm --filter <pkg> run test`.
 - **Why:** user requirement — dots must mirror card movement across boards perfectly; storing waybill state would drift.

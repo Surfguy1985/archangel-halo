@@ -864,7 +864,11 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
         });
       }
     } else if (body.action === "acknowledge") {
-      module.acknowledgedAt = nowIso;
+      // Module-less cards (plain manual pushes) must STAY module-less: a bare
+      // { acknowledgedAt } object has no `type`, which violates the
+      // discriminated ClientCardModule union and 500s the response parse.
+      // The Done move below carries the acknowledgement for those cards.
+      if (card.module) module.acknowledgedAt = nowIso;
     } else {
       status = 400;
       payload = { error: "Unknown action" };
@@ -875,7 +879,7 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
     const [updated] = await tx
       .update(clientBoardCardsTable)
       .set({
-        module,
+        module: card.module ? module : null,
         updatedAt: now,
         ...(moveDone ? { column: "done", completedAt: now } : {}),
       })
