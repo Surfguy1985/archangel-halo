@@ -16,3 +16,5 @@ description: Board contract enums/unions, ModuleBoundary, useBoardEvents SSE hoo
 - Deliberately NOT integrated: the pack's transactional outbox (server/board-events.ts in /tmp pack + repo attached_assets zip) — overlaps the existing "multi-server live updates" project task; current emitBoardEvent is in-process.
 - Dev proxy rewrites cookie SameSite=Strict → None; origin sets Strict (verified via localhost).
 - The old local client-dashboard copy of apple-board/ was dead code and was deleted; kanban/BoardCardModules local copy is still live and must stay in sync with lib/board-ui.
+
+**Contract guard:** `scripts/src/check-board-contract.ts` runs inside `pnpm run typecheck` (scripts package) and fails loudly if module types drift between openapi.yaml ClientCardModule mapping, board-ui moduleSchemas MODULE_TYPES, and either BoardCardModules.tsx renderer copy. New module types must be added in all four places.

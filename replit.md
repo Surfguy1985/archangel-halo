@@ -38,7 +38,7 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- **Board contract guard**: client-board module types live in 4 places that must match — `lib/api-spec/openapi.yaml` (`ClientCardModule` oneOf + discriminator mapping), `lib/board-ui/src/components/kanban/moduleSchemas.ts` (Zod union), and BOTH renderer copies of `BoardCardModules.tsx` (board-ui + client-dashboard). `scripts/src/check-board-contract.ts` fails `pnpm run typecheck` on any drift. To add a new module type: spec → orval codegen → moduleSchemas → both renderers → server emitter, then run the guard (`pnpm --filter @workspace/scripts run check:board-contract`).
 
 ## Pointers
 

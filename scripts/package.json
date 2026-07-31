@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsx ./src/check-board-contract.ts",
+    "check:board-contract": "tsx ./src/check-board-contract.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",
