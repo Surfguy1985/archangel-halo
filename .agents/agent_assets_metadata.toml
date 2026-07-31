@@ -102,3 +102,9 @@ id = "04KjBWbVorsDSdnPLtP34"
 uri = "file://exports/halo-desktop-codebase.zip"
 type = "unspecified"
 title = "HALO Desktop — full codebase (zip)"
+
+[[outputs]]
+id = "ZfcGPEHzH0--XwQnCxmjW"
+uri = "file://exports/halo-desktop-code-only.zip"
+type = "unspecified"
+title = "HALO Desktop — code only (952 KB zip)"
