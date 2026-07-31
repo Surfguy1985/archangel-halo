@@ -15,3 +15,8 @@ description: Investor demo — seeded mock property + narrated spotlight walkthr
 - Office-side half ("Board Demo — office side"): `?present=1` on `/properties/:id/board` (mobile halo) opens `OfficeBoardDemo.tsx`, same MP3 chain with clips in `halo/src/assets/office-demo/`. Desktop app does NOT have this route — desktop-viewport visitors get redirected to /desktop and would 404; the demo is mobile-only by design.
 - Seed also uploads bundled before/after photos (`artifacts/api-server/assets/demo/*.jpg`) into object storage under fixed names `/objects/demo-board/*` (overwrite-safe) and raises a real `photos`-module card. The server runs bundled from dist, so asset paths must be probed (dist vs src vs cwd), never assumed from `import.meta.dirname`. Photo seeding is best-effort: storage failure skips the photos card, never fails the seed.
 - Re-seeding (POST) invalidates the previous dashboardToken — always re-fetch the token after any activate call when testing.
+
+## Desktop port
+- Desktop app has its own OfficeBoardDemo copy (assets + component duplicated from mobile) opened by ?present=1 on the office board page; entry points live in the sidebar More dropdown ("Showcase" section) and seed the demo via activate before navigating.
+- Desktop office board lanes are requested/scheduled/in_progress/done/billing (AppleBoard `lane-<key>` testids) — NOT the mobile column-inbox model; spotlight targets must use lane-requested for pushed cards.
+- Desktop route alias /properties/:propertyId/board exists so the mobile Showcase link survives the desktop redirect.

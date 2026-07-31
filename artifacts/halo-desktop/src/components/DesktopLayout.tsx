@@ -1,7 +1,15 @@
 import { useState} from "react";
 import { Link, useLocation} from "wouter";
-import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather, ShieldCheck} from "lucide-react";
-import { useGetToday, getGetTodayQueryKey} from "@workspace/api-client-react";
+import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather, ShieldCheck, Presentation, ExternalLink, Loader2} from "lucide-react";
+import { useToast} from "@/hooks/use-toast";
+import { useQueryClient} from "@tanstack/react-query";
+import {
+  useGetToday,
+  getGetTodayQueryKey,
+  useGetPresentationDemo,
+  useActivatePresentationDemo,
+  getGetPresentationDemoQueryKey,
+} from "@workspace/api-client-react";
 import haloLogo from "../assets/halo-logo.png";
 import { NotificationsPopover} from "./NotificationsPopover";
 import { VoiceCaptureDialog} from "./VoiceCaptureDialog";
@@ -37,6 +45,45 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
   const { data: today} = useGetToday({
     query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000},
  });
+
+  // Board Demo (Showcase): same Presentation Mode seed the mobile app uses.
+  // If the demo property isn't seeded yet, seed it first, then open the
+  // narrated walkthrough. Office side runs in this app; client side opens
+  // the real client dashboard in a new tab.
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: demoState } = useGetPresentationDemo({
+    query: { queryKey: getGetPresentationDemoQueryKey() },
+  });
+  const activateDemo = useActivatePresentationDemo();
+  const demoBusy = activateDemo.isPending;
+
+  const withDemoSeed = (go: (s: { propertyId?: string | null; dashboardToken?: string | null }) => void) => {
+    if (demoState?.active) {
+      go(demoState);
+      return;
+    }
+    activateDemo.mutate(undefined, {
+      onSuccess: (s) => {
+        queryClient.invalidateQueries({ queryKey: getGetPresentationDemoQueryKey() });
+        toast({ title: "Presentation Mode is on", description: "Demo property seeded." });
+        go(s ?? {});
+      },
+      onError: () => toast({ title: "Couldn't start the Board Demo", variant: "destructive" }),
+    });
+  };
+
+  const openOfficeDemo = () =>
+    withDemoSeed((s) => {
+      if (s.propertyId) navigate(`/admin/${s.propertyId}/board?present=1`);
+    });
+
+  const openClientDemo = () =>
+    withDemoSeed((s) => {
+      if (s.dashboardToken) {
+        window.open(`${window.location.origin}/board/${s.dashboardToken}?present=1`, "_blank");
+      }
+    });
 
   return (
     <div className="min-h-screen bg-background flex text-foreground">
@@ -108,6 +155,16 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
               <DropdownMenuItem onSelect={() => navigate("/wings")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-wings">
                 <Feather className="w-4 h-4 mr-2" />
                 Wings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-[var(--border)]" />
+              <DropdownMenuLabel className="font-display text-xs">Showcase</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={openOfficeDemo} disabled={demoBusy} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-office-board-demo">
+                {demoBusy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Presentation className="w-4 h-4 mr-2" />}
+                Board Demo — office side
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={openClientDemo} disabled={demoBusy} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-client-board-demo">
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Board Demo — client side
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-[var(--border)]" />
               <DropdownMenuItem onSelect={() => setTourOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]">

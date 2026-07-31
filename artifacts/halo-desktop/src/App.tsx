@@ -76,6 +76,9 @@ function App() {
                   <Route path="/admin" component={Admin} />
                   <Route path="/admin/:propertyId" component={AdminAccount} />
                   <Route path="/admin/:propertyId/board" component={ClientBoardOffice} />
+                  {/* Alias: the mobile app's Board Demo link uses /properties/:id/board?present=1;
+                      desktop visitors get redirected here, so serve the same office board. */}
+                  <Route path="/properties/:propertyId/board" component={ClientBoardOffice} />
                   <Route component={NotFound} />
                 </Switch>
               </DesktopLayout>

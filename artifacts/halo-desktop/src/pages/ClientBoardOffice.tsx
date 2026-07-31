@@ -57,6 +57,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { AppleBoard, useBoardEvents } from "@workspace/board-ui";
+import { OfficeBoardDemo } from "@/components/OfficeBoardDemo";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -1726,6 +1727,11 @@ export default function ClientBoardOffice() {
   const [commentTarget, setCommentTarget] = useState<{ cardKey: string; title: string } | null>(null);
   const [respondTarget, setRespondTarget] = useState<{ cardKey: string; status: "accepted" | "declined" } | null>(null);
 
+  // ?present=1 → narrated Board Demo walkthrough of the office side.
+  const [demoOpen, setDemoOpen] = useState(
+    () => new URLSearchParams(window.location.search).get("present") === "1",
+  );
+
   const { data: boardFull, isLoading: boardLoading } = useGetOfficeBoardFull(propertyId!, {
     query: {
       queryKey: getGetOfficeBoardFullQueryKey(propertyId!),
@@ -1888,6 +1894,7 @@ export default function ClientBoardOffice() {
             {view === "board" && (
               <button
                 onClick={() => setShowPush(true)}
+                data-testid="button-open-send-card"
                 className="px-4 py-2 bg-[#041029] text-[#B4FF44] text-sm font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm"
               >
                 <Plus className="w-4 h-4" /> Push card
@@ -1941,6 +1948,8 @@ export default function ClientBoardOffice() {
           </div>
         </div>
       )}
+
+      {demoOpen && <OfficeBoardDemo onClose={() => setDemoOpen(false)} />}
 
       {showPush && (
         <PushCardDialog
