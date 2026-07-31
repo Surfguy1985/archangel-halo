@@ -40,7 +40,7 @@ const router: IRouter = Router();
 import { clientSessionExchangeHandler, clientAuth, resolveClientPropertyIdForToken } from "../lib/sessionAuth";
 import { limits } from "../lib/rateLimit";
 
-router.post("/client/:token/session", limits.session, clientSessionExchangeHandler(resolveClientPropertyIdForToken));
+router.post("/client/:token/session", limits.session, clientSessionExchangeHandler());
 router.use("/client/:token", clientAuth(resolveClientPropertyIdForToken));
 // Rate-limit only mutating pay requests — GET page loads stay unthrottled so
 // shared-IP viewers and refreshes never 429 the public payment page.

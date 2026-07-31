@@ -1,3 +1,4 @@
+import { useSessionExchange } from '@/hooks/useSessionExchange';
 import React, { useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import {
@@ -288,6 +289,7 @@ function UnitSummarySheet({
 // ---------------------------------------------------------------------------
 export default function UnitsPage() {
   const { token } = useParams<{ token: string }>();
+  useSessionExchange(token);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();

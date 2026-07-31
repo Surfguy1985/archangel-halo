@@ -36,13 +36,32 @@ export async function resolveClientPropertyIdForToken(token: string): Promise<st
   return account.propertyId;
 }
 
+/**
+ * Same lookup but WITHOUT the active-status gate. The session exchange and the
+ * cookie↔path match use this so paused accounts (billing resume in ClientAdmin)
+ * can still mint and use a cookie in strict mode. Handlers keep doing their own
+ * status validation — a cookie only proves "this browser clicked a real link
+ * for this property", never "this account is active".
+ */
+export async function resolveClientPropertyIdForTokenAnyStatus(
+  token: string,
+): Promise<{ propertyId: string; status: string } | null> {
+  const [account] = await db
+    .select({ propertyId: clientAccountsTable.propertyId, status: clientAccountsTable.status })
+    .from(clientAccountsTable)
+    .where(eq(clientAccountsTable.dashboardToken, token))
+    .limit(1);
+  if (!account) return null;
+  return { propertyId: account.propertyId, status: account.status };
+}
+
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
 const COOKIE_NAME = 'halo_client_session'; // matches securitySchemes in the spec
 const SESSION_TTL_S = 60 * 60 * 12; // 12h; the emailed link re-mints on next click
-const STRICT_MODE = false; // flip after the frontend calls /session everywhere
+const STRICT_MODE = true; // all client surfaces now perform the /session exchange on load
 
 // Seam: set SESSION_SECRET in Replit Secrets. Refusing to boot without it is
 // the point — a guessable default here is a forged-session generator.
@@ -85,17 +104,16 @@ export function verifySession(cookie: string | undefined): { propertyId: string 
 // POST /api/client/:token/session — the exchange (in the hardened spec)
 // ---------------------------------------------------------------------------
 
-export function clientSessionExchangeHandler(
-  // Seam: the same token->property lookup the feed endpoint already uses.
-  resolvePropertyIdForToken: (token: string) => Promise<string | null>,
-) {
+export function clientSessionExchangeHandler() {
   return async (req: Request, res: Response) => {
-    const propertyId = await resolvePropertyIdForToken(String(req.params.token));
-    if (!propertyId) {
+    // Any-status lookup: paused accounts still need a cookie to reach the
+    // billing-resume screen in strict mode. Handlers enforce status themselves.
+    const account = await resolveClientPropertyIdForTokenAnyStatus(String(req.params.token));
+    if (!account) {
       res.status(404).json({ error: 'Invalid link' });
       return;
     }
-    res.cookie(COOKIE_NAME, mintSession(propertyId), {
+    res.cookie(COOKIE_NAME, mintSession(account.propertyId), {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',
@@ -118,10 +136,15 @@ export function clientAuth(
     const session = verifySession(req.cookies?.[COOKIE_NAME]);
     if (session) {
       // Cookie must agree with the URL's property — a valid session for
-      // property A must not unlock property B's path.
-      const pathPropertyId = await resolvePropertyIdForToken(String(req.params.token));
-      if (pathPropertyId && pathPropertyId === session.propertyId) {
-        (req as any).propertyId = session.propertyId;
+      // property A must not unlock property B's path. Any-status lookup so
+      // paused accounts (billing resume) still authenticate via cookie;
+      // req.propertyId is only set for active accounts, exactly like the
+      // token path, so handlers keep their own status gates.
+      const pathAccount = await resolveClientPropertyIdForTokenAnyStatus(String(req.params.token));
+      if (pathAccount && pathAccount.propertyId === session.propertyId) {
+        if (pathAccount.status === 'active') {
+          (req as any).propertyId = session.propertyId;
+        }
         (req as any).authVia = 'cookie';
         return next();
       }

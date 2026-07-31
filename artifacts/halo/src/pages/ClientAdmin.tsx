@@ -458,6 +458,15 @@ function BillingCard({ token, billing }: { token: string; billing: ClientBilling
 
 export default function ClientAdmin() {
   const { token } = useParams<{ token: string }>();
+
+  // Token→cookie session exchange: the API is in strict mode, so mutations
+  // (billing resume, payment method, access edits) require the httpOnly
+  // session cookie. The exchange also mints for paused accounts on purpose.
+  useEffect(() => {
+    if (!token) return;
+    fetch(`/api/client/${token}/session`, { method: "POST", credentials: "include" }).catch(() => {});
+  }, [token]);
+
   const { data, isLoading, isError } = useGetClientAccess(token, {
     query: { queryKey: getGetClientAccessQueryKey(token), retry: false },
   });

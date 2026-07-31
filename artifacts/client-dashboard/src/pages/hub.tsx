@@ -1,3 +1,4 @@
+import { useSessionExchange } from '@/hooks/useSessionExchange';
 import React, { useRef, useState } from 'react';
 import { useLocation, useParams } from 'wouter';
 import {
@@ -522,6 +523,7 @@ function ContactMaintenanceDialog({
 // ---------------------------------------------------------------------------
 export default function HubPage() {
   const { token } = useParams<{ token: string }>();
+  useSessionExchange(token);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();

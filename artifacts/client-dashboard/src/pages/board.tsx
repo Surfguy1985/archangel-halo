@@ -1,6 +1,7 @@
 import { useLocation, useParams } from 'wouter';
 import { useGetClientBoard, useMarkClientBoardTourSeen, useDispatchClientBoardAction, useCreateClientBoardCard, useCreateClientBoardAiCard, useGetClientPmBoard, getGetClientPmBoardQueryKey } from '@workspace/api-client-react';
 import { LoginDialog } from '@/components/LoginDialog';
+import { useSessionExchange } from '@/hooks/useSessionExchange';
 import { useToast } from '@/hooks/use-toast';
 import { CommandPalette } from '@/components/kanban/CommandPalette';
 import { MapPin, User, Loader2, LayoutGrid, BookOpen, Headphones, Search, LogOut } from 'lucide-react';
@@ -77,12 +78,9 @@ function Board() {
     queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
   });
 
-  // One-time token→cookie session exchange (starts the token-in-URL
-  // migration; harmless no-op if the session already exists).
-  useEffect(() => {
-    if (!token) return;
-    fetch(`/api/client/${token}/session`, { method: 'POST', credentials: 'include' }).catch(() => {});
-  }, [token]);
+  // One-time token→cookie session exchange (strict mode: mutations require
+  // the cookie; harmless no-op if the session already exists).
+  useSessionExchange(token);
 
   const dispatchAction = useDispatchClientBoardAction();
   const createAiCard = useCreateClientBoardAiCard();

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "wouter";
 import {
   useGetClientRequestOptions,
@@ -14,6 +14,13 @@ export default function ClientRequest() {
     query: { queryKey: getGetClientRequestOptionsQueryKey(token) },
   });
   const create = useCreateClientWorkRequest();
+
+  // Token→cookie session exchange: the API is in strict mode, so the POST
+  // below requires the httpOnly session cookie. Absolute /api on purpose.
+  useEffect(() => {
+    if (!token) return;
+    fetch(`/api/client/${token}/session`, { method: "POST", credentials: "include" }).catch(() => {});
+  }, [token]);
 
   const [serviceId, setServiceId] = useState("");
   const [customService, setCustomService] = useState("");

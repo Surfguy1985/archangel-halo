@@ -1,3 +1,4 @@
+import { useSessionExchange } from '@/hooks/useSessionExchange';
 import React from 'react';
 import { useLocation, useParams } from 'wouter';
 import { useGetClientBoardMap, getGetClientBoardMapQueryKey } from '@workspace/api-client-react';
@@ -29,6 +30,7 @@ const getCrewIcon = (onSite: boolean) => L.divIcon({
 
 export default function MapView() {
   const { token } = useParams<{ token: string }>();
+  useSessionExchange(token);
   const [, setLocation] = useLocation();
 
   const { data: mapData, isLoading, error } = useGetClientBoardMap(token, {
