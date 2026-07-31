@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./palette": "./src/components/apple-board/palette.ts",
+    "./contrast": "./src/components/apple-board/contrast.ts"
   },
   "dependencies": {
     "framer-motion": "catalog:",

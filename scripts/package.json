@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsx ./src/check-board-contract.ts",
-    "check:board-contract": "tsx ./src/check-board-contract.ts"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsx ./src/check-board-contract.ts && tsx ./src/check-card-contrast.ts",
+    "check:board-contract": "tsx ./src/check-board-contract.ts",
+    "check:card-contrast": "tsx ./src/check-card-contrast.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@workspace/board-ui": "workspace:*",
     "tsx": "catalog:"
   }
 }

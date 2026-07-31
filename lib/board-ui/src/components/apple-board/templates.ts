@@ -248,17 +248,10 @@ export const VENDOR_TEMPLATES: AppleTemplate[] = [
   },
 ];
 
-export const APPLE_CATEGORY_COLORS: Record<string, string> = {
-  maintenance: '#007AFF', // Blue
-  lease: '#34C759', // Green
-  rent: '#FF9500', // Orange
-  move: '#5856D6', // Purple
-  coordination: '#AF52DE', // Pink
-  blank: '#8E8E93', // Gray
-  vendor: '#FF2D55', // Red
-  billing: '#FF9500', // Orange
-  access: '#00C7BE', // Teal
-};
+// Palette lives in ./palette (dependency-free) so the contrast guard can
+// import it without pulling in lucide/react; re-exported here to keep the
+// existing import surface unchanged.
+export { APPLE_CATEGORY_COLORS } from './palette';
 
 // ---------------------------------------------------------------------------
 // HARDENING: audience-aware template resolution.

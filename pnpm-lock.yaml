@@ -1451,6 +1451,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.4
+      '@workspace/board-ui':
+        specifier: workspace:*
+        version: link:../lib/board-ui
       tsx:
         specifier: 'catalog:'
         version: 4.23.0
