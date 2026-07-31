@@ -23,6 +23,9 @@
     },
     {
       "path": "./lib/onboarding-packet"
+    },
+    {
+      "path": "./lib/board-demo"
     }
   ]
 }

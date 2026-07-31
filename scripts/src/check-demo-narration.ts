@@ -6,8 +6,8 @@
  *
  *   1. artifacts/client-dashboard/src/components/PresentationMode.tsx
  *        ↔ artifacts/client-dashboard/src/assets/presentation/step-N.mp3
- *   2. artifacts/halo/src/components/OfficeBoardDemo.tsx
- *        ↔ artifacts/halo/src/assets/office-demo/step-N.mp3
+ *   2. lib/board-demo/src/office.ts (shared by halo + halo-desktop
+ *      OfficeBoardDemo components) ↔ lib/board-demo/src/assets/office-demo/step-N.mp3
  *
  * If someone inserts or removes a step without regenerating/renaming clips,
  * the WRONG narration plays over each step with no error — an embarrassing
@@ -43,10 +43,10 @@ const TOURS: Tour[] = [
     clipsDirRel: 'artifacts/client-dashboard/src/assets/presentation',
   },
   {
-    name: 'halo OfficeBoardDemo',
-    componentRel: 'artifacts/halo/src/components/OfficeBoardDemo.tsx',
-    arrayOpen: /STEPS\s*:\s*DemoStep\[\]\s*=\s*\[/,
-    clipsDirRel: 'artifacts/halo/src/assets/office-demo',
+    name: 'shared OfficeBoardDemo script',
+    componentRel: 'lib/board-demo/src/office.ts',
+    arrayOpen: /OFFICE_DEMO_SCRIPT\s*:\s*OfficeDemoScriptStep\[\]\s*=\s*\[/,
+    clipsDirRel: 'lib/board-demo/src/assets/office-demo',
   },
 ];
 

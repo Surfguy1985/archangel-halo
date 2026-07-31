@@ -7,16 +7,10 @@ import { Sparkles, Pause, Play, X, ChevronLeft, ChevronRight } from "lucide-reac
 // pre-rendered ElevenLabs MP3 → SpeechSynthesis → reading timer, all guarded
 // by a generation nonce so interrupted audio can never skip steps.
 
-const clipFiles = import.meta.glob("../assets/office-demo/*.mp3", {
-  eager: true,
-  query: "?url",
-  import: "default",
-}) as Record<string, string>;
-
-function clipFor(index: number): string | null {
-  const hit = Object.entries(clipFiles).find(([p]) => p.endsWith(`/step-${index}.mp3`));
-  return hit ? hit[1] : null;
-}
+// Script + narration clips are shared with the mobile app via
+// @workspace/board-demo; only the spotlight targets are app-specific
+// (desktop spotlights lane-* testids from the AppleBoard).
+import { OFFICE_DEMO_SCRIPT, officeDemoClipFor as clipFor } from "@workspace/board-demo/office";
 
 type DemoStep = {
   title: string;
@@ -25,43 +19,21 @@ type DemoStep = {
   target: string | null;
 };
 
-const STEPS: DemoStep[] = [
-  {
-    title: "The office side of the board",
-    body: "You've seen what the client sees. This is the office side — the same board, viewed from HALO. Cards you send from here land in the client's From Archangel column, and everything the client does shows up right back here.",
-    target: null,
-  },
-  {
-    title: "Four columns, zero guesswork",
-    body: "From Archangel holds every card you've pushed to the client — invoices, live crew trackers, photo sets, and recaps. To do, In progress, and Done mirror the client's own board, so the office always knows exactly what the client is looking at.",
-    target: "lane-requested",
-  },
-  {
-    title: "Send a card in seconds",
-    body: "Tap Send a card and pick a template — an update, a heads-up, or an invoice. The moment you hit send, it appears on the client's board in real time. No email, no portal invite. One tap, and it's in front of them.",
-    target: "button-open-send-card",
-  },
-  {
-    title: "Invoices that collect themselves",
-    body: "When you push an invoice, the card carries everything — the PDF, the amount, the due date, and a live pay link. The client reviews and pays right on the card, and HALO's books reconcile automatically.",
-    target: "lane-requested",
-  },
-  {
-    title: "Live crews and before-and-after proof",
-    body: "The tracker card is a live window to the site — Marco's crew is checked in at Unit 204 right now. And the photo card carries the crew's before-and-after set, so the client sees the damage and the finished wall without ever asking.",
-    target: "lane-requested",
-  },
-  {
-    title: "See it through their eyes",
-    body: "Open their board any time to see exactly what the client sees — same cards, same order, same lights. One truth, two views.",
-    target: null,
-  },
-  {
-    title: "That's the whole loop",
-    body: "Work happens, cards raise themselves, invoices carry their own pay links, and crews prove their work in photos — office and client looking at the same living board. That's HALO.",
-    target: null,
-  },
+/** Per-step spotlight targets, zipped with the shared script by index. */
+const TARGETS: (string | null)[] = [
+  null,
+  "lane-requested",
+  "button-open-send-card",
+  "lane-requested",
+  "lane-requested",
+  null,
+  null,
 ];
+
+const STEPS: DemoStep[] = OFFICE_DEMO_SCRIPT.map((s, i) => ({
+  ...s,
+  target: TARGETS[i] ?? null,
+}));
 
 export function OfficeBoardDemo({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);

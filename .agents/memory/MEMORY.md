@@ -14,6 +14,7 @@
 - [HALO job finance recompute](halo-job-finance.md) — every invoice/payment/expense/crewRate mutation must call recomputeJobFinancials or stored job margins go stale; expenses validate job↔property match.
 - [HALO portal ownership checks](halo-portal-ownership-checks.md) — portal write endpoints must verify referenced entities (e.g. jobId) belong to the crew; no FKs/auth means unchecked refs corrupt data.
 - [HALO activity log persistence](halo-activity-log.md) — activities survive the Settings wipe by design; render as plain text (no entity links) and always pass a limit.
+- [HALO office board demo](halo-office-board-demo.md) — demo script + MP3 clips shared via lib package; per-app spotlight targets zipped by index; narration guard parses the shared file.
 - [HALO desktop tour narration](halo-tour-narration.md) — tour steps voiced by pre-rendered ElevenLabs (Jessica) MP3s keyed chapterId-stepIndex; keep clip/speech/timer fallback chain + genRef nonce guard.
 - [HALO crew selfies](halo-crew-selfies.md) — portal prompts selfie after agreement (skippable/session); any crew name+icon UI must prefer selfiePath image over initials.
 - [HALO portal badges](halo-portal-badges.md) — red unseen badges from crews.portal_seen jsonb; new office→crew content types must update computeUnseen + schema enum + SEEN_SECTIONS.
