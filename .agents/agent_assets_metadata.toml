@@ -96,3 +96,9 @@ id = "BDaDIhqxrPS3F8syNOZl4"
 uri = "file://exports/halo-dev-docs-and-api.zip"
 type = "unspecified"
 title = "HALO Dev Docs + API Spec (ZIP)"
+
+[[outputs]]
+id = "04KjBWbVorsDSdnPLtP34"
+uri = "file://exports/halo-desktop-codebase.zip"
+type = "unspecified"
+title = "HALO Desktop — full codebase (zip)"
