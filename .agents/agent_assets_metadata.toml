@@ -114,3 +114,45 @@ id = "Ph6USVJOvTXBgEKR17pin"
 uri = "file://artifacts/halo/src/assets/halo-logo.png"
 type = "image"
 title = "HALO Logo (PNG, transparent)"
+
+[[outputs]]
+id = "ZGTlfXxJI18odi9dbWLDa"
+uri = "file://artifacts/halo/src/assets/office-demo/step-5.mp3"
+type = "audio"
+title = "step-5.mp3"
+
+[[outputs]]
+id = "Qoo0-SnN3WqBQeSb7GzMC"
+uri = "file://artifacts/halo/src/assets/office-demo/step-6.mp3"
+type = "audio"
+title = "step-6.mp3"
+
+[[outputs]]
+id = "29QixcUwuMcaJ-7WKNsoc"
+uri = "file://artifacts/client-dashboard/src/assets/presentation/step-8.mp3"
+type = "audio"
+title = "step-8.mp3"
+
+[[outputs]]
+id = "SAGRG6rgjMqGX6ng7h_R8"
+uri = "file://artifacts/halo/src/assets/office-demo/step-4.mp3"
+type = "audio"
+title = "step-4.mp3"
+
+[[outputs]]
+id = "PFTC8l9a-aygXtrn0saL-"
+uri = "file://artifacts/halo/src/assets/office-demo/step-0.mp3"
+type = "audio"
+title = "step-0.mp3"
+
+[[outputs]]
+id = "jhe_Iq1DfvfSxdtgBo1Ij"
+uri = "file://artifacts/halo/src/assets/office-demo/step-2.mp3"
+type = "audio"
+title = "step-2.mp3"
+
+[[outputs]]
+id = "LEH1tdlNnnNioBATkWw7K"
+uri = "file://artifacts/halo/src/assets/office-demo/step-1.mp3"
+type = "audio"
+title = "step-1.mp3"

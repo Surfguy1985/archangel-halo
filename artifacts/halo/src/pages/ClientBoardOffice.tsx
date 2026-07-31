@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useSearch } from "wouter";
+import { OfficeBoardDemo } from "@/components/OfficeBoardDemo";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetOfficeClientBoard,
@@ -231,6 +232,9 @@ function SendCardForm({ propertyId, onClose }: { propertyId: string; onClose: ()
 export default function ClientBoardOffice() {
   const params = useParams();
   const propertyId = (params.id as string) ?? "";
+  const search = useSearch();
+  // ?present=1 → narrated Board Demo walkthrough of the office side.
+  const [demoOpen, setDemoOpen] = useState(() => new URLSearchParams(search).get("present") === "1");
   const [formOpen, setFormOpen] = useState(false);
   const { data: board, isLoading } = useGetOfficeClientBoard(propertyId, {
     query: {
@@ -253,6 +257,7 @@ export default function ClientBoardOffice() {
 
   return (
     <div className="pt-2 pb-[24px] animate-in fade-in slide-in-from-bottom-4 duration-300">
+      {demoOpen && <OfficeBoardDemo onClose={() => setDemoOpen(false)} />}
       <Link
         href={`/properties/${propertyId}`}
         className="flex items-center gap-[6px] text-muted-foreground text-[13.5px] font-semibold mb-[10px] w-fit"

@@ -5,6 +5,8 @@
 // rows belonging to the demo property/crews, then rebuilds the ledger so demo
 // invoices never linger in the Books.
 import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   db,
@@ -24,9 +26,12 @@ import {
   paymentRequestJobsTable,
   crewCheckinsTable,
   crewMessagesTable,
+  crewPhotosTable,
 } from "@workspace/db";
 import { raiseClientCard } from "./clientBoard";
-import { buildInvoiceModule, buildCrewMapModule } from "./cardModules";
+import { buildInvoiceModule, buildCrewMapModule, buildPhotosModule } from "./cardModules";
+import { objectStorageClient, ObjectStorageService } from "./objectStorage";
+import { logger } from "./logger";
 import { rebuildLedger, withRefLock } from "./ledger";
 
 export const DEMO_PROPERTY_NAME = "Falkon Demo — Skyline Terrace";
@@ -114,6 +119,7 @@ async function teardownPresentationDemoInner(): Promise<boolean> {
       await tx.delete(invoicesTable).where(inArray(invoicesTable.id, invoiceIds));
     }
     if (crewIds.length) {
+      await tx.delete(crewPhotosTable).where(inArray(crewPhotosTable.crewId, crewIds));
       await tx.delete(crewCheckinsTable).where(inArray(crewCheckinsTable.crewId, crewIds));
       await tx.delete(crewMessagesTable).where(inArray(crewMessagesTable.crewId, crewIds));
       await tx.delete(crewsTable).where(inArray(crewsTable.id, crewIds));
@@ -291,6 +297,14 @@ async function seedPresentationDemoInner(): Promise<{
     { crewId: marco.id, jobId: jobPaint.id, kind: "checkin", lat: 34.1184, lng: -118.3452, label: "Arrived", createdAt: new Date(today.getTime() - 3 * 3600000) },
   ]);
 
+  // Before/after photos on the drywall job. The image files are bundled with
+  // the server and pushed into object storage on every seed (fixed object
+  // names, overwrite-safe), so the photos card uses the exact same
+  // /api/storage serving path as real crew photos. Photo upload is
+  // best-effort: if object storage is unavailable the rest of the demo still
+  // seeds, we just skip the photos card.
+  const demoPhotoRows = await seedDemoPhotos(marco.id, jobPaint.id, today);
+
   await db.insert(crewMessagesTable).values([
     { crewId: marco.id, sender: "crew", body: "Unit 204 prep done, starting first coat after lunch.", createdAt: new Date(today.getTime() - 90 * 60000) },
     { crewId: marco.id, sender: "office", body: "Great — client wants eggshell finish in the living room.", createdAt: new Date(today.getTime() - 60 * 60000) },
@@ -330,6 +344,23 @@ async function seedPresentationDemoInner(): Promise<{
   // targets that projected card (a second manual copy would look duplicated).
   void jobLandscape;
 
+  if (demoPhotoRows > 0) {
+    const photosModule = await buildPhotosModule(prop.id, jobPaint.id);
+    if (photosModule) {
+      await raiseClientCard({
+        propertyId: prop.id,
+        kind: "photos",
+        title: "Before & after — Unit 204 drywall repair",
+        body: "Marco's crew documented the repair from first patch to final coat. Tap through the before/after set.",
+        actionLabel: "View photos",
+        sourceType: "photos",
+        sourceId: jobPaint.id,
+        jobId: jobPaint.id,
+        module: photosModule,
+      });
+    }
+  }
+
   await raiseClientCard({
     propertyId: prop.id,
     kind: "summary",
@@ -344,4 +375,76 @@ async function seedPresentationDemoInner(): Promise<{
   await rebuildLedger();
 
   return { dashboardToken, propertyId: prop.id };
+}
+
+// ---------------------------------------------------------------------------
+// Demo before/after photos
+// ---------------------------------------------------------------------------
+
+const DEMO_PHOTOS: Array<{ file: string; phase: "before" | "after"; note: string }> = [
+  { file: "photo-before-1.jpg", phase: "before", note: "Living room wall damage — before" },
+  { file: "photo-before-2.jpg", phase: "before", note: "Patch and tape in progress" },
+  { file: "photo-after-1.jpg", phase: "after", note: "Repaired and repainted — after" },
+  { file: "photo-after-2.jpg", phase: "after", note: "Final coat, eggshell finish" },
+];
+
+/**
+ * Upload the bundled demo images into object storage under fixed names and
+ * insert crew_photos rows for the drywall job. Returns how many photo rows
+ * were created (0 when storage is unavailable — the demo degrades gracefully).
+ */
+async function seedDemoPhotos(crewId: string, jobId: string, today: Date): Promise<number> {
+  // The server runs bundled from dist/ (import.meta.dirname = dist), but in
+  // other contexts (tests, tsx) it runs from src/lib — probe both layouts plus
+  // the working directory so the assets are found regardless of entry point.
+  const candidates = [
+    path.resolve(import.meta.dirname, "../assets/demo"), // dist/../assets
+    path.resolve(import.meta.dirname, "../../assets/demo"), // src/lib/../../assets
+    path.resolve(process.cwd(), "assets/demo"),
+    path.resolve(process.cwd(), "artifacts/api-server/assets/demo"),
+  ];
+  const { existsSync } = await import("node:fs");
+  const assetsDir = candidates.find((c) => existsSync(path.join(c, DEMO_PHOTOS[0].file)));
+  if (!assetsDir) {
+    logger.warn({ candidates }, "presentation demo: photo assets not found, skipping photos");
+    return 0;
+  }
+  const storage = new ObjectStorageService();
+  let privateDir: string;
+  try {
+    privateDir = storage.getPrivateObjectDir();
+  } catch (err) {
+    logger.warn({ err }, "presentation demo: object storage not configured, skipping photos");
+    return 0;
+  }
+  if (!privateDir.endsWith("/")) privateDir = `${privateDir}/`;
+
+  const rows: (typeof crewPhotosTable.$inferInsert)[] = [];
+  for (const [i, p] of DEMO_PHOTOS.entries()) {
+    try {
+      const buf = await readFile(path.join(assetsDir, p.file));
+      // Fixed object name → re-seeding overwrites instead of accumulating.
+      const objectEntityPath = `${privateDir}demo-board/${p.file}`;
+      const parts = objectEntityPath.startsWith("/") ? objectEntityPath.slice(1) : objectEntityPath;
+      const [bucketName, ...rest] = parts.split("/");
+      await objectStorageClient
+        .bucket(bucketName)
+        .file(rest.join("/"))
+        .save(buf, { contentType: "image/jpeg" });
+      rows.push({
+        crewId,
+        jobId,
+        storagePath: `/objects/demo-board/${p.file}`,
+        takenOn: localYmd(today),
+        phase: p.phase,
+        note: p.note,
+        sizeBytes: buf.length,
+        capturedAt: new Date(today.getTime() - (4 - i) * 3600000),
+      });
+    } catch (err) {
+      logger.warn({ err, file: p.file }, "presentation demo: could not seed photo");
+    }
+  }
+  if (rows.length) await db.insert(crewPhotosTable).values(rows);
+  return rows.length;
 }

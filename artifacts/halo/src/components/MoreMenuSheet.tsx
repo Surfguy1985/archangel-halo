@@ -82,12 +82,29 @@ function PresentationModeRow() {
               <ExternalLink className="w-[19px] h-[19px] text-[var(--gold-dark)]" strokeWidth={1.9} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-display font-bold text-[15px]">Open the guided demo board</div>
-              <div className="text-[12.5px] text-muted-foreground">Narrated walkthrough on the live client board</div>
+              <div className="font-display font-bold text-[15px]">Board Demo — client side</div>
+              <div className="text-[12.5px] text-muted-foreground">Narrated walkthrough of the live client board</div>
             </div>
             <ChevronRight className="w-[18px] h-[18px] text-muted-foreground shrink-0" />
           </div>
         </a>
+      )}
+      {active && state?.propertyId && (
+        <Link
+          href={`/properties/${state.propertyId}/board?present=1`}
+          data-testid="link-office-board-demo"
+        >
+          <div className="flex items-center gap-[13px] bg-card border border-[var(--hairline)] rounded-[14px] p-[13px_14px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-transform active:scale-[0.98]">
+            <div className="w-[38px] h-[38px] rounded-full grid place-items-center bg-[var(--paper)] border border-[var(--hairline)] shrink-0">
+              <Presentation className="w-[19px] h-[19px] text-[var(--gold-dark)]" strokeWidth={1.9} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-display font-bold text-[15px]">Board Demo — office side</div>
+              <div className="text-[12.5px] text-muted-foreground">Narrated walkthrough of the office board</div>
+            </div>
+            <ChevronRight className="w-[18px] h-[18px] text-muted-foreground shrink-0" />
+          </div>
+        </Link>
       )}
     </div>
   );
