@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppleTemplate, APPLE_CATEGORY_COLORS } from './templates';
+import { headerBase } from './contrast';
 import { X, ArrowLeft } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -254,7 +255,7 @@ export function AppleCardForm({ template, open, onClose, onBack, defaultLane = '
                 type="submit"
                 disabled={isSubmitting}
                 className="h-11 px-6 rounded-[10px] font-semibold text-white shadow-sm hover:shadow-md transition-all active:scale-[0.98] disabled:opacity-50"
-                style={{ backgroundColor: color }}
+                style={{ backgroundColor: headerBase(color) }}
               >
                 {isSubmitting ? 'Creating...' : 'Create Card'}
               </button>
