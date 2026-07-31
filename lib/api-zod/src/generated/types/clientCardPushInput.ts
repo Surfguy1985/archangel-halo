@@ -6,10 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ClientCardPushInputAttachmentsItem } from './clientCardPushInputAttachmentsItem';
+import type { ClientCardPushInputKind } from './clientCardPushInputKind';
 
 export interface ClientCardPushInput {
-  /** invoice | payment_request | summary | tracker | photos | flag | manual | referral | crewmap | invoice_batch | bid | document */
-  kind: string;
+  /** Card kind. `flag` raises a module of type `flags` (legacy plural, kept for stored-card compatibility). */
+  kind: ClientCardPushInputKind;
   title: string;
   /** @nullable */
   body?: string | null;

@@ -5,8 +5,8 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { BoardColumn } from './boardColumn';
 
 export interface ClientBoardFeedCardUpdateInput {
-  /** inbox | todo | in_progress | done */
-  column: string;
+  column: BoardColumn;
 }

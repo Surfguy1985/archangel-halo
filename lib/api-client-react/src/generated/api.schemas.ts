@@ -381,17 +381,313 @@ export interface ClientBoardFeedCardLink {
 }
 
 /**
- * Self-contained interactive module payload — kind-specific snapshot (invoice + pay/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state
- * @nullable
+ * What raised the card. Note: kind `flag` carries a module of type `flags` (legacy plural; kept for stored-card compatibility).
  */
-export type ClientBoardFeedCardModule = { [key: string]: unknown } | null;
+export type ClientBoardFeedCardKind = typeof ClientBoardFeedCardKind[keyof typeof ClientBoardFeedCardKind];
+
+
+export const ClientBoardFeedCardKind = {
+  invoice: 'invoice',
+  invoice_batch: 'invoice_batch',
+  payment_request: 'payment_request',
+  bid: 'bid',
+  document: 'document',
+  tracker: 'tracker',
+  crewmap: 'crewmap',
+  flag: 'flag',
+  photos: 'photos',
+  summary: 'summary',
+  referral: 'referral',
+  manual: 'manual',
+} as const;
+
+export type BoardColumn = typeof BoardColumn[keyof typeof BoardColumn];
+
+
+export const BoardColumn = {
+  inbox: 'inbox',
+  todo: 'todo',
+  in_progress: 'in_progress',
+  done: 'done',
+} as const;
+
+export type InvoiceModuleType = typeof InvoiceModuleType[keyof typeof InvoiceModuleType];
+
+
+export const InvoiceModuleType = {
+  invoice: 'invoice',
+} as const;
+
+export interface InvoiceModule {
+  type: InvoiceModuleType;
+  /** @nullable */
+  invoiceNo?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  status?: string | null;
+  /**
+     * YYYY-MM-DD
+     * @nullable
+     */
+  dueDate?: string | null;
+  /** @nullable */
+  pdfUrl?: string | null;
+  /** @nullable */
+  payUrl?: string | null;
+  /** @nullable */
+  canApprove?: boolean | null;
+  /** @nullable */
+  approvedAt?: string | null;
+  /**
+     * ach | check once chosen
+     * @nullable
+     */
+  payMethod?: string | null;
+}
+
+export type InvoiceBatchModuleType = typeof InvoiceBatchModuleType[keyof typeof InvoiceBatchModuleType];
+
+
+export const InvoiceBatchModuleType = {
+  invoice_batch: 'invoice_batch',
+} as const;
+
+export type InvoiceBatchModuleInvoicesItem = {
+  /** @nullable */
+  invoiceNo?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  payUrl?: string | null;
+};
+
+export interface InvoiceBatchModule {
+  type: InvoiceBatchModuleType;
+  /** @nullable */
+  unpaidAmount?: number | null;
+  /** @nullable */
+  count?: number | null;
+  /** @nullable */
+  invoices?: InvoiceBatchModuleInvoicesItem[] | null;
+}
+
+export type BidModuleType = typeof BidModuleType[keyof typeof BidModuleType];
+
+
+export const BidModuleType = {
+  bid: 'bid',
+} as const;
+
+export type BidModuleLineItemsItem = {
+  /** @nullable */
+  service?: string | null;
+  /** @nullable */
+  qty?: number | null;
+  /** @nullable */
+  amount?: number | null;
+};
+
+export interface BidModule {
+  type: BidModuleType;
+  /** @nullable */
+  status?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  scope?: string | null;
+  /** @nullable */
+  pdfUrl?: string | null;
+  /** @nullable */
+  lineItems?: BidModuleLineItemsItem[] | null;
+}
+
+export type DocumentModuleType = typeof DocumentModuleType[keyof typeof DocumentModuleType];
+
+
+export const DocumentModuleType = {
+  document: 'document',
+} as const;
+
+export interface DocumentModule {
+  type: DocumentModuleType;
+  /** @nullable */
+  label?: string | null;
+  /** @nullable */
+  url?: string | null;
+  /** @nullable */
+  isPdf?: boolean | null;
+}
+
+export type TrackerModuleType = typeof TrackerModuleType[keyof typeof TrackerModuleType];
+
+
+export const TrackerModuleType = {
+  tracker: 'tracker',
+} as const;
+
+export interface TrackerModule {
+  type: TrackerModuleType;
+  /** @nullable */
+  jobNo?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  scope?: string | null;
+  /** @nullable */
+  trackerUrl?: string | null;
+}
+
+export type CrewMapModuleType = typeof CrewMapModuleType[keyof typeof CrewMapModuleType];
+
+
+export const CrewMapModuleType = {
+  crewmap: 'crewmap',
+} as const;
+
+export type CrewMapModuleCrewsItem = {
+  /** @nullable */
+  crewName?: string | null;
+  /** @nullable */
+  crewTrade?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  onSite?: boolean | null;
+  /** @nullable */
+  selfieUrl?: string | null;
+};
+
+export interface CrewMapModule {
+  type: CrewMapModuleType;
+  /** @nullable */
+  onSiteCount?: number | null;
+  /** @nullable */
+  crews?: CrewMapModuleCrewsItem[] | null;
+}
+
+export type FlagsModuleType = typeof FlagsModuleType[keyof typeof FlagsModuleType];
+
+
+export const FlagsModuleType = {
+  flags: 'flags',
+} as const;
+
+export type FlagsModuleItemsItem = {
+  /** @nullable */
+  label?: string | null;
+  /** @nullable */
+  unit?: string | null;
+};
+
+export interface FlagsModule {
+  type: FlagsModuleType;
+  /** @nullable */
+  totalCount?: number | null;
+  /** @nullable */
+  requestedAt?: string | null;
+  /** @nullable */
+  canSchedule?: boolean | null;
+  /** @nullable */
+  items?: FlagsModuleItemsItem[] | null;
+}
+
+export type PhotosModuleType = typeof PhotosModuleType[keyof typeof PhotosModuleType];
+
+
+export const PhotosModuleType = {
+  photos: 'photos',
+} as const;
+
+export interface PhotosModule {
+  type: PhotosModuleType;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  jobNo?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  totalCount?: number | null;
+  /** @nullable */
+  photoUrls?: string[] | null;
+}
+
+export type SummaryModuleType = typeof SummaryModuleType[keyof typeof SummaryModuleType];
+
+
+export const SummaryModuleType = {
+  summary: 'summary',
+} as const;
+
+export interface SummaryModule {
+  type: SummaryModuleType;
+  /** @nullable */
+  summaryId?: string | null;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  result?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  serviceDate?: string | null;
+  /** @nullable */
+  summaryUrl?: string | null;
+  /** @nullable */
+  checkedCount?: number | null;
+  /** @nullable */
+  itemCount?: number | null;
+  /** @nullable */
+  flagCount?: number | null;
+  /** @nullable */
+  photoCount?: number | null;
+}
+
+export type ReferralModuleType = typeof ReferralModuleType[keyof typeof ReferralModuleType];
+
+
+export const ReferralModuleType = {
+  referral: 'referral',
+} as const;
+
+export interface ReferralModule {
+  type: ReferralModuleType;
+  /** @nullable */
+  referredAt?: string | null;
+  /** @nullable */
+  canRefer?: boolean | null;
+}
+
+export type LinkModuleType = typeof LinkModuleType[keyof typeof LinkModuleType];
+
+
+export const LinkModuleType = {
+  link: 'link',
+} as const;
+
+export interface LinkModule {
+  type: LinkModuleType;
+  /** @nullable */
+  label?: string | null;
+  /** @nullable */
+  url?: string | null;
+}
+
+/**
+ * Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.
+ */
+export type ClientCardModule = InvoiceModule | InvoiceBatchModule | BidModule | DocumentModule | TrackerModule | CrewMapModule | FlagsModule | PhotosModule | SummaryModule | ReferralModule | LinkModule;
 
 export interface ClientBoardFeedCard {
   id: string;
-  /** inbox | todo | in_progress | done */
-  column: string;
-  /** invoice | payment_request | summary | tracker | photos | flag | manual */
-  kind: string;
+  column: BoardColumn;
+  /** What raised the card. Note: kind `flag` carries a module of type `flags` (legacy plural; kept for stored-card compatibility). */
+  kind: ClientBoardFeedCardKind;
   title: string;
   /** @nullable */
   body?: string | null;
@@ -404,35 +700,63 @@ export interface ClientBoardFeedCard {
   links: ClientBoardFeedCardLink[];
   /** @nullable */
   jobId?: string | null;
-  /**
-     * Self-contained interactive module payload — kind-specific snapshot (invoice + pay/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state
-     * @nullable
-     */
-  module?: ClientBoardFeedCardModule;
+  /** Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request). */
+  module?: ClientCardModule | null;
   /** @nullable */
   completedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface ClientCardActionInput {
-  /** approve | pay_method | schedule | refer | acknowledge */
-  action: string;
+export type CardApproveActionAction = typeof CardApproveActionAction[keyof typeof CardApproveActionAction];
+
+
+export const CardApproveActionAction = {
+  approve: 'approve',
+} as const;
+
+export interface CardApproveAction {
+  action: CardApproveActionAction;
   /**
-     * Payment method choice for pay_method — ach | check
-     * @nullable
-     */
-  method?: string | null;
-  /**
-     * Who is acting (approver, requester, referrer)
+     * Approver name if collected
      * @nullable
      */
   name?: string | null;
-  /**
-     * Referral contact — email or phone
-     * @nullable
-     */
-  contact?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export type CardPayMethodActionAction = typeof CardPayMethodActionAction[keyof typeof CardPayMethodActionAction];
+
+
+export const CardPayMethodActionAction = {
+  pay_method: 'pay_method',
+} as const;
+
+export type CardPayMethodActionMethod = typeof CardPayMethodActionMethod[keyof typeof CardPayMethodActionMethod];
+
+
+export const CardPayMethodActionMethod = {
+  ach: 'ach',
+  check: 'check',
+} as const;
+
+export interface CardPayMethodAction {
+  action: CardPayMethodActionAction;
+  method: CardPayMethodActionMethod;
+}
+
+export type CardScheduleActionAction = typeof CardScheduleActionAction[keyof typeof CardScheduleActionAction];
+
+
+export const CardScheduleActionAction = {
+  schedule: 'schedule',
+} as const;
+
+export interface CardScheduleAction {
+  action: CardScheduleActionAction;
+  /** @nullable */
+  name?: string | null;
   /** @nullable */
   note?: string | null;
   /** @nullable */
@@ -443,6 +767,41 @@ export interface ClientCardActionInput {
      */
   neededBy?: string | null;
 }
+
+export type CardReferActionAction = typeof CardReferActionAction[keyof typeof CardReferActionAction];
+
+
+export const CardReferActionAction = {
+  refer: 'refer',
+} as const;
+
+export interface CardReferAction {
+  action: CardReferActionAction;
+  /** Referral contact — email or phone */
+  contact: string;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export type CardAcknowledgeActionAction = typeof CardAcknowledgeActionAction[keyof typeof CardAcknowledgeActionAction];
+
+
+export const CardAcknowledgeActionAction = {
+  acknowledge: 'acknowledge',
+} as const;
+
+export interface CardAcknowledgeAction {
+  action: CardAcknowledgeActionAction;
+  /** @nullable */
+  note?: string | null;
+}
+
+/**
+ * Module action. Wire format is unchanged from the legacy flat shape — the union only narrows which fields are valid per action.
+ */
+export type ClientCardActionInput = CardApproveAction | CardPayMethodAction | CardScheduleAction | CardReferAction | CardAcknowledgeAction;
 
 export interface ClientBoardFeedView {
   propertyName: string;
@@ -492,8 +851,7 @@ export interface OfficeClientBoardCardEditInput {
 }
 
 export interface ClientBoardFeedCardUpdateInput {
-  /** inbox | todo | in_progress | done */
-  column: string;
+  column: BoardColumn;
 }
 
 export interface ClientBoardWebhookInput {
@@ -720,14 +1078,35 @@ export interface ClientCredentialIssued {
   emailed: boolean;
 }
 
+/**
+ * Card kind. `flag` raises a module of type `flags` (legacy plural, kept for stored-card compatibility).
+ */
+export type ClientCardPushInputKind = typeof ClientCardPushInputKind[keyof typeof ClientCardPushInputKind];
+
+
+export const ClientCardPushInputKind = {
+  invoice: 'invoice',
+  invoice_batch: 'invoice_batch',
+  payment_request: 'payment_request',
+  bid: 'bid',
+  document: 'document',
+  tracker: 'tracker',
+  crewmap: 'crewmap',
+  flag: 'flag',
+  photos: 'photos',
+  summary: 'summary',
+  referral: 'referral',
+  manual: 'manual',
+} as const;
+
 export type ClientCardPushInputAttachmentsItem = {
   name: string;
   url: string;
 };
 
 export interface ClientCardPushInput {
-  /** invoice | payment_request | summary | tracker | photos | flag | manual | referral | crewmap | invoice_batch | bid | document */
-  kind: string;
+  /** Card kind. `flag` raises a module of type `flags` (legacy plural, kept for stored-card compatibility). */
+  kind: ClientCardPushInputKind;
   title: string;
   /** @nullable */
   body?: string | null;
@@ -5415,6 +5794,48 @@ export interface MaintenancePingInput {
 export interface MaintenancePingResult {
   ok: boolean;
   message: string;
+}
+
+export type BoardEventEvent = typeof BoardEventEvent[keyof typeof BoardEventEvent];
+
+
+export const BoardEventEvent = {
+  card_pushed: 'card_pushed',
+  card_moved: 'card_moved',
+  card_action: 'card_action',
+  card_commented: 'card_commented',
+  card_removed: 'card_removed',
+  inbox_raised: 'inbox_raised',
+  inbox_responded: 'inbox_responded',
+} as const;
+
+/**
+ * @nullable
+ */
+export type BoardEventActor = typeof BoardEventActor[keyof typeof BoardEventActor] | null;
+
+
+export const BoardEventActor = {
+  client: 'client',
+  office: 'office',
+  crew: 'crew',
+  system: 'system',
+} as const;
+
+/**
+ * Payload of every SSE `board` event and every outbound webhook mirror. Emitted from the board_events outbox after commit.
+ */
+export interface BoardEvent {
+  event: BoardEventEvent;
+  propertyId: string;
+  /** @nullable */
+  cardId?: string | null;
+  /** @nullable */
+  cardKey?: string | null;
+  /** @nullable */
+  actor?: BoardEventActor;
+  /** ISO timestamp */
+  at: string;
 }
 
 export type ListPropertiesParams = {

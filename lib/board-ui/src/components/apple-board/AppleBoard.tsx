@@ -419,6 +419,7 @@ export function AppleBoard({
                       key={card.cardKey}
                       card={card}
                       token={token}
+                      audience={isPm ? 'pm' : 'vendor'}
                       isDragged={draggedCard === card.cardKey}
                       readOnly={viewer.readOnly}
                       onReadOnlyClick={() => {

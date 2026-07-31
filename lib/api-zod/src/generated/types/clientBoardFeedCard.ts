@@ -5,15 +5,16 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { BoardColumn } from './boardColumn';
+import type { ClientBoardFeedCardKind } from './clientBoardFeedCardKind';
 import type { ClientBoardFeedCardLink } from './clientBoardFeedCardLink';
-import type { ClientBoardFeedCardModule } from './clientBoardFeedCardModule';
+import type { ClientCardModule } from './clientCardModule';
 
 export interface ClientBoardFeedCard {
   id: string;
-  /** inbox | todo | in_progress | done */
-  column: string;
-  /** invoice | payment_request | summary | tracker | photos | flag | manual */
-  kind: string;
+  column: BoardColumn;
+  /** What raised the card. Note: kind `flag` carries a module of type `flags` (legacy plural; kept for stored-card compatibility). */
+  kind: ClientBoardFeedCardKind;
   title: string;
   /** @nullable */
   body?: string | null;
@@ -26,11 +27,8 @@ export interface ClientBoardFeedCard {
   links: ClientBoardFeedCardLink[];
   /** @nullable */
   jobId?: string | null;
-  /**
-     * Self-contained interactive module payload — kind-specific snapshot (invoice + pay/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state
-     * @nullable
-     */
-  module?: ClientBoardFeedCardModule;
+  /** Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request). */
+  module?: ClientCardModule | null;
   /** @nullable */
   completedAt?: string | null;
   createdAt: string;

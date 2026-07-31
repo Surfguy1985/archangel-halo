@@ -1,3 +1,4 @@
+import { limits } from "../lib/rateLimit";
 import { Router, type IRouter } from "express";
 import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
@@ -206,7 +207,7 @@ function viewerDto(v: Viewer) {
 // ---------------------------------------------------------------------------
 // Login
 // ---------------------------------------------------------------------------
-router.post("/client/:token/board/login", async (req, res): Promise<void> => {
+router.post("/client/:token/board/login", limits.login, async (req, res): Promise<void> => {
   const parsed = ClientBoardLoginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(401).json({ error: "Email and password are required" });

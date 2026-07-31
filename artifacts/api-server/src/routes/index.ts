@@ -36,6 +36,22 @@ import clientCmsRouter from "./clientCms";
 
 const router: IRouter = Router();
 
+// --- Client board hardening: session exchange, cookie-or-token auth, rate limits ---
+import { clientSessionExchangeHandler, clientAuth, resolveClientPropertyIdForToken } from "../lib/sessionAuth";
+import { limits } from "../lib/rateLimit";
+
+router.post("/client/:token/session", limits.session, clientSessionExchangeHandler(resolveClientPropertyIdForToken));
+router.use("/client/:token", clientAuth(resolveClientPropertyIdForToken));
+// Rate-limit only mutating pay requests — GET page loads stay unthrottled so
+// shared-IP viewers and refreshes never 429 the public payment page.
+router.use("/pay/:token", (req, res, next) => {
+  if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
+    next();
+    return;
+  }
+  limits.pay(req, res, next);
+});
+
 router.use(healthRouter);
 router.use(todayRouter);
 router.use(propertiesRouter);

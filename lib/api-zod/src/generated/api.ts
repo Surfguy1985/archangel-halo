@@ -7745,7 +7745,7 @@ export const PushClientBoardCardParams = zod.object({
 })
 
 export const PushClientBoardCardBody = zod.object({
-  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual | referral | crewmap | invoice_batch | bid | document'),
+  "kind": zod.enum(['invoice', 'invoice_batch', 'payment_request', 'bid', 'document', 'tracker', 'crewmap', 'flag', 'photos', 'summary', 'referral', 'manual']).describe('Card kind. `flag` raises a module of type `flags` (legacy plural, kept for stored-card compatibility).'),
   "title": zod.string(),
   "body": zod.string().nullish(),
   "actionLabel": zod.string().nullish(),
@@ -7860,8 +7860,8 @@ export const GetOfficeClientBoardResponse = zod.object({
   "webhookConnected": zod.boolean().optional(),
   "cards": zod.array(zod.object({
   "id": zod.string(),
-  "column": zod.string().describe('inbox | todo | in_progress | done'),
-  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "column": zod.enum(['inbox', 'todo', 'in_progress', 'done']),
+  "kind": zod.enum(['invoice', 'invoice_batch', 'payment_request', 'bid', 'document', 'tracker', 'crewmap', 'flag', 'photos', 'summary', 'referral', 'manual']).describe('What raised the card. Note: kind `flag` carries a module of type `flags` (legacy plural; kept for stored-card compatibility).'),
   "title": zod.string(),
   "body": zod.string().nullish(),
   "actionLabel": zod.string().nullish(),
@@ -7873,7 +7873,97 @@ export const GetOfficeClientBoardResponse = zod.object({
   "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
 })),
   "jobId": zod.string().nullish(),
-  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Self-contained interactive module payload — kind-specific snapshot (invoice + pay\/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state'),
+  "module": zod.union([zod.union([zod.object({
+  "type": zod.enum(['invoice']),
+  "invoiceNo": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
+  "pdfUrl": zod.string().nullish(),
+  "payUrl": zod.string().nullish(),
+  "canApprove": zod.boolean().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "payMethod": zod.string().nullish().describe('ach | check once chosen')
+}),zod.object({
+  "type": zod.enum(['invoice_batch']),
+  "unpaidAmount": zod.number().nullish(),
+  "count": zod.number().nullish(),
+  "invoices": zod.array(zod.object({
+  "invoiceNo": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "payUrl": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['bid']),
+  "status": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "scope": zod.string().nullish(),
+  "pdfUrl": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "service": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "amount": zod.number().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['document']),
+  "label": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "isPdf": zod.boolean().nullish()
+}),zod.object({
+  "type": zod.enum(['tracker']),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "scope": zod.string().nullish(),
+  "trackerUrl": zod.string().nullish()
+}),zod.object({
+  "type": zod.enum(['crewmap']),
+  "onSiteCount": zod.number().nullish(),
+  "crews": zod.array(zod.object({
+  "crewName": zod.string().nullish(),
+  "crewTrade": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "onSite": zod.boolean().nullish(),
+  "selfieUrl": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['flags']),
+  "totalCount": zod.number().nullish(),
+  "requestedAt": zod.string().nullish(),
+  "canSchedule": zod.boolean().nullish(),
+  "items": zod.array(zod.object({
+  "label": zod.string().nullish(),
+  "unit": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['photos']),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "totalCount": zod.number().nullish(),
+  "photoUrls": zod.array(zod.string()).nullish()
+}),zod.object({
+  "type": zod.enum(['summary']),
+  "summaryId": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "result": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "serviceDate": zod.string().nullish(),
+  "summaryUrl": zod.string().nullish(),
+  "checkedCount": zod.number().nullish(),
+  "itemCount": zod.number().nullish(),
+  "flagCount": zod.number().nullish(),
+  "photoCount": zod.number().nullish()
+}),zod.object({
+  "type": zod.enum(['referral']),
+  "referredAt": zod.string().nullish(),
+  "canRefer": zod.boolean().nullish()
+}),zod.object({
+  "type": zod.enum(['link']),
+  "label": zod.string().nullish(),
+  "url": zod.string().nullish()
+})]).describe('Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.'),zod.null()]).optional().describe('Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request).'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -7901,8 +7991,8 @@ export const CreateOfficeClientBoardCardBody = zod.object({
 
 export const CreateOfficeClientBoardCardResponse = zod.object({
   "id": zod.string(),
-  "column": zod.string().describe('inbox | todo | in_progress | done'),
-  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "column": zod.enum(['inbox', 'todo', 'in_progress', 'done']),
+  "kind": zod.enum(['invoice', 'invoice_batch', 'payment_request', 'bid', 'document', 'tracker', 'crewmap', 'flag', 'photos', 'summary', 'referral', 'manual']).describe('What raised the card. Note: kind `flag` carries a module of type `flags` (legacy plural; kept for stored-card compatibility).'),
   "title": zod.string(),
   "body": zod.string().nullish(),
   "actionLabel": zod.string().nullish(),
@@ -7914,7 +8004,97 @@ export const CreateOfficeClientBoardCardResponse = zod.object({
   "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
 })),
   "jobId": zod.string().nullish(),
-  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Self-contained interactive module payload — kind-specific snapshot (invoice + pay\/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state'),
+  "module": zod.union([zod.union([zod.object({
+  "type": zod.enum(['invoice']),
+  "invoiceNo": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
+  "pdfUrl": zod.string().nullish(),
+  "payUrl": zod.string().nullish(),
+  "canApprove": zod.boolean().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "payMethod": zod.string().nullish().describe('ach | check once chosen')
+}),zod.object({
+  "type": zod.enum(['invoice_batch']),
+  "unpaidAmount": zod.number().nullish(),
+  "count": zod.number().nullish(),
+  "invoices": zod.array(zod.object({
+  "invoiceNo": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "payUrl": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['bid']),
+  "status": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "scope": zod.string().nullish(),
+  "pdfUrl": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "service": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "amount": zod.number().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['document']),
+  "label": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "isPdf": zod.boolean().nullish()
+}),zod.object({
+  "type": zod.enum(['tracker']),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "scope": zod.string().nullish(),
+  "trackerUrl": zod.string().nullish()
+}),zod.object({
+  "type": zod.enum(['crewmap']),
+  "onSiteCount": zod.number().nullish(),
+  "crews": zod.array(zod.object({
+  "crewName": zod.string().nullish(),
+  "crewTrade": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "onSite": zod.boolean().nullish(),
+  "selfieUrl": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['flags']),
+  "totalCount": zod.number().nullish(),
+  "requestedAt": zod.string().nullish(),
+  "canSchedule": zod.boolean().nullish(),
+  "items": zod.array(zod.object({
+  "label": zod.string().nullish(),
+  "unit": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['photos']),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "totalCount": zod.number().nullish(),
+  "photoUrls": zod.array(zod.string()).nullish()
+}),zod.object({
+  "type": zod.enum(['summary']),
+  "summaryId": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "result": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "serviceDate": zod.string().nullish(),
+  "summaryUrl": zod.string().nullish(),
+  "checkedCount": zod.number().nullish(),
+  "itemCount": zod.number().nullish(),
+  "flagCount": zod.number().nullish(),
+  "photoCount": zod.number().nullish()
+}),zod.object({
+  "type": zod.enum(['referral']),
+  "referredAt": zod.string().nullish(),
+  "canRefer": zod.boolean().nullish()
+}),zod.object({
+  "type": zod.enum(['link']),
+  "label": zod.string().nullish(),
+  "url": zod.string().nullish()
+})]).describe('Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.'),zod.null()]).optional().describe('Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request).'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -7945,8 +8125,8 @@ export const UpdateOfficeClientBoardCardBody = zod.object({
 
 export const UpdateOfficeClientBoardCardResponse = zod.object({
   "id": zod.string(),
-  "column": zod.string().describe('inbox | todo | in_progress | done'),
-  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "column": zod.enum(['inbox', 'todo', 'in_progress', 'done']),
+  "kind": zod.enum(['invoice', 'invoice_batch', 'payment_request', 'bid', 'document', 'tracker', 'crewmap', 'flag', 'photos', 'summary', 'referral', 'manual']).describe('What raised the card. Note: kind `flag` carries a module of type `flags` (legacy plural; kept for stored-card compatibility).'),
   "title": zod.string(),
   "body": zod.string().nullish(),
   "actionLabel": zod.string().nullish(),
@@ -7958,7 +8138,97 @@ export const UpdateOfficeClientBoardCardResponse = zod.object({
   "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
 })),
   "jobId": zod.string().nullish(),
-  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Self-contained interactive module payload — kind-specific snapshot (invoice + pay\/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state'),
+  "module": zod.union([zod.union([zod.object({
+  "type": zod.enum(['invoice']),
+  "invoiceNo": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
+  "pdfUrl": zod.string().nullish(),
+  "payUrl": zod.string().nullish(),
+  "canApprove": zod.boolean().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "payMethod": zod.string().nullish().describe('ach | check once chosen')
+}),zod.object({
+  "type": zod.enum(['invoice_batch']),
+  "unpaidAmount": zod.number().nullish(),
+  "count": zod.number().nullish(),
+  "invoices": zod.array(zod.object({
+  "invoiceNo": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "payUrl": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['bid']),
+  "status": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "scope": zod.string().nullish(),
+  "pdfUrl": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "service": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "amount": zod.number().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['document']),
+  "label": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "isPdf": zod.boolean().nullish()
+}),zod.object({
+  "type": zod.enum(['tracker']),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "scope": zod.string().nullish(),
+  "trackerUrl": zod.string().nullish()
+}),zod.object({
+  "type": zod.enum(['crewmap']),
+  "onSiteCount": zod.number().nullish(),
+  "crews": zod.array(zod.object({
+  "crewName": zod.string().nullish(),
+  "crewTrade": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "onSite": zod.boolean().nullish(),
+  "selfieUrl": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['flags']),
+  "totalCount": zod.number().nullish(),
+  "requestedAt": zod.string().nullish(),
+  "canSchedule": zod.boolean().nullish(),
+  "items": zod.array(zod.object({
+  "label": zod.string().nullish(),
+  "unit": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['photos']),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "totalCount": zod.number().nullish(),
+  "photoUrls": zod.array(zod.string()).nullish()
+}),zod.object({
+  "type": zod.enum(['summary']),
+  "summaryId": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "result": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "serviceDate": zod.string().nullish(),
+  "summaryUrl": zod.string().nullish(),
+  "checkedCount": zod.number().nullish(),
+  "itemCount": zod.number().nullish(),
+  "flagCount": zod.number().nullish(),
+  "photoCount": zod.number().nullish()
+}),zod.object({
+  "type": zod.enum(['referral']),
+  "referredAt": zod.string().nullish(),
+  "canRefer": zod.boolean().nullish()
+}),zod.object({
+  "type": zod.enum(['link']),
+  "label": zod.string().nullish(),
+  "url": zod.string().nullish()
+})]).describe('Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.'),zod.null()]).optional().describe('Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request).'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -8433,8 +8703,8 @@ export const GetClientBoardFeedResponse = zod.object({
   "webhookUrl": zod.string().nullish(),
   "cards": zod.array(zod.object({
   "id": zod.string(),
-  "column": zod.string().describe('inbox | todo | in_progress | done'),
-  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "column": zod.enum(['inbox', 'todo', 'in_progress', 'done']),
+  "kind": zod.enum(['invoice', 'invoice_batch', 'payment_request', 'bid', 'document', 'tracker', 'crewmap', 'flag', 'photos', 'summary', 'referral', 'manual']).describe('What raised the card. Note: kind `flag` carries a module of type `flags` (legacy plural; kept for stored-card compatibility).'),
   "title": zod.string(),
   "body": zod.string().nullish(),
   "actionLabel": zod.string().nullish(),
@@ -8446,7 +8716,97 @@ export const GetClientBoardFeedResponse = zod.object({
   "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
 })),
   "jobId": zod.string().nullish(),
-  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Self-contained interactive module payload — kind-specific snapshot (invoice + pay\/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state'),
+  "module": zod.union([zod.union([zod.object({
+  "type": zod.enum(['invoice']),
+  "invoiceNo": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
+  "pdfUrl": zod.string().nullish(),
+  "payUrl": zod.string().nullish(),
+  "canApprove": zod.boolean().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "payMethod": zod.string().nullish().describe('ach | check once chosen')
+}),zod.object({
+  "type": zod.enum(['invoice_batch']),
+  "unpaidAmount": zod.number().nullish(),
+  "count": zod.number().nullish(),
+  "invoices": zod.array(zod.object({
+  "invoiceNo": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "payUrl": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['bid']),
+  "status": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "scope": zod.string().nullish(),
+  "pdfUrl": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "service": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "amount": zod.number().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['document']),
+  "label": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "isPdf": zod.boolean().nullish()
+}),zod.object({
+  "type": zod.enum(['tracker']),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "scope": zod.string().nullish(),
+  "trackerUrl": zod.string().nullish()
+}),zod.object({
+  "type": zod.enum(['crewmap']),
+  "onSiteCount": zod.number().nullish(),
+  "crews": zod.array(zod.object({
+  "crewName": zod.string().nullish(),
+  "crewTrade": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "onSite": zod.boolean().nullish(),
+  "selfieUrl": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['flags']),
+  "totalCount": zod.number().nullish(),
+  "requestedAt": zod.string().nullish(),
+  "canSchedule": zod.boolean().nullish(),
+  "items": zod.array(zod.object({
+  "label": zod.string().nullish(),
+  "unit": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['photos']),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "totalCount": zod.number().nullish(),
+  "photoUrls": zod.array(zod.string()).nullish()
+}),zod.object({
+  "type": zod.enum(['summary']),
+  "summaryId": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "result": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "serviceDate": zod.string().nullish(),
+  "summaryUrl": zod.string().nullish(),
+  "checkedCount": zod.number().nullish(),
+  "itemCount": zod.number().nullish(),
+  "flagCount": zod.number().nullish(),
+  "photoCount": zod.number().nullish()
+}),zod.object({
+  "type": zod.enum(['referral']),
+  "referredAt": zod.string().nullish(),
+  "canRefer": zod.boolean().nullish()
+}),zod.object({
+  "type": zod.enum(['link']),
+  "label": zod.string().nullish(),
+  "url": zod.string().nullish()
+})]).describe('Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.'),zod.null()]).optional().describe('Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request).'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -8463,13 +8823,13 @@ export const UpdateClientBoardFeedCardParams = zod.object({
 })
 
 export const UpdateClientBoardFeedCardBody = zod.object({
-  "column": zod.string().describe('inbox | todo | in_progress | done')
+  "column": zod.enum(['inbox', 'todo', 'in_progress', 'done'])
 })
 
 export const UpdateClientBoardFeedCardResponse = zod.object({
   "id": zod.string(),
-  "column": zod.string().describe('inbox | todo | in_progress | done'),
-  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "column": zod.enum(['inbox', 'todo', 'in_progress', 'done']),
+  "kind": zod.enum(['invoice', 'invoice_batch', 'payment_request', 'bid', 'document', 'tracker', 'crewmap', 'flag', 'photos', 'summary', 'referral', 'manual']).describe('What raised the card. Note: kind `flag` carries a module of type `flags` (legacy plural; kept for stored-card compatibility).'),
   "title": zod.string(),
   "body": zod.string().nullish(),
   "actionLabel": zod.string().nullish(),
@@ -8481,7 +8841,97 @@ export const UpdateClientBoardFeedCardResponse = zod.object({
   "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
 })),
   "jobId": zod.string().nullish(),
-  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Self-contained interactive module payload — kind-specific snapshot (invoice + pay\/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state'),
+  "module": zod.union([zod.union([zod.object({
+  "type": zod.enum(['invoice']),
+  "invoiceNo": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
+  "pdfUrl": zod.string().nullish(),
+  "payUrl": zod.string().nullish(),
+  "canApprove": zod.boolean().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "payMethod": zod.string().nullish().describe('ach | check once chosen')
+}),zod.object({
+  "type": zod.enum(['invoice_batch']),
+  "unpaidAmount": zod.number().nullish(),
+  "count": zod.number().nullish(),
+  "invoices": zod.array(zod.object({
+  "invoiceNo": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "payUrl": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['bid']),
+  "status": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "scope": zod.string().nullish(),
+  "pdfUrl": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "service": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "amount": zod.number().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['document']),
+  "label": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "isPdf": zod.boolean().nullish()
+}),zod.object({
+  "type": zod.enum(['tracker']),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "scope": zod.string().nullish(),
+  "trackerUrl": zod.string().nullish()
+}),zod.object({
+  "type": zod.enum(['crewmap']),
+  "onSiteCount": zod.number().nullish(),
+  "crews": zod.array(zod.object({
+  "crewName": zod.string().nullish(),
+  "crewTrade": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "onSite": zod.boolean().nullish(),
+  "selfieUrl": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['flags']),
+  "totalCount": zod.number().nullish(),
+  "requestedAt": zod.string().nullish(),
+  "canSchedule": zod.boolean().nullish(),
+  "items": zod.array(zod.object({
+  "label": zod.string().nullish(),
+  "unit": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['photos']),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "totalCount": zod.number().nullish(),
+  "photoUrls": zod.array(zod.string()).nullish()
+}),zod.object({
+  "type": zod.enum(['summary']),
+  "summaryId": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "result": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "serviceDate": zod.string().nullish(),
+  "summaryUrl": zod.string().nullish(),
+  "checkedCount": zod.number().nullish(),
+  "itemCount": zod.number().nullish(),
+  "flagCount": zod.number().nullish(),
+  "photoCount": zod.number().nullish()
+}),zod.object({
+  "type": zod.enum(['referral']),
+  "referredAt": zod.string().nullish(),
+  "canRefer": zod.boolean().nullish()
+}),zod.object({
+  "type": zod.enum(['link']),
+  "label": zod.string().nullish(),
+  "url": zod.string().nullish()
+})]).describe('Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.'),zod.null()]).optional().describe('Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request).'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -8496,20 +8946,33 @@ export const ClientBoardCardActionParams = zod.object({
   "cardId": zod.coerce.string()
 })
 
-export const ClientBoardCardActionBody = zod.object({
-  "action": zod.string().describe('approve | pay_method | schedule | refer | acknowledge'),
-  "method": zod.string().nullish().describe('Payment method choice for pay_method — ach | check'),
-  "name": zod.string().nullish().describe('Who is acting (approver, requester, referrer)'),
-  "contact": zod.string().nullish().describe('Referral contact — email or phone'),
+export const ClientBoardCardActionBody = zod.union([zod.object({
+  "action": zod.enum(['approve']),
+  "name": zod.string().nullish().describe('Approver name if collected'),
+  "note": zod.string().nullish()
+}),zod.object({
+  "action": zod.enum(['pay_method']),
+  "method": zod.enum(['ach', 'check'])
+}),zod.object({
+  "action": zod.enum(['schedule']),
+  "name": zod.string().nullish(),
   "note": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "neededBy": zod.string().nullish().describe('YYYY-MM-DD')
-})
+}),zod.object({
+  "action": zod.enum(['refer']),
+  "contact": zod.string().describe('Referral contact — email or phone'),
+  "name": zod.string().nullish(),
+  "note": zod.string().nullish()
+}),zod.object({
+  "action": zod.enum(['acknowledge']),
+  "note": zod.string().nullish()
+})]).describe('Module action. Wire format is unchanged from the legacy flat shape — the union only narrows which fields are valid per action.')
 
 export const ClientBoardCardActionResponse = zod.object({
   "id": zod.string(),
-  "column": zod.string().describe('inbox | todo | in_progress | done'),
-  "kind": zod.string().describe('invoice | payment_request | summary | tracker | photos | flag | manual'),
+  "column": zod.enum(['inbox', 'todo', 'in_progress', 'done']),
+  "kind": zod.enum(['invoice', 'invoice_batch', 'payment_request', 'bid', 'document', 'tracker', 'crewmap', 'flag', 'photos', 'summary', 'referral', 'manual']).describe('What raised the card. Note: kind `flag` carries a module of type `flags` (legacy plural; kept for stored-card compatibility).'),
   "title": zod.string(),
   "body": zod.string().nullish(),
   "actionLabel": zod.string().nullish(),
@@ -8521,7 +8984,97 @@ export const ClientBoardCardActionResponse = zod.object({
   "kind": zod.string().nullish().describe('pay | pdf | summary | tracker')
 })),
   "jobId": zod.string().nullish(),
-  "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Self-contained interactive module payload — kind-specific snapshot (invoice + pay\/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state'),
+  "module": zod.union([zod.union([zod.object({
+  "type": zod.enum(['invoice']),
+  "invoiceNo": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "dueDate": zod.string().nullish().describe('YYYY-MM-DD'),
+  "pdfUrl": zod.string().nullish(),
+  "payUrl": zod.string().nullish(),
+  "canApprove": zod.boolean().nullish(),
+  "approvedAt": zod.string().nullish(),
+  "payMethod": zod.string().nullish().describe('ach | check once chosen')
+}),zod.object({
+  "type": zod.enum(['invoice_batch']),
+  "unpaidAmount": zod.number().nullish(),
+  "count": zod.number().nullish(),
+  "invoices": zod.array(zod.object({
+  "invoiceNo": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "status": zod.string().nullish(),
+  "payUrl": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['bid']),
+  "status": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "scope": zod.string().nullish(),
+  "pdfUrl": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "service": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "amount": zod.number().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['document']),
+  "label": zod.string().nullish(),
+  "url": zod.string().nullish(),
+  "isPdf": zod.boolean().nullish()
+}),zod.object({
+  "type": zod.enum(['tracker']),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "scope": zod.string().nullish(),
+  "trackerUrl": zod.string().nullish()
+}),zod.object({
+  "type": zod.enum(['crewmap']),
+  "onSiteCount": zod.number().nullish(),
+  "crews": zod.array(zod.object({
+  "crewName": zod.string().nullish(),
+  "crewTrade": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "onSite": zod.boolean().nullish(),
+  "selfieUrl": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['flags']),
+  "totalCount": zod.number().nullish(),
+  "requestedAt": zod.string().nullish(),
+  "canSchedule": zod.boolean().nullish(),
+  "items": zod.array(zod.object({
+  "label": zod.string().nullish(),
+  "unit": zod.string().nullish()
+})).nullish()
+}),zod.object({
+  "type": zod.enum(['photos']),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "totalCount": zod.number().nullish(),
+  "photoUrls": zod.array(zod.string()).nullish()
+}),zod.object({
+  "type": zod.enum(['summary']),
+  "summaryId": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "result": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "serviceDate": zod.string().nullish(),
+  "summaryUrl": zod.string().nullish(),
+  "checkedCount": zod.number().nullish(),
+  "itemCount": zod.number().nullish(),
+  "flagCount": zod.number().nullish(),
+  "photoCount": zod.number().nullish()
+}),zod.object({
+  "type": zod.enum(['referral']),
+  "referredAt": zod.string().nullish(),
+  "canRefer": zod.boolean().nullish()
+}),zod.object({
+  "type": zod.enum(['link']),
+  "label": zod.string().nullish(),
+  "url": zod.string().nullish()
+})]).describe('Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union.'),zod.null()]).optional().describe('Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request).'),
   "completedAt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -9793,5 +10346,35 @@ export const OfficeDeleteHubItemParams = zod.object({
 export const OfficeDeleteHubItemResponse = zod.object({
   "ok": zod.boolean()
 })
+
+
+/**
+ * @summary SSE stream — office mirror of a property's board. Emits `board` events; reconnect then refetch to catch up.
+ */
+export const StreamOfficeBoardEventsParams = zod.object({
+  "propertyId": zod.coerce.string()
+})
+
+export const StreamOfficeBoardEventsResponse = zod.unknown()
+
+
+/**
+ * @summary SSE stream — live board updates for the property (same event vocabulary as the office stream)
+ */
+export const StreamClientBoardEventsParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const StreamClientBoardEventsResponse = zod.unknown()
+
+
+/**
+ * @summary Exchange the emailed capability link for an httpOnly session cookie so the token stops traveling on every request
+ */
+export const ExchangeClientTokenParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ExchangeClientTokenResponse = zod.void()
 
 

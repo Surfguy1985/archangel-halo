@@ -5444,6 +5444,7 @@ paths:
                 $ref: "#/components/schemas/Error"
   /admin/accounts:
     get:
+      security: [{ adminSession: [] }]
       operationId: listClientAccounts
       tags: [admin]
       summary: Every active property as a managed client account
@@ -5459,6 +5460,7 @@ paths:
 
   /admin/accounts/{propertyId}:
     get:
+      security: [{ adminSession: [] }]
       operationId: getClientAccount
       tags: [admin]
       summary: Full back-office view for one client account
@@ -5481,6 +5483,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
     put:
+      security: [{ adminSession: [] }]
       operationId: upsertClientAccount
       tags: [admin]
       summary: Create or update the subscription settings for a property
@@ -5511,6 +5514,7 @@ paths:
 
   /admin/accounts/{propertyId}/users:
     post:
+      security: [{ adminSession: [] }]
       operationId: createClientUser
       tags: [admin]
       summary: Create a client login (returns the one-time temp password)
@@ -5541,6 +5545,7 @@ paths:
 
   /admin/client-users/{id}:
     patch:
+      security: [{ adminSession: [] }]
       operationId: updateClientUser
       tags: [admin]
       parameters:
@@ -5568,6 +5573,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
     delete:
+      security: [{ adminSession: [] }]
       operationId: deleteClientUser
       tags: [admin]
       parameters:
@@ -5591,6 +5597,7 @@ paths:
 
   /admin/client-users/{id}/reset-password:
     post:
+      security: [{ adminSession: [] }]
       operationId: resetClientUserPassword
       tags: [admin]
       summary: Issue a new temp password; optionally email it to the user
@@ -5621,6 +5628,7 @@ paths:
 
   /admin/accounts/{propertyId}/token/regenerate:
     post:
+      security: [{ adminSession: [] }]
       operationId: regenerateDashboardToken
       tags: [admin]
       summary: Rotate the property's client dashboard link token
@@ -5645,6 +5653,7 @@ paths:
 
   /admin/accounts/{propertyId}/board/push:
     post:
+      security: [{ adminSession: [] }]
       operationId: pushClientBoardCard
       tags: [admin]
       summary: Push a card onto the client's board and notify them instantly
@@ -5674,6 +5683,7 @@ paths:
                 $ref: "#/components/schemas/Error"
   /admin/accounts/{propertyId}/board/push/quick-picks:
     get:
+      security: [{ adminSession: [] }]
       operationId: getClientBoardPushQuickPicks
       tags: [admin]
       summary: Real entities the Push Card composer can prefill from — unpaid invoices and live job trackers
@@ -5697,6 +5707,7 @@ paths:
                 $ref: "#/components/schemas/Error"
   /admin/accounts/{propertyId}/onboarding/send:
     post:
+      security: [{ adminSession: [] }]
       operationId: sendClientOnboarding
       tags: [admin]
       summary: Send the branded onboarding email/SMS with the dashboard link
@@ -5733,6 +5744,7 @@ paths:
 
   /admin/accounts/{propertyId}/board:
     get:
+      security: [{ adminSession: [] }]
       operationId: getOfficeClientBoard
       tags: [admin]
       summary: Office view of a property's client board — same cards the client sees
@@ -5757,6 +5769,7 @@ paths:
 
   /admin/accounts/{propertyId}/board/cards:
     post:
+      security: [{ adminSession: [] }]
       operationId: createOfficeClientBoardCard
       tags: [admin]
       summary: Drop a manual card on the client's board (title, note, optional links)
@@ -5793,6 +5806,7 @@ paths:
 
   /admin/accounts/{propertyId}/board/cards/{cardId}:
     patch:
+      security: [{ adminSession: [] }]
       operationId: updateOfficeClientBoardCard
       tags: [admin]
       summary: Edit any card the office sent to the client's board (optionally refreshing its module snapshot)
@@ -5837,6 +5851,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
     delete:
+      security: [{ adminSession: [] }]
       operationId: deleteOfficeClientBoardCard
       tags: [admin]
       summary: Take back any card sent to the client's board
@@ -5871,6 +5886,7 @@ paths:
 
   /admin/accounts/{propertyId}/board/inbox:
     get:
+      security: [{ adminSession: [] }]
       operationId: getClientBoardInbox
       tags: [admin]
       summary: Cards the client sent to the office, newest first
@@ -5895,6 +5911,7 @@ paths:
 
   /admin/accounts/{propertyId}/board/inbox/{cardKey}/respond:
     post:
+      security: [{ adminSession: [] }]
       operationId: respondClientInboxCard
       tags: [admin]
       summary: Accept or decline a client-sent card — the client is notified live
@@ -5941,6 +5958,7 @@ paths:
 
   /admin/accounts/{propertyId}/board/comments/{cardKey}:
     get:
+      security: [{ adminSession: [] }]
       operationId: listOfficeCardComments
       tags: [admin]
       summary: Comment thread on a client board card (office view)
@@ -5967,6 +5985,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
     post:
+      security: [{ adminSession: [] }]
       operationId: addOfficeCardComment
       tags: [admin]
       summary: Office posts a comment on a client board card — client is notified live
@@ -6614,6 +6633,7 @@ paths:
 
   /admin/accounts/{propertyId}/board/full:
     get:
+      security: [{ adminSession: [] }]
       operationId: getOfficeBoardFull
       tags: [admin]
       summary: The full projected client vendor board for the office — identical shape to the client view
@@ -6638,6 +6658,7 @@ paths:
 
   /admin/accounts/{propertyId}/board/actions:
     post:
+      security: [{ adminSession: [] }]
       operationId: dispatchOfficeBoardAction
       tags: [admin]
       summary: Dispatch a board action (e.g. card move) on the client board as the office
@@ -7493,6 +7514,7 @@ paths:
 
   /admin/accounts/{propertyId}/unit-map:
     get:
+      security: [{ adminSession: [] }]
       operationId: getOfficeUnitMap
       tags: [admin]
       summary: Office view of a property's unit status map (read-write)
@@ -7517,6 +7539,7 @@ paths:
 
   /admin/accounts/{propertyId}/unit-map/image:
     post:
+      security: [{ adminSession: [] }]
       operationId: officeUploadUnitMapImage
       tags: [admin]
       summary: Office attaches a property map image and AI-extracts unit boxes
@@ -7553,6 +7576,7 @@ paths:
 
   /admin/accounts/{propertyId}/unit-map/grid:
     post:
+      security: [{ adminSession: [] }]
       operationId: officeGenerateUnitGrid
       tags: [admin]
       summary: Office generates a plain unit box grid
@@ -7589,6 +7613,7 @@ paths:
 
   /admin/accounts/{propertyId}/unit-map/units:
     post:
+      security: [{ adminSession: [] }]
       operationId: officeCreateUnitBox
       tags: [admin]
       summary: Office adds a unit box
@@ -7631,6 +7656,7 @@ paths:
 
   /admin/accounts/{propertyId}/unit-map/units/{unitId}:
     patch:
+      security: [{ adminSession: [] }]
       operationId: officeUpdateUnitBox
       tags: [admin]
       summary: Office moves, resizes, or renames a unit box
@@ -7675,6 +7701,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
     delete:
+      security: [{ adminSession: [] }]
       operationId: officeDeleteUnitBox
       tags: [admin]
       summary: Office removes a unit box
@@ -7703,6 +7730,7 @@ paths:
 
   /admin/accounts/{propertyId}/unit-map/units/{unitId}/summary:
     get:
+      security: [{ adminSession: [] }]
       operationId: getOfficeUnitSummary
       tags: [admin]
       summary: Office view of the live unit summary
@@ -7731,6 +7759,7 @@ paths:
 
   /admin/accounts/{propertyId}/hub:
     get:
+      security: [{ adminSession: [] }]
       operationId: getOfficeClientHub
       tags: [admin]
       summary: Office view of a property's hub CMS (read-write)
@@ -7755,6 +7784,7 @@ paths:
 
   /admin/accounts/{propertyId}/hub/items:
     post:
+      security: [{ adminSession: [] }]
       operationId: officeCreateHubItem
       tags: [admin]
       summary: Office adds a hub item
@@ -7791,6 +7821,7 @@ paths:
 
   /admin/accounts/{propertyId}/hub/items/{itemId}:
     patch:
+      security: [{ adminSession: [] }]
       operationId: officeUpdateHubItem
       tags: [admin]
       summary: Office edits a hub item
@@ -7829,6 +7860,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
     delete:
+      security: [{ adminSession: [] }]
       operationId: officeDeleteHubItem
       tags: [admin]
       summary: Office removes a hub item
@@ -7855,7 +7887,82 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/accounts/{propertyId}/board/events:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: streamOfficeBoardEvents
+      tags: [admin]
+      summary: SSE stream — office mirror of a property's board. Emits `board` events; reconnect then refetch to catch up.
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: text/event-stream of BoardEvent payloads
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /client/{token}/board/events:
+    get:
+      operationId: streamClientBoardEvents
+      tags: [clients]
+      summary: SSE stream — live board updates for the property (same event vocabulary as the office stream)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: text/event-stream of BoardEvent payloads
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /client/{token}/session:
+    post:
+      operationId: exchangeClientToken
+      tags: [clients]
+      summary: Exchange the emailed capability link for an httpOnly session cookie so the token stops traveling on every request
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Session cookie set (halo_client_session; httpOnly, SameSite=Strict)
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
+  securitySchemes:
+    adminSession:
+      type: apiKey
+      in: cookie
+      name: halo_admin_session
+      description: "Office/admin session. All /admin/* operations require it."
+    clientSession:
+      type: apiKey
+      in: cookie
+      name: halo_client_session
+      description: "Client board session, minted by POST /client/{token}/session. During migration the path token is still honored; new surfaces should rely on the cookie."
   schemas:
     SummaryChecklistSection:
       type: object
@@ -8184,8 +8291,12 @@ components:
       required: [id, column, kind, title, links, createdAt, updatedAt]
       properties:
         id: { type: string }
-        column: { type: string, description: "inbox | todo | in_progress | done" }
-        kind: { type: string, description: "invoice | payment_request | summary | tracker | photos | flag | manual" }
+        column:
+          $ref: "#/components/schemas/BoardColumn"
+        kind:
+          type: string
+          description: "What raised the card. Note: kind `flag` carries a module of type `flags` (legacy plural; kept for stored-card compatibility)."
+          enum: [invoice, invoice_batch, payment_request, bid, document, tracker, crewmap, flag, photos, summary, referral, manual]
         title: { type: string }
         body: { type: ["string", "null"] }
         actionLabel: { type: ["string", "null"] }
@@ -8197,24 +8308,30 @@ components:
             $ref: "#/components/schemas/ClientBoardFeedCardLink"
         jobId: { type: ["string", "null"] }
         module:
-          type: ["object", "null"]
-          description: "Self-contained interactive module payload — kind-specific snapshot (invoice + pay/approve state, tracker GPS, flagged items by unit, referral form) plus recorded client action state"
-          additionalProperties: true
+          oneOf:
+            - $ref: "#/components/schemas/ClientCardModule"
+            - type: "null"
+          description: "Self-contained interactive module payload. Discriminated on `type`; null for kinds with no module (manual, payment_request)."
         completedAt: { type: ["string", "null"] }
         createdAt: { type: string }
         updatedAt: { type: string }
 
     ClientCardActionInput:
-      type: object
-      required: [action]
-      properties:
-        action: { type: string, description: "approve | pay_method | schedule | refer | acknowledge" }
-        method: { type: ["string", "null"], description: "Payment method choice for pay_method — ach | check" }
-        name: { type: ["string", "null"], description: "Who is acting (approver, requester, referrer)" }
-        contact: { type: ["string", "null"], description: "Referral contact — email or phone" }
-        note: { type: ["string", "null"] }
-        unitNo: { type: ["string", "null"] }
-        neededBy: { type: ["string", "null"], description: "YYYY-MM-DD" }
+      description: "Module action. Wire format is unchanged from the legacy flat shape — the union only narrows which fields are valid per action."
+      oneOf:
+        - $ref: "#/components/schemas/CardApproveAction"
+        - $ref: "#/components/schemas/CardPayMethodAction"
+        - $ref: "#/components/schemas/CardScheduleAction"
+        - $ref: "#/components/schemas/CardReferAction"
+        - $ref: "#/components/schemas/CardAcknowledgeAction"
+      discriminator:
+        propertyName: action
+        mapping:
+          approve: "#/components/schemas/CardApproveAction"
+          pay_method: "#/components/schemas/CardPayMethodAction"
+          schedule: "#/components/schemas/CardScheduleAction"
+          refer: "#/components/schemas/CardReferAction"
+          acknowledge: "#/components/schemas/CardAcknowledgeAction"
 
     ClientBoardFeedView:
       type: object
@@ -8271,7 +8388,8 @@ components:
       type: object
       required: [column]
       properties:
-        column: { type: string, description: "inbox | todo | in_progress | done" }
+        column:
+          $ref: "#/components/schemas/BoardColumn"
 
     ClientBoardWebhookInput:
       type: object
@@ -8466,7 +8584,8 @@ components:
       properties:
         kind:
           type: string
-          description: "invoice | payment_request | summary | tracker | photos | flag | manual | referral | crewmap | invoice_batch | bid | document"
+          description: "Card kind. `flag` raises a module of type `flags` (legacy plural, kept for stored-card compatibility)."
+          enum: [invoice, invoice_batch, payment_request, bid, document, tracker, crewmap, flag, photos, summary, referral, manual]
         title: { type: string }
         body: { type: ["string", "null"] }
         actionLabel: { type: ["string", "null"] }
@@ -12652,3 +12771,240 @@ components:
       properties:
         ok: { type: boolean }
         message: { type: string }
+    BoardColumn:
+      type: string
+      enum: [inbox, todo, in_progress, done]
+
+    ClientCardModule:
+      description: "Every interactive card module, discriminated on `type`. Adding a module = add a schema here and an entry in the mapping; orval then emits a narrowed union."
+      oneOf:
+        - $ref: "#/components/schemas/InvoiceModule"
+        - $ref: "#/components/schemas/InvoiceBatchModule"
+        - $ref: "#/components/schemas/BidModule"
+        - $ref: "#/components/schemas/DocumentModule"
+        - $ref: "#/components/schemas/TrackerModule"
+        - $ref: "#/components/schemas/CrewMapModule"
+        - $ref: "#/components/schemas/FlagsModule"
+        - $ref: "#/components/schemas/PhotosModule"
+        - $ref: "#/components/schemas/SummaryModule"
+        - $ref: "#/components/schemas/ReferralModule"
+        - $ref: "#/components/schemas/LinkModule"
+      discriminator:
+        propertyName: type
+        mapping:
+          invoice: "#/components/schemas/InvoiceModule"
+          invoice_batch: "#/components/schemas/InvoiceBatchModule"
+          bid: "#/components/schemas/BidModule"
+          document: "#/components/schemas/DocumentModule"
+          tracker: "#/components/schemas/TrackerModule"
+          crewmap: "#/components/schemas/CrewMapModule"
+          flags: "#/components/schemas/FlagsModule"
+          photos: "#/components/schemas/PhotosModule"
+          summary: "#/components/schemas/SummaryModule"
+          referral: "#/components/schemas/ReferralModule"
+          link: "#/components/schemas/LinkModule"
+
+    InvoiceModule:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [invoice] }
+        invoiceNo: { type: ["string", "null"] }
+        amount: { type: ["number", "null"] }
+        status: { type: ["string", "null"] }
+        dueDate: { type: ["string", "null"], description: "YYYY-MM-DD" }
+        pdfUrl: { type: ["string", "null"] }
+        payUrl: { type: ["string", "null"] }
+        canApprove: { type: ["boolean", "null"] }
+        approvedAt: { type: ["string", "null"] }
+        payMethod: { type: ["string", "null"], description: "ach | check once chosen" }
+
+    InvoiceBatchModule:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [invoice_batch] }
+        unpaidAmount: { type: ["number", "null"] }
+        count: { type: ["number", "null"] }
+        invoices:
+          type: ["array", "null"]
+          items:
+            type: object
+            properties:
+              invoiceNo: { type: ["string", "null"] }
+              amount: { type: ["number", "null"] }
+              status: { type: ["string", "null"] }
+              payUrl: { type: ["string", "null"] }
+
+    BidModule:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [bid] }
+        status: { type: ["string", "null"] }
+        amount: { type: ["number", "null"] }
+        scope: { type: ["string", "null"] }
+        pdfUrl: { type: ["string", "null"] }
+        lineItems:
+          type: ["array", "null"]
+          items:
+            type: object
+            properties:
+              service: { type: ["string", "null"] }
+              qty: { type: ["number", "null"] }
+              amount: { type: ["number", "null"] }
+
+    DocumentModule:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [document] }
+        label: { type: ["string", "null"] }
+        url: { type: ["string", "null"] }
+        isPdf: { type: ["boolean", "null"] }
+
+    TrackerModule:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [tracker] }
+        jobNo: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        scope: { type: ["string", "null"] }
+        trackerUrl: { type: ["string", "null"] }
+
+    CrewMapModule:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [crewmap] }
+        onSiteCount: { type: ["number", "null"] }
+        crews:
+          type: ["array", "null"]
+          items:
+            type: object
+            properties:
+              crewName: { type: ["string", "null"] }
+              crewTrade: { type: ["string", "null"] }
+              description: { type: ["string", "null"] }
+              unitNo: { type: ["string", "null"] }
+              onSite: { type: ["boolean", "null"] }
+              selfieUrl: { type: ["string", "null"] }
+
+    FlagsModule:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [flags] }
+        totalCount: { type: ["number", "null"] }
+        requestedAt: { type: ["string", "null"] }
+        canSchedule: { type: ["boolean", "null"] }
+        items:
+          type: ["array", "null"]
+          items:
+            type: object
+            properties:
+              label: { type: ["string", "null"] }
+              unit: { type: ["string", "null"] }
+
+    PhotosModule:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [photos] }
+        jobId: { type: ["string", "null"] }
+        jobNo: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        totalCount: { type: ["number", "null"] }
+        photoUrls:
+          type: ["array", "null"]
+          items: { type: string }
+
+    SummaryModule:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [summary] }
+        summaryId: { type: ["string", "null"] }
+        title: { type: ["string", "null"] }
+        result: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        serviceDate: { type: ["string", "null"] }
+        summaryUrl: { type: ["string", "null"] }
+        checkedCount: { type: ["number", "null"] }
+        itemCount: { type: ["number", "null"] }
+        flagCount: { type: ["number", "null"] }
+        photoCount: { type: ["number", "null"] }
+
+    ReferralModule:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [referral] }
+        referredAt: { type: ["string", "null"] }
+        canRefer: { type: ["boolean", "null"] }
+
+    LinkModule:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [link] }
+        label: { type: ["string", "null"] }
+        url: { type: ["string", "null"] }
+
+    CardApproveAction:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [approve] }
+        name: { type: ["string", "null"], description: "Approver name if collected" }
+        note: { type: ["string", "null"] }
+
+    CardPayMethodAction:
+      type: object
+      required: [action, method]
+      properties:
+        action: { type: string, enum: [pay_method] }
+        method: { type: string, enum: [ach, check] }
+
+    CardScheduleAction:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [schedule] }
+        name: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        neededBy: { type: ["string", "null"], description: "YYYY-MM-DD" }
+
+    CardReferAction:
+      type: object
+      required: [action, contact]
+      properties:
+        action: { type: string, enum: [refer] }
+        contact: { type: string, description: "Referral contact — email or phone" }
+        name: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+
+    CardAcknowledgeAction:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [acknowledge] }
+        note: { type: ["string", "null"] }
+
+    BoardEvent:
+      type: object
+      required: [event, propertyId, at]
+      description: "Payload of every SSE `board` event and every outbound webhook mirror. Emitted from the board_events outbox after commit."
+      properties:
+        event:
+          type: string
+          enum: [card_pushed, card_moved, card_action, card_commented, card_removed, inbox_raised, inbox_responded]
+        propertyId: { type: string }
+        cardId: { type: ["string", "null"] }
+        cardKey: { type: ["string", "null"] }
+        actor:
+          type: ["string", "null"]
+          enum: [client, office, crew, system, null]
+        at: { type: string, description: "ISO timestamp" }

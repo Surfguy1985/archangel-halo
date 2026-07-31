@@ -1,3 +1,4 @@
+import { limits } from "../lib/rateLimit";
 import { Router, type IRouter } from "express";
 import { and, desc, eq, inArray, isNull, isNotNull, sql } from "drizzle-orm";
 import {
@@ -637,7 +638,7 @@ router.patch("/client/:token/board/feed/cards/:cardId", async (req, res): Promis
 // property, acknowledge); the action is recorded on the card's module, the
 // office is notified, and both boards see the new state on their next sync.
 // ---------------------------------------------------------------------------
-router.post("/client/:token/board/cards/:cardId/action", async (req, res): Promise<void> => {
+router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, async (req, res): Promise<void> => {
   const account = await accountByToken(String(req.params.token));
   if (!account || account.status !== "active") {
     res.status(404).json({ error: "Invalid link" });
@@ -656,7 +657,7 @@ router.post("/client/:token/board/cards/:cardId/action", async (req, res): Promi
     return;
   }
   const body = parsed.data;
-  const actorName = body.name?.trim() || viewer.name || null;
+  const actorName = ("name" in body ? body.name?.trim() : null) || viewer.name || null;
   // The board projection exposes pushed cards as "push:<id>" — accept both.
   const rawCardId = String(req.params.cardId).replace(/^push:/, "");
   const [prop] = await db

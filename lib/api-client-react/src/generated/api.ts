@@ -23670,3 +23670,228 @@ export const useOfficeDeleteHubItem = <TError = ErrorType<Error>,
       return useMutation(getOfficeDeleteHubItemMutationOptions(options));
     }
 
+export const getStreamOfficeBoardEventsUrl = (propertyId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/events`
+}
+
+/**
+ * @summary SSE stream — office mirror of a property's board. Emits `board` events; reconnect then refetch to catch up.
+ */
+export const streamOfficeBoardEvents = async (propertyId: string, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getStreamOfficeBoardEventsUrl(propertyId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamOfficeBoardEventsQueryKey = (propertyId: string,) => {
+    return [
+    `/api/admin/accounts/${propertyId}/board/events`
+    ] as const;
+    }
+
+
+export const getStreamOfficeBoardEventsQueryOptions = <TData = Awaited<ReturnType<typeof streamOfficeBoardEvents>>, TError = ErrorType<Error>>(propertyId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamOfficeBoardEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamOfficeBoardEventsQueryKey(propertyId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamOfficeBoardEvents>>> = ({ signal }) => streamOfficeBoardEvents(propertyId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: propertyId !== null && propertyId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamOfficeBoardEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type StreamOfficeBoardEventsQueryResult = NonNullable<Awaited<ReturnType<typeof streamOfficeBoardEvents>>>
+export type StreamOfficeBoardEventsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary SSE stream — office mirror of a property's board. Emits `board` events; reconnect then refetch to catch up.
+ */
+
+export function useStreamOfficeBoardEvents<TData = Awaited<ReturnType<typeof streamOfficeBoardEvents>>, TError = ErrorType<Error>>(
+ propertyId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamOfficeBoardEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getStreamOfficeBoardEventsQueryOptions(propertyId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStreamClientBoardEventsUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/events`
+}
+
+/**
+ * @summary SSE stream — live board updates for the property (same event vocabulary as the office stream)
+ */
+export const streamClientBoardEvents = async (token: string, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getStreamClientBoardEventsUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamClientBoardEventsQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/board/events`
+    ] as const;
+    }
+
+
+export const getStreamClientBoardEventsQueryOptions = <TData = Awaited<ReturnType<typeof streamClientBoardEvents>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamClientBoardEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamClientBoardEventsQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamClientBoardEvents>>> = ({ signal }) => streamClientBoardEvents(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamClientBoardEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type StreamClientBoardEventsQueryResult = NonNullable<Awaited<ReturnType<typeof streamClientBoardEvents>>>
+export type StreamClientBoardEventsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary SSE stream — live board updates for the property (same event vocabulary as the office stream)
+ */
+
+export function useStreamClientBoardEvents<TData = Awaited<ReturnType<typeof streamClientBoardEvents>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof streamClientBoardEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getStreamClientBoardEventsQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getExchangeClientTokenUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/session`
+}
+
+/**
+ * @summary Exchange the emailed capability link for an httpOnly session cookie so the token stops traveling on every request
+ */
+export const exchangeClientToken = async (token: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getExchangeClientTokenUrl(token),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getExchangeClientTokenMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exchangeClientToken>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof exchangeClientToken>>, TError,{token: string}, TContext> => {
+
+const mutationKey = ['exchangeClientToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof exchangeClientToken>>, {token: string}> = (props) => {
+          const {token} = props ?? {};
+
+          return  exchangeClientToken(token,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExchangeClientTokenMutationResult = NonNullable<Awaited<ReturnType<typeof exchangeClientToken>>>
+
+    export type ExchangeClientTokenMutationError = ErrorType<Error>
+
+    /**
+ * @summary Exchange the emailed capability link for an httpOnly session cookie so the token stops traveling on every request
+ */
+export const useExchangeClientToken = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof exchangeClientToken>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof exchangeClientToken>>,
+        TError,
+        {token: string},
+        TContext
+      > => {
+      return useMutation(getExchangeClientTokenMutationOptions(options));
+    }
+

@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -14,7 +15,13 @@ app.use(
         return {
           id: req.id,
           method: req.method,
-          url: req.url?.split("?")[0],
+          // Capability tokens live in URL paths — redact them from logs.
+          url: req.url
+            ?.split("?")[0]
+            ?.replace(
+              /(\/(client|portal|pay|track|recap-shares|photo-shares|job-summaries|board|summary)\/)[^/]+/,
+              "$1<redacted>",
+            ),
         };
       },
       res(res) {
@@ -26,6 +33,7 @@ app.use(
   }),
 );
 app.use(cors());
+app.use(cookieParser());
 app.use(
   [
     "/api/ingest/scan",

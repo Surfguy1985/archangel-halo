@@ -1,3 +1,4 @@
+import { limits } from "../lib/rateLimit";
 import { Router, type IRouter } from "express";
 import { and, count, desc, eq, gt, gte, inArray, lt, lte, ne, sql } from "drizzle-orm";
 import {
@@ -1358,7 +1359,7 @@ router.get("/portal/:token/bank", async (req, res): Promise<void> => {
   res.json(GetPortalBankResponse.parse(bankStatusPayload(bank)));
 });
 
-router.post("/portal/:token/bank", async (req, res): Promise<void> => {
+router.post("/portal/:token/bank", limits.bank, async (req, res): Promise<void> => {
   const token = String(req.params.token);
   const crew = await crewByToken(token);
   if (!crew) {

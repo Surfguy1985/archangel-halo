@@ -21,6 +21,7 @@ import {
   getListOfficeCardCommentsQueryKey,
   useAddOfficeCardComment,
   type ClientBoardFeedCard,
+  type ClientCardPushInput,
   type ClientInboxCard,
   type BoardCardComment,
 } from "@workspace/api-client-react";
@@ -55,7 +56,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { AppleBoard } from "@workspace/board-ui";
+import { AppleBoard, useBoardEvents } from "@workspace/board-ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -451,7 +452,8 @@ function CardView({
                 )}
               </div>
             )}
-            {card.kind === "link" && (
+            {/* Legacy stored cards may carry kind "link" (pre-enum). */}
+            {(card.kind as string) === "link" && (
               <a
                 href={mod.url}
                 target="_blank"
@@ -1001,7 +1003,7 @@ function EditCardDialog({
 
 type PushTemplate = {
   id: string;
-  kind: string;
+  kind: ClientCardPushInput["kind"];
   label: string;
   desc: string;
   icon: typeof FileText;
@@ -1807,20 +1809,16 @@ export default function ClientBoardOffice() {
   // Live push: the API pings this stream whenever the client's board changes
   // (client drags a card, a send raises a card, ...) so the office mirror
   // updates within ~1s instead of waiting for the fallback poll.
-  useEffect(() => {
-    if (!propertyId) return;
-    // Manual /api URLs must be absolute — never BASE_URL-prefixed.
-    const es = new EventSource(`/api/admin/accounts/${propertyId}/board/events`);
-    const refetch = () => {
+  // Live push with reconnect/backoff/catch-up; 15s poll remains the fallback.
+  // Manual /api URLs must be absolute — never BASE_URL-prefixed.
+  useBoardEvents(
+    propertyId ? `/api/admin/accounts/${propertyId}/board/events` : null,
+    () => {
       queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId!) });
       queryClient.invalidateQueries({ queryKey: getGetOfficeBoardFullQueryKey(propertyId!) });
       queryClient.invalidateQueries({ queryKey: getGetClientBoardInboxQueryKey(propertyId!) });
-    };
-    es.addEventListener("board", refetch);
-    // On reconnect after a drop, catch up on anything missed.
-    es.onopen = refetch;
-    return () => es.close();
-  }, [propertyId, queryClient]);
+    },
+  );
 
   const handleRemove = (cardId: string) => {
     if (!confirm("Remove this card from the client's board?")) return;

@@ -12,7 +12,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { CardDetailDialog } from '@/components/kanban/CardDetailDialog';
 import { NewCardSpotlight } from '@/components/NewCardSpotlight';
 import { BirdseyeMapDialog } from '@/components/BirdseyeMapDialog';
-import { AppleBoard } from '@workspace/board-ui';
+import { AppleBoard, useBoardEvents } from '@workspace/board-ui';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 
 function Board() {
@@ -70,19 +70,19 @@ function Board() {
   // Live push: the API pings this stream whenever anything on this board
   // changes (office pushes a card, an invoice is sent, another tab moves a
   // card, ...) so the board updates within ~1s without a manual refresh.
+  // Live push with reconnect/backoff/catch-up; 30s poll remains the fallback.
+  // Manual /api URLs must be absolute — never BASE_URL-prefixed.
+  useBoardEvents(token ? `/api/client/${token}/board/events` : null, () => {
+    queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+    queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
+  });
+
+  // One-time token→cookie session exchange (starts the token-in-URL
+  // migration; harmless no-op if the session already exists).
   useEffect(() => {
     if (!token) return;
-    // Manual /api URLs must be absolute — never BASE_URL-prefixed.
-    const es = new EventSource(`/api/client/${token}/board/events`);
-    const refetch = () => {
-      queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
-      queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
-    };
-    es.addEventListener('board', refetch);
-    // On reconnect after a drop, catch up on anything missed.
-    es.onopen = refetch;
-    return () => es.close();
-  }, [token, queryClient]);
+    fetch(`/api/client/${token}/session`, { method: 'POST', credentials: 'include' }).catch(() => {});
+  }, [token]);
 
   const dispatchAction = useDispatchClientBoardAction();
   const createAiCard = useCreateClientBoardAiCard();

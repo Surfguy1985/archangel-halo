@@ -11,7 +11,8 @@
     "lucide-react": "catalog:",
     "date-fns": "^3.6.0",
     "@tanstack/react-query": "catalog:",
-    "@workspace/api-client-react": "workspace:*"
+    "@workspace/api-client-react": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/react": "catalog:",

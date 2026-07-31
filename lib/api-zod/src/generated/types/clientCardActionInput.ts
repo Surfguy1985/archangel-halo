@@ -5,32 +5,13 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { CardAcknowledgeAction } from './cardAcknowledgeAction';
+import type { CardApproveAction } from './cardApproveAction';
+import type { CardPayMethodAction } from './cardPayMethodAction';
+import type { CardReferAction } from './cardReferAction';
+import type { CardScheduleAction } from './cardScheduleAction';
 
-export interface ClientCardActionInput {
-  /** approve | pay_method | schedule | refer | acknowledge */
-  action: string;
-  /**
-     * Payment method choice for pay_method — ach | check
-     * @nullable
-     */
-  method?: string | null;
-  /**
-     * Who is acting (approver, requester, referrer)
-     * @nullable
-     */
-  name?: string | null;
-  /**
-     * Referral contact — email or phone
-     * @nullable
-     */
-  contact?: string | null;
-  /** @nullable */
-  note?: string | null;
-  /** @nullable */
-  unitNo?: string | null;
-  /**
-     * YYYY-MM-DD
-     * @nullable
-     */
-  neededBy?: string | null;
-}
+/**
+ * Module action. Wire format is unchanged from the legacy flat shape — the union only narrows which fields are valid per action.
+ */
+export type ClientCardActionInput = CardApproveAction | CardPayMethodAction | CardScheduleAction | CardReferAction | CardAcknowledgeAction;

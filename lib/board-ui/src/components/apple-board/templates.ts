@@ -259,3 +259,42 @@ export const APPLE_CATEGORY_COLORS: Record<string, string> = {
   billing: '#FF9500', // Orange
   access: '#00C7BE', // Teal
 };
+
+// ---------------------------------------------------------------------------
+// HARDENING: audience-aware template resolution.
+//
+// `unit_turnover` and `blank` exist in BOTH arrays with different icons and
+// categories. The old lookup (`PM_TEMPLATES.find(...) || VENDOR_TEMPLATES
+// .find(...)`) let PM win unconditionally, so vendor cards silently rendered
+// with PM styling. Stored cards keep their existing keys — nothing in the DB
+// changes — the fix is resolving against the viewer's own catalog first.
+// ---------------------------------------------------------------------------
+
+export type BoardAudience = 'pm' | 'vendor';
+
+export function resolveTemplate(
+  key: string | null | undefined,
+  audience?: BoardAudience,
+): AppleTemplate | undefined {
+  if (!key) return undefined;
+  const primary = audience === 'vendor' ? VENDOR_TEMPLATES : PM_TEMPLATES;
+  const secondary = audience === 'vendor' ? PM_TEMPLATES : VENDOR_TEMPLATES;
+  return primary.find((t) => t.key === key) ?? secondary.find((t) => t.key === key);
+}
+
+// Boot-time guard for the NEXT collision. Duplicate keys inside one catalog
+// are a bug outright; cross-catalog duplicates are allowed (resolved by
+// audience above) but logged so they're a decision, not an accident.
+if ((globalThis as any).process?.env?.NODE_ENV !== 'production') {
+  for (const [label, arr] of [['PM_TEMPLATES', PM_TEMPLATES], ['VENDOR_TEMPLATES', VENDOR_TEMPLATES]] as const) {
+    const seen = new Set<string>();
+    for (const t of arr) {
+      if (seen.has(t.key)) console.error(`[templates] duplicate key "${t.key}" inside ${label}`);
+      seen.add(t.key);
+    }
+  }
+  const pmKeys = new Set(PM_TEMPLATES.map((t) => t.key));
+  for (const t of VENDOR_TEMPLATES) {
+    if (pmKeys.has(t.key)) console.warn(`[templates] "${t.key}" exists in both catalogs — resolved by audience`);
+  }
+}

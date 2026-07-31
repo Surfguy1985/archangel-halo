@@ -1,8 +1,9 @@
 import React from 'react';
-import { APPLE_CATEGORY_COLORS, PM_TEMPLATES, VENDOR_TEMPLATES } from './templates';
+import { APPLE_CATEGORY_COLORS, resolveTemplate, type BoardAudience } from './templates';
 import { MessageSquare, Calendar, Wrench, FileText, FileSearch, HardHat, FileSignature, Layers } from 'lucide-react';
 import { formatDistanceToNow, parseISO, isBefore, startOfDay } from 'date-fns';
 import { ModuleMetrics, ModuleEvidence, ModuleDecision } from '../kanban/BoardCardModules';
+import { ModuleBoundary } from '../kanban/ModuleBoundary';
 
 interface AppleCardProps {
   card: any;
@@ -16,9 +17,10 @@ interface AppleCardProps {
   onTouchDragEnd?: (x: number, y: number, cancelled: boolean) => void;
   onClick?: () => void;
   token?: string;
+  audience?: BoardAudience;
 }
 
-export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, onTouchDragBegin, onTouchDragMove, onTouchDragEnd, onClick, token, onReadOnlyClick }: AppleCardProps) {
+export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, onTouchDragBegin, onTouchDragMove, onTouchDragEnd, onClick, token, onReadOnlyClick, audience }: AppleCardProps) {
   // Long-press touch drag: HTML5 DnD doesn't exist on mobile browsers.
   // Hold ~250ms to lift the card; moving early is treated as a scroll.
   const justDragged = React.useRef(false);
@@ -75,9 +77,9 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
       if (active) onTouchDragEnd?.(startX, startY, true);
     };
   };
-  // Find template across both PM and Vendor
-  let template = PM_TEMPLATES.find(t => t.key === card.template) 
-              || VENDOR_TEMPLATES.find(t => t.key === card.template);
+  // Resolve against the viewer's own catalog first — `unit_turnover` and
+  // `blank` exist in both PM and Vendor with different styling.
+  let template = resolveTemplate(card.template, audience);
 
   // If not found (e.g. HALO-generated card like 'invoice' or 'crew'), use fallback
   if (!template) {
@@ -178,12 +180,18 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
       {/* Modules (if any) */}
       {card.module && (
         <div className="mb-3 space-y-2">
-          <ModuleMetrics module={card.module} tint={{ bd: '#f5f5f7' }} />
-          <ModuleEvidence module={card.module} tint={{ bg: '#fafafa', border: '#e8e8ed', hairline: '#e8e8ed', bd: '#e8e8ed' }} />
+          <ModuleBoundary module={card.module} surface="metrics" links={card.links}>
+            <ModuleMetrics module={card.module} tint={{ bd: '#f5f5f7' }} />
+          </ModuleBoundary>
+          <ModuleBoundary module={card.module} surface="evidence">
+            <ModuleEvidence module={card.module} tint={{ bg: '#fafafa', border: '#e8e8ed', hairline: '#e8e8ed', bd: '#e8e8ed' }} />
+          </ModuleBoundary>
           {/* Rendered for read-only viewers too — tapping an action prompts
               sign-in via onReadOnlyClick instead of hiding the buttons. */}
           {token && card.actions && card.actions.length > 0 && (
-            <ModuleDecision cardKey={card.cardKey} token={token} module={card.module} readOnly={!!readOnly} onReadOnlyClick={onReadOnlyClick} tint={{ bd: '#e8e8ed' }} />
+            <ModuleBoundary module={card.module} surface="decision">
+              <ModuleDecision cardKey={card.cardKey} token={token} module={card.module} readOnly={!!readOnly} onReadOnlyClick={onReadOnlyClick} tint={{ bd: '#e8e8ed' }} />
+            </ModuleBoundary>
           )}
         </div>
       )}
