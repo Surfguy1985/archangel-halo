@@ -108,3 +108,9 @@ id = "ZfcGPEHzH0--XwQnCxmjW"
 uri = "file://exports/halo-desktop-code-only.zip"
 type = "unspecified"
 title = "HALO Desktop — code only (952 KB zip)"
+
+[[outputs]]
+id = "Ph6USVJOvTXBgEKR17pin"
+uri = "file://artifacts/halo/src/assets/halo-logo.png"
+type = "image"
+title = "HALO Logo (PNG, transparent)"
