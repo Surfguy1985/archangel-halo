@@ -8,4 +8,5 @@ description: FLK network codes + six volt-dot waybill strips on client/office bo
 - Dots are ALWAYS volt #B4FF44 (network owns status, brand owns header). Live sync rides the existing SSE→refetch pipeline; `useStagePings` in board-ui pings only stages newly appearing after first render (diff by stage name, immune to array identity churn). Never add per-card EventSources.
 - Money cards (invoice templates / invoice module types) get the Falkon gradient face in AppleCard but KEEP ModuleBoundary/ModuleDecision wiring — do not fork the pay-flow state machine into the new face.
 - Both boards move cards via the same `card.moved` dispatch + shared override storage, and both dispatch routes emitBoardEvent — that's why dots stay in sync by construction.
+- ALL cards now use the Falkon face, gradient color-coded by APPLE_CATEGORY_COLORS[template.category]; `headerBase()` darkens light service colors until white header text passes ~4.5:1 — keep that guard if palette changes.
 - **Why:** user requirement — dots must mirror card movement across boards perfectly; storing waybill state would drift.

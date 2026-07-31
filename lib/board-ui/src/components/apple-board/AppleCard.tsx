@@ -6,12 +6,47 @@ import { ModuleMetrics, ModuleEvidence, ModuleDecision } from '../kanban/BoardCa
 import { ModuleBoundary } from '../kanban/ModuleBoundary';
 import { WaybillStrip } from '../card/WaybillStrip';
 
-// Falkon money-card face: invoices and payment requests get the full-bleed
-// branded header from the card pack; everything else keeps the Apple face
-// and gains the compact waybill strip.
-const MONEY_TEMPLATES = new Set(['invoice', 'push_invoice', 'push_invoice_batch', 'push_payment_request']);
-const MONEY_MODULE_TYPES = new Set(['invoice', 'invoice_batch']);
-const MONEY_GRADIENT: [string, string] = ['#2C7BF2', '#1B57C4'];
+// Falkon face for every card, color-coded by service: the template category
+// drives the header gradient, while the network strip stays uniform.
+const SERVICE_LABELS: Record<string, string> = {
+  maintenance: 'Maintenance',
+  lease: 'Leasing',
+  rent: 'Rent',
+  move: 'Move',
+  coordination: 'Coordination',
+  vendor: 'Vendor',
+  billing: 'Billing',
+  access: 'Access',
+  blank: 'General',
+};
+
+/** Darken/lighten a #RRGGBB color by amt (-1..1). */
+function shade(hex: string, amt: number): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  if (Number.isNaN(n)) return hex;
+  const f = (c: number) => Math.max(0, Math.min(255, Math.round(amt < 0 ? c * (1 + amt) : c + (255 - c) * amt)));
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(f) as [number, number, number];
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+/** Relative luminance (0..1) of a #RRGGBB color. */
+function luminance(hex: string): number {
+  const n = parseInt(hex.replace('#', ''), 16);
+  if (Number.isNaN(n)) return 0;
+  const lin = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+}
+
+/** Darken a service color until white header text passes ~4.5:1 contrast. */
+function headerBase(hex: string): string {
+  let c = hex;
+  // 4.5:1 vs white ⇒ luminance ≤ ~0.183
+  for (let i = 0; i < 6 && luminance(c) > 0.183; i++) c = shade(c, -0.14);
+  return c;
+}
 
 interface AppleCardProps {
   card: any;
@@ -144,94 +179,14 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
 
   const priorityDot = priorityColors[card.priority || 'normal'] || priorityColors.normal;
 
-  const isMoney =
-    MONEY_TEMPLATES.has(card.template) ||
-    MONEY_MODULE_TYPES.has((card.module as any)?.type) ||
-    MONEY_TEMPLATES.has(card.kind);
   const waybill = card.waybill as { stages: Array<{ stage: string; at: string; byLabel?: string | null }>; holder?: string; live?: boolean } | undefined;
 
-  if (isMoney && waybill) {
-    // ── Falkon face — branded header, FLK code + live dots, existing modules ──
-    return (
-      <div
-        id={`card-${card.cardKey}`}
-        draggable={!readOnly}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        onTouchStart={handleTouchStart}
-        onClick={() => {
-          if (justDragged.current) return;
-          onClick?.();
-        }}
-        className="flex flex-col border rounded-[18px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.12)] transition-all cursor-pointer active:scale-[0.98] max-sm:select-none overflow-hidden relative bg-white"
-        style={{ WebkitTouchCallout: 'none', borderColor: '#1B57C440' } as React.CSSProperties}
-      >
-        <div
-          className="px-4 pt-3 pb-3 text-white"
-          style={{ backgroundImage: `linear-gradient(135deg, ${MONEY_GRADIENT[0]}, ${MONEY_GRADIENT[1]})` }}
-        >
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className="w-6 h-6 rounded-[7px] border-[1.5px] grid place-items-center text-[10px] font-extrabold shrink-0"
-              style={{ borderColor: '#B4FF44', color: '#B4FF44' }}
-            >
-              HA
-            </span>
-            <span className="text-[9px] font-extrabold tracking-[.09em] uppercase bg-white/20 px-2 py-[3px] rounded-md">
-              {String(card.module?.type === 'invoice_batch' ? 'invoices' : 'invoice')}
-            </span>
-            <span className="ml-auto inline-flex items-center gap-1 text-[9px] font-bold px-2 py-[3px] rounded-md whitespace-nowrap" style={{ background: 'rgba(11,20,40,.42)', color: '#B4FF44' }}>
-              Sealed to you
-            </span>
-          </div>
-          <h3 className="text-[15px] font-bold leading-[1.25] tracking-[-0.02em] mt-2 line-clamp-2">{card.title}</h3>
-          {card.subtitle && <p className="text-[11px] leading-[1.4] opacity-85 mt-0.5 line-clamp-1">{card.subtitle}</p>}
-        </div>
-
-        <div className="px-2 pt-2">
-          <WaybillStrip code={card.waybillCode} stages={waybill.stages} holder={waybill.holder} live={waybill.live !== false} />
-        </div>
-
-        <div className="flex flex-col p-4 pt-3">
-          {card.module && (
-            <div className="mb-3 space-y-2">
-              <ModuleBoundary module={card.module} surface="metrics" links={card.links}>
-                <ModuleMetrics module={card.module} tint={{ bd: '#f5f5f7' }} />
-              </ModuleBoundary>
-              <ModuleBoundary module={card.module} surface="evidence">
-                <ModuleEvidence module={card.module} tint={{ bg: '#fafafa', border: '#e8e8ed', hairline: '#e8e8ed', bd: '#e8e8ed' }} />
-              </ModuleBoundary>
-              {token && card.actions && card.actions.length > 0 && (
-                <ModuleBoundary module={card.module} surface="decision">
-                  <ModuleDecision cardKey={card.cardKey} token={token} module={card.module} readOnly={!!readOnly} onReadOnlyClick={onReadOnlyClick} tint={{ bd: '#e8e8ed' }} />
-                </ModuleBoundary>
-              )}
-            </div>
-          )}
-          <div className="flex items-center gap-2 mt-auto pt-1">
-            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: priorityDot }} />
-            {(card.dueOn || card.scheduledOn) && (
-              <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${isPastDue ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-[#f5f5f7] text-[#6e6e73]'}`}>
-                <Calendar className="h-3 w-3" strokeWidth={2.5} />
-                <span>
-                  {card.scheduledOn
-                    ? `Sched ${formatDistanceToNow(parseISO(card.scheduledOn), { addSuffix: true })}`
-                    : formatDistanceToNow(parseISO(card.dueOn!), { addSuffix: true })}
-                </span>
-              </div>
-            )}
-            <div className="flex-1" />
-            {(card.commentCount ?? 0) > 0 && (
-              <div className="flex items-center gap-1 text-[#6e6e73]">
-                <MessageSquare className="h-3.5 w-3.5" strokeWidth={2.5} />
-                <span className="text-[12px] font-medium">{card.commentCount}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // ── Falkon face for EVERY card, color-coded by service (template category).
+  // The gradient header carries the service color; the network strip stays
+  // dark with volt dots so progress reads identically across services.
+  const headerColor = headerBase(color);
+  const gradient = `linear-gradient(135deg, ${headerColor}, ${shade(headerColor, -0.38)})`;
+  const serviceLabel = template.labelPreset || SERVICE_LABELS[template.category] || template.category;
 
   return (
     <div
@@ -244,139 +199,115 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
         if (justDragged.current) return; // swallow the tap that ends a touch drag
         onClick?.();
       }}
-      className="flex flex-col p-4 border rounded-[18px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.10)] transition-all cursor-pointer active:scale-[0.98] max-sm:select-none overflow-hidden relative"
-      style={{
-        WebkitTouchCallout: 'none',
-        // Category-coded card: soft tint wash of the category color over white,
-        // stronger at the top, with a matching border + left accent bar.
-        background: `linear-gradient(160deg, ${color}2E 0%, ${color}14 45%, ${color}0A 100%), #ffffff`,
-        borderColor: `${color}59`,
-        boxShadow: `inset 3px 0 0 0 ${color}`,
-      } as React.CSSProperties}
+      className="flex flex-col border rounded-[18px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.12)] transition-all cursor-pointer active:scale-[0.98] max-sm:select-none overflow-hidden relative bg-white"
+      style={{ WebkitTouchCallout: 'none', borderColor: `${color}40` } as React.CSSProperties}
     >
-      {/* Header */}
-      <div className="flex items-start gap-3 mb-3">
-        <div
-          className="h-8 w-8 rounded-[10px] flex items-center justify-center shrink-0"
-          style={{ backgroundColor: `${color}15` }}
-        >
-          <Icon className="h-4 w-4" style={{ color }} strokeWidth={2.5} />
+      {/* Branded header — service color owns the gradient */}
+      <div className="px-4 pt-3 pb-3 text-white" style={{ backgroundImage: gradient }}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className="w-6 h-6 rounded-[7px] border-[1.5px] grid place-items-center shrink-0"
+            style={{ borderColor: '#B4FF44', color: '#B4FF44' }}
+          >
+            <Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </span>
+          <span className="text-[9px] font-extrabold tracking-[.09em] uppercase bg-white/20 px-2 py-[3px] rounded-md">
+            {serviceLabel}
+          </span>
+          <span
+            className="ml-auto inline-flex items-center gap-1 text-[9px] font-bold px-2 py-[3px] rounded-md whitespace-nowrap"
+            style={{ background: 'rgba(11,20,40,.42)', color: '#B4FF44' }}
+          >
+            Sealed to you
+          </span>
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-[15px] font-semibold text-[#1d1d1f] leading-[1.3] line-clamp-2 tracking-[-0.01em]">
-            {card.title}
-          </h3>
-          {card.subtitle && (
-            <p className="text-[12px] text-[#6e6e73] font-medium line-clamp-1 mt-0.5">
-              {card.subtitle}
-            </p>
-          )}
-        </div>
+        <h3 className="text-[15px] font-bold leading-[1.25] tracking-[-0.02em] mt-2 line-clamp-2">{card.title}</h3>
+        {card.subtitle && <p className="text-[11px] leading-[1.4] opacity-85 mt-0.5 line-clamp-1">{card.subtitle}</p>}
       </div>
 
       {/* Network waybill — six live dots synced to the card's lane */}
       {waybill && (
-        <div className="mb-3">
-          <WaybillStrip code={card.waybillCode} stages={waybill.stages} holder={waybill.holder} live={waybill.live !== false} compact />
+        <div className="px-2 pt-2">
+          <WaybillStrip code={card.waybillCode} stages={waybill.stages} holder={waybill.holder} live={waybill.live !== false} />
         </div>
       )}
 
-      {/* Modules (if any) */}
-      {card.module && (
-        <div className="mb-3 space-y-2">
-          <ModuleBoundary module={card.module} surface="metrics" links={card.links}>
-            <ModuleMetrics module={card.module} tint={{ bd: '#f5f5f7' }} />
-          </ModuleBoundary>
-          <ModuleBoundary module={card.module} surface="evidence">
-            <ModuleEvidence module={card.module} tint={{ bg: '#fafafa', border: '#e8e8ed', hairline: '#e8e8ed', bd: '#e8e8ed' }} />
-          </ModuleBoundary>
-          {/* Rendered for read-only viewers too — tapping an action prompts
-              sign-in via onReadOnlyClick instead of hiding the buttons. */}
-          {token && card.actions && card.actions.length > 0 && (
-            <ModuleBoundary module={card.module} surface="decision">
-              <ModuleDecision cardKey={card.cardKey} token={token} module={card.module} readOnly={!!readOnly} onReadOnlyClick={onReadOnlyClick} tint={{ bd: '#e8e8ed' }} />
+      <div className="flex flex-col flex-1 p-4 pt-3">
+        {/* Modules (if any) */}
+        {card.module && (
+          <div className="mb-3 space-y-2">
+            <ModuleBoundary module={card.module} surface="metrics" links={card.links}>
+              <ModuleMetrics module={card.module} tint={{ bd: '#f5f5f7' }} />
             </ModuleBoundary>
-          )}
-        </div>
-      )}
+            <ModuleBoundary module={card.module} surface="evidence">
+              <ModuleEvidence module={card.module} tint={{ bg: '#fafafa', border: '#e8e8ed', hairline: '#e8e8ed', bd: '#e8e8ed' }} />
+            </ModuleBoundary>
+            {/* Rendered for read-only viewers too — tapping an action prompts
+                sign-in via onReadOnlyClick instead of hiding the buttons. */}
+            {token && card.actions && card.actions.length > 0 && (
+              <ModuleBoundary module={card.module} surface="decision">
+                <ModuleDecision cardKey={card.cardKey} token={token} module={card.module} readOnly={!!readOnly} onReadOnlyClick={onReadOnlyClick} tint={{ bd: '#e8e8ed' }} />
+              </ModuleBoundary>
+            )}
+          </div>
+        )}
 
-      {/* Category / Labels */}
-      {(template.labelPreset || (card.labels && card.labels.length > 0)) && (
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {template.labelPreset && (
-            <span
-              className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide"
-              style={{ backgroundColor: `${color}15`, color: color }}
-            >
-              {template.labelPreset}
-            </span>
-          )}
-          {card.labels?.filter((l: any) => l !== template?.labelPreset).map((lbl: any, idx: number) => (
-            <span
-              key={idx}
-              className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-[#f5f5f7] text-[#6e6e73]"
-            >
-              {lbl}
-            </span>
-          ))}
-        </div>
-      )}
+        {/* Client labels (service chip moved into the header) */}
+        {card.labels && card.labels.filter((l: any) => l !== template?.labelPreset).length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {card.labels.filter((l: any) => l !== template?.labelPreset).map((lbl: any, idx: number) => (
+              <span
+                key={idx}
+                className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-[#f5f5f7] text-[#6e6e73]"
+              >
+                {lbl}
+              </span>
+            ))}
+          </div>
+        )}
 
-      {/* Checklist Progress */}
-      {totalCount > 0 && (
-        <div className="mb-3">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[12px] font-medium text-[#6e6e73]">
-              {checkedCount}/{totalCount}
-            </span>
-            <div className="flex-1 h-1.5 bg-[#f5f5f7] rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${checklistProgress}%`,
-                  backgroundColor: color,
-                }}
-              />
+        {/* Checklist Progress */}
+        {totalCount > 0 && (
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-[12px] font-medium text-[#6e6e73]">
+                {checkedCount}/{totalCount}
+              </span>
+              <div className="flex-1 h-1.5 bg-[#f5f5f7] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${checklistProgress}%`, backgroundColor: color }}
+                />
+              </div>
             </div>
           </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center gap-2 mt-auto pt-1">
+          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: priorityDot }} />
+          {(card.dueOn || card.scheduledOn) && (
+            <div
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                isPastDue ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-[#f5f5f7] text-[#6e6e73]'
+              }`}
+            >
+              <Calendar className="h-3 w-3" strokeWidth={2.5} />
+              <span>
+                {card.scheduledOn
+                  ? `Sched ${formatDistanceToNow(parseISO(card.scheduledOn), { addSuffix: true })}`
+                  : formatDistanceToNow(parseISO(card.dueOn!), { addSuffix: true })}
+              </span>
+            </div>
+          )}
+          <div className="flex-1" />
+          {(card.commentCount ?? 0) > 0 && (
+            <div className="flex items-center gap-1 text-[#6e6e73]">
+              <MessageSquare className="h-3.5 w-3.5" strokeWidth={2.5} />
+              <span className="text-[12px] font-medium">{card.commentCount}</span>
+            </div>
+          )}
         </div>
-      )}
-
-      {/* Footer */}
-      <div className="flex items-center gap-2 mt-auto pt-2">
-        {/* Priority Dot */}
-        <div
-          className="h-2 w-2 rounded-full shrink-0"
-          style={{ backgroundColor: priorityDot }}
-        />
-
-        {/* Due Date */}
-        {(card.dueOn || card.scheduledOn) && (
-          <div
-            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-              isPastDue
-                ? 'bg-[#FF3B30]/10 text-[#FF3B30]'
-                : 'bg-[#f5f5f7] text-[#6e6e73]'
-            }`}
-          >
-            <Calendar className="h-3 w-3" strokeWidth={2.5} />
-            <span>
-              {card.scheduledOn 
-                ? `Sched ${formatDistanceToNow(parseISO(card.scheduledOn), { addSuffix: true })}`
-                : formatDistanceToNow(parseISO(card.dueOn!), { addSuffix: true })}
-            </span>
-          </div>
-        )}
-
-        <div className="flex-1" />
-
-        {/* Comment Count */}
-        {(card.commentCount ?? 0) > 0 && (
-          <div className="flex items-center gap-1 text-[#6e6e73]">
-            <MessageSquare className="h-3.5 w-3.5" strokeWidth={2.5} />
-            <span className="text-[12px] font-medium">{card.commentCount}</span>
-          </div>
-        )}
       </div>
     </div>
   );
