@@ -159,6 +159,7 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
 
   // New indicators from extended card data
   const commentCount = (card as any).commentCount || 0;
+  const unreadComments = (card as any).unreadComments || 0;
   const cardLabels = (card as any).labels || [];
   const checklist = (card as any).checklist || [];
   const checklistComplete = checklist.length > 0 
@@ -401,12 +402,20 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
               {checklistComplete}/{checklistTotal}
             </span>
           )}
-          {commentCount > 0 && (
+          {unreadComments > 0 ? (
+            <span
+              className="flex items-center gap-1 rounded-[20px] px-[8px] py-[3px] text-[8.5px] font-[700] tracking-wider whitespace-nowrap bg-[#FF3B30] text-white"
+              data-testid={`badge-unread-${card.cardKey}`}
+            >
+              <MessageSquare className="w-2.5 h-2.5" />
+              {unreadComments}
+            </span>
+          ) : commentCount > 0 ? (
             <span className="flex items-center gap-1 rounded-[20px] px-[8px] py-[3px] text-[8.5px] font-[700] tracking-wider whitespace-nowrap border border-[#33639f]/30 bg-[#33639f]/10">
               <MessageSquare className="w-2.5 h-2.5" />
               {commentCount}
             </span>
-          )}
+          ) : null}
           {sentToOffice && (
             <span className={`rounded-[20px] px-[8px] py-[3px] text-[8.5px] font-[700] uppercase tracking-wider whitespace-nowrap border ${
               sentToOffice.status === 'accepted' ? 'bg-[#1f7a52]/10 border-[#1f7a52]/30 text-[#1f7a52]' :

@@ -84,6 +84,13 @@ export const clientCardCommentsTable = pgTable("client_card_comments", {
   authorType: text("author_type").notNull(), // office | client
   authorName: text("author_name").notNull(),
   body: text("body").notNull(),
+  // Slack-style thread upgrades: optional photo/file attachment (object
+  // storage path), read receipt (set when the OTHER side opens the thread),
+  // and email-digest claim marker (claim-before-send, crew_messages pattern).
+  attachmentName: text("attachment_name"),
+  attachmentPath: text("attachment_path"),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  notifiedAt: timestamp("notified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

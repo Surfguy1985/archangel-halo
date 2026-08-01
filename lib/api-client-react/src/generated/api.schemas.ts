@@ -5491,6 +5491,10 @@ export interface ClientBoardCardView {
   labels?: string[];
   checklist?: BoardChecklistItem[];
   commentCount?: number;
+  /** Office messages the client has not seen yet */
+  unreadComments?: number;
+  /** Client messages the office has not seen yet */
+  unreadFromClient?: number;
   /** FLK-XXXXX network code, deterministic per card (Crockford base32). */
   waybillCode: string;
   waybill: CardWaybill;
@@ -5503,11 +5507,27 @@ export interface BoardCardComment {
   authorType: string;
   authorName: string;
   body: string;
+  /** @nullable */
+  attachmentName?: string | null;
+  /**
+     * Absolute /api/storage URL when a file is attached
+     * @nullable
+     */
+  attachmentUrl?: string | null;
+  /** Whether the other side has seen this message */
+  read?: boolean;
   createdAt: string;
 }
 
 export interface BoardCardCommentInput {
   body: string;
+  /** @nullable */
+  attachmentName?: string | null;
+  /**
+     * Object storage path from the upload flow
+     * @nullable
+     */
+  attachmentPath?: string | null;
 }
 
 export interface BoardCardCommentList {
@@ -5612,6 +5632,8 @@ export interface ClientBoardView {
   lanes: ClientBoardLane[];
   cards: ClientBoardCardView[];
   audit: ClientBoardAuditEntry[];
+  /** Board-wide count of office messages the client has not seen yet */
+  unreadMessages?: number;
 }
 
 export interface OfficeBoardFullRec {

@@ -151,6 +151,11 @@ export function FeedCard({
         if (card.entityId) navigate(`/jobs/${card.entityId}`);
         return;
       }
+      case "openClientBoard": {
+        // Unanswered client messages — jump to the mirrored client board.
+        if (card.propertyId) navigate(`/properties/${card.propertyId}/board`);
+        return;
+      }
       case "shareTracker":
       case "sharePhotos": {
         if (card.propertyId && onUpdateClient) {

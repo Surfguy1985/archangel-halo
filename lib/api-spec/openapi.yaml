@@ -7253,6 +7253,63 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/accounts/{propertyId}/board/comments/{cardKey}/seen:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: markOfficeCardCommentsSeen
+      tags: [admin]
+      summary: Office opened the thread — mark client messages on this card as read
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cardKey
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Marked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/cards/{cardKey}/comments/seen:
+    post:
+      operationId: markClientCardCommentsSeen
+      tags: [admin]
+      summary: Client opened the thread — mark office messages on this card as read
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cardKey
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Marked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /client/{token}/board/cards/{cardKey}/send-to-office:
     post:
       operationId: sendClientCardToOffice
@@ -12746,6 +12803,8 @@ components:
           items:
             $ref: "#/components/schemas/BoardChecklistItem"
         commentCount: { type: integer }
+        unreadComments: { type: integer, description: "Office messages the client has not seen yet" }
+        unreadFromClient: { type: integer, description: "Client messages the office has not seen yet" }
         waybillCode:
           type: string
           description: "FLK-XXXXX network code, deterministic per card (Crockford base32)."
@@ -12780,6 +12839,9 @@ components:
         authorType: { type: string, description: "office | client" }
         authorName: { type: string }
         body: { type: string }
+        attachmentName: { type: ["string", "null"] }
+        attachmentUrl: { type: ["string", "null"], description: "Absolute /api/storage URL when a file is attached" }
+        read: { type: boolean, description: "Whether the other side has seen this message" }
         createdAt: { type: string }
 
     BoardCardCommentInput:
@@ -12787,6 +12849,8 @@ components:
       required: [body]
       properties:
         body: { type: string }
+        attachmentName: { type: ["string", "null"] }
+        attachmentPath: { type: ["string", "null"], description: "Object storage path from the upload flow" }
 
     BoardCardCommentList:
       type: object
@@ -12909,6 +12973,9 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ClientBoardAuditEntry"
+        unreadMessages:
+          type: integer
+          description: "Board-wide count of office messages the client has not seen yet"
 
     OfficeBoardFullRec:
       type: object

@@ -24,4 +24,6 @@ export interface ClientBoardView {
   lanes: ClientBoardLane[];
   cards: ClientBoardCardView[];
   audit: ClientBoardAuditEntry[];
+  /** Board-wide count of office messages the client has not seen yet */
+  unreadMessages?: number;
 }

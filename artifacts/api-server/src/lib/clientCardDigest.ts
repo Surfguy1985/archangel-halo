@@ -3,6 +3,7 @@ import {
   db,
   clientAccountsTable,
   clientBoardCardsTable,
+  clientCardCommentsTable,
   clientUsersTable,
   propertiesTable,
   type ClientBoardCard,
@@ -202,8 +203,174 @@ export async function sendClientCardDigests(): Promise<void> {
     await sweep();
   } catch (err) {
     logger.warn({ err }, "Client card digest sweep failed");
-  } finally {
-    running = false;
+  }
+  try {
+    await sweepMessages();
+  } catch (err) {
+    logger.warn({ err }, "Client message digest sweep failed");
+  }
+  running = false;
+}
+
+/**
+ * Hourly message digest: office replies on card threads the client has not
+ * seen in-app get one "you have N new messages" email per property. Same
+ * claim-before-send pattern as cards (guarded update on notifiedAt IS NULL),
+ * released on send failure so the next sweep retries. Messages the client
+ * already read in-app are silently claimed — no email for old news.
+ */
+async function sweepMessages(): Promise<void> {
+  const pending = await db
+    .select()
+    .from(clientCardCommentsTable)
+    .where(
+      and(
+        eq(clientCardCommentsTable.authorType, "office"),
+        isNull(clientCardCommentsTable.notifiedAt),
+      ),
+    );
+  if (pending.length === 0) return;
+
+  const claim = async (ids: string[]) =>
+    ids.length
+      ? db
+          .update(clientCardCommentsTable)
+          .set({ notifiedAt: new Date() })
+          .where(
+            and(
+              inArray(clientCardCommentsTable.id, ids),
+              isNull(clientCardCommentsTable.notifiedAt),
+            ),
+          )
+          .returning()
+      : [];
+
+  // Already read in-app → claim quietly, never email.
+  const alreadyRead = pending.filter((m) => m.readAt);
+  if (alreadyRead.length) await claim(alreadyRead.map((m) => m.id));
+
+  const unread = pending.filter((m) => !m.readAt);
+  const byProperty = new Map<string, typeof unread>();
+  for (const m of unread) {
+    byProperty.set(m.propertyId, [...(byProperty.get(m.propertyId) ?? []), m]);
+  }
+  if (byProperty.size === 0) return;
+
+  const settings = await getBusinessSettings();
+  const company = settings.companyName || "ArchAngel Contractors";
+
+  for (const [propertyId, msgs] of byProperty) {
+    const [account] = await db
+      .select()
+      .from(clientAccountsTable)
+      .where(eq(clientAccountsTable.propertyId, propertyId))
+      .limit(1);
+    if (!account || account.status === "cancelled" || !account.notifyNewCards) {
+      await claim(msgs.map((m) => m.id));
+      continue;
+    }
+    let to = account.billingContact?.email?.trim() || null;
+    if (!to) {
+      const admins = await db
+        .select({ email: clientUsersTable.email })
+        .from(clientUsersTable)
+        .where(
+          and(
+            eq(clientUsersTable.propertyId, propertyId),
+            eq(clientUsersTable.role, "admin"),
+            eq(clientUsersTable.active, true),
+          ),
+        )
+        .limit(1);
+      to = admins[0]?.email ?? null;
+    }
+    if (!to) {
+      // Retried once a contact exists; cap buildup at 7 days like cards.
+      const stale = msgs.filter(
+        (m) => Date.now() - m.createdAt.getTime() > 7 * 24 * 60 * 60 * 1000,
+      );
+      if (stale.length) await claim(stale.map((m) => m.id));
+      continue;
+    }
+
+    // Claim only rows STILL unread at claim time — a message read in-app
+    // between the snapshot and this claim must never be emailed as "new".
+    const claimed = msgs.length
+      ? await db
+          .update(clientCardCommentsTable)
+          .set({ notifiedAt: new Date() })
+          .where(
+            and(
+              inArray(clientCardCommentsTable.id, msgs.map((m) => m.id)),
+              isNull(clientCardCommentsTable.notifiedAt),
+              isNull(clientCardCommentsTable.readAt),
+            ),
+          )
+          .returning()
+      : [];
+    // Anything read in the meantime is claimed quietly (no email).
+    const claimedIds = new Set(claimed.map((m) => m.id));
+    const readMeanwhile = msgs.filter((m) => !claimedIds.has(m.id));
+    if (readMeanwhile.length) await claim(readMeanwhile.map((m) => m.id));
+    if (claimed.length === 0) continue;
+
+    const [property] = await db
+      .select({ name: propertiesTable.name })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, propertyId))
+      .limit(1);
+    const propertyName = property?.name ?? "your property";
+    const n = claimed.length;
+    const preview = claimed
+      .slice()
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .slice(0, 5)
+      .map(
+        (m) =>
+          `<tr><td style="padding:10px 14px;border-bottom:1px solid #eceae4;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#8f6a1f;">${escHtml(m.authorName)}</div>
+        <div style="font-size:14px;color:#17181c;margin-top:2px;">${escHtml(m.body || (m.attachmentName ? `📎 ${m.attachmentName}` : "Photo"))}</div>
+      </td></tr>`,
+      )
+      .join("");
+    const link = boardUrl(account.dashboardToken);
+    const result = await sendEmail({
+      to,
+      subject:
+        n === 1
+          ? `New message on your ${propertyName} board`
+          : `${n} new messages on your ${propertyName} board`,
+      html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f3f2ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f2ee;padding:24px 12px;"><tr><td align="center">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+      <tr><td style="background:#17181c;border-radius:14px 14px 0 0;padding:22px 26px;">
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#c9a24b;">${escHtml(company)}</div>
+        <div style="font-size:22px;font-weight:800;color:#ffffff;margin-top:6px;">${n === 1 ? "You have a new message" : `You have ${n} new messages`}</div>
+      </td></tr>
+      <tr><td style="background:#ffffff;padding:20px 26px 24px 26px;border-radius:0 0 14px 14px;">
+        <p style="font-size:15px;color:#3a3c42;line-height:1.6;margin:0 0 14px 0;">Our team replied on your <strong>${escHtml(propertyName)}</strong> board:</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f5f0;border-radius:10px;margin:0 0 18px 0;">${preview}</table>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td style="border-radius:10px;background:#17181c;">
+          <a href="${escHtml(link)}" style="display:inline-block;padding:12px 26px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">Open the conversation</a>
+        </td></tr></table>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`,
+    });
+    if (!result.ok) {
+      await db
+        .update(clientCardCommentsTable)
+        .set({ notifiedAt: null })
+        .where(inArray(clientCardCommentsTable.id, claimed.map((m) => m.id)));
+      logger.warn(
+        { propertyId, to, error: result.error },
+        "Client message digest email failed; will retry next sweep",
+      );
+    } else {
+      logger.info({ propertyId, to, messages: n }, "Client message digest email sent");
+    }
   }
 }
 

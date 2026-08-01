@@ -353,16 +353,43 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
     (r) => r.kind === "custom" && !r.archived && r.board === "vendor",
   );
 
-  // Comment counts per card, one grouped query.
+  // Message counts per card, one grouped query. Unread runs both directions:
+  // office-authored & unread (client badge) and client-authored & unread
+  // (office badge on the mirrored card).
   const commentRows = await db
     .select({
       cardKey: clientCardCommentsTable.cardKey,
       n: sql<number>`count(*)::int`,
+      unreadOffice: sql<number>`count(*) filter (where ${clientCardCommentsTable.authorType} = 'office' and ${clientCardCommentsTable.readAt} is null)::int`,
+      unreadClient: sql<number>`count(*) filter (where ${clientCardCommentsTable.authorType} = 'client' and ${clientCardCommentsTable.readAt} is null)::int`,
     })
     .from(clientCardCommentsTable)
     .where(eq(clientCardCommentsTable.propertyId, propertyId))
     .groupBy(clientCardCommentsTable.cardKey);
   const commentCountByKey = new Map(commentRows.map((r) => [r.cardKey, r.n]));
+  const unreadOfficeByKey = new Map(commentRows.map((r) => [r.cardKey, r.unreadOffice]));
+  const unreadClientByKey = new Map(commentRows.map((r) => [r.cardKey, r.unreadClient]));
+
+  // Thread family: a pushed mirror (push:<id>) and its projected source card
+  // (<sourceType>:<sourceId>) share ONE thread, so counts sum across both keys
+  // and neither the push-dedupe nor lane moves can orphan a conversation.
+  const pushKeysBySource = new Map<string, string[]>();
+  for (const c of pushed) {
+    if (!c.sourceType || !c.sourceId) continue;
+    const src = `${c.sourceType}:${c.sourceId}`;
+    pushKeysBySource.set(src, [...(pushKeysBySource.get(src) ?? []), `push:${c.id}`]);
+  }
+  const sourceByPushKey = new Map<string, string>();
+  for (const [src, keys] of pushKeysBySource) for (const k of keys) sourceByPushKey.set(k, src);
+  const familyKeys = (key: string): string[] => {
+    if (key.startsWith("push:")) {
+      const src = sourceByPushKey.get(key);
+      return src ? [key, src] : [key];
+    }
+    return [key, ...(pushKeysBySource.get(key) ?? [])];
+  };
+  const sumFor = (map: Map<string, number>, key: string): number =>
+    familyKeys(key).reduce((s, k) => s + (map.get(k) ?? 0), 0);
 
   const now = Date.now();
   const DAY = 86_400_000;
@@ -411,7 +438,9 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
 
   const applyOverride = (card: CardRow) => {
     card.snoozedUntil = null;
-    card.commentCount = commentCountByKey.get(card.cardKey) ?? 0;
+    card.commentCount = sumFor(commentCountByKey, card.cardKey);
+    card.unreadComments = sumFor(unreadOfficeByKey, card.cardKey);
+    card.unreadFromClient = sumFor(unreadClientByKey, card.cardKey);
     const o = overrides.get(card.cardKey);
     if (o) {
       if (o.lane && LANE_KEYS.has(o.lane)) card.lane = o.lane;
@@ -748,6 +777,8 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       labels: Array.isArray(c.labels) ? c.labels : [],
       checklist: Array.isArray(c.checklist) ? c.checklist : [],
       commentCount: commentCountByKey.get(c.cardKey) ?? 0,
+      unreadComments: unreadOfficeByKey.get(c.cardKey) ?? 0,
+      unreadFromClient: unreadClientByKey.get(c.cardKey) ?? 0,
       sentToOffice: c.sentToOfficeAt
         ? {
             sentAt: c.sentToOfficeAt.toISOString(),
@@ -828,7 +859,6 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       needsAction: pushNeedsAction(c, module),
       updatedAt: c.updatedAt.toISOString(),
       snoozedUntil: null,
-      commentCount: commentCountByKey.get(`push:${c.id}`) ?? 0,
     }));
   }
 
@@ -858,12 +888,16 @@ async function projectPmBoard(account: typeof clientAccountsTable.$inferSelect) 
       .select({
         cardKey: clientCardCommentsTable.cardKey,
         n: sql<number>`count(*)::int`,
+        unreadOffice: sql<number>`count(*) filter (where ${clientCardCommentsTable.authorType} = 'office' and ${clientCardCommentsTable.readAt} is null)::int`,
+        unreadClient: sql<number>`count(*) filter (where ${clientCardCommentsTable.authorType} = 'client' and ${clientCardCommentsTable.readAt} is null)::int`,
       })
       .from(clientCardCommentsTable)
       .where(eq(clientCardCommentsTable.propertyId, propertyId))
       .groupBy(clientCardCommentsTable.cardKey),
   ]);
   const commentCountByKey = new Map(commentRows.map((r) => [r.cardKey, r.n]));
+  const pmUnreadOffice = new Map(commentRows.map((r) => [r.cardKey, r.unreadOffice]));
+  const pmUnreadClient = new Map(commentRows.map((r) => [r.cardKey, r.unreadClient]));
   const now = Date.now();
   const cards = rows
     .filter((c) => c.kind === "custom" && !c.archived)
@@ -897,6 +931,8 @@ async function projectPmBoard(account: typeof clientAccountsTable.$inferSelect) 
       labels: Array.isArray(c.labels) ? c.labels : [],
       checklist: Array.isArray(c.checklist) ? c.checklist : [],
       commentCount: commentCountByKey.get(c.cardKey) ?? 0,
+      unreadComments: pmUnreadOffice.get(c.cardKey) ?? 0,
+      unreadFromClient: pmUnreadClient.get(c.cardKey) ?? 0,
       sentToOffice: c.sentToOfficeAt
         ? {
             sentAt: c.sentToOfficeAt.toISOString(),
@@ -1104,6 +1140,10 @@ router.get(["/client/:token/board", "/client/:token/board/pm"], async (req, res)
       viewer: viewerDto(viewer),
       lanes: boardKind === "pm" ? PM_LANES : LANES,
       cards,
+      unreadMessages: (cards as Array<Record<string, unknown>>).reduce<number>(
+        (s, c) => s + (typeof c.unreadComments === "number" ? c.unreadComments : 0),
+        0,
+      ),
       audit: audit.map((a) => ({
         action: a.action,
         cardKey: a.cardKey,
@@ -2538,6 +2578,64 @@ export async function notifyClientBoard(
 }
 
 const CARD_KEY_RE = /^[a-z_]+:[A-Za-z0-9-]{1,64}$/;
+// Object-storage paths from the upload flow ("/objects/..."); anything else
+// is rejected so the thread can't be used to link arbitrary URLs.
+const ATTACHMENT_PATH_RE = /^\/objects\/(?!.*\.\.)[A-Za-z0-9._/-]{1,390}$/;
+
+/**
+ * Stable thread family for a card key. A pushed mirror (push:<rowId>) and the
+ * projected card for the same HALO entity (<sourceType>:<sourceId>) share ONE
+ * thread: reads query every key in the family, writes land on the canonical
+ * key (the source identity when one exists) so the projected/pushed dedupe
+ * and lane moves never orphan a conversation.
+ */
+export async function threadKeysFor(
+  propertyId: string,
+  cardKey: string,
+): Promise<{ canonical: string; keys: string[] }> {
+  if (cardKey.startsWith("push:")) {
+    const id = cardKey.slice(5);
+    const [row] = await db
+      .select()
+      .from(clientBoardCardsTable)
+      .where(
+        and(
+          eq(clientBoardCardsTable.propertyId, propertyId),
+          eq(clientBoardCardsTable.id, id),
+        ),
+      )
+      .limit(1);
+    if (row?.sourceType && row.sourceId) {
+      const canonical = `${row.sourceType}:${row.sourceId}`;
+      if (CARD_KEY_RE.test(canonical)) return { canonical, keys: [canonical, cardKey] };
+    }
+    return { canonical: cardKey, keys: [cardKey] };
+  }
+  // Reverse direction: the projected key may have pushed mirrors.
+  const mirrors = await db
+    .select({ id: clientBoardCardsTable.id })
+    .from(clientBoardCardsTable)
+    .where(
+      and(
+        eq(clientBoardCardsTable.propertyId, propertyId),
+        sql`${clientBoardCardsTable.sourceType} || ':' || ${clientBoardCardsTable.sourceId} = ${cardKey}`,
+      ),
+    );
+  return { canonical: cardKey, keys: [cardKey, ...mirrors.map((m) => `push:${m.id}`)] };
+}
+
+export function threadMessageDto(c: typeof clientCardCommentsTable.$inferSelect) {
+  return {
+    id: c.id,
+    authorType: c.authorType,
+    authorName: c.authorName,
+    body: c.body,
+    attachmentName: c.attachmentName ?? null,
+    attachmentUrl: c.attachmentPath ? storageUrl(c.attachmentPath) : null,
+    read: !!c.readAt,
+    createdAt: c.createdAt.toISOString(),
+  };
+}
 
 router.get(
   "/client/:token/board/cards/:cardKey/comments",
@@ -2548,25 +2646,20 @@ router.get(
       return;
     }
     const cardKey = String(req.params.cardKey);
+    const { keys } = await threadKeysFor(account.propertyId, cardKey);
     const comments = await db
       .select()
       .from(clientCardCommentsTable)
       .where(
         and(
           eq(clientCardCommentsTable.propertyId, account.propertyId),
-          eq(clientCardCommentsTable.cardKey, cardKey),
+          inArray(clientCardCommentsTable.cardKey, keys),
         ),
       )
       .orderBy(clientCardCommentsTable.createdAt);
     res.json(
       ListClientCardCommentsResponse.parse({
-        comments: comments.map((c) => ({
-          id: c.id,
-          authorType: c.authorType,
-          authorName: c.authorName,
-          body: c.body,
-          createdAt: c.createdAt.toISOString(),
-        })),
+        comments: comments.map(threadMessageDto),
       }),
     );
   },
@@ -2574,11 +2667,18 @@ router.get(
 
 router.post(
   "/client/:token/board/cards/:cardKey/comments",
+  limits.cardAction,
   async (req, res): Promise<void> => {
     const parsed = AddClientCardCommentBody.safeParse(req.body);
     const body = parsed.success ? parsed.data.body.trim() : "";
-    if (!body || body.length > 4000) {
-      res.status(400).json({ error: "Comment text is required (max 4000 chars)" });
+    const attachmentName = (parsed.success && parsed.data.attachmentName?.trim()) || null;
+    const attachmentPath = (parsed.success && parsed.data.attachmentPath?.trim()) || null;
+    if (attachmentPath && !ATTACHMENT_PATH_RE.test(attachmentPath)) {
+      res.status(400).json({ error: "Invalid attachment" });
+      return;
+    }
+    if ((!body && !attachmentPath) || body.length > 4000) {
+      res.status(400).json({ error: "Write a message or attach a photo (max 4000 chars)" });
       return;
     }
     const account = await accountByToken(String(req.params.token));
@@ -2597,37 +2697,67 @@ router.post(
       res.status(400).json({ error: "Invalid card" });
       return;
     }
+    const { canonical } = await threadKeysFor(account.propertyId, cardKey);
     const [row] = await db
       .insert(clientCardCommentsTable)
       .values({
         propertyId: account.propertyId,
-        cardKey,
+        cardKey: canonical,
         authorType: "client",
         authorName: viewer.name ?? "Client",
         body,
+        attachmentName: attachmentPath ? (attachmentName ?? "Photo") : null,
+        attachmentPath,
       })
       .returning();
     // Office bell (existing office notification center) — never fail the post.
     try {
       await db.insert(notificationsTable).values({
         kind: "client_dashboard",
-        title: `${viewer.name ?? "Client"} commented on a board card`,
-        body: body.slice(0, 300),
+        title: `${viewer.name ?? "Client"} sent a message on a board card`,
+        body: (body || attachmentName || "Photo").slice(0, 300),
         entityType: "property",
         entityId: account.propertyId,
       });
     } catch (err) {
       console.error("office comment notification failed:", err);
     }
-    res.status(201).json(
-      AddClientCardCommentResponse.parse({
-        id: row!.id,
-        authorType: row!.authorType,
-        authorName: row!.authorName,
-        body: row!.body,
-        createdAt: row!.createdAt.toISOString(),
-      }),
-    );
+    emitBoardEvent(account.propertyId, "dashboard");
+    res.status(201).json(AddClientCardCommentResponse.parse(threadMessageDto(row!)));
+  },
+);
+
+// Client opened the thread — office messages in this family are now read.
+router.post(
+  "/client/:token/board/cards/:cardKey/comments/seen",
+  limits.cardAction,
+  async (req, res): Promise<void> => {
+    const account = await accountByToken(String(req.params.token));
+    if (!account) {
+      res.status(404).json({ error: "Invalid link" });
+      return;
+    }
+    // Read receipts are state: only an authenticated writer may clear unread
+    // (guests with the link must not silently suppress badges and digests).
+    const viewer = await resolveViewer(req, account.propertyId);
+    const denied = requireWriter(viewer);
+    if (denied) {
+      res.status(403).json({ error: denied });
+      return;
+    }
+    const { keys } = await threadKeysFor(account.propertyId, String(req.params.cardKey));
+    await db
+      .update(clientCardCommentsTable)
+      .set({ readAt: new Date() })
+      .where(
+        and(
+          eq(clientCardCommentsTable.propertyId, account.propertyId),
+          inArray(clientCardCommentsTable.cardKey, keys),
+          eq(clientCardCommentsTable.authorType, "office"),
+          isNull(clientCardCommentsTable.readAt),
+        ),
+      );
+    res.json({ ok: true });
   },
 );
 

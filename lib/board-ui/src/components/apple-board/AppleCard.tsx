@@ -37,9 +37,11 @@ interface AppleCardProps {
   audience?: BoardAudience;
   /** When provided, renders a small trash icon that clears the card into history. */
   onClear?: () => void;
+  /** Which side of the card thread this viewer is on. Defaults to client. */
+  viewerSide?: 'client' | 'office';
 }
 
-export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, onTouchDragBegin, onTouchDragMove, onTouchDragEnd, onClick, token, onReadOnlyClick, audience, onClear }: AppleCardProps) {
+export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, onTouchDragBegin, onTouchDragMove, onTouchDragEnd, onClick, token, onReadOnlyClick, audience, onClear, viewerSide }: AppleCardProps) {
   // Long-press touch drag: HTML5 DnD doesn't exist on mobile browsers.
   // Hold ~250ms to lift the card; moving early is treated as a scroll.
   const justDragged = React.useRef(false);
@@ -277,12 +279,35 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
             </div>
           )}
           <div className="flex-1" />
-          {(card.commentCount ?? 0) > 0 && (
-            <div className="flex items-center gap-1 text-[#6e6e73]">
-              <MessageSquare className="h-3.5 w-3.5" strokeWidth={2.5} />
-              <span className="text-[12px] font-medium">{card.commentCount}</span>
-            </div>
-          )}
+          {(() => {
+            // Unread messages from the OTHER side of the thread: the office
+            // mirror watches client messages, everyone else watches office
+            // replies. Red badge = unread; gray = thread exists, all read.
+            const unread =
+              viewerSide === 'office'
+                ? (card.unreadFromClient ?? 0)
+                : (card.unreadComments ?? 0);
+            if (unread > 0) {
+              return (
+                <div
+                  className="flex items-center gap-1 rounded-full bg-[#FF3B30] px-2 py-0.5 text-white"
+                  data-testid={`badge-unread-${card.cardKey}`}
+                >
+                  <MessageSquare className="h-3 w-3" strokeWidth={2.5} />
+                  <span className="text-[11px] font-bold">{unread}</span>
+                </div>
+              );
+            }
+            if ((card.commentCount ?? 0) > 0) {
+              return (
+                <div className="flex items-center gap-1 text-[#6e6e73]">
+                  <MessageSquare className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  <span className="text-[12px] font-medium">{card.commentCount}</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
           {onClear && (
             <button
               type="button"

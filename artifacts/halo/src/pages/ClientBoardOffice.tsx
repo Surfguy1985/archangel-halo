@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useParams, useSearch } from "wouter";
 import { OfficeBoardDemo } from "@/components/OfficeBoardDemo";
 import { useQueryClient } from "@tanstack/react-query";
@@ -8,6 +8,10 @@ import {
   useCreateOfficeClientBoardCard,
   useGetOfficeBoardHistory,
   getGetOfficeBoardHistoryQueryKey,
+  useListOfficeCardComments,
+  getListOfficeCardCommentsQueryKey,
+  useAddOfficeCardComment,
+  useMarkOfficeCardCommentsSeen,
   type ClientBoardFeedCard,
 } from "@workspace/api-client-react";
 import {
@@ -20,11 +24,14 @@ import {
   ExternalLink,
   FileText,
   Flag,
+  ImagePlus,
   Inbox,
   Link2,
   ListTodo,
   Loader2,
   MapPin,
+  MessageSquare,
+  Paperclip,
   Play,
   Plus,
   Send,
@@ -60,7 +67,246 @@ function linkIcon(kind?: string | null) {
   return Link2;
 }
 
-function CardView({ card }: { card: ClientBoardFeedCard }) {
+// Slack-style thread on a board card — the office side of the client ↔ office
+// conversation. Opening it marks client messages read (clears unread badges).
+function ThreadSheet({
+  propertyId,
+  cardKey,
+  title,
+  onClose,
+}: {
+  propertyId: string;
+  cardKey: string;
+  title: string;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data, isLoading } = useListOfficeCardComments(propertyId, cardKey, {
+    query: {
+      queryKey: getListOfficeCardCommentsQueryKey(propertyId, cardKey),
+      refetchInterval: 5000,
+    },
+  });
+  const addComment = useAddOfficeCardComment();
+  const markSeen = useMarkOfficeCardCommentsSeen();
+  const [body, setBody] = useState("");
+  const [attachment, setAttachment] = useState<{ name: string; path: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const comments = data?.comments ?? [];
+  const unreadFromClient = comments.filter((c) => c.authorType === "client" && !c.read).length;
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [comments.length]);
+
+  useEffect(() => {
+    if (unreadFromClient === 0) return;
+    markSeen.mutate(
+      { propertyId, cardKey },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            queryKey: getListOfficeCardCommentsQueryKey(propertyId, cardKey),
+          });
+          queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId) });
+        },
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unreadFromClient, cardKey]);
+
+  const pickFile = async (file: File | null) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      // Manual /api URLs must be absolute — never BASE_URL-prefixed.
+      const r = await fetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type || "application/octet-stream",
+        }),
+      });
+      if (!r.ok) throw new Error("upload");
+      const { uploadURL, objectPath } = await r.json();
+      const put = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!put.ok) throw new Error("upload");
+      setAttachment({ name: file.name || "Photo", path: objectPath });
+    } catch {
+      toast({ title: "Upload failed", description: "Try again.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const submit = () => {
+    if (!body.trim() && !attachment) return;
+    addComment.mutate(
+      {
+        propertyId,
+        cardKey,
+        data: {
+          body: body.trim(),
+          attachmentName: attachment?.name ?? null,
+          attachmentPath: attachment?.path ?? null,
+        },
+      },
+      {
+        onSuccess: () => {
+          setBody("");
+          setAttachment(null);
+          queryClient.invalidateQueries({
+            queryKey: getListOfficeCardCommentsQueryKey(propertyId, cardKey),
+          });
+          queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId) });
+        },
+        onError: (err: Error) =>
+          toast({ title: "Couldn't send", description: err.message, variant: "destructive" }),
+      },
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-black/40" onClick={onClose}>
+      <div
+        className="w-full bg-background rounded-t-[20px] flex flex-col max-h-[85dvh]"
+        onClick={(e) => e.stopPropagation()}
+        data-testid="sheet-card-thread"
+      >
+        <div className="p-[16px] border-b border-border shrink-0 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="font-display font-bold text-[16px] truncate">{title}</div>
+            <div className="text-[11px] font-medium text-muted-foreground mt-0.5">
+              Client ↔ office thread
+            </div>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground p-1" data-testid="button-close-thread">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-[16px] flex flex-col gap-[14px] bg-muted/30 min-h-[220px]">
+          {isLoading && <Loader2 className="w-6 h-6 animate-spin mx-auto mt-8 text-muted-foreground" />}
+          {!isLoading && comments.length === 0 && (
+            <div className="text-center text-[13px] font-medium text-muted-foreground mt-8">
+              No messages yet. Start the conversation.
+            </div>
+          )}
+          {comments.map((c) => {
+            const isOffice = c.authorType === "office";
+            const isImg =
+              !!c.attachmentUrl && /\.(png|jpe?g|webp|gif|heic)$/i.test(c.attachmentName ?? c.attachmentUrl);
+            return (
+              <div
+                key={c.id}
+                className={`flex flex-col max-w-[85%] ${isOffice ? "ml-auto items-end" : "mr-auto items-start"}`}
+              >
+                <div className="text-[10px] font-bold text-muted-foreground mb-1 px-1">
+                  {c.authorName} · {new Date(c.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </div>
+                <div
+                  className={`px-[14px] py-[9px] text-[13.5px] shadow-sm ${
+                    isOffice
+                      ? "bg-[var(--gold-light,#B4FF44)] text-[#041029] rounded-2xl rounded-tr-sm font-medium"
+                      : "bg-card border border-border rounded-2xl rounded-tl-sm"
+                  }`}
+                >
+                  {c.attachmentUrl &&
+                    (isImg ? (
+                      <a href={c.attachmentUrl} target="_blank" rel="noreferrer" className="block mb-1">
+                        <img
+                          src={c.attachmentUrl}
+                          alt={c.attachmentName ?? "Attachment"}
+                          className="rounded-lg max-h-44 max-w-full object-cover"
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        href={c.attachmentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 underline mb-1"
+                      >
+                        <Paperclip className="w-3.5 h-3.5" />
+                        {c.attachmentName ?? "Attachment"}
+                      </a>
+                    ))}
+                  {c.body}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="p-[12px] border-t border-border shrink-0 pb-[max(12px,env(safe-area-inset-bottom))]">
+          {attachment && (
+            <div className="flex items-center gap-2 text-[12px] bg-muted rounded-[10px] px-3 py-2 mb-2">
+              <Paperclip className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate flex-1">{attachment.name}</span>
+              <button onClick={() => setAttachment(null)}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                pickFile(e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }}
+            />
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="p-[11px] rounded-[12px] border border-border text-muted-foreground disabled:opacity-50 shrink-0"
+              data-testid="button-attach-thread"
+            >
+              {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
+            </button>
+            <input
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Reply to the client…"
+              className="flex-1 px-[14px] py-[11px] rounded-[12px] border border-border bg-background text-[14px] font-medium outline-none focus:ring-2 focus:ring-[var(--gold-light,#B4FF44)]"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submit();
+              }}
+              data-testid="input-thread-reply"
+            />
+            <button
+              onClick={submit}
+              disabled={(!body.trim() && !attachment) || addComment.isPending || uploading}
+              className="p-[11px] bg-[var(--ink,#17181C)] text-[var(--gold-light,#B4FF44)] rounded-[12px] disabled:opacity-50 shrink-0"
+              data-testid="button-send-thread"
+            >
+              {addComment.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CardView({
+  card,
+  onOpenThread,
+}: {
+  card: ClientBoardFeedCard;
+  onOpenThread: () => void;
+}) {
   const meta = KIND_META[card.kind] ?? KIND_META.manual;
   return (
     <div
@@ -72,11 +318,21 @@ function CardView({ card }: { card: ClientBoardFeedCard }) {
           {card.kind === "flag" ? <Flag className="inline h-3 w-3 mr-1 -mt-0.5" /> : null}
           {meta.label}
         </span>
-        {card.amount != null && (
-          <span className="text-[13.5px] font-bold tabular-nums">
-            {card.amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {card.amount != null && (
+            <span className="text-[13.5px] font-bold tabular-nums">
+              {card.amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+            </span>
+          )}
+          <button
+            onClick={onOpenThread}
+            className="text-muted-foreground p-1 -m-1 active:scale-[0.9] transition-transform"
+            title="Message thread"
+            data-testid={`button-thread-${card.id}`}
+          >
+            <MessageSquare className="w-4 h-4" />
+          </button>
+        </div>
       </div>
       <div className="text-[14px] font-semibold leading-snug">{card.title}</div>
       {card.body && (
@@ -357,6 +613,7 @@ export default function ClientBoardOffice() {
   // ?present=1 → narrated Board Demo walkthrough of the office side.
   const [demoOpen, setDemoOpen] = useState(() => new URLSearchParams(search).get("present") === "1");
   const [formOpen, setFormOpen] = useState(false);
+  const [threadTarget, setThreadTarget] = useState<{ cardKey: string; title: string } | null>(null);
   const { data: board, isLoading } = useGetOfficeClientBoard(propertyId, {
     query: {
       enabled: !!propertyId,
@@ -449,7 +706,11 @@ export default function ClientBoardOffice() {
               ) : (
                 <div className="space-y-[10px]">
                   {cards.map((card) => (
-                    <CardView key={card.id} card={card} />
+                    <CardView
+                      key={card.id}
+                      card={card}
+                      onOpenThread={() => setThreadTarget({ cardKey: `push:${card.id}`, title: card.title })}
+                    />
                   ))}
                 </div>
               )}
@@ -459,6 +720,15 @@ export default function ClientBoardOffice() {
       </div>
 
       <HistorySection propertyId={propertyId} />
+
+      {threadTarget && (
+        <ThreadSheet
+          propertyId={propertyId}
+          cardKey={threadTarget.cardKey}
+          title={threadTarget.title}
+          onClose={() => setThreadTarget(null)}
+        />
+      )}
     </div>
   );
 }

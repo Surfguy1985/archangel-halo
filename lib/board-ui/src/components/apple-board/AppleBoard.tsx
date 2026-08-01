@@ -26,6 +26,9 @@ export interface AppleBoardProps {
   onDispatchAction?: (action: any) => Promise<void>;
   /** When provided, each card shows a small trash icon that clears it into history. */
   onCardClear?: (card: any) => void;
+  /** Which side of the card thread this viewer is on — picks which unread
+   * message count lights up red on cards. Defaults to the client side. */
+  viewerSide?: 'client' | 'office';
   showToast?: (opts: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void;
 }
 
@@ -54,7 +57,8 @@ export function AppleBoard({
   onCreateAiCard, 
   onCreateCard,
   showToast,
-  onCardClear
+  onCardClear,
+  viewerSide
 }: AppleBoardProps) {
   const isPm = boardKey === 'pm';
 
@@ -432,6 +436,7 @@ export function AppleBoard({
                       card={card}
                       token={token}
                       audience={isPm ? 'pm' : 'vendor'}
+                      viewerSide={viewerSide}
                       isDragged={draggedCard === card.cardKey}
                       readOnly={viewer.readOnly}
                       onReadOnlyClick={() => {

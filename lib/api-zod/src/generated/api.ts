@@ -8370,6 +8370,9 @@ export const ListOfficeCardCommentsResponse = zod.object({
   "authorType": zod.string().describe('office | client'),
   "authorName": zod.string(),
   "body": zod.string(),
+  "attachmentName": zod.string().nullish(),
+  "attachmentUrl": zod.string().nullish().describe('Absolute \/api\/storage URL when a file is attached'),
+  "read": zod.boolean().optional().describe('Whether the other side has seen this message'),
   "createdAt": zod.string()
 }))
 })
@@ -8384,7 +8387,9 @@ export const AddOfficeCardCommentParams = zod.object({
 })
 
 export const AddOfficeCardCommentBody = zod.object({
-  "body": zod.string()
+  "body": zod.string(),
+  "attachmentName": zod.string().nullish(),
+  "attachmentPath": zod.string().nullish().describe('Object storage path from the upload flow')
 })
 
 export const AddOfficeCardCommentResponse = zod.object({
@@ -8392,6 +8397,9 @@ export const AddOfficeCardCommentResponse = zod.object({
   "authorType": zod.string().describe('office | client'),
   "authorName": zod.string(),
   "body": zod.string(),
+  "attachmentName": zod.string().nullish(),
+  "attachmentUrl": zod.string().nullish().describe('Absolute \/api\/storage URL when a file is attached'),
+  "read": zod.boolean().optional().describe('Whether the other side has seen this message'),
   "createdAt": zod.string()
 })
 
@@ -9461,6 +9469,8 @@ export const GetClientBoardResponse = zod.object({
   "done": zod.boolean()
 })).optional(),
   "commentCount": zod.number().optional(),
+  "unreadComments": zod.number().optional().describe('Office messages the client has not seen yet'),
+  "unreadFromClient": zod.number().optional().describe('Client messages the office has not seen yet'),
   "waybillCode": zod.string().describe('FLK-XXXXX network code, deterministic per card (Crockford base32).'),
   "waybill": zod.object({
   "stages": zod.array(zod.object({
@@ -9486,7 +9496,8 @@ export const GetClientBoardResponse = zod.object({
   "blocked": zod.boolean(),
   "reason": zod.string().nullish(),
   "createdAt": zod.string()
-}))
+})),
+  "unreadMessages": zod.number().optional().describe('Board-wide count of office messages the client has not seen yet')
 })
 
 
@@ -9567,6 +9578,8 @@ export const GetClientPmBoardResponse = zod.object({
   "done": zod.boolean()
 })).optional(),
   "commentCount": zod.number().optional(),
+  "unreadComments": zod.number().optional().describe('Office messages the client has not seen yet'),
+  "unreadFromClient": zod.number().optional().describe('Client messages the office has not seen yet'),
   "waybillCode": zod.string().describe('FLK-XXXXX network code, deterministic per card (Crockford base32).'),
   "waybill": zod.object({
   "stages": zod.array(zod.object({
@@ -9592,7 +9605,8 @@ export const GetClientPmBoardResponse = zod.object({
   "blocked": zod.boolean(),
   "reason": zod.string().nullish(),
   "createdAt": zod.string()
-}))
+})),
+  "unreadMessages": zod.number().optional().describe('Board-wide count of office messages the client has not seen yet')
 })
 
 
@@ -9676,6 +9690,8 @@ export const GetOfficeBoardFullResponse = zod.object({
   "done": zod.boolean()
 })).optional(),
   "commentCount": zod.number().optional(),
+  "unreadComments": zod.number().optional().describe('Office messages the client has not seen yet'),
+  "unreadFromClient": zod.number().optional().describe('Client messages the office has not seen yet'),
   "waybillCode": zod.string().describe('FLK-XXXXX network code, deterministic per card (Crockford base32).'),
   "waybill": zod.object({
   "stages": zod.array(zod.object({
@@ -9701,7 +9717,8 @@ export const GetOfficeBoardFullResponse = zod.object({
   "blocked": zod.boolean(),
   "reason": zod.string().nullish(),
   "createdAt": zod.string()
-}))
+})),
+  "unreadMessages": zod.number().optional().describe('Board-wide count of office messages the client has not seen yet')
 })
 })
 
@@ -9995,6 +10012,9 @@ export const ListClientCardCommentsResponse = zod.object({
   "authorType": zod.string().describe('office | client'),
   "authorName": zod.string(),
   "body": zod.string(),
+  "attachmentName": zod.string().nullish(),
+  "attachmentUrl": zod.string().nullish().describe('Absolute \/api\/storage URL when a file is attached'),
+  "read": zod.boolean().optional().describe('Whether the other side has seen this message'),
   "createdAt": zod.string()
 }))
 })
@@ -10009,7 +10029,9 @@ export const AddClientCardCommentParams = zod.object({
 })
 
 export const AddClientCardCommentBody = zod.object({
-  "body": zod.string()
+  "body": zod.string(),
+  "attachmentName": zod.string().nullish(),
+  "attachmentPath": zod.string().nullish().describe('Object storage path from the upload flow')
 })
 
 export const AddClientCardCommentResponse = zod.object({
@@ -10017,7 +10039,36 @@ export const AddClientCardCommentResponse = zod.object({
   "authorType": zod.string().describe('office | client'),
   "authorName": zod.string(),
   "body": zod.string(),
+  "attachmentName": zod.string().nullish(),
+  "attachmentUrl": zod.string().nullish().describe('Absolute \/api\/storage URL when a file is attached'),
+  "read": zod.boolean().optional().describe('Whether the other side has seen this message'),
   "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Office opened the thread — mark client messages on this card as read
+ */
+export const MarkOfficeCardCommentsSeenParams = zod.object({
+  "propertyId": zod.coerce.string(),
+  "cardKey": zod.coerce.string()
+})
+
+export const MarkOfficeCardCommentsSeenResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Client opened the thread — mark office messages on this card as read
+ */
+export const MarkClientCardCommentsSeenParams = zod.object({
+  "token": zod.coerce.string(),
+  "cardKey": zod.coerce.string()
+})
+
+export const MarkClientCardCommentsSeenResponse = zod.object({
+  "ok": zod.boolean()
 })
 
 

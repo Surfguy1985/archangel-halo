@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Tag, Calendar, Flag, CheckSquare, MessageSquare, Send, Loader2 } from 'lucide-react';
+import { X, Tag, Calendar, Flag, CheckSquare, MessageSquare, Send, Loader2, ImagePlus, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,10 +14,12 @@ import {
   useUpdateClientBoardCard,
   useListClientCardComments,
   useAddClientCardComment,
+  useMarkClientCardCommentsSeen,
   getListClientCardCommentsQueryKey,
   getGetClientBoardQueryKey,
   getGetClientPmBoardQueryKey
 } from '@workspace/api-client-react';
+import { uploadFile } from '@/lib/upload';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import type { ClientBoardCardView } from '@workspace/api-client-react';
@@ -39,6 +41,9 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
   const [newCheckItem, setNewCheckItem] = useState('');
   const [notes, setNotes] = useState(card.notes || '');
   const [commentBody, setCommentBody] = useState('');
+  const [attachment, setAttachment] = useState<{ name: string; path: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const updateCard = useUpdateClientBoardCard();
   const { data: commentsData, isLoading: commentsLoading } = useListClientCardComments(
@@ -47,8 +52,37 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
     { query: { queryKey: getListClientCardCommentsQueryKey(token, card.cardKey), refetchInterval: 4000 } }
   );
   const addComment = useAddClientCardComment();
+  const markSeen = useMarkClientCardCommentsSeen();
 
   const comments = commentsData?.comments || [];
+
+  // Opening the thread marks office messages read — clears the client's
+  // card badge and the board-level unread count.
+  const unreadFromOffice = comments.filter((c) => c.authorType === 'office' && !c.read).length;
+  useEffect(() => {
+    // Guests can read the thread but must not clear unread state (the server
+    // rejects them too) — badges and digest eligibility ride on readAt.
+    if (readOnly || unreadFromOffice === 0) return;
+    markSeen.mutate(
+      { token, cardKey: card.cardKey },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListClientCardCommentsQueryKey(token, card.cardKey) });
+          queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
+        },
+      }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unreadFromOffice, card.cardKey]);
+
+  const handlePickFile = async (file: File | null) => {
+    if (!file) return;
+    setUploading(true);
+    const result = await uploadFile(file);
+    setUploading(false);
+    if (result) setAttachment({ name: file.name || 'Photo', path: result.objectPath });
+  };
 
   // Auto-scroll comments to bottom when new ones arrive
   useEffect(() => {
@@ -153,12 +187,21 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
   };
 
   const handleSendComment = () => {
-    if (!commentBody.trim()) return;
+    if (!commentBody.trim() && !attachment) return;
     addComment.mutate(
-      { token, cardKey: card.cardKey, data: { body: commentBody.trim() } },
+      {
+        token,
+        cardKey: card.cardKey,
+        data: {
+          body: commentBody.trim(),
+          attachmentName: attachment?.name ?? null,
+          attachmentPath: attachment?.path ?? null,
+        },
+      },
       {
         onSuccess: () => {
           setCommentBody('');
+          setAttachment(null);
           queryClient.invalidateQueries({ queryKey: getListClientCardCommentsQueryKey(token, card.cardKey) });
           queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
           queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
@@ -380,11 +423,11 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
 
           <Separator />
 
-          {/* Comments */}
+          {/* Messages — Slack-style thread with the office */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <MessageSquare className="w-4 h-4 text-muted-foreground" />
-              <Label className="text-sm font-semibold">Comments</Label>
+              <Label className="text-sm font-semibold">Messages</Label>
               {comments.length > 0 && (
                 <span className="text-xs text-muted-foreground">({comments.length})</span>
               )}
@@ -394,69 +437,123 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
               {commentsLoading && (
                 <div className="flex items-center justify-center py-4 text-muted-foreground text-sm">
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Loading comments...
+                  Loading messages...
                 </div>
               )}
               {!commentsLoading && comments.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  No comments yet
+                  No messages yet — ask the office anything about this card
                 </p>
               )}
               {comments.map((comment) => {
                 const isOffice = comment.authorType === 'office';
+                const url = comment.attachmentUrl ?? null;
+                const isImg = !!url && /\.(png|jpe?g|webp|gif|heic)$/i.test(comment.attachmentName ?? url);
                 return (
                   <div
                     key={comment.id}
-                    className={`p-3 rounded-lg border ${
-                      isOffice
-                        ? 'bg-accent/50 border-accent-border'
-                        : 'bg-card border-card-border'
-                    }`}
+                    className={`flex flex-col max-w-[85%] ${isOffice ? 'mr-auto items-start' : 'ml-auto items-end'}`}
                     data-testid={`comment-${comment.id}`}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-foreground">
-                        {comment.authorName}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
-                      </span>
+                    <div className="text-[10px] font-semibold text-muted-foreground mb-1 px-1">
+                      {comment.authorName} · {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
                     </div>
-                    <p className="text-sm text-foreground whitespace-pre-wrap">{comment.body}</p>
+                    <div
+                      className={`px-3 py-2 rounded-2xl text-sm border ${
+                        isOffice
+                          ? 'bg-accent/50 border-accent-border rounded-tl-sm'
+                          : 'bg-primary text-primary-foreground border-transparent rounded-tr-sm'
+                      }`}
+                    >
+                      {url && (
+                        isImg ? (
+                          <a href={url} target="_blank" rel="noreferrer" className="block mb-1">
+                            <img
+                              src={url}
+                              alt={comment.attachmentName ?? 'Attachment'}
+                              className="rounded-lg max-h-48 max-w-full object-cover"
+                            />
+                          </a>
+                        ) : (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 underline mb-1 text-sm"
+                          >
+                            <Paperclip className="w-3.5 h-3.5" />
+                            {comment.attachmentName ?? 'Attachment'}
+                          </a>
+                        )
+                      )}
+                      {comment.body && <p className="whitespace-pre-wrap">{comment.body}</p>}
+                    </div>
                   </div>
                 );
               })}
             </div>
 
             {!readOnly && (
-            <div className="flex gap-2">
-              <Textarea
-                placeholder="Write a comment..."
-                value={commentBody}
-                onChange={(e) => setCommentBody(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendComment();
-                  }
-                }}
-                rows={2}
-                className="resize-none text-sm"
-                data-testid="textarea-comment"
-              />
-              <Button
-                size="sm"
-                onClick={handleSendComment}
-                disabled={!commentBody.trim() || addComment.isPending}
-                className="shrink-0"
-                data-testid="button-send-comment"
-              >
-                {addComment.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </Button>
+            <div className="space-y-2">
+              {attachment && (
+                <div className="flex items-center gap-2 text-xs bg-muted rounded-lg px-3 py-2">
+                  <Paperclip className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate flex-1">{attachment.name}</span>
+                  <button onClick={() => setAttachment(null)} data-testid="button-remove-attachment">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    handlePickFile(e.target.files?.[0] ?? null);
+                    e.target.value = '';
+                  }}
+                  data-testid="input-attachment"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  data-testid="button-attach-photo"
+                >
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                </Button>
+                <Textarea
+                  placeholder="Message the office..."
+                  value={commentBody}
+                  onChange={(e) => setCommentBody(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendComment();
+                    }
+                  }}
+                  rows={2}
+                  className="resize-none text-sm"
+                  data-testid="textarea-comment"
+                />
+                <Button
+                  size="sm"
+                  onClick={handleSendComment}
+                  disabled={(!commentBody.trim() && !attachment) || addComment.isPending || uploading}
+                  className="shrink-0"
+                  data-testid="button-send-comment"
+                >
+                  {addComment.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
             </div>
             )}
           </div>

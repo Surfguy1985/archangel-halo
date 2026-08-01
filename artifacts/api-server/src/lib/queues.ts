@@ -10,10 +10,11 @@ import {
   workRequestsTable,
   clientAccountsTable,
   clientBoardCardsTable,
+  clientCardCommentsTable,
   crewCheckinsTable,
   crewPhotosTable,
 } from "@workspace/db";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { localToday } from "./localDate";
 
 const DAY = 1000 * 60 * 60 * 24;
@@ -279,6 +280,39 @@ export async function computeQueues(): Promise<{
     .from(clientAccountsTable)
     .where(eq(clientAccountsTable.status, "active"));
   const clientProps = new Set(activeAccounts.map((a) => a.propertyId));
+
+  // Unanswered client messages on board cards — Slack-style threads. One feed
+  // item per property so the office can jump straight into the board mirror.
+  if (clientProps.size > 0) {
+    const unreadMsgs = await db
+      .select({
+        propertyId: clientCardCommentsTable.propertyId,
+        n: sql<number>`count(*)::int`,
+      })
+      .from(clientCardCommentsTable)
+      .where(
+        and(
+          eq(clientCardCommentsTable.authorType, "client"),
+          isNull(clientCardCommentsTable.readAt),
+        ),
+      )
+      .groupBy(clientCardCommentsTable.propertyId);
+    for (const row of unreadMsgs) {
+      if (!clientProps.has(row.propertyId)) continue;
+      feed.push({
+        id: `upd-messages-${row.propertyId}`,
+        queue: "updates",
+        tier: "now",
+        title: `${row.n} unanswered client message${row.n === 1 ? "" : "s"}`,
+        sub: `${propName.get(row.propertyId) ?? "Client board"} — reply from the board card thread`,
+        entityType: "property",
+        entityId: row.propertyId,
+        propertyId: row.propertyId,
+        actions: [{ label: "Open board", action: "openClientBoard", kind: "gold" }],
+      });
+    }
+  }
+
   if (clientProps.size > 0) {
     const activeJobs = jobs.filter(
       (j) =>

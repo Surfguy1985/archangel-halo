@@ -8,4 +8,11 @@
 
 export interface BoardCardCommentInput {
   body: string;
+  /** @nullable */
+  attachmentName?: string | null;
+  /**
+     * Object storage path from the upload flow
+     * @nullable
+     */
+  attachmentPath?: string | null;
 }

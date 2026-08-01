@@ -49,7 +49,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { attachBoardStream, emitBoardEvent } from "../lib/boardEvents";
 import { raiseClientCard, webhookUrlProblem, ACTION_STATE_KEYS } from "../lib/clientBoard";
-import { resolveViewer, notifyClientBoard } from "./clientBoard";
+import { resolveViewer, notifyClientBoard, threadKeysFor, threadMessageDto } from "./clientBoard";
 import { hashPassword, newTempPassword, emailCredentials } from "./admin";
 import {
   buildInvoiceModule,
@@ -1638,25 +1638,20 @@ router.get(
       res.status(404).json({ error: "Property not found" });
       return;
     }
+    const { keys } = await threadKeysFor(propertyId, String(req.params.cardKey));
     const comments = await db
       .select()
       .from(clientCardCommentsTable)
       .where(
         and(
           eq(clientCardCommentsTable.propertyId, propertyId),
-          eq(clientCardCommentsTable.cardKey, String(req.params.cardKey)),
+          inArray(clientCardCommentsTable.cardKey, keys),
         ),
       )
       .orderBy(clientCardCommentsTable.createdAt);
     res.json(
       ListOfficeCardCommentsResponse.parse({
-        comments: comments.map((c) => ({
-          id: c.id,
-          authorType: c.authorType,
-          authorName: c.authorName,
-          body: c.body,
-          createdAt: c.createdAt.toISOString(),
-        })),
+        comments: comments.map(threadMessageDto),
       }),
     );
   },
@@ -1667,8 +1662,15 @@ router.post(
   async (req, res): Promise<void> => {
     const parsed = AddOfficeCardCommentBody.safeParse(req.body);
     const body = parsed.success ? parsed.data.body.trim() : "";
-    if (!body || body.length > 4000) {
-      res.status(400).json({ error: "Comment text is required (max 4000 chars)" });
+    const attachmentName = (parsed.success && parsed.data.attachmentName?.trim()) || null;
+    const attachmentPath = (parsed.success && parsed.data.attachmentPath?.trim()) || null;
+    // Object-storage entity paths only — the thread can't link arbitrary URLs.
+    if (attachmentPath && !/^\/objects\/(?!.*\.\.)[A-Za-z0-9._/-]{1,390}$/.test(attachmentPath)) {
+      res.status(400).json({ error: "Invalid attachment" });
+      return;
+    }
+    if ((!body && !attachmentPath) || body.length > 4000) {
+      res.status(400).json({ error: "Write a message or attach a photo (max 4000 chars)" });
       return;
     }
     const propertyId = String(req.params.propertyId);
@@ -1677,32 +1679,53 @@ router.post(
       return;
     }
     const cardKey = String(req.params.cardKey);
+    const { canonical } = await threadKeysFor(propertyId, cardKey);
     const [row] = await db
       .insert(clientCardCommentsTable)
       .values({
         propertyId,
-        cardKey,
+        cardKey: canonical,
         authorType: "office",
         authorName: "Archangel",
         body,
+        attachmentName: attachmentPath ? (attachmentName ?? "Photo") : null,
+        attachmentPath,
       })
       .returning();
     await notifyClientBoard(
       propertyId,
       "comment",
       "New reply from Archangel",
-      body.slice(0, 300),
-      cardKey,
+      (body || attachmentName || "Photo").slice(0, 300),
+      canonical,
     );
-    res.status(201).json(
-      AddOfficeCardCommentResponse.parse({
-        id: row!.id,
-        authorType: row!.authorType,
-        authorName: row!.authorName,
-        body: row!.body,
-        createdAt: row!.createdAt.toISOString(),
-      }),
-    );
+    emitBoardEvent(propertyId, "dashboard");
+    res.status(201).json(AddOfficeCardCommentResponse.parse(threadMessageDto(row!)));
+  },
+);
+
+// Office opened the thread — client messages in this family are now read.
+router.post(
+  "/admin/accounts/:propertyId/board/comments/:cardKey/seen",
+  async (req, res): Promise<void> => {
+    const propertyId = String(req.params.propertyId);
+    if (!UUID_RE.test(propertyId)) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const { keys } = await threadKeysFor(propertyId, String(req.params.cardKey));
+    await db
+      .update(clientCardCommentsTable)
+      .set({ readAt: new Date() })
+      .where(
+        and(
+          eq(clientCardCommentsTable.propertyId, propertyId),
+          inArray(clientCardCommentsTable.cardKey, keys),
+          eq(clientCardCommentsTable.authorType, "client"),
+          isNull(clientCardCommentsTable.readAt),
+        ),
+      );
+    res.json({ ok: true });
   },
 );
 

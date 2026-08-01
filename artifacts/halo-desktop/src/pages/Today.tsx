@@ -158,6 +158,11 @@ export default function Today() {
         }
         return;
       }
+      case "openClientBoard": {
+        // Unanswered client messages — jump to the mirrored client board.
+        if (item.propertyId) navigate(`/properties/${item.propertyId}/board`);
+        return;
+      }
       case "shareTracker":
       case "sharePhotos": {
         if (!item.propertyId) return;

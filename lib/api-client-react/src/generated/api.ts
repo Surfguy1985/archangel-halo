@@ -22410,6 +22410,152 @@ export const useAddClientCardComment = <TError = ErrorType<Error>,
       return useMutation(getAddClientCardCommentMutationOptions(options));
     }
 
+export const getMarkOfficeCardCommentsSeenUrl = (propertyId: string,
+    cardKey: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/comments/${cardKey}/seen`
+}
+
+/**
+ * @summary Office opened the thread — mark client messages on this card as read
+ */
+export const markOfficeCardCommentsSeen = async (propertyId: string,
+    cardKey: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getMarkOfficeCardCommentsSeenUrl(propertyId,cardKey),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkOfficeCardCommentsSeenMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markOfficeCardCommentsSeen>>, TError,{propertyId: string;cardKey: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markOfficeCardCommentsSeen>>, TError,{propertyId: string;cardKey: string}, TContext> => {
+
+const mutationKey = ['markOfficeCardCommentsSeen'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markOfficeCardCommentsSeen>>, {propertyId: string;cardKey: string}> = (props) => {
+          const {propertyId,cardKey} = props ?? {};
+
+          return  markOfficeCardCommentsSeen(propertyId,cardKey,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkOfficeCardCommentsSeenMutationResult = NonNullable<Awaited<ReturnType<typeof markOfficeCardCommentsSeen>>>
+
+    export type MarkOfficeCardCommentsSeenMutationError = ErrorType<Error>
+
+    /**
+ * @summary Office opened the thread — mark client messages on this card as read
+ */
+export const useMarkOfficeCardCommentsSeen = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markOfficeCardCommentsSeen>>, TError,{propertyId: string;cardKey: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markOfficeCardCommentsSeen>>,
+        TError,
+        {propertyId: string;cardKey: string},
+        TContext
+      > => {
+      return useMutation(getMarkOfficeCardCommentsSeenMutationOptions(options));
+    }
+
+export const getMarkClientCardCommentsSeenUrl = (token: string,
+    cardKey: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/cards/${cardKey}/comments/seen`
+}
+
+/**
+ * @summary Client opened the thread — mark office messages on this card as read
+ */
+export const markClientCardCommentsSeen = async (token: string,
+    cardKey: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getMarkClientCardCommentsSeenUrl(token,cardKey),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkClientCardCommentsSeenMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markClientCardCommentsSeen>>, TError,{token: string;cardKey: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markClientCardCommentsSeen>>, TError,{token: string;cardKey: string}, TContext> => {
+
+const mutationKey = ['markClientCardCommentsSeen'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markClientCardCommentsSeen>>, {token: string;cardKey: string}> = (props) => {
+          const {token,cardKey} = props ?? {};
+
+          return  markClientCardCommentsSeen(token,cardKey,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkClientCardCommentsSeenMutationResult = NonNullable<Awaited<ReturnType<typeof markClientCardCommentsSeen>>>
+
+    export type MarkClientCardCommentsSeenMutationError = ErrorType<Error>
+
+    /**
+ * @summary Client opened the thread — mark office messages on this card as read
+ */
+export const useMarkClientCardCommentsSeen = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markClientCardCommentsSeen>>, TError,{token: string;cardKey: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markClientCardCommentsSeen>>,
+        TError,
+        {token: string;cardKey: string},
+        TContext
+      > => {
+      return useMutation(getMarkClientCardCommentsSeenMutationOptions(options));
+    }
+
 export const getSendClientCardToOfficeUrl = (token: string,
     cardKey: string,) => {
 

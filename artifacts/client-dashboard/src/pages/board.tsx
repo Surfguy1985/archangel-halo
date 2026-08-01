@@ -316,7 +316,18 @@ function Board() {
           )}
           <div className="h-6 w-px bg-black/[0.06] hidden sm:block" />
           <div className="flex flex-col justify-center max-sm:min-w-0">
-            <h1 className="text-[14px] font-semibold text-[#1d1d1f] leading-tight max-sm:truncate">{propertyName}</h1>
+            <div className="flex items-center gap-1.5 max-sm:min-w-0">
+              <h1 className="text-[14px] font-semibold text-[#1d1d1f] leading-tight max-sm:truncate">{propertyName}</h1>
+              {(board.unreadMessages ?? 0) > 0 && (
+                <span
+                  className="flex items-center gap-1 rounded-full bg-[#FF3B30] px-1.5 py-0.5 text-[10px] font-bold text-white leading-none shrink-0"
+                  title="Unread messages from the office"
+                  data-testid="badge-board-unread"
+                >
+                  {board.unreadMessages}
+                </span>
+              )}
+            </div>
             {board.propertyAddress && (
               <p className="text-[11px] font-medium text-[#6e6e73] leading-tight hidden sm:block">{board.propertyAddress}</p>
             )}

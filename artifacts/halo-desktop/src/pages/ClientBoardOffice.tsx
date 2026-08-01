@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { PushCardDialog } from "@/components/PushCardDialog";
 import { Link, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,6 +23,7 @@ import {
   useListOfficeCardComments,
   getListOfficeCardCommentsQueryKey,
   useAddOfficeCardComment,
+  useMarkOfficeCardCommentsSeen,
   type ClientBoardFeedCard,
   type ClientCardPushInput,
   type ClientInboxCard,
@@ -58,6 +59,7 @@ import {
   BellRing,
   Users,
   Image as ImageIcon,
+  ImagePlus,
   MessageSquare,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -647,15 +649,79 @@ function CommentsDialog({
     },
   });
   const addComment = useAddOfficeCardComment();
+  const markSeen = useMarkOfficeCardCommentsSeen();
   const [body, setBody] = useState("");
+  const [attachment, setAttachment] = useState<{ name: string; path: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const comments = data?.comments ?? [];
+
+  // Opening the thread marks client messages as read — clears the office
+  // unread badges and the Today feed item.
+  const unreadFromClient = comments.filter((c) => c.authorType === "client" && !c.read).length;
+  useEffect(() => {
+    if (unreadFromClient === 0) return;
+    markSeen.mutate(
+      { propertyId, cardKey },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            queryKey: getListOfficeCardCommentsQueryKey(propertyId, cardKey),
+          });
+          queryClient.invalidateQueries({ queryKey: getGetOfficeBoardFullQueryKey(propertyId) });
+        },
+      }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unreadFromClient, cardKey]);
+
+  const pickFile = async (file: File | null) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      // Manual /api URLs must stay root-absolute in the desktop app.
+      const r = await fetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type || "application/octet-stream",
+        }),
+      });
+      if (!r.ok) throw new Error("upload");
+      const { uploadURL, objectPath } = await r.json();
+      const put = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!put.ok) throw new Error("upload");
+      setAttachment({ name: file.name || "Photo", path: objectPath });
+    } catch {
+      /* leave attachment empty; user can retry */
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = () => {
-    if (!body.trim()) return;
+    if (!body.trim() && !attachment) return;
     addComment.mutate(
-      { propertyId, cardKey, data: { body: body.trim() } },
+      {
+        propertyId,
+        cardKey,
+        data: {
+          body: body.trim(),
+          attachmentName: attachment?.name ?? null,
+          attachmentPath: attachment?.path ?? null,
+        },
+      },
       {
         onSuccess: () => {
           setBody("");
+          setAttachment(null);
           queryClient.invalidateQueries({
             queryKey: getListOfficeCardCommentsQueryKey(propertyId, cardKey),
           });
@@ -663,8 +729,6 @@ function CommentsDialog({
       }
     );
   };
-
-  const comments = data?.comments ?? [];
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -697,6 +761,26 @@ function CommentsDialog({
                       : "bg-white border border-border text-foreground rounded-2xl rounded-tl-sm"
                   }`}
                 >
+                  {c.attachmentUrl &&
+                    (/\.(png|jpe?g|webp|gif|heic)$/i.test(c.attachmentName ?? c.attachmentUrl) ? (
+                      <a href={c.attachmentUrl} target="_blank" rel="noreferrer" className="block mb-1">
+                        <img
+                          src={c.attachmentUrl}
+                          alt={c.attachmentName ?? "Attachment"}
+                          className="rounded-lg max-h-48 max-w-full object-cover"
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        href={c.attachmentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 underline mb-1"
+                      >
+                        <Paperclip className="w-3.5 h-3.5" />
+                        {c.attachmentName ?? "Attachment"}
+                      </a>
+                    ))}
                   {c.body}
                 </div>
               </div>
@@ -704,7 +788,35 @@ function CommentsDialog({
           })}
         </div>
         <div className="p-4 bg-card border-t border-border shrink-0">
+          {attachment && (
+            <div className="flex items-center gap-2 text-xs bg-muted rounded-lg px-3 py-2 mb-2">
+              <Paperclip className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate flex-1">{attachment.name}</span>
+              <button onClick={() => setAttachment(null)}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           <div className="flex gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                pickFile(e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }}
+            />
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              title="Attach a photo"
+              className="p-3 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 disabled:opacity-50"
+              data-testid="button-attach-thread"
+            >
+              {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
+            </button>
             <input
               value={body}
               onChange={(e) => setBody(e.target.value)}
@@ -1384,6 +1496,7 @@ export default function ClientBoardOffice() {
             <AppleBoard
               board={boardFull?.board as any}
               isLoading={boardLoading}
+              viewerSide="office"
               viewer={{ readOnly: false, authenticated: true, permissions: [] }}
               boardKey={undefined}
               onLoginRequired={() => {}}

@@ -12,5 +12,14 @@ export interface BoardCardComment {
   authorType: string;
   authorName: string;
   body: string;
+  /** @nullable */
+  attachmentName?: string | null;
+  /**
+     * Absolute /api/storage URL when a file is attached
+     * @nullable
+     */
+  attachmentUrl?: string | null;
+  /** Whether the other side has seen this message */
+  read?: boolean;
   createdAt: string;
 }

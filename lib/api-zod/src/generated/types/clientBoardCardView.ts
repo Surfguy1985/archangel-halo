@@ -62,6 +62,10 @@ export interface ClientBoardCardView {
   labels?: string[];
   checklist?: BoardChecklistItem[];
   commentCount?: number;
+  /** Office messages the client has not seen yet */
+  unreadComments?: number;
+  /** Client messages the office has not seen yet */
+  unreadFromClient?: number;
   /** FLK-XXXXX network code, deterministic per card (Crockford base32). */
   waybillCode: string;
   waybill: CardWaybill;
