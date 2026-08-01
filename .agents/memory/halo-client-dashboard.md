@@ -22,3 +22,5 @@ description: Client-facing kanban PWA artifact — session auth, card projection
 - Neighbor re-index writes are position-ONLY overrides (lane stays null) so HALO keeps recomputing lanes for cards the client never moved.
 - The "can't drag into Done" guards allow same-lane reorder: `cardCurrentlyInDone` checks override lane, else computed lane (jobLane / invoice paid).
 - Client computes drop index from card midpoints via getBoundingClientRect (shared by desktop drop + touch drag).
+
+**Card landing is by intent, not default.** pushLane(): money kinds → billing, summary → done, job-linked pushes mirror the job card's lane (jobLane + on-site check-in override), tracker/photos → in_progress, only true leftovers fall to requested — Requested is reserved for client-originated work requests. Unpaid invoice/payment_request pushes carry `needsAction: true` (ClientBoardCardView), which drives the "Needs your action" strip above the board; the board's Request-work dialog reuses the existing POST /client/:token/requests flow (session cookie required). If you add a lane rule, keep the pushed card and its job card in the same lane or the board looks contradictory.

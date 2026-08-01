@@ -58,6 +58,7 @@ export interface ClientBoardCardView {
   updatedAt?: string | null;
   /** @nullable */
   snoozedUntil?: string | null;
+  needsAction?: boolean;
   labels?: string[];
   checklist?: BoardChecklistItem[];
   commentCount?: number;

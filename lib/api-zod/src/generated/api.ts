@@ -9418,6 +9418,7 @@ export const GetClientBoardResponse = zod.object({
   "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Interactive module payload for cards pushed from the office (invoice pay\/approve, tracker GPS, flagged items, referral)'),
   "updatedAt": zod.string().nullish(),
   "snoozedUntil": zod.string().nullish(),
+  "needsAction": zod.boolean().optional(),
   "labels": zod.array(zod.string()).optional(),
   "checklist": zod.array(zod.object({
   "id": zod.string(),
@@ -9523,6 +9524,7 @@ export const GetClientPmBoardResponse = zod.object({
   "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Interactive module payload for cards pushed from the office (invoice pay\/approve, tracker GPS, flagged items, referral)'),
   "updatedAt": zod.string().nullish(),
   "snoozedUntil": zod.string().nullish(),
+  "needsAction": zod.boolean().optional(),
   "labels": zod.array(zod.string()).optional(),
   "checklist": zod.array(zod.object({
   "id": zod.string(),
@@ -9631,6 +9633,7 @@ export const GetOfficeBoardFullResponse = zod.object({
   "module": zod.record(zod.string(), zod.unknown()).nullish().describe('Interactive module payload for cards pushed from the office (invoice pay\/approve, tracker GPS, flagged items, referral)'),
   "updatedAt": zod.string().nullish(),
   "snoozedUntil": zod.string().nullish(),
+  "needsAction": zod.boolean().optional(),
   "labels": zod.array(zod.string()).optional(),
   "checklist": zod.array(zod.object({
   "id": zod.string(),

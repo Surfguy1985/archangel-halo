@@ -12640,6 +12640,9 @@ components:
           additionalProperties: true
         updatedAt: { type: ["string", "null"] }
         snoozedUntil: { type: ["string", "null"] }
+        # True when the card is waiting on the client (approve/pay an invoice,
+        # answer a payment request). Drives the "Needs your action" strip.
+        needsAction: { type: boolean }
         labels:
           type: array
           items: { type: string }

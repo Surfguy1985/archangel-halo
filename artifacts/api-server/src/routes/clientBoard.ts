@@ -735,11 +735,37 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   // Pushed cards from the office ("From Archangel") ------------------------
   // These are the interactive micro-service modules the contractor pushes:
   // invoice pay/approve, live crew tracker, flagged items, referral asks.
+  // Cards land by intent, not by default: money → Billing, end-of-job
+  // artifacts → Done, job-linked status cards follow the job's real stage.
+  // "Requested" is reserved for things the client actually asked for.
+  const jobByIdAll = new Map(jobs.map((j) => [j.id, j]));
   const pushLane = (c: (typeof pushed)[number]): string => {
     if (c.column === "done") return "done";
     if (c.column === "in_progress") return "in_progress";
     if (c.kind === "invoice" || c.kind === "payment_request") return "billing";
+    if (c.kind === "summary") return "done";
+    const job = c.jobId ? jobByIdAll.get(c.jobId) : undefined;
+    if (job) {
+      const { lane } = jobLane(job);
+      if (lane === "done") return "done";
+      const lc = lastCheckinByJob.get(job.id);
+      const onSite =
+        !!lc && lc.kind !== "checkout" && now - new Date(lc.createdAt).getTime() < 4 * 3_600_000;
+      // Mirror the job card's own lane so the two never disagree.
+      return onSite ? "in_progress" : lane;
+    }
+    // Live trackers/photos are always about work underway.
+    if (c.kind === "tracker" || c.kind === "photos") return "in_progress";
     return "requested";
+  };
+  // Waiting on the client: unpaid invoices / unanswered payment requests.
+  const pushNeedsAction = (
+    c: (typeof pushed)[number],
+    module: Record<string, unknown> | null,
+  ): boolean => {
+    if (c.column === "done" || c.completedAt) return false;
+    if (c.kind !== "invoice" && c.kind !== "payment_request") return false;
+    return String(module?.status ?? "").toLowerCase() !== "paid";
   };
   for (const c of pushed) {
     // Old completed cards fall off after 30 days like paid invoices do.
@@ -773,6 +799,7 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       actions: links.map((l, i) => ({ key: `link:${i}`, label: l.label, kind: "link", href: l.url })),
       editable: false,
       module,
+      needsAction: pushNeedsAction(c, module),
       updatedAt: c.updatedAt.toISOString(),
       snoozedUntil: null,
       commentCount: commentCountByKey.get(`push:${c.id}`) ?? 0,
