@@ -16,6 +16,8 @@ import {
   useGetClientBoardInbox,
   getGetClientBoardInboxQueryKey,
   useDispatchOfficeBoardAction,
+  useGetOfficeBoardHistory,
+  getGetOfficeBoardHistoryQueryKey,
   useRespondClientInboxCard,
   useListOfficeCardComments,
   getListOfficeCardCommentsQueryKey,
@@ -26,7 +28,10 @@ import {
   type BoardCardComment,
 } from "@workspace/api-client-react";
 import {
+  Archive,
   ChevronLeft,
+  DollarSign,
+  Download,
   Pencil,
   Briefcase,
   CalendarClock,
@@ -1718,9 +1723,152 @@ function PushCardDialog({
   );
 }
 
+// Cleared-card history — the office mirror of the client dashboard's History
+// tab (same client_card_history rows), with the same CSV export.
+const HISTORY_STATUS_META: Record<string, { label: string; cls: string; Icon: typeof CheckCircle2 }> = {
+  completed: { label: "Completed", cls: "bg-emerald-100 text-emerald-800", Icon: CheckCircle2 },
+  paid: { label: "Paid", cls: "bg-sky-100 text-sky-800", Icon: DollarSign },
+  cleared: { label: "Cleared", cls: "bg-neutral-200 text-neutral-700", Icon: Archive },
+};
+
+const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+function historyDayLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function HistoryView({ propertyId }: { propertyId: string }) {
+  const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
+  const { data, isLoading } = useGetOfficeBoardHistory(propertyId, {
+    query: { enabled: !!propertyId, queryKey: getGetOfficeBoardHistoryQueryKey(propertyId) },
+  });
+  const entries = data?.entries ?? [];
+  const totalPaid = entries.reduce((s, e) => s + e.amountPaid, 0);
+
+  // Group by cleared date (local)
+  const groups = new Map<string, typeof entries>();
+  for (const e of entries) {
+    const key = new Date(e.clearedAt).toDateString();
+    const list = groups.get(key) ?? [];
+    list.push(e);
+    groups.set(key, list);
+  }
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      // Manual /api URLs must be absolute — never BASE_URL-prefixed.
+      const res = await fetch(`/api/admin/accounts/${propertyId}/board/history.csv`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "board-history.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Couldn't export the history CSV", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  if (isLoading && !data) {
+    return (
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="max-w-3xl mx-auto space-y-4">
+          <Skeleton className="h-[80px] w-full rounded-2xl" />
+          <Skeleton className="h-[200px] w-full rounded-2xl" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4 sm:p-6" data-testid="history-view">
+      <div className="max-w-3xl mx-auto pb-10">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-lg font-display font-bold text-foreground">Cleared cards</h2>
+            <p className="text-sm font-medium text-muted-foreground">
+              {entries.length} card{entries.length === 1 ? "" : "s"} · {usd(totalPaid)} paid
+            </p>
+          </div>
+          <button
+            data-testid="button-export-history"
+            onClick={handleExport}
+            disabled={exporting || entries.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-[#041029] text-[#B4FF44] text-sm font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 shadow-sm"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            Export CSV
+          </button>
+        </div>
+
+        {entries.length === 0 && (
+          <div className="text-center py-32 text-muted-foreground">
+            <Archive className="w-16 h-16 mx-auto mb-4 opacity-20" />
+            <p className="font-bold text-lg text-foreground">Nothing cleared yet</p>
+            <p className="text-sm mt-1">When the client clears a card off their board, it lands here.</p>
+          </div>
+        )}
+
+        {[...groups.entries()].map(([day, list]) => (
+          <div key={day} className="mb-6">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              {historyDayLabel(list[0]!.clearedAt)}
+            </h3>
+            <div className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border">
+              {list.map((e) => {
+                const meta = HISTORY_STATUS_META[e.status] ?? HISTORY_STATUS_META.cleared!;
+                return (
+                  <div key={e.id} className="flex items-start gap-3 p-4" data-testid={`history-entry-${e.id}`}>
+                    <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${meta.cls}`}>
+                      <meta.Icon className="h-4 w-4" strokeWidth={2.5} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="truncate text-sm font-semibold text-foreground">{e.title}</p>
+                        {e.amountPaid > 0 && (
+                          <span className="shrink-0 text-sm font-bold tabular-nums">{usd(e.amountPaid)}</span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-medium text-muted-foreground">
+                        <span className={`rounded-full px-1.5 py-px font-semibold ${meta.cls}`}>{meta.label}</span>
+                        {e.unitLabel && <span>Unit {e.unitLabel}</span>}
+                        {e.jobLabel && <span>{e.jobLabel}</span>}
+                        <span>{e.frequency === "recurring" ? "Recurring" : "One time"}</span>
+                        {e.clearedBy && <span>by {e.clearedBy}</span>}
+                      </div>
+                      {e.summary && (
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{e.summary}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ClientBoardOffice() {
   const { propertyId } = useParams();
-  const [view, setView] = useState<"board" | "inbox">("board");
+  const [view, setView] = useState<"board" | "inbox" | "history">("board");
   const [showPush, setShowPush] = useState(false);
   const [editCard, setEditCard] = useState<ClientBoardFeedCard | null>(null);
 
@@ -1889,6 +2037,17 @@ export default function ClientBoardOffice() {
                   </span>
                 )}
               </button>
+              <button
+                onClick={() => setView("history")}
+                data-testid="button-view-history"
+                className={`px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${
+                  view === "history"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                History
+              </button>
             </div>
 
             {view === "board" && (
@@ -1904,7 +2063,9 @@ export default function ClientBoardOffice() {
         </div>
       </div>
 
-      {view === "inbox" ? (
+      {view === "history" ? (
+        <HistoryView propertyId={propertyId!} />
+      ) : view === "inbox" ? (
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="max-w-4xl mx-auto space-y-4 pb-10">
             {inboxLoading && !inbox ? (

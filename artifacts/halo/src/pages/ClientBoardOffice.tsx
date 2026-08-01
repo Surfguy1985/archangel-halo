@@ -6,12 +6,17 @@ import {
   useGetOfficeClientBoard,
   getGetOfficeClientBoardQueryKey,
   useCreateOfficeClientBoardCard,
+  useGetOfficeBoardHistory,
+  getGetOfficeBoardHistoryQueryKey,
   type ClientBoardFeedCard,
 } from "@workspace/api-client-react";
 import {
+  Archive,
   ChevronLeft,
   CheckCircle2,
   CreditCard,
+  DollarSign,
+  Download,
   ExternalLink,
   FileText,
   Flag,
@@ -101,6 +106,122 @@ function CardView({ card }: { card: ClientBoardFeedCard }) {
         <div className="text-[11px] text-muted-foreground truncate">{card.actionLabel}</div>
       )}
     </div>
+  );
+}
+
+// Cleared-card history — mirrors the client dashboard's History tab so the
+// office sees exactly what clients cleared, with the same CSV export.
+const HISTORY_STATUS_META: Record<string, { label: string; cls: string; Icon: typeof CheckCircle2 }> = {
+  completed: { label: "Completed", cls: "bg-emerald-100 text-emerald-800", Icon: CheckCircle2 },
+  paid: { label: "Paid", cls: "bg-sky-100 text-sky-800", Icon: DollarSign },
+  cleared: { label: "Cleared", cls: "bg-neutral-200 text-neutral-700", Icon: Archive },
+};
+
+const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+function HistorySection({ propertyId }: { propertyId: string }) {
+  const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
+  const { data, isLoading } = useGetOfficeBoardHistory(propertyId, {
+    query: { enabled: !!propertyId, queryKey: getGetOfficeBoardHistoryQueryKey(propertyId) },
+  });
+  const entries = data?.entries ?? [];
+  const totalPaid = entries.reduce((s, e) => s + e.amountPaid, 0);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      // Manual /api URLs must be absolute — never BASE_URL-prefixed.
+      const res = await fetch(`/api/admin/accounts/${propertyId}/board/history.csv`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "board-history.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Couldn't export the history CSV", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <section className="mt-[24px]" data-testid="section-history">
+      <div className="flex items-center justify-between px-[2px] mb-[8px]">
+        <div className="flex items-center gap-2">
+          <Archive className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-muted-foreground">
+            Cleared history
+          </h2>
+          {!isLoading && (
+            <span className="text-[12px] text-muted-foreground font-medium">
+              {entries.length} · {usd(totalPaid)} paid
+            </span>
+          )}
+        </div>
+        <button
+          onClick={handleExport}
+          disabled={exporting || entries.length === 0}
+          className="flex items-center gap-1.5 text-[12px] font-bold rounded-[10px] bg-[var(--ink,#17181C)] text-white px-[10px] py-[7px] disabled:opacity-40 transition-transform active:scale-[0.97]"
+          data-testid="button-export-history"
+        >
+          {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+          Export CSV
+        </button>
+      </div>
+      {isLoading ? (
+        <div className="h-20 rounded-[12px] bg-card animate-pulse" />
+      ) : entries.length === 0 ? (
+        <div className="rounded-[12px] border border-dashed border-border p-[14px] text-center text-[12px] text-muted-foreground">
+          Nothing cleared yet — when the client trashes a card, it lands here.
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-[14px] border border-border bg-card divide-y divide-border">
+          {entries.map((e) => {
+            const meta = HISTORY_STATUS_META[e.status] ?? HISTORY_STATUS_META.cleared!;
+            return (
+              <div key={e.id} className="flex items-start gap-3 p-[12px]" data-testid={`history-entry-${e.id}`}>
+                <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${meta.cls}`}>
+                  <meta.Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="truncate text-[13.5px] font-semibold">{e.title}</p>
+                    {e.amountPaid > 0 && (
+                      <span className="shrink-0 text-[13px] font-bold tabular-nums">{usd(e.amountPaid)}</span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-medium text-muted-foreground">
+                    <span className={`rounded-full px-1.5 py-px font-semibold ${meta.cls}`}>{meta.label}</span>
+                    {e.unitLabel && <span>Unit {e.unitLabel}</span>}
+                    {e.jobLabel && <span>{e.jobLabel}</span>}
+                    <span>{e.frequency === "recurring" ? "Recurring" : "One time"}</span>
+                    <span>
+                      {new Date(e.clearedAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                    {e.clearedBy && <span>by {e.clearedBy}</span>}
+                  </div>
+                  {e.summary && (
+                    <p className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">{e.summary}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -336,6 +457,8 @@ export default function ClientBoardOffice() {
           );
         })}
       </div>
+
+      <HistorySection propertyId={propertyId} />
     </div>
   );
 }

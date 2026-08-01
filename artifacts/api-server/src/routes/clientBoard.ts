@@ -1,5 +1,5 @@
 import { limits } from "../lib/rateLimit";
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
@@ -2102,17 +2102,12 @@ router.get("/client/:token/board/history", async (req, res): Promise<void> => {
 });
 
 // CSV export — flat rows plus totals categorized by unit, job, and frequency.
-router.get("/client/:token/board/history.csv", async (req, res): Promise<void> => {
-  const account = await accountByToken(String(req.params.token));
-  if (!account) {
-    res.status(404).json({ error: "Invalid link" });
-    return;
-  }
-  const rows = await db
-    .select()
-    .from(clientCardHistoryTable)
-    .where(eq(clientCardHistoryTable.propertyId, account.propertyId))
-    .orderBy(desc(clientCardHistoryTable.clearedAt));
+// Shared by the client-token and office mounts so the formula-injection guard
+// and summary sections can never drift between the two views.
+function sendHistoryCsv(
+  res: Response,
+  rows: (typeof clientCardHistoryTable.$inferSelect)[],
+): void {
   const esc = (v: unknown): string => {
     let s = v == null ? "" : String(v);
     // Neutralize spreadsheet formula injection (=, +, -, @, tab/CR prefixes).
@@ -2153,7 +2148,70 @@ router.get("/client/:token/board/history.csv", async (req, res): Promise<void> =
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", 'attachment; filename="board-history.csv"');
   res.send(lines.join("\n"));
+}
+
+router.get("/client/:token/board/history.csv", async (req, res): Promise<void> => {
+  const account = await accountByToken(String(req.params.token));
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const rows = await db
+    .select()
+    .from(clientCardHistoryTable)
+    .where(eq(clientCardHistoryTable.propertyId, account.propertyId))
+    .orderBy(desc(clientCardHistoryTable.clearedAt));
+  sendHistoryCsv(res, rows);
 });
+
+// Office mirror of the cleared-card history — same rows, keyed by propertyId
+// instead of the client dashboard token (no-auth posture, office mount).
+router.get(
+  "/admin/accounts/:propertyId/board/history",
+  async (req, res): Promise<void> => {
+    const propertyId = String(req.params.propertyId);
+    const [account] = await db
+      .select()
+      .from(clientAccountsTable)
+      .where(eq(clientAccountsTable.propertyId, propertyId))
+      .limit(1);
+    if (!account) {
+      res.status(404).json({ error: "No client account for this property yet" });
+      return;
+    }
+    const rows = await db
+      .select()
+      .from(clientCardHistoryTable)
+      .where(eq(clientCardHistoryTable.propertyId, propertyId))
+      .orderBy(desc(clientCardHistoryTable.clearedAt))
+      .limit(500);
+    res.json(GetClientBoardHistoryResponse.parse({ entries: rows.map(historyDto) }));
+  },
+);
+
+// Office CSV export — identical output to the client export (kept in the same
+// file as the client route so the formula-injection guard is shared).
+router.get(
+  "/admin/accounts/:propertyId/board/history.csv",
+  async (req, res): Promise<void> => {
+    const propertyId = String(req.params.propertyId);
+    const [account] = await db
+      .select()
+      .from(clientAccountsTable)
+      .where(eq(clientAccountsTable.propertyId, propertyId))
+      .limit(1);
+    if (!account) {
+      res.status(404).json({ error: "No client account for this property yet" });
+      return;
+    }
+    const rows = await db
+      .select()
+      .from(clientCardHistoryTable)
+      .where(eq(clientCardHistoryTable.propertyId, propertyId))
+      .orderBy(desc(clientCardHistoryTable.clearedAt));
+    sendHistoryCsv(res, rows);
+  },
+);
 
 router.post("/client/:token/board/actions", async (req, res): Promise<void> => {
   const parsed = DispatchClientBoardActionBody.safeParse(req.body);

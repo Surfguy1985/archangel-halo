@@ -6862,6 +6862,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/accounts/{propertyId}/board/history:
+    get:
+      security: [{ adminSession: [] }]
+      operationId: getOfficeBoardHistory
+      tags: [admin]
+      summary: Cleared-card history for the office mirror, newest first
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: History entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientCardHistoryList"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /client/{token}/board/ai-card:
     post:
       operationId: createClientBoardAiCard
