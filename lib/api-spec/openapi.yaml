@@ -8312,6 +8312,107 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  /client/{token}/concierge:
+    post:
+      operationId: conciergeChat
+      tags: [clients]
+      summary: Concierge chat — streams status + answer text as SSE; mutations return confirm chips, nothing writes until confirmed
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeChatInput"
+      responses:
+        "200":
+          description: text/event-stream of status/delta/done events
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/concierge/history:
+    get:
+      operationId: getConciergeHistory
+      tags: [clients]
+      summary: Recent concierge conversation for the signed-in client user
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Messages, oldest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeHistory"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/concierge/confirm:
+    post:
+      operationId: confirmConciergeAction
+      tags: [clients]
+      summary: Execute a concierge-proposed action — runs through the same endpoint the equivalent button uses
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeConfirmInput"
+      responses:
+        "200":
+          description: Outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeConfirmResult"
+        "400":
+          description: Invalid or expired confirmation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Sign in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   securitySchemes:
     adminSession:
@@ -8325,6 +8426,52 @@ components:
       name: halo_client_session
       description: "Client board session, minted by POST /client/{token}/session. During migration the path token is still honored; new surfaces should rely on the cookie."
   schemas:
+    ConciergeChatInput:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string, maxLength: 2000 }
+    ConciergeChip:
+      type: object
+      required: [id, label, summary, confirmToken, expiresAt]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        summary: { type: string }
+        confirmToken: { type: string }
+        expiresAt: { type: string }
+    ConciergeMessage:
+      type: object
+      required: [id, role, content, chips, createdAt]
+      properties:
+        id: { type: string }
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string }
+        chips:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConciergeChip"
+        createdAt: { type: string }
+    ConciergeHistory:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConciergeMessage"
+    ConciergeConfirmInput:
+      type: object
+      required: [confirmToken]
+      properties:
+        confirmToken: { type: string }
+    ConciergeConfirmResult:
+      type: object
+      required: [ok, message]
+      properties:
+        ok: { type: boolean }
+        blocked: { type: boolean }
+        message: { type: string }
     SummaryChecklistSection:
       type: object
       required: [section, items]

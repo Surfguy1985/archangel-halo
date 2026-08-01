@@ -17,6 +17,7 @@ import { CardDetailDialog } from '@/components/kanban/CardDetailDialog';
 import { NewCardSpotlight } from '@/components/NewCardSpotlight';
 import { RequestWorkDialog, type ChangeOrderTarget } from '@/components/RequestWorkDialog';
 import { BirdseyeMapDialog } from '@/components/BirdseyeMapDialog';
+import { ConciergeChat } from '@/components/ConciergeChat';
 import { AppleBoard, useBoardEvents } from '@workspace/board-ui';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 
@@ -577,6 +578,18 @@ function Board() {
           onReadOnlyClick={() => {
             if (!viewerAuthenticated) setLoginOpen(true);
             else toast({ title: 'Read-only access', description: 'Ask your property manager for edit access.' });
+          }}
+        />
+      )}
+
+      {boardLoaded && !tourOpen && !presentationOpen && (
+        <ConciergeChat
+          token={token}
+          authenticated={viewerAuthenticated}
+          onOpenCard={(cardKey) => {
+            const card = (activeBoardData?.cards || []).find((c: any) => c.cardKey === cardKey);
+            if (card) setDetailCard(card);
+            else toast({ title: 'That card is no longer on the board' });
           }}
         />
       )}

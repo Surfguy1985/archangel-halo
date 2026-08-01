@@ -69,4 +69,5 @@
 - [HALO card clear-to-history](halo-card-clear-history.md) — trash icon snapshots cards into client_card_history (idempotent, prefix-validated), archived override hides any family; CSV route keeps formula-injection guard.
 - [HALO kanban hardening](halo-kanban-hardening.md) — board contract enums/unions + ModuleBoundary + useBoardEvents + session cookie + rate limits; clientAuth must pass through unresolved tokens; pay limiter POST-only.
 - [HALO card messaging](halo-card-messaging.md) — card threads reuse client_card_comments with a push/source thread family; unread via readAt, digest claim must re-check readAt; attachments /objects/ only.
+- [HALO board concierge](halo-concierge.md) — chatbot tools go through internal HTTP with caller's creds; mutations only via one-time HMAC confirm chips (jti claimed in DB pre-execution).
 - [HALO client team self-service](halo-client-team-selfservice.md) — /access surface is admin-session-gated (403 for raw link); unclaimed boards allow first-admin setup; seat/last-admin guards.

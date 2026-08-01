@@ -114,6 +114,10 @@ import type {
   ClientUserUpdate,
   CloseOutBlocked,
   CloseOutJobResult,
+  ConciergeChatInput,
+  ConciergeConfirmInput,
+  ConciergeConfirmResult,
+  ConciergeHistory,
   Contact,
   ContactInput,
   ContactUpdate,
@@ -24785,5 +24789,226 @@ export const useExchangeClientToken = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getExchangeClientTokenMutationOptions(options));
+    }
+
+export const getConciergeChatUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/concierge`
+}
+
+/**
+ * @summary Concierge chat — streams status + answer text as SSE; mutations return confirm chips, nothing writes until confirmed
+ */
+export const conciergeChat = async (token: string,
+    conciergeChatInput: ConciergeChatInput, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getConciergeChatUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(conciergeChatInput)
+  }
+);}
+
+
+
+
+
+export const getConciergeChatMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof conciergeChat>>, TError,{token: string;data: BodyType<ConciergeChatInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof conciergeChat>>, TError,{token: string;data: BodyType<ConciergeChatInput>}, TContext> => {
+
+const mutationKey = ['conciergeChat'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof conciergeChat>>, {token: string;data: BodyType<ConciergeChatInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  conciergeChat(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConciergeChatMutationResult = NonNullable<Awaited<ReturnType<typeof conciergeChat>>>
+    export type ConciergeChatMutationBody = BodyType<ConciergeChatInput>
+    export type ConciergeChatMutationError = ErrorType<Error>
+
+    /**
+ * @summary Concierge chat — streams status + answer text as SSE; mutations return confirm chips, nothing writes until confirmed
+ */
+export const useConciergeChat = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof conciergeChat>>, TError,{token: string;data: BodyType<ConciergeChatInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof conciergeChat>>,
+        TError,
+        {token: string;data: BodyType<ConciergeChatInput>},
+        TContext
+      > => {
+      return useMutation(getConciergeChatMutationOptions(options));
+    }
+
+export const getGetConciergeHistoryUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/concierge/history`
+}
+
+/**
+ * @summary Recent concierge conversation for the signed-in client user
+ */
+export const getConciergeHistory = async (token: string, options?: RequestInit): Promise<ConciergeHistory> => {
+
+  return customFetch<ConciergeHistory>(getGetConciergeHistoryUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetConciergeHistoryQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/concierge/history`
+    ] as const;
+    }
+
+
+export const getGetConciergeHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getConciergeHistory>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConciergeHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetConciergeHistoryQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getConciergeHistory>>> = ({ signal }) => getConciergeHistory(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getConciergeHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetConciergeHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getConciergeHistory>>>
+export type GetConciergeHistoryQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Recent concierge conversation for the signed-in client user
+ */
+
+export function useGetConciergeHistory<TData = Awaited<ReturnType<typeof getConciergeHistory>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConciergeHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetConciergeHistoryQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getConfirmConciergeActionUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/concierge/confirm`
+}
+
+/**
+ * @summary Execute a concierge-proposed action — runs through the same endpoint the equivalent button uses
+ */
+export const confirmConciergeAction = async (token: string,
+    conciergeConfirmInput: ConciergeConfirmInput, options?: RequestInit): Promise<ConciergeConfirmResult> => {
+
+  return customFetch<ConciergeConfirmResult>(getConfirmConciergeActionUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(conciergeConfirmInput)
+  }
+);}
+
+
+
+
+
+export const getConfirmConciergeActionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmConciergeAction>>, TError,{token: string;data: BodyType<ConciergeConfirmInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmConciergeAction>>, TError,{token: string;data: BodyType<ConciergeConfirmInput>}, TContext> => {
+
+const mutationKey = ['confirmConciergeAction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmConciergeAction>>, {token: string;data: BodyType<ConciergeConfirmInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  confirmConciergeAction(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmConciergeActionMutationResult = NonNullable<Awaited<ReturnType<typeof confirmConciergeAction>>>
+    export type ConfirmConciergeActionMutationBody = BodyType<ConciergeConfirmInput>
+    export type ConfirmConciergeActionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Execute a concierge-proposed action — runs through the same endpoint the equivalent button uses
+ */
+export const useConfirmConciergeAction = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmConciergeAction>>, TError,{token: string;data: BodyType<ConciergeConfirmInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof confirmConciergeAction>>,
+        TError,
+        {token: string;data: BodyType<ConciergeConfirmInput>},
+        TContext
+      > => {
+      return useMutation(getConfirmConciergeActionMutationOptions(options));
     }
 

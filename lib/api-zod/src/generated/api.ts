@@ -10781,3 +10781,63 @@ export const ExchangeClientTokenParams = zod.object({
 export const ExchangeClientTokenResponse = zod.void()
 
 
+/**
+ * @summary Concierge chat — streams status + answer text as SSE; mutations return confirm chips, nothing writes until confirmed
+ */
+export const ConciergeChatParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const conciergeChatBodyMessageMax = 2000;
+
+
+
+export const ConciergeChatBody = zod.object({
+  "message": zod.string().max(conciergeChatBodyMessageMax)
+})
+
+export const ConciergeChatResponse = zod.unknown()
+
+
+/**
+ * @summary Recent concierge conversation for the signed-in client user
+ */
+export const GetConciergeHistoryParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetConciergeHistoryResponse = zod.object({
+  "messages": zod.array(zod.object({
+  "id": zod.string(),
+  "role": zod.enum(['user', 'assistant']),
+  "content": zod.string(),
+  "chips": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "summary": zod.string(),
+  "confirmToken": zod.string(),
+  "expiresAt": zod.string()
+})),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Execute a concierge-proposed action — runs through the same endpoint the equivalent button uses
+ */
+export const ConfirmConciergeActionParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const ConfirmConciergeActionBody = zod.object({
+  "confirmToken": zod.string()
+})
+
+export const ConfirmConciergeActionResponse = zod.object({
+  "ok": zod.boolean(),
+  "blocked": zod.boolean().optional(),
+  "message": zod.string()
+})
+
+

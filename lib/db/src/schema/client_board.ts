@@ -135,6 +135,32 @@ export const clientCardHistoryTable = pgTable("client_card_history", {
   restoredAt: timestamp("restored_at", { withTimezone: true }),
 });
 
+// Concierge chat history — one row per chat message, persisted per signed-in
+// client user so the conversation survives reloads and devices. Guests chat
+// ephemerally (nothing stored). meta carries pending confirm chips and links.
+export const clientConciergeMessagesTable = pgTable("client_concierge_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  propertyId: uuid("property_id").notNull(),
+  clientUserId: uuid("client_user_id").notNull(),
+  role: text("role").notNull(), // user | assistant
+  content: text("content").notNull(),
+  meta: jsonb("meta").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// One row per EXECUTED concierge confirmation (jti = the token's unique id).
+// The primary key makes token consumption atomic and multi-instance safe: a
+// replayed or double-clicked confirm hits a duplicate-key error and is
+// rejected, so a confirm chip can only ever run its action once.
+export const clientConciergeConfirmsTable = pgTable("client_concierge_confirms", {
+  jti: uuid("jti").primaryKey(),
+  propertyId: uuid("property_id").notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ClientConciergeMessage = typeof clientConciergeMessagesTable.$inferSelect;
 export type ClientCardHistory = typeof clientCardHistoryTable.$inferSelect;
 export type ClientCardComment = typeof clientCardCommentsTable.$inferSelect;
 export type ClientBoardNotification = typeof clientBoardNotificationsTable.$inferSelect;

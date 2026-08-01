@@ -5,6 +5,49 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+export interface ConciergeChatInput {
+  /** @maxLength 2000 */
+  message: string;
+}
+
+export interface ConciergeChip {
+  id: string;
+  label: string;
+  summary: string;
+  confirmToken: string;
+  expiresAt: string;
+}
+
+export type ConciergeMessageRole = typeof ConciergeMessageRole[keyof typeof ConciergeMessageRole];
+
+
+export const ConciergeMessageRole = {
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export interface ConciergeMessage {
+  id: string;
+  role: ConciergeMessageRole;
+  content: string;
+  chips: ConciergeChip[];
+  createdAt: string;
+}
+
+export interface ConciergeHistory {
+  messages: ConciergeMessage[];
+}
+
+export interface ConciergeConfirmInput {
+  confirmToken: string;
+}
+
+export interface ConciergeConfirmResult {
+  ok: boolean;
+  blocked?: boolean;
+  message: string;
+}
+
 export type SummaryChecklistSectionItemsItem = {
   label: string;
   checked: boolean;
