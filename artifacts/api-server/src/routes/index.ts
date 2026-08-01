@@ -35,6 +35,7 @@ import clientBoardRouter from "./clientBoard";
 import clientCmsRouter from "./clientCms";
 import conciergeRouter from "./concierge";
 import presentationRouter from "./presentation";
+import emergencyRouter from "./emergency";
 
 const router: IRouter = Router();
 
@@ -60,6 +61,7 @@ router.use(propertiesRouter);
 router.use(pipelineRouter);
 router.use(jobsRouter);
 router.use(jobBoardRouter);
+router.use(emergencyRouter);
 router.use(moneyRouter);
 router.use(inventoryRouter);
 router.use(activityRouter);

@@ -314,10 +314,13 @@ export async function syncJobLaborLedger(jobId: string): Promise<void> {
 async function syncJobLaborLedgerInner(jobId: string): Promise<void> {
   await removeEntriesForRef(["job_labor"], jobId);
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
-  if (!job || !job.crewRate || job.crewRate <= 0) return;
+  if (!job) return;
+  // Emergency bonus is a crew cost like the base rate — post them together.
+  const labor = (job.crewRate ?? 0) + (job.emergencyBonus ?? 0);
+  if (labor <= 0) return;
   const done = ["complete", "closed", "paid"].includes(job.status);
   if (!done) return;
-  await postJobLaborEntry(job.id, job.jobNo, job.crewRate, job.completedAt);
+  await postJobLaborEntry(job.id, job.jobNo, labor, job.completedAt);
 }
 
 async function postJobLaborEntry(
@@ -374,9 +377,10 @@ async function rebuildLedgerInner(): Promise<number> {
     posted += 1;
   }
   for (const job of jobs) {
-    if (!job.crewRate || job.crewRate <= 0) continue;
+    const labor = (job.crewRate ?? 0) + (job.emergencyBonus ?? 0);
+    if (labor <= 0) continue;
     if (!["complete", "closed", "paid"].includes(job.status)) continue;
-    await postJobLaborEntry(job.id, job.jobNo, job.crewRate, job.completedAt);
+    await postJobLaborEntry(job.id, job.jobNo, labor, job.completedAt);
     posted += 1;
   }
   return posted;

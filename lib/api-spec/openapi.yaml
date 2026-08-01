@@ -1436,6 +1436,120 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /jobs/{id}/emergency/candidates:
+    get:
+      operationId: getEmergencyCandidates
+      tags: [jobs]
+      summary: Crews ranked by distance from the job's property using latest GPS check-ins
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Ranked candidates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmergencyCandidates"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /jobs/{id}/emergency:
+    get:
+      operationId: getEmergencyPing
+      tags: [jobs]
+      summary: Latest emergency ping for a job with per-crew statuses and hold state
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Ping (null when none was ever sent)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmergencyPingLookup"
+
+  /jobs/{id}/emergency/ping:
+    post:
+      operationId: sendEmergencyPing
+      tags: [jobs]
+      summary: Urgent-ping selected crews with a bonus offer — first to commit wins
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmergencyPingInput"
+      responses:
+        "201":
+          description: Ping sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmergencyPingView"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Job complete or a ping is already out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /jobs/{id}/emergency/cancel:
+    post:
+      operationId: cancelEmergencyPing
+      tags: [jobs]
+      summary: Cancel the live emergency ping — pending crews notified, any held pay returned
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmergencyPingView"
+        "404":
+          description: No ping for this job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /job-board:
     get:
       operationId: listJobBoard
@@ -3900,6 +4014,64 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: Job already filled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /portal/{token}/emergency/{targetId}/commit:
+    post:
+      operationId: commitPortalEmergency
+      tags: [portal]
+      summary: One-tap Accept & Commit on an emergency ping — first crew wins, pay + bonus goes ON HOLD
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: targetId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Committed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalEmergencyCommitResult"
+        "404":
+          description: Invalid link or ping
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already filled by another crew
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /portal/{token}/earnings:
+    get:
+      operationId: getPortalEarnings
+      tags: [portal]
+      summary: Crew's visual bank — held, payable, and paid emergency amounts
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Earnings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalEarnings"
+        "404":
+          description: Invalid link
           content:
             application/json:
               schema:
@@ -11699,7 +11871,7 @@ components:
         scheduledOn: { type: ["string", "null"] }
     PortalBundle:
       type: object
-      required: [crew, schedule, offers, unseen]
+      required: [crew, schedule, offers, emergencyOffers, unseen]
       properties:
         crew:
           $ref: "#/components/schemas/PortalCrew"
@@ -11711,17 +11883,170 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PortalOffer"
+        emergencyOffers:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortalEmergencyOffer"
         unseen:
           $ref: "#/components/schemas/PortalUnseen"
     PortalUnseen:
       type: object
-      required: [offers, schedule, messages, packets, documents]
+      required: [offers, schedule, messages, packets, documents, emergency]
       properties:
         offers: { type: number }
         schedule: { type: number }
         messages: { type: number }
         packets: { type: number }
         documents: { type: number }
+        emergency: { type: number }
+    PortalEmergencyOffer:
+      type: object
+      required: [id, pingId, jobId, status, pingStatus, filledByYou, payAmount, bonusAmount]
+      properties:
+        id: { type: string }
+        pingId: { type: string }
+        jobId: { type: string }
+        status: { type: string, description: "pending | committed | missed" }
+        pingStatus: { type: string, description: "open | filled | cancelled" }
+        filledByYou: { type: boolean }
+        payAmount: { type: number }
+        bonusAmount: { type: number }
+        neededBy: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+        jobNo: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        propertyAddress: { type: ["string", "null"] }
+        propertyCity: { type: ["string", "null"] }
+        contactName: { type: ["string", "null"] }
+        contactRole: { type: ["string", "null"] }
+        contactPhone: { type: ["string", "null"] }
+        contactEmail: { type: ["string", "null"] }
+        sentAt: { type: ["string", "null"] }
+    PortalEmergencyCommitResult:
+      type: object
+      required: [status, holdAmount]
+      properties:
+        status: { type: string }
+        holdAmount: { type: number }
+        scheduledOn: { type: ["string", "null"] }
+        message: { type: ["string", "null"] }
+    PortalEarningsHold:
+      type: object
+      required: [id, jobId, amount, bonusAmount, state, sameDayPay, heldAt]
+      properties:
+        id: { type: string }
+        jobId: { type: string }
+        jobLabel: { type: ["string", "null"] }
+        amount: { type: number }
+        bonusAmount: { type: number }
+        state: { type: string, description: "held | payable | paid | cancelled" }
+        sameDayPay: { type: boolean }
+        heldAt: { type: string }
+        releasedAt: { type: ["string", "null"] }
+    PortalEarnings:
+      type: object
+      required: [heldTotal, payableTotal, paidTotal, holds]
+      properties:
+        heldTotal: { type: number }
+        payableTotal: { type: number }
+        paidTotal: { type: number }
+        holds:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortalEarningsHold"
+    EmergencyCandidate:
+      type: object
+      required: [crewId, name]
+      properties:
+        crewId: { type: string }
+        name: { type: string }
+        trade: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        selfiePath: { type: ["string", "null"] }
+        distanceMeters: { type: ["number", "null"] }
+        distanceMiles: { type: ["number", "null"] }
+        lastCheckinAt: { type: ["string", "null"] }
+        minutesAgo: { type: ["number", "null"], description: "Staleness of the GPS fix" }
+        checkinLabel: { type: ["string", "null"] }
+    EmergencyCandidates:
+      type: object
+      required: [propertyHasLocation, smsAvailable, jobPay, candidates]
+      properties:
+        propertyName: { type: ["string", "null"] }
+        propertyHasLocation: { type: boolean }
+        smsAvailable: { type: boolean }
+        jobPay: { type: number }
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmergencyCandidate"
+    EmergencyPingInput:
+      type: object
+      required: [crewIds, bonusAmount]
+      properties:
+        crewIds:
+          type: array
+          items: { type: string }
+        bonusAmount: { type: number }
+        neededBy: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+    EmergencyPingTargetView:
+      type: object
+      required: [id, crewId, crewName, status]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        crewName: { type: string }
+        status: { type: string, description: "pending | committed | declined | missed | cancelled" }
+        distanceMeters: { type: ["number", "null"] }
+        smsSent: { type: ["string", "null"] }
+        sentAt: { type: ["string", "null"] }
+        respondedAt: { type: ["string", "null"] }
+    EmergencyHoldView:
+      type: object
+      required: [id, crewId, amount, bonusAmount, status]
+      properties:
+        id: { type: string }
+        crewId: { type: string }
+        amount: { type: number }
+        bonusAmount: { type: number }
+        status: { type: string, description: "HELD | RELEASED | CANCELLED" }
+        heldAt: { type: ["string", "null"] }
+        releasedAt: { type: ["string", "null"] }
+    EmergencyPingView:
+      type: object
+      required: [id, jobId, status, bonusAmount, payAmount, targets]
+      properties:
+        id: { type: string }
+        jobId: { type: string }
+        status: { type: string, description: "open | filled | cancelled" }
+        bonusAmount: { type: number }
+        payAmount: { type: number }
+        neededBy: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+        filledByCrewId: { type: ["string", "null"] }
+        filledByCrewName: { type: ["string", "null"] }
+        filledAt: { type: ["string", "null"] }
+        createdAt: { type: ["string", "null"] }
+        hold:
+          oneOf:
+            - $ref: "#/components/schemas/EmergencyHoldView"
+            - type: "null"
+        targets:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmergencyPingTargetView"
+    EmergencyPingLookup:
+      type: object
+      required: []
+      properties:
+        ping:
+          oneOf:
+            - $ref: "#/components/schemas/EmergencyPingView"
+            - type: "null"
     PortalAgreementResult:
       type: object
       required: [accepted, acceptedAt]
@@ -11800,7 +12125,7 @@ components:
         section:
           {
             type: string,
-            enum: [offers, schedule, messages, packets, documents],
+            enum: [offers, schedule, messages, packets, documents, emergency],
           }
     CrewInvoiceItemInput:
       type: object
@@ -12903,6 +13228,8 @@ components:
         propertyName: { type: ["string", "null"] }
         completedAt: { type: ["string", "null"] }
         suggestedAmount: { type: number }
+        sameDayPay: { type: boolean, description: "Emergency job — pay today, bypasses net-30" }
+        bonusAmount: { type: ["number", "null"], description: "Emergency bonus included in suggestedAmount" }
 
     PayoutQueueCrew:
       type: object

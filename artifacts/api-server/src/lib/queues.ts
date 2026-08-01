@@ -13,9 +13,14 @@ import {
   clientCardCommentsTable,
   crewCheckinsTable,
   crewPhotosTable,
+  crewPayHoldsTable,
+  crewPayoutsTable,
+  crewPaymentsTable,
+  crewsTable,
 } from "@workspace/db";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { localToday } from "./localDate";
+import { emergencySettledKeys, outstandingHoldAmount } from "./emergencySettlement";
 
 const DAY = 1000 * 60 * 60 * 24;
 
@@ -194,6 +199,48 @@ export async function computeQueues(): Promise<{
       propertyId: j.propertyId,
       actions: [{ label: "Create invoice", action: "createInvoice", kind: "gold" }],
     });
+  }
+
+  // Pay today — released emergency holds (same-day pay overrides net-30):
+  // Action Required until the crew is actually paid for that job.
+  const releasedHolds = await db
+    .select()
+    .from(crewPayHoldsTable)
+    .where(eq(crewPayHoldsTable.status, "RELEASED"));
+  if (releasedHolds.length > 0) {
+    const [paidPayouts, crewPays, crews] = await Promise.all([
+      db
+        .select()
+        .from(crewPayoutsTable)
+        .where(eq(crewPayoutsTable.status, "paid")),
+      db.select().from(crewPaymentsTable),
+      db.select({ id: crewsTable.id, name: crewsTable.name }).from(crewsTable),
+    ]);
+    // Shared settlement predicate — same rule as portal earnings and the
+    // payout queue, so all surfaces agree when a hold is done.
+    const paidSet = emergencySettledKeys(paidPayouts, crewPays);
+    const crewName = new Map(crews.map((c) => [c.id, c.name]));
+    for (const h of releasedHolds) {
+      if (paidSet.has(`${h.crewId}|${h.jobId}`)) continue;
+      // Shared outstanding computation — prior completed base payments
+      // reduce what's actually owed today.
+      const owed = outstandingHoldAmount(h.amount, h.crewId, h.jobId, crewPays);
+      if (owed <= 0) continue;
+      const job = jobs.find((j) => j.id === h.jobId);
+      feed.push({
+        id: `sdp-${h.id}`,
+        queue: "money",
+        tier: "now",
+        title: `Pay today: ${crewName.get(h.crewId) ?? "Crew"} — $${owed.toLocaleString()}`,
+        sub: `Emergency job${job ? ` ${job.jobNo}` : ""} approved — same-day pay overrides net-30`,
+        entityType: "job",
+        entityId: h.jobId,
+        propertyId: job?.propertyId ?? null,
+        amount: owed,
+        meta: [{ label: "Same-day pay", warn: true }],
+        actions: [{ label: "Pay now", action: "openPayHub", kind: "gold" }],
+      });
+    }
   }
 
   // Margin Guardian — active jobs below the property's margin floor (default 25%)

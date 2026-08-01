@@ -20,9 +20,12 @@ import {
   useListInvoices,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
+  useGetEmergencyPing,
+  getGetEmergencyPingQueryKey,
   type Invoice,
 } from "@workspace/api-client-react";
 import { InvoiceWizardDialog } from "@/components/InvoiceWizardDialog";
+import { EmergencyPingDialog } from "@/components/EmergencyPingDialog";
 import { PushCardDialog, type PushPrefill } from "@/components/PushCardDialog";
 import { RecordPaymentDialog } from "@/components/MoneyDialogs";
 import { SendInvoiceDialog } from "@/components/SendInvoiceDialog";
@@ -45,6 +48,9 @@ import {
   FileText,
   DollarSign,
   MessageSquareShare,
+  Siren,
+  Clock,
+  X,
 } from "lucide-react";
 import { useState} from "react";
 import { Skeleton} from "@/components/ui/skeleton";
@@ -117,6 +123,11 @@ export default function JobDetail() {
   const [pushPrefill, setPushPrefill] = useState<PushPrefill | null>(null);
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
   const [sendInvoice, setSendInvoice] = useState<Invoice | null>(null);
+  const [emergencyOpen, setEmergencyOpen] = useState(false);
+  const { data: emergencyData } = useGetEmergencyPing(id, {
+    query: { enabled: !!id, queryKey: getGetEmergencyPingQueryKey(id) },
+  });
+  const emergencyPing = emergencyData?.ping ?? null;
   const { data: allInvoices } = useListInvoices();
   const jobInvoices = (allInvoices ?? []).filter((i) => i.jobId === id);
 
@@ -326,6 +337,36 @@ export default function JobDetail() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
+          {emergencyPing && (emergencyPing.status === "open" || emergencyPing.status === "filled" || emergencyPing.status === "cancelled") && (
+            <button
+              onClick={() => setEmergencyOpen(true)}
+              data-testid="chip-emergency-ping"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide border transition-colors ${
+                emergencyPing.status === "filled"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:border-emerald-400"
+                  : emergencyPing.status === "open"
+                    ? "bg-red-50 text-red-700 border-red-200 hover:border-red-400"
+                    : "bg-muted text-muted-foreground border-border hover:border-[var(--ink)]"
+              }`}
+            >
+              {emergencyPing.status === "filled" ? (
+                <><Check className="w-3.5 h-3.5" /> Filled by {emergencyPing.filledByCrewName ?? "crew"}</>
+              ) : emergencyPing.status === "open" ? (
+                <><Clock className="w-3.5 h-3.5" /> Ping · awaiting</>
+              ) : (
+                <><X className="w-3.5 h-3.5" /> Ping cancelled</>
+              )}
+            </button>
+          )}
+          {job.status !== "complete" && job.status !== "paid" && job.status !== "cancelled" && !(emergencyPing && (emergencyPing.status === "open" || emergencyPing.status === "filled")) && (
+            <button
+              onClick={() => setEmergencyOpen(true)}
+              data-testid="button-emergency-ping"
+              className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-full font-medium hover:bg-red-700 transition-colors shadow-[0_2px_8px_rgba(220,38,38,0.2)] text-sm"
+            >
+              <Siren className="w-4 h-4" /> Emergency ping
+            </button>
+          )}
           {!job.clearedAt && !job.crewLeaderId && job.status !== "complete" && job.status !== "paid" && job.status !== "cancelled" && (
             broadcastOpen ? (
               <select
@@ -734,6 +775,8 @@ export default function JobDetail() {
           toast({ title: "Invoice sent", description: "Tip: push it to the client's board too." });
         }}
       />
+
+      <EmergencyPingDialog jobId={id} open={emergencyOpen} onOpenChange={setEmergencyOpen} />
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

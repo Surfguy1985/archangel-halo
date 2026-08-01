@@ -4149,19 +4149,191 @@ export interface PortalOfferRespondResult {
   scheduledOn?: string | null;
 }
 
+export interface PortalEmergencyOffer {
+  id: string;
+  pingId: string;
+  jobId: string;
+  /** pending | committed | missed */
+  status: string;
+  /** open | filled | cancelled */
+  pingStatus: string;
+  filledByYou: boolean;
+  payAmount: number;
+  bonusAmount: number;
+  /** @nullable */
+  neededBy?: string | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  jobNo?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  propertyAddress?: string | null;
+  /** @nullable */
+  propertyCity?: string | null;
+  /** @nullable */
+  contactName?: string | null;
+  /** @nullable */
+  contactRole?: string | null;
+  /** @nullable */
+  contactPhone?: string | null;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+}
+
 export interface PortalUnseen {
   offers: number;
   schedule: number;
   messages: number;
   packets: number;
   documents: number;
+  emergency: number;
 }
 
 export interface PortalBundle {
   crew: PortalCrew;
   schedule: PortalScheduleItem[];
   offers: PortalOffer[];
+  emergencyOffers: PortalEmergencyOffer[];
   unseen: PortalUnseen;
+}
+
+export interface PortalEmergencyCommitResult {
+  status: string;
+  holdAmount: number;
+  /** @nullable */
+  scheduledOn?: string | null;
+  /** @nullable */
+  message?: string | null;
+}
+
+export interface PortalEarningsHold {
+  id: string;
+  jobId: string;
+  /** @nullable */
+  jobLabel?: string | null;
+  amount: number;
+  bonusAmount: number;
+  /** held | payable | paid | cancelled */
+  state: string;
+  sameDayPay: boolean;
+  heldAt: string;
+  /** @nullable */
+  releasedAt?: string | null;
+}
+
+export interface PortalEarnings {
+  heldTotal: number;
+  payableTotal: number;
+  paidTotal: number;
+  holds: PortalEarningsHold[];
+}
+
+export interface EmergencyCandidate {
+  crewId: string;
+  name: string;
+  /** @nullable */
+  trade?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  selfiePath?: string | null;
+  /** @nullable */
+  distanceMeters?: number | null;
+  /** @nullable */
+  distanceMiles?: number | null;
+  /** @nullable */
+  lastCheckinAt?: string | null;
+  /**
+     * Staleness of the GPS fix
+     * @nullable
+     */
+  minutesAgo?: number | null;
+  /** @nullable */
+  checkinLabel?: string | null;
+}
+
+export interface EmergencyCandidates {
+  /** @nullable */
+  propertyName?: string | null;
+  propertyHasLocation: boolean;
+  smsAvailable: boolean;
+  jobPay: number;
+  candidates: EmergencyCandidate[];
+}
+
+export interface EmergencyPingInput {
+  crewIds: string[];
+  bonusAmount: number;
+  /** @nullable */
+  neededBy?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface EmergencyPingTargetView {
+  id: string;
+  crewId: string;
+  crewName: string;
+  /** pending | committed | declined | missed | cancelled */
+  status: string;
+  /** @nullable */
+  distanceMeters?: number | null;
+  /** @nullable */
+  smsSent?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  respondedAt?: string | null;
+}
+
+export interface EmergencyHoldView {
+  id: string;
+  crewId: string;
+  amount: number;
+  bonusAmount: number;
+  /** HELD | RELEASED | CANCELLED */
+  status: string;
+  /** @nullable */
+  heldAt?: string | null;
+  /** @nullable */
+  releasedAt?: string | null;
+}
+
+export interface EmergencyPingView {
+  id: string;
+  jobId: string;
+  /** open | filled | cancelled */
+  status: string;
+  bonusAmount: number;
+  payAmount: number;
+  /** @nullable */
+  neededBy?: string | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  filledByCrewId?: string | null;
+  /** @nullable */
+  filledByCrewName?: string | null;
+  /** @nullable */
+  filledAt?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
+  hold?: EmergencyHoldView | null;
+  targets: EmergencyPingTargetView[];
+}
+
+export interface EmergencyPingLookup {
+  ping?: EmergencyPingView | null;
 }
 
 export interface PortalAgreementResult {
@@ -4261,6 +4433,7 @@ export const PortalSeenInputSection = {
   messages: 'messages',
   packets: 'packets',
   documents: 'documents',
+  emergency: 'emergency',
 } as const;
 
 export interface PortalSeenInput {
@@ -5400,6 +5573,13 @@ export interface PayoutQueueJob {
   /** @nullable */
   completedAt?: string | null;
   suggestedAmount: number;
+  /** Emergency job — pay today, bypasses net-30 */
+  sameDayPay?: boolean;
+  /**
+     * Emergency bonus included in suggestedAmount
+     * @nullable
+     */
+  bonusAmount?: number | null;
 }
 
 export interface PayoutQueueCrew {

@@ -2218,6 +2218,165 @@ export const GetRecapShareResponse = zod.object({
 
 
 /**
+ * @summary Crews ranked by distance from the job's property using latest GPS check-ins
+ */
+export const GetEmergencyCandidatesParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetEmergencyCandidatesResponse = zod.object({
+  "propertyName": zod.string().nullish(),
+  "propertyHasLocation": zod.boolean(),
+  "smsAvailable": zod.boolean(),
+  "jobPay": zod.number(),
+  "candidates": zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "trade": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "selfiePath": zod.string().nullish(),
+  "distanceMeters": zod.number().nullish(),
+  "distanceMiles": zod.number().nullish(),
+  "lastCheckinAt": zod.string().nullish(),
+  "minutesAgo": zod.number().nullish().describe('Staleness of the GPS fix'),
+  "checkinLabel": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Latest emergency ping for a job with per-crew statuses and hold state
+ */
+export const GetEmergencyPingParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetEmergencyPingResponse = zod.object({
+  "ping": zod.union([zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "status": zod.string().describe('open | filled | cancelled'),
+  "bonusAmount": zod.number(),
+  "payAmount": zod.number(),
+  "neededBy": zod.string().nullish(),
+  "note": zod.string().nullish(),
+  "filledByCrewId": zod.string().nullish(),
+  "filledByCrewName": zod.string().nullish(),
+  "filledAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish(),
+  "hold": zod.union([zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "amount": zod.number(),
+  "bonusAmount": zod.number(),
+  "status": zod.string().describe('HELD | RELEASED | CANCELLED'),
+  "heldAt": zod.string().nullish(),
+  "releasedAt": zod.string().nullish()
+}),zod.null()]).optional(),
+  "targets": zod.array(zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "status": zod.string().describe('pending | committed | declined | missed | cancelled'),
+  "distanceMeters": zod.number().nullish(),
+  "smsSent": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "respondedAt": zod.string().nullish()
+}))
+}),zod.null()]).optional()
+})
+
+
+/**
+ * @summary Urgent-ping selected crews with a bonus offer — first to commit wins
+ */
+export const SendEmergencyPingParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SendEmergencyPingBody = zod.object({
+  "crewIds": zod.array(zod.string()),
+  "bonusAmount": zod.number(),
+  "neededBy": zod.string().nullish(),
+  "note": zod.string().nullish()
+})
+
+export const SendEmergencyPingResponse = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "status": zod.string().describe('open | filled | cancelled'),
+  "bonusAmount": zod.number(),
+  "payAmount": zod.number(),
+  "neededBy": zod.string().nullish(),
+  "note": zod.string().nullish(),
+  "filledByCrewId": zod.string().nullish(),
+  "filledByCrewName": zod.string().nullish(),
+  "filledAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish(),
+  "hold": zod.union([zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "amount": zod.number(),
+  "bonusAmount": zod.number(),
+  "status": zod.string().describe('HELD | RELEASED | CANCELLED'),
+  "heldAt": zod.string().nullish(),
+  "releasedAt": zod.string().nullish()
+}),zod.null()]).optional(),
+  "targets": zod.array(zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "status": zod.string().describe('pending | committed | declined | missed | cancelled'),
+  "distanceMeters": zod.number().nullish(),
+  "smsSent": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "respondedAt": zod.string().nullish()
+}))
+})
+
+
+/**
+ * @summary Cancel the live emergency ping — pending crews notified, any held pay returned
+ */
+export const CancelEmergencyPingParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CancelEmergencyPingResponse = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "status": zod.string().describe('open | filled | cancelled'),
+  "bonusAmount": zod.number(),
+  "payAmount": zod.number(),
+  "neededBy": zod.string().nullish(),
+  "note": zod.string().nullish(),
+  "filledByCrewId": zod.string().nullish(),
+  "filledByCrewName": zod.string().nullish(),
+  "filledAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish(),
+  "hold": zod.union([zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "amount": zod.number(),
+  "bonusAmount": zod.number(),
+  "status": zod.string().describe('HELD | RELEASED | CANCELLED'),
+  "heldAt": zod.string().nullish(),
+  "releasedAt": zod.string().nullish()
+}),zod.null()]).optional(),
+  "targets": zod.array(zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string(),
+  "status": zod.string().describe('pending | committed | declined | missed | cancelled'),
+  "distanceMeters": zod.number().nullish(),
+  "smsSent": zod.string().nullish(),
+  "sentAt": zod.string().nullish(),
+  "respondedAt": zod.string().nullish()
+}))
+})
+
+
+/**
  * @summary Job board cards (job + property price list + photos + broadcast statuses)
  */
 export const ListJobBoardResponseItem = zod.object({
@@ -4792,12 +4951,37 @@ export const GetPortalResponse = zod.object({
   "storagePath": zod.string()
 }))
 })),
+  "emergencyOffers": zod.array(zod.object({
+  "id": zod.string(),
+  "pingId": zod.string(),
+  "jobId": zod.string(),
+  "status": zod.string().describe('pending | committed | missed'),
+  "pingStatus": zod.string().describe('open | filled | cancelled'),
+  "filledByYou": zod.boolean(),
+  "payAmount": zod.number(),
+  "bonusAmount": zod.number(),
+  "neededBy": zod.string().nullish(),
+  "note": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "propertyCity": zod.string().nullish(),
+  "contactName": zod.string().nullish(),
+  "contactRole": zod.string().nullish(),
+  "contactPhone": zod.string().nullish(),
+  "contactEmail": zod.string().nullish(),
+  "sentAt": zod.string().nullish()
+})),
   "unseen": zod.object({
   "offers": zod.number(),
   "schedule": zod.number(),
   "messages": zod.number(),
   "packets": zod.number(),
-  "documents": zod.number()
+  "documents": zod.number(),
+  "emergency": zod.number()
 })
 })
 
@@ -5277,6 +5461,47 @@ export const RespondPortalOfferResponse = zod.object({
 
 
 /**
+ * @summary One-tap Accept & Commit on an emergency ping — first crew wins, pay + bonus goes ON HOLD
+ */
+export const CommitPortalEmergencyParams = zod.object({
+  "token": zod.coerce.string(),
+  "targetId": zod.coerce.string()
+})
+
+export const CommitPortalEmergencyResponse = zod.object({
+  "status": zod.string(),
+  "holdAmount": zod.number(),
+  "scheduledOn": zod.string().nullish(),
+  "message": zod.string().nullish()
+})
+
+
+/**
+ * @summary Crew's visual bank — held, payable, and paid emergency amounts
+ */
+export const GetPortalEarningsParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPortalEarningsResponse = zod.object({
+  "heldTotal": zod.number(),
+  "payableTotal": zod.number(),
+  "paidTotal": zod.number(),
+  "holds": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "jobLabel": zod.string().nullish(),
+  "amount": zod.number(),
+  "bonusAmount": zod.number(),
+  "state": zod.string().describe('held | payable | paid | cancelled'),
+  "sameDayPay": zod.boolean(),
+  "heldAt": zod.string(),
+  "releasedAt": zod.string().nullish()
+}))
+})
+
+
+/**
  * @summary Packets assigned to this crew
  */
 export const ListPortalPacketsParams = zod.object({
@@ -5537,7 +5762,7 @@ export const MarkPortalSeenParams = zod.object({
 })
 
 export const MarkPortalSeenBody = zod.object({
-  "section": zod.enum(['offers', 'schedule', 'messages', 'packets', 'documents'])
+  "section": zod.enum(['offers', 'schedule', 'messages', 'packets', 'documents', 'emergency'])
 })
 
 export const MarkPortalSeenResponse = zod.object({
@@ -5545,7 +5770,8 @@ export const MarkPortalSeenResponse = zod.object({
   "schedule": zod.number(),
   "messages": zod.number(),
   "packets": zod.number(),
-  "documents": zod.number()
+  "documents": zod.number(),
+  "emergency": zod.number()
 })
 
 
@@ -7336,7 +7562,9 @@ export const GetPayoutQueueResponseItem = zod.object({
   "jobLabel": zod.string(),
   "propertyName": zod.string().nullish(),
   "completedAt": zod.string().nullish(),
-  "suggestedAmount": zod.number()
+  "suggestedAmount": zod.number(),
+  "sameDayPay": zod.boolean().optional().describe('Emergency job — pay today, bypasses net-30'),
+  "bonusAmount": zod.number().nullish().describe('Emergency bonus included in suggestedAmount')
 }))
 })
 export const GetPayoutQueueResponse = zod.array(GetPayoutQueueResponseItem)

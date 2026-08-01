@@ -29,6 +29,7 @@ export async function recomputeJobFinancials(
       .reduce((s, i) => s + i.amount, 0);
     const costs =
       (job.crewRate ?? 0) +
+      (job.emergencyBonus ?? 0) +
       expenses
         .filter((e) => e.jobId === job.id && e.approvalStatus === "approved")
         .reduce((s, e) => s + e.amount, 0);

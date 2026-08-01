@@ -7,6 +7,8 @@ import {
   paymentRequestJobsTable,
   crewBankAccountsTable,
   crewPayoutsTable,
+  crewPayHoldsTable,
+  crewPaymentsTable,
   crewsTable,
   jobsTable,
   jobLineItemsTable,
@@ -41,6 +43,7 @@ import { completeJsonWithImage } from "../lib/ai";
 import { sendEmail } from "../lib/email";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { recomputeJobFinancials } from "../lib/jobFinance";
+import { emergencySettledKeys, outstandingHoldAmount } from "../lib/emergencySettlement";
 import { syncInvoiceLedger } from "../lib/ledger";
 import { jobLabelMap } from "../lib/jobLabels";
 import { raiseClientCard, completeClientCard } from "../lib/clientBoard";
@@ -974,12 +977,22 @@ async function computePayoutQueue() {
     .where(eq(jobsTable.status, "complete"));
   const crewJobs = jobs.filter((j) => j.crewLeaderId);
   if (crewJobs.length === 0) return [];
-  // …minus jobs the crew was already paid for.
-  const paid = await db
-    .select({ crewId: crewPayoutsTable.crewId, jobId: crewPayoutsTable.jobId })
-    .from(crewPayoutsTable)
-    .where(eq(crewPayoutsTable.status, "paid"));
-  const paidSet = new Set(paid.map((p) => `${p.crewId}|${p.jobId}`));
+  // …minus jobs the crew was already paid for — via a paid payout OR the
+  // emergency same-day payment path (shared settlement predicate).
+  const [paid, payments, holds] = await Promise.all([
+    db
+      .select()
+      .from(crewPayoutsTable)
+      .where(eq(crewPayoutsTable.status, "paid")),
+    db.select().from(crewPaymentsTable),
+    db.select().from(crewPayHoldsTable),
+  ]);
+  const paidSet = emergencySettledKeys(paid, payments);
+  const holdByKey = new Map(
+    holds
+      .filter((h) => h.status === "HELD" || h.status === "RELEASED")
+      .map((h) => [`${h.crewId}|${h.jobId}`, h]),
+  );
   const pending = crewJobs.filter(
     (j) => !paidSet.has(`${j.crewLeaderId}|${j.id}`),
   );
@@ -1007,13 +1020,25 @@ async function computePayoutQueue() {
     .map((crew) => {
       const queue = pending
         .filter((j) => j.crewLeaderId === crew.id)
-        .map((j) => ({
-          jobId: j.id,
-          jobLabel: labels.get(j.id) ?? `#${j.jobNo}`,
-          propertyName: propName.get(j.propertyId) ?? null,
-          completedAt: j.completedAt ? j.completedAt.toISOString() : null,
-          suggestedAmount: j.crewRate ?? 0,
-        }));
+        .map((j) => {
+          // Emergency jobs: the hold is the obligation — use the shared
+          // outstanding computation so prior completed base payments
+          // reduce the suggestion (same rule as earnings + Today).
+          const hold = holdByKey.get(`${crew.id}|${j.id}`);
+          const suggestedAmount = hold
+            ? outstandingHoldAmount(hold.amount, crew.id, j.id, payments)
+            : (j.crewRate ?? 0) + (j.emergencyBonus ?? 0);
+          return {
+            jobId: j.id,
+            jobLabel: labels.get(j.id) ?? `#${j.jobNo}`,
+            propertyName: propName.get(j.propertyId) ?? null,
+            completedAt: j.completedAt ? j.completedAt.toISOString() : null,
+            suggestedAmount,
+            sameDayPay: j.sameDayPay === true,
+            bonusAmount: j.emergencyBonus ?? null,
+          };
+        })
+        .sort((a, b) => Number(b.sameDayPay) - Number(a.sameDayPay));
       return {
         crewId: crew.id,
         crewName: crew.name,

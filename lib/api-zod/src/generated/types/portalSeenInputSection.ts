@@ -15,4 +15,5 @@ export const PortalSeenInputSection = {
   messages: 'messages',
   packets: 'packets',
   documents: 'documents',
+  emergency: 'emergency',
 } as const;

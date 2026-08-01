@@ -14,4 +14,11 @@ export interface PayoutQueueJob {
   /** @nullable */
   completedAt?: string | null;
   suggestedAmount: number;
+  /** Emergency job — pay today, bypasses net-30 */
+  sameDayPay?: boolean;
+  /**
+     * Emergency bonus included in suggestedAmount
+     * @nullable
+     */
+  bonusAmount?: number | null;
 }

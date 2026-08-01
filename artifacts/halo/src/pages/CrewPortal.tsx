@@ -29,11 +29,16 @@ import {
   useGetPortalWings,
   useGetPortalBank,
   useSubmitPortalBank,
+  useCommitPortalEmergency,
+  useGetPortalEarnings,
+  getGetPortalEarningsQueryKey,
   getListPortalInvoicesQueryKey,
   getGetPortalBankQueryKey,
   type W9Data,
   type PortalBundle,
   type PortalOffer,
+  type PortalEmergencyOffer,
+  type PortalEarningsHold,
   type CrewInvoice,
   type PortalSeenInputSection,
 } from "@workspace/api-client-react";
@@ -156,31 +161,39 @@ export default function CrewPortal() {
   const markSeen = useMarkPortalSeen();
 
   const pendingOffersCount = portal?.offers?.filter(o => o.status === "pending" && !o.filledByOther).length || 0;
+  // Emergency pings are urgent — pull the crew straight to the Offers tab too.
+  const pendingEmergencyCount =
+    portal?.emergencyOffers?.filter(o => o.status === "pending" && o.pingStatus === "open").length || 0;
 
   useEffect(() => {
-    if (pendingOffersCount > 0 && tab !== "offers" && tab !== "guide") {
+    if ((pendingOffersCount > 0 || pendingEmergencyCount > 0) && tab !== "offers" && tab !== "guide") {
       setTab("offers");
     }
-  }, [pendingOffersCount]);
+  }, [pendingOffersCount, pendingEmergencyCount]);
 
   const unseen = portal?.unseen;
 
   useEffect(() => {
-    const section = SEEN_SECTIONS[tab];
-    if (!section || !unseen) return;
-    const n = (unseen as unknown as Record<string, number>)[section] ?? 0;
-    if (n > 0) {
-      markSeen.mutate(
-        { token, data: { section } },
-        {
-          onSuccess: () => {
-            queryClient.invalidateQueries({
-              queryKey: getGetPortalQueryKey(token),
-            });
-          },
-        },
-      );
-    }
+    if (!unseen) return;
+    const unseenMap = unseen as unknown as Record<string, number>;
+    const sections: PortalSeenInputSection[] = [];
+    const primary = SEEN_SECTIONS[tab];
+    if (primary) sections.push(primary);
+    // When the Offers tab is opened, also mark emergency pings as seen.
+    if (tab === "offers") sections.push("emergency");
+    const toMark = sections.filter((section) => (unseenMap[section] ?? 0) > 0);
+    if (toMark.length === 0) return;
+    // Only refetch after the seen-marks actually succeed — otherwise a failing
+    // mark would loop refetch -> still-unseen -> mark again forever.
+    void Promise.allSettled(
+      toMark.map((section) => markSeen.mutateAsync({ token, data: { section } })),
+    ).then((results) => {
+      if (results.some((r) => r.status === "fulfilled")) {
+        queryClient.invalidateQueries({
+          queryKey: getGetPortalQueryKey(token),
+        });
+      }
+    });
   }, [tab, unseen, token]);
 
   if (isLoading) {
@@ -207,7 +220,7 @@ export default function CrewPortal() {
 
   const u = portal.unseen;
   const tabs: { key: Tab; label: string; icon: any; badge?: number; alert?: number }[] = [
-    { key: "offers", label: "Offers", icon: Briefcase, badge: pendingOffersCount, alert: u?.offers },
+    { key: "offers", label: "Offers", icon: Briefcase, badge: pendingOffersCount, alert: (u?.offers ?? 0) + (u?.emergency ?? 0) },
     { key: "schedule", label: "Schedule", icon: Calendar, alert: u?.schedule },
     { key: "invoice", label: "Invoice", icon: Receipt },
     { key: "packets", label: "Welcome Kit", icon: PackageCheck, alert: u?.packets },
@@ -791,6 +804,219 @@ function SaveLinkCard() {
 
 const card = "bg-card rounded-[16px] shadow-[var(--shadow)] p-[15px]";
 
+function moneyShort(n: number): string {
+  return `$${(n ?? 0).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+}
+
+function EmergencyOfferCard({
+  offer,
+  token,
+}: {
+  offer: PortalEmergencyOffer;
+  token: string;
+}) {
+  const queryClient = useQueryClient();
+  const commit = useCommitPortalEmergency();
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [committedHold, setCommittedHold] = useState<number | null>(null);
+
+  const isCommitted = offer.status === "committed" || offer.filledByYou;
+  const isOpenPending =
+    offer.status === "pending" && offer.pingStatus === "open" && !offer.filledByYou;
+  const isFilledByOther =
+    !isCommitted &&
+    (offer.status === "missed" || offer.pingStatus === "filled");
+
+  const handleCommit = () => {
+    setErrorMsg(null);
+    commit.mutate(
+      { token, targetId: offer.id },
+      {
+        onSuccess: (res) => {
+          setSuccessMsg(res.message ?? "You're committed — pay is on hold.");
+          setCommittedHold(res.holdAmount ?? offer.payAmount + offer.bonusAmount);
+          queryClient.invalidateQueries({ queryKey: getGetPortalQueryKey(token) });
+          queryClient.invalidateQueries({
+            queryKey: getGetPortalEarningsQueryKey(token),
+          });
+        },
+        onError: (err: any) => {
+          const status = err?.status ?? err?.response?.status;
+          const msg = err?.data?.error;
+          if (status === 409) {
+            setErrorMsg(msg ?? "This ping was just filled by another crew.");
+            queryClient.invalidateQueries({ queryKey: getGetPortalQueryKey(token) });
+          } else {
+            setErrorMsg(msg ?? "Something went wrong. Try again.");
+          }
+        },
+      },
+    );
+  };
+
+  const holdOnCard = committedHold ?? offer.payAmount + offer.bonusAmount;
+  const showCommittedState = isCommitted || successMsg;
+
+  return (
+    <div
+      className="bg-card rounded-[16px] shadow-[var(--shadow)] overflow-hidden border-2 border-red-500"
+      data-testid={`emergency-offer-${offer.id}`}
+    >
+      <div className="px-[16px] py-[12px] bg-red-50 border-b-2 border-red-200 flex items-start justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-[6px]">
+            <span className="text-[10px] font-display font-bold uppercase tracking-[0.12em] text-white bg-red-600 px-[8px] py-[3px] rounded-full animate-pulse">
+              Emergency
+            </span>
+            {offer.jobNo && (
+              <span className="text-[11px] font-bold text-red-700/80 uppercase tracking-wider truncate">
+                {offer.jobNo}
+                {offer.category ? ` · ${offer.category}` : ""}
+              </span>
+            )}
+          </div>
+          <div className="font-display font-bold text-[18px] mt-[6px] leading-tight text-foreground">
+            {offer.propertyName || "Emergency job"}
+            {offer.unitNo ? ` · Unit ${offer.unitNo}` : ""}
+          </div>
+        </div>
+      </div>
+
+      <div className="p-[16px] flex flex-col gap-[12px]">
+        {/* Pay + bonus callout */}
+        <div className="rounded-[12px] bg-red-50 border border-red-200 px-[12px] py-[10px]">
+          <div className="text-[15px] font-display font-bold text-red-700">
+            {moneyShort(offer.payAmount)} pay
+            {offer.bonusAmount > 0 && (
+              <> + {moneyShort(offer.bonusAmount)} bonus</>
+            )}
+            <span className="text-red-600"> — same-day pay</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-[12px]">
+          <div className="flex items-start gap-[8px]">
+            <Calendar className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Needed by
+              </div>
+              <div className="text-[13px] font-semibold">
+                {offer.neededBy || "ASAP"}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-start gap-[8px]">
+            <MapPin className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
+            <div className="min-w-0">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Location
+              </div>
+              <div className="text-[13px] font-semibold leading-tight">
+                {[offer.propertyAddress, offer.propertyCity]
+                  .filter(Boolean)
+                  .join(", ") || "No address provided"}
+              </div>
+              {(offer.propertyAddress || offer.propertyCity) && (
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(
+                    [offer.propertyAddress, offer.propertyCity]
+                      .filter(Boolean)
+                      .join(", "),
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[12px] font-semibold text-[var(--blue)]"
+                >
+                  Open in Maps
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {offer.note && (
+          <div className="rounded-[10px] bg-[var(--paper)] border border-border px-[10px] py-[8px] text-[13px]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-[2px]">
+              Note
+            </span>
+            {offer.note}
+          </div>
+        )}
+
+        {offer.description && (
+          <div className="text-[13.5px] leading-relaxed">{offer.description}</div>
+        )}
+
+        {(offer.contactName || offer.contactPhone) && (
+          <div className="pt-[8px] border-t border-border">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[2px]">
+              Site Contact
+            </div>
+            <div className="text-[13px] font-semibold">
+              {offer.contactName || "Contact"}
+            </div>
+            {offer.contactPhone && (
+              <a
+                href={`tel:${offer.contactPhone.replace(/[^\d+]/g, "")}`}
+                className="text-[13px] text-[var(--blue)] font-semibold"
+              >
+                {offer.contactPhone}
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Status / action */}
+        {errorMsg && (
+          <div
+            className="bg-red-50 text-red-700 px-[12px] py-[8px] rounded-[8px] text-[13px] flex items-start gap-[8px]"
+            data-testid={`emergency-error-${offer.id}`}
+          >
+            <AlertCircle className="w-[16px] h-[16px] shrink-0 mt-[2px]" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {showCommittedState ? (
+          <div
+            className="bg-green-50 border border-green-200 text-green-800 px-[14px] py-[12px] rounded-[12px] text-[13.5px] font-semibold flex items-start gap-[10px]"
+            data-testid={`emergency-committed-${offer.id}`}
+          >
+            <CheckCircle2 className="w-[20px] h-[20px] shrink-0 mt-[1px] text-green-600" />
+            <span>
+              {successMsg ??
+                `You're committed — ${moneyShort(holdOnCard)} on hold, releases on approval`}
+            </span>
+          </div>
+        ) : isFilledByOther ? (
+          <div
+            className="bg-black/5 text-muted-foreground px-[14px] py-[12px] rounded-[12px] text-[13.5px] font-semibold text-center"
+            data-testid={`emergency-filled-${offer.id}`}
+          >
+            Filled by another crew
+          </div>
+        ) : isOpenPending ? (
+          <button
+            onClick={handleCommit}
+            disabled={commit.isPending}
+            className="w-full py-[14px] rounded-[12px] font-display font-bold text-[15px] bg-red-600 text-white active:scale-[0.98] transition-transform disabled:opacity-70 flex items-center justify-center gap-[8px]"
+            data-testid={`button-emergency-commit-${offer.id}`}
+          >
+            {commit.isPending ? (
+              <Loader2 className="w-[18px] h-[18px] animate-spin" />
+            ) : (
+              <Check className="w-[18px] h-[18px]" />
+            )}
+            Accept &amp; Commit
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
   const queryClient = useQueryClient();
   const respond = useRespondPortalOffer();
@@ -799,6 +1025,7 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
   const [errorMsg, setErrorMsg] = useState<{ [id: string]: string }>({});
 
   const offers = portal.offers || [];
+  const emergencyOffers = portal.emergencyOffers || [];
 
   const handleRespond = (offerId: string, decision: "approved" | "declined") => {
     setErrorMsg((prev) => ({ ...prev, [offerId]: "" }));
@@ -821,9 +1048,21 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
     );
   };
 
+  const emergencySection = emergencyOffers.length > 0 && (
+    <div className="flex flex-col gap-[12px]" data-testid="section-emergency-offers">
+      <div className="flex items-center gap-[6px] text-[13px] font-display font-bold text-red-600 uppercase tracking-wider">
+        <AlertCircle className="w-[16px] h-[16px]" /> Emergency
+      </div>
+      {emergencyOffers.map((eo) => (
+        <EmergencyOfferCard key={eo.id} offer={eo} token={token} />
+      ))}
+    </div>
+  );
+
   if (offers.length === 0) {
     return (
-      <div className="animate-in fade-in duration-200">
+      <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
+        {emergencySection}
         <div className={`${card} text-center py-[40px]`}>
           <Briefcase className="w-[32px] h-[32px] text-muted-foreground mx-auto mb-[12px]" />
           <div className="font-display font-bold text-[17px]">No offers yet</div>
@@ -837,6 +1076,7 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
 
   return (
     <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
+      {emergencySection}
       <div className="text-[13px] text-muted-foreground mb-[4px]">
         Job offers from the office
       </div>
@@ -1760,6 +2000,113 @@ function DocumentsTab({ token }: { token: string }) {
   );
 }
 
+function earningsStatePill(state: string): { label: string; cls: string } {
+  switch (state) {
+    case "held":
+      return { label: "ON HOLD", cls: "bg-amber-100 text-amber-800 border-amber-300" };
+    case "payable":
+      return { label: "PAY TODAY", cls: "bg-green-100 text-green-800 border-green-300" };
+    case "paid":
+      return { label: "PAID", cls: "bg-black/5 text-muted-foreground border-border" };
+    case "cancelled":
+      return { label: "RETURNED", cls: "bg-black/5 text-muted-foreground border-border" };
+    default:
+      return { label: state.toUpperCase(), cls: "bg-black/5 text-muted-foreground border-border" };
+  }
+}
+
+function EarningsSection({ token }: { token: string }) {
+  const { data: earnings } = useGetPortalEarnings(token, {
+    query: {
+      enabled: !!token,
+      queryKey: getGetPortalEarningsQueryKey(token),
+    },
+  });
+
+  const holds = earnings?.holds ?? [];
+  // Keep the UI clean when the crew has never had any holds.
+  if (holds.length === 0) return null;
+
+  return (
+    <div className={`${card} mb-[12px]`} data-testid="section-earnings">
+      <div className="font-display font-bold text-[16px] mb-[12px]">Your earnings</div>
+      <div className="grid grid-cols-3 gap-[8px] mb-[14px]">
+        <div className="rounded-[12px] bg-amber-50 border border-amber-200 px-[10px] py-[10px] text-center">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+            On hold
+          </div>
+          <div className="font-display font-bold text-[19px] text-amber-800 mt-[2px]" data-testid="text-earnings-held">
+            {moneyShort(earnings?.heldTotal ?? 0)}
+          </div>
+        </div>
+        <div className="rounded-[12px] bg-green-50 border border-green-200 px-[10px] py-[10px] text-center">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-green-700">
+            Payable now
+          </div>
+          <div className="font-display font-bold text-[19px] text-green-800 mt-[2px]" data-testid="text-earnings-payable">
+            {moneyShort(earnings?.payableTotal ?? 0)}
+          </div>
+        </div>
+        <div className="rounded-[12px] bg-background border border-border px-[10px] py-[10px] text-center">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Paid
+          </div>
+          <div className="font-display font-bold text-[19px] text-foreground mt-[2px]" data-testid="text-earnings-paid">
+            {moneyShort(earnings?.paidTotal ?? 0)}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-[8px]">
+        {holds.map((h: PortalEarningsHold) => {
+          const pill = earningsStatePill(h.state);
+          return (
+            <div
+              key={h.id}
+              className="rounded-[12px] border border-border bg-background px-[12px] py-[10px]"
+              data-testid={`earnings-hold-${h.id}`}
+            >
+              <div className="flex items-start justify-between gap-[8px]">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold leading-tight">
+                    {h.jobLabel || "Emergency job"}
+                  </div>
+                  <div className="text-[13px] font-display font-bold text-foreground mt-[2px]">
+                    {moneyShort(h.amount)}
+                    {h.bonusAmount > 0 && (
+                      <span className="text-[12px] font-semibold text-green-700">
+                        {" "}
+                        (incl. {moneyShort(h.bonusAmount)} bonus)
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-wider px-[8px] py-[3px] rounded-full border shrink-0 ${pill.cls}`}
+                >
+                  {pill.label}
+                </span>
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-[4px]">
+                {h.state === "held" ? (
+                  <>Held {formatWhen(h.heldAt)}</>
+                ) : h.releasedAt ? (
+                  <>
+                    Held {formatWhen(h.heldAt)} · {h.state === "cancelled" ? "Returned" : "Released"}{" "}
+                    {formatWhen(h.releasedAt)}
+                  </>
+                ) : (
+                  <>Held {formatWhen(h.heldAt)}</>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function PaymentTab({ token }: { token: string }) {
   const queryClient = useQueryClient();
   const { data: bank, isLoading } = useGetPortalBank(token, {
@@ -1781,6 +2128,7 @@ function PaymentTab({ token }: { token: string }) {
   if (!bank || !bank.connected) {
     return (
       <div className="animate-in fade-in duration-200">
+        <EarningsSection token={token} />
         <div className={`${card} text-center`}>
           <div className="w-[56px] h-[56px] rounded-full bg-[rgba(143,106,31,0.1)] grid place-items-center mx-auto mb-[12px]">
             <Wallet className="w-[28px] h-[28px] text-[var(--gold)]" />
@@ -1811,6 +2159,7 @@ function PaymentTab({ token }: { token: string }) {
 
   return (
     <div className="animate-in fade-in duration-200">
+      <EarningsSection token={token} />
       <div className={card}>
         <div className="flex items-start gap-[12px] mb-[12px]">
           <div className="w-[48px] h-[48px] rounded-full bg-[rgba(60,122,78,0.12)] grid place-items-center shrink-0">

@@ -24,6 +24,8 @@ import {
   businessSettingsTable,
   invoicesTable,
   jobSummariesTable,
+  crewPayHoldsTable,
+  notificationsTable,
 } from "@workspace/db";
 import {
   ListJobsResponse,
@@ -96,6 +98,7 @@ import { crewPhotosForJobs, type CrewJobPhoto } from "../lib/jobPhotos";
 import { gatherJobReport, buildJobReportPdf } from "../lib/jobReportPdf";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import { syncJobLaborLedger, removeEntriesForRef } from "../lib/ledger";
+import { EMERGENCY_PAY_NOTE_PREFIX } from "../lib/emergencySettlement";
 import { raiseClientCard } from "../lib/clientBoard";
 import { localToday } from "../lib/localDate";
 
@@ -786,7 +789,21 @@ async function computeCloseOutMissing(
         ),
       );
     if (!payments.some((p) => p.status === "completed")) {
-      missing.push("Mark the crew member as paid for this job.");
+      // Emergency flow: a HELD pay hold IS the payment guarantee — it releases
+      // to a same-day payable at close-out, so don't demand pre-payment.
+      const [heldHold] = await db
+        .select()
+        .from(crewPayHoldsTable)
+        .where(
+          and(
+            eq(crewPayHoldsTable.jobId, job.id),
+            eq(crewPayHoldsTable.crewId, job.crewLeaderId),
+            eq(crewPayHoldsTable.status, "HELD"),
+          ),
+        );
+      if (!heldHold) {
+        missing.push("Mark the crew member as paid for this job.");
+      }
     }
   }
   // Optional gate: businesses can require the job summary (recap) to be sent
@@ -875,6 +892,86 @@ router.post("/jobs/:id/close-out", async (req, res): Promise<void> => {
   });
   await recomputeJobFinancials(id);
   await syncJobLaborLedger(id);
+
+  // Emergency pay holds release the moment the job passes close-out approval.
+  // Guarded HELD -> RELEASED with row-count so a hold can never double-release
+  // (Founding Wings reserve pattern). Released pay is same-day: a pending crew
+  // payment due today is created for each released hold.
+  const releasedHolds = await db
+    .update(crewPayHoldsTable)
+    .set({ status: "RELEASED", releasedAt: new Date() })
+    .where(
+      and(
+        eq(crewPayHoldsTable.jobId, id),
+        eq(crewPayHoldsTable.status, "HELD"),
+      ),
+    )
+    .returning();
+  for (const hold of releasedHolds) {
+    const [holdCrew] = await db
+      .select()
+      .from(crewsTable)
+      .where(eq(crewsTable.id, hold.crewId));
+    // Single source of truth: the hold covers pay + bonus. If part was
+    // already paid through a normal completed crew payment, only the
+    // remainder becomes the same-day payable — never a duplicate obligation.
+    const priorPayments = await db
+      .select()
+      .from(crewPaymentsTable)
+      .where(
+        and(
+          eq(crewPaymentsTable.jobId, id),
+          eq(crewPaymentsTable.crewId, hold.crewId),
+        ),
+      );
+    const alreadyPaid = priorPayments
+      .filter((p) => p.status === "completed")
+      .reduce((s, p) => s + (p.amount ?? 0), 0);
+    const payable = Math.max(
+      0,
+      Math.round((hold.amount - alreadyPaid) * 100) / 100,
+    );
+    if (payable > 0) {
+      await db.insert(crewPaymentsTable).values({
+        crewId: hold.crewId,
+        jobId: id,
+        amount: payable,
+        status: "pending",
+        dueOn: new Date(),
+        note: `${EMERGENCY_PAY_NOTE_PREFIX}${hold.bonusAmount > 0 ? ` (includes $${hold.bonusAmount.toFixed(2)} bonus)` : ""} — released at close-out`,
+      });
+      await db.insert(notificationsTable).values({
+        kind: "emergency_pay_today",
+        priority: "urgent",
+        entityType: "job",
+        entityId: id,
+        title: `Pay today: ${holdCrew?.name ?? "Crew"} — $${payable.toFixed(2)}`,
+        body: "Emergency job approved. Same-day pay overrides net-30 — send this payout today.",
+      });
+    } else {
+      // Fully covered by prior completed payments — emit the canonical
+      // settled marker (completed, $0, note-prefixed) so every surface that
+      // uses the shared settlement predicate agrees this hold is done and it
+      // can never linger as "payable" with nothing to pay.
+      await db.insert(crewPaymentsTable).values({
+        crewId: hold.crewId,
+        jobId: id,
+        amount: 0,
+        status: "completed",
+        dueOn: new Date(),
+        note: `${EMERGENCY_PAY_NOTE_PREFIX} — already covered by prior payment, settled at close-out`,
+      });
+    }
+    await db.insert(activitiesTable).values({
+      entityType: "job",
+      entityId: id,
+      kind: "payment",
+      body:
+        payable > 0
+          ? `Emergency hold released — $${payable.toFixed(2)} now payable to ${holdCrew?.name ?? "crew"}, same-day payout`
+          : `Emergency hold released — already covered by prior payment to ${holdCrew?.name ?? "crew"}, nothing further owed`,
+    });
+  }
 
   let emailSent = false;
   if (job.crewLeaderId) {

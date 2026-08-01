@@ -1,6 +1,6 @@
 import { limits } from "../lib/rateLimit";
 import { Router, type IRouter } from "express";
-import { and, count, desc, eq, gt, gte, inArray, lt, lte, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, notInArray, sql } from "drizzle-orm";
 import {
   db,
   crewsTable,
@@ -25,6 +25,11 @@ import {
   wingScoreSnapshotsTable,
   wingReserveAccountsTable,
   crewBankAccountsTable,
+  emergencyPingsTable,
+  emergencyPingTargetsTable,
+  crewPayHoldsTable,
+  crewPaymentsTable,
+  crewPayoutsTable,
 } from "@workspace/db";
 import {
   GetPortalParams,
@@ -58,6 +63,8 @@ import {
   SetPortalPaymentMethodBody,
   SetPortalPaymentMethodResponse,
   SubmitPortalBankBody,
+  CommitPortalEmergencyResponse,
+  GetPortalEarningsResponse,
   GetPortalBankResponse,
   RespondPortalOfferParams,
   RespondPortalOfferBody,
@@ -85,6 +92,8 @@ import { createHash } from "node:crypto";
 import { businessSettingsTable } from "@workspace/db";
 import { ObjectStorageService } from "../lib/objectStorage";
 import { logger } from "../lib/logger";
+import { recomputeJobFinancials } from "../lib/jobFinance";
+import { emergencySettledKeys, outstandingHoldAmount } from "../lib/emergencySettlement";
 import { ser } from "../lib/serialize";
 import { buildJobLabel, jobLabelMap } from "../lib/jobLabels";
 
@@ -124,7 +133,7 @@ async function computeUnseen(crew: CrewRow) {
   const since = (section: string) =>
     seen[section] ? new Date(seen[section]!) : new Date(0);
 
-  const [offers, sched, events, messages, packets, documents] =
+  const [offers, sched, events, messages, packets, documents, emergency] =
     await Promise.all([
       db
         .select({ n: count() })
@@ -183,6 +192,16 @@ async function computeUnseen(crew: CrewRow) {
             gt(crewDocumentsTable.createdAt, since("documents")),
           ),
         ),
+      db
+        .select({ n: count() })
+        .from(emergencyPingTargetsTable)
+        .where(
+          and(
+            eq(emergencyPingTargetsTable.crewId, crew.id),
+            eq(emergencyPingTargetsTable.status, "pending"),
+            gt(emergencyPingTargetsTable.sentAt, since("emergency")),
+          ),
+        ),
     ]);
 
   return {
@@ -191,6 +210,7 @@ async function computeUnseen(crew: CrewRow) {
     messages: messages[0]?.n ?? 0,
     packets: packets[0]?.n ?? 0,
     documents: documents[0]?.n ?? 0,
+    emergency: emergency[0]?.n ?? 0,
   };
 }
 
@@ -395,6 +415,60 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
 
   const unseen = await computeUnseen(crew);
 
+  // Live emergency pings aimed at this crew: pending ones they can commit to,
+  // plus their own committed one until the job completes.
+  const emergencyTargetRows = await db
+    .select()
+    .from(emergencyPingTargetsTable)
+    .where(
+      and(
+        eq(emergencyPingTargetsTable.crewId, crew.id),
+        inArray(emergencyPingTargetsTable.status, ["pending", "committed", "missed"]),
+      ),
+    )
+    .orderBy(desc(emergencyPingTargetsTable.sentAt));
+  const emergencyPingIds = [...new Set(emergencyTargetRows.map((t) => t.pingId))];
+  const emergencyPings = emergencyPingIds.length
+    ? await db
+        .select()
+        .from(emergencyPingsTable)
+        .where(inArray(emergencyPingsTable.id, emergencyPingIds))
+    : [];
+  const pingById = new Map(emergencyPings.map((p) => [p.id, p]));
+  const emergencyOffers = emergencyTargetRows
+    .filter((t) => {
+      const ping = pingById.get(t.pingId);
+      if (!ping || ping.status === "cancelled") return false;
+      const job = jobsById.get(ping.jobId);
+      if (!job) return false;
+      // Drop stale resolved cards once the job is done.
+      if (job.status === "complete" || job.clearedAt) return false;
+      return true;
+    })
+    .slice(0, 10)
+    .map((t) => {
+      const ping = pingById.get(t.pingId)!;
+      const job = jobsById.get(ping.jobId)!;
+      return {
+        id: t.id,
+        pingId: ping.id,
+        jobId: ping.jobId,
+        status: t.status,
+        pingStatus: ping.status,
+        filledByYou: ping.status === "filled" && ping.filledByCrewId === crew.id,
+        payAmount: ping.payAmount,
+        bonusAmount: ping.bonusAmount,
+        neededBy: ping.neededBy,
+        note: ping.note,
+        jobNo: job.jobNo,
+        category: job.category,
+        description: job.description,
+        unitNo: job.unitNo,
+        ...propFields(job.propertyId),
+        sentAt: t.sentAt.toISOString(),
+      };
+    });
+
   res.json(
     GetPortalResponse.parse({
       crew: {
@@ -411,6 +485,7 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       },
       schedule,
       offers,
+      emergencyOffers,
       unseen,
     }),
   );
@@ -1602,6 +1677,270 @@ router.post(
     );
   },
 );
+
+// One-tap emergency commit — guarded first-wins claim mirroring the job-board
+// fill: the ping flip (open -> filled) is the single-winner gate; losers 409.
+// On commit the crew is assigned and pay + bonus lands in their visual bank
+// as ON HOLD.
+router.post(
+  "/portal/:token/emergency/:targetId/commit",
+  async (req, res): Promise<void> => {
+    const token = String(req.params.token);
+    const targetId = String(req.params.targetId);
+    const crew = await crewByToken(token);
+    if (!crew) {
+      res.status(404).json({ error: "Invalid portal link" });
+      return;
+    }
+
+    let result;
+    try {
+      result = await db.transaction(async (tx) => {
+        const [target] = await tx
+          .select()
+          .from(emergencyPingTargetsTable)
+          .where(
+            and(
+              eq(emergencyPingTargetsTable.id, targetId),
+              eq(emergencyPingTargetsTable.crewId, crew.id),
+            ),
+          );
+        if (!target) return { code: 404 as const, error: "Ping not found" };
+        if (target.status !== "pending") {
+          return {
+            code: 409 as const,
+            error: `You already responded to this emergency (${target.status}).`,
+          };
+        }
+        const [ping] = await tx
+          .select()
+          .from(emergencyPingsTable)
+          .where(eq(emergencyPingsTable.id, target.pingId));
+        if (!ping) return { code: 404 as const, error: "Ping no longer exists" };
+        const [job] = await tx
+          .select()
+          .from(jobsTable)
+          .where(eq(jobsTable.id, ping.jobId));
+        if (!job) return { code: 404 as const, error: "Job no longer exists" };
+
+        const now = new Date();
+
+        // FIRST-WINS GATE: guarded UPDATE + row-count. Only one crew can flip
+        // the ping from open to filled; everyone else gets "filled".
+        const won = await tx
+          .update(emergencyPingsTable)
+          .set({ status: "filled", filledByCrewId: crew.id, filledAt: now })
+          .where(
+            and(
+              eq(emergencyPingsTable.id, ping.id),
+              eq(emergencyPingsTable.status, "open"),
+            ),
+          )
+          .returning({ id: emergencyPingsTable.id });
+        if (won.length === 0) {
+          return {
+            code: 409 as const,
+            error: "This emergency was already filled by another crew.",
+          };
+        }
+
+        await tx
+          .update(emergencyPingTargetsTable)
+          .set({ status: "committed", respondedAt: now })
+          .where(eq(emergencyPingTargetsTable.id, target.id));
+        // Everyone else who hadn't answered sees "filled".
+        await tx
+          .update(emergencyPingTargetsTable)
+          .set({ status: "missed", respondedAt: now })
+          .where(
+            and(
+              eq(emergencyPingTargetsTable.pingId, ping.id),
+              eq(emergencyPingTargetsTable.status, "pending"),
+            ),
+          );
+
+        const fmtLocal = (d: Date) =>
+          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const scheduledOn = fmtLocal(now);
+
+        // Emergency assignment takes the job: guarded so a completed/cleared
+        // job can't be claimed.
+        const claimed = await tx
+          .update(jobsTable)
+          .set({
+            crewLeaderId: crew.id,
+            crewVacatedAt: null,
+            status: "scheduled",
+            scheduledOn,
+            boardStatus: "filled",
+            sameDayPay: true,
+            emergencyBonus: ping.bonusAmount,
+          })
+          .where(
+            and(
+              eq(jobsTable.id, job.id),
+              notInArray(jobsTable.status, ["complete", "paid", "cancelled"]),
+              isNull(jobsTable.clearedAt),
+            ),
+          )
+          .returning({ id: jobsTable.id });
+        if (claimed.length === 0) {
+          throw new OfferConflictError("This job is no longer available.");
+        }
+
+        await tx.insert(schedulesTable).values({
+          jobId: job.id,
+          scheduledOn,
+          crewLeaderId: crew.id,
+        });
+
+        // Visual-bank hold: pay + bonus lands as HELD immediately. The
+        // partial unique index (crew,job WHERE HELD) backs this against a
+        // double-commit race.
+        const holdAmount =
+          Math.round((ping.payAmount + ping.bonusAmount) * 100) / 100;
+        await tx.insert(crewPayHoldsTable).values({
+          crewId: crew.id,
+          jobId: job.id,
+          pingId: ping.id,
+          amount: holdAmount,
+          bonusAmount: ping.bonusAmount,
+          status: "HELD",
+          note: "Emergency job — pay + bonus held until close-out approval",
+        });
+
+        return {
+          code: 200 as const,
+          job,
+          holdAmount,
+          scheduledOn,
+        };
+      });
+    } catch (err) {
+      if (err instanceof OfferConflictError) {
+        res.status(409).json({ error: err.message });
+        return;
+      }
+      throw err;
+    }
+
+    if (result.code !== 200) {
+      res.status(result.code).json({ error: result.error });
+      return;
+    }
+
+    // The bonus is now a job cost — keep stored margins in sync.
+    await recomputeJobFinancials(result.job.id);
+
+    const jobLabel = [result.job.jobNo, result.job.category]
+      .filter(Boolean)
+      .join(" · ");
+    await db.insert(activitiesTable).values({
+      entityType: "job",
+      entityId: result.job.id,
+      kind: "note",
+      body: `${crew.name} committed to the emergency — $${result.holdAmount.toFixed(2)} (pay + bonus) now ON HOLD, releases at close-out`,
+    });
+    await db.insert(notificationsTable).values({
+      kind: "emergency_committed",
+      priority: "urgent",
+      entityType: "job",
+      entityId: result.job.id,
+      title: `${crew.name} committed to emergency ${jobLabel}`,
+      body: `$${result.holdAmount.toFixed(2)} held for same-day payout on approval. Scheduled today.`,
+    });
+
+    res.json(
+      CommitPortalEmergencyResponse.parse({
+        status: "committed",
+        holdAmount: result.holdAmount,
+        scheduledOn: result.scheduledOn,
+        message: `You're committed. $${result.holdAmount.toFixed(2)} is on hold in your bank and releases the moment the job is complete and approved — paid same day.`,
+      }),
+    );
+  },
+);
+
+// The crew's visual bank: held, payable, and paid amounts per emergency hold.
+router.get("/portal/:token/earnings", async (req, res): Promise<void> => {
+  const token = String(req.params.token);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const [holds, payouts, payments, jobs] = await Promise.all([
+    db
+      .select()
+      .from(crewPayHoldsTable)
+      .where(eq(crewPayHoldsTable.crewId, crew.id))
+      .orderBy(desc(crewPayHoldsTable.heldAt)),
+    db
+      .select()
+      .from(crewPayoutsTable)
+      .where(
+        and(
+          eq(crewPayoutsTable.crewId, crew.id),
+          eq(crewPayoutsTable.status, "paid"),
+        ),
+      ),
+    db
+      .select()
+      .from(crewPaymentsTable)
+      .where(eq(crewPaymentsTable.crewId, crew.id)),
+    db.select().from(jobsTable),
+  ]);
+  const jobsById2 = new Map(jobs.map((j) => [j.id, j]));
+  // Shared settlement predicate: paid payout or the canonical emergency
+  // same-day payment — base-rate crew payments must NOT flip a hold to paid.
+  const settled = emergencySettledKeys(payouts, payments);
+
+  let heldTotal = 0;
+  let payableTotal = 0;
+  let paidTotal = 0;
+  const rows = holds.map((h) => {
+    const job = jobsById2.get(h.jobId);
+    const paid = h.status === "RELEASED" && settled.has(`${h.crewId}|${h.jobId}`);
+    // Shared outstanding: prior completed base payments reduce what's
+    // still owed on a released hold (same rule as Today + payout queue).
+    const owed = outstandingHoldAmount(h.amount, h.crewId, h.jobId, payments);
+    let state: "held" | "payable" | "paid" | "cancelled";
+    if (h.status === "HELD") {
+      state = "held";
+      heldTotal += h.amount;
+    } else if (h.status === "CANCELLED") {
+      state = "cancelled";
+    } else if (paid || owed <= 0) {
+      state = "paid";
+      paidTotal += h.amount;
+    } else {
+      state = "payable";
+      payableTotal += owed;
+    }
+    return {
+      id: h.id,
+      jobId: h.jobId,
+      jobLabel: job
+        ? [job.jobNo, job.category].filter(Boolean).join(" · ")
+        : null,
+      amount: h.amount,
+      bonusAmount: h.bonusAmount,
+      state,
+      sameDayPay: true,
+      heldAt: h.heldAt.toISOString(),
+      releasedAt: h.releasedAt ? h.releasedAt.toISOString() : null,
+    };
+  });
+
+  res.json(
+    GetPortalEarningsResponse.parse({
+      heldTotal: Math.round(heldTotal * 100) / 100,
+      payableTotal: Math.round(payableTotal * 100) / 100,
+      paidTotal: Math.round(paidTotal * 100) / 100,
+      holds: rows,
+    }),
+  );
+});
 
 router.get("/portal/:token/wings", async (req, res): Promise<void> => {
   const crew = await crewByToken(req.params.token);

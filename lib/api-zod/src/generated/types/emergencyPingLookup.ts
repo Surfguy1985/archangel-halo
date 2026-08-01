@@ -5,12 +5,8 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { EmergencyPingView } from './emergencyPingView';
 
-export interface PortalUnseen {
-  offers: number;
-  schedule: number;
-  messages: number;
-  packets: number;
-  documents: number;
-  emergency: number;
+export interface EmergencyPingLookup {
+  ping?: EmergencyPingView | null;
 }

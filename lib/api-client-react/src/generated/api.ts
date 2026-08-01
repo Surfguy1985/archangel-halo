@@ -150,6 +150,10 @@ import type {
   DeleteCalendarEvent200,
   DeleteVendor200,
   DisconnectBankParams,
+  EmergencyCandidates,
+  EmergencyPingInput,
+  EmergencyPingLookup,
+  EmergencyPingView,
   Error,
   Expense,
   ExpenseInput,
@@ -258,6 +262,8 @@ import type {
   PnlReport,
   PortalAgreementResult,
   PortalBundle,
+  PortalEarnings,
+  PortalEmergencyCommitResult,
   PortalJob,
   PortalOfferRespondInput,
   PortalOfferRespondResult,
@@ -5072,6 +5078,303 @@ export function useGetRecapShare<TData = Awaited<ReturnType<typeof getRecapShare
 
 
 
+
+export const getGetEmergencyCandidatesUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/emergency/candidates`
+}
+
+/**
+ * @summary Crews ranked by distance from the job's property using latest GPS check-ins
+ */
+export const getEmergencyCandidates = async (id: string, options?: RequestInit): Promise<EmergencyCandidates> => {
+
+  return customFetch<EmergencyCandidates>(getGetEmergencyCandidatesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEmergencyCandidatesQueryKey = (id: string,) => {
+    return [
+    `/api/jobs/${id}/emergency/candidates`
+    ] as const;
+    }
+
+
+export const getGetEmergencyCandidatesQueryOptions = <TData = Awaited<ReturnType<typeof getEmergencyCandidates>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEmergencyCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEmergencyCandidatesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEmergencyCandidates>>> = ({ signal }) => getEmergencyCandidates(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEmergencyCandidates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEmergencyCandidatesQueryResult = NonNullable<Awaited<ReturnType<typeof getEmergencyCandidates>>>
+export type GetEmergencyCandidatesQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Crews ranked by distance from the job's property using latest GPS check-ins
+ */
+
+export function useGetEmergencyCandidates<TData = Awaited<ReturnType<typeof getEmergencyCandidates>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEmergencyCandidates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEmergencyCandidatesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetEmergencyPingUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/emergency`
+}
+
+/**
+ * @summary Latest emergency ping for a job with per-crew statuses and hold state
+ */
+export const getEmergencyPing = async (id: string, options?: RequestInit): Promise<EmergencyPingLookup> => {
+
+  return customFetch<EmergencyPingLookup>(getGetEmergencyPingUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEmergencyPingQueryKey = (id: string,) => {
+    return [
+    `/api/jobs/${id}/emergency`
+    ] as const;
+    }
+
+
+export const getGetEmergencyPingQueryOptions = <TData = Awaited<ReturnType<typeof getEmergencyPing>>, TError = ErrorType<unknown>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEmergencyPing>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEmergencyPingQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEmergencyPing>>> = ({ signal }) => getEmergencyPing(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEmergencyPing>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEmergencyPingQueryResult = NonNullable<Awaited<ReturnType<typeof getEmergencyPing>>>
+export type GetEmergencyPingQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Latest emergency ping for a job with per-crew statuses and hold state
+ */
+
+export function useGetEmergencyPing<TData = Awaited<ReturnType<typeof getEmergencyPing>>, TError = ErrorType<unknown>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEmergencyPing>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEmergencyPingQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendEmergencyPingUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/emergency/ping`
+}
+
+/**
+ * @summary Urgent-ping selected crews with a bonus offer — first to commit wins
+ */
+export const sendEmergencyPing = async (id: string,
+    emergencyPingInput: EmergencyPingInput, options?: RequestInit): Promise<EmergencyPingView> => {
+
+  return customFetch<EmergencyPingView>(getSendEmergencyPingUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(emergencyPingInput)
+  }
+);}
+
+
+
+
+
+export const getSendEmergencyPingMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendEmergencyPing>>, TError,{id: string;data: BodyType<EmergencyPingInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendEmergencyPing>>, TError,{id: string;data: BodyType<EmergencyPingInput>}, TContext> => {
+
+const mutationKey = ['sendEmergencyPing'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendEmergencyPing>>, {id: string;data: BodyType<EmergencyPingInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  sendEmergencyPing(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendEmergencyPingMutationResult = NonNullable<Awaited<ReturnType<typeof sendEmergencyPing>>>
+    export type SendEmergencyPingMutationBody = BodyType<EmergencyPingInput>
+    export type SendEmergencyPingMutationError = ErrorType<Error>
+
+    /**
+ * @summary Urgent-ping selected crews with a bonus offer — first to commit wins
+ */
+export const useSendEmergencyPing = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendEmergencyPing>>, TError,{id: string;data: BodyType<EmergencyPingInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendEmergencyPing>>,
+        TError,
+        {id: string;data: BodyType<EmergencyPingInput>},
+        TContext
+      > => {
+      return useMutation(getSendEmergencyPingMutationOptions(options));
+    }
+
+export const getCancelEmergencyPingUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/emergency/cancel`
+}
+
+/**
+ * @summary Cancel the live emergency ping — pending crews notified, any held pay returned
+ */
+export const cancelEmergencyPing = async (id: string, options?: RequestInit): Promise<EmergencyPingView> => {
+
+  return customFetch<EmergencyPingView>(getCancelEmergencyPingUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCancelEmergencyPingMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelEmergencyPing>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelEmergencyPing>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['cancelEmergencyPing'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelEmergencyPing>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  cancelEmergencyPing(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelEmergencyPingMutationResult = NonNullable<Awaited<ReturnType<typeof cancelEmergencyPing>>>
+
+    export type CancelEmergencyPingMutationError = ErrorType<Error>
+
+    /**
+ * @summary Cancel the live emergency ping — pending crews notified, any held pay returned
+ */
+export const useCancelEmergencyPing = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelEmergencyPing>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelEmergencyPing>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getCancelEmergencyPingMutationOptions(options));
+    }
 
 export const getListJobBoardUrl = () => {
 
@@ -13443,6 +13746,156 @@ export const useRespondPortalOffer = <TError = ErrorType<Error>,
       > => {
       return useMutation(getRespondPortalOfferMutationOptions(options));
     }
+
+export const getCommitPortalEmergencyUrl = (token: string,
+    targetId: string,) => {
+
+
+
+
+  return `/api/portal/${token}/emergency/${targetId}/commit`
+}
+
+/**
+ * @summary One-tap Accept & Commit on an emergency ping — first crew wins, pay + bonus goes ON HOLD
+ */
+export const commitPortalEmergency = async (token: string,
+    targetId: string, options?: RequestInit): Promise<PortalEmergencyCommitResult> => {
+
+  return customFetch<PortalEmergencyCommitResult>(getCommitPortalEmergencyUrl(token,targetId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCommitPortalEmergencyMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof commitPortalEmergency>>, TError,{token: string;targetId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof commitPortalEmergency>>, TError,{token: string;targetId: string}, TContext> => {
+
+const mutationKey = ['commitPortalEmergency'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof commitPortalEmergency>>, {token: string;targetId: string}> = (props) => {
+          const {token,targetId} = props ?? {};
+
+          return  commitPortalEmergency(token,targetId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CommitPortalEmergencyMutationResult = NonNullable<Awaited<ReturnType<typeof commitPortalEmergency>>>
+
+    export type CommitPortalEmergencyMutationError = ErrorType<Error>
+
+    /**
+ * @summary One-tap Accept & Commit on an emergency ping — first crew wins, pay + bonus goes ON HOLD
+ */
+export const useCommitPortalEmergency = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof commitPortalEmergency>>, TError,{token: string;targetId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof commitPortalEmergency>>,
+        TError,
+        {token: string;targetId: string},
+        TContext
+      > => {
+      return useMutation(getCommitPortalEmergencyMutationOptions(options));
+    }
+
+export const getGetPortalEarningsUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/earnings`
+}
+
+/**
+ * @summary Crew's visual bank — held, payable, and paid emergency amounts
+ */
+export const getPortalEarnings = async (token: string, options?: RequestInit): Promise<PortalEarnings> => {
+
+  return customFetch<PortalEarnings>(getGetPortalEarningsUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalEarningsQueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}/earnings`
+    ] as const;
+    }
+
+
+export const getGetPortalEarningsQueryOptions = <TData = Awaited<ReturnType<typeof getPortalEarnings>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalEarnings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalEarningsQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalEarnings>>> = ({ signal }) => getPortalEarnings(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalEarnings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalEarningsQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalEarnings>>>
+export type GetPortalEarningsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Crew's visual bank — held, payable, and paid emergency amounts
+ */
+
+export function useGetPortalEarnings<TData = Awaited<ReturnType<typeof getPortalEarnings>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalEarnings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalEarningsQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListPortalPacketsUrl = (token: string,) => {
 

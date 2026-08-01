@@ -18,8 +18,11 @@ import {
   useListInvoices,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
+  useGetEmergencyPing,
+  getGetEmergencyPingQueryKey,
   type Invoice,
 } from "@workspace/api-client-react";
+import { EmergencyPingSheet } from "@/components/EmergencyPingSheet";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { RecordPaymentSheet } from "@/components/RecordPaymentSheet";
 import { UpdateClientSheet, type UpdateClientKind } from "@/components/UpdateClientSheet";
@@ -28,7 +31,7 @@ import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, Pencil, Sparkles, Send, Check, CalendarDays, RotateCcw, Archive, Radio, FileDown, Megaphone, FileText, DollarSign, MessageSquareShare } from "lucide-react";
+import { ChevronLeft, Pencil, Sparkles, Send, Check, CalendarDays, RotateCcw, Archive, Radio, FileDown, Megaphone, FileText, DollarSign, MessageSquareShare, Siren } from "lucide-react";
 import { useState } from "react";
 import { EditJobSheet } from "@/components/EditJobSheet";
 import { ScheduleJobSheet } from "@/components/ScheduleJobSheet";
@@ -39,8 +42,17 @@ export default function JobDetail() {
   const id = params.id as string;
   const [editOpen, setEditOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [emergencyOpen, setEmergencyOpen] = useState(false);
   const queryClient = useQueryClient();
   const { data, isLoading } = useGetJob(id, { query: { enabled: !!id, queryKey: getGetJobQueryKey(id) } });
+  const { data: emergencyData } = useGetEmergencyPing(id, {
+    query: { enabled: !!id, queryKey: getGetEmergencyPingQueryKey(id) },
+  });
+  const emergencyPing = emergencyData?.ping ?? null;
+  const activeEmergency =
+    emergencyPing && (emergencyPing.status === "open" || emergencyPing.status === "filled")
+      ? emergencyPing
+      : null;
   const [recapOpen, setRecapOpen] = useState(false);
   const [subject, setSubject] = useState("");
   const [recapBody, setRecapBody] = useState("");
@@ -194,9 +206,25 @@ export default function JobDetail() {
       <div className="flex items-start gap-[10px] px-[6px]">
         <div className="flex-1 min-w-0">
           <div className="font-display font-bold text-[26px] tracking-[-0.015em] leading-[1.1] text-[var(--ink)]">{job.category || 'General'}</div>
-          <div className="text-[13px] text-muted-foreground mt-[3px] mb-[14px]">
+          <div className="text-[13px] text-muted-foreground mt-[3px] mb-[10px]">
             <span className="text-[var(--ink)]">{job.propertyName}</span> {job.unitNo ? `· Unit ${job.unitNo}` : ''}
           </div>
+          {activeEmergency && (
+            <button
+              onClick={() => setEmergencyOpen(true)}
+              data-testid="chip-emergency-status"
+              className={`inline-flex items-center gap-[5px] text-[12px] font-display font-bold rounded-full px-[10px] py-[4px] mb-[10px] active:scale-[0.95] transition-transform ${
+                activeEmergency.status === "filled"
+                  ? "text-white bg-[var(--green)]"
+                  : "text-white bg-red-600"
+              }`}
+            >
+              <Siren className="w-[12px] h-[12px]" />
+              {activeEmergency.status === "filled"
+                ? `Emergency filled — ${activeEmergency.filledByCrewName ?? "crew"}`
+                : `Emergency: ${activeEmergency.targets.length} pinged`}
+            </button>
+          )}
         </div>
         <button
           onClick={() => setEditOpen(true)}
@@ -270,6 +298,14 @@ export default function JobDetail() {
                 <Megaphone className="w-[14px] h-[14px] text-[var(--gold-dark)]" /> {broadcast.isPending ? "Broadcasting…" : "Broadcast to crews"}
               </button>
             )}
+            <button
+              onClick={() => setEmergencyOpen(true)}
+              data-testid="button-emergency-ping"
+              className="flex items-center gap-[6px] text-[13px] font-display font-bold px-[14px] py-[9px] rounded-full bg-red-600 text-white shadow-[0_2px_10px_rgba(220,38,38,0.3)] active:scale-[0.95] transition-all"
+            >
+              <Siren className="w-[14px] h-[14px]" />
+              {activeEmergency ? "Emergency ping — live" : "Emergency ping"}
+            </button>
           </div>
         )}
         {clearJob.isError && (
@@ -580,6 +616,8 @@ export default function JobDetail() {
           invoiceId={updateInvoiceId}
         />
       )}
+
+      <EmergencyPingSheet jobId={id} open={emergencyOpen} onOpenChange={setEmergencyOpen} />
 
       <EditJobSheet open={editOpen} onOpenChange={setEditOpen} job={job} />
       <ScheduleJobSheet

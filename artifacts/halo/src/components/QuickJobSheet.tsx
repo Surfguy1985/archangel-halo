@@ -17,7 +17,8 @@ import {
   getGetStaffingContextQueryKey,
   type Job,
 } from "@workspace/api-client-react";
-import { MapPin, Zap, Plus, Radio, UserCheck, UserMinus, Check } from "lucide-react";
+import { MapPin, Zap, Plus, Radio, UserCheck, UserMinus, Check, Siren } from "lucide-react";
+import { EmergencyPingSheet } from "@/components/EmergencyPingSheet";
 
 const fieldCls =
   "w-full bg-card border border-[var(--hairline)] rounded-[18px] py-[14px] px-[16px] text-[15px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 focus:border-[var(--gold)]";
@@ -66,6 +67,7 @@ export function QuickJobSheet({
   const [staffedNote, setStaffedNote] = useState<string | null>(null);
   const [broadcastCount, setBroadcastCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [emergencyOpen, setEmergencyOpen] = useState(false);
 
   const create = useQuickCreateJob();
   const assign = useUpdateJob();
@@ -139,6 +141,7 @@ export function QuickJobSheet({
     setStaffedNote(null);
     setBroadcastCount(0);
     setErrorMsg(null);
+    setEmergencyOpen(false);
   };
 
   const close = (o: boolean) => {
@@ -527,6 +530,15 @@ export function QuickJobSheet({
               )}
 
               <button
+                type="button"
+                onClick={() => setEmergencyOpen(true)}
+                data-testid="button-quickjob-emergency"
+                className="w-full flex items-center justify-center gap-[8px] rounded-[18px] p-[12px] border border-red-200 bg-card font-display font-bold text-[13.5px] text-red-600 mb-[10px] active:scale-[0.98] transition-transform"
+              >
+                <Siren className="w-[15px] h-[15px]" /> Emergency ping — need someone now?
+              </button>
+
+              <button
                 className="w-full rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_4px_14px_rgba(180,255,68,0.35)] transition-transform active:scale-[0.98]"
                 onClick={() => close(false)}
                 data-testid="button-quickjob-done"
@@ -537,6 +549,13 @@ export function QuickJobSheet({
           )}
         </div>
       </SheetContent>
+      {createdJob && (
+        <EmergencyPingSheet
+          jobId={createdJob.id}
+          open={emergencyOpen}
+          onOpenChange={setEmergencyOpen}
+        />
+      )}
     </Sheet>
   );
 }

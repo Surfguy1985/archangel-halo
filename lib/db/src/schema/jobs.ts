@@ -69,6 +69,12 @@ export const jobsTable = pgTable("jobs", {
   // Set when a crew is pulled off this job onto another one; cleared the
   // moment any crew is (re)assigned. Drives the "lost its crew" Today flag.
   crewVacatedAt: timestamp("crew_vacated_at", { withTimezone: true }),
+  // Emergency jobs: crew pay bypasses net-30 everywhere — pay the day the
+  // job is approved. Set by the emergency ping flow.
+  sameDayPay: boolean("same_day_pay").notNull().default(false),
+  // Bonus offered on top of crewRate via an emergency ping; flows through
+  // job financials and the labor ledger like any other crew cost.
+  emergencyBonus: doublePrecision("emergency_bonus"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

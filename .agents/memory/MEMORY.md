@@ -71,4 +71,5 @@
 - [HALO API contract](halo-api-contract.md) — openapi.yaml is source of truth; server route paths + response shapes must match generated Zod/client or you get 404/500.
 - [HALO card messaging](halo-card-messaging.md) — card threads reuse client_card_comments with a push/source thread family; unread via readAt, digest claim must re-check readAt; attachments /objects/ only.
 - [HALO voice tools](halo-voice-tools.md) — adding a voice tool means editing BOTH the TOOLS prompt AND the /voice/confirm handler in voice.ts; field names must match drizzle schema; restart server for prompt changes.
+- [HALO emergency crew ping](halo-emergency-ping.md) — first-wins commit via guarded ping flip; holds settle only on payout or "Emergency same-day pay" payment; neededBy is free text.
 - [HALO board concierge](halo-concierge.md) — chatbot tools go through internal HTTP with caller's creds; mutations only via one-time HMAC confirm chips (jti claimed in DB pre-execution).
