@@ -894,6 +894,86 @@ paths:
               schema:
                 $ref: "#/components/schemas/Bid"
 
+  /staffing:
+    get:
+      operationId: getStaffingContext
+      tags: [jobs]
+      summary: Crews with their current active job and today's schedule — for the quick staffing step
+      responses:
+        "200":
+          description: Staffing context
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StaffingCrew"
+  /jobs/quick:
+    post:
+      operationId: quickCreateJob
+      tags: [jobs]
+      summary: One-shot on-site job creation — property, unit, work, price-book line items, price, due date
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuickJobInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Property not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /jobs/{id}/pull-crew:
+    post:
+      operationId: pullCrewToJob
+      tags: [jobs]
+      summary: Pull a crew off their current job onto this one; the vacated job is flagged in Today
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PullCrewInput"
+      responses:
+        "200":
+          description: Crew reassigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PullCrewResult"
+        "404":
+          description: Job or crew not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Crew is no longer on the source job, or the target job can't take a crew
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /jobs:
     get:
       operationId: listJobs
@@ -9460,6 +9540,8 @@ components:
         marginPct: { type: ["number", "null"] }
         imagePath: { type: ["string", "null"] }
         address: { type: ["string", "null"] }
+        latitude: { type: ["number", "null"] }
+        longitude: { type: ["number", "null"] }
     PropertyDetail:
       type: object
       required: [property, contacts, priceItems, jobs, expenses, agreements, invoices, upcomingVisits, stats]
@@ -9978,6 +10060,56 @@ components:
         scheduledOn: { type: string, description: "YYYY-MM-DD fixed date (scheduled jobs)" }
         scheduledTime: { type: string, description: "HH:MM start time (scheduled jobs)" }
         flexDays: { type: number, minimum: 1, description: "Days from today to complete (flex jobs); sets flexDueBy" }
+    QuickJobInput:
+      type: object
+      required: [propertyId, description]
+      properties:
+        propertyId: { type: string }
+        description: { type: string, minLength: 1 }
+        unitNo: { type: string }
+        dueOn: { type: string, description: "YYYY-MM-DD scheduled/due date" }
+        price: { type: number, minimum: 0, description: "Quoted price — stored as a custom line item" }
+        priceItemIds:
+          type: array
+          items: { type: string }
+          description: "Price-book services tapped in — become job line items"
+    PullCrewInput:
+      type: object
+      required: [crewId, fromJobId]
+      properties:
+        crewId: { type: string }
+        fromJobId: { type: string }
+    PullCrewResult:
+      type: object
+      required: [job, vacatedJob]
+      properties:
+        job:
+          $ref: "#/components/schemas/Job"
+        vacatedJob:
+          $ref: "#/components/schemas/Job"
+    StaffingCrewJob:
+      type: object
+      required: [id, jobNo]
+      properties:
+        id: { type: string }
+        jobNo: { type: string }
+        description: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        scheduledOn: { type: ["string", "null"] }
+        status: { type: ["string", "null"] }
+    StaffingCrew:
+      type: object
+      required: [id, name, todayStatus]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        trade: { type: ["string", "null"] }
+        selfiePath: { type: ["string", "null"] }
+        todayStatus: { type: string, description: "idle | site | done" }
+        currentJob:
+          oneOf:
+            - $ref: "#/components/schemas/StaffingCrewJob"
+            - type: "null"
     JobUpdate:
       type: object
       properties:

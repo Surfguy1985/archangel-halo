@@ -21,6 +21,8 @@ import {
 import { BriefCard, FeedCard } from "@/components/FeedCard";
 import { AutopilotActions } from "@/components/AutopilotActions";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
+import { QuickJobSheet } from "@/components/QuickJobSheet";
+import { Zap } from "lucide-react";
 import { UpdateClientSheet, type UpdateClientKind } from "@/components/UpdateClientSheet";
 
 export default function Today() {
@@ -39,6 +41,7 @@ export default function Today() {
   const { data: calendar, isLoading: isLoadingCalendar } = useGetCalendar({ from: todayStr, to: todayStr });
 
   const [invoiceJobId, setInvoiceJobId] = useState<string | null>(null);
+  const [quickJobOpen, setQuickJobOpen] = useState(false);
   const [updateClient, setUpdateClient] = useState<{
     propertyId: string;
     jobId?: string | null;
@@ -81,6 +84,13 @@ export default function Today() {
             return new Date(y, m - 1, d).toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
           })()}
         </div>
+        <button
+          onClick={() => setQuickJobOpen(true)}
+          className="flex items-center gap-[6px] rounded-full px-[13px] py-[8px] bg-[var(--primary)] text-[var(--ink)] font-display font-bold text-[12.5px] shadow-[0_4px_14px_rgba(180,255,68,0.35)] active:scale-[0.95] transition-transform"
+          data-testid="button-today-quickjob"
+        >
+          <Zap className="w-[14px] h-[14px]" strokeWidth={2.5} /> Quick job
+        </button>
       </div>
       
       <BriefCard brief={today.brief} />
@@ -190,6 +200,7 @@ export default function Today() {
         </div>
       )}
 
+      <QuickJobSheet open={quickJobOpen} onOpenChange={setQuickJobOpen} />
       <InvoiceEditor
         open={!!invoiceJobId}
         onOpenChange={(o) => { if (!o) setInvoiceJobId(null); }}

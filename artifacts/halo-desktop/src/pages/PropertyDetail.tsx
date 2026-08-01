@@ -5,7 +5,7 @@ import { MarginSection} from "@/components/MarginSection";
 import { CrewPhotosSection} from "@/components/CrewPhotosSection";
 import { useQueryClient} from "@tanstack/react-query";
 import { useParams, Link} from "wouter";
-import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Radio, Repeat, BookOpen, Receipt, Users, Wand2} from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Radio, Repeat, BookOpen, Receipt, Users, Wand2, Zap} from "lucide-react";
 import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton} from "@/components/ui/skeleton";
@@ -15,6 +15,7 @@ import { useToast} from "@/hooks/use-toast";
 import { JobLineItemsPanel} from "@/components/JobLineItemsPanel";
 import { JobSummaryDialog} from "@/components/JobSummaryDialog";
 import { ImportFromCatalogDialog} from "@/components/ImportFromCatalogDialog";
+import { QuickJobDialog} from "@/components/QuickJobDialog";
 import {
   EditPropertyDialog,
   AddPriceItemDialog,
@@ -34,6 +35,7 @@ export default function PropertyDetail() {
   const [importOpen, setImportOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
+  const [quickJobOpen, setQuickJobOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const [editContactId, setEditContactId] = useState<string | null>(null);
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
@@ -474,6 +476,7 @@ export default function PropertyDetail() {
       <ImportFromCatalogDialog open={importOpen} onOpenChange={setImportOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />
       <AddContactDialog open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
       <AddJobDialog open={jobOpen} onOpenChange={setJobOpen} propertyId={id} priceItems={priceItems} />
+      <QuickJobDialog open={quickJobOpen} onOpenChange={setQuickJobOpen} propertyId={id} />
       {expenseJobId && (
         <AddExpenseDialog
           key={expenseJobId}
@@ -537,12 +540,21 @@ export default function PropertyDetail() {
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-display font-bold text-[var(--ink)]">Jobs</h2>
-              <button
-                onClick={() => setJobOpen(true)}
-                className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Add
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setQuickJobOpen(true)}
+                  className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+                  data-testid="button-quick-job"
+                >
+                  <Zap className="w-4 h-4" /> Quick job
+                </button>
+                <button
+                  onClick={() => setJobOpen(true)}
+                  className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Add
+                </button>
+              </div>
             </div>
             <div className="flex items-center gap-2 mb-3 w-fit">
               {([

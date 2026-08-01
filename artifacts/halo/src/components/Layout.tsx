@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Mic, Bell, LayoutGrid, CalendarDays, Sparkles } from "lucide-react";
+import { Mic, Bell, LayoutGrid, CalendarDays, Sparkles, Zap } from "lucide-react";
 import haloLogo from "../assets/halo-logo.png";
 import { useGetToday, getGetTodayQueryKey } from "@workspace/api-client-react";
 import { useState } from "react";
@@ -7,6 +7,7 @@ import { VoiceCaptureSheet } from "./VoiceCaptureSheet";
 import { NotificationsDrawer } from "./NotificationsDrawer";
 import { MoreMenuSheet } from "./MoreMenuSheet";
 import { ArrivalDetection } from "./ArrivalSheet";
+import { QuickJobSheet } from "./QuickJobSheet";
 import { FalkonBadge } from "./FalkonBadge";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -15,6 +16,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000 },
   });
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [quickJobOpen, setQuickJobOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [cmdText, setCmdText] = useState("");
@@ -125,6 +127,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
             >
               <Mic className="relative z-10 w-[26px] h-[26px]" strokeWidth={2.5} />
             </button>
+            {/* Quick job — build & staff a job on-site, right off the FAB */}
+            <button
+              className="absolute -right-[16px] top-[6px] w-[34px] h-[34px] rounded-full grid place-items-center bg-[#0E1D33] border border-[rgba(180,255,68,0.45)] text-[var(--gold-light)] shadow-[0_0_12px_rgba(180,255,68,0.2)] hover:scale-105 active:scale-95 transition-transform"
+              onClick={() => setQuickJobOpen(true)}
+              aria-label="Quick job"
+              data-testid="button-fab-quickjob"
+            >
+              <Zap className="w-[16px] h-[16px]" strokeWidth={2.5} />
+            </button>
             <span className="block text-center text-[10px] font-bold tracking-[0.2em] text-[var(--gold-light)] mt-[8px]">VOICE</span>
           </div>
           <Link href="/money">
@@ -153,6 +164,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           }}
           initialText={cmdInitial}
         />
+        <QuickJobSheet open={quickJobOpen} onOpenChange={setQuickJobOpen} />
         <NotificationsDrawer open={notificationsOpen} onOpenChange={setNotificationsOpen} />
         <MoreMenuSheet open={moreOpen} onOpenChange={setMoreOpen} />
         <ArrivalDetection />

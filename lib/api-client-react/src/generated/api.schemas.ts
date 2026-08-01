@@ -1558,6 +1558,10 @@ export interface PropertySummary {
   imagePath?: string | null;
   /** @nullable */
   address?: string | null;
+  /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
 }
 
 export interface JobLineItem {
@@ -2284,6 +2288,21 @@ export interface JobInput {
   flexDays?: number;
 }
 
+export interface QuickJobInput {
+  propertyId: string;
+  /** @minLength 1 */
+  description: string;
+  unitNo?: string;
+  /** YYYY-MM-DD scheduled/due date */
+  dueOn?: string;
+  /**
+     * Quoted price — stored as a custom line item
+     * @minimum 0
+     */
+  price?: number;
+  /** Price-book services tapped in — become job line items */
+  priceItemIds?: string[];
+}
 /**
  * @nullable
  */
@@ -6254,3 +6273,38 @@ export type MarkClientBoardNotificationsRead200 = {
   ok: boolean;
 };
 
+
+export interface StaffingCrewJob {
+  id: string;
+  jobNo: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  scheduledOn?: string | null;
+  /** @nullable */
+  status?: string | null;
+}
+
+export interface PullCrewInput {
+  crewId: string;
+  fromJobId: string;
+}
+
+export interface StaffingCrew {
+  id: string;
+  name: string;
+  /** @nullable */
+  trade?: string | null;
+  /** @nullable */
+  selfiePath?: string | null;
+  /** idle | site | done */
+  todayStatus: string;
+  currentJob?: StaffingCrewJob | null;
+}
+
+export interface PullCrewResult {
+  job: Job;
+  vacatedJob: Job;
+}

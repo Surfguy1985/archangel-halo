@@ -136,6 +136,30 @@ export async function computeQueues(): Promise<{
     });
   }
 
+  // Jobs that lost their crew (pulled onto another job) — Action Required
+  // until someone restaffs them, so nothing goes uncrewed silently.
+  const vacated = jobs.filter(
+    (j) =>
+      j.crewVacatedAt != null &&
+      !j.crewLeaderId &&
+      j.status !== "complete" &&
+      j.status !== "paid" &&
+      j.status !== "cancelled",
+  );
+  for (const j of vacated) {
+    feed.push({
+      id: `vacated-${j.id}`,
+      queue: "schedule",
+      tier: "now",
+      title: `Job ${j.jobNo} lost its crew`,
+      sub: `${propName.get(j.propertyId) ?? ""} — ${j.description ?? "needs a new crew"}`.trim(),
+      entityType: "job",
+      entityId: j.id,
+      meta: [{ label: "Uncrewed", warn: true }],
+      actions: [{ label: "Restaff", action: "openJob", kind: "gold" }],
+    });
+  }
+
   // Jobs needing scheduling
   const toSchedule = jobs.filter((j) => j.status === "open" && !j.scheduledOn);
   for (const j of toSchedule) {

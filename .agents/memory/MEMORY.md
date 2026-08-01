@@ -1,5 +1,3 @@
-- [HALO API contract](halo-api-contract.md) — openapi.yaml is source of truth; server route paths + response shapes must match generated Zod/client or you get 404/500.
-- [HALO voice tools](halo-voice-tools.md) — adding a voice tool means editing BOTH the TOOLS prompt AND the /voice/confirm handler in voice.ts; field names must match drizzle schema; restart server for prompt changes.
 - [HALO CRUD deletes](halo-crud-deletes.md) — no DB FKs: delete handlers need transactions + manual guards/cascades; client errors live on ApiError.data, not err.error.
 - [HALO email notifications](halo-email-notifications.md) — daily/urgent task-list emails from computeQueues feed via Resend; in-process setInterval scheduler; advance dedup state only after sent===true.
 - [HALO query invalidation](halo-query-invalidation.md) — create/action sheets must invalidate derived views (money summary, Today blockers, property detail), not just the primary list.
@@ -68,6 +66,9 @@
 - [HALO card create/move contract](halo-card-create-contract.md) — checklist must be {id,text,done} objects (strings 400); drag gate mirrors server by cardKey prefix, never template type.
 - [HALO card clear-to-history](halo-card-clear-history.md) — trash icon snapshots cards into client_card_history (idempotent, prefix-validated), archived override hides any family; CSV route keeps formula-injection guard.
 - [HALO kanban hardening](halo-kanban-hardening.md) — board contract enums/unions + ModuleBoundary + useBoardEvents + session cookie + rate limits; clientAuth must pass through unresolved tokens; pay limiter POST-only.
-- [HALO card messaging](halo-card-messaging.md) — card threads reuse client_card_comments with a push/source thread family; unread via readAt, digest claim must re-check readAt; attachments /objects/ only.
-- [HALO board concierge](halo-concierge.md) — chatbot tools go through internal HTTP with caller's creds; mutations only via one-time HMAC confirm chips (jti claimed in DB pre-execution).
+- [HALO quick job & staffing](halo-quick-job-staffing.md) — one-sheet create+staff; every path that sets crewLeaderId must clear crewVacatedAt or Today shows phantom "lost its crew" alerts.
 - [HALO client team self-service](halo-client-team-selfservice.md) — /access surface is admin-session-gated (403 for raw link); unclaimed boards allow first-admin setup; seat/last-admin guards.
+- [HALO API contract](halo-api-contract.md) — openapi.yaml is source of truth; server route paths + response shapes must match generated Zod/client or you get 404/500.
+- [HALO card messaging](halo-card-messaging.md) — card threads reuse client_card_comments with a push/source thread family; unread via readAt, digest claim must re-check readAt; attachments /objects/ only.
+- [HALO voice tools](halo-voice-tools.md) — adding a voice tool means editing BOTH the TOOLS prompt AND the /voice/confirm handler in voice.ts; field names must match drizzle schema; restart server for prompt changes.
+- [HALO board concierge](halo-concierge.md) — chatbot tools go through internal HTTP with caller's creds; mutations only via one-time HMAC confirm chips (jti claimed in DB pre-execution).

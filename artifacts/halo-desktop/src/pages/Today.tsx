@@ -3,12 +3,13 @@ import { PushCardDialog, type PushPrefill} from "@/components/PushCardDialog";
 import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import { Skeleton} from "@/components/ui/skeleton";
-import { Sparkles, ArrowRight, RefreshCw, X, History, ChevronDown} from "lucide-react";
 import { useState} from "react";
 import { useQueryClient} from "@tanstack/react-query";
 import { useToast} from "@/hooks/use-toast";
 import { useLocation} from "wouter";
 import { AutopilotActions} from "@/components/AutopilotActions";
+import { Sparkles, ArrowRight, RefreshCw, X, History, ChevronDown, Zap} from "lucide-react";
+import { QuickJobDialog} from "@/components/QuickJobDialog";
 
 function entityRoute(entityType?: string | null, entityId?: string | null): string | null {
   if (!entityType) return null;
@@ -80,6 +81,7 @@ export default function Today() {
 
   const [queueFilter, setQueueFilter] = useState<string | null>(null);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [quickJobOpen, setQuickJobOpen] = useState(false);
 
   const handleRefresh = async () => {
     try {
@@ -227,7 +229,16 @@ export default function Today() {
           <h1 className="text-4xl font-display font-bold text-foreground">Today</h1>
           <p className="text-muted-foreground mt-1 text-sm">{today?.date}</p>
         </div>
+        <button
+          onClick={() => setQuickJobOpen(true)}
+          className="flex items-center gap-2 bg-[var(--primary)] text-black px-5 py-2.5 rounded-full font-bold shadow-sm hover:opacity-90 transition-opacity"
+          data-testid="button-quick-job"
+        >
+          <Zap className="w-4 h-4" /> Quick job
+        </button>
       </header>
+
+      <QuickJobDialog open={quickJobOpen} onOpenChange={setQuickJobOpen} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column */}

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "node:crypto";
-import { and, desc, eq, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
   db,
   jobsTable,
@@ -73,6 +73,12 @@ import {
   UpdateJobLineItemResponse,
   DeleteJobLineItemParams,
   DeleteJobLineItemResponse,
+  QuickCreateJobBody,
+  QuickCreateJobResponse,
+  GetStaffingContextResponse,
+  PullCrewToJobParams,
+  PullCrewToJobBody,
+  PullCrewToJobResponse,
 } from "@workspace/api-zod";
 import {
   ClearJobParams,
@@ -91,6 +97,7 @@ import { gatherJobReport, buildJobReportPdf } from "../lib/jobReportPdf";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import { syncJobLaborLedger, removeEntriesForRef } from "../lib/ledger";
 import { raiseClientCard } from "../lib/clientBoard";
+import { localToday } from "../lib/localDate";
 
 const router: IRouter = Router();
 
@@ -177,6 +184,287 @@ router.post("/jobs", async (req, res): Promise<void> => {
     .json(CreateJobResponse.parse(decorateJob(row, propName, crewName)));
 });
 
+// One-shot on-site job creation: property + unit + work + price-book line
+// items + quoted price + due date in a single call, so the operator can
+// build a job mid-walkthrough and staff it immediately from the same sheet.
+router.post("/jobs/quick", async (req, res): Promise<void> => {
+  const body = QuickCreateJobBody.parse(req.body);
+  const [property] = await db
+    .select({ id: propertiesTable.id })
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, body.propertyId));
+  if (!property) {
+    res.status(404).json({ error: "Property not found" });
+    return;
+  }
+  let pickedItems: (typeof priceItemsTable.$inferSelect)[] = [];
+  if (body.priceItemIds && body.priceItemIds.length > 0) {
+    const rows = await db
+      .select()
+      .from(priceItemsTable)
+      .where(inArray(priceItemsTable.id, body.priceItemIds));
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    for (const pid of body.priceItemIds) {
+      const item = byId.get(pid);
+      if (!item) {
+        res.status(400).json({ error: "Price item not found" });
+        return;
+      }
+      if (item.propertyId !== body.propertyId) {
+        res
+          .status(400)
+          .json({ error: "Price item belongs to a different property" });
+        return;
+      }
+      pickedItems.push(item);
+    }
+  }
+  const jobNo = await nextJobNo();
+  const row = await db.transaction(async (tx) => {
+    const [job] = await tx
+      .insert(jobsTable)
+      .values({
+        propertyId: body.propertyId,
+        description: body.description.trim(),
+        unitNo: body.unitNo?.trim() || null,
+        scheduleType: "scheduled",
+        scheduledOn: body.dueOn || null,
+        jobNo,
+      })
+      .returning();
+    // Tapped price-book pills become line items; duplicates bump qty.
+    const qtyByItem = new Map<string, { item: (typeof pickedItems)[number]; qty: number }>();
+    for (const item of pickedItems) {
+      const cur = qtyByItem.get(item.id);
+      if (cur) cur.qty += 1;
+      else qtyByItem.set(item.id, { item, qty: 1 });
+    }
+    for (const { item, qty } of qtyByItem.values()) {
+      await tx.insert(jobLineItemsTable).values({
+        jobId: job.id,
+        priceItemId: item.id,
+        service: item.service,
+        unit: item.unit,
+        rate: item.rate,
+        qty,
+      });
+    }
+    // A free-form quoted price becomes a custom line item so it flows into
+    // invoicing like any other priced work.
+    if (body.price != null && body.price > 0) {
+      await tx.insert(jobLineItemsTable).values({
+        jobId: job.id,
+        priceItemId: null,
+        service: "Quoted price",
+        rate: body.price,
+        qty: 1,
+      });
+    }
+    await tx.insert(activitiesTable).values({
+      entityType: "job",
+      entityId: job.id,
+      kind: "created",
+      body: `Job ${job.jobNo} created on-site via quick job sheet`,
+    });
+    return job;
+  });
+  const { propName, crewName } = await lookups();
+  res
+    .status(201)
+    .json(QuickCreateJobResponse.parse(decorateJob(row, propName, crewName)));
+});
+
+// Staffing context for the quick job sheet: every active crew with their
+// current active job (if any), so the operator can assign or pull-off.
+router.get("/staffing", async (_req, res): Promise<void> => {
+  const today = localToday();
+  const [crews, jobs, props, schedules] = await Promise.all([
+    db.select().from(crewsTable),
+    db.select().from(jobsTable).orderBy(desc(jobsTable.createdAt)),
+    db.select().from(propertiesTable),
+    db
+      .select()
+      .from(schedulesTable)
+      .where(eq(schedulesTable.scheduledOn, today)),
+  ]);
+  const propName = new Map(props.map((p) => [p.id, p.name]));
+  const activeJobByCrew = new Map<string, (typeof jobs)[number]>();
+  for (const j of jobs) {
+    if (!j.crewLeaderId) continue;
+    if (j.status === "complete" || j.status === "paid" || j.status === "cancelled") continue;
+    if (!activeJobByCrew.has(j.crewLeaderId)) activeJobByCrew.set(j.crewLeaderId, j);
+  }
+  res.json(
+    GetStaffingContextResponse.parse(
+      crews
+        .filter((c) => c.active !== false)
+        .map((c) => {
+          const sched = schedules.find((s) => s.crewLeaderId === c.id);
+          const job = activeJobByCrew.get(c.id);
+          return {
+            id: c.id,
+            name: c.name,
+            trade: c.trade ?? null,
+            selfiePath: c.selfiePath ?? null,
+            todayStatus: sched ? (sched.status === "done" ? "done" : "site") : "idle",
+            currentJob: job
+              ? {
+                  id: job.id,
+                  jobNo: job.jobNo,
+                  description: job.description ?? null,
+                  propertyName: propName.get(job.propertyId) ?? null,
+                  scheduledOn: job.scheduledOn ?? null,
+                  status: job.status,
+                }
+              : null,
+          };
+        }),
+    ),
+  );
+});
+
+// Pull a crew off their current job onto this one. Transactional: the
+// vacated job is flagged (crewVacatedAt) so Today shows "lost its crew"
+// until someone restaffs it — nothing goes uncrewed silently.
+router.post("/jobs/:id/pull-crew", async (req, res): Promise<void> => {
+  const { id } = PullCrewToJobParams.parse(req.params);
+  const body = PullCrewToJobBody.parse(req.body);
+  if (body.fromJobId === id) {
+    res.status(409).json({ error: "The crew is already on this job." });
+    return;
+  }
+  const result = await db.transaction(async (tx) => {
+    const [target] = await tx
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, id))
+      .for("update");
+    if (!target) return { status: 404 as const, error: "Job not found" };
+    if (target.status === "complete" || target.status === "paid" || target.status === "cancelled") {
+      return { status: 409 as const, error: "This job is already finished — it can't take a crew." };
+    }
+    const [crew] = await tx
+      .select()
+      .from(crewsTable)
+      .where(eq(crewsTable.id, body.crewId));
+    if (!crew) return { status: 404 as const, error: "Crew not found" };
+    // Guarded vacate: only succeeds if the crew is still on the source job,
+    // so two concurrent pulls can't both claim the same crew.
+    const [vacated] = await tx
+      .update(jobsTable)
+      .set({ crewLeaderId: null, crewVacatedAt: new Date() })
+      .where(
+        and(
+          eq(jobsTable.id, body.fromJobId),
+          eq(jobsTable.crewLeaderId, body.crewId),
+        ),
+      )
+      .returning();
+    if (!vacated) {
+      return {
+        status: 409 as const,
+        error: "That crew is no longer on the job you're pulling from.",
+      };
+    }
+    // Take the crew off the vacated job's calendar and portal.
+    await tx
+      .delete(schedulesTable)
+      .where(
+        and(
+          eq(schedulesTable.jobId, body.fromJobId),
+          eq(schedulesTable.crewLeaderId, body.crewId),
+        ),
+      );
+    await tx
+      .update(jobBroadcastsTable)
+      .set({ status: "withdrawn", respondedAt: new Date() })
+      .where(
+        and(
+          eq(jobBroadcastsTable.jobId, body.fromJobId),
+          eq(jobBroadcastsTable.crewId, body.crewId),
+          inArray(jobBroadcastsTable.status, ["pending", "approved"]),
+        ),
+      );
+    // Assign here — with the same board-sync mirrors as a manual assignment.
+    const [assigned] = await tx
+      .update(jobsTable)
+      .set({
+        crewLeaderId: body.crewId,
+        crewVacatedAt: null,
+        boardStatus:
+          target.boardStatus === "removed" || target.boardStatus === "completed"
+            ? target.boardStatus
+            : "filled",
+        status: target.status === "open" && target.scheduledOn ? "scheduled" : target.status,
+      })
+      .where(eq(jobsTable.id, id))
+      .returning();
+    await tx
+      .update(jobBroadcastsTable)
+      .set({ status: "withdrawn", respondedAt: new Date() })
+      .where(
+        and(
+          eq(jobBroadcastsTable.jobId, id),
+          eq(jobBroadcastsTable.status, "pending"),
+        ),
+      );
+    await tx
+      .update(schedulesTable)
+      .set({ crewLeaderId: body.crewId })
+      .where(
+        and(
+          eq(schedulesTable.jobId, id),
+          ne(schedulesTable.crewLeaderId, body.crewId),
+        ),
+      );
+    // Mirror onto the calendar so the crew's portal schedule shows it.
+    if (assigned!.scheduledOn) {
+      const existing = await tx
+        .select({ id: schedulesTable.id })
+        .from(schedulesTable)
+        .where(
+          and(
+            eq(schedulesTable.jobId, id),
+            eq(schedulesTable.crewLeaderId, body.crewId),
+          ),
+        );
+      if (existing.length === 0) {
+        await tx.insert(schedulesTable).values({
+          jobId: id,
+          scheduledOn: assigned!.scheduledOn,
+          crewLeaderId: body.crewId,
+        });
+      }
+    }
+    await tx.insert(activitiesTable).values([
+      {
+        entityType: "job",
+        entityId: id,
+        kind: "assigned",
+        body: `${crew.name} pulled onto job ${assigned!.jobNo} from job ${vacated.jobNo}`,
+      },
+      {
+        entityType: "job",
+        entityId: body.fromJobId,
+        kind: "flag",
+        body: `Job ${vacated.jobNo} lost its crew — ${crew.name} was pulled onto job ${assigned!.jobNo}`,
+      },
+    ]);
+    return { status: 200 as const, job: assigned!, vacatedJob: vacated };
+  });
+  if (result.status !== 200) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  const { propName, crewName } = await lookups();
+  res.json(
+    PullCrewToJobResponse.parse({
+      job: decorateJob(result.job, propName, crewName),
+      vacatedJob: decorateJob(result.vacatedJob, propName, crewName),
+    }),
+  );
+});
+
 router.get("/jobs/:id", async (req, res): Promise<void> => {
   const { id } = GetJobParams.parse(req.params);
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
@@ -221,7 +509,12 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
   const row = await db.transaction(async (tx) => {
     const [updated] = await tx
       .update(jobsTable)
-      .set(body)
+      // Any crew assignment clears the "lost its crew" flag.
+      .set(
+        typeof body.crewLeaderId === "string" && body.crewLeaderId
+          ? { ...body, crewVacatedAt: null }
+          : body,
+      )
       .where(eq(jobsTable.id, id))
       .returning();
     if (!updated) return undefined;
@@ -418,6 +711,7 @@ router.post("/jobs/:id/schedule", async (req, res): Promise<void> => {
       scheduledOn: body.scheduledOn,
       crewLeaderId: body.crewLeaderId,
       status: "scheduled",
+      ...(body.crewLeaderId ? { crewVacatedAt: null } : {}),
     })
     .where(eq(jobsTable.id, id))
     .returning();

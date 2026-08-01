@@ -66,6 +66,9 @@ export const jobsTable = pgTable("jobs", {
   trackerToken: text("tracker_token"),
   isRecurring: boolean("is_recurring").default(false),
   recurrence: text("recurrence"),
+  // Set when a crew is pulled off this job onto another one; cleared the
+  // moment any crew is (re)assigned. Drives the "lost its crew" Today flag.
+  crewVacatedAt: timestamp("crew_vacated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

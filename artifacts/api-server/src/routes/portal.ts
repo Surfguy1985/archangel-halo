@@ -1517,6 +1517,7 @@ router.post(
           crewsFilled: sql`${jobsTable.crewsFilled} + 1`,
           boardStatus: sql`CASE WHEN ${jobsTable.crewsFilled} + 1 >= ${jobsTable.crewsNeeded} THEN 'filled' ELSE ${jobsTable.boardStatus} END`,
           crewLeaderId: sql`COALESCE(${jobsTable.crewLeaderId}, ${crew.id})`,
+          crewVacatedAt: null,
           status: "scheduled",
           scheduledOn,
         })

@@ -235,7 +235,12 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
         });
         await db
           .update(jobsTable)
-          .set({ scheduledOn, crewLeaderId: crew?.id ?? job.crewLeaderId })
+          .set({
+            scheduledOn,
+            crewLeaderId: crew?.id ?? job.crewLeaderId,
+            // Vacancy contract: any path that (re)assigns a crew must clear the flag.
+            ...(crew?.id || job.crewLeaderId ? { crewVacatedAt: null } : {}),
+          })
           .where(eqId(jobsTable.id, job.id));
         applied++;
         messages.push(`Scheduled ${job.jobNo} for ${scheduledOn}`);

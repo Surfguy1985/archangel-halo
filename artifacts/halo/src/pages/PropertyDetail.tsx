@@ -3,7 +3,7 @@ import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, ChevronDown, ChevronRight, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History, Receipt, ArrowRight, LayoutGrid } from "lucide-react";
+import { ChevronLeft, ChevronDown, ChevronRight, Pencil, Plus, CalendarDays, Check, Archive, RotateCcw, History, Receipt, ArrowRight, LayoutGrid, Zap } from "lucide-react";
 import { useState } from "react";
 import { JobLineItemsPanel } from "@/components/JobLineItemsPanel";
 import { EditPropertySheet } from "@/components/EditPropertySheet";
@@ -13,6 +13,7 @@ import { ImportFromCatalogSheet } from "@/components/ImportFromCatalogSheet";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
 import { AddJobSheet } from "@/components/AddJobSheet";
 import { EditJobSheet } from "@/components/EditJobSheet";
+import { QuickJobSheet } from "@/components/QuickJobSheet";
 import { EditContactSheet } from "@/components/EditContactSheet";
 import { EditPriceItemSheet } from "@/components/EditPriceItemSheet";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
@@ -51,6 +52,7 @@ export default function PropertyDetail() {
   const [importCatalogOpen, setImportCatalogOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
+  const [quickJobOpen, setQuickJobOpen] = useState(false);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const [editContactId, setEditContactId] = useState<string | null>(null);
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
@@ -256,6 +258,14 @@ export default function PropertyDetail() {
           <div className="text-[14px] text-[var(--ink2)] leading-relaxed whitespace-pre-line">{property.brief}</div>
         </div>
       )}
+
+      <button
+        onClick={() => setQuickJobOpen(true)}
+        className="w-full flex items-center justify-center gap-[7px] rounded-[18px] py-[12px] mb-[18px] bg-[var(--primary)] text-[var(--ink)] font-display font-bold text-[14px] shadow-[0_4px_14px_rgba(180,255,68,0.35)] active:scale-[0.98] transition-transform"
+        data-testid="button-property-quickjob"
+      >
+        <Zap className="w-[15px] h-[15px]" strokeWidth={2.5} /> Quick job — build &amp; staff
+      </button>
 
       {([
         ["Active Jobs", activeJobs],
@@ -738,6 +748,7 @@ export default function PropertyDetail() {
         />
       )}
       <AddJobSheet open={jobOpen} onOpenChange={setJobOpen} propertyId={id} />
+      <QuickJobSheet open={quickJobOpen} onOpenChange={setQuickJobOpen} propertyId={id} />
       <InvoiceEditor
         open={!!invoiceJobId}
         onOpenChange={(o) => { if (!o) setInvoiceJobId(null); }}
