@@ -4,7 +4,8 @@ import { LoginDialog } from '@/components/LoginDialog';
 import { useSessionExchange } from '@/hooks/useSessionExchange';
 import { useToast } from '@/hooks/use-toast';
 import { CommandPalette } from '@/components/kanban/CommandPalette';
-import { MapPin, User, Loader2, LayoutGrid, BookOpen, Headphones, Search, LogOut } from 'lucide-react';
+import { MapPin, User, Loader2, LayoutGrid, BookOpen, Headphones, Search, LogOut, MonitorDown } from 'lucide-react';
+import { usePwaInstall } from '@/hooks/use-pwa-install';
 import { useQueryClient } from '@tanstack/react-query';
 import { DashboardTour } from '@/components/DashboardTour';
 import { PresentationMode } from '@/components/PresentationMode';
@@ -50,6 +51,18 @@ function Board() {
   );
   const [birdseyeOpen, setBirdseyeOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const pwaInstall = usePwaInstall();
+
+  const handleInstallClick = async () => {
+    const outcome = await pwaInstall.promptInstall();
+    if (outcome === 'unavailable') {
+      toast({
+        title: 'Add this board as an app',
+        description:
+          'On iPhone/iPad: tap the Share button, then "Add to Home Screen". On Mac Safari: File → Add to Dock. On Chrome or Edge, use the install icon in the address bar.',
+      });
+    }
+  };
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [detailCard, setDetailCard] = useState<any | null>(null);
 
@@ -321,6 +334,18 @@ function Board() {
               onClick={() => setLocation(`/${token}/hub`)}
             >
               <BookOpen className="h-3.5 w-3.5 text-[#FF9500]" /> <span className="hidden sm:inline">Hub</span>
+            </button>
+          )}
+
+          {!pwaInstall.installed && (
+            <button
+              data-testid="button-install-app"
+              onClick={handleInstallClick}
+              className="flex h-8 items-center gap-1.5 rounded-[8px] bg-[#f5f5f7] px-2.5 sm:px-3 text-[#1d1d1f] text-[12px] font-semibold hover:bg-[#e8e8ed] transition-colors"
+              title="Install this board as an app"
+            >
+              <MonitorDown className="h-3.5 w-3.5 text-[#34C759]" />
+              <span className="hidden sm:inline">Install</span>
             </button>
           )}
 
