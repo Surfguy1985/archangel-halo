@@ -13,6 +13,7 @@ import {
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { RequestWorkDialog } from '@/components/RequestWorkDialog';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -174,10 +175,12 @@ function UnitSummarySheet({
   token,
   unitId,
   onOpenChange,
+  onRequestWork,
 }: {
   token: string;
   unitId: string | null;
   onOpenChange: (open: boolean) => void;
+  onRequestWork: (unitLabel: string) => void;
 }) {
   const { data, isLoading } = useGetUnitSummary(token, unitId ?? '', {
     query: {
@@ -216,6 +219,13 @@ function UnitSummarySheet({
             </div>
 
             <div className="p-6 flex-1 flex flex-col gap-6">
+              <Button
+                data-testid="button-unit-request-work"
+                onClick={() => onRequestWork(data.unitLabel)}
+                className="h-11 rounded-[12px] bg-[#d8f84e] text-[#101c33] font-[800] hover:bg-[#c8e83e]"
+              >
+                Request work on {data.unitLabel}
+              </Button>
               {data.summary && (
                 <div className="p-4 rounded-[12px] bg-black/[0.02] border border-black/5">
                   <p className="text-[13px] font-[500] leading-relaxed text-[#101c33]">{data.summary}</p>
@@ -296,6 +306,7 @@ export default function UnitsPage() {
 
   const [editing, setEditing] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
+  const [requestUnit, setRequestUnit] = useState<string | null>(null);
 
   const { data, isLoading, error } = useGetUnitMap(token, {
     query: {
@@ -486,6 +497,17 @@ export default function UnitsPage() {
         token={token}
         unitId={selectedUnit}
         onOpenChange={(open) => !open && setSelectedUnit(null)}
+        onRequestWork={(unitLabel) => {
+          setSelectedUnit(null);
+          setRequestUnit(unitLabel);
+        }}
+      />
+
+      <RequestWorkDialog
+        token={token}
+        open={!!requestUnit}
+        onOpenChange={(open) => !open && setRequestUnit(null)}
+        initialUnits={requestUnit ? [requestUnit] : undefined}
       />
     </motion.div>
   );

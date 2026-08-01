@@ -335,6 +335,7 @@ import type {
   WingsQualityDecisionInput,
   WingsQualityItem,
   WingsReserveSummary,
+  WorkRequestAcceptInput,
   WorkRequestCreateInput,
   WorkRequestDeclineInput,
   WorkRequestRec
@@ -20417,14 +20418,15 @@ export const getAcceptWorkRequestUrl = (id: string,) => {
 /**
  * @summary Accept a work request — auto-creates a job under the property
  */
-export const acceptWorkRequest = async (id: string, options?: RequestInit): Promise<WorkRequestRec> => {
+export const acceptWorkRequest = async (id: string,
+    workRequestAcceptInput?: WorkRequestAcceptInput, options?: RequestInit): Promise<WorkRequestRec> => {
 
   return customFetch<WorkRequestRec>(getAcceptWorkRequestUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workRequestAcceptInput)
   }
 );}
 
@@ -20433,8 +20435,8 @@ export const acceptWorkRequest = async (id: string, options?: RequestInit): Prom
 
 
 export const getAcceptWorkRequestMutationOptions = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptWorkRequest>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof acceptWorkRequest>>, TError,{id: string}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptWorkRequest>>, TError,{id: string;data?: BodyType<WorkRequestAcceptInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acceptWorkRequest>>, TError,{id: string;data?: BodyType<WorkRequestAcceptInput>}, TContext> => {
 
 const mutationKey = ['acceptWorkRequest'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -20446,10 +20448,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acceptWorkRequest>>, {id: string}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acceptWorkRequest>>, {id: string;data?: BodyType<WorkRequestAcceptInput>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  acceptWorkRequest(id,requestOptions)
+          return  acceptWorkRequest(id,data,requestOptions)
         }
 
 
@@ -20460,18 +20462,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type AcceptWorkRequestMutationResult = NonNullable<Awaited<ReturnType<typeof acceptWorkRequest>>>
-
+    export type AcceptWorkRequestMutationBody = BodyType<WorkRequestAcceptInput> | undefined
     export type AcceptWorkRequestMutationError = ErrorType<Error>
 
     /**
  * @summary Accept a work request — auto-creates a job under the property
  */
 export const useAcceptWorkRequest = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptWorkRequest>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptWorkRequest>>, TError,{id: string;data?: BodyType<WorkRequestAcceptInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof acceptWorkRequest>>,
         TError,
-        {id: string},
+        {id: string;data?: BodyType<WorkRequestAcceptInput>},
         TContext
       > => {
       return useMutation(getAcceptWorkRequestMutationOptions(options));

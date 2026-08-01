@@ -528,6 +528,7 @@ export * from './wingsReserveAccount';
 export * from './wingsReserveSummary';
 export * from './wingsReserveSummaryTotals';
 export * from './wingsReserveTxn';
+export * from './workRequestAcceptInput';
 export * from './workRequestCreateInput';
 export * from './workRequestDeclineInput';
 export * from './workRequestRec';

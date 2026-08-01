@@ -1,4 +1,4 @@
-import { useGetToday, useRefreshBrief, useGetQueues, useListActivities, useDismissFeedItem, getGetTodayQueryKey, getGetQueuesQueryKey, getListActivitiesQueryKey} from "@workspace/api-client-react";
+import { useGetToday, useRefreshBrief, useGetQueues, useListActivities, useDismissFeedItem, useAcceptWorkRequest, useDeclineWorkRequest, getGetTodayQueryKey, getGetQueuesQueryKey, getListActivitiesQueryKey, getListWorkRequestsQueryKey, getListJobsQueryKey} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import { Skeleton} from "@/components/ui/skeleton";
 import { Sparkles, ArrowRight, RefreshCw, X, History, ChevronDown} from "lucide-react";
@@ -22,6 +22,8 @@ function entityRoute(entityType?: string | null, entityId?: string | null): stri
       return "/supply";
     case "vendor":
       return "/vendors";
+    case "work_request":
+      return "/pipeline";
     default:
       return null;
  }
@@ -39,6 +41,7 @@ const QUEUE_COLORS: Record<string, QueueColor> = {
   compliance: { text: "text-red-700",      bg: "bg-red-100"},
   leads:      { text: "text-cyan-700",     bg: "bg-cyan-100"},
   followup:   { text: "text-fuchsia-700",  bg: "bg-fuchsia-100"},
+  requests:   { text: "text-indigo-700",   bg: "bg-indigo-100"},
 };
 
 const DEFAULT_QUEUE_COLOR: QueueColor = {
@@ -61,6 +64,10 @@ export default function Today() {
   );
   const refreshBrief = useRefreshBrief();
   const dismissItem = useDismissFeedItem();
+  const acceptRequest = useAcceptWorkRequest();
+  const declineRequest = useDeclineWorkRequest();
+  const [decliningId, setDecliningId] = useState<string | null>(null);
+  const [declineReason, setDeclineReason] = useState("");
   const queryClient = useQueryClient();
   const { toast} = useToast();
   const [, navigate] = useLocation();
@@ -88,6 +95,39 @@ export default function Today() {
       toast({ title: "Cleared"});
    } catch {
       toast({ title: "Failed to clear", variant: "destructive"});
+   }
+ };
+
+  const invalidateRequests = () => {
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getGetQueuesQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getListWorkRequestsQueryKey()});
+    queryClient.invalidateQueries({ queryKey: getListJobsQueryKey()});
+ };
+
+  const handleApprove = async (e: React.MouseEvent, requestId: string) => {
+    e.stopPropagation();
+    if (acceptRequest.isPending) return;
+    try {
+      const rec = await acceptRequest.mutateAsync({ id: requestId, data: {}});
+      toast({ title: `Approved — Job ${rec.jobNo ?? ""} created`.trim()});
+      invalidateRequests();
+      if (rec.jobId) navigate(`/jobs/${rec.jobId}`);
+   } catch {
+      toast({ title: "Failed to approve request", variant: "destructive"});
+   }
+ };
+
+  const handleDecline = async (requestId: string) => {
+    if (declineRequest.isPending) return;
+    try {
+      await declineRequest.mutateAsync({ id: requestId, data: { reason: declineReason.trim() || null}});
+      toast({ title: "Request declined"});
+      setDecliningId(null);
+      setDeclineReason("");
+      invalidateRequests();
+   } catch {
+      toast({ title: "Failed to decline request", variant: "destructive"});
    }
  };
 
@@ -190,6 +230,53 @@ export default function Today() {
                       </div>
                       <h3 className="font-bold text-foreground text-base truncate">{item.title}</h3>
                       <p className="text-muted-foreground text-sm truncate">{item.sub}</p>
+                      {item.entityType === "work_request" && item.entityId && (
+                        <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                          {decliningId === item.entityId ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                value={declineReason}
+                                onChange={(e) => setDeclineReason(e.target.value)}
+                                placeholder="Reason the client will see (optional)"
+                                data-testid={`input-decline-reason-${item.id}`}
+                                className="flex-1 max-w-sm rounded-lg border border-black/10 bg-white px-3 py-1.5 text-sm outline-none focus:border-[var(--secondary)]"
+                              />
+                              <button
+                                onClick={() => void handleDecline(item.entityId!)}
+                                disabled={declineRequest.isPending}
+                                data-testid={`button-confirm-decline-${item.id}`}
+                                className="rounded-full bg-[#FF3B30] px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                              >
+                                Confirm decline
+                              </button>
+                              <button
+                                onClick={() => { setDecliningId(null); setDeclineReason(""); }}
+                                className="rounded-full border border-black/10 px-4 py-1.5 text-xs font-bold"
+                              >
+                                Keep it
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={(e) => void handleApprove(e, item.entityId!)}
+                                disabled={acceptRequest.isPending}
+                                data-testid={`button-approve-${item.id}`}
+                                className="rounded-full bg-[var(--primary)] px-4 py-1.5 text-xs font-bold text-black disabled:opacity-50"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setDecliningId(item.entityId!); setDeclineReason(""); }}
+                                data-testid={`button-decline-${item.id}`}
+                                className="rounded-full border border-black/10 px-4 py-1.5 text-xs font-bold"
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <button

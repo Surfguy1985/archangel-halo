@@ -6359,6 +6359,12 @@ paths:
           in: path
           required: true
           schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkRequestAcceptInput"
       responses:
         "200":
           description: Accepted (jobId/jobNo populated)
@@ -8885,6 +8891,10 @@ components:
               service: { type: string }
               detail: { type: ["string", "null"] }
               unit: { type: ["string", "null"] }
+        unitLabels:
+          type: array
+          items: { type: string }
+          description: "Unit labels from the property's unit map, for the multi-unit picker"
     WorkRequestCreateInput:
       type: object
       required: [serviceLabel]
@@ -8892,9 +8902,24 @@ components:
         serviceId: { type: ["string", "null"], description: "price_items id when picked from the dropdown" }
         serviceLabel: { type: string }
         unitNo: { type: ["string", "null"] }
+        units:
+          type: array
+          items: { type: string }
+          description: "Unit labels this request covers (multi-unit)"
         notes: { type: ["string", "null"] }
         neededBy: { type: ["string", "null"], description: "YYYY-MM-DD complete-by date" }
+        emergency: { type: boolean, description: "Explicit emergency flag (≤24h notice is auto-flagged too)" }
+        photoPaths:
+          type: array
+          items: { type: string }
+          description: "/objects/... storage paths of attached photos"
+        changeOrderJobId: { type: ["string", "null"], description: "Job id when this is a change order on existing work" }
         requesterName: { type: ["string", "null"] }
+    WorkRequestAcceptInput:
+      type: object
+      properties:
+        neededBy: { type: ["string", "null"], description: "Adjusted YYYY-MM-DD complete-by date" }
+        note: { type: ["string", "null"], description: "Office note back to the client about the adjustment" }
     WorkRequestRec:
       type: object
       required: [id, propertyId, propertyName, serviceLabel, status, createdAt]
@@ -8906,10 +8931,20 @@ components:
         serviceId: { type: ["string", "null"] }
         serviceLabel: { type: string }
         unitNo: { type: ["string", "null"] }
+        units:
+          type: array
+          items: { type: string }
         notes: { type: ["string", "null"] }
         neededBy: { type: ["string", "null"] }
+        emergency: { type: boolean }
+        photoUrls:
+          type: array
+          items: { type: string }
+        changeOrderJobId: { type: ["string", "null"] }
+        changeOrderJobNo: { type: ["string", "null"] }
         status: { type: string, description: "pending | accepted | declined" }
         declineReason: { type: ["string", "null"] }
+        adjustNote: { type: ["string", "null"] }
         jobId: { type: ["string", "null"] }
         jobNo: { type: ["string", "null"] }
         decidedAt: { type: ["string", "null"] }

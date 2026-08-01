@@ -15,7 +15,7 @@ import React, { useEffect, useState } from 'react';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CardDetailDialog } from '@/components/kanban/CardDetailDialog';
 import { NewCardSpotlight } from '@/components/NewCardSpotlight';
-import { RequestWorkDialog } from '@/components/RequestWorkDialog';
+import { RequestWorkDialog, type ChangeOrderTarget } from '@/components/RequestWorkDialog';
 import { BirdseyeMapDialog } from '@/components/BirdseyeMapDialog';
 import { AppleBoard, useBoardEvents } from '@workspace/board-ui';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
@@ -69,6 +69,7 @@ function Board() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [detailCard, setDetailCard] = useState<any | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
+  const [changeOrder, setChangeOrder] = useState<ChangeOrderTarget | null>(null);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -529,7 +530,15 @@ function Board() {
 
       <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} token={token} />
 
-      <RequestWorkDialog token={token} open={requestOpen} onOpenChange={setRequestOpen} />
+      <RequestWorkDialog
+        token={token}
+        open={requestOpen}
+        onOpenChange={(open) => {
+          setRequestOpen(open);
+          if (!open) setChangeOrder(null);
+        }}
+        changeOrder={changeOrder}
+      />
 
       <BirdseyeMapDialog
         token={token}
@@ -566,6 +575,12 @@ function Board() {
         card={detailCard ? ((activeBoardData?.cards || []).find((c: any) => c.cardKey === detailCard.cardKey) ?? detailCard) : null}
         onClose={() => setDetailCard(null)}
         readOnly={viewer.readOnly}
+        onRequestChange={(card) => {
+          if (!viewerAuthenticated) { setLoginOpen(true); return; }
+          setDetailCard(null);
+          setChangeOrder({ jobId: card.cardKey.slice('job:'.length), title: card.title });
+          setRequestOpen(true);
+        }}
         onReadOnlyClick={() => {
           if (!viewerAuthenticated) {
             setDetailCard(null);

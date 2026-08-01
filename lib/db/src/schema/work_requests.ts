@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, date, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, date, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 
 // Work requests submitted by property managers from their client dashboard.
 // Pending requests surface in the desktop Pipeline; accepting one creates a
@@ -9,11 +9,16 @@ export const workRequestsTable = pgTable("work_requests", {
   requesterName: text("requester_name"),
   serviceId: uuid("service_id"), // price_items row when picked from dropdown
   serviceLabel: text("service_label").notNull(),
-  unitNo: text("unit_no"),
+  unitNo: text("unit_no"), // legacy single unit; first entry of `units` for new rows
+  units: jsonb("units"), // string[] of unit labels (multi-unit requests)
   notes: text("notes"),
   neededBy: date("needed_by", { mode: "string" }), // complete-by date (local)
+  emergency: boolean("emergency").notNull().default(false), // ≤24h notice or explicit flag
+  photoPaths: jsonb("photo_paths"), // string[] of /objects/... storage paths
+  changeOrderJobId: uuid("change_order_job_id"), // set when this is a change order on an existing job
   status: text("status").notNull().default("pending"), // pending | accepted | declined
   declineReason: text("decline_reason"),
+  adjustNote: text("adjust_note"), // office note back to the client when approved with changes
   jobId: uuid("job_id"), // set when accepted
   decidedAt: timestamp("decided_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })

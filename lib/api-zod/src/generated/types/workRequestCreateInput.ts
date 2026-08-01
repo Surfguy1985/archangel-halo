@@ -15,6 +15,8 @@ export interface WorkRequestCreateInput {
   serviceLabel: string;
   /** @nullable */
   unitNo?: string | null;
+  /** Unit labels this request covers (multi-unit) */
+  units?: string[];
   /** @nullable */
   notes?: string | null;
   /**
@@ -22,6 +24,15 @@ export interface WorkRequestCreateInput {
      * @nullable
      */
   neededBy?: string | null;
+  /** Explicit emergency flag (≤24h notice is auto-flagged too) */
+  emergency?: boolean;
+  /** /objects/... storage paths of attached photos */
+  photoPaths?: string[];
+  /**
+     * Job id when this is a change order on existing work
+     * @nullable
+     */
+  changeOrderJobId?: string | null;
   /** @nullable */
   requesterName?: string | null;
 }

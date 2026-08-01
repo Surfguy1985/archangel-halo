@@ -653,33 +653,58 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   }
 
   // Work request cards -----------------------------------------------------
+  const changeOrderJobNoById = new Map<string, string>();
+  for (const wr of requests) {
+    if (wr.changeOrderJobId) {
+      const src = jobs.find((j) => j.id === wr.changeOrderJobId);
+      if (src) changeOrderJobNoById.set(wr.changeOrderJobId, src.jobNo);
+    }
+  }
   for (const wr of requests) {
     if (wr.status === "accepted") continue; // shows up as a job card instead
     if (wr.status === "declined" && wr.decidedAt && now - new Date(wr.decidedAt).getTime() > 14 * DAY)
       continue;
+    const units = Array.isArray(wr.units)
+      ? (wr.units as unknown[]).filter((u): u is string => typeof u === "string")
+      : [];
+    const photoPaths = Array.isArray(wr.photoPaths)
+      ? (wr.photoPaths as unknown[]).filter((p): p is string => typeof p === "string")
+      : [];
+    const coJobNo = wr.changeOrderJobId
+      ? changeOrderJobNoById.get(wr.changeOrderJobId)
+      : undefined;
+    const subtitleBits = [
+      coJobNo ? `Change on Job ${coJobNo}` : null,
+      units.length > 1 ? `Units ${units.join(", ")}` : null,
+      wr.requesterName ? `Requested by ${wr.requesterName}` : null,
+    ].filter(Boolean);
     cards.push(
       applyOverride({
         cardKey: `request:${wr.id}`,
         template: "request",
-        title: wr.serviceLabel,
-        subtitle: wr.requesterName ? `Requested by ${wr.requesterName}` : null,
+        title: `${wr.emergency ? "🚨 " : ""}${coJobNo ? "Change order: " : ""}${wr.serviceLabel}`,
+        subtitle: subtitleBits.length ? subtitleBits.join(" · ") : null,
         lane: "requested",
         position: 0,
         pipeline: REQUEST_PIPELINE,
         stageIndex: 0,
         status: wr.status,
-        unitNo: wr.unitNo ?? null,
+        unitNo: units.length === 1 ? units[0]! : (wr.unitNo ?? null),
         category: null,
         amount: null,
-        priority: null,
+        // Emergency requests render with urgent treatment on both boards.
+        priority: wr.emergency ? "urgent" : null,
         dueOn: wr.neededBy ?? null,
         scheduledOn: null,
-        description: wr.notes ?? null,
+        description:
+          wr.status === "declined"
+            ? `Declined${wr.declineReason ? `: ${wr.declineReason}` : ""}${wr.notes ? `\n${wr.notes}` : ""}`
+            : wr.notes ?? null,
         notes: null,
         crew: null,
         trackerUrl: null,
         payUrl: null,
-        photos: [],
+        photos: photoPaths.map((p) => ({ url: storageUrl(p), phase: null, note: null })),
         actions:
           wr.status === "pending"
             ? [{ key: "request.cancel", label: "Cancel Request", kind: "secondary", href: null }]

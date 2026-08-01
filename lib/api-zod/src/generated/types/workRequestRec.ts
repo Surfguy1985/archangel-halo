@@ -17,14 +17,23 @@ export interface WorkRequestRec {
   serviceLabel: string;
   /** @nullable */
   unitNo?: string | null;
+  units?: string[];
   /** @nullable */
   notes?: string | null;
   /** @nullable */
   neededBy?: string | null;
+  emergency?: boolean;
+  photoUrls?: string[];
+  /** @nullable */
+  changeOrderJobId?: string | null;
+  /** @nullable */
+  changeOrderJobNo?: string | null;
   /** pending | accepted | declined */
   status: string;
   /** @nullable */
   declineReason?: string | null;
+  /** @nullable */
+  adjustNote?: string | null;
   /** @nullable */
   jobId?: string | null;
   /** @nullable */

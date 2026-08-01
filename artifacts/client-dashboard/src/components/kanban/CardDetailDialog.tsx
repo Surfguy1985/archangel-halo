@@ -15,9 +15,11 @@ interface CardDetailDialogProps {
   readOnly: boolean;
   onReadOnlyClick?: () => void;
   onClose: () => void;
+  /** Open the change-order composer for this job-linked card. */
+  onRequestChange?: (card: ClientBoardCardView) => void;
 }
 
-export function CardDetailDialog({ card, token, readOnly, onClose, onReadOnlyClick }: CardDetailDialogProps) {
+export function CardDetailDialog({ card, token, readOnly, onClose, onReadOnlyClick, onRequestChange }: CardDetailDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const updateCard = useUpdateClientBoardCard();
@@ -158,6 +160,20 @@ export function CardDetailDialog({ card, token, readOnly, onClose, onReadOnlyCli
 
           <div className="px-8 py-6 mt-2 bg-black/[0.015] border-t border-black/5">
             <DialogFooter className="gap-3 sm:gap-0">
+              {onRequestChange && card.cardKey.startsWith('job:') && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  data-testid="button-request-change"
+                  onClick={() => {
+                    if (readOnly) { onReadOnlyClick?.(); return; }
+                    onRequestChange(card);
+                  }}
+                  className="h-10 rounded-xl font-[800] sm:mr-auto"
+                >
+                  Request a change
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={onClose} className="h-10 rounded-xl font-[800]">
                 {isNotesEditable || isFullyEditable ? 'Cancel' : 'Close'}
               </Button>

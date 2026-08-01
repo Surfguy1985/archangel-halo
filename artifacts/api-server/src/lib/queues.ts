@@ -7,6 +7,7 @@ import {
   inventoryItemsTable,
   vendorsTable,
   leadsTable,
+  workRequestsTable,
 } from "@workspace/db";
 import { localToday } from "./localDate";
 
@@ -36,7 +37,7 @@ export async function computeQueues(): Promise<{
   feed: FeedItem[];
   queues: QueueDef[];
 }> {
-  const [invoices, bids, jobs, props, inventory, vendors, leads] =
+  const [invoices, bids, jobs, props, inventory, vendors, leads, workRequests] =
     await Promise.all([
       db.select().from(invoicesTable),
       db.select().from(bidsTable),
@@ -45,6 +46,7 @@ export async function computeQueues(): Promise<{
       db.select().from(inventoryItemsTable),
       db.select().from(vendorsTable),
       db.select().from(leadsTable),
+      db.select().from(workRequestsTable),
     ]);
   const propName = new Map(props.map((p) => [p.id, p.name]));
   const today = localToday();
@@ -70,6 +72,36 @@ export async function computeQueues(): Promise<{
       amount: i.amount,
       meta: [{ label: `${late}d late`, warn: true }],
       actions: [{ label: "Send reminder", action: "remindInvoice", kind: "gold" }],
+    });
+  }
+
+  // Client requests awaiting a decision — approve/decline inline from Today.
+  // Emergencies (≤24h notice) are tier "now"; everything else is "today".
+  const pendingRequests = workRequests.filter((r) => r.status === "pending");
+  for (const r of pendingRequests) {
+    const units = Array.isArray(r.units)
+      ? (r.units as unknown[]).filter((u): u is string => typeof u === "string")
+      : [];
+    const unitLabel = units.length
+      ? `Unit${units.length > 1 ? "s" : ""} ${units.join(", ")}`
+      : r.unitNo
+        ? `Unit ${r.unitNo}`
+        : "";
+    feed.push({
+      id: `wreq-${r.id}`,
+      queue: "requests",
+      tier: r.emergency ? "now" : "today",
+      title: `${r.emergency ? "EMERGENCY: " : r.changeOrderJobId ? "Change order: " : "Client request: "}${r.serviceLabel}`,
+      sub: [propName.get(r.propertyId) ?? "", unitLabel, r.neededBy ? `by ${r.neededBy}` : ""]
+        .filter(Boolean)
+        .join(" · "),
+      entityType: "work_request",
+      entityId: r.id,
+      meta: r.emergency ? [{ label: "≤24h notice", warn: true }] : undefined,
+      actions: [
+        { label: "Approve", action: "approveRequest", kind: "gold" },
+        { label: "Decline", action: "declineRequest", kind: "line" },
+      ],
     });
   }
 
@@ -227,6 +259,7 @@ export async function computeQueues(): Promise<{
   }
 
   const queueMeta: Record<string, { label: string; color: string }> = {
+    requests: { label: "Client requests", color: "gold" },
     money: { label: "Money at risk", color: "danger" },
     margin: { label: "Margin guardian", color: "danger" },
     invoice: { label: "Ready to invoice", color: "gold" },

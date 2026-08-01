@@ -1076,6 +1076,8 @@ export interface ClientRequestOptions {
   /** @nullable */
   logoUrl?: string | null;
   services: ClientRequestOptionsServicesItem[];
+  /** Unit labels from the property's unit map, for the multi-unit picker */
+  unitLabels?: string[];
 }
 
 export interface WorkRequestCreateInput {
@@ -1087,6 +1089,8 @@ export interface WorkRequestCreateInput {
   serviceLabel: string;
   /** @nullable */
   unitNo?: string | null;
+  /** Unit labels this request covers (multi-unit) */
+  units?: string[];
   /** @nullable */
   notes?: string | null;
   /**
@@ -1094,8 +1098,30 @@ export interface WorkRequestCreateInput {
      * @nullable
      */
   neededBy?: string | null;
+  /** Explicit emergency flag (≤24h notice is auto-flagged too) */
+  emergency?: boolean;
+  /** /objects/... storage paths of attached photos */
+  photoPaths?: string[];
+  /**
+     * Job id when this is a change order on existing work
+     * @nullable
+     */
+  changeOrderJobId?: string | null;
   /** @nullable */
   requesterName?: string | null;
+}
+
+export interface WorkRequestAcceptInput {
+  /**
+     * Adjusted YYYY-MM-DD complete-by date
+     * @nullable
+     */
+  neededBy?: string | null;
+  /**
+     * Office note back to the client about the adjustment
+     * @nullable
+     */
+  note?: string | null;
 }
 
 export interface WorkRequestRec {
@@ -1109,14 +1135,23 @@ export interface WorkRequestRec {
   serviceLabel: string;
   /** @nullable */
   unitNo?: string | null;
+  units?: string[];
   /** @nullable */
   notes?: string | null;
   /** @nullable */
   neededBy?: string | null;
+  emergency?: boolean;
+  photoUrls?: string[];
+  /** @nullable */
+  changeOrderJobId?: string | null;
+  /** @nullable */
+  changeOrderJobNo?: string | null;
   /** pending | accepted | declined */
   status: string;
   /** @nullable */
   declineReason?: string | null;
+  /** @nullable */
+  adjustNote?: string | null;
   /** @nullable */
   jobId?: string | null;
   /** @nullable */

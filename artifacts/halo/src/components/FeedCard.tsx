@@ -4,11 +4,16 @@ import {
   useRemindInvoice,
   useNudgeBid,
   useDismissFeedItem,
+  useAcceptWorkRequest,
+  useDeclineWorkRequest,
   getGetTodayQueryKey,
   getListInvoicesQueryKey,
   getListBidsQueryKey,
+  getListWorkRequestsQueryKey,
+  getListJobsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles, ChevronRight, X } from "lucide-react";
@@ -62,6 +67,8 @@ export function entityRoute(entityType?: string | null, entityId?: string | null
       return "/supply";
     case "vendor":
       return "/vendors";
+    case "work_request":
+      return "/pipeline";
     default:
       return null;
   }
@@ -80,6 +87,10 @@ export function FeedCard({
   const remindInvoice = useRemindInvoice();
   const nudgeBid = useNudgeBid();
   const dismissItem = useDismissFeedItem();
+  const acceptRequest = useAcceptWorkRequest();
+  const declineRequest = useDeclineWorkRequest();
+  const [declineOpen, setDeclineOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
 
   const handleDismiss = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -135,6 +146,25 @@ export function FeedCard({
       case "scheduleJob":
       case "openJob": {
         if (card.entityId) navigate(`/jobs/${card.entityId}`);
+        return;
+      }
+      case "approveRequest": {
+        if (!card.entityId) return;
+        try {
+          const rec = await acceptRequest.mutateAsync({ id: card.entityId, data: {} });
+          toast({ title: `Approved — Job ${rec.jobNo ?? ""} created`.trim() });
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListWorkRequestsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
+          // Next step lives on the job: broadcast, schedule, assign.
+          if (rec.jobId) navigate(`/jobs/${rec.jobId}`);
+        } catch (err) {
+          toast({ title: errMessage(err, "Failed to approve request"), variant: "destructive" });
+        }
+        return;
+      }
+      case "declineRequest": {
+        setDeclineOpen((v) => !v);
         return;
       }
       default: {
@@ -206,6 +236,54 @@ export function FeedCard({
                   {a.label}
                 </button>
               ))}
+            </div>
+          )}
+
+          {declineOpen && (
+            <div className="mt-[10px] flex flex-col gap-[8px]" onClick={(e) => e.stopPropagation()}>
+              <textarea
+                value={declineReason}
+                onChange={(e) => setDeclineReason(e.target.value)}
+                rows={2}
+                placeholder="Reason the client will see (optional)"
+                data-testid={`input-decline-reason-${card.id}`}
+                className="w-full rounded-[12px] border border-[var(--hairline)] bg-card px-[12px] py-[8px] text-[13px] outline-none focus:border-[var(--gold)]"
+              />
+              <div className="flex gap-[8px]">
+                <button
+                  disabled={declineRequest.isPending}
+                  data-testid={`button-confirm-decline-${card.id}`}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!card.entityId) return;
+                    try {
+                      await declineRequest.mutateAsync({
+                        id: card.entityId,
+                        data: { reason: declineReason.trim() || null },
+                      });
+                      toast({ title: "Request declined" });
+                      setDeclineOpen(false);
+                      queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+                      queryClient.invalidateQueries({ queryKey: getListWorkRequestsQueryKey() });
+                    } catch (err) {
+                      toast({ title: errMessage(err, "Failed to decline request"), variant: "destructive" });
+                    }
+                  }}
+                  className="rounded-full px-[14px] py-[8px] text-[13px] font-bold bg-[#FF3B30] text-white active:scale-95 disabled:opacity-50 inline-flex items-center gap-[6px]"
+                >
+                  {declineRequest.isPending && <Loader2 className="w-[14px] h-[14px] animate-spin" />}
+                  Confirm decline
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeclineOpen(false);
+                  }}
+                  className="rounded-full px-[14px] py-[8px] text-[13px] font-bold border border-[var(--hairline)] text-[var(--ink)]"
+                >
+                  Keep it
+                </button>
+              </div>
             </div>
           )}
         </div>

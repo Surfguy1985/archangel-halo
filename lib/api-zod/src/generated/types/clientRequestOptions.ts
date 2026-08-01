@@ -12,4 +12,6 @@ export interface ClientRequestOptions {
   /** @nullable */
   logoUrl?: string | null;
   services: ClientRequestOptionsServicesItem[];
+  /** Unit labels from the property's unit map, for the multi-unit picker */
+  unitLabels?: string[];
 }

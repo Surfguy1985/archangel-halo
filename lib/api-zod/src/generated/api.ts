@@ -8547,7 +8547,8 @@ export const GetClientRequestOptionsResponse = zod.object({
   "service": zod.string(),
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish()
-}))
+})),
+  "unitLabels": zod.array(zod.string()).optional().describe('Unit labels from the property\'s unit map, for the multi-unit picker')
 })
 
 
@@ -8562,8 +8563,12 @@ export const CreateClientWorkRequestBody = zod.object({
   "serviceId": zod.string().nullish().describe('price_items id when picked from the dropdown'),
   "serviceLabel": zod.string(),
   "unitNo": zod.string().nullish(),
+  "units": zod.array(zod.string()).optional().describe('Unit labels this request covers (multi-unit)'),
   "notes": zod.string().nullish(),
   "neededBy": zod.string().nullish().describe('YYYY-MM-DD complete-by date'),
+  "emergency": zod.boolean().optional().describe('Explicit emergency flag (≤24h notice is auto-flagged too)'),
+  "photoPaths": zod.array(zod.string()).optional().describe('\/objects\/... storage paths of attached photos'),
+  "changeOrderJobId": zod.string().nullish().describe('Job id when this is a change order on existing work'),
   "requesterName": zod.string().nullish()
 })
 
@@ -8575,10 +8580,16 @@ export const CreateClientWorkRequestResponse = zod.object({
   "serviceId": zod.string().nullish(),
   "serviceLabel": zod.string(),
   "unitNo": zod.string().nullish(),
+  "units": zod.array(zod.string()).optional(),
   "notes": zod.string().nullish(),
   "neededBy": zod.string().nullish(),
+  "emergency": zod.boolean().optional(),
+  "photoUrls": zod.array(zod.string()).optional(),
+  "changeOrderJobId": zod.string().nullish(),
+  "changeOrderJobNo": zod.string().nullish(),
   "status": zod.string().describe('pending | accepted | declined'),
   "declineReason": zod.string().nullish(),
+  "adjustNote": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
   "decidedAt": zod.string().nullish(),
@@ -8601,10 +8612,16 @@ export const ListWorkRequestsResponseItem = zod.object({
   "serviceId": zod.string().nullish(),
   "serviceLabel": zod.string(),
   "unitNo": zod.string().nullish(),
+  "units": zod.array(zod.string()).optional(),
   "notes": zod.string().nullish(),
   "neededBy": zod.string().nullish(),
+  "emergency": zod.boolean().optional(),
+  "photoUrls": zod.array(zod.string()).optional(),
+  "changeOrderJobId": zod.string().nullish(),
+  "changeOrderJobNo": zod.string().nullish(),
   "status": zod.string().describe('pending | accepted | declined'),
   "declineReason": zod.string().nullish(),
+  "adjustNote": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
   "decidedAt": zod.string().nullish(),
@@ -8620,6 +8637,11 @@ export const AcceptWorkRequestParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const AcceptWorkRequestBody = zod.object({
+  "neededBy": zod.string().nullish().describe('Adjusted YYYY-MM-DD complete-by date'),
+  "note": zod.string().nullish().describe('Office note back to the client about the adjustment')
+})
+
 export const AcceptWorkRequestResponse = zod.object({
   "id": zod.string(),
   "propertyId": zod.string(),
@@ -8628,10 +8650,16 @@ export const AcceptWorkRequestResponse = zod.object({
   "serviceId": zod.string().nullish(),
   "serviceLabel": zod.string(),
   "unitNo": zod.string().nullish(),
+  "units": zod.array(zod.string()).optional(),
   "notes": zod.string().nullish(),
   "neededBy": zod.string().nullish(),
+  "emergency": zod.boolean().optional(),
+  "photoUrls": zod.array(zod.string()).optional(),
+  "changeOrderJobId": zod.string().nullish(),
+  "changeOrderJobNo": zod.string().nullish(),
   "status": zod.string().describe('pending | accepted | declined'),
   "declineReason": zod.string().nullish(),
+  "adjustNote": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
   "decidedAt": zod.string().nullish(),
@@ -8658,10 +8686,16 @@ export const DeclineWorkRequestResponse = zod.object({
   "serviceId": zod.string().nullish(),
   "serviceLabel": zod.string(),
   "unitNo": zod.string().nullish(),
+  "units": zod.array(zod.string()).optional(),
   "notes": zod.string().nullish(),
   "neededBy": zod.string().nullish(),
+  "emergency": zod.boolean().optional(),
+  "photoUrls": zod.array(zod.string()).optional(),
+  "changeOrderJobId": zod.string().nullish(),
+  "changeOrderJobNo": zod.string().nullish(),
   "status": zod.string().describe('pending | accepted | declined'),
   "declineReason": zod.string().nullish(),
+  "adjustNote": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
   "decidedAt": zod.string().nullish(),
