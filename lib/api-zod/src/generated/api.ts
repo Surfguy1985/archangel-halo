@@ -9713,7 +9713,9 @@ export const GetOfficeBoardHistoryResponse = zod.object({
   "summary": zod.string().nullish(),
   "frequency": zod.string().describe('one_time | recurring'),
   "clearedBy": zod.string().nullish(),
-  "clearedAt": zod.string()
+  "clearedAt": zod.string(),
+  "restoredBy": zod.string().nullish(),
+  "restoredAt": zod.string().nullish()
 }))
 })
 
