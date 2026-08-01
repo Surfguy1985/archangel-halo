@@ -11,6 +11,9 @@ import {
   clientDashboardCardsTable,
   clientDashboardActionsTable,
   clientBoardCardsTable,
+  clientCardHistoryTable,
+  paymentsTable,
+  invoiceLineItemsTable,
   propertiesTable,
   propertyUnitsTable,
   jobsTable,
@@ -42,6 +45,8 @@ import {
   SendClientCardToOfficeResponse,
   ListClientBoardNotificationsResponse,
   GetClientBoardKpisResponse,
+  ClearClientBoardCardResponse,
+  GetClientBoardHistoryResponse,
 } from "@workspace/api-zod";
 import { effectivePermissions } from "./clientAccess";
 import { completeJson } from "../lib/ai";
@@ -775,7 +780,12 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   }
 
   cards.sort((a, b) => (a.position as number) - (b.position as number));
-  return cards.map(decorateWaybill);
+  // Cards the client cleared into history stay hidden — for every card family
+  // (HALO-fed, pushed, custom) the clear is stored as an archived row.
+  const clearedKeys = new Set(
+    boardRows.filter((r) => r.archived).map((r) => r.cardKey),
+  );
+  return cards.filter((c) => !clearedKeys.has(c.cardKey)).map(decorateWaybill);
 }
 
 // The client's own property-management board: only their cards, no HALO feed.
@@ -1748,6 +1758,375 @@ router.post(
     );
   },
 );
+
+// ---------------------------------------------------------------------------
+// Clear-to-history: the little trash icon. Snapshot the card, hide it from
+// the board, keep everything queryable in the History tab + CSV export.
+// ---------------------------------------------------------------------------
+type HistorySnapshot = {
+  title: string;
+  template: string | null;
+  status: "completed" | "paid" | "cleared";
+  amountPaid: number;
+  unitLabel: string | null;
+  jobLabel: string | null;
+  summary: string | null;
+  frequency: "one_time" | "recurring";
+};
+
+async function paidTotalForInvoice(inv: typeof invoicesTable.$inferSelect): Promise<number> {
+  if (inv.status === "paid") return inv.amount + (inv.taxAmount ?? 0);
+  const rows = await db
+    .select({ total: sql<number>`coalesce(sum(${paymentsTable.amount}), 0)::float` })
+    .from(paymentsTable)
+    .where(eq(paymentsTable.invoiceId, inv.id));
+  return rows[0]?.total ?? 0;
+}
+
+async function snapshotForClear(
+  propertyId: string,
+  cardKey: string,
+  fallbackTitle: string | null,
+): Promise<HistorySnapshot | null> {
+  const jobSnapshot = async (jobId: string, template: string): Promise<HistorySnapshot | null> => {
+    const [job] = await db
+      .select()
+      .from(jobsTable)
+      .where(and(eq(jobsTable.id, jobId), eq(jobsTable.propertyId, propertyId)))
+      .limit(1);
+    if (!job) return null;
+    const invs = await db
+      .select()
+      .from(invoicesTable)
+      .where(and(eq(invoicesTable.jobId, job.id), eq(invoicesTable.propertyId, propertyId)));
+    let paid = 0;
+    for (const inv of invs) paid += await paidTotalForInvoice(inv);
+    const done = job.status === "complete" || job.status === "paid";
+    return {
+      title: job.description || `${job.category ?? "Job"} ${job.jobNo}`,
+      template,
+      status: paid > 0 ? "paid" : done ? "completed" : "cleared",
+      amountPaid: paid,
+      unitLabel: job.unitNo ?? null,
+      jobLabel: `Job ${job.jobNo}`,
+      summary: job.description ?? null,
+      frequency: job.isRecurring ? "recurring" : "one_time",
+    };
+  };
+
+  if (cardKey.startsWith("job:")) return jobSnapshot(cardKey.slice(4), "job");
+  if (cardKey.startsWith("crew:")) return jobSnapshot(cardKey.slice(5), "crew");
+
+  if (cardKey.startsWith("invoice:")) {
+    const [inv] = await db
+      .select()
+      .from(invoicesTable)
+      .where(and(eq(invoicesTable.id, cardKey.slice(8)), eq(invoicesTable.propertyId, propertyId)))
+      .limit(1);
+    if (!inv) return null;
+    const paid = await paidTotalForInvoice(inv);
+    const lines = await db
+      .select()
+      .from(invoiceLineItemsTable)
+      .where(eq(invoiceLineItemsTable.invoiceId, inv.id));
+    const units = [...new Set(lines.map((l) => l.unitNo).filter((u): u is string => !!u))];
+    let jobLabel: string | null = null;
+    let recurring = false;
+    if (inv.jobId) {
+      const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, inv.jobId)).limit(1);
+      if (job) {
+        jobLabel = `Job ${job.jobNo}`;
+        recurring = !!job.isRecurring;
+      }
+    }
+    return {
+      title: `Invoice ${inv.invoiceNo}`,
+      template: "invoice",
+      status: inv.status === "paid" ? "paid" : "cleared",
+      amountPaid: paid,
+      unitLabel: units.join(", ") || null,
+      jobLabel,
+      summary: inv.notes ?? lines[0]?.description ?? null,
+      frequency: recurring ? "recurring" : "one_time",
+    };
+  }
+
+  if (cardKey.startsWith("request:")) {
+    const [reqRow] = await db
+      .select()
+      .from(workRequestsTable)
+      .where(and(eq(workRequestsTable.id, cardKey.slice(8)), eq(workRequestsTable.propertyId, propertyId)))
+      .limit(1);
+    if (!reqRow) return null;
+    return {
+      title: reqRow.serviceLabel,
+      template: "request",
+      status: reqRow.status === "accepted" ? "completed" : "cleared",
+      amountPaid: 0,
+      unitLabel: reqRow.unitNo ?? null,
+      jobLabel: null,
+      summary: reqRow.notes ?? null,
+      frequency: "one_time",
+    };
+  }
+
+  if (cardKey.startsWith("push:")) {
+    const [row] = await db
+      .select()
+      .from(clientBoardCardsTable)
+      .where(and(eq(clientBoardCardsTable.id, cardKey.slice(5)), eq(clientBoardCardsTable.propertyId, propertyId)))
+      .limit(1);
+    if (!row) return null;
+    return {
+      title: row.title,
+      template: `push_${row.kind}`,
+      status: row.column === "done" ? "completed" : "cleared",
+      amountPaid: 0,
+      unitLabel: null,
+      jobLabel: null,
+      summary: row.body ?? null,
+      frequency: "one_time",
+    };
+  }
+
+  if (cardKey.startsWith("custom:")) {
+    const [row] = await db
+      .select()
+      .from(clientDashboardCardsTable)
+      .where(
+        and(
+          eq(clientDashboardCardsTable.propertyId, propertyId),
+          eq(clientDashboardCardsTable.cardKey, cardKey),
+        ),
+      )
+      .limit(1);
+    if (!row) return null;
+    return {
+      title: row.title ?? "Card",
+      template: row.template ?? "custom",
+      status: row.lane === "done" ? "completed" : "cleared",
+      amountPaid: 0,
+      unitLabel: null,
+      jobLabel: null,
+      summary: row.description ?? null,
+      frequency: "one_time",
+    };
+  }
+
+  if (!fallbackTitle) return null;
+  return {
+    title: fallbackTitle,
+    template: null,
+    status: "cleared",
+    amountPaid: 0,
+    unitLabel: null,
+    jobLabel: null,
+    summary: null,
+    frequency: "one_time",
+  };
+}
+
+function historyDto(row: typeof clientCardHistoryTable.$inferSelect) {
+  return {
+    id: row.id,
+    cardKey: row.cardKey,
+    title: row.title,
+    template: row.template,
+    status: row.status,
+    amountPaid: row.amountPaid,
+    unitLabel: row.unitLabel,
+    jobLabel: row.jobLabel,
+    summary: row.summary,
+    frequency: row.frequency,
+    clearedBy: row.clearedBy,
+    clearedAt: row.clearedAt.toISOString(),
+  };
+}
+
+// Only real board card families can be cleared — anything else is a 404, so
+// the endpoint can't be used to mint synthetic history rows.
+const CLEARABLE_KEY = /^(job|crew|invoice|request|push|custom):[\w:.-]{1,80}$/;
+
+router.post(
+  "/client/:token/board/cards/:cardKey/clear",
+  limits.cardAction,
+  async (req, res): Promise<void> => {
+    const account = await accountByToken(String(req.params.token));
+    if (!account) {
+      res.status(404).json({ error: "Invalid link" });
+      return;
+    }
+    const viewer = await resolveViewer(req, account.propertyId);
+    const denied = requireWriter(viewer);
+    if (denied) {
+      res.status(403).json({ error: denied });
+      return;
+    }
+    const cardKey = String(req.params.cardKey);
+    if (!CLEARABLE_KEY.test(cardKey)) {
+      res.status(404).json({ error: "Card not found" });
+      return;
+    }
+    const snap = await snapshotForClear(account.propertyId, cardKey, null);
+    if (!snap) {
+      res.status(404).json({ error: "Card not found" });
+      return;
+    }
+    const result = await db.transaction(async (tx) => {
+      // Idempotency: if this card is already archived, return the existing
+      // history entry instead of inserting a duplicate (double-tap safe).
+      const [already] = await tx
+        .select()
+        .from(clientDashboardCardsTable)
+        .where(
+          and(
+            eq(clientDashboardCardsTable.propertyId, account.propertyId),
+            eq(clientDashboardCardsTable.cardKey, cardKey),
+          ),
+        )
+        .limit(1)
+        .for("update");
+      if (already?.archived) {
+        const [prev] = await tx
+          .select()
+          .from(clientCardHistoryTable)
+          .where(
+            and(
+              eq(clientCardHistoryTable.propertyId, account.propertyId),
+              eq(clientCardHistoryTable.cardKey, cardKey),
+            ),
+          )
+          .orderBy(desc(clientCardHistoryTable.clearedAt))
+          .limit(1);
+        if (prev) return { entry: prev, duplicate: true };
+      }
+      const inserted = await tx
+        .insert(clientCardHistoryTable)
+        .values({
+          propertyId: account.propertyId,
+          cardKey,
+          title: snap.title,
+          template: snap.template,
+          status: snap.status,
+          amountPaid: snap.amountPaid,
+          unitLabel: snap.unitLabel,
+          jobLabel: snap.jobLabel,
+          summary: snap.summary,
+          frequency: snap.frequency,
+          clearedBy: viewer.name ?? null,
+        })
+        .returning();
+      // Hide the card: custom cards archive their own row; every other card
+      // family stores the clear as an archived override keyed by cardKey.
+      const [existing] = await tx
+        .select()
+        .from(clientDashboardCardsTable)
+        .where(
+          and(
+            eq(clientDashboardCardsTable.propertyId, account.propertyId),
+            eq(clientDashboardCardsTable.cardKey, cardKey),
+          ),
+        )
+        .limit(1);
+      if (existing) {
+        await tx
+          .update(clientDashboardCardsTable)
+          .set({ archived: true, updatedAt: new Date() })
+          .where(eq(clientDashboardCardsTable.id, existing.id));
+      } else {
+        await tx.insert(clientDashboardCardsTable).values({
+          propertyId: account.propertyId,
+          cardKey,
+          kind: "override",
+          archived: true,
+        });
+      }
+      return { entry: inserted[0]!, duplicate: false };
+    });
+    if (!result.duplicate) {
+      await db.insert(clientDashboardActionsTable).values({
+        propertyId: account.propertyId,
+        action: "card.clear",
+        cardKey,
+        actorName: viewer.name,
+        actorRole: viewer.authenticated ? viewer.role : "guest",
+        ok: true,
+        blocked: false,
+      });
+      emitBoardEvent(account.propertyId, "dashboard");
+    }
+    res.json(ClearClientBoardCardResponse.parse(historyDto(result.entry)));
+  },
+);
+
+router.get("/client/:token/board/history", async (req, res): Promise<void> => {
+  const account = await accountByToken(String(req.params.token));
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const rows = await db
+    .select()
+    .from(clientCardHistoryTable)
+    .where(eq(clientCardHistoryTable.propertyId, account.propertyId))
+    .orderBy(desc(clientCardHistoryTable.clearedAt))
+    .limit(500);
+  res.json(GetClientBoardHistoryResponse.parse({ entries: rows.map(historyDto) }));
+});
+
+// CSV export — flat rows plus totals categorized by unit, job, and frequency.
+router.get("/client/:token/board/history.csv", async (req, res): Promise<void> => {
+  const account = await accountByToken(String(req.params.token));
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const rows = await db
+    .select()
+    .from(clientCardHistoryTable)
+    .where(eq(clientCardHistoryTable.propertyId, account.propertyId))
+    .orderBy(desc(clientCardHistoryTable.clearedAt));
+  const esc = (v: unknown): string => {
+    let s = v == null ? "" : String(v);
+    // Neutralize spreadsheet formula injection (=, +, -, @, tab/CR prefixes).
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const money = (n: number) => n.toFixed(2);
+  const lines: string[] = [];
+  lines.push("Date cleared,Card,Status,Amount paid,Unit,Job,Summary,Frequency");
+  for (const r of rows) {
+    lines.push(
+      [
+        r.clearedAt.toISOString().slice(0, 10),
+        esc(r.title),
+        r.status,
+        money(r.amountPaid),
+        esc(r.unitLabel),
+        esc(r.jobLabel),
+        esc(r.summary),
+        r.frequency === "recurring" ? "Recurring" : "One time",
+      ].join(","),
+    );
+  }
+  const sumBy = (key: (r: (typeof rows)[number]) => string) => {
+    const m = new Map<string, number>();
+    for (const r of rows) m.set(key(r), (m.get(key(r)) ?? 0) + r.amountPaid);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  };
+  lines.push("", "Amounts paid by unit");
+  for (const [k, v] of sumBy((r) => r.unitLabel || "No unit")) lines.push(`${esc(k)},${money(v)}`);
+  lines.push("", "Amounts paid by job");
+  for (const [k, v] of sumBy((r) => r.jobLabel || "No job")) lines.push(`${esc(k)},${money(v)}`);
+  lines.push("", "Amounts paid by frequency");
+  for (const [k, v] of sumBy((r) => (r.frequency === "recurring" ? "Recurring" : "One time")))
+    lines.push(`${esc(k)},${money(v)}`);
+  lines.push("", "Amounts paid by status");
+  for (const [k, v] of sumBy((r) => r.status)) lines.push(`${esc(k)},${money(v)}`);
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="board-history.csv"');
+  res.send(lines.join("\n"));
+});
 
 router.post("/client/:token/board/actions", async (req, res): Promise<void> => {
   const parsed = DispatchClientBoardActionBody.safeParse(req.body);

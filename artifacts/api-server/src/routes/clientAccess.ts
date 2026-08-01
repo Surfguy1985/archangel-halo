@@ -19,6 +19,11 @@ import {
   GetClientAccessResponse,
   UpdateClientAccessUserBody,
   UpdateClientAccessUserResponse,
+  SetupClientAccessBody,
+  SetupClientAccessResponse,
+  CreateClientAccessUserBody,
+  CreateClientAccessUserResponse,
+  DeleteClientAccessUserResponse,
   GetClientBillingResponse,
   UpdateClientBillingBody,
   PutClientPaymentMethodBody,
@@ -45,6 +50,7 @@ import { randomUUID } from "node:crypto";
 import { attachBoardStream, emitBoardEvent } from "../lib/boardEvents";
 import { raiseClientCard, webhookUrlProblem, ACTION_STATE_KEYS } from "../lib/clientBoard";
 import { resolveViewer, notifyClientBoard } from "./clientBoard";
+import { hashPassword, newTempPassword, emailCredentials } from "./admin";
 import {
   buildInvoiceModule,
   buildInvoiceBatchModule,
@@ -145,6 +151,16 @@ router.get("/client/:token/access", async (req, res): Promise<void> => {
     .select()
     .from(clientUsersTable)
     .where(eq(clientUsersTable.propertyId, account.propertyId));
+  // The roster (names, emails, roles) is admin-only once the board is claimed;
+  // an unclaimed board (zero logins) returns the empty roster so the client
+  // can run first-time setup from the raw link.
+  if (users.length > 0) {
+    const admin = await requireAdmin(req, account.propertyId);
+    if (!admin) {
+      res.status(403).json({ error: "Only a signed-in admin can view the team" });
+      return;
+    }
+  }
   users.sort((a, b) => a.name.localeCompare(b.name));
   res.json(
     GetClientAccessResponse.parse({
@@ -153,8 +169,245 @@ router.get("/client/:token/access", async (req, res): Promise<void> => {
       features: CLIENT_FEATURES,
       roleDefaults: ROLE_DEFAULTS,
       users: users.map(serUser),
+      seats: seatUsage(account, users),
     }),
   );
+});
+
+function seatUsage(
+  account: { tier: string; userSeats: number; guestSeats: number },
+  users: Array<{ active: boolean; role: string }>,
+) {
+  return {
+    tier: account.tier,
+    userSeats: account.userSeats,
+    guestSeats: account.guestSeats,
+    usedSeats: users.filter((u) => u.active && u.role !== "guest").length,
+    usedGuestSeats: users.filter((u) => u.active && u.role === "guest").length,
+  };
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Team-management writes require a signed-in ADMIN of this board — the raw
+// dashboard link alone can't add or remove logins.
+async function requireAdmin(req: Parameters<typeof resolveViewer>[0], propertyId: string) {
+  const viewer = await resolveViewer(req, propertyId);
+  if (!viewer.authenticated || viewer.role !== "admin") return null;
+  return viewer;
+}
+
+// ---------------------------------------------------------------------------
+// First-time setup — an unclaimed board (zero logins) can be claimed by
+// whoever holds the dashboard link: they create the initial admin login.
+// ---------------------------------------------------------------------------
+router.post("/client/:token/access/setup", limits.login, async (req, res): Promise<void> => {
+  const parsed = SetupClientAccessBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Name, email, and a password (8+ characters) are required" });
+    return;
+  }
+  const account = await accountByToken(String(req.params.token));
+  if (!account || account.status !== "active") {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const name = parsed.data.name.trim();
+  const email = parsed.data.email.trim().toLowerCase();
+  if (!name || !EMAIL_RE.test(email)) {
+    res.status(400).json({ error: "A name and a valid email are required" });
+    return;
+  }
+  if (parsed.data.password.length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters" });
+    return;
+  }
+  let created: typeof clientUsersTable.$inferSelect;
+  try {
+    created = await db.transaction(async (tx) => {
+      const existing = await tx
+        .select()
+        .from(clientUsersTable)
+        .where(eq(clientUsersTable.propertyId, account.propertyId))
+        .for("update");
+      if (existing.length > 0) throw new SeatError("This board is already set up — sign in instead");
+      const [row] = await tx
+        .insert(clientUsersTable)
+        .values({
+          propertyId: account.propertyId,
+          name,
+          email,
+          role: "admin",
+          passwordHash: hashPassword(parsed.data.password),
+        })
+        .returning();
+      return row!;
+    });
+  } catch (e) {
+    if (e instanceof SeatError) {
+      res.status(409).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+  await db.insert(activitiesTable).values({
+    entityType: "property",
+    entityId: account.propertyId,
+    kind: "note",
+    body: `Client board claimed — first admin login created for ${created.name} (${created.email})`,
+  });
+  res.json(SetupClientAccessResponse.parse(serUser(created)));
+});
+
+// ---------------------------------------------------------------------------
+// Client admin invites a team member. Seat-guarded like the office route.
+// ---------------------------------------------------------------------------
+router.post("/client/:token/access/users", limits.cardAction, async (req, res): Promise<void> => {
+  const parsed = CreateClientAccessUserBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Name, email, and role are required" });
+    return;
+  }
+  const account = await accountByToken(String(req.params.token));
+  if (!account || account.status !== "active") {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const admin = await requireAdmin(req, account.propertyId);
+  if (!admin) {
+    res.status(403).json({ error: "Only a signed-in admin can add team members" });
+    return;
+  }
+  const name = parsed.data.name.trim();
+  const email = parsed.data.email.trim().toLowerCase();
+  const role = parsed.data.role;
+  if (!name || !EMAIL_RE.test(email)) {
+    res.status(400).json({ error: "A name and a valid email are required" });
+    return;
+  }
+  if (!ROLES.has(role)) {
+    res.status(400).json({ error: "Role must be admin, member, or guest" });
+    return;
+  }
+  const customPassword = parsed.data.password?.trim() || null;
+  if (customPassword && customPassword.length < 8) {
+    res.status(400).json({ error: "Password must be at least 8 characters" });
+    return;
+  }
+  const tempPassword = customPassword ?? newTempPassword();
+  let created: typeof clientUsersTable.$inferSelect;
+  try {
+    created = await db.transaction(async (tx) => {
+      const users = await tx
+        .select()
+        .from(clientUsersTable)
+        .where(eq(clientUsersTable.propertyId, account.propertyId))
+        .for("update");
+      if (users.some((u) => u.email.toLowerCase() === email)) {
+        throw new SeatError("A login with that email already exists");
+      }
+      const activeSeated = users.filter((u) => u.active && u.role !== "guest").length;
+      const activeGuests = users.filter((u) => u.active && u.role === "guest").length;
+      if (role !== "guest" && activeSeated >= account.userSeats) {
+        throw new SeatError(
+          `All ${account.userSeats} user seats are taken — upgrade your plan for more seats`,
+        );
+      }
+      if (role === "guest" && activeGuests >= account.guestSeats) {
+        throw new SeatError(
+          `All ${account.guestSeats} guest seats are taken — upgrade your plan for more seats`,
+        );
+      }
+      const [row] = await tx
+        .insert(clientUsersTable)
+        .values({
+          propertyId: account.propertyId,
+          name,
+          email,
+          role,
+          passwordHash: hashPassword(tempPassword),
+        })
+        .returning();
+      return row!;
+    });
+  } catch (e) {
+    if (e instanceof SeatError) {
+      res.status(409).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+  let emailed = false;
+  if (parsed.data.sendEmail) {
+    emailed = await emailCredentials(created, tempPassword, account);
+  }
+  await db.insert(activitiesTable).values({
+    entityType: "property",
+    entityId: account.propertyId,
+    kind: "note",
+    body: `Client admin ${admin.name ?? "?"} added a ${role} login for ${name} (${email})`,
+  });
+  res.status(201).json(
+    CreateClientAccessUserResponse.parse({
+      user: serUser(created),
+      // Custom passwords are never echoed back; auto-generated ones are shown once.
+      tempPassword: customPassword ? null : tempPassword,
+      emailed,
+    }),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Client admin removes a login. Guards: not yourself, not the last admin.
+// ---------------------------------------------------------------------------
+router.delete("/client/:token/access/:userId", async (req, res): Promise<void> => {
+  const account = await accountByToken(String(req.params.token));
+  if (!account || account.status !== "active") {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const admin = await requireAdmin(req, account.propertyId);
+  if (!admin) {
+    res.status(403).json({ error: "Only a signed-in admin can remove team members" });
+    return;
+  }
+  const userId = String(req.params.userId);
+  if (admin.user && admin.user.id === userId) {
+    res.status(400).json({ error: "You can't delete your own login" });
+    return;
+  }
+  try {
+    await db.transaction(async (tx) => {
+      const users = await tx
+        .select()
+        .from(clientUsersTable)
+        .where(eq(clientUsersTable.propertyId, account.propertyId))
+        .for("update");
+      const target = users.find((u) => u.id === userId);
+      if (!target) throw new SeatError("__notfound__");
+      const otherAdmins = users.filter(
+        (u) => u.id !== userId && u.active && u.role === "admin",
+      ).length;
+      if (target.role === "admin" && otherAdmins === 0) {
+        throw new SeatError("The board needs at least one admin — promote someone else first");
+      }
+      await tx.delete(clientUsersTable).where(eq(clientUsersTable.id, userId));
+    });
+  } catch (e) {
+    if (e instanceof SeatError) {
+      if (e.message === "__notfound__") res.status(404).json({ error: "User not found" });
+      else res.status(400).json({ error: e.message });
+      return;
+    }
+    throw e;
+  }
+  await db.insert(activitiesTable).values({
+    entityType: "property",
+    entityId: account.propertyId,
+    kind: "note",
+    body: `Client admin ${admin.name ?? "?"} removed a dashboard login`,
+  });
+  res.json(DeleteClientAccessUserResponse.parse({ ok: true }));
 });
 
 router.patch(
@@ -197,6 +450,22 @@ router.patch(
         return;
       }
     }
+    // Every team edit — roles, permissions, active, passwords — requires a
+    // signed-in admin. The raw dashboard link alone can't change logins.
+    const actingAdmin = await requireAdmin(req, account.propertyId);
+    if (!actingAdmin) {
+      res.status(403).json({ error: "Only a signed-in admin can change logins" });
+      return;
+    }
+    if (body.active === false && actingAdmin.user?.id === user.id) {
+      res.status(400).json({ error: "You can't deactivate your own login" });
+      return;
+    }
+    if (body.newPassword && body.newPassword.length < 8) {
+      res.status(400).json({ error: "Password must be at least 8 characters" });
+      return;
+    }
+    const nextActive = body.active ?? user.active;
     const nextRole = body.role ?? user.role;
     const nextPermissions = body.resetToRoleDefaults
       ? null
@@ -210,32 +479,50 @@ router.patch(
     let updated: typeof clientUsersTable.$inferSelect | undefined;
     try {
       updated = await db.transaction(async (tx) => {
-        if (body.role && body.role !== user.role && user.active) {
+        const takesSeat =
+          (body.role && body.role !== user.role && nextActive) ||
+          (body.active === true && !user.active);
+        const losesAdmin =
+          user.role === "admin" && user.active && (nextRole !== "admin" || !nextActive);
+        if (takesSeat || losesAdmin) {
           const others = await tx
             .select()
             .from(clientUsersTable)
             .where(eq(clientUsersTable.propertyId, account.propertyId))
             .for("update");
-          const activeSeated = others.filter(
-            (u) => u.id !== user.id && u.active && u.role !== "guest",
-          ).length;
-          const activeGuests = others.filter(
-            (u) => u.id !== user.id && u.active && u.role === "guest",
-          ).length;
-          if (nextRole !== "guest" && activeSeated >= account.userSeats) {
-            throw new SeatError(
-              `All ${account.userSeats} user seats are taken — ask us to raise the seat count`,
-            );
+          if (
+            losesAdmin &&
+            others.filter((u) => u.id !== user.id && u.active && u.role === "admin").length === 0
+          ) {
+            throw new SeatError("The board needs at least one admin — promote someone else first");
           }
-          if (nextRole === "guest" && activeGuests >= account.guestSeats) {
-            throw new SeatError(
-              `All ${account.guestSeats} guest seats are taken — ask us to raise the seat count`,
-            );
+          if (takesSeat) {
+            const activeSeated = others.filter(
+              (u) => u.id !== user.id && u.active && u.role !== "guest",
+            ).length;
+            const activeGuests = others.filter(
+              (u) => u.id !== user.id && u.active && u.role === "guest",
+            ).length;
+            if (nextRole !== "guest" && activeSeated >= account.userSeats) {
+              throw new SeatError(
+                `All ${account.userSeats} user seats are taken — upgrade your plan for more seats`,
+              );
+            }
+            if (nextRole === "guest" && activeGuests >= account.guestSeats) {
+              throw new SeatError(
+                `All ${account.guestSeats} guest seats are taken — upgrade your plan for more seats`,
+              );
+            }
           }
         }
         const [row] = await tx
           .update(clientUsersTable)
-          .set({ role: nextRole, permissions: nextPermissions })
+          .set({
+            role: nextRole,
+            permissions: nextPermissions,
+            active: nextActive,
+            ...(body.newPassword ? { passwordHash: hashPassword(body.newPassword) } : {}),
+          })
           .where(eq(clientUsersTable.id, user.id))
           .returning();
         return row;

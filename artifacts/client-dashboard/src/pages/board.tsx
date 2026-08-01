@@ -1,10 +1,11 @@
 import { useLocation, useParams } from 'wouter';
-import { useGetClientBoard, useMarkClientBoardTourSeen, useDispatchClientBoardAction, useCreateClientBoardCard, useCreateClientBoardAiCard, useGetClientPmBoard, getGetClientPmBoardQueryKey } from '@workspace/api-client-react';
+import { useGetClientBoard, useMarkClientBoardTourSeen, useDispatchClientBoardAction, useCreateClientBoardCard, useCreateClientBoardAiCard, useGetClientPmBoard, getGetClientPmBoardQueryKey, useClearClientBoardCard, getGetClientBoardHistoryQueryKey } from '@workspace/api-client-react';
+import { HistoryTab } from '@/components/HistoryTab';
 import { LoginDialog } from '@/components/LoginDialog';
 import { useSessionExchange } from '@/hooks/useSessionExchange';
 import { useToast } from '@/hooks/use-toast';
 import { CommandPalette } from '@/components/kanban/CommandPalette';
-import { MapPin, User, Loader2, LayoutGrid, BookOpen, Headphones, Search, LogOut, MonitorDown } from 'lucide-react';
+import { MapPin, User, Loader2, LayoutGrid, BookOpen, Headphones, Search, LogOut, MonitorDown, Users } from 'lucide-react';
 import { usePwaInstall } from '@/hooks/use-pwa-install';
 import { useQueryClient } from '@tanstack/react-query';
 import { DashboardTour } from '@/components/DashboardTour';
@@ -29,12 +30,13 @@ function Board() {
     if (typeof window === 'undefined') return new URLSearchParams();
     return new URLSearchParams(window.location.search);
   });
-  const activeTab = searchParams.get('tab') === 'pm' ? 'pm' : 'vendors';
+  const tabParam = searchParams.get('tab');
+  const activeTab = tabParam === 'pm' ? 'pm' : tabParam === 'history' ? 'history' : 'vendors';
 
-  const setActiveTab = (tab: 'vendors' | 'pm') => {
+  const setActiveTab = (tab: 'vendors' | 'pm' | 'history') => {
     const newParams = new URLSearchParams(window.location.search);
-    if (tab === 'pm') {
-      newParams.set('tab', 'pm');
+    if (tab === 'pm' || tab === 'history') {
+      newParams.set('tab', tab);
     } else {
       newParams.delete('tab');
     }
@@ -106,6 +108,32 @@ function Board() {
   const pmBoardQuery = useGetClientPmBoard(token, { query: { queryKey: getGetClientPmBoardQueryKey(token), enabled: activeTab === 'pm' }});
 
   const markTourSeen = useMarkClientBoardTourSeen();
+  const clearCard = useClearClientBoardCard();
+
+  const handleCardClear = (card: any) => {
+    if (!viewerAuthenticated) {
+      setLoginOpen(true);
+      return;
+    }
+    clearCard.mutate(
+      { token, cardKey: card.cardKey, data: { title: card.title ?? null } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: getGetClientBoardHistoryQueryKey(token) });
+          toast({ title: 'Card cleared', description: 'Saved to your History tab.' });
+        },
+        onError: (err: any) => {
+          toast({
+            title: 'Could not clear card',
+            description: err?.data?.error ?? 'Please try again.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
 
   const boardLoaded = !isLoading && !error && !!board;
   const viewerAuthenticated = board?.viewer?.authenticated ?? false;
@@ -328,6 +356,16 @@ function Board() {
             </>
           )}
 
+          {viewer.permissions?.includes('team_admin') && (
+            <button
+              data-testid="button-team"
+              className="h-8 px-2.5 sm:px-3 rounded-[8px] bg-[#f5f5f7] text-[#1d1d1f] text-[12px] font-semibold hover:bg-[#e8e8ed] transition-colors flex items-center gap-1.5"
+              onClick={() => setLocation(`/${token}/team`)}
+            >
+              <Users className="h-3.5 w-3.5 text-[#34C759]" /> <span className="hidden sm:inline">Team</span>
+            </button>
+          )}
+
           {viewer.permissions?.includes('hub') && (
             <button
               className="h-8 px-2.5 sm:px-3 rounded-[8px] bg-[#f5f5f7] text-[#1d1d1f] text-[12px] font-semibold hover:bg-[#e8e8ed] transition-colors flex items-center gap-1.5"
@@ -397,9 +435,23 @@ function Board() {
             <span className="sm:hidden">Management</span>
             <span className="hidden sm:inline">Property Management</span>
           </button>
+          <button
+            data-testid="tab-history"
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-1.5 text-[13px] font-semibold rounded-[8px] transition-all whitespace-nowrap ${
+              activeTab === 'history'
+                ? 'bg-white text-[#1d1d1f] shadow-sm'
+                : 'text-[#6e6e73] hover:text-[#1d1d1f]'
+            }`}
+          >
+            History
+          </button>
         </div>
       </div>
 
+      {activeTab === 'history' ? (
+        <HistoryTab token={token} />
+      ) : (
       <AppleBoard
         board={activeBoardData}
         token={token}
@@ -413,7 +465,9 @@ function Board() {
         onCreateAiCard={activeTab === 'vendors' ? handleCreateAiCard : undefined}
         onCreateCard={handleCreateCard}
         showToast={toast}
+        onCardClear={handleCardClear}
       />
+      )}
 
       <CommandPalette
         open={paletteOpen}

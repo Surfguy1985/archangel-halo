@@ -8,11 +8,13 @@
 import type { ClientAccessUser } from './clientAccessUser';
 import type { ClientAccessViewRoleDefaults } from './clientAccessViewRoleDefaults';
 import type { ClientFeature } from './clientFeature';
+import type { ClientSeatUsage } from './clientSeatUsage';
 
 export interface ClientAccessView {
   propertyName: string;
   /** @nullable */
   logoUrl?: string | null;
+  seats: ClientSeatUsage;
   features: ClientFeature[];
   /** Default feature keys per role */
   roleDefaults: ClientAccessViewRoleDefaults;

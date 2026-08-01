@@ -226,11 +226,36 @@ export default function AdminUnitMap({ propertyId }: { propertyId: string }) {
     }
   };
 
-  const generateGrid = () =>
+  // "24" → 24 boxes from the default start; "1000-2000" → boxes labeled 1000..2000.
+  const parseGridInput = (raw: string): { count: number | null; startAt?: number } | null => {
+    const s = raw.trim();
+    if (!s) return { count: null };
+    const range = s.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (range) {
+      const start = Number(range[1]);
+      const end = Number(range[2]);
+      if (end < start) return null;
+      return { count: end - start + 1, startAt: start };
+    }
+    if (!/^\d+$/.test(s)) return null;
+    return { count: Number(s) };
+  };
+
+  const generateGrid = () => {
+    const parsed = parseGridInput(gridCount);
+    if (!parsed) {
+      onError(new Error('Enter a count like "24" or a range like "1000-2000"'));
+      return;
+    }
+    if ((parsed.count ?? 0) > 1500) {
+      onError(new Error("That range is over 1,500 units — split it into smaller ranges"));
+      return;
+    }
     genGrid.mutate(
-      { propertyId, data: { count: gridCount ? Number(gridCount) : null, replace: gridReplace } },
+      { propertyId, data: { count: parsed.count, startAt: parsed.startAt, replace: gridReplace } },
       { onSuccess: () => { invalidate(); toast({ title: "Grid generated" }); }, onError },
     );
+  };
 
   const addUnit = () =>
     createBox.mutate(
@@ -354,8 +379,9 @@ export default function AdminUnitMap({ propertyId }: { propertyId: string }) {
               inputMode="numeric"
               value={gridCount}
               onChange={(e) => setGridCount(e.target.value)}
-              placeholder={data?.unitTarget != null ? String(data.unitTarget) : "auto"}
-              className={`${inputCls} w-24`}
+              placeholder={data?.unitTarget != null ? String(data.unitTarget) : "24 or 1000-2000"}
+              title='A count like "24" or a numbering range like "1000-2000"'
+              className={`${inputCls} w-32`}
               data-testid="input-grid-count"
             />
           </div>

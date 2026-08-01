@@ -50,6 +50,7 @@ import {
   clientHubItemsTable,
   clientDashboardActionsTable,
   clientCardCommentsTable,
+  clientCardHistoryTable,
   clientBoardNotificationsTable,
   jobSummariesTable,
   workRequestsTable,
@@ -316,6 +317,7 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(clientHubItemsTable);
     await tx.delete(clientDashboardActionsTable);
     await tx.delete(clientCardCommentsTable);
+    await tx.delete(clientCardHistoryTable);
     await tx.delete(clientBoardNotificationsTable);
     await tx.delete(jobSummariesTable);
     await tx.delete(workRequestsTable);

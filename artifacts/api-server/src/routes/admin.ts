@@ -90,7 +90,7 @@ function newToken(): string {
   return randomBytes(18).toString("base64url");
 }
 
-function newTempPassword(): string {
+export function newTempPassword(): string {
   // Readable, no ambiguous chars, 10 chars.
   const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
   const bytes = randomBytes(10);
@@ -397,7 +397,7 @@ router.post(
   },
 );
 
-async function emailCredentials(
+export async function emailCredentials(
   user: ClientUser,
   tempPassword: string,
   account: ClientAccount,

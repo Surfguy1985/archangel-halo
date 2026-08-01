@@ -6076,6 +6076,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClientAccessView"
+        "403":
+          description: Admin sign-in required once the board has logins
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "404":
           description: Invalid link
           content:
@@ -6083,7 +6089,135 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /client/{token}/access/setup:
+    post:
+      operationId: setupClientAccess
+      tags: [admin]
+      summary: First-time board setup — claim the board by creating the initial admin login
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientAccessSetupInput"
+      responses:
+        "200":
+          description: Admin login created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientAccessUser"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Board already has logins
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/access/users:
+    post:
+      operationId: createClientAccessUser
+      tags: [admin]
+      summary: Client admin invites a team member (email, role, optional password)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientAccessInviteInput"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientAccessInviteResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Admin sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Seats full
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /client/{token}/access/{userId}:
+    delete:
+      operationId: deleteClientAccessUser
+      tags: [admin]
+      summary: Client admin removes a team member's login
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          description: Not allowed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Admin sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     patch:
       operationId: updateClientAccessUser
       tags: [admin]
@@ -6110,6 +6244,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClientAccessUser"
+        "403":
+          description: Admin sign-in required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "400":
           description: Invalid input
           content:
@@ -6841,6 +6981,70 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/cards/{cardKey}/clear:
+    post:
+      operationId: clearClientBoardCard
+      tags: [admin]
+      summary: Clear a card off the board — snapshots it into the history log
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cardKey
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientBoardCardClearInput"
+      responses:
+        "200":
+          description: Cleared into history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientCardHistoryEntry"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /client/{token}/board/history:
+    get:
+      operationId: getClientBoardHistory
+      tags: [admin]
+      summary: Cleared-card history, newest first
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: History entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientCardHistoryList"
+        "404":
+          description: Invalid link
           content:
             application/json:
               schema:
@@ -8253,12 +8457,53 @@ components:
         customized:
           type: boolean
           description: False while the user still follows their role's defaults
+    ClientSeatUsage:
+      type: object
+      required: [tier, userSeats, guestSeats, usedSeats, usedGuestSeats]
+      properties:
+        tier: { type: string, description: "basic | pro | enterprise" }
+        userSeats: { type: integer }
+        guestSeats: { type: integer }
+        usedSeats: { type: integer, description: Active admin+member logins }
+        usedGuestSeats: { type: integer }
+    ClientAccessSetupInput:
+      type: object
+      required: [name, email, password]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        password: { type: string, minLength: 8 }
+    ClientAccessInviteInput:
+      type: object
+      required: [name, email, role]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        role: { type: string, description: "admin | member | guest" }
+        password:
+          type: ["string", "null"]
+          description: Set a password now; omit to auto-generate a temporary one
+        sendEmail:
+          type: boolean
+          description: Email the login details to the new user
+    ClientAccessInviteResult:
+      type: object
+      required: [user, tempPassword, emailed]
+      properties:
+        user:
+          $ref: "#/components/schemas/ClientAccessUser"
+        tempPassword:
+          type: ["string", "null"]
+          description: Only set when the password was auto-generated — shown once
+        emailed: { type: boolean }
     ClientAccessView:
       type: object
-      required: [propertyName, features, roleDefaults, users]
+      required: [propertyName, features, roleDefaults, users, seats]
       properties:
         propertyName: { type: string }
         logoUrl: { type: ["string", "null"] }
+        seats:
+          $ref: "#/components/schemas/ClientSeatUsage"
         features:
           type: array
           items:
@@ -8284,6 +8529,13 @@ components:
         resetToRoleDefaults:
           type: boolean
           description: Clear customizations and follow the role's defaults again
+        active:
+          type: boolean
+          description: Deactivate/reactivate the login (admin session required)
+        newPassword:
+          type: ["string", "null"]
+          minLength: 8
+          description: Reset the user's password (admin session required)
     ClientPlan:
       type: object
       required: [tier, label, pricePerMonth, userSeats, guestSeats, blurb]
@@ -12628,6 +12880,37 @@ components:
         lane: { type: ["string", "null"] }
         title: { type: ["string", "null"] }
         notes: { type: ["string", "null"] }
+
+    ClientBoardCardClearInput:
+      type: object
+      properties:
+        title: { type: ["string", "null"], description: "Display title fallback for cards the server can't derive" }
+
+    ClientCardHistoryEntry:
+      type: object
+      required: [id, cardKey, title, status, amountPaid, frequency, clearedAt]
+      properties:
+        id: { type: string }
+        cardKey: { type: string }
+        title: { type: string }
+        template: { type: ["string", "null"] }
+        status: { type: string, description: "completed | paid | cleared" }
+        amountPaid: { type: number }
+        unitLabel: { type: ["string", "null"] }
+        jobLabel: { type: ["string", "null"] }
+        summary: { type: ["string", "null"] }
+        frequency: { type: string, description: "one_time | recurring" }
+        clearedBy: { type: ["string", "null"] }
+        clearedAt: { type: string }
+
+    ClientCardHistoryList:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientCardHistoryEntry"
 
     ClientBoardActionInput:
       type: object

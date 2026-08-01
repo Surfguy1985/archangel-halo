@@ -438,11 +438,19 @@ async function handleGenerateGrid(req: Request, res: Response): Promise<void> {
     .from(propertiesTable)
     .where(eq(propertiesTable.id, scope.propertyId))
     .limit(1);
-  const count = Math.min(400, Math.max(1, Math.round(parsed.data.count ?? prop?.units ?? 0)));
-  if (!count) {
+  // Resolve the requested count BEFORE clamping so "no count anywhere" is a
+  // real validation error instead of silently creating one unit.
+  const requested = Math.round(parsed.data.count ?? prop?.units ?? 0);
+  if (requested < 1) {
     res.status(400).json({ error: "How many units? Set a count or the property's unit total first." });
     return;
   }
+  // 1500 covers big numbering ranges like 1000-2000 while keeping renders sane.
+  if (requested > 1500) {
+    res.status(400).json({ error: "That's over 1,500 units — split it into smaller ranges" });
+    return;
+  }
+  const count = requested;
   if (parsed.data.replace) {
     await db.delete(propertyUnitsTable).where(eq(propertyUnitsTable.propertyId, scope.propertyId));
   }

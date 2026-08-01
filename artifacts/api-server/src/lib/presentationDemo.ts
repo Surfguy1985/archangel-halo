@@ -14,6 +14,7 @@ import {
   clientAccountsTable,
   clientBoardCardsTable,
   clientCardCommentsTable,
+  clientCardHistoryTable,
   clientBoardNotificationsTable,
   clientDashboardCardsTable,
   clientDashboardActionsTable,
@@ -131,6 +132,7 @@ async function teardownPresentationDemoInner(): Promise<boolean> {
     await tx.delete(clientDashboardCardsTable).where(eq(clientDashboardCardsTable.propertyId, pid));
     await tx.delete(clientDashboardActionsTable).where(eq(clientDashboardActionsTable.propertyId, pid));
     await tx.delete(clientCardCommentsTable).where(eq(clientCardCommentsTable.propertyId, pid));
+    await tx.delete(clientCardHistoryTable).where(eq(clientCardHistoryTable.propertyId, pid));
     await tx.delete(clientBoardNotificationsTable).where(eq(clientBoardNotificationsTable.propertyId, pid));
     await tx.delete(clientAccountsTable).where(eq(clientAccountsTable.propertyId, pid));
     await tx.delete(propertiesTable).where(eq(propertiesTable.id, pid));

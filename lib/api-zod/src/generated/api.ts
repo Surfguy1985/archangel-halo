@@ -8405,6 +8405,13 @@ export const GetClientAccessParams = zod.object({
 export const GetClientAccessResponse = zod.object({
   "propertyName": zod.string(),
   "logoUrl": zod.string().nullish(),
+  "seats": zod.object({
+  "tier": zod.string().describe('basic | pro | enterprise'),
+  "userSeats": zod.number(),
+  "guestSeats": zod.number(),
+  "usedSeats": zod.number().describe('Active admin+member logins'),
+  "usedGuestSeats": zod.number()
+}),
   "features": zod.array(zod.object({
   "key": zod.string(),
   "label": zod.string(),
@@ -8424,6 +8431,77 @@ export const GetClientAccessResponse = zod.object({
 
 
 /**
+ * @summary First-time board setup — claim the board by creating the initial admin login
+ */
+export const SetupClientAccessParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const setupClientAccessBodyPasswordMin = 8;
+
+
+
+export const SetupClientAccessBody = zod.object({
+  "name": zod.string(),
+  "email": zod.string(),
+  "password": zod.string().min(setupClientAccessBodyPasswordMin)
+})
+
+export const SetupClientAccessResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.string().describe('admin | member | guest'),
+  "active": zod.boolean(),
+  "permissions": zod.array(zod.string()),
+  "customized": zod.boolean().describe('False while the user still follows their role\'s defaults')
+})
+
+
+/**
+ * @summary Client admin invites a team member (email, role, optional password)
+ */
+export const CreateClientAccessUserParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const CreateClientAccessUserBody = zod.object({
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.string().describe('admin | member | guest'),
+  "password": zod.string().nullish().describe('Set a password now; omit to auto-generate a temporary one'),
+  "sendEmail": zod.boolean().optional().describe('Email the login details to the new user')
+})
+
+export const CreateClientAccessUserResponse = zod.object({
+  "user": zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.string().describe('admin | member | guest'),
+  "active": zod.boolean(),
+  "permissions": zod.array(zod.string()),
+  "customized": zod.boolean().describe('False while the user still follows their role\'s defaults')
+}),
+  "tempPassword": zod.string().nullable().describe('Only set when the password was auto-generated — shown once'),
+  "emailed": zod.boolean()
+})
+
+
+/**
+ * @summary Client admin removes a team member's login
+ */
+export const DeleteClientAccessUserParams = zod.object({
+  "token": zod.coerce.string(),
+  "userId": zod.coerce.string()
+})
+
+export const DeleteClientAccessUserResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
  * @summary Manager toggles a team member's role or feature checkboxes
  */
 export const UpdateClientAccessUserParams = zod.object({
@@ -8431,10 +8509,16 @@ export const UpdateClientAccessUserParams = zod.object({
   "userId": zod.coerce.string()
 })
 
+export const updateClientAccessUserBodyNewPasswordMin = 8;
+
+
+
 export const UpdateClientAccessUserBody = zod.object({
   "role": zod.string().optional().describe('admin | member | guest'),
   "permissions": zod.array(zod.string()).optional().describe('Full replacement set of feature keys; omit to keep current'),
-  "resetToRoleDefaults": zod.boolean().optional().describe('Clear customizations and follow the role\'s defaults again')
+  "resetToRoleDefaults": zod.boolean().optional().describe('Clear customizations and follow the role\'s defaults again'),
+  "active": zod.boolean().optional().describe('Deactivate\/reactivate the login (admin session required)'),
+  "newPassword": zod.string().min(updateClientAccessUserBodyNewPasswordMin).nullish().describe('Reset the user\'s password (admin session required)')
 })
 
 export const UpdateClientAccessUserResponse = zod.object({
@@ -9688,6 +9772,59 @@ export const UpdateClientBoardCardResponse = zod.object({
   "lane": zod.string().nullish(),
   "title": zod.string().nullish(),
   "notes": zod.string().nullish()
+})
+
+
+/**
+ * @summary Clear a card off the board — snapshots it into the history log
+ */
+export const ClearClientBoardCardParams = zod.object({
+  "token": zod.coerce.string(),
+  "cardKey": zod.coerce.string()
+})
+
+export const ClearClientBoardCardBody = zod.object({
+  "title": zod.string().nullish().describe('Display title fallback for cards the server can\'t derive')
+})
+
+export const ClearClientBoardCardResponse = zod.object({
+  "id": zod.string(),
+  "cardKey": zod.string(),
+  "title": zod.string(),
+  "template": zod.string().nullish(),
+  "status": zod.string().describe('completed | paid | cleared'),
+  "amountPaid": zod.number(),
+  "unitLabel": zod.string().nullish(),
+  "jobLabel": zod.string().nullish(),
+  "summary": zod.string().nullish(),
+  "frequency": zod.string().describe('one_time | recurring'),
+  "clearedBy": zod.string().nullish(),
+  "clearedAt": zod.string()
+})
+
+
+/**
+ * @summary Cleared-card history, newest first
+ */
+export const GetClientBoardHistoryParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetClientBoardHistoryResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "id": zod.string(),
+  "cardKey": zod.string(),
+  "title": zod.string(),
+  "template": zod.string().nullish(),
+  "status": zod.string().describe('completed | paid | cleared'),
+  "amountPaid": zod.number(),
+  "unitLabel": zod.string().nullish(),
+  "jobLabel": zod.string().nullish(),
+  "summary": zod.string().nullish(),
+  "frequency": zod.string().describe('one_time | recurring'),
+  "clearedBy": zod.string().nullish(),
+  "clearedAt": zod.string()
+}))
 })
 
 

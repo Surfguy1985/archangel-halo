@@ -66,4 +66,6 @@
 - [HALO Falkon waybill cards](halo-falkon-waybill.md) — FLK codes + volt dot strips derived on read from lane/column; required spec fields; strip push: prefix before hashing.
 - [HALO Presentation Mode](halo-presentation-mode.md) — More-sheet toggle seeds/removes a double-marker demo property; narrated ?present=1 walkthrough; never single-marker teardown.
 - [HALO card create/move contract](halo-card-create-contract.md) — checklist must be {id,text,done} objects (strings 400); drag gate mirrors server by cardKey prefix, never template type.
+- [HALO card clear-to-history](halo-card-clear-history.md) — trash icon snapshots cards into client_card_history (idempotent, prefix-validated), archived override hides any family; CSV route keeps formula-injection guard.
+- [HALO client team self-service](halo-client-team-selfservice.md) — /access surface is admin-session-gated (403 for raw link); unclaimed boards allow first-admin setup; seat/last-admin guards.
 - [HALO kanban hardening](halo-kanban-hardening.md) — board contract enums/unions + ModuleBoundary + useBoardEvents + session cookie + rate limits; clientAuth must pass through unresolved tokens; pay limiter POST-only.

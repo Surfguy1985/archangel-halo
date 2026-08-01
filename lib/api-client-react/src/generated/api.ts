@@ -66,6 +66,9 @@ import type {
   CategorizeBankTransactionParams,
   CheckScanInput,
   CheckScanResult,
+  ClientAccessInviteInput,
+  ClientAccessInviteResult,
+  ClientAccessSetupInput,
   ClientAccessUpdateInput,
   ClientAccessUser,
   ClientAccessView,
@@ -79,6 +82,7 @@ import type {
   ClientBillingView,
   ClientBoardActionInput,
   ClientBoardActionOutcome,
+  ClientBoardCardClearInput,
   ClientBoardCardInput,
   ClientBoardCardRec,
   ClientBoardCardUpdate,
@@ -93,6 +97,8 @@ import type {
   ClientBoardWebhookInput,
   ClientBoardWebhookView,
   ClientCardActionInput,
+  ClientCardHistoryEntry,
+  ClientCardHistoryList,
   ClientCardPushInput,
   ClientCardPushRec,
   ClientCardQuickPicksRec,
@@ -19876,6 +19882,223 @@ export function useGetClientAccess<TData = Awaited<ReturnType<typeof getClientAc
 
 
 
+export const getSetupClientAccessUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/access/setup`
+}
+
+/**
+ * @summary First-time board setup — claim the board by creating the initial admin login
+ */
+export const setupClientAccess = async (token: string,
+    clientAccessSetupInput: ClientAccessSetupInput, options?: RequestInit): Promise<ClientAccessUser> => {
+
+  return customFetch<ClientAccessUser>(getSetupClientAccessUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientAccessSetupInput)
+  }
+);}
+
+
+
+
+
+export const getSetupClientAccessMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setupClientAccess>>, TError,{token: string;data: BodyType<ClientAccessSetupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setupClientAccess>>, TError,{token: string;data: BodyType<ClientAccessSetupInput>}, TContext> => {
+
+const mutationKey = ['setupClientAccess'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setupClientAccess>>, {token: string;data: BodyType<ClientAccessSetupInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  setupClientAccess(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetupClientAccessMutationResult = NonNullable<Awaited<ReturnType<typeof setupClientAccess>>>
+    export type SetupClientAccessMutationBody = BodyType<ClientAccessSetupInput>
+    export type SetupClientAccessMutationError = ErrorType<Error>
+
+    /**
+ * @summary First-time board setup — claim the board by creating the initial admin login
+ */
+export const useSetupClientAccess = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setupClientAccess>>, TError,{token: string;data: BodyType<ClientAccessSetupInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setupClientAccess>>,
+        TError,
+        {token: string;data: BodyType<ClientAccessSetupInput>},
+        TContext
+      > => {
+      return useMutation(getSetupClientAccessMutationOptions(options));
+    }
+
+export const getCreateClientAccessUserUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/access/users`
+}
+
+/**
+ * @summary Client admin invites a team member (email, role, optional password)
+ */
+export const createClientAccessUser = async (token: string,
+    clientAccessInviteInput: ClientAccessInviteInput, options?: RequestInit): Promise<ClientAccessInviteResult> => {
+
+  return customFetch<ClientAccessInviteResult>(getCreateClientAccessUserUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientAccessInviteInput)
+  }
+);}
+
+
+
+
+
+export const getCreateClientAccessUserMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientAccessUser>>, TError,{token: string;data: BodyType<ClientAccessInviteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createClientAccessUser>>, TError,{token: string;data: BodyType<ClientAccessInviteInput>}, TContext> => {
+
+const mutationKey = ['createClientAccessUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createClientAccessUser>>, {token: string;data: BodyType<ClientAccessInviteInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  createClientAccessUser(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateClientAccessUserMutationResult = NonNullable<Awaited<ReturnType<typeof createClientAccessUser>>>
+    export type CreateClientAccessUserMutationBody = BodyType<ClientAccessInviteInput>
+    export type CreateClientAccessUserMutationError = ErrorType<Error>
+
+    /**
+ * @summary Client admin invites a team member (email, role, optional password)
+ */
+export const useCreateClientAccessUser = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientAccessUser>>, TError,{token: string;data: BodyType<ClientAccessInviteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createClientAccessUser>>,
+        TError,
+        {token: string;data: BodyType<ClientAccessInviteInput>},
+        TContext
+      > => {
+      return useMutation(getCreateClientAccessUserMutationOptions(options));
+    }
+
+export const getDeleteClientAccessUserUrl = (token: string,
+    userId: string,) => {
+
+
+
+
+  return `/api/client/${token}/access/${userId}`
+}
+
+/**
+ * @summary Client admin removes a team member's login
+ */
+export const deleteClientAccessUser = async (token: string,
+    userId: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getDeleteClientAccessUserUrl(token,userId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteClientAccessUserMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteClientAccessUser>>, TError,{token: string;userId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteClientAccessUser>>, TError,{token: string;userId: string}, TContext> => {
+
+const mutationKey = ['deleteClientAccessUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteClientAccessUser>>, {token: string;userId: string}> = (props) => {
+          const {token,userId} = props ?? {};
+
+          return  deleteClientAccessUser(token,userId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteClientAccessUserMutationResult = NonNullable<Awaited<ReturnType<typeof deleteClientAccessUser>>>
+
+    export type DeleteClientAccessUserMutationError = ErrorType<Error>
+
+    /**
+ * @summary Client admin removes a team member's login
+ */
+export const useDeleteClientAccessUser = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteClientAccessUser>>, TError,{token: string;userId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteClientAccessUser>>,
+        TError,
+        {token: string;userId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteClientAccessUserMutationOptions(options));
+    }
+
 export const getUpdateClientAccessUserUrl = (token: string,
     userId: string,) => {
 
@@ -21578,6 +21801,157 @@ export const useUpdateClientBoardCard = <TError = ErrorType<Error>,
       > => {
       return useMutation(getUpdateClientBoardCardMutationOptions(options));
     }
+
+export const getClearClientBoardCardUrl = (token: string,
+    cardKey: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/cards/${cardKey}/clear`
+}
+
+/**
+ * @summary Clear a card off the board — snapshots it into the history log
+ */
+export const clearClientBoardCard = async (token: string,
+    cardKey: string,
+    clientBoardCardClearInput?: ClientBoardCardClearInput, options?: RequestInit): Promise<ClientCardHistoryEntry> => {
+
+  return customFetch<ClientCardHistoryEntry>(getClearClientBoardCardUrl(token,cardKey),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(clientBoardCardClearInput)
+  }
+);}
+
+
+
+
+
+export const getClearClientBoardCardMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearClientBoardCard>>, TError,{token: string;cardKey: string;data?: BodyType<ClientBoardCardClearInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof clearClientBoardCard>>, TError,{token: string;cardKey: string;data?: BodyType<ClientBoardCardClearInput>}, TContext> => {
+
+const mutationKey = ['clearClientBoardCard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearClientBoardCard>>, {token: string;cardKey: string;data?: BodyType<ClientBoardCardClearInput>}> = (props) => {
+          const {token,cardKey,data} = props ?? {};
+
+          return  clearClientBoardCard(token,cardKey,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClearClientBoardCardMutationResult = NonNullable<Awaited<ReturnType<typeof clearClientBoardCard>>>
+    export type ClearClientBoardCardMutationBody = BodyType<ClientBoardCardClearInput> | undefined
+    export type ClearClientBoardCardMutationError = ErrorType<Error>
+
+    /**
+ * @summary Clear a card off the board — snapshots it into the history log
+ */
+export const useClearClientBoardCard = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearClientBoardCard>>, TError,{token: string;cardKey: string;data?: BodyType<ClientBoardCardClearInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof clearClientBoardCard>>,
+        TError,
+        {token: string;cardKey: string;data?: BodyType<ClientBoardCardClearInput>},
+        TContext
+      > => {
+      return useMutation(getClearClientBoardCardMutationOptions(options));
+    }
+
+export const getGetClientBoardHistoryUrl = (token: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/history`
+}
+
+/**
+ * @summary Cleared-card history, newest first
+ */
+export const getClientBoardHistory = async (token: string, options?: RequestInit): Promise<ClientCardHistoryList> => {
+
+  return customFetch<ClientCardHistoryList>(getGetClientBoardHistoryUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetClientBoardHistoryQueryKey = (token: string,) => {
+    return [
+    `/api/client/${token}/board/history`
+    ] as const;
+    }
+
+
+export const getGetClientBoardHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getClientBoardHistory>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBoardHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetClientBoardHistoryQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getClientBoardHistory>>> = ({ signal }) => getClientBoardHistory(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getClientBoardHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetClientBoardHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getClientBoardHistory>>>
+export type GetClientBoardHistoryQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Cleared-card history, newest first
+ */
+
+export function useGetClientBoardHistory<TData = Awaited<ReturnType<typeof getClientBoardHistory>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getClientBoardHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetClientBoardHistoryQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getDispatchClientBoardActionUrl = (token: string,) => {
 

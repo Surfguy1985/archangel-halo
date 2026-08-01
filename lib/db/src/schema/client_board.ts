@@ -104,6 +104,27 @@ export const clientBoardNotificationsTable = pgTable("client_board_notifications
     .defaultNow(),
 });
 
+// Cleared-card history. When a client clears a card off their board, a
+// snapshot lands here so the board stays clean but nothing is lost — feeds
+// the History tab and the CSV export. Snapshot fields are denormalized at
+// clear time because HALO-fed cards are recomputed on read.
+export const clientCardHistoryTable = pgTable("client_card_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  propertyId: uuid("property_id").notNull(),
+  cardKey: text("card_key").notNull(),
+  title: text("title").notNull(),
+  template: text("template"), // job | makeready | invoice | crew | request | custom | ...
+  status: text("status").notNull(), // completed | paid | cleared
+  amountPaid: doublePrecision("amount_paid").notNull().default(0),
+  unitLabel: text("unit_label"),
+  jobLabel: text("job_label"),
+  summary: text("summary"),
+  frequency: text("frequency").notNull().default("one_time"), // one_time | recurring
+  clearedBy: text("cleared_by"),
+  clearedAt: timestamp("cleared_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ClientCardHistory = typeof clientCardHistoryTable.$inferSelect;
 export type ClientCardComment = typeof clientCardCommentsTable.$inferSelect;
 export type ClientBoardNotification = typeof clientBoardNotificationsTable.$inferSelect;
 export type ClientDashboardCard = typeof clientDashboardCardsTable.$inferSelect;

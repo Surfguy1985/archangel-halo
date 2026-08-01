@@ -24,6 +24,8 @@ export interface AppleBoardProps {
   onCreateAiCard?: (prompt: string) => Promise<void>;
   onCreateCard?: (data: any) => Promise<void>;
   onDispatchAction?: (action: any) => Promise<void>;
+  /** When provided, each card shows a small trash icon that clears it into history. */
+  onCardClear?: (card: any) => void;
   showToast?: (opts: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void;
 }
 
@@ -51,7 +53,8 @@ export function AppleBoard({
   onCardMove, 
   onCreateAiCard, 
   onCreateCard,
-  showToast
+  showToast,
+  onCardClear
 }: AppleBoardProps) {
   const isPm = boardKey === 'pm';
 
@@ -441,6 +444,7 @@ export function AppleBoard({
                       onTouchDragMove={moveTouchDrag}
                       onTouchDragEnd={endTouchDrag}
                       onClick={() => onCardClick(card)}
+                      onClear={onCardClear ? () => onCardClear(card) : undefined}
                     />
                   ))}
                 </AnimatePresence>

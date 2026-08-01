@@ -1,6 +1,6 @@
 import React from 'react';
 import { APPLE_CATEGORY_COLORS, resolveTemplate, type BoardAudience } from './templates';
-import { MessageSquare, Calendar, Wrench, FileText, FileSearch, HardHat, FileSignature, Layers } from 'lucide-react';
+import { MessageSquare, Calendar, Wrench, FileText, FileSearch, HardHat, FileSignature, Layers, Trash2 } from 'lucide-react';
 import { formatDistanceToNow, parseISO, isBefore, startOfDay } from 'date-fns';
 import { ModuleMetrics, ModuleEvidence, ModuleDecision } from '../kanban/BoardCardModules';
 import { ModuleBoundary } from '../kanban/ModuleBoundary';
@@ -35,9 +35,11 @@ interface AppleCardProps {
   onClick?: () => void;
   token?: string;
   audience?: BoardAudience;
+  /** When provided, renders a small trash icon that clears the card into history. */
+  onClear?: () => void;
 }
 
-export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, onTouchDragBegin, onTouchDragMove, onTouchDragEnd, onClick, token, onReadOnlyClick, audience }: AppleCardProps) {
+export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, onTouchDragBegin, onTouchDragMove, onTouchDragEnd, onClick, token, onReadOnlyClick, audience, onClear }: AppleCardProps) {
   // Long-press touch drag: HTML5 DnD doesn't exist on mobile browsers.
   // Hold ~250ms to lift the card; moving early is treated as a scroll.
   const justDragged = React.useRef(false);
@@ -280,6 +282,24 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
               <MessageSquare className="h-3.5 w-3.5" strokeWidth={2.5} />
               <span className="text-[12px] font-medium">{card.commentCount}</span>
             </div>
+          )}
+          {onClear && (
+            <button
+              type="button"
+              data-testid={`button-clear-card-${card.cardKey}`}
+              title="Clear card (saved to History)"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (readOnly) {
+                  onReadOnlyClick?.();
+                  return;
+                }
+                onClear();
+              }}
+              className="flex h-6 w-6 items-center justify-center rounded-full text-[#a1a1a6] hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </button>
           )}
         </div>
       </div>

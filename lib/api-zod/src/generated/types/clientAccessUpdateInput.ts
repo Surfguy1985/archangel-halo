@@ -13,4 +13,12 @@ export interface ClientAccessUpdateInput {
   permissions?: string[];
   /** Clear customizations and follow the role's defaults again */
   resetToRoleDefaults?: boolean;
+  /** Deactivate/reactivate the login (admin session required) */
+  active?: boolean;
+  /**
+     * Reset the user's password (admin session required)
+     * @minLength 8
+     * @nullable
+     */
+  newPassword?: string | null;
 }

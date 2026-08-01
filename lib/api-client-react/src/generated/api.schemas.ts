@@ -309,6 +309,47 @@ export interface ClientAccessUser {
   customized: boolean;
 }
 
+export interface ClientSeatUsage {
+  /** basic | pro | enterprise */
+  tier: string;
+  userSeats: number;
+  guestSeats: number;
+  /** Active admin+member logins */
+  usedSeats: number;
+  usedGuestSeats: number;
+}
+
+export interface ClientAccessSetupInput {
+  name: string;
+  email: string;
+  /** @minLength 8 */
+  password: string;
+}
+
+export interface ClientAccessInviteInput {
+  name: string;
+  email: string;
+  /** admin | member | guest */
+  role: string;
+  /**
+     * Set a password now; omit to auto-generate a temporary one
+     * @nullable
+     */
+  password?: string | null;
+  /** Email the login details to the new user */
+  sendEmail?: boolean;
+}
+
+export interface ClientAccessInviteResult {
+  user: ClientAccessUser;
+  /**
+     * Only set when the password was auto-generated — shown once
+     * @nullable
+     */
+  tempPassword: string | null;
+  emailed: boolean;
+}
+
 /**
  * Default feature keys per role
  */
@@ -318,6 +359,7 @@ export interface ClientAccessView {
   propertyName: string;
   /** @nullable */
   logoUrl?: string | null;
+  seats: ClientSeatUsage;
   features: ClientFeature[];
   /** Default feature keys per role */
   roleDefaults: ClientAccessViewRoleDefaults;
@@ -331,6 +373,14 @@ export interface ClientAccessUpdateInput {
   permissions?: string[];
   /** Clear customizations and follow the role's defaults again */
   resetToRoleDefaults?: boolean;
+  /** Deactivate/reactivate the login (admin session required) */
+  active?: boolean;
+  /**
+     * Reset the user's password (admin session required)
+     * @minLength 8
+     * @nullable
+     */
+  newPassword?: string | null;
 }
 
 export interface ClientPlan {
@@ -5590,6 +5640,40 @@ export interface ClientBoardCardRec {
   title?: string | null;
   /** @nullable */
   notes?: string | null;
+}
+
+export interface ClientBoardCardClearInput {
+  /**
+     * Display title fallback for cards the server can't derive
+     * @nullable
+     */
+  title?: string | null;
+}
+
+export interface ClientCardHistoryEntry {
+  id: string;
+  cardKey: string;
+  title: string;
+  /** @nullable */
+  template?: string | null;
+  /** completed | paid | cleared */
+  status: string;
+  amountPaid: number;
+  /** @nullable */
+  unitLabel?: string | null;
+  /** @nullable */
+  jobLabel?: string | null;
+  /** @nullable */
+  summary?: string | null;
+  /** one_time | recurring */
+  frequency: string;
+  /** @nullable */
+  clearedBy?: string | null;
+  clearedAt: string;
+}
+
+export interface ClientCardHistoryList {
+  entries: ClientCardHistoryEntry[];
 }
 
 export type ClientBoardActionInputPayload = { [key: string]: unknown };
