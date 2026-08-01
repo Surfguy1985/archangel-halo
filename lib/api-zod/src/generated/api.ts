@@ -9827,7 +9827,9 @@ export const ClearClientBoardCardResponse = zod.object({
   "summary": zod.string().nullish(),
   "frequency": zod.string().describe('one_time | recurring'),
   "clearedBy": zod.string().nullish(),
-  "clearedAt": zod.string()
+  "clearedAt": zod.string(),
+  "restoredBy": zod.string().nullish(),
+  "restoredAt": zod.string().nullish()
 })
 
 
@@ -9851,8 +9853,36 @@ export const GetClientBoardHistoryResponse = zod.object({
   "summary": zod.string().nullish(),
   "frequency": zod.string().describe('one_time | recurring'),
   "clearedBy": zod.string().nullish(),
-  "clearedAt": zod.string()
+  "clearedAt": zod.string(),
+  "restoredBy": zod.string().nullish(),
+  "restoredAt": zod.string().nullish()
 }))
+})
+
+
+/**
+ * @summary Restore a cleared card back onto the board — history entry stays, marked restored
+ */
+export const RestoreClientBoardCardParams = zod.object({
+  "token": zod.coerce.string(),
+  "id": zod.coerce.string()
+})
+
+export const RestoreClientBoardCardResponse = zod.object({
+  "id": zod.string(),
+  "cardKey": zod.string(),
+  "title": zod.string(),
+  "template": zod.string().nullish(),
+  "status": zod.string().describe('completed | paid | cleared'),
+  "amountPaid": zod.number(),
+  "unitLabel": zod.string().nullish(),
+  "jobLabel": zod.string().nullish(),
+  "summary": zod.string().nullish(),
+  "frequency": zod.string().describe('one_time | recurring'),
+  "clearedBy": zod.string().nullish(),
+  "clearedAt": zod.string(),
+  "restoredBy": zod.string().nullish(),
+  "restoredAt": zod.string().nullish()
 })
 
 

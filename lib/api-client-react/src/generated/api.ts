@@ -22030,6 +22030,79 @@ export function useGetClientBoardHistory<TData = Awaited<ReturnType<typeof getCl
 
 
 
+export const getRestoreClientBoardCardUrl = (token: string,
+    id: string,) => {
+
+
+
+
+  return `/api/client/${token}/board/history/${id}/restore`
+}
+
+/**
+ * @summary Restore a cleared card back onto the board — history entry stays, marked restored
+ */
+export const restoreClientBoardCard = async (token: string,
+    id: string, options?: RequestInit): Promise<ClientCardHistoryEntry> => {
+
+  return customFetch<ClientCardHistoryEntry>(getRestoreClientBoardCardUrl(token,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRestoreClientBoardCardMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreClientBoardCard>>, TError,{token: string;id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof restoreClientBoardCard>>, TError,{token: string;id: string}, TContext> => {
+
+const mutationKey = ['restoreClientBoardCard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof restoreClientBoardCard>>, {token: string;id: string}> = (props) => {
+          const {token,id} = props ?? {};
+
+          return  restoreClientBoardCard(token,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RestoreClientBoardCardMutationResult = NonNullable<Awaited<ReturnType<typeof restoreClientBoardCard>>>
+
+    export type RestoreClientBoardCardMutationError = ErrorType<Error>
+
+    /**
+ * @summary Restore a cleared card back onto the board — history entry stays, marked restored
+ */
+export const useRestoreClientBoardCard = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreClientBoardCard>>, TError,{token: string;id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof restoreClientBoardCard>>,
+        TError,
+        {token: string;id: string},
+        TContext
+      > => {
+      return useMutation(getRestoreClientBoardCardMutationOptions(options));
+    }
+
 export const getDispatchClientBoardActionUrl = (token: string,) => {
 
 

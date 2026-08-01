@@ -500,7 +500,7 @@ function Board() {
       })()}
 
       {activeTab === 'history' ? (
-        <HistoryTab token={token} />
+        <HistoryTab token={token} canRestore={viewerAuthenticated && !viewer.readOnly} />
       ) : (
       <AppleBoard
         board={activeBoardData}

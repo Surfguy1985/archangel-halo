@@ -7075,6 +7075,40 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /client/{token}/board/history/{id}/restore:
+    post:
+      operationId: restoreClientBoardCard
+      tags: [admin]
+      summary: Restore a cleared card back onto the board — history entry stays, marked restored
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Restored — updated history entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientCardHistoryEntry"
+        "403":
+          description: Read-only viewer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /client/{token}/board/actions:
     post:
       operationId: dispatchClientBoardAction
@@ -12930,6 +12964,8 @@ components:
         frequency: { type: string, description: "one_time | recurring" }
         clearedBy: { type: ["string", "null"] }
         clearedAt: { type: string }
+        restoredBy: { type: ["string", "null"] }
+        restoredAt: { type: ["string", "null"] }
 
     ClientCardHistoryList:
       type: object

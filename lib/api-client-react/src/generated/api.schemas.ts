@@ -5671,6 +5671,10 @@ export interface ClientCardHistoryEntry {
   /** @nullable */
   clearedBy?: string | null;
   clearedAt: string;
+  /** @nullable */
+  restoredBy?: string | null;
+  /** @nullable */
+  restoredAt?: string | null;
 }
 
 export interface ClientCardHistoryList {

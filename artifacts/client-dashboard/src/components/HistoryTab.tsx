@@ -1,5 +1,11 @@
-import { useGetClientBoardHistory, getGetClientBoardHistoryQueryKey } from '@workspace/api-client-react';
-import { Loader2, Download, CheckCircle2, DollarSign, Archive } from 'lucide-react';
+import {
+  useGetClientBoardHistory,
+  getGetClientBoardHistoryQueryKey,
+  useRestoreClientBoardCard,
+  getGetClientBoardQueryKey,
+} from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Loader2, Download, CheckCircle2, DollarSign, Archive, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 
 // Cleared-card history: everything the client trashes off the board lands
@@ -23,11 +29,28 @@ function dayLabel(iso: string): string {
   });
 }
 
-export function HistoryTab({ token }: { token: string }) {
+export function HistoryTab({ token, canRestore = false }: { token: string; canRestore?: boolean }) {
   const { data, isLoading } = useGetClientBoardHistory(token, {
     query: { queryKey: getGetClientBoardHistoryQueryKey(token) },
   });
   const [exporting, setExporting] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const restoreMutation = useRestoreClientBoardCard();
+
+  const handleRestore = async (id: string) => {
+    setRestoringId(id);
+    try {
+      await restoreMutation.mutateAsync({ token, id });
+      // Card is back on the board — refresh both the history list and board.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: getGetClientBoardHistoryQueryKey(token) }),
+        queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) }),
+      ]);
+    } finally {
+      setRestoringId(null);
+    }
+  };
 
   const entries = data?.entries ?? [];
 
@@ -125,11 +148,31 @@ export function HistoryTab({ token }: { token: string }) {
                         {e.unitLabel && <span>Unit {e.unitLabel}</span>}
                         {e.jobLabel && <span>{e.jobLabel}</span>}
                         <span>{e.frequency === 'recurring' ? 'Recurring' : 'One time'}</span>
+                        {e.restoredAt && (
+                          <span className="rounded-full bg-[#AF52DE]/10 px-1.5 py-px font-semibold text-[#8944AB]">
+                            Restored
+                          </span>
+                        )}
                       </div>
                       {e.summary && (
                         <p className="mt-1 line-clamp-2 text-[12px] text-[#6e6e73]">{e.summary}</p>
                       )}
                     </div>
+                    {canRestore && !e.restoredAt && (
+                      <button
+                        data-testid={`button-restore-${e.id}`}
+                        onClick={() => handleRestore(e.id)}
+                        disabled={restoringId !== null}
+                        className="mt-0.5 flex h-7 shrink-0 items-center gap-1.5 rounded-[8px] border border-black/10 bg-white px-2.5 text-[12px] font-semibold text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors disabled:opacity-40"
+                      >
+                        {restoringId === e.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-3 w-3" strokeWidth={2.5} />
+                        )}
+                        Restore
+                      </button>
+                    )}
                   </div>
                 );
               })}

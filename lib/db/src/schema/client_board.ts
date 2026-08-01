@@ -122,6 +122,10 @@ export const clientCardHistoryTable = pgTable("client_card_history", {
   frequency: text("frequency").notNull().default("one_time"), // one_time | recurring
   clearedBy: text("cleared_by"),
   clearedAt: timestamp("cleared_at", { withTimezone: true }).notNull().defaultNow(),
+  // Restore paper trail: when a writer restores the card back onto the board,
+  // the entry stays here but gets stamped so the History tab can show it.
+  restoredBy: text("restored_by"),
+  restoredAt: timestamp("restored_at", { withTimezone: true }),
 });
 
 export type ClientCardHistory = typeof clientCardHistoryTable.$inferSelect;

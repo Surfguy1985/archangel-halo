@@ -46,6 +46,7 @@ import {
   ListClientBoardNotificationsResponse,
   GetClientBoardKpisResponse,
   ClearClientBoardCardResponse,
+  RestoreClientBoardCardResponse,
   GetClientBoardHistoryResponse,
 } from "@workspace/api-zod";
 import { effectivePermissions } from "./clientAccess";
@@ -1967,6 +1968,8 @@ function historyDto(row: typeof clientCardHistoryTable.$inferSelect) {
     frequency: row.frequency,
     clearedBy: row.clearedBy,
     clearedAt: row.clearedAt.toISOString(),
+    restoredBy: row.restoredBy,
+    restoredAt: row.restoredAt ? row.restoredAt.toISOString() : null,
   };
 }
 
@@ -2083,6 +2086,97 @@ router.post(
       emitBoardEvent(account.propertyId, "dashboard");
     }
     res.json(ClearClientBoardCardResponse.parse(historyDto(result.entry)));
+  },
+);
+
+// Restore a cleared card: remove/unset the archived override so the card
+// reappears on the board. The history entry stays as a paper trail, stamped
+// with who restored it and when.
+router.post(
+  "/client/:token/board/history/:id/restore",
+  limits.cardAction,
+  async (req, res): Promise<void> => {
+    const account = await accountByToken(String(req.params.token));
+    if (!account) {
+      res.status(404).json({ error: "Invalid link" });
+      return;
+    }
+    const viewer = await resolveViewer(req, account.propertyId);
+    const denied = requireWriter(viewer);
+    if (denied) {
+      res.status(403).json({ error: denied });
+      return;
+    }
+    const id = String(req.params.id);
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      res.status(404).json({ error: "History entry not found" });
+      return;
+    }
+    const result = await db.transaction(async (tx) => {
+      const [entry] = await tx
+        .select()
+        .from(clientCardHistoryTable)
+        .where(
+          and(
+            eq(clientCardHistoryTable.id, id),
+            eq(clientCardHistoryTable.propertyId, account.propertyId),
+          ),
+        )
+        .limit(1)
+        .for("update");
+      if (!entry) return null;
+      // Idempotent: already restored just returns the entry as-is.
+      if (entry.restoredAt) return { entry, duplicate: true };
+      const [row] = await tx
+        .select()
+        .from(clientDashboardCardsTable)
+        .where(
+          and(
+            eq(clientDashboardCardsTable.propertyId, account.propertyId),
+            eq(clientDashboardCardsTable.cardKey, entry.cardKey),
+          ),
+        )
+        .limit(1)
+        .for("update");
+      if (row?.archived) {
+        if (row.kind === "custom") {
+          // Custom cards own their row — just unset the archived flag.
+          await tx
+            .update(clientDashboardCardsTable)
+            .set({ archived: false, updatedAt: new Date() })
+            .where(eq(clientDashboardCardsTable.id, row.id));
+        } else {
+          // HALO-fed / pushed families hide via an archived override row —
+          // delete it so the recomputed card shows again.
+          await tx
+            .delete(clientDashboardCardsTable)
+            .where(eq(clientDashboardCardsTable.id, row.id));
+        }
+      }
+      const [updated] = await tx
+        .update(clientCardHistoryTable)
+        .set({ restoredAt: new Date(), restoredBy: viewer.name ?? null })
+        .where(eq(clientCardHistoryTable.id, entry.id))
+        .returning();
+      return { entry: updated!, duplicate: false };
+    });
+    if (!result) {
+      res.status(404).json({ error: "History entry not found" });
+      return;
+    }
+    if (!result.duplicate) {
+      await db.insert(clientDashboardActionsTable).values({
+        propertyId: account.propertyId,
+        action: "card.restore",
+        cardKey: result.entry.cardKey,
+        actorName: viewer.name,
+        actorRole: viewer.authenticated ? viewer.role : "guest",
+        ok: true,
+        blocked: false,
+      });
+      emitBoardEvent(account.propertyId, "dashboard");
+    }
+    res.json(RestoreClientBoardCardResponse.parse(historyDto(result.entry)));
   },
 );
 
