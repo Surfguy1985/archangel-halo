@@ -7,4 +7,4 @@ The office-side Board Demo script (titles/bodies) and pre-rendered ElevenLabs cl
 
 **Why:** the script existed twice and could drift so audio no longer matched text; clips are matched to steps purely by filename index.
 
-**How to apply:** edit steps only in the shared package and regenerate the full step-0..N-1 clip set there. The narration guard (`scripts/src/check-demo-narration.ts`, runs in `pnpm run typecheck`) parses the shared file — renaming `OFFICE_DEMO_SCRIPT` or its type breaks the guard. When adding/removing steps, update both apps' TARGETS arrays too (missing entries silently center instead of spotlighting).
+**How to apply:** edit steps only in the shared package and regenerate the full step-0..N-1 clip set there. The narration guard (`scripts/src/check-demo-narration.ts`, runs in `pnpm run typecheck`) parses the shared file — renaming `OFFICE_DEMO_SCRIPT` or its type breaks the guard. When adding/removing steps, update both apps' TARGETS arrays too — the same guard now also fails when either app's TARGETS length doesn't match the shared script (it parses the TARGETS array literal, so keep the `TARGETS: (string | null)[] = [` declaration shape).

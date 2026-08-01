@@ -20,6 +20,11 @@
  *
  * To change a tour's steps: edit the steps array AND regenerate the full
  * step-0..N-1 clip set for that tour, then re-run this guard.
+ *
+ * Additionally, both Office Board Demo host apps (halo, halo-desktop) keep a
+ * per-step spotlight TARGETS array zipped with the shared script by index;
+ * this guard also fails when a TARGETS length no longer matches the shared
+ * OFFICE_DEMO_SCRIPT length (extra steps would silently center).
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -88,6 +93,31 @@ function countClips(tour: Tour): number {
   return indices.length;
 }
 
+/**
+ * Each Office Board Demo host app keeps a per-step spotlight TARGETS array
+ * zipped with the shared OFFICE_DEMO_SCRIPT by index. If the shared script
+ * grows but a TARGETS array doesn't, the extra steps silently center instead
+ * of spotlighting. Fail loudly when lengths diverge.
+ */
+const TARGETS_COMPONENTS = [
+  'artifacts/halo/src/components/OfficeBoardDemo.tsx',
+  'artifacts/halo-desktop/src/components/OfficeBoardDemo.tsx',
+];
+
+/** Count entries in the TARGETS array literal (each entry is `null` or a quoted testid on its own line). */
+function countTargets(componentRel: string): number {
+  const src = readFileSync(resolve(root, componentRel), 'utf8');
+  const open = src.search(/TARGETS\s*:\s*\(string \| null\)\[\]\s*=\s*\[/);
+  if (open === -1) throw new Error(`${componentRel}: TARGETS array not found`);
+  const afterOpen = src.slice(src.indexOf('[', open) + 1);
+  const close = afterOpen.indexOf('];');
+  if (close === -1) throw new Error(`${componentRel}: could not find end of TARGETS array (];)`);
+  const block = afterOpen.slice(0, close);
+  const count = (block.match(/^\s*(?:null|"[^"]*"|'[^']*')\s*,?\s*$/gm) ?? []).length;
+  if (count === 0) throw new Error(`${componentRel}: parsed zero TARGETS entries — parser broken?`);
+  return count;
+}
+
 const problems: string[] = [];
 const summaries: string[] = [];
 for (const tour of TOURS) {
@@ -103,11 +133,24 @@ for (const tour of TOURS) {
   }
 }
 
+const scriptSteps = countSteps(TOURS[1]);
+for (const componentRel of TARGETS_COMPONENTS) {
+  const targets = countTargets(componentRel);
+  if (targets !== scriptSteps) {
+    problems.push(
+      `  ${componentRel}: TARGETS has ${targets} entries but shared OFFICE_DEMO_SCRIPT has ${scriptSteps} steps — ` +
+        `extra steps would silently center instead of spotlighting`,
+    );
+  } else {
+    summaries.push(`${componentRel}: ${targets} targets ↔ ${scriptSteps} steps`);
+  }
+}
+
 if (problems.length) {
-  console.error('❌ Demo narration drift — voice clips no longer line up with tour steps:\n');
+  console.error('❌ Demo drift — spotlights/narration no longer line up with tour steps:\n');
   console.error(problems.join('\n'));
   console.error(
-    '\nEditing a tour\'s steps requires regenerating the full step-0..N-1 clip set for that tour. ' +
+    '\nEditing the shared script requires updating BOTH apps\' TARGETS arrays and regenerating clips. ' +
       'See scripts/src/check-demo-narration.ts header.',
   );
   process.exit(1);
