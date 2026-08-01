@@ -9156,6 +9156,7 @@ components:
         sub: { type: string }
         entityType: { type: ["string", "null"] }
         entityId: { type: ["string", "null"] }
+        propertyId: { type: ["string", "null"], description: "Property this item belongs to — lets the UI open client-update actions without another fetch" }
         amount: { type: ["number", "null"] }
         meta:
           type: array

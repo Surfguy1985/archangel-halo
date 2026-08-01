@@ -10,7 +10,8 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient} from "@tanstack/react-query";
 import { useParams, Link, useLocation} from "wouter";
-import { ChevronLeft, Send, Download, Trash2, BellRing, CreditCard} from "lucide-react";
+import { ChevronLeft, Send, Download, Trash2, BellRing, CreditCard, MessageSquareShare} from "lucide-react";
+import { PushCardDialog } from "@/components/PushCardDialog";
 import { useState} from "react";
 import { Skeleton} from "@/components/ui/skeleton";
 import { useToast} from "@/hooks/use-toast";
@@ -72,6 +73,7 @@ export default function InvoiceDetail() {
   const [payOpen, setPayOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("check");
   const { data: settings} = useGetBusinessSettings();
@@ -316,6 +318,15 @@ export default function InvoiceDetail() {
                 <CreditCard className="w-4 h-4" /> Record payment
               </button>
             )}
+            {status !== "draft" && inv.propertyId && (
+              <button
+                onClick={() => setPushOpen(true)}
+                data-testid="button-push-invoice-to-board"
+                className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 font-display font-bold text-sm bg-white border border-border shadow-sm hover:bg-black/[0.03] transition-colors"
+              >
+                <MessageSquareShare className="w-4 h-4" /> Send to client board
+              </button>
+            )}
             <a
               href={`/api/invoices/${inv.id}/pdf`}
               target="_blank"
@@ -374,6 +385,20 @@ export default function InvoiceDetail() {
         </DialogContent>
       </Dialog>
 
+      {inv.propertyId && (
+        <PushCardDialog
+          propertyId={inv.propertyId}
+          open={pushOpen}
+          onOpenChange={(v) => { if (!v) setPushOpen(false); }}
+          prefill={{
+            templateId: "invoice",
+            title: `Invoice ${inv.invoiceNo}`,
+            amount: inv.amount,
+            dueDate: inv.dueAt ? String(inv.dueAt).slice(0, 10) : null,
+            source: { type: "invoice", id: inv.id },
+          }}
+        />
+      )}
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>

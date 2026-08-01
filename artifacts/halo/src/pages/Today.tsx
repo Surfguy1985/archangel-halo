@@ -21,6 +21,7 @@ import {
 import { BriefCard, FeedCard } from "@/components/FeedCard";
 import { AutopilotActions } from "@/components/AutopilotActions";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
+import { UpdateClientSheet, type UpdateClientKind } from "@/components/UpdateClientSheet";
 
 export default function Today() {
   const [location, setLocation] = useLocation();
@@ -38,6 +39,11 @@ export default function Today() {
   const { data: calendar, isLoading: isLoadingCalendar } = useGetCalendar({ from: todayStr, to: todayStr });
 
   const [invoiceJobId, setInvoiceJobId] = useState<string | null>(null);
+  const [updateClient, setUpdateClient] = useState<{
+    propertyId: string;
+    jobId?: string | null;
+    kind: UpdateClientKind | null;
+  } | null>(null);
 
   const isLoading = isLoadingToday || isLoadingMoney || isLoadingJobs || isLoadingCrews || isLoadingCalendar;
 
@@ -133,7 +139,7 @@ export default function Today() {
               <span className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-destructive">Action Required</span>
             </div>
             <div className="flex flex-col gap-3">
-              {nowCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
+              {nowCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} onUpdateClient={setUpdateClient} />)}
             </div>
           </div>
         )}
@@ -145,7 +151,7 @@ export default function Today() {
               <span className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--ink)]">Up Next</span>
             </div>
             <div className="flex flex-col gap-3">
-              {todayCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
+              {todayCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} onUpdateClient={setUpdateClient} />)}
             </div>
           </div>
         )}
@@ -157,7 +163,7 @@ export default function Today() {
               <span className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-muted-foreground">Later This Week</span>
             </div>
             <div className="flex flex-col gap-3">
-              {weekCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} />)}
+              {weekCards.map(c => <FeedCard key={c.id} card={c} onCreateInvoice={setInvoiceJobId} onUpdateClient={setUpdateClient} />)}
             </div>
           </div>
         )}
@@ -189,6 +195,15 @@ export default function Today() {
         onOpenChange={(o) => { if (!o) setInvoiceJobId(null); }}
         initialJobId={invoiceJobId}
       />
+      {updateClient && (
+        <UpdateClientSheet
+          open={!!updateClient}
+          onOpenChange={(o) => { if (!o) setUpdateClient(null); }}
+          propertyId={updateClient.propertyId}
+          jobId={updateClient.jobId}
+          initialKind={updateClient.kind}
+        />
+      )}
     </div>
   );
 }

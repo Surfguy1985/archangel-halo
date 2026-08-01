@@ -16,7 +16,16 @@ import {
   useGetProperty,
   getGetPropertyQueryKey,
   useCreateJobTrackerShare,
+  useBroadcastJob,
+  useListInvoices,
+  getListInvoicesQueryKey,
+  getGetMoneySummaryQueryKey,
+  type Invoice,
 } from "@workspace/api-client-react";
+import { InvoiceWizardDialog } from "@/components/InvoiceWizardDialog";
+import { PushCardDialog, type PushPrefill } from "@/components/PushCardDialog";
+import { RecordPaymentDialog } from "@/components/MoneyDialogs";
+import { SendInvoiceDialog } from "@/components/SendInvoiceDialog";
 import { MarginSection} from "@/components/MarginSection";
 import { CrewPhotosSection} from "@/components/CrewPhotosSection";
 import { useQueryClient} from "@tanstack/react-query";
@@ -32,6 +41,10 @@ import {
   RotateCcw,
   Radio,
   FileDown,
+  Megaphone,
+  FileText,
+  DollarSign,
+  MessageSquareShare,
 } from "lucide-react";
 import { useState} from "react";
 import { Skeleton} from "@/components/ui/skeleton";
@@ -97,6 +110,53 @@ export default function JobDetail() {
   const updateProperty = useUpdateProperty();
   const trackerShare = useCreateJobTrackerShare();
   const [trackerCopied, setTrackerCopied] = useState(false);
+  const broadcast = useBroadcastJob();
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
+  const [pushPrefill, setPushPrefill] = useState<PushPrefill | null>(null);
+  const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
+  const [sendInvoice, setSendInvoice] = useState<Invoice | null>(null);
+  const { data: allInvoices } = useListInvoices();
+  const jobInvoices = (allInvoices ?? []).filter((i) => i.jobId === id);
+
+  const invalidateMoney = () => {
+    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+  };
+
+  const openUpdateClient = (prefill: PushPrefill | null) => {
+    setPushPrefill(prefill);
+    setPushOpen(true);
+  };
+
+  const runBroadcast = (v: string) => {
+    setBroadcastOpen(false);
+    if (!v) return;
+    const payload =
+      v === "all"
+        ? { mode: "all" }
+        : v.startsWith("trade:")
+          ? { mode: "trade", trade: v.slice(6) }
+          : { mode: "crews", crewIds: [v.slice(5)] };
+    broadcast.mutate(
+      { id, data: payload },
+      {
+        onSuccess: (r) => {
+          invalidateJob();
+          toast({
+            title: "Job broadcast sent",
+            description:
+              (r as { message?: string }).message ??
+              "Crews can now claim this job from their portal.",
+          });
+        },
+        onError: (e) =>
+          toast({ title: "Couldn't broadcast", description: e.message, variant: "destructive" }),
+      },
+    );
+  };
 
   const copyTrackerLink = () => {
     trackerShare.mutate(
@@ -205,7 +265,12 @@ export default function JobDetail() {
       {
         onSuccess: () => {
           invalidateJob();
-          toast({ title: "Job marked complete" });
+          if (jobInvoices.length === 0) {
+            toast({ title: "Job marked complete", description: "Next: create the invoice." });
+            setWizardOpen(true);
+          } else {
+            toast({ title: "Job marked complete" });
+          }
         },
         onError: (e) =>
           toast({ title: "Couldn't complete", description: e.message, variant: "destructive" }),
@@ -260,7 +325,44 @@ export default function JobDetail() {
             {job.propertyName} {job.unitNo ? `· Unit ${job.unitNo}` : ""}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 justify-end">
+          {!job.clearedAt && !job.crewLeaderId && job.status !== "complete" && job.status !== "paid" && job.status !== "cancelled" && (
+            broadcastOpen ? (
+              <select
+                autoFocus
+                defaultValue=""
+                onChange={(e) => runBroadcast(e.target.value)}
+                onBlur={() => setBroadcastOpen(false)}
+                className="px-4 py-2 bg-card border border-[var(--hairline)] text-sm font-medium rounded-full outline-none max-w-[220px]"
+                data-testid="select-broadcast-target"
+              >
+                <option value="">Broadcast to…</option>
+                <option value="all">All active crews</option>
+                {Array.from(new Set((crews ?? []).map((c) => c.trade).filter(Boolean))).map((t) => (
+                  <option key={`trade:${t}`} value={`trade:${t}`}>Trade: {t}</option>
+                ))}
+                {(crews ?? []).filter((c) => c.active !== false).map((c) => (
+                  <option key={`crew:${c.id}`} value={`crew:${c.id}`}>{c.name}</option>
+                ))}
+              </select>
+            ) : (
+              <button
+                onClick={() => setBroadcastOpen(true)}
+                disabled={broadcast.isPending}
+                data-testid="button-broadcast-job"
+                className="flex items-center gap-2 bg-card border border-[var(--hairline)] px-4 py-2 rounded-full font-medium hover:border-[var(--ink)] transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-sm disabled:opacity-50"
+              >
+                <Megaphone className="w-4 h-4" /> {broadcast.isPending ? "Broadcasting…" : "Broadcast"}
+              </button>
+            )
+          )}
+          <button
+            onClick={() => openUpdateClient(null)}
+            data-testid="button-update-client"
+            className="flex items-center gap-2 bg-card border border-[var(--hairline)] px-4 py-2 rounded-full font-medium hover:border-[var(--ink)] transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-sm"
+          >
+            <MessageSquareShare className="w-4 h-4" /> Update client
+          </button>
           <button
             onClick={() => setScheduleOpen(true)}
             className="flex items-center gap-2 bg-card border border-[var(--hairline)] px-4 py-2 rounded-full font-medium hover:border-[var(--ink)] transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-sm"
@@ -455,6 +557,76 @@ export default function JobDetail() {
 
         <div className="space-y-6">
           <section>
+            <h2 className="text-lg font-display font-bold mb-3 text-[var(--ink)]">Billing</h2>
+            <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
+              {jobInvoices.map((inv) => (
+                <div key={inv.id} className="p-4 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <Link href={`/invoices/${inv.id}`} className="font-semibold hover:underline">
+                      {inv.invoiceNo}
+                    </Link>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium capitalize text-muted-foreground">{inv.status.replace("_", " ")}</span>
+                      <span className="font-mono font-semibold">${inv.amount.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {inv.status === "draft" && (
+                      <button
+                        onClick={() => setSendInvoice(inv)}
+                        data-testid={`button-send-invoice-${inv.id}`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--gold-light)] text-black text-xs font-bold hover:brightness-95"
+                      >
+                        <Send className="w-3.5 h-3.5" /> Send
+                      </button>
+                    )}
+                    {inv.status !== "paid" && (
+                      <button
+                        onClick={() => setPayInvoice(inv)}
+                        data-testid={`button-record-payment-${inv.id}`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--hairline)] text-xs font-bold hover:border-[var(--ink)]"
+                      >
+                        <DollarSign className="w-3.5 h-3.5" /> Record payment
+                      </button>
+                    )}
+                    <button
+                      onClick={() =>
+                        openUpdateClient({
+                          templateId: "invoice",
+                          title: `Invoice ${inv.invoiceNo}`,
+                          amount: inv.amount,
+                          dueDate: inv.dueAt ? String(inv.dueAt).slice(0, 10) : null,
+                          source: { type: "invoice", id: inv.id },
+                        })
+                      }
+                      data-testid={`button-push-invoice-${inv.id}`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--hairline)] text-xs font-bold hover:border-[var(--ink)]"
+                    >
+                      <MessageSquareShare className="w-3.5 h-3.5" /> To client board
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {!jobInvoices.length && (
+                <div className="p-4 space-y-3 text-center">
+                  <div className="text-sm text-muted-foreground">No invoice yet.</div>
+                  <button
+                    onClick={() => setWizardOpen(true)}
+                    data-testid="button-create-invoice"
+                    className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-semibold transition-colors ${
+                      job.status === "complete"
+                        ? "bg-[var(--gold-light)] text-black hover:brightness-95"
+                        : "bg-card border border-[var(--hairline)] hover:border-[var(--ink)]"
+                    }`}
+                  >
+                    <FileText className="w-4 h-4" /> Create invoice
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section>
             <h2 className="text-lg font-display font-bold mb-3 text-[var(--ink)]">Schedule</h2>
             <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
               {schedules.map((s) => (
@@ -524,6 +696,44 @@ export default function JobDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {propertyId && (
+        <InvoiceWizardDialog
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          propertyId={propertyId}
+          propertyName={job.propertyName ?? ""}
+        />
+      )}
+      {propertyId && (
+        <PushCardDialog
+          propertyId={propertyId}
+          open={pushOpen}
+          onOpenChange={(v) => { if (!v) setPushOpen(false); }}
+          prefill={pushPrefill}
+        />
+      )}
+      <RecordPaymentDialog
+        open={!!payInvoice}
+        onOpenChange={(v) => {
+          if (!v) {
+            setPayInvoice(null);
+            invalidateMoney();
+            invalidateJob();
+          }
+        }}
+        invoice={payInvoice}
+      />
+      <SendInvoiceDialog
+        open={!!sendInvoice}
+        onOpenChange={(v) => { if (!v) setSendInvoice(null); }}
+        invoice={sendInvoice}
+        onSent={() => {
+          invalidateMoney();
+          invalidateJob();
+          toast({ title: "Invoice sent", description: "Tip: push it to the client's board too." });
+        }}
+      />
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

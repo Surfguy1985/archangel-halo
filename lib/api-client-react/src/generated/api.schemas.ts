@@ -1421,6 +1421,11 @@ export interface FeedCard {
   entityType?: string | null;
   /** @nullable */
   entityId?: string | null;
+  /**
+     * Property this item belongs to — lets the UI open client-update actions without another fetch
+     * @nullable
+     */
+  propertyId?: string | null;
   /** @nullable */
   amount?: number | null;
   meta?: CardChip[];

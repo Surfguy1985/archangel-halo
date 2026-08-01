@@ -13,12 +13,22 @@ import {
   getListJobsQueryKey,
   getGetCalendarQueryKey,
   useCreateJobTrackerShare,
+  useCompleteJob,
+  useBroadcastJob,
+  useListInvoices,
+  getListInvoicesQueryKey,
+  getGetMoneySummaryQueryKey,
+  type Invoice,
 } from "@workspace/api-client-react";
+import { InvoiceEditor } from "@/components/InvoiceEditor";
+import { RecordPaymentSheet } from "@/components/RecordPaymentSheet";
+import { UpdateClientSheet, type UpdateClientKind } from "@/components/UpdateClientSheet";
+import { useToast } from "@/hooks/use-toast";
 import { MarginSection } from "@/components/MarginSection";
 import { CrewPhotosSection } from "@/components/CrewPhotosSection";
 import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, Pencil, Sparkles, Send, Check, CalendarDays, RotateCcw, Archive, Radio, FileDown } from "lucide-react";
+import { ChevronLeft, Pencil, Sparkles, Send, Check, CalendarDays, RotateCcw, Archive, Radio, FileDown, Megaphone, FileText, DollarSign, MessageSquareShare } from "lucide-react";
 import { useState } from "react";
 import { EditJobSheet } from "@/components/EditJobSheet";
 import { ScheduleJobSheet } from "@/components/ScheduleJobSheet";
@@ -42,6 +52,62 @@ export default function JobDetail() {
   const clearJob = useClearJob();
   const trackerShare = useCreateJobTrackerShare();
   const [trackerCopied, setTrackerCopied] = useState(false);
+  const { toast } = useToast();
+  const completeJob = useCompleteJob();
+  const broadcast = useBroadcastJob();
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [updateKind, setUpdateKind] = useState<UpdateClientKind | null>(null);
+  const [updateInvoiceId, setUpdateInvoiceId] = useState<string | null>(null);
+  const { data: allInvoices } = useListInvoices();
+  const jobInvoices = (allInvoices ?? []).filter((i) => i.jobId === id);
+
+  const openUpdateClient = (kind: UpdateClientKind | null, invoiceId?: string) => {
+    setUpdateKind(kind);
+    setUpdateInvoiceId(invoiceId ?? null);
+    setUpdateOpen(true);
+  };
+
+  const invalidateMoney = () => {
+    queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+  };
+
+  const onComplete = () =>
+    completeJob.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          invalidateJobLists();
+          if (jobInvoices.length === 0) {
+            toast({ title: "Job complete", description: "Next: create the invoice." });
+            setInvoiceOpen(true);
+          } else {
+            toast({ title: "Job marked complete" });
+          }
+        },
+        onError: (e) =>
+          toast({ title: "Couldn't complete", description: e.message, variant: "destructive" }),
+      },
+    );
+
+  const onBroadcast = () =>
+    broadcast.mutate(
+      { id, data: { mode: "all" } },
+      {
+        onSuccess: (r) => {
+          invalidateJobLists();
+          toast({
+            title: "Broadcast sent to all crews",
+            description: `Sent to ${(r as { sent?: number }).sent ?? 0} crew(s) — first to accept wins.`,
+          });
+        },
+        onError: (e) =>
+          toast({ title: "Couldn't broadcast", description: e.message, variant: "destructive" }),
+      },
+    );
 
   const copyTrackerLink = () => {
     trackerShare.mutate(
@@ -184,6 +250,28 @@ export default function JobDetail() {
             </button>
           </div>
         )}
+        {job.status !== "complete" && job.status !== "paid" && job.status !== "cancelled" && (
+          <div className="flex flex-wrap items-center gap-[8px] mt-[12px] pt-[12px] border-t border-[var(--hairline)]">
+            <button
+              disabled={completeJob.isPending}
+              onClick={onComplete}
+              data-testid="button-complete-job"
+              className="flex items-center gap-[6px] text-[13px] font-display font-bold px-[14px] py-[9px] rounded-full bg-[var(--gold-light)] text-black active:scale-[0.95] disabled:opacity-50 transition-all"
+            >
+              <Check className="w-[14px] h-[14px]" /> {completeJob.isPending ? "Completing…" : "Mark complete"}
+            </button>
+            {!job.crewLeaderId && !job.clearedAt && (
+              <button
+                disabled={broadcast.isPending}
+                onClick={onBroadcast}
+                data-testid="button-broadcast-job"
+                className="flex items-center gap-[6px] text-[13px] font-display font-bold px-[14px] py-[9px] rounded-full bg-[var(--paper)] border border-[var(--hairline)] text-[var(--ink)] active:scale-[0.95] disabled:opacity-50 transition-all"
+              >
+                <Megaphone className="w-[14px] h-[14px] text-[var(--gold-dark)]" /> {broadcast.isPending ? "Broadcasting…" : "Broadcast to crews"}
+              </button>
+            )}
+          </div>
+        )}
         {clearJob.isError && (
           <div className="mt-[8px] text-[12px] font-semibold text-red-600">
             {(clearJob.error as { data?: { error?: string } } | null)?.data?.error ?? clearJob.error?.message ?? "Couldn't clear this job."}
@@ -228,6 +316,68 @@ export default function JobDetail() {
       </div>
 
       <div className="px-[6px]">
+        <button
+          onClick={() => openUpdateClient(null)}
+          data-testid="button-update-client"
+          className="w-full mb-[10px] flex items-center justify-center gap-[8px] rounded-[14px] py-[12px] font-display font-bold text-[14px] bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] hover:border-[var(--gold)]/40 transition-all active:scale-[0.98]"
+        >
+          <MessageSquareShare className="w-[17px] h-[17px] text-[var(--gold-dark)]" />
+          Update client
+        </button>
+
+        <div className="mb-[18px]">
+          <div className="flex items-center gap-[7px] mb-[8px] mx-[2px]">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--gold)]" />
+            <span className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--ink)]">Billing</span>
+          </div>
+          <div className="bg-card border border-[var(--hairline)] rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[6px_14px]">
+            {jobInvoices.map((inv, idx) => (
+              <div key={inv.id} className={`py-[10px] ${idx !== 0 ? "border-t border-[var(--hairline)]" : ""}`}>
+                <div className="flex items-center gap-[10px] text-[14px]">
+                  <Link href={`/invoices/${inv.id}`} className="flex-1 font-semibold text-[var(--ink)]">
+                    {inv.invoiceNo}
+                  </Link>
+                  <span className="text-[12px] font-medium capitalize text-muted-foreground">{inv.status.replace("_", " ")}</span>
+                  <span className="font-display font-semibold tabular-nums text-[var(--ink)]">${inv.amount.toLocaleString()}</span>
+                </div>
+                {inv.status !== "paid" && (
+                  <div className="flex gap-[8px] mt-[8px]">
+                    <button
+                      onClick={() => setPayInvoice(inv)}
+                      data-testid={`button-record-payment-${inv.id}`}
+                      className="flex items-center gap-[5px] text-[12.5px] font-display font-bold px-[12px] py-[7px] rounded-full bg-[var(--gold-tint)] text-[var(--gold-dark)] border border-[var(--hairline)] active:scale-[0.95] transition-all"
+                    >
+                      <DollarSign className="w-[13px] h-[13px]" /> Record payment
+                    </button>
+                    <button
+                      onClick={() => openUpdateClient("invoice", inv.id)}
+                      data-testid={`button-push-invoice-${inv.id}`}
+                      className="flex items-center gap-[5px] text-[12.5px] font-display font-bold px-[12px] py-[7px] rounded-full bg-[var(--paper)] text-[var(--ink)] border border-[var(--hairline)] active:scale-[0.95] transition-all"
+                    >
+                      <MessageSquareShare className="w-[13px] h-[13px]" /> To client board
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {!jobInvoices.length && (
+              <div className="py-[12px]">
+                <button
+                  onClick={() => setInvoiceOpen(true)}
+                  data-testid="button-create-invoice"
+                  className={`w-full flex items-center justify-center gap-[8px] py-[11px] rounded-[14px] text-[14px] font-bold transition-all active:scale-[0.98] ${
+                    job.status === "complete"
+                      ? "bg-[var(--gold-light)] text-black"
+                      : "bg-[var(--paper)] border border-[var(--hairline)] text-[var(--ink)]"
+                  }`}
+                >
+                  <FileText className="w-[16px] h-[16px]" /> Create invoice
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         <button
           onClick={() => setScheduleOpen(true)}
           className="w-full mb-[18px] flex items-center justify-center gap-[8px] rounded-[14px] py-[12px] font-display font-bold text-[14px] bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[var(--ink)] hover:border-[var(--gold)]/40 transition-all active:scale-[0.98]"
@@ -397,6 +547,39 @@ export default function JobDetail() {
           </div>
         )}
       </div>
+
+      <InvoiceEditor
+        open={invoiceOpen}
+        onOpenChange={(v) => {
+          setInvoiceOpen(v);
+          if (!v) {
+            invalidateMoney();
+            invalidateJobLists();
+          }
+        }}
+        initialJobId={id}
+      />
+      <RecordPaymentSheet
+        open={!!payInvoice}
+        onOpenChange={(v) => {
+          if (!v) {
+            setPayInvoice(null);
+            invalidateMoney();
+            invalidateJobLists();
+          }
+        }}
+        invoice={payInvoice}
+      />
+      {propertyId && (
+        <UpdateClientSheet
+          open={updateOpen}
+          onOpenChange={setUpdateOpen}
+          propertyId={propertyId}
+          jobId={id}
+          initialKind={updateKind}
+          invoiceId={updateInvoiceId}
+        />
+      )}
 
       <EditJobSheet open={editOpen} onOpenChange={setEditOpen} job={job} />
       <ScheduleJobSheet

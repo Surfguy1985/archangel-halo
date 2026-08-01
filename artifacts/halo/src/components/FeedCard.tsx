@@ -77,9 +77,11 @@ export function entityRoute(entityType?: string | null, entityId?: string | null
 export function FeedCard({
   card,
   onCreateInvoice,
+  onUpdateClient,
 }: {
   card: FeedCardType;
   onCreateInvoice?: (jobId: string) => void;
+  onUpdateClient?: (args: { propertyId: string; jobId?: string | null; kind: "tracker" | "photos" | null }) => void;
 }) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -144,8 +146,20 @@ export function FeedCard({
         return;
       }
       case "scheduleJob":
-      case "openJob": {
+      case "openJob":
+      case "draftRecap": {
         if (card.entityId) navigate(`/jobs/${card.entityId}`);
+        return;
+      }
+      case "shareTracker":
+      case "sharePhotos": {
+        if (card.propertyId && onUpdateClient) {
+          onUpdateClient({
+            propertyId: card.propertyId,
+            jobId: card.entityType === "job" ? card.entityId : null,
+            kind: action === "shareTracker" ? "tracker" : "photos",
+          });
+        }
         return;
       }
       case "approveRequest": {

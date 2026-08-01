@@ -1,4 +1,6 @@
-import { useGetToday, useRefreshBrief, useGetQueues, useListActivities, useDismissFeedItem, useAcceptWorkRequest, useDeclineWorkRequest, getGetTodayQueryKey, getGetQueuesQueryKey, getListActivitiesQueryKey, getListWorkRequestsQueryKey, getListJobsQueryKey} from "@workspace/api-client-react";
+import { useGetToday, useRefreshBrief, useGetQueues, useListActivities, useDismissFeedItem, useAcceptWorkRequest, useDeclineWorkRequest, useRemindInvoice, useNudgeBid, getGetTodayQueryKey, getGetQueuesQueryKey, getListActivitiesQueryKey, getListWorkRequestsQueryKey, getListJobsQueryKey, getListInvoicesQueryKey, getListBidsQueryKey, type FeedCard} from "@workspace/api-client-react";
+import { PushCardDialog, type PushPrefill} from "@/components/PushCardDialog";
+import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import { Skeleton} from "@/components/ui/skeleton";
 import { Sparkles, ArrowRight, RefreshCw, X, History, ChevronDown} from "lucide-react";
@@ -66,8 +68,12 @@ export default function Today() {
   const dismissItem = useDismissFeedItem();
   const acceptRequest = useAcceptWorkRequest();
   const declineRequest = useDeclineWorkRequest();
+  const remindInvoice = useRemindInvoice();
+  const nudgeBid = useNudgeBid();
   const [decliningId, setDecliningId] = useState<string | null>(null);
   const [declineReason, setDeclineReason] = useState("");
+  const [pushTarget, setPushTarget] = useState<{ propertyId: string; prefill: PushPrefill | null } | null>(null);
+  const [invoiceWizard, setInvoiceWizard] = useState<{ propertyId: string; propertyName: string } | null>(null);
   const queryClient = useQueryClient();
   const { toast} = useToast();
   const [, navigate] = useLocation();
@@ -117,6 +123,69 @@ export default function Today() {
       toast({ title: "Failed to approve request", variant: "destructive"});
    }
  };
+
+  const runFeedAction = async (item: FeedCard, action: string) => {
+    switch (action) {
+      case "remindInvoice": {
+        if (!item.entityId || remindInvoice.isPending) return;
+        try {
+          await remindInvoice.mutateAsync({ id: item.entityId});
+          toast({ title: "Reminder sent"});
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
+        } catch (err) {
+          toast({ title: "Couldn't send the reminder", description: (err as { data?: { error?: string}})?.data?.error, variant: "destructive"});
+        }
+        return;
+      }
+      case "nudgeBid": {
+        if (!item.entityId || nudgeBid.isPending) return;
+        try {
+          await nudgeBid.mutateAsync({ id: item.entityId});
+          toast({ title: "Nudge sent"});
+          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+          queryClient.invalidateQueries({ queryKey: getListBidsQueryKey()});
+        } catch (err) {
+          toast({ title: "Couldn't nudge", description: (err as { data?: { error?: string}})?.data?.error, variant: "destructive"});
+        }
+        return;
+      }
+      case "createInvoice": {
+        if (item.propertyId) {
+          setInvoiceWizard({ propertyId: item.propertyId, propertyName: item.sub.split("—")[0]?.trim() ?? ""});
+        } else if (item.entityType === "job" && item.entityId) {
+          navigate(`/jobs/${item.entityId}`);
+        }
+        return;
+      }
+      case "shareTracker":
+      case "sharePhotos": {
+        if (!item.propertyId) return;
+        setPushTarget({
+          propertyId: item.propertyId,
+          prefill: {
+            templateId: action === "shareTracker" ? "crew_on_site" : "photos",
+            source:
+              item.entityType === "job" && item.entityId
+                ? {
+                    type: action === "shareTracker" ? "tracker" : "photos",
+                    id: item.entityId,
+                    jobId: item.entityId,
+                  }
+                : null,
+          },
+        });
+        return;
+      }
+      case "draftRecap":
+      case "scheduleJob":
+      case "openJob":
+      default: {
+        const route = entityRoute(item.entityType, item.entityId);
+        if (route) navigate(route);
+      }
+    }
+  };
 
   const handleDecline = async (requestId: string) => {
     if (declineRequest.isPending) return;
@@ -277,6 +346,25 @@ export default function Today() {
                           )}
                         </div>
                       )}
+                      {item.entityType !== "work_request" && (item.actions?.length ?? 0) > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                          {item.actions!.map((a) => (
+                            <button
+                              key={a.action}
+                              onClick={() => void runFeedAction(item, a.action)}
+                              disabled={remindInvoice.isPending || nudgeBid.isPending}
+                              data-testid={`button-action-${a.action}-${item.id}`}
+                              className={`rounded-full px-4 py-1.5 text-xs font-bold disabled:opacity-50 transition-colors ${
+                                a.kind === "gold"
+                                  ? "bg-[var(--primary)] text-black hover:opacity-90"
+                                  : "border border-black/10 text-foreground hover:bg-black/5"
+                              }`}
+                            >
+                              {a.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <button
@@ -388,6 +476,23 @@ export default function Today() {
           </Card>
         </div>
       </div>
+
+      {pushTarget && (
+        <PushCardDialog
+          propertyId={pushTarget.propertyId}
+          open={!!pushTarget}
+          onOpenChange={(v) => { if (!v) setPushTarget(null); }}
+          prefill={pushTarget.prefill}
+        />
+      )}
+      {invoiceWizard && (
+        <InvoiceWizardDialog
+          open={!!invoiceWizard}
+          onOpenChange={(v) => { if (!v) setInvoiceWizard(null); }}
+          propertyId={invoiceWizard.propertyId}
+          propertyName={invoiceWizard.propertyName}
+        />
+      )}
     </div>
   );
 }

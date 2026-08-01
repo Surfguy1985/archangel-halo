@@ -8,7 +8,12 @@ import {
   vendorsTable,
   leadsTable,
   workRequestsTable,
+  clientAccountsTable,
+  clientBoardCardsTable,
+  crewCheckinsTable,
+  crewPhotosTable,
 } from "@workspace/db";
+import { desc, eq, inArray } from "drizzle-orm";
 import { localToday } from "./localDate";
 
 const DAY = 1000 * 60 * 60 * 24;
@@ -21,6 +26,7 @@ export type FeedItem = {
   sub: string;
   entityType?: string | null;
   entityId?: string | null;
+  propertyId?: string | null;
   amount?: number | null;
   meta?: Array<{ label: string; mono?: boolean; warn?: boolean; gold?: boolean }>;
   actions?: Array<{ label: string; action: string; kind: string }>;
@@ -69,6 +75,7 @@ export async function computeQueues(): Promise<{
       sub: `Invoice ${i.invoiceNo}`,
       entityType: "invoice",
       entityId: i.id,
+      propertyId: i.propertyId,
       amount: i.amount,
       meta: [{ label: `${late}d late`, warn: true }],
       actions: [{ label: "Send reminder", action: "remindInvoice", kind: "gold" }],
@@ -97,6 +104,7 @@ export async function computeQueues(): Promise<{
         .join(" · "),
       entityType: "work_request",
       entityId: r.id,
+      propertyId: r.propertyId,
       meta: r.emergency ? [{ label: "≤24h notice", warn: true }] : undefined,
       actions: [
         { label: "Approve", action: "approveRequest", kind: "gold" },
@@ -121,6 +129,7 @@ export async function computeQueues(): Promise<{
       sub: `Bid ${b.bidNo} — ${b.scope ?? ""}`,
       entityType: "bid",
       entityId: b.id,
+      propertyId: b.propertyId ?? null,
       amount: b.amount,
       actions: [{ label: "Nudge", action: "nudgeBid", kind: "gold" }],
     });
@@ -137,6 +146,7 @@ export async function computeQueues(): Promise<{
       sub: `${propName.get(j.propertyId) ?? ""} ${j.unitNo ?? ""}`.trim(),
       entityType: "job",
       entityId: j.id,
+      propertyId: j.propertyId,
       actions: [{ label: "Schedule", action: "scheduleJob", kind: "line" }],
     });
   }
@@ -156,6 +166,7 @@ export async function computeQueues(): Promise<{
       sub: `${propName.get(j.propertyId) ?? ""} — $${(j.grossProfit ?? 0).toLocaleString()} GP`,
       entityType: "job",
       entityId: j.id,
+      propertyId: j.propertyId,
       actions: [{ label: "Create invoice", action: "createInvoice", kind: "gold" }],
     });
   }
@@ -186,6 +197,7 @@ export async function computeQueues(): Promise<{
       sub: `${propName.get(j.propertyId) ?? ""} — ${pct}% margin, below ${floorPct}% floor`,
       entityType: "job",
       entityId: j.id,
+      propertyId: j.propertyId,
       amount: j.grossProfit,
       meta: [{ label: `${pct}% margin`, warn: true }],
       actions: [{ label: "Review job", action: "openJob", kind: "line" }],
@@ -255,11 +267,102 @@ export async function computeQueues(): Promise<{
       sub: propName.get(j.propertyId) ?? "",
       entityType: "job",
       entityId: j.id,
+      propertyId: j.propertyId,
+      actions: [{ label: "Draft recap", action: "draftRecap", kind: "gold" }],
     });
+  }
+
+  // Client updates — contextual "share it while it's happening" prompts,
+  // only for properties with an active client dashboard.
+  const activeAccounts = await db
+    .select({ propertyId: clientAccountsTable.propertyId })
+    .from(clientAccountsTable)
+    .where(eq(clientAccountsTable.status, "active"));
+  const clientProps = new Set(activeAccounts.map((a) => a.propertyId));
+  if (clientProps.size > 0) {
+    const activeJobs = jobs.filter(
+      (j) =>
+        clientProps.has(j.propertyId) &&
+        j.status !== "cancelled" &&
+        j.status !== "paid",
+    );
+    const activeJobIds = activeJobs.map((j) => j.id);
+    if (activeJobIds.length > 0) {
+      const [pushedCards, checkins, photos] = await Promise.all([
+        db
+          .select({
+            sourceType: clientBoardCardsTable.sourceType,
+            sourceId: clientBoardCardsTable.sourceId,
+          })
+          .from(clientBoardCardsTable)
+          .where(inArray(clientBoardCardsTable.sourceType, ["tracker", "photos"])),
+        db
+          .select()
+          .from(crewCheckinsTable)
+          .where(inArray(crewCheckinsTable.jobId, activeJobIds))
+          .orderBy(desc(crewCheckinsTable.createdAt)),
+        db
+          .select({ jobId: crewPhotosTable.jobId, createdAt: crewPhotosTable.createdAt })
+          .from(crewPhotosTable)
+          .where(inArray(crewPhotosTable.jobId, activeJobIds)),
+      ]);
+      const pushed = new Set(pushedCards.map((c) => `${c.sourceType}:${c.sourceId}`));
+      const jobById = new Map(activeJobs.map((j) => [j.id, j]));
+
+      // Crew on site right now (checked in within 4h, no later checkout) →
+      // offer the live tracker.
+      const latestByJob = new Map<string, (typeof checkins)[number]>();
+      for (const c of checkins) {
+        if (c.jobId && !latestByJob.has(c.jobId)) latestByJob.set(c.jobId, c);
+      }
+      for (const [jobId, c] of latestByJob) {
+        const j = jobById.get(jobId);
+        if (!j) continue;
+        const onSite =
+          c.kind === "checkin" && Date.now() - c.createdAt.getTime() < 4 * 60 * 60 * 1000;
+        if (!onSite || pushed.has(`tracker:${jobId}`)) continue;
+        feed.push({
+          id: `upd-tracker-${jobId}`,
+          queue: "updates",
+          tier: "now",
+          title: `Crew on site: ${j.description ?? j.jobNo}`,
+          sub: `${propName.get(j.propertyId) ?? ""} — share the live tracker with the client`,
+          entityType: "job",
+          entityId: jobId,
+          propertyId: j.propertyId,
+          actions: [{ label: "Share tracker", action: "shareTracker", kind: "gold" }],
+        });
+      }
+
+      // Fresh crew photos (last 48h) not yet on the client board.
+      const freshPhotoJobs = new Map<string, number>();
+      for (const p of photos) {
+        if (!p.jobId) continue;
+        if (Date.now() - p.createdAt.getTime() < 48 * 60 * 60 * 1000) {
+          freshPhotoJobs.set(p.jobId, (freshPhotoJobs.get(p.jobId) ?? 0) + 1);
+        }
+      }
+      for (const [jobId, count] of freshPhotoJobs) {
+        const j = jobById.get(jobId);
+        if (!j || pushed.has(`photos:${jobId}`)) continue;
+        feed.push({
+          id: `upd-photos-${jobId}`,
+          queue: "updates",
+          tier: "today",
+          title: `New photos: ${j.description ?? j.jobNo}`,
+          sub: `${propName.get(j.propertyId) ?? ""} — ${count} photo${count === 1 ? "" : "s"} ready to share`,
+          entityType: "job",
+          entityId: jobId,
+          propertyId: j.propertyId,
+          actions: [{ label: "Share photos", action: "sharePhotos", kind: "gold" }],
+        });
+      }
+    }
   }
 
   const queueMeta: Record<string, { label: string; color: string }> = {
     requests: { label: "Client requests", color: "gold" },
+    updates: { label: "Client updates", color: "gold" },
     money: { label: "Money at risk", color: "danger" },
     margin: { label: "Margin guardian", color: "danger" },
     invoice: { label: "Ready to invoice", color: "gold" },

@@ -36,6 +36,7 @@ export const GetTodayResponse = zod.object({
   "sub": zod.string(),
   "entityType": zod.string().nullish(),
   "entityId": zod.string().nullish(),
+  "propertyId": zod.string().nullish().describe('Property this item belongs to — lets the UI open client-update actions without another fetch'),
   "amount": zod.number().nullish(),
   "meta": zod.array(zod.object({
   "label": zod.string(),

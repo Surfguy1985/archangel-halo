@@ -19,10 +19,12 @@ import {
   Trash2,
   BellRing,
   CreditCard,
+  MessageSquareShare,
 } from "lucide-react";
 import { useState } from "react";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { RecordPaymentSheet } from "@/components/RecordPaymentSheet";
+import { UpdateClientSheet } from "@/components/UpdateClientSheet";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -87,6 +89,7 @@ export default function InvoiceDetail() {
   });
   const [editOpen, setEditOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [updateOpen, setUpdateOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [recipient, setRecipient] = useState("");
@@ -425,6 +428,15 @@ export default function InvoiceDetail() {
             <CreditCard className="w-[16px] h-[16px]" /> Record payment
           </button>
         )}
+        {status !== "draft" && (
+          <button
+            onClick={() => setUpdateOpen(true)}
+            data-testid="button-push-invoice-to-board"
+            className="w-full flex items-center justify-center gap-[7px] rounded-[13px] py-[12px] font-display font-bold text-[14.5px] bg-card border border-border shadow-[var(--shadow)] active:scale-[0.98]"
+          >
+            <MessageSquareShare className="w-[16px] h-[16px]" /> Send to client board
+          </button>
+        )}
         <div className="flex gap-[8px]">
           <a
             href={`${apiBase}/api/invoices/${inv.id}/pdf`}
@@ -519,6 +531,15 @@ export default function InvoiceDetail() {
         onOpenChange={setPayOpen}
         invoice={inv}
       />
+      {inv.propertyId && (
+        <UpdateClientSheet
+          open={updateOpen}
+          onOpenChange={setUpdateOpen}
+          propertyId={inv.propertyId}
+          jobId={inv.jobId ?? null}
+          initialKind="invoice"
+        />
+      )}
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
