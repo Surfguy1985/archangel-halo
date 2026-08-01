@@ -2303,6 +2303,42 @@ export interface QuickJobInput {
   /** Price-book services tapped in — become job line items */
   priceItemIds?: string[];
 }
+
+export interface PullCrewInput {
+  crewId: string;
+  fromJobId: string;
+}
+
+export interface PullCrewResult {
+  job: Job;
+  vacatedJob: Job;
+}
+
+export interface StaffingCrewJob {
+  id: string;
+  jobNo: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  scheduledOn?: string | null;
+  /** @nullable */
+  status?: string | null;
+}
+
+export interface StaffingCrew {
+  id: string;
+  name: string;
+  /** @nullable */
+  trade?: string | null;
+  /** @nullable */
+  selfiePath?: string | null;
+  /** idle | site | done */
+  todayStatus: string;
+  currentJob?: StaffingCrewJob | null;
+}
+
 /**
  * @nullable
  */
@@ -6273,38 +6309,3 @@ export type MarkClientBoardNotificationsRead200 = {
   ok: boolean;
 };
 
-
-export interface StaffingCrewJob {
-  id: string;
-  jobNo: string;
-  /** @nullable */
-  description?: string | null;
-  /** @nullable */
-  propertyName?: string | null;
-  /** @nullable */
-  scheduledOn?: string | null;
-  /** @nullable */
-  status?: string | null;
-}
-
-export interface PullCrewInput {
-  crewId: string;
-  fromJobId: string;
-}
-
-export interface StaffingCrew {
-  id: string;
-  name: string;
-  /** @nullable */
-  trade?: string | null;
-  /** @nullable */
-  selfiePath?: string | null;
-  /** idle | site | done */
-  todayStatus: string;
-  currentJob?: StaffingCrewJob | null;
-}
-
-export interface PullCrewResult {
-  job: Job;
-  vacatedJob: Job;
-}
