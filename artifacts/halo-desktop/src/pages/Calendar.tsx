@@ -13,6 +13,7 @@ import {
   ScheduleJobDialog,
   colorVar,
 } from "@/components/CalendarDialogs";
+import { PropertyDispatchDay } from "@/components/PropertyDispatchDay";
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -45,7 +46,7 @@ function fmtTimeShort(hhmm: string) {
   return m ?`${hr}:${pad(m!)} ${mer}` :`${hr} ${mer}`;
 }
 
-type ViewMode = "day" | "week" | "month";
+type ViewMode = "day" | "week" | "month" | "dispatch";
 const HOUR_H = 60;
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -110,13 +111,15 @@ export default function Calendar() {
   };
 
   const step = (dir: number) => {
-    if (view === "day") setCursor(addDays(cursor, dir));
+    if (view === "day" || view === "dispatch") setCursor(addDays(cursor, dir));
     else if (view === "week") setCursor(addDays(cursor, dir * 7));
     else setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + dir, 1, 12));
   };
 
   const headerTitle =
-    view === "month"
+    view === "dispatch"
+      ? `Dispatch — ${cursor.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}`
+      : view === "month"
       ? cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" })
       : view === "week"
         ? (() => {
@@ -149,7 +152,7 @@ export default function Calendar() {
 
         {/* View switch */}
         <div className="flex p-1 bg-card border border-[var(--hairline)] rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-          {(["day", "week", "month"] as ViewMode[]).map((v) => (
+          {(["day", "week", "month", "dispatch"] as ViewMode[]).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
@@ -203,7 +206,9 @@ export default function Calendar() {
         </div>
       </header>
 
-      {isLoading ? (
+      {view === "dispatch" ? (
+        <PropertyDispatchDay day={ymd(cursor)} />
+      ) : isLoading ? (
         <Skeleton className="flex-1 w-full rounded-[20px]" />
       ) : view === "month" ? (
         <MonthView

@@ -15,6 +15,8 @@ export interface CrewUpdate {
   /** @nullable */
   email?: string | null;
   isLeader?: boolean;
+  /** @nullable */
+  leaderId?: string | null;
   active?: boolean;
   /** @nullable */
   paymentTerms?: string | null;

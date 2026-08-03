@@ -31,6 +31,14 @@ import {
   useGetPortalBank,
   useSubmitPortalBank,
   useCommitPortalEmergency,
+  useGetPortalDispatch,
+  getGetPortalDispatchQueryKey,
+  useGetPortalOfficeView,
+  getGetPortalOfficeViewQueryKey,
+  type PortalOfficeView,
+  useCheckPortalDispatchItem,
+  useRespondPortalDispatchMove,
+  type PortalDispatchAssignment,
   useGetPortalEarnings,
   getGetPortalEarningsQueryKey,
   getListPortalInvoicesQueryKey,
@@ -99,6 +107,7 @@ import {
 
 type Tab =
   | "offers"
+  | "office"
   | "schedule"
   | "invoice"
   | "messages"
@@ -159,6 +168,12 @@ export default function CrewPortal() {
   const queryClient = useQueryClient();
 
   const { data: portal, isLoading, isError } = useGetPortal(token);
+  const { data: officeViewData } = useGetPortalOfficeView(token, {
+    query: {
+      queryKey: getGetPortalOfficeViewQueryKey(token),
+      refetchInterval: 60000,
+    },
+  });
   const markSeen = useMarkPortalSeen();
 
   const pendingOffersCount = portal?.offers?.filter(o => o.status === "pending" && !o.filledByOther).length || 0;
@@ -220,9 +235,13 @@ export default function CrewPortal() {
   }
 
   const u = portal.unseen;
+  const officeView = officeViewData;
   const tabs: { key: Tab; label: string; icon: any; badge?: number; alert?: number }[] = [
     { key: "offers", label: "Offers", icon: Briefcase, badge: pendingOffersCount, alert: (u?.offers ?? 0) + (u?.emergency ?? 0) },
     { key: "schedule", label: "Schedule", icon: Calendar, alert: u?.schedule },
+    ...(officeView?.enabled
+      ? [{ key: "office" as Tab, label: "Office", icon: Home }]
+      : []),
     { key: "invoice", label: "Invoice", icon: Receipt },
     { key: "packets", label: "Welcome Kit", icon: PackageCheck, alert: u?.packets },
     { key: "messages", label: "Messages", icon: MessageSquare, alert: u?.messages },
@@ -317,10 +336,19 @@ export default function CrewPortal() {
         <div className="min-w-0 lg:max-w-[720px]">
         {tab === "schedule" && <SaveLinkCard />}
         {tab === "offers" && <OffersTab portal={portal} token={token} />}
+        {tab === "office" && officeView?.enabled && (
+          <OfficeViewTab view={officeView} />
+        )}
+        {tab === "schedule" && <PortalDispatchSection token={token} />}
         {tab === "schedule" && <ScheduleTab portal={portal} />}
         {tab === "invoice" && <InvoiceTab portal={portal} token={token} />}
         {tab === "packets" && <WelcomeKitTab token={token} />}
-        {tab === "messages" && <MessagesTab token={token} />}
+        {tab === "messages" &&
+          (portal.crew.leaderId ? (
+            <ForemanRoutedNotice leaderName={portal.crew.leaderName ?? null} />
+          ) : (
+            <MessagesTab token={token} />
+          ))}
         {tab === "checkin" && <CheckinTab token={token} />}
         {tab === "photos" && <PhotosTab token={token} />}
         {tab === "documents" && <DocumentsTab token={token} />}
@@ -1339,6 +1367,323 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function OfficeViewTab({ view }: { view: PortalOfficeView }) {
+  const statusColor = (s: string) =>
+    s === "complete" || s === "paid"
+      ? "bg-[var(--green)]/12 text-[var(--green)]"
+      : s === "in_progress"
+        ? "bg-[var(--gold-light)]/20 text-[var(--gold-dark,#8f6a1f)]"
+        : "bg-[var(--ink)]/8 text-[var(--ink)]";
+  return (
+    <div className="animate-in fade-in duration-200">
+      <div className={`${card} mb-[12px] flex items-start gap-[10px]`}>
+        <ShieldCheck className="w-[18px] h-[18px] text-[var(--gold)] shrink-0 mt-[1px]" />
+        <div>
+          <div className="text-[13.5px] font-semibold">Your office access</div>
+          <div className="text-[12.5px] text-muted-foreground">
+            {view.accessSummary} · read-only
+          </div>
+        </div>
+      </div>
+
+      {view.features.includes("schedule") && (
+        <>
+          <div className="text-[13px] font-semibold mb-[8px]">
+            Schedule — next 14 days
+          </div>
+          {view.schedule.length === 0 ? (
+            <div className={`${card} mb-[12px] text-[12.5px] text-muted-foreground`}>
+              Nothing scheduled in your scope.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-[8px] mb-[14px]">
+              {view.schedule.map((s, i) => (
+                <div key={i} className={card}>
+                  <div className="flex items-center gap-[8px]">
+                    <Calendar className="w-[13px] h-[13px] text-[var(--gold)]" />
+                    <span className="text-[12.5px] font-semibold">
+                      {formatDay(s.date)}
+                    </span>
+                    {s.time && (
+                      <span className="text-[12px] text-muted-foreground">· {s.time}</span>
+                    )}
+                  </div>
+                  <div className="text-[13.5px] font-semibold mt-[2px]">{s.title}</div>
+                  <div className="text-[12px] text-muted-foreground">
+                    {s.propertyName ?? ""}
+                    {s.unitNo ? ` · Unit ${s.unitNo}` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {view.features.includes("dispatch") && (
+        <>
+          <div className="text-[13px] font-semibold mb-[8px]">Today's dispatch</div>
+          {view.dispatch.length === 0 ? (
+            <div className={`${card} mb-[12px] text-[12.5px] text-muted-foreground`}>
+              No dispatch assignments today in your scope.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-[8px] mb-[14px]">
+              {view.dispatch.map((d, i) => (
+                <div key={i} className={`${card} flex items-center gap-[10px]`}>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13.5px] font-semibold truncate">
+                      {d.memberName}
+                    </div>
+                    <div className="text-[12px] text-muted-foreground truncate">
+                      {d.jobNo ?? "Job"}
+                      {d.propertyName ? ` · ${d.propertyName}` : ""}
+                      {d.unitNo ? ` · Unit ${d.unitNo}` : ""}
+                    </div>
+                  </div>
+                  <span className="text-[12px] text-muted-foreground shrink-0">
+                    {d.checklistTotal > 0
+                      ? `${d.checklistDone}/${d.checklistTotal}`
+                      : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {view.features.includes("jobs") && (
+        <>
+          <div className="text-[13px] font-semibold mb-[8px]">Jobs</div>
+          {view.jobs.length === 0 ? (
+            <div className={`${card} mb-[12px] text-[12.5px] text-muted-foreground`}>
+              No jobs in your scope.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-[8px] mb-[14px]">
+              {view.jobs.slice(0, 50).map((j) => (
+                <div key={j.id} className={card}>
+                  <div className="flex items-center gap-[8px]">
+                    <span className="text-[13.5px] font-semibold">{j.jobNo}</span>
+                    <span
+                      className={`text-[10px] font-bold uppercase tracking-wide px-[7px] py-[2px] rounded-full ${statusColor(j.status)}`}
+                    >
+                      {j.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                  <div className="text-[12.5px] text-muted-foreground mt-[2px]">
+                    {j.propertyName ?? ""}
+                    {j.unitNo ? ` · Unit ${j.unitNo}` : ""}
+                    {j.scheduledOn ? ` · ${formatDay(j.scheduledOn)}` : ""}
+                  </div>
+                  {j.description && (
+                    <div className="text-[12.5px] mt-[2px]">{j.description}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {view.features.includes("properties") && (
+        <>
+          <div className="text-[13px] font-semibold mb-[8px]">Properties</div>
+          <div className="flex flex-col gap-[8px] mb-[14px]">
+            {view.properties.map((p) => (
+              <div key={p.id} className={card}>
+                <div className="text-[13.5px] font-semibold">{p.name}</div>
+                <div className="text-[12px] text-muted-foreground">
+                  {[p.address, p.city].filter(Boolean).join(", ") || "No address on file"}
+                  {p.units != null ? ` · ${p.units} units` : ""}
+                  {` · ${p.activeJobs} active job${p.activeJobs === 1 ? "" : "s"}`}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ForemanRoutedNotice({ leaderName }: { leaderName: string | null }) {
+  return (
+    <div className="animate-in fade-in duration-200">
+      <div className={`${card} text-center py-[28px]`}>
+        <MessageSquare className="w-[22px] h-[22px] text-[var(--gold)] mx-auto mb-[8px]" />
+        <div className="font-semibold text-[14.5px] mb-[4px]">
+          Messages go through your foreman
+        </div>
+        <div className="text-[13px] text-muted-foreground">
+          {leaderName
+            ? `Talk to ${leaderName} — they'll get word to the office for you.`
+            : "Talk to your foreman — they'll get word to the office for you."}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PortalDispatchSection({ token }: { token: string }) {
+  const queryClient = useQueryClient();
+  const { data } = useGetPortalDispatch(token, {
+    query: {
+      queryKey: getGetPortalDispatchQueryKey(token),
+      refetchInterval: 20000,
+    },
+  });
+  const check = useCheckPortalDispatchItem();
+  const respond = useRespondPortalDispatchMove();
+  const refresh = () =>
+    queryClient.invalidateQueries({ queryKey: getGetPortalDispatchQueryKey(token) });
+
+  if (!data || (data.assignments.length === 0 && !data.team)) return null;
+
+  const toggle = (assignmentId: string, itemId: string, done: boolean) => {
+    check.mutate(
+      { token, assignmentId, data: { itemId, done } },
+      { onSuccess: refresh },
+    );
+  };
+
+  const renderAssignment = (a: PortalDispatchAssignment, editable: boolean) => {
+    const doneCount = a.checklist.filter((i) => i.done).length;
+    return (
+      <div key={a.id} className={`${card} mb-[10px]`}>
+        <div className="flex items-center gap-[8px] mb-[4px]">
+          <ClipboardCheck className="w-[14px] h-[14px] text-[var(--gold)]" />
+          <span className="text-[12.5px] font-semibold">
+            {a.jobNo ?? "Job"}
+            {a.unitNo ? ` · Unit ${a.unitNo}` : ""}
+          </span>
+          {a.status === "pending_move" && (
+            <span className="ml-auto text-[10px] font-bold uppercase tracking-wide px-[8px] py-[2px] rounded-full bg-[var(--orange)]/12 text-[var(--orange)]">
+              Move pending
+            </span>
+          )}
+          {a.checklist.length > 0 && a.status !== "pending_move" && (
+            <span className="ml-auto text-[11px] text-muted-foreground">
+              {doneCount}/{a.checklist.length}
+            </span>
+          )}
+        </div>
+        <div className="font-semibold text-[14.5px]">
+          {a.propertyName ?? a.description ?? "Assignment"}
+        </div>
+        {a.propertyName && a.description && (
+          <div className="text-[12.5px] text-muted-foreground mt-[2px]">
+            {a.description}
+          </div>
+        )}
+        {a.checklist.length > 0 && (
+          <div className="mt-[10px] flex flex-col gap-[6px]">
+            {a.checklist.map((i) => (
+              <button
+                key={i.id}
+                disabled={!editable}
+                onClick={() => toggle(a.id, i.id, !i.done)}
+                className="flex items-center gap-[9px] text-left"
+              >
+                <span
+                  className={`w-[18px] h-[18px] rounded-[6px] border grid place-items-center shrink-0 ${
+                    i.done
+                      ? "bg-[var(--gold-light)] border-[var(--gold-light)]"
+                      : "border-border bg-white"
+                  }`}
+                >
+                  {i.done && <Check className="w-[12px] h-[12px] text-black" />}
+                </span>
+                <span
+                  className={`text-[13px] ${i.done ? "line-through text-muted-foreground" : ""}`}
+                >
+                  {i.text}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="animate-in fade-in duration-200 mb-[14px]">
+      {data.assignments.length > 0 && (
+        <>
+          <div className="text-[13px] text-muted-foreground mb-[8px]">
+            Today's dispatch — check off work as you go
+          </div>
+          {data.assignments.map((a) => renderAssignment(a, true))}
+        </>
+      )}
+
+      {data.team && data.team.pendingMoves.length > 0 && (
+        <>
+          <div className="text-[13px] font-semibold mb-[8px] mt-[6px]">
+            Moves waiting on you
+          </div>
+          {data.team.pendingMoves.map((m) => (
+            <div key={m.assignmentId} className={`${card} mb-[10px]`}>
+              <div className="text-[13.5px] font-semibold mb-[2px]">
+                Move {m.memberName}?
+              </div>
+              <div className="text-[12.5px] text-muted-foreground">
+                From {m.fromJobLabel ?? "current job"} to {m.toJobLabel ?? "another job"}
+              </div>
+              <div className="flex gap-[8px] mt-[10px]">
+                <button
+                  disabled={respond.isPending}
+                  onClick={() =>
+                    respond.mutate(
+                      { token, assignmentId: m.assignmentId, data: { approve: true } },
+                      { onSuccess: refresh },
+                    )
+                  }
+                  className="flex-1 rounded-[11px] bg-[var(--gold-light)] text-black text-[13px] font-bold py-[9px]"
+                >
+                  Approve
+                </button>
+                <button
+                  disabled={respond.isPending}
+                  onClick={() =>
+                    respond.mutate(
+                      { token, assignmentId: m.assignmentId, data: { approve: false } },
+                      { onSuccess: refresh },
+                    )
+                  }
+                  className="flex-1 rounded-[11px] border border-border text-[13px] font-bold py-[9px]"
+                >
+                  Decline
+                </button>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+
+      {data.team && data.team.members.some((m) => m.assignments.length > 0) && (
+        <>
+          <div className="text-[13px] font-semibold mb-[8px] mt-[6px]">
+            Your team today
+          </div>
+          {data.team.members
+            .filter((m) => m.assignments.length > 0)
+            .map((m) => (
+              <div key={m.id} className="mb-[6px]">
+                <div className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide mb-[6px]">
+                  {m.name}
+                </div>
+                {m.assignments.map((a) => renderAssignment(a, true))}
+              </div>
+            ))}
+        </>
+      )}
     </div>
   );
 }

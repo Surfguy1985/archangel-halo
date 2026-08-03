@@ -1,11 +1,12 @@
 import { useListCrews} from "@workspace/api-client-react";
 import { Skeleton} from "@/components/ui/skeleton";
 import { Link} from "wouter";
-import { Users, Plus, Search, MapPin, CheckCircle, Clock, Pencil, Navigation} from "lucide-react";
+import { Users, Plus, Search, MapPin, CheckCircle, Clock, Pencil, Navigation, ShieldCheck} from "lucide-react";
 import { useState} from "react";
 import { AddCrewDialog, EditCrewDialog, type EditableCrew} from "@/components/CrewDialogs";
 import { CrewCommandCenter } from "@/components/CrewCommandCenter";
 import { CrewDayPlanDialog } from "@/components/CrewDayPlanDialog";
+import { CrewAccessDialog } from "@/components/CrewAccessDialog";
 import { Route } from "lucide-react";
 
 export default function Crews() {
@@ -14,12 +15,34 @@ export default function Crews() {
   const [mapOpen, setMapOpen] = useState(false);
   const [editing, setEditing] = useState<EditableCrew | null>(null);
   const [planCrew, setPlanCrew] = useState<{ id: string; name: string } | null>(null);
+  const [accessCrew, setAccessCrew] = useState<NonNullable<typeof crews>[number] | null>(null);
   const { data: crews, isLoading } = useListCrews();
 
   const filtered = crews?.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 
     (c.trade && c.trade.toLowerCase().includes(search.toLowerCase()))
   ) || [];
+
+  // Group crews into teams: each foreman with their members, independents last.
+  const all = crews ?? [];
+  const filteredIds = new Set(filtered.map((c) => c.id));
+  const leaders = all.filter(
+    (c) => c.isLeader || all.some((m) => m.leaderId === c.id),
+  );
+  const teams = leaders
+    .map((l) => ({
+      leader: l,
+      members: all.filter((m) => m.leaderId === l.id && m.id !== l.id),
+    }))
+    .map((t) => ({
+      ...t,
+      visible: [t.leader, ...t.members].filter((c) => filteredIds.has(c.id)),
+    }))
+    .filter((t) => t.visible.length > 0);
+  const groupedIds = new Set(
+    leaders.flatMap((l) => [l.id, ...all.filter((m) => m.leaderId === l.id).map((m) => m.id)]),
+  );
+  const independents = filtered.filter((c) => !groupedIds.has(c.id));
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
@@ -64,9 +87,69 @@ export default function Crews() {
           <Skeleton className="h-40 w-full" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map(crew => (
-            <Link key={crew.id} href={`/crews/${crew.id}`} className="block">
+        <div className="space-y-8">
+          {teams.map((t) => (
+            <section key={t.leader.id} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <h2 className="font-display font-bold text-lg text-[var(--ink)]">
+                  {t.leader.name}'s team
+                </h2>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)]">
+                  Foreman
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {t.visible.length} {t.visible.length === 1 ? "person" : "people"}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {t.visible.map((crew) => renderCard(crew))}
+              </div>
+            </section>
+          ))}
+          {independents.length > 0 && (
+            <section className="space-y-3">
+              {teams.length > 0 && (
+                <h2 className="font-display font-bold text-lg text-[var(--ink)]">
+                  Independent
+                </h2>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {independents.map((crew) => renderCard(crew))}
+              </div>
+            </section>
+          )}
+          {filtered.length === 0 && (
+            <div className="p-12 text-center border border-dashed border-[var(--hairline)] rounded-[20px] text-muted-foreground bg-card">
+              No crews found.
+            </div>
+          )}
+        </div>
+      )}
+
+      {accessCrew && (
+        <CrewAccessDialog crew={accessCrew} onClose={() => setAccessCrew(null)} />
+      )}
+      {planCrew && (
+        <CrewDayPlanDialog
+          crewId={planCrew.id}
+          crewName={planCrew.name}
+          onClose={() => setPlanCrew(null)}
+        />
+      )}
+      <AddCrewDialog open={addOpen} onOpenChange={setAddOpen} />
+      {editing && (
+        <EditCrewDialog
+          open={!!editing}
+          onOpenChange={(o) => { if (!o) setEditing(null); }}
+          crew={editing}
+        />
+      )}
+    </div>
+  );
+
+  function renderCard(crew: NonNullable<typeof crews>[number]) {
+    return (
+      <Link key={crew.id} href={`/crews/${crew.id}`} className="block">
               <div className="bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-1 transition-all group h-full flex flex-col">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -108,6 +191,22 @@ export default function Crews() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        setAccessCrew(crew);
+                      }}
+                      aria-label={`Office access for ${crew.name}`}
+                      title="Office access"
+                      className={`p-1.5 rounded-md transition-all ${
+                        crew.access && crew.access.features.length > 0
+                          ? "text-[var(--gold-dark)] opacity-100"
+                          : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                      } hover:bg-black/5 hover:text-foreground`}
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         setEditing(crew);
                       }}
                       aria-label={`Edit ${crew.name}`}
@@ -143,30 +242,6 @@ export default function Crews() {
                 </div>
               </div>
             </Link>
-          ))}
-          {filtered.length === 0 && (
-            <div className="col-span-full p-12 text-center border border-dashed border-[var(--hairline)] rounded-[20px] text-muted-foreground bg-card">
-              No crews found.
-            </div>
-          )}
-        </div>
-      )}
-
-      {planCrew && (
-        <CrewDayPlanDialog
-          crewId={planCrew.id}
-          crewName={planCrew.name}
-          onClose={() => setPlanCrew(null)}
-        />
-      )}
-      <AddCrewDialog open={addOpen} onOpenChange={setAddOpen} />
-      {editing && (
-        <EditCrewDialog
-          open={!!editing}
-          onOpenChange={(o) => { if (!o) setEditing(null); }}
-          crew={editing}
-        />
-      )}
-    </div>
-  );
+    );
+  }
 }

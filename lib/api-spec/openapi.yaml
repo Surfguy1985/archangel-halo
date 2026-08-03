@@ -1216,6 +1216,145 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /dispatch-board/{day}:
+    get:
+      operationId: getDispatchBoard
+      tags: [jobs]
+      summary: Property-tabbed member dispatch board for one day
+      parameters:
+        - name: day
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Board
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DispatchBoard"
+
+  /dispatch-assignments:
+    post:
+      operationId: createDispatchAssignment
+      tags: [jobs]
+      summary: Assign a crew member to a job for a day (checklist seeded from job scope)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DispatchAssignmentCreateInput"
+      responses:
+        "201":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DispatchAssignment"
+        "404":
+          description: Job or member not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /dispatch-assignments/{id}:
+    delete:
+      operationId: deleteDispatchAssignment
+      tags: [jobs]
+      summary: Take a member off a job for the day
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /dispatch-assignments/{id}/move:
+    post:
+      operationId: requestDispatchMove
+      tags: [jobs]
+      summary: Move a member to another job — routed through their foreman for approval when they have one
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DispatchMoveInput"
+      responses:
+        "200":
+          description: Applied immediately (no foreman) or pending foreman approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DispatchAssignment"
+        "404":
+          description: Assignment or target job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Invalid move
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /dispatch-assignments/{id}/checklist:
+    patch:
+      operationId: updateDispatchChecklist
+      tags: [jobs]
+      summary: Office edit of an assignment's scope-of-work checklist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DispatchChecklistUpdateInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DispatchAssignment"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /jobs/{id}/line-items:
     post:
       operationId: addJobLineItem
@@ -3690,6 +3829,159 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CrewMessage"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /portal/{token}/dispatch:
+    get:
+      operationId: getPortalDispatch
+      tags: [portal]
+      summary: Today's member dispatch assignments (plus team view for foremen)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Dispatch feed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalDispatch"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /portal/{token}/dispatch/{assignmentId}/check:
+    post:
+      operationId: checkPortalDispatchItem
+      tags: [portal]
+      summary: Member checks a scope-of-work item off (or back on)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: assignmentId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortalDispatchCheckInput"
+      responses:
+        "200":
+          description: Updated assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalDispatchAssignment"
+        "404":
+          description: Invalid link or assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /portal/{token}/dispatch/{assignmentId}/move-response:
+    post:
+      operationId: respondPortalDispatchMove
+      tags: [portal]
+      summary: Foreman approves or declines a pending move for one of their members
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: assignmentId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortalMoveDecisionInput"
+      responses:
+        "200":
+          description: Decision applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "403":
+          description: Not this crew's foreman
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link or assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: No pending move on this assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /crews/{id}/access:
+    put:
+      operationId: updateCrewAccess
+      tags: [crews]
+      summary: Set the office-view access grant for a crew member's portal link
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewAccessInput"
+      responses:
+        "200":
+          description: Updated crew
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Crew"
+        "404":
+          description: Crew not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /portal/{token}/office-view:
+    get:
+      operationId: getPortalOfficeView
+      tags: [portal]
+      summary: Read-only office data the crew has been granted access to
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Granted office view (enabled=false when no grant)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalOfficeView"
         "404":
           description: Invalid link
           content:
@@ -10700,6 +10992,104 @@ components:
       properties:
         name: { type: string, minLength: 1 }
         rate: { type: ["number", "null"] }
+    CrewAccess:
+      type: object
+      required: [features, propertyScope, propertyIds, jobScope, jobIds]
+      properties:
+        features:
+          type: array
+          items: { type: string, enum: [schedule, dispatch, jobs, properties] }
+        propertyScope: { type: string, enum: [all, selected] }
+        propertyIds:
+          type: array
+          items: { type: string }
+        jobScope: { type: string, enum: [all, selected] }
+        jobIds:
+          type: array
+          items: { type: string }
+    CrewAccessInput:
+      type: object
+      required: [features, propertyScope, jobScope]
+      properties:
+        features:
+          type: array
+          items: { type: string, enum: [schedule, dispatch, jobs, properties] }
+        propertyScope: { type: string, enum: [all, selected] }
+        propertyIds:
+          type: array
+          items: { type: string }
+        jobScope: { type: string, enum: [all, selected] }
+        jobIds:
+          type: array
+          items: { type: string }
+    OfficeViewProperty:
+      type: object
+      required: [id, name, activeJobs]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        address: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        units: { type: ["number", "null"] }
+        activeJobs: { type: number }
+    OfficeViewJob:
+      type: object
+      required: [id, jobNo, status]
+      properties:
+        id: { type: string }
+        jobNo: { type: string }
+        description: { type: ["string", "null"] }
+        status: { type: string }
+        propertyName: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        scheduledOn: { type: ["string", "null"] }
+        crewLeaderName: { type: ["string", "null"] }
+    OfficeViewScheduleItem:
+      type: object
+      required: [date, title]
+      properties:
+        date: { type: string }
+        title: { type: string }
+        propertyName: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        time: { type: ["string", "null"] }
+        kind: { type: string, description: "job | event" }
+    OfficeViewDispatchItem:
+      type: object
+      required: [memberName, checklistDone, checklistTotal, status]
+      properties:
+        memberName: { type: string }
+        jobNo: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        checklistDone: { type: number }
+        checklistTotal: { type: number }
+        status: { type: string }
+    PortalOfficeView:
+      type: object
+      required: [enabled, features, accessSummary, properties, jobs, schedule, dispatch]
+      properties:
+        enabled: { type: boolean }
+        features:
+          type: array
+          items: { type: string }
+        accessSummary: { type: string }
+        properties:
+          type: array
+          items:
+            $ref: "#/components/schemas/OfficeViewProperty"
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/OfficeViewJob"
+        schedule:
+          type: array
+          items:
+            $ref: "#/components/schemas/OfficeViewScheduleItem"
+        dispatch:
+          type: array
+          items:
+            $ref: "#/components/schemas/OfficeViewDispatchItem"
     Crew:
       type: object
       required: [id, name]
@@ -10710,9 +11100,14 @@ components:
         phone: { type: ["string", "null"] }
         email: { type: ["string", "null"] }
         isLeader: { type: ["boolean", "null"] }
+        leaderId: { type: ["string", "null"], description: "Foreman this member reports to" }
         active: { type: ["boolean", "null"] }
         paymentTerms: { type: ["string", "null"], description: "due_on_receipt | net15 | net30 | net45" }
         selfiePath: { type: ["string", "null"] }
+        access:
+          oneOf:
+            - $ref: "#/components/schemas/CrewAccess"
+            - type: "null"
         services:
           type: ["array", "null"]
           items:
@@ -10727,6 +11122,12 @@ components:
         phone: { type: ["string", "null"] }
         email: { type: ["string", "null"] }
         isLeader: { type: ["boolean", "null"] }
+        leaderId: { type: ["string", "null"] }
+        leaderName: { type: ["string", "null"] }
+        access:
+          oneOf:
+            - $ref: "#/components/schemas/CrewAccess"
+            - type: "null"
         active: { type: ["boolean", "null"] }
         preferredPaymentMethod: { type: ["string", "null"] }
         paymentDetails: { type: ["string", "null"] }
@@ -10797,6 +11198,188 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CrewDayPlanStop"
+    DispatchChecklistItem:
+      type: object
+      required: [id, text, done]
+      properties:
+        id: { type: string }
+        text: { type: string }
+        done: { type: boolean }
+    DispatchAssignment:
+      type: object
+      required: [id, day, jobId, memberId, memberName, status, checklist]
+      properties:
+        id: { type: string }
+        day: { type: string }
+        jobId: { type: string }
+        memberId: { type: string }
+        memberName: { type: string }
+        selfiePath: { type: ["string", "null"] }
+        leaderId: { type: ["string", "null"] }
+        leaderName: { type: ["string", "null"] }
+        status: { type: string, description: "assigned | pending_move" }
+        checklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/DispatchChecklistItem"
+        pendingJobId: { type: ["string", "null"] }
+        pendingJobLabel: { type: ["string", "null"] }
+        checkinStatus: { type: ["string", "null"], description: "in | out" }
+    DispatchBoardJob:
+      type: object
+      required: [jobId, jobNo, status, assignments]
+      properties:
+        jobId: { type: string }
+        jobNo: { type: string }
+        description: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        status: { type: string }
+        scheduledTime: { type: ["string", "null"] }
+        crewLeaderId: { type: ["string", "null"] }
+        crewLeaderName: { type: ["string", "null"] }
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/DispatchAssignment"
+    DispatchBoardProperty:
+      type: object
+      required: [propertyId, propertyName, jobs]
+      properties:
+        propertyId: { type: string }
+        propertyName: { type: string }
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/DispatchBoardJob"
+    DispatchTeamMember:
+      type: object
+      required: [id, name, assignmentCount]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        trade: { type: ["string", "null"] }
+        selfiePath: { type: ["string", "null"] }
+        checkinStatus: { type: ["string", "null"], description: "in | out" }
+        assignmentCount: { type: number }
+    DispatchTeam:
+      type: object
+      required: [members]
+      properties:
+        leaderId: { type: ["string", "null"], description: "null = independent members" }
+        leaderName: { type: ["string", "null"] }
+        leaderSelfiePath: { type: ["string", "null"] }
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/DispatchTeamMember"
+    DispatchBoard:
+      type: object
+      required: [day, properties, teams]
+      properties:
+        day: { type: string }
+        properties:
+          type: array
+          items:
+            $ref: "#/components/schemas/DispatchBoardProperty"
+        teams:
+          type: array
+          items:
+            $ref: "#/components/schemas/DispatchTeam"
+    DispatchAssignmentCreateInput:
+      type: object
+      required: [day, jobId, memberId]
+      properties:
+        day: { type: string }
+        jobId: { type: string }
+        memberId: { type: string }
+    DispatchMoveInput:
+      type: object
+      required: [toJobId]
+      properties:
+        toJobId: { type: string }
+    DispatchChecklistUpdateInput:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DispatchChecklistItem"
+    PortalDispatchAssignment:
+      type: object
+      required: [id, day, jobId, status, checklist]
+      properties:
+        id: { type: string }
+        day: { type: string }
+        jobId: { type: string }
+        jobNo: { type: ["string", "null"] }
+        description: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        propertyAddress: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        status: { type: string, description: "assigned | pending_move" }
+        checklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/DispatchChecklistItem"
+        pendingJobLabel: { type: ["string", "null"] }
+    PortalPendingMove:
+      type: object
+      required: [assignmentId, memberName, requestedAt]
+      properties:
+        assignmentId: { type: string }
+        memberId: { type: ["string", "null"] }
+        memberName: { type: string }
+        fromJobLabel: { type: ["string", "null"] }
+        toJobLabel: { type: ["string", "null"] }
+        requestedAt: { type: string }
+    PortalDispatchTeamMember:
+      type: object
+      required: [id, name, assignments]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        selfiePath: { type: ["string", "null"] }
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortalDispatchAssignment"
+    PortalDispatchTeam:
+      type: object
+      required: [members, pendingMoves]
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortalDispatchTeamMember"
+        pendingMoves:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortalPendingMove"
+    PortalDispatch:
+      type: object
+      required: [day, assignments]
+      properties:
+        day: { type: string }
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortalDispatchAssignment"
+        team:
+          oneOf:
+            - $ref: "#/components/schemas/PortalDispatchTeam"
+            - type: "null"
+    PortalDispatchCheckInput:
+      type: object
+      required: [itemId, done]
+      properties:
+        itemId: { type: string }
+        done: { type: boolean }
+    PortalMoveDecisionInput:
+      type: object
+      required: [approve]
+      properties:
+        approve: { type: boolean }
     PresentationDemoState:
       type: object
       required: [active, dashboardToken, propertyId]
@@ -10813,6 +11396,7 @@ components:
         phone: { type: string }
         email: { type: string }
         isLeader: { type: boolean }
+        leaderId: { type: ["string", "null"] }
         paymentTerms: { type: ["string", "null"] }
         services:
           type: array
@@ -10826,6 +11410,7 @@ components:
         phone: { type: string }
         email: { type: ["string", "null"] }
         isLeader: { type: boolean }
+        leaderId: { type: ["string", "null"] }
         active: { type: boolean }
         paymentTerms: { type: ["string", "null"] }
         services:
@@ -12051,6 +12636,9 @@ components:
         w9Submitted: { type: boolean }
         agreementAcceptedAt: { type: ["string", "null"] }
         selfiePath: { type: ["string", "null"] }
+        isLeader: { type: ["boolean", "null"] }
+        leaderId: { type: ["string", "null"] }
+        leaderName: { type: ["string", "null"] }
     PortalSelfieInput:
       type: object
       required: [storagePath]

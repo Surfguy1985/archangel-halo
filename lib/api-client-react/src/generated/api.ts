@@ -123,6 +123,7 @@ import type {
   ContactUpdate,
   CreatePlaidLinkToken200,
   Crew,
+  CrewAccessInput,
   CrewBankInput,
   CrewBankStatus,
   CrewCheckin,
@@ -152,7 +153,12 @@ import type {
   DeleteCalendarEvent200,
   DeleteVendor200,
   DisconnectBankParams,
+  DispatchAssignment,
+  DispatchAssignmentCreateInput,
+  DispatchBoard,
+  DispatchChecklistUpdateInput,
   DispatchInput,
+  DispatchMoveInput,
   EmergencyCandidates,
   EmergencyPingInput,
   EmergencyPingLookup,
@@ -265,11 +271,16 @@ import type {
   PnlReport,
   PortalAgreementResult,
   PortalBundle,
+  PortalDispatch,
+  PortalDispatchAssignment,
+  PortalDispatchCheckInput,
   PortalEarnings,
   PortalEmergencyCommitResult,
   PortalJob,
+  PortalMoveDecisionInput,
   PortalOfferRespondInput,
   PortalOfferRespondResult,
+  PortalOfficeView,
   PortalSeenInput,
   PortalSelfieInput,
   PortalSelfieResult,
@@ -4422,6 +4433,369 @@ export const useDispatchJob = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getDispatchJobMutationOptions(options));
+    }
+
+export const getGetDispatchBoardUrl = (day: string,) => {
+
+
+
+
+  return `/api/dispatch-board/${day}`
+}
+
+/**
+ * @summary Property-tabbed member dispatch board for one day
+ */
+export const getDispatchBoard = async (day: string, options?: RequestInit): Promise<DispatchBoard> => {
+
+  return customFetch<DispatchBoard>(getGetDispatchBoardUrl(day),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDispatchBoardQueryKey = (day: string,) => {
+    return [
+    `/api/dispatch-board/${day}`
+    ] as const;
+    }
+
+
+export const getGetDispatchBoardQueryOptions = <TData = Awaited<ReturnType<typeof getDispatchBoard>>, TError = ErrorType<unknown>>(day: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDispatchBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDispatchBoardQueryKey(day);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDispatchBoard>>> = ({ signal }) => getDispatchBoard(day, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: day !== null && day !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDispatchBoard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDispatchBoardQueryResult = NonNullable<Awaited<ReturnType<typeof getDispatchBoard>>>
+export type GetDispatchBoardQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Property-tabbed member dispatch board for one day
+ */
+
+export function useGetDispatchBoard<TData = Awaited<ReturnType<typeof getDispatchBoard>>, TError = ErrorType<unknown>>(
+ day: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDispatchBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDispatchBoardQueryOptions(day,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateDispatchAssignmentUrl = () => {
+
+
+
+
+  return `/api/dispatch-assignments`
+}
+
+/**
+ * @summary Assign a crew member to a job for a day (checklist seeded from job scope)
+ */
+export const createDispatchAssignment = async (dispatchAssignmentCreateInput: DispatchAssignmentCreateInput, options?: RequestInit): Promise<DispatchAssignment> => {
+
+  return customFetch<DispatchAssignment>(getCreateDispatchAssignmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dispatchAssignmentCreateInput)
+  }
+);}
+
+
+
+
+
+export const getCreateDispatchAssignmentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDispatchAssignment>>, TError,{data: BodyType<DispatchAssignmentCreateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createDispatchAssignment>>, TError,{data: BodyType<DispatchAssignmentCreateInput>}, TContext> => {
+
+const mutationKey = ['createDispatchAssignment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDispatchAssignment>>, {data: BodyType<DispatchAssignmentCreateInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createDispatchAssignment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateDispatchAssignmentMutationResult = NonNullable<Awaited<ReturnType<typeof createDispatchAssignment>>>
+    export type CreateDispatchAssignmentMutationBody = BodyType<DispatchAssignmentCreateInput>
+    export type CreateDispatchAssignmentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Assign a crew member to a job for a day (checklist seeded from job scope)
+ */
+export const useCreateDispatchAssignment = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDispatchAssignment>>, TError,{data: BodyType<DispatchAssignmentCreateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createDispatchAssignment>>,
+        TError,
+        {data: BodyType<DispatchAssignmentCreateInput>},
+        TContext
+      > => {
+      return useMutation(getCreateDispatchAssignmentMutationOptions(options));
+    }
+
+export const getDeleteDispatchAssignmentUrl = (id: string,) => {
+
+
+
+
+  return `/api/dispatch-assignments/${id}`
+}
+
+/**
+ * @summary Take a member off a job for the day
+ */
+export const deleteDispatchAssignment = async (id: string, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getDeleteDispatchAssignmentUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteDispatchAssignmentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDispatchAssignment>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteDispatchAssignment>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteDispatchAssignment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDispatchAssignment>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteDispatchAssignment(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteDispatchAssignmentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteDispatchAssignment>>>
+
+    export type DeleteDispatchAssignmentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Take a member off a job for the day
+ */
+export const useDeleteDispatchAssignment = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDispatchAssignment>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteDispatchAssignment>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteDispatchAssignmentMutationOptions(options));
+    }
+
+export const getRequestDispatchMoveUrl = (id: string,) => {
+
+
+
+
+  return `/api/dispatch-assignments/${id}/move`
+}
+
+/**
+ * @summary Move a member to another job — routed through their foreman for approval when they have one
+ */
+export const requestDispatchMove = async (id: string,
+    dispatchMoveInput: DispatchMoveInput, options?: RequestInit): Promise<DispatchAssignment> => {
+
+  return customFetch<DispatchAssignment>(getRequestDispatchMoveUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dispatchMoveInput)
+  }
+);}
+
+
+
+
+
+export const getRequestDispatchMoveMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestDispatchMove>>, TError,{id: string;data: BodyType<DispatchMoveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestDispatchMove>>, TError,{id: string;data: BodyType<DispatchMoveInput>}, TContext> => {
+
+const mutationKey = ['requestDispatchMove'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestDispatchMove>>, {id: string;data: BodyType<DispatchMoveInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  requestDispatchMove(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestDispatchMoveMutationResult = NonNullable<Awaited<ReturnType<typeof requestDispatchMove>>>
+    export type RequestDispatchMoveMutationBody = BodyType<DispatchMoveInput>
+    export type RequestDispatchMoveMutationError = ErrorType<Error>
+
+    /**
+ * @summary Move a member to another job — routed through their foreman for approval when they have one
+ */
+export const useRequestDispatchMove = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestDispatchMove>>, TError,{id: string;data: BodyType<DispatchMoveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestDispatchMove>>,
+        TError,
+        {id: string;data: BodyType<DispatchMoveInput>},
+        TContext
+      > => {
+      return useMutation(getRequestDispatchMoveMutationOptions(options));
+    }
+
+export const getUpdateDispatchChecklistUrl = (id: string,) => {
+
+
+
+
+  return `/api/dispatch-assignments/${id}/checklist`
+}
+
+/**
+ * @summary Office edit of an assignment's scope-of-work checklist
+ */
+export const updateDispatchChecklist = async (id: string,
+    dispatchChecklistUpdateInput: DispatchChecklistUpdateInput, options?: RequestInit): Promise<DispatchAssignment> => {
+
+  return customFetch<DispatchAssignment>(getUpdateDispatchChecklistUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dispatchChecklistUpdateInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateDispatchChecklistMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDispatchChecklist>>, TError,{id: string;data: BodyType<DispatchChecklistUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateDispatchChecklist>>, TError,{id: string;data: BodyType<DispatchChecklistUpdateInput>}, TContext> => {
+
+const mutationKey = ['updateDispatchChecklist'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateDispatchChecklist>>, {id: string;data: BodyType<DispatchChecklistUpdateInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateDispatchChecklist(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateDispatchChecklistMutationResult = NonNullable<Awaited<ReturnType<typeof updateDispatchChecklist>>>
+    export type UpdateDispatchChecklistMutationBody = BodyType<DispatchChecklistUpdateInput>
+    export type UpdateDispatchChecklistMutationError = ErrorType<Error>
+
+    /**
+ * @summary Office edit of an assignment's scope-of-work checklist
+ */
+export const useUpdateDispatchChecklist = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDispatchChecklist>>, TError,{id: string;data: BodyType<DispatchChecklistUpdateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateDispatchChecklist>>,
+        TError,
+        {id: string;data: BodyType<DispatchChecklistUpdateInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateDispatchChecklistMutationOptions(options));
     }
 
 export const getAddJobLineItemUrl = (id: string,) => {
@@ -12803,6 +13177,380 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getSendPortalMessageMutationOptions(options));
     }
+
+export const getGetPortalDispatchUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/dispatch`
+}
+
+/**
+ * @summary Today's member dispatch assignments (plus team view for foremen)
+ */
+export const getPortalDispatch = async (token: string, options?: RequestInit): Promise<PortalDispatch> => {
+
+  return customFetch<PortalDispatch>(getGetPortalDispatchUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalDispatchQueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}/dispatch`
+    ] as const;
+    }
+
+
+export const getGetPortalDispatchQueryOptions = <TData = Awaited<ReturnType<typeof getPortalDispatch>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalDispatch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalDispatchQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalDispatch>>> = ({ signal }) => getPortalDispatch(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalDispatch>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalDispatchQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalDispatch>>>
+export type GetPortalDispatchQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Today's member dispatch assignments (plus team view for foremen)
+ */
+
+export function useGetPortalDispatch<TData = Awaited<ReturnType<typeof getPortalDispatch>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalDispatch>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalDispatchQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCheckPortalDispatchItemUrl = (token: string,
+    assignmentId: string,) => {
+
+
+
+
+  return `/api/portal/${token}/dispatch/${assignmentId}/check`
+}
+
+/**
+ * @summary Member checks a scope-of-work item off (or back on)
+ */
+export const checkPortalDispatchItem = async (token: string,
+    assignmentId: string,
+    portalDispatchCheckInput: PortalDispatchCheckInput, options?: RequestInit): Promise<PortalDispatchAssignment> => {
+
+  return customFetch<PortalDispatchAssignment>(getCheckPortalDispatchItemUrl(token,assignmentId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(portalDispatchCheckInput)
+  }
+);}
+
+
+
+
+
+export const getCheckPortalDispatchItemMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkPortalDispatchItem>>, TError,{token: string;assignmentId: string;data: BodyType<PortalDispatchCheckInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof checkPortalDispatchItem>>, TError,{token: string;assignmentId: string;data: BodyType<PortalDispatchCheckInput>}, TContext> => {
+
+const mutationKey = ['checkPortalDispatchItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkPortalDispatchItem>>, {token: string;assignmentId: string;data: BodyType<PortalDispatchCheckInput>}> = (props) => {
+          const {token,assignmentId,data} = props ?? {};
+
+          return  checkPortalDispatchItem(token,assignmentId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckPortalDispatchItemMutationResult = NonNullable<Awaited<ReturnType<typeof checkPortalDispatchItem>>>
+    export type CheckPortalDispatchItemMutationBody = BodyType<PortalDispatchCheckInput>
+    export type CheckPortalDispatchItemMutationError = ErrorType<Error>
+
+    /**
+ * @summary Member checks a scope-of-work item off (or back on)
+ */
+export const useCheckPortalDispatchItem = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkPortalDispatchItem>>, TError,{token: string;assignmentId: string;data: BodyType<PortalDispatchCheckInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof checkPortalDispatchItem>>,
+        TError,
+        {token: string;assignmentId: string;data: BodyType<PortalDispatchCheckInput>},
+        TContext
+      > => {
+      return useMutation(getCheckPortalDispatchItemMutationOptions(options));
+    }
+
+export const getRespondPortalDispatchMoveUrl = (token: string,
+    assignmentId: string,) => {
+
+
+
+
+  return `/api/portal/${token}/dispatch/${assignmentId}/move-response`
+}
+
+/**
+ * @summary Foreman approves or declines a pending move for one of their members
+ */
+export const respondPortalDispatchMove = async (token: string,
+    assignmentId: string,
+    portalMoveDecisionInput: PortalMoveDecisionInput, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getRespondPortalDispatchMoveUrl(token,assignmentId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(portalMoveDecisionInput)
+  }
+);}
+
+
+
+
+
+export const getRespondPortalDispatchMoveMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondPortalDispatchMove>>, TError,{token: string;assignmentId: string;data: BodyType<PortalMoveDecisionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondPortalDispatchMove>>, TError,{token: string;assignmentId: string;data: BodyType<PortalMoveDecisionInput>}, TContext> => {
+
+const mutationKey = ['respondPortalDispatchMove'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondPortalDispatchMove>>, {token: string;assignmentId: string;data: BodyType<PortalMoveDecisionInput>}> = (props) => {
+          const {token,assignmentId,data} = props ?? {};
+
+          return  respondPortalDispatchMove(token,assignmentId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondPortalDispatchMoveMutationResult = NonNullable<Awaited<ReturnType<typeof respondPortalDispatchMove>>>
+    export type RespondPortalDispatchMoveMutationBody = BodyType<PortalMoveDecisionInput>
+    export type RespondPortalDispatchMoveMutationError = ErrorType<Error>
+
+    /**
+ * @summary Foreman approves or declines a pending move for one of their members
+ */
+export const useRespondPortalDispatchMove = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondPortalDispatchMove>>, TError,{token: string;assignmentId: string;data: BodyType<PortalMoveDecisionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof respondPortalDispatchMove>>,
+        TError,
+        {token: string;assignmentId: string;data: BodyType<PortalMoveDecisionInput>},
+        TContext
+      > => {
+      return useMutation(getRespondPortalDispatchMoveMutationOptions(options));
+    }
+
+export const getUpdateCrewAccessUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/access`
+}
+
+/**
+ * @summary Set the office-view access grant for a crew member's portal link
+ */
+export const updateCrewAccess = async (id: string,
+    crewAccessInput: CrewAccessInput, options?: RequestInit): Promise<Crew> => {
+
+  return customFetch<Crew>(getUpdateCrewAccessUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewAccessInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateCrewAccessMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCrewAccess>>, TError,{id: string;data: BodyType<CrewAccessInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCrewAccess>>, TError,{id: string;data: BodyType<CrewAccessInput>}, TContext> => {
+
+const mutationKey = ['updateCrewAccess'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCrewAccess>>, {id: string;data: BodyType<CrewAccessInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCrewAccess(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCrewAccessMutationResult = NonNullable<Awaited<ReturnType<typeof updateCrewAccess>>>
+    export type UpdateCrewAccessMutationBody = BodyType<CrewAccessInput>
+    export type UpdateCrewAccessMutationError = ErrorType<Error>
+
+    /**
+ * @summary Set the office-view access grant for a crew member's portal link
+ */
+export const useUpdateCrewAccess = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCrewAccess>>, TError,{id: string;data: BodyType<CrewAccessInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCrewAccess>>,
+        TError,
+        {id: string;data: BodyType<CrewAccessInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCrewAccessMutationOptions(options));
+    }
+
+export const getGetPortalOfficeViewUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/office-view`
+}
+
+/**
+ * @summary Read-only office data the crew has been granted access to
+ */
+export const getPortalOfficeView = async (token: string, options?: RequestInit): Promise<PortalOfficeView> => {
+
+  return customFetch<PortalOfficeView>(getGetPortalOfficeViewUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalOfficeViewQueryKey = (token: string,) => {
+    return [
+    `/api/portal/${token}/office-view`
+    ] as const;
+    }
+
+
+export const getGetPortalOfficeViewQueryOptions = <TData = Awaited<ReturnType<typeof getPortalOfficeView>>, TError = ErrorType<Error>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalOfficeView>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalOfficeViewQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalOfficeView>>> = ({ signal }) => getPortalOfficeView(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalOfficeView>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalOfficeViewQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalOfficeView>>>
+export type GetPortalOfficeViewQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Read-only office data the crew has been granted access to
+ */
+
+export function useGetPortalOfficeView<TData = Awaited<ReturnType<typeof getPortalOfficeView>>, TError = ErrorType<Error>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalOfficeView>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalOfficeViewQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getCreatePortalCheckinUrl = (token: string,) => {
 

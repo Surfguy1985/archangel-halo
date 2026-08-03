@@ -20,6 +20,7 @@ import { useEffect, useState} from "react";
 import { useQueryClient} from "@tanstack/react-query";
 import { Trash2} from "lucide-react";
 import {
+  useListCrews,
   useCreateCrew,
   useUpdateCrew,
   useDeleteCrew,
@@ -52,6 +53,37 @@ function Field({
       <span className={labelCls}>{label}</span>
       {children}
     </label>
+  );
+}
+
+function ForemanSelect({
+  value,
+  onChange,
+  excludeId,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  excludeId?: string;
+}) {
+  const { data: crews } = useListCrews();
+  const leaders = (crews ?? []).filter(
+    (c) => c.isLeader && c.active !== false && c.id !== excludeId,
+  );
+  return (
+    <Field label="Reports to (foreman)">
+      <select
+        className={fieldCls}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">Independent — no foreman</option>
+        {leaders.map((l) => (
+          <option key={l.id} value={l.id}>
+            {l.name}
+          </option>
+        ))}
+      </select>
+    </Field>
   );
 }
 
@@ -198,6 +230,7 @@ export function AddCrewDialog({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [isLeader, setIsLeader] = useState(false);
+  const [leaderId, setLeaderId] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [services, setServices] = useState<ServiceRow[]>([]);
   const create = useCreateCrew();
@@ -209,6 +242,7 @@ export function AddCrewDialog({
       setPhone("");
       setEmail("");
       setIsLeader(false);
+      setLeaderId("");
       setPaymentTerms("");
       setServices([]);
       create.reset();
@@ -226,6 +260,7 @@ export function AddCrewDialog({
           phone: phone.trim() || undefined,
           email: email.trim() || undefined,
           isLeader,
+          leaderId: isLeader ? null : leaderId || null,
           paymentTerms: paymentTerms || null,
           services: toServicePayload(services),
        },
@@ -292,6 +327,7 @@ export function AddCrewDialog({
             title="Crew leader"
             subtitle="Can be assigned to run jobs"
           />
+          {!isLeader && <ForemanSelect value={leaderId} onChange={setLeaderId} />}
           <TermsAndServices
             paymentTerms={paymentTerms}
             setPaymentTerms={setPaymentTerms}
@@ -325,6 +361,7 @@ export type EditableCrew = {
   phone?: string | null;
   email?: string | null;
   isLeader?: boolean | null;
+  leaderId?: string | null;
   active?: boolean | null;
   paymentTerms?: string | null;
   services?: { name: string; rate?: number | null}[] | null;
@@ -347,6 +384,7 @@ export function EditCrewDialog({
   const [phone, setPhone] = useState(crew.phone ?? "");
   const [email, setEmail] = useState(crew.email ?? "");
   const [isLeader, setIsLeader] = useState(!!crew.isLeader);
+  const [leaderId, setLeaderId] = useState(crew.leaderId ?? "");
   const [active, setActive] = useState(crew.active !== false);
   const [paymentTerms, setPaymentTerms] = useState(crew.paymentTerms ?? "");
   const [services, setServices] = useState<ServiceRow[]>(
@@ -362,6 +400,7 @@ export function EditCrewDialog({
       setPhone(crew.phone ?? "");
       setEmail(crew.email ?? "");
       setIsLeader(!!crew.isLeader);
+      setLeaderId(crew.leaderId ?? "");
       setActive(crew.active !== false);
       setPaymentTerms(crew.paymentTerms ?? "");
       setServices(
@@ -392,6 +431,7 @@ export function EditCrewDialog({
           phone: phone.trim() || undefined,
           email: email.trim() || null,
           isLeader,
+          leaderId: isLeader ? null : leaderId || null,
           active,
           paymentTerms: paymentTerms || null,
           services: toServicePayload(services),
@@ -489,6 +529,9 @@ export function EditCrewDialog({
               title="Crew leader"
               subtitle="Can be assigned to run jobs"
             />
+            {!isLeader && (
+              <ForemanSelect value={leaderId} onChange={setLeaderId} excludeId={crew.id} />
+            )}
             <TermsAndServices
               paymentTerms={paymentTerms}
               setPaymentTerms={setPaymentTerms}

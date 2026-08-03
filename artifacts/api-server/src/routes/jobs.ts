@@ -12,6 +12,7 @@ import {
   crewCheckinsTable,
   crewTrackPointsTable,
   crewRoutePlansTable,
+  crewDispatchAssignmentsTable,
   crewDocumentsTable,
   crewPacketsTable,
   crewPaymentsTable,
@@ -69,6 +70,9 @@ import {
   CreateCrewResponse,
   UpdateCrewBody,
   UpdateCrewParams,
+  UpdateCrewAccessParams,
+  UpdateCrewAccessBody,
+  UpdateCrewAccessResponse,
   UpdateCrewResponse,
   DeleteCrewParams,
   DeleteCrewResponse,
@@ -608,6 +612,15 @@ router.delete("/jobs/:id", async (req, res): Promise<void> => {
       return { status: 404 as const, error: "Job not found" };
     }
     await tx.delete(schedulesTable).where(eq(schedulesTable.jobId, id));
+    // Member dispatch: drop assignments on this job, and cancel any pending
+    // moves targeting it (member stays on their current job).
+    await tx
+      .delete(crewDispatchAssignmentsTable)
+      .where(eq(crewDispatchAssignmentsTable.jobId, id));
+    await tx
+      .update(crewDispatchAssignmentsTable)
+      .set({ status: "assigned", pendingJobId: null, moveRequestedAt: null })
+      .where(eq(crewDispatchAssignmentsTable.pendingJobId, id));
     await tx.delete(crewCheckinsTable).where(eq(crewCheckinsTable.jobId, id));
     await tx.delete(crewTrackPointsTable).where(eq(crewTrackPointsTable.jobId, id));
     await tx
@@ -1820,12 +1833,15 @@ router.get("/crews", async (_req, res): Promise<void> => {
   res.json(
     ListCrewsResponse.parse(
       crews.map((c) => {
+        const leader = c.leaderId ? crews.find((x) => x.id === c.leaderId) : undefined;
         const todaySched = schedules.find(
           (s) => s.crewLeaderId === c.id && s.scheduledOn === today,
         );
         const job = todaySched ? jobById.get(todaySched.jobId) : undefined;
         return {
           ...ser(c),
+          access: (c.accessGrants as object | null) ?? null,
+          leaderName: leader?.name ?? null,
           todayStatus: todaySched
             ? (todaySched.status === "done" ? "done" : "site")
             : "idle",
@@ -1862,6 +1878,78 @@ router.patch("/crews/:id", async (req, res): Promise<void> => {
   res.json(UpdateCrewResponse.parse(ser(row)));
 });
 
+// Office-view access grant for a member's portal link. Everything is stored
+// server-side and re-checked on every portal read — the link never carries
+// permissions itself.
+router.put("/crews/:id/access", async (req, res): Promise<void> => {
+  const { id } = UpdateCrewAccessParams.parse(req.params);
+  const body = UpdateCrewAccessBody.parse(req.body);
+  const [crew] = await db
+    .select({ id: crewsTable.id })
+    .from(crewsTable)
+    .where(eq(crewsTable.id, id));
+  if (!crew) {
+    res.status(404).json({ error: "Crew member not found" });
+    return;
+  }
+  let grant: object | null = null;
+  if (body.features.length > 0) {
+    if (body.propertyScope === "selected" && (body.propertyIds ?? []).length === 0) {
+      res.status(400).json({ error: "Pick at least one property, or use all properties." });
+      return;
+    }
+    if (body.jobScope === "selected" && (body.jobIds ?? []).length === 0) {
+      res.status(400).json({ error: "Pick at least one job, or use all jobs." });
+      return;
+    }
+    // Keep only ids that actually exist so stale selections can't linger.
+    const propIds =
+      body.propertyScope === "selected"
+        ? (
+            await db
+              .select({ id: propertiesTable.id })
+              .from(propertiesTable)
+              .where(inArray(propertiesTable.id, body.propertyIds ?? []))
+          ).map((p) => p.id)
+        : [];
+    const jobIds =
+      body.jobScope === "selected"
+        ? (
+            await db
+              .select({ id: jobsTable.id })
+              .from(jobsTable)
+              .where(inArray(jobsTable.id, body.jobIds ?? []))
+          ).map((j) => j.id)
+        : [];
+    grant = {
+      features: body.features,
+      propertyScope: body.propertyScope,
+      propertyIds: propIds,
+      jobScope: body.jobScope,
+      jobIds,
+    };
+  }
+  const [row] = await db
+    .update(crewsTable)
+    .set({ accessGrants: grant })
+    .where(eq(crewsTable.id, id))
+    .returning();
+  await db.insert(activitiesTable).values({
+    entityType: "crew",
+    entityId: id,
+    kind: "note",
+    body: grant
+      ? `Office-view access updated: ${body.features.join(", ")}`
+      : "Office-view access removed",
+  });
+  res.json(
+    UpdateCrewAccessResponse.parse({
+      ...ser(row),
+      access: (row.accessGrants as object | null) ?? null,
+    }),
+  );
+});
+
 router.delete("/crews/:id", async (req, res): Promise<void> => {
   const { id } = DeleteCrewParams.parse(req.params);
   const result = await db.transaction(async (tx) => {
@@ -1886,6 +1974,14 @@ router.delete("/crews/:id", async (req, res): Promise<void> => {
       .update(schedulesTable)
       .set({ crewLeaderId: null })
       .where(eq(schedulesTable.crewLeaderId, id));
+    // Team structure: members reporting to this crew become independent.
+    await tx
+      .update(crewsTable)
+      .set({ leaderId: null })
+      .where(eq(crewsTable.leaderId, id));
+    await tx
+      .delete(crewDispatchAssignmentsTable)
+      .where(eq(crewDispatchAssignmentsTable.memberId, id));
     await tx.delete(crewMessagesTable).where(eq(crewMessagesTable.crewId, id));
     await tx.delete(crewCheckinsTable).where(eq(crewCheckinsTable.crewId, id));
     await tx.delete(crewTrackPointsTable).where(eq(crewTrackPointsTable.crewId, id));

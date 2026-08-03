@@ -20,4 +20,10 @@ export interface PortalCrew {
   agreementAcceptedAt?: string | null;
   /** @nullable */
   selfiePath?: string | null;
+  /** @nullable */
+  isLeader?: boolean | null;
+  /** @nullable */
+  leaderId?: string | null;
+  /** @nullable */
+  leaderName?: string | null;
 }

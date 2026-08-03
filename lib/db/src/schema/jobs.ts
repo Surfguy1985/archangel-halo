@@ -18,6 +18,9 @@ export const crewsTable = pgTable("crews", {
   phone: text("phone"),
   email: text("email"),
   isLeader: boolean("is_leader").default(false),
+  // Team structure: members report to a foreman (a crew with isLeader=true).
+  // Null = independent (or is themselves a leader). No DB FK — guarded in code.
+  leaderId: uuid("leader_id"),
   active: boolean("active").default(true),
   portalToken: text("portal_token"),
   agreementAcceptedAt: timestamp("agreement_accepted_at", {
@@ -30,6 +33,10 @@ export const crewsTable = pgTable("crews", {
   w9: jsonb("w9"),
   w9SubmittedAt: timestamp("w9_submitted_at", { withTimezone: true }),
   portalSeen: jsonb("portal_seen"),
+  // Office-view access grant for the crew's portal link:
+  // { features: string[], propertyScope: "all"|"selected", propertyIds: string[],
+  //   jobScope: "all"|"selected", jobIds: string[] }. Null = no office access.
+  accessGrants: jsonb("access_grants"),
   selfiePath: text("selfie_path"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -150,6 +157,36 @@ export const crewRoutePlansTable = pgTable(
 );
 
 export type CrewRoutePlan = typeof crewRoutePlansTable.$inferSelect;
+
+// Member-level daily dispatch: one row assigns a crew member to a job for a
+// day, carrying a scope-of-work checklist ({id,text,done} objects). Moves to
+// another job go through the member's foreman: status becomes "pending_move"
+// with pendingJobId set until the foreman approves (jobId flips) or declines.
+export const crewDispatchAssignmentsTable = pgTable(
+  "crew_dispatch_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    day: date("day", { mode: "string" }).notNull(),
+    jobId: uuid("job_id").notNull(),
+    memberId: uuid("member_id").notNull(),
+    status: text("status").notNull().default("assigned"),
+    checklist: jsonb("checklist").notNull().default([]),
+    pendingJobId: uuid("pending_job_id"),
+    moveRequestedAt: timestamp("move_requested_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("crew_dispatch_member_day_job_uq").on(t.memberId, t.day, t.jobId),
+  ],
+);
+
+export type CrewDispatchAssignment =
+  typeof crewDispatchAssignmentsTable.$inferSelect;
 
 export type Crew = typeof crewsTable.$inferSelect;
 export type Job = typeof jobsTable.$inferSelect;

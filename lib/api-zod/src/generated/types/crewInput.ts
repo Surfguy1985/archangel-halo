@@ -15,6 +15,8 @@ export interface CrewInput {
   email?: string;
   isLeader?: boolean;
   /** @nullable */
+  leaderId?: string | null;
+  /** @nullable */
   paymentTerms?: string | null;
   services?: CrewService[];
 }

@@ -32,7 +32,21 @@ import {
   crewPayHoldsTable,
   crewPaymentsTable,
   crewPayoutsTable,
+  crewDispatchAssignmentsTable,
 } from "@workspace/db";
+import { seedChecklist, jobShortLabel } from "./dispatchBoard";
+import {
+  GetPortalDispatchParams,
+  GetPortalDispatchResponse,
+  GetPortalOfficeViewParams,
+  GetPortalOfficeViewResponse,
+  CheckPortalDispatchItemParams,
+  CheckPortalDispatchItemBody,
+  CheckPortalDispatchItemResponse,
+  RespondPortalDispatchMoveParams,
+  RespondPortalDispatchMoveBody,
+  RespondPortalDispatchMoveResponse,
+} from "@workspace/api-zod";
 import {
   GetPortalParams,
   GetPortalResponse,
@@ -534,6 +548,12 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
           ? crew.agreementAcceptedAt.toISOString()
           : null,
         selfiePath: crew.selfiePath ?? null,
+        isLeader: crew.isLeader ?? null,
+        leaderId: crew.leaderId ?? null,
+        leaderName: crew.leaderId
+          ? ((await db.select().from(crewsTable).where(eq(crewsTable.id, crew.leaderId)))[0]
+              ?.name ?? null)
+          : null,
       },
       schedule,
       offers,
@@ -977,6 +997,17 @@ router.post("/portal/:token/messages", async (req, res): Promise<void> => {
   const crew = await crewByToken(token);
   if (!crew) {
     res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  // Team members message through their foreman, not the office directly.
+  if (crew.leaderId && crew.leaderId !== crew.id) {
+    const [foreman] = await db
+      .select()
+      .from(crewsTable)
+      .where(eq(crewsTable.id, crew.leaderId));
+    res.status(403).json({
+      error: `Messages go through your foreman${foreman ? ` (${foreman.name})` : ""} — talk to them and they'll reach the office.`,
+    });
     return;
   }
   const body = SendPortalMessageBody.parse(req.body);
@@ -2205,5 +2236,455 @@ router.get("/portal/:token/wings", async (req, res): Promise<void> => {
     },
   });
 });
+
+// ---------- Member dispatch (today's per-member job assignments) ----------
+
+type DispatchChecklistItem = { id: string; text: string; done: boolean };
+
+function readDispatchChecklist(raw: unknown): DispatchChecklistItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (i): i is DispatchChecklistItem =>
+      !!i && typeof i === "object" && typeof (i as DispatchChecklistItem).text === "string",
+  );
+}
+
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+async function serPortalDispatchAssignments(
+  rows: (typeof crewDispatchAssignmentsTable.$inferSelect)[],
+) {
+  const jobIds = [
+    ...new Set(rows.flatMap((r) => [r.jobId, ...(r.pendingJobId ? [r.pendingJobId] : [])])),
+  ];
+  const jobs = jobIds.length
+    ? await db.select().from(jobsTable).where(inArray(jobsTable.id, jobIds))
+    : [];
+  const jobById = new Map(jobs.map((j) => [j.id, j]));
+  const propIds = [...new Set(jobs.map((j) => j.propertyId))];
+  const props = propIds.length
+    ? await db.select().from(propertiesTable).where(inArray(propertiesTable.id, propIds))
+    : [];
+  const propById = new Map(props.map((p) => [p.id, p]));
+  return rows.map((r) => {
+    const job = jobById.get(r.jobId);
+    const prop = job ? propById.get(job.propertyId) : undefined;
+    return {
+      id: r.id,
+      day: r.day,
+      jobId: r.jobId,
+      jobNo: job?.jobNo ?? null,
+      description: job?.description ?? null,
+      propertyName: prop?.name ?? null,
+      propertyAddress: prop?.address ?? null,
+      unitNo: job?.unitNo ?? null,
+      status: r.status,
+      checklist: readDispatchChecklist(r.checklist),
+      pendingJobLabel: jobShortLabel(r.pendingJobId ? jobById.get(r.pendingJobId) : null),
+    };
+  });
+}
+
+router.get("/portal/:token/dispatch", async (req, res): Promise<void> => {
+  const { token } = GetPortalDispatchParams.parse(req.params);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const day = localToday();
+  const mine = await db
+    .select()
+    .from(crewDispatchAssignmentsTable)
+    .where(
+      and(
+        eq(crewDispatchAssignmentsTable.memberId, crew.id),
+        eq(crewDispatchAssignmentsTable.day, day),
+      ),
+    );
+  const assignments = await serPortalDispatchAssignments(mine);
+
+  // Foremen also see their team's assignments and any pending moves to decide.
+  let team: unknown = null;
+  const members = await db
+    .select()
+    .from(crewsTable)
+    .where(eq(crewsTable.leaderId, crew.id));
+  const realMembers = members.filter((m) => m.id !== crew.id);
+  if (crew.isLeader && realMembers.length > 0) {
+    const memberIds = realMembers.map((m) => m.id);
+    const teamRows = await db
+      .select()
+      .from(crewDispatchAssignmentsTable)
+      .where(
+        and(
+          inArray(crewDispatchAssignmentsTable.memberId, memberIds),
+          eq(crewDispatchAssignmentsTable.day, day),
+        ),
+      );
+    const serialized = await serPortalDispatchAssignments(teamRows);
+    const serById = new Map(serialized.map((s) => [s.id, s]));
+    const memberById = new Map(realMembers.map((m) => [m.id, m]));
+    team = {
+      members: realMembers.map((m) => ({
+        id: m.id,
+        name: m.name,
+        selfiePath: m.selfiePath ?? null,
+        assignments: teamRows
+          .filter((r) => r.memberId === m.id)
+          .map((r) => serById.get(r.id)!),
+      })),
+      pendingMoves: teamRows
+        .filter((r) => r.status === "pending_move" && r.pendingJobId)
+        .map((r) => {
+          const s = serById.get(r.id)!;
+          return {
+            assignmentId: r.id,
+            memberId: r.memberId,
+            memberName: memberById.get(r.memberId)?.name ?? "Crew member",
+            fromJobLabel: s.jobNo,
+            toJobLabel: s.pendingJobLabel,
+            requestedAt: (r.moveRequestedAt ?? r.updatedAt).toISOString(),
+          };
+        }),
+    };
+  }
+  res.json(GetPortalDispatchResponse.parse({ day, assignments, team }));
+});
+
+// Read-only office view for crews with an access grant. Grants live on the
+// crew row and are re-evaluated here on every read; the link itself carries
+// no permissions and money/client data is never included.
+router.get("/portal/:token/office-view", async (req, res): Promise<void> => {
+  const { token } = GetPortalOfficeViewParams.parse(req.params);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const grant = crew.accessGrants as {
+    features?: string[];
+    propertyScope?: "all" | "selected";
+    propertyIds?: string[];
+    jobScope?: "all" | "selected";
+    jobIds?: string[];
+  } | null;
+  const features = (grant?.features ?? []).filter((f) =>
+    ["schedule", "dispatch", "jobs", "properties"].includes(f),
+  );
+  type OfficeView = ReturnType<typeof GetPortalOfficeViewResponse.parse>;
+  const empty: OfficeView = {
+    enabled: false,
+    features: [],
+    accessSummary: "",
+    properties: [],
+    jobs: [],
+    schedule: [],
+    dispatch: [],
+  };
+  if (!grant || features.length === 0) {
+    res.json(GetPortalOfficeViewResponse.parse(empty));
+    return;
+  }
+
+  const allProps = await db.select().from(propertiesTable);
+  const propScope = grant.propertyScope === "selected" ? new Set(grant.propertyIds ?? []) : null;
+  const scopedProps = propScope ? allProps.filter((p) => propScope.has(p.id)) : allProps;
+  const scopedPropIds = new Set(scopedProps.map((p) => p.id));
+  const propName = new Map(allProps.map((p) => [p.id, p.name]));
+
+  const allJobs = await db.select().from(jobsTable);
+  const jobScope = grant.jobScope === "selected" ? new Set(grant.jobIds ?? []) : null;
+  const scopedJobs = allJobs.filter(
+    (j) => scopedPropIds.has(j.propertyId) && (!jobScope || jobScope.has(j.id)),
+  );
+  const scopedJobIds = new Set(scopedJobs.map((j) => j.id));
+  const jobById = new Map(allJobs.map((j) => [j.id, j]));
+  const crews = await db.select().from(crewsTable);
+  const crewName = new Map(crews.map((c) => [c.id, c.name]));
+
+  const out: typeof empty & { enabled: boolean } = {
+    ...empty,
+    enabled: true,
+    features,
+  };
+
+  const featLabels: Record<string, string> = {
+    schedule: "Schedule",
+    dispatch: "Dispatch",
+    jobs: "Jobs",
+    properties: "Properties",
+  };
+  out.accessSummary = [
+    features.map((f) => featLabels[f] ?? f).join(", "),
+    propScope ? `${scopedProps.length} propert${scopedProps.length === 1 ? "y" : "ies"}` : "all properties",
+    jobScope ? `${scopedJobs.length} job${scopedJobs.length === 1 ? "" : "s"}` : "all jobs",
+  ].join(" · ");
+
+  if (features.includes("properties")) {
+    const activeStatuses = new Set(["new", "scheduled", "in_progress"]);
+    out.properties = scopedProps.map((p) => ({
+      id: p.id,
+      name: p.name,
+      address: p.address ?? null,
+      city: p.city ?? null,
+      units: p.units ?? null,
+      activeJobs: scopedJobs.filter(
+        (j) => j.propertyId === p.id && activeStatuses.has(j.status),
+      ).length,
+    }));
+  }
+
+  if (features.includes("jobs")) {
+    const recent = [...scopedJobs]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 200);
+    out.jobs = recent.map((j) => ({
+      id: j.id,
+      jobNo: j.jobNo,
+      description: j.description ?? null,
+      status: j.status,
+      propertyName: propName.get(j.propertyId) ?? null,
+      unitNo: j.unitNo ?? null,
+      scheduledOn: j.scheduledOn ?? null,
+      crewLeaderName: j.crewLeaderId ? (crewName.get(j.crewLeaderId) ?? null) : null,
+    }));
+  }
+
+  if (features.includes("schedule")) {
+    const today = localToday();
+    const horizon = (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 14);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    })();
+    const sched = await db
+      .select()
+      .from(schedulesTable)
+      .where(and(gte(schedulesTable.scheduledOn, today), lte(schedulesTable.scheduledOn, horizon)));
+    const items: typeof out.schedule = [];
+    for (const s of sched) {
+      const j = jobById.get(s.jobId);
+      if (!j || !scopedJobIds.has(j.id)) continue;
+      items.push({
+        date: s.scheduledOn,
+        title: `${j.jobNo}${j.description ? ` — ${j.description}` : ""}`,
+        propertyName: propName.get(j.propertyId) ?? null,
+        unitNo: j.unitNo ?? null,
+        time: s.windowStart ?? null,
+        kind: "job",
+      });
+    }
+    const events = await db
+      .select()
+      .from(calendarEventsTable)
+      .where(and(gte(calendarEventsTable.eventDate, today), lte(calendarEventsTable.eventDate, horizon)));
+    for (const ev of events) {
+      // Only events tied to a job inside the granted scope; general office
+      // events stay internal.
+      if (!ev.jobId || !scopedJobIds.has(ev.jobId)) continue;
+      const j = jobById.get(ev.jobId);
+      items.push({
+        date: ev.eventDate,
+        title: ev.title,
+        propertyName: j ? (propName.get(j.propertyId) ?? null) : null,
+        unitNo: j?.unitNo ?? null,
+        time: ev.allDay ? null : (ev.startTime ?? null),
+        kind: "event",
+      });
+    }
+    items.sort((a, b) => a.date.localeCompare(b.date));
+    out.schedule = items;
+  }
+
+  if (features.includes("dispatch")) {
+    const today = localToday();
+    const rows = await db
+      .select()
+      .from(crewDispatchAssignmentsTable)
+      .where(eq(crewDispatchAssignmentsTable.day, today));
+    out.dispatch = rows
+      .filter((r) => scopedJobIds.has(r.jobId))
+      .map((r) => {
+        const j = jobById.get(r.jobId);
+        const checklist = (r.checklist as { done?: boolean }[] | null) ?? [];
+        return {
+          memberName: crewName.get(r.memberId) ?? "Crew member",
+          jobNo: j?.jobNo ?? null,
+          propertyName: j ? (propName.get(j.propertyId) ?? null) : null,
+          unitNo: j?.unitNo ?? null,
+          checklistDone: checklist.filter((i) => i.done).length,
+          checklistTotal: checklist.length,
+          status: r.status,
+        };
+      });
+  }
+
+  res.json(GetPortalOfficeViewResponse.parse(out));
+});
+
+router.post(
+  "/portal/:token/dispatch/:assignmentId/check",
+  async (req, res): Promise<void> => {
+    const { token, assignmentId } = CheckPortalDispatchItemParams.parse(req.params);
+    const crew = await crewByToken(token);
+    if (!crew) {
+      res.status(404).json({ error: "Invalid portal link" });
+      return;
+    }
+    const body = CheckPortalDispatchItemBody.parse(req.body);
+    const [a] = await db
+      .select()
+      .from(crewDispatchAssignmentsTable)
+      .where(eq(crewDispatchAssignmentsTable.id, assignmentId));
+    // Ownership: the member themselves, or their foreman, can check items.
+    const isOwner = a && a.memberId === crew.id;
+    let isForeman = false;
+    if (a && !isOwner) {
+      const [member] = await db
+        .select()
+        .from(crewsTable)
+        .where(eq(crewsTable.id, a.memberId));
+      isForeman = !!member && member.leaderId === crew.id;
+    }
+    if (!a || (!isOwner && !isForeman)) {
+      res.status(404).json({ error: "Assignment not found" });
+      return;
+    }
+    const checklist = readDispatchChecklist(a.checklist).map((i) =>
+      i.id === body.itemId ? { ...i, done: body.done } : i,
+    );
+    const [row] = await db
+      .update(crewDispatchAssignmentsTable)
+      .set({ checklist, updatedAt: new Date() })
+      .where(eq(crewDispatchAssignmentsTable.id, assignmentId))
+      .returning();
+    const [out] = await serPortalDispatchAssignments([row]);
+    res.json(CheckPortalDispatchItemResponse.parse(out));
+  },
+);
+
+router.post(
+  "/portal/:token/dispatch/:assignmentId/move-response",
+  async (req, res): Promise<void> => {
+    const { token, assignmentId } = RespondPortalDispatchMoveParams.parse(req.params);
+    const crew = await crewByToken(token);
+    if (!crew) {
+      res.status(404).json({ error: "Invalid portal link" });
+      return;
+    }
+    const body = RespondPortalDispatchMoveBody.parse(req.body);
+    const [a] = await db
+      .select()
+      .from(crewDispatchAssignmentsTable)
+      .where(eq(crewDispatchAssignmentsTable.id, assignmentId));
+    if (!a) {
+      res.status(404).json({ error: "Assignment not found" });
+      return;
+    }
+    const [member] = await db
+      .select()
+      .from(crewsTable)
+      .where(eq(crewsTable.id, a.memberId));
+    if (!member || member.leaderId !== crew.id) {
+      res.status(403).json({ error: "Only this member's foreman can decide the move" });
+      return;
+    }
+    if (a.status !== "pending_move" || !a.pendingJobId) {
+      res.status(409).json({ error: "No pending move on this assignment" });
+      return;
+    }
+    const [fromJob] = await db.select().from(jobsTable).where(eq(jobsTable.id, a.jobId));
+    const [toJob] = await db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, a.pendingJobId));
+    if (body.approve) {
+      const checklist = await seedChecklist(a.pendingJobId);
+      let moved: unknown[];
+      try {
+        // Guarded transition: only settles the exact pending move we read, so
+        // concurrent approve/decline can't both win.
+        moved = await db
+          .update(crewDispatchAssignmentsTable)
+          .set({
+            jobId: a.pendingJobId,
+            status: "assigned",
+            checklist,
+            pendingJobId: null,
+            moveRequestedAt: null,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(crewDispatchAssignmentsTable.id, assignmentId),
+              eq(crewDispatchAssignmentsTable.status, "pending_move"),
+              eq(crewDispatchAssignmentsTable.pendingJobId, a.pendingJobId),
+            ),
+          )
+          .returning();
+      } catch (e) {
+        if ((e as { code?: string })?.code === "23505") {
+          // Already has a row on the target job for that day — drop this one.
+          await db
+            .delete(crewDispatchAssignmentsTable)
+            .where(eq(crewDispatchAssignmentsTable.id, assignmentId));
+          res.json(RespondPortalDispatchMoveResponse.parse({ ok: true }));
+          return;
+        }
+        throw e;
+      }
+      if (moved.length === 0) {
+        res.status(409).json({ error: "This move was already decided." });
+        return;
+      }
+      await db.insert(activitiesTable).values({
+        entityType: "job",
+        entityId: a.pendingJobId,
+        kind: "assigned",
+        body: `Foreman ${crew.name} approved moving ${member.name} to job ${toJob?.jobNo ?? "?"}`,
+      });
+    } else {
+      const declined = await db
+        .update(crewDispatchAssignmentsTable)
+        .set({
+          status: "assigned",
+          pendingJobId: null,
+          moveRequestedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(crewDispatchAssignmentsTable.id, assignmentId),
+            eq(crewDispatchAssignmentsTable.status, "pending_move"),
+            eq(crewDispatchAssignmentsTable.pendingJobId, a.pendingJobId),
+          ),
+        )
+        .returning();
+      if (declined.length === 0) {
+        res.status(409).json({ error: "This move was already decided." });
+        return;
+      }
+      await db.insert(notificationsTable).values({
+        kind: "crew_message",
+        priority: "high",
+        entityType: "crew",
+        entityId: member.id,
+        title: `Move declined by foreman ${crew.name}`,
+        body: `${member.name} stays on job ${fromJob?.jobNo ?? "?"} — move to ${toJob?.jobNo ?? "?"} was declined.`,
+      });
+      await db.insert(activitiesTable).values({
+        entityType: "job",
+        entityId: a.jobId,
+        kind: "flag",
+        body: `Foreman ${crew.name} declined moving ${member.name} to job ${toJob?.jobNo ?? "?"}`,
+      });
+    }
+    res.json(RespondPortalDispatchMoveResponse.parse({ ok: true }));
+  },
+);
 
 export default router;

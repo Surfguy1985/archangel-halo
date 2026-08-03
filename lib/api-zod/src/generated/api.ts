@@ -2070,6 +2070,174 @@ export const DispatchJobResponse = zod.object({
 
 
 /**
+ * @summary Property-tabbed member dispatch board for one day
+ */
+export const GetDispatchBoardParams = zod.object({
+  "day": zod.coerce.string()
+})
+
+export const GetDispatchBoardResponse = zod.object({
+  "day": zod.string(),
+  "properties": zod.array(zod.object({
+  "propertyId": zod.string(),
+  "propertyName": zod.string(),
+  "jobs": zod.array(zod.object({
+  "jobId": zod.string(),
+  "jobNo": zod.string(),
+  "description": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "status": zod.string(),
+  "scheduledTime": zod.string().nullish(),
+  "crewLeaderId": zod.string().nullish(),
+  "crewLeaderName": zod.string().nullish(),
+  "assignments": zod.array(zod.object({
+  "id": zod.string(),
+  "day": zod.string(),
+  "jobId": zod.string(),
+  "memberId": zod.string(),
+  "memberName": zod.string(),
+  "selfiePath": zod.string().nullish(),
+  "leaderId": zod.string().nullish(),
+  "leaderName": zod.string().nullish(),
+  "status": zod.string().describe('assigned | pending_move'),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})),
+  "pendingJobId": zod.string().nullish(),
+  "pendingJobLabel": zod.string().nullish(),
+  "checkinStatus": zod.string().nullish().describe('in | out')
+}))
+}))
+})),
+  "teams": zod.array(zod.object({
+  "leaderId": zod.string().nullish().describe('null = independent members'),
+  "leaderName": zod.string().nullish(),
+  "leaderSelfiePath": zod.string().nullish(),
+  "members": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "trade": zod.string().nullish(),
+  "selfiePath": zod.string().nullish(),
+  "checkinStatus": zod.string().nullish().describe('in | out'),
+  "assignmentCount": zod.number()
+}))
+}))
+})
+
+
+/**
+ * @summary Assign a crew member to a job for a day (checklist seeded from job scope)
+ */
+export const CreateDispatchAssignmentBody = zod.object({
+  "day": zod.string(),
+  "jobId": zod.string(),
+  "memberId": zod.string()
+})
+
+export const CreateDispatchAssignmentResponse = zod.object({
+  "id": zod.string(),
+  "day": zod.string(),
+  "jobId": zod.string(),
+  "memberId": zod.string(),
+  "memberName": zod.string(),
+  "selfiePath": zod.string().nullish(),
+  "leaderId": zod.string().nullish(),
+  "leaderName": zod.string().nullish(),
+  "status": zod.string().describe('assigned | pending_move'),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})),
+  "pendingJobId": zod.string().nullish(),
+  "pendingJobLabel": zod.string().nullish(),
+  "checkinStatus": zod.string().nullish().describe('in | out')
+})
+
+
+/**
+ * @summary Take a member off a job for the day
+ */
+export const DeleteDispatchAssignmentParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteDispatchAssignmentResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Move a member to another job — routed through their foreman for approval when they have one
+ */
+export const RequestDispatchMoveParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RequestDispatchMoveBody = zod.object({
+  "toJobId": zod.string()
+})
+
+export const RequestDispatchMoveResponse = zod.object({
+  "id": zod.string(),
+  "day": zod.string(),
+  "jobId": zod.string(),
+  "memberId": zod.string(),
+  "memberName": zod.string(),
+  "selfiePath": zod.string().nullish(),
+  "leaderId": zod.string().nullish(),
+  "leaderName": zod.string().nullish(),
+  "status": zod.string().describe('assigned | pending_move'),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})),
+  "pendingJobId": zod.string().nullish(),
+  "pendingJobLabel": zod.string().nullish(),
+  "checkinStatus": zod.string().nullish().describe('in | out')
+})
+
+
+/**
+ * @summary Office edit of an assignment's scope-of-work checklist
+ */
+export const UpdateDispatchChecklistParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateDispatchChecklistBody = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+}))
+})
+
+export const UpdateDispatchChecklistResponse = zod.object({
+  "id": zod.string(),
+  "day": zod.string(),
+  "jobId": zod.string(),
+  "memberId": zod.string(),
+  "memberName": zod.string(),
+  "selfiePath": zod.string().nullish(),
+  "leaderId": zod.string().nullish(),
+  "leaderName": zod.string().nullish(),
+  "status": zod.string().describe('assigned | pending_move'),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})),
+  "pendingJobId": zod.string().nullish(),
+  "pendingJobLabel": zod.string().nullish(),
+  "checkinStatus": zod.string().nullish().describe('in | out')
+})
+
+
+/**
  * @summary Attach a price-list item to a job (retail-style line item)
  */
 export const AddJobLineItemParams = zod.object({
@@ -2851,6 +3019,15 @@ export const ListCrewsResponseItem = zod.object({
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
+  "leaderId": zod.string().nullish(),
+  "leaderName": zod.string().nullish(),
+  "access": zod.union([zod.object({
+  "features": zod.array(zod.enum(['schedule', 'dispatch', 'jobs', 'properties'])),
+  "propertyScope": zod.enum(['all', 'selected']),
+  "propertyIds": zod.array(zod.string()),
+  "jobScope": zod.enum(['all', 'selected']),
+  "jobIds": zod.array(zod.string())
+}),zod.null()]).optional(),
   "active": zod.boolean().nullish(),
   "preferredPaymentMethod": zod.string().nullish(),
   "paymentDetails": zod.string().nullish(),
@@ -2877,6 +3054,7 @@ export const CreateCrewBody = zod.object({
   "phone": zod.string().optional(),
   "email": zod.string().optional(),
   "isLeader": zod.boolean().optional(),
+  "leaderId": zod.string().nullish(),
   "paymentTerms": zod.string().nullish(),
   "services": zod.array(zod.object({
   "name": zod.string().min(1),
@@ -2894,9 +3072,17 @@ export const CreateCrewResponse = zod.object({
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
+  "leaderId": zod.string().nullish().describe('Foreman this member reports to'),
   "active": zod.boolean().nullish(),
   "paymentTerms": zod.string().nullish().describe('due_on_receipt | net15 | net30 | net45'),
   "selfiePath": zod.string().nullish(),
+  "access": zod.union([zod.object({
+  "features": zod.array(zod.enum(['schedule', 'dispatch', 'jobs', 'properties'])),
+  "propertyScope": zod.enum(['all', 'selected']),
+  "propertyIds": zod.array(zod.string()),
+  "jobScope": zod.enum(['all', 'selected']),
+  "jobIds": zod.array(zod.string())
+}),zod.null()]).optional(),
   "services": zod.array(zod.object({
   "name": zod.string().min(1),
   "rate": zod.number().nullish()
@@ -3007,6 +3193,7 @@ export const UpdateCrewBody = zod.object({
   "phone": zod.string().optional(),
   "email": zod.string().nullish(),
   "isLeader": zod.boolean().optional(),
+  "leaderId": zod.string().nullish(),
   "active": zod.boolean().optional(),
   "paymentTerms": zod.string().nullish(),
   "services": zod.array(zod.object({
@@ -3025,9 +3212,17 @@ export const UpdateCrewResponse = zod.object({
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
+  "leaderId": zod.string().nullish().describe('Foreman this member reports to'),
   "active": zod.boolean().nullish(),
   "paymentTerms": zod.string().nullish().describe('due_on_receipt | net15 | net30 | net45'),
   "selfiePath": zod.string().nullish(),
+  "access": zod.union([zod.object({
+  "features": zod.array(zod.enum(['schedule', 'dispatch', 'jobs', 'properties'])),
+  "propertyScope": zod.enum(['all', 'selected']),
+  "propertyIds": zod.array(zod.string()),
+  "jobScope": zod.enum(['all', 'selected']),
+  "jobIds": zod.array(zod.string())
+}),zod.null()]).optional(),
   "services": zod.array(zod.object({
   "name": zod.string().min(1),
   "rate": zod.number().nullish()
@@ -5061,7 +5256,10 @@ export const GetPortalResponse = zod.object({
   "paymentDetails": zod.string().nullish(),
   "w9Submitted": zod.boolean().optional(),
   "agreementAcceptedAt": zod.string().nullish(),
-  "selfiePath": zod.string().nullish()
+  "selfiePath": zod.string().nullish(),
+  "isLeader": zod.boolean().nullish(),
+  "leaderId": zod.string().nullish(),
+  "leaderName": zod.string().nullish()
 }),
   "schedule": zod.array(zod.object({
   "id": zod.string(),
@@ -5181,6 +5379,208 @@ export const SendPortalMessageResponse = zod.object({
   "attachmentPath": zod.string().nullish(),
   "readAt": zod.string().nullish(),
   "createdAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Today's member dispatch assignments (plus team view for foremen)
+ */
+export const GetPortalDispatchParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPortalDispatchResponse = zod.object({
+  "day": zod.string(),
+  "assignments": zod.array(zod.object({
+  "id": zod.string(),
+  "day": zod.string(),
+  "jobId": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "status": zod.string().describe('assigned | pending_move'),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})),
+  "pendingJobLabel": zod.string().nullish()
+})),
+  "team": zod.union([zod.object({
+  "members": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "selfiePath": zod.string().nullish(),
+  "assignments": zod.array(zod.object({
+  "id": zod.string(),
+  "day": zod.string(),
+  "jobId": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "status": zod.string().describe('assigned | pending_move'),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})),
+  "pendingJobLabel": zod.string().nullish()
+}))
+})),
+  "pendingMoves": zod.array(zod.object({
+  "assignmentId": zod.string(),
+  "memberId": zod.string().nullish(),
+  "memberName": zod.string(),
+  "fromJobLabel": zod.string().nullish(),
+  "toJobLabel": zod.string().nullish(),
+  "requestedAt": zod.string()
+}))
+}),zod.null()]).optional()
+})
+
+
+/**
+ * @summary Member checks a scope-of-work item off (or back on)
+ */
+export const CheckPortalDispatchItemParams = zod.object({
+  "token": zod.coerce.string(),
+  "assignmentId": zod.coerce.string()
+})
+
+export const CheckPortalDispatchItemBody = zod.object({
+  "itemId": zod.string(),
+  "done": zod.boolean()
+})
+
+export const CheckPortalDispatchItemResponse = zod.object({
+  "id": zod.string(),
+  "day": zod.string(),
+  "jobId": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "propertyAddress": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "status": zod.string().describe('assigned | pending_move'),
+  "checklist": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "done": zod.boolean()
+})),
+  "pendingJobLabel": zod.string().nullish()
+})
+
+
+/**
+ * @summary Foreman approves or declines a pending move for one of their members
+ */
+export const RespondPortalDispatchMoveParams = zod.object({
+  "token": zod.coerce.string(),
+  "assignmentId": zod.coerce.string()
+})
+
+export const RespondPortalDispatchMoveBody = zod.object({
+  "approve": zod.boolean()
+})
+
+export const RespondPortalDispatchMoveResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Set the office-view access grant for a crew member's portal link
+ */
+export const UpdateCrewAccessParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UpdateCrewAccessBody = zod.object({
+  "features": zod.array(zod.enum(['schedule', 'dispatch', 'jobs', 'properties'])),
+  "propertyScope": zod.enum(['all', 'selected']),
+  "propertyIds": zod.array(zod.string()).optional(),
+  "jobScope": zod.enum(['all', 'selected']),
+  "jobIds": zod.array(zod.string()).optional()
+})
+
+
+
+
+export const UpdateCrewAccessResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "trade": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "isLeader": zod.boolean().nullish(),
+  "leaderId": zod.string().nullish().describe('Foreman this member reports to'),
+  "active": zod.boolean().nullish(),
+  "paymentTerms": zod.string().nullish().describe('due_on_receipt | net15 | net30 | net45'),
+  "selfiePath": zod.string().nullish(),
+  "access": zod.union([zod.object({
+  "features": zod.array(zod.enum(['schedule', 'dispatch', 'jobs', 'properties'])),
+  "propertyScope": zod.enum(['all', 'selected']),
+  "propertyIds": zod.array(zod.string()),
+  "jobScope": zod.enum(['all', 'selected']),
+  "jobIds": zod.array(zod.string())
+}),zod.null()]).optional(),
+  "services": zod.array(zod.object({
+  "name": zod.string().min(1),
+  "rate": zod.number().nullish()
+})).nullish()
+})
+
+
+/**
+ * @summary Read-only office data the crew has been granted access to
+ */
+export const GetPortalOfficeViewParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPortalOfficeViewResponse = zod.object({
+  "enabled": zod.boolean(),
+  "features": zod.array(zod.string()),
+  "accessSummary": zod.string(),
+  "properties": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "units": zod.number().nullish(),
+  "activeJobs": zod.number()
+})),
+  "jobs": zod.array(zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "crewLeaderName": zod.string().nullish()
+})),
+  "schedule": zod.array(zod.object({
+  "date": zod.string(),
+  "title": zod.string(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "time": zod.string().nullish(),
+  "kind": zod.string().optional().describe('job | event')
+})),
+  "dispatch": zod.array(zod.object({
+  "memberName": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "checklistDone": zod.number(),
+  "checklistTotal": zod.number(),
+  "status": zod.string()
+}))
 })
 
 

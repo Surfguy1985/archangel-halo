@@ -2677,6 +2677,138 @@ export interface CrewService {
   rate?: number | null;
 }
 
+export type CrewAccessFeaturesItem = typeof CrewAccessFeaturesItem[keyof typeof CrewAccessFeaturesItem];
+
+
+export const CrewAccessFeaturesItem = {
+  schedule: 'schedule',
+  dispatch: 'dispatch',
+  jobs: 'jobs',
+  properties: 'properties',
+} as const;
+
+export type CrewAccessPropertyScope = typeof CrewAccessPropertyScope[keyof typeof CrewAccessPropertyScope];
+
+
+export const CrewAccessPropertyScope = {
+  all: 'all',
+  selected: 'selected',
+} as const;
+
+export type CrewAccessJobScope = typeof CrewAccessJobScope[keyof typeof CrewAccessJobScope];
+
+
+export const CrewAccessJobScope = {
+  all: 'all',
+  selected: 'selected',
+} as const;
+
+export interface CrewAccess {
+  features: CrewAccessFeaturesItem[];
+  propertyScope: CrewAccessPropertyScope;
+  propertyIds: string[];
+  jobScope: CrewAccessJobScope;
+  jobIds: string[];
+}
+
+export type CrewAccessInputFeaturesItem = typeof CrewAccessInputFeaturesItem[keyof typeof CrewAccessInputFeaturesItem];
+
+
+export const CrewAccessInputFeaturesItem = {
+  schedule: 'schedule',
+  dispatch: 'dispatch',
+  jobs: 'jobs',
+  properties: 'properties',
+} as const;
+
+export type CrewAccessInputPropertyScope = typeof CrewAccessInputPropertyScope[keyof typeof CrewAccessInputPropertyScope];
+
+
+export const CrewAccessInputPropertyScope = {
+  all: 'all',
+  selected: 'selected',
+} as const;
+
+export type CrewAccessInputJobScope = typeof CrewAccessInputJobScope[keyof typeof CrewAccessInputJobScope];
+
+
+export const CrewAccessInputJobScope = {
+  all: 'all',
+  selected: 'selected',
+} as const;
+
+export interface CrewAccessInput {
+  features: CrewAccessInputFeaturesItem[];
+  propertyScope: CrewAccessInputPropertyScope;
+  propertyIds?: string[];
+  jobScope: CrewAccessInputJobScope;
+  jobIds?: string[];
+}
+
+export interface OfficeViewProperty {
+  id: string;
+  name: string;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  units?: number | null;
+  activeJobs: number;
+}
+
+export interface OfficeViewJob {
+  id: string;
+  jobNo: string;
+  /** @nullable */
+  description?: string | null;
+  status: string;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  scheduledOn?: string | null;
+  /** @nullable */
+  crewLeaderName?: string | null;
+}
+
+export interface OfficeViewScheduleItem {
+  date: string;
+  title: string;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  time?: string | null;
+  /** job | event */
+  kind?: string;
+}
+
+export interface OfficeViewDispatchItem {
+  memberName: string;
+  /** @nullable */
+  jobNo?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  checklistDone: number;
+  checklistTotal: number;
+  status: string;
+}
+
+export interface PortalOfficeView {
+  enabled: boolean;
+  features: string[];
+  accessSummary: string;
+  properties: OfficeViewProperty[];
+  jobs: OfficeViewJob[];
+  schedule: OfficeViewScheduleItem[];
+  dispatch: OfficeViewDispatchItem[];
+}
+
 export interface Crew {
   id: string;
   name: string;
@@ -2688,6 +2820,11 @@ export interface Crew {
   email?: string | null;
   /** @nullable */
   isLeader?: boolean | null;
+  /**
+     * Foreman this member reports to
+     * @nullable
+     */
+  leaderId?: string | null;
   /** @nullable */
   active?: boolean | null;
   /**
@@ -2697,6 +2834,7 @@ export interface Crew {
   paymentTerms?: string | null;
   /** @nullable */
   selfiePath?: string | null;
+  access?: CrewAccess | null;
   /** @nullable */
   services?: CrewService[] | null;
 }
@@ -2712,6 +2850,11 @@ export interface CrewToday {
   email?: string | null;
   /** @nullable */
   isLeader?: boolean | null;
+  /** @nullable */
+  leaderId?: string | null;
+  /** @nullable */
+  leaderName?: string | null;
+  access?: CrewAccess | null;
   /** @nullable */
   active?: boolean | null;
   /** @nullable */
@@ -2815,6 +2958,170 @@ export interface CrewDayPlan {
   stops: CrewDayPlanStop[];
 }
 
+export interface DispatchChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+export interface DispatchAssignment {
+  id: string;
+  day: string;
+  jobId: string;
+  memberId: string;
+  memberName: string;
+  /** @nullable */
+  selfiePath?: string | null;
+  /** @nullable */
+  leaderId?: string | null;
+  /** @nullable */
+  leaderName?: string | null;
+  /** assigned | pending_move */
+  status: string;
+  checklist: DispatchChecklistItem[];
+  /** @nullable */
+  pendingJobId?: string | null;
+  /** @nullable */
+  pendingJobLabel?: string | null;
+  /**
+     * in | out
+     * @nullable
+     */
+  checkinStatus?: string | null;
+}
+
+export interface DispatchBoardJob {
+  jobId: string;
+  jobNo: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  status: string;
+  /** @nullable */
+  scheduledTime?: string | null;
+  /** @nullable */
+  crewLeaderId?: string | null;
+  /** @nullable */
+  crewLeaderName?: string | null;
+  assignments: DispatchAssignment[];
+}
+
+export interface DispatchBoardProperty {
+  propertyId: string;
+  propertyName: string;
+  jobs: DispatchBoardJob[];
+}
+
+export interface DispatchTeamMember {
+  id: string;
+  name: string;
+  /** @nullable */
+  trade?: string | null;
+  /** @nullable */
+  selfiePath?: string | null;
+  /**
+     * in | out
+     * @nullable
+     */
+  checkinStatus?: string | null;
+  assignmentCount: number;
+}
+
+export interface DispatchTeam {
+  /**
+     * null = independent members
+     * @nullable
+     */
+  leaderId?: string | null;
+  /** @nullable */
+  leaderName?: string | null;
+  /** @nullable */
+  leaderSelfiePath?: string | null;
+  members: DispatchTeamMember[];
+}
+
+export interface DispatchBoard {
+  day: string;
+  properties: DispatchBoardProperty[];
+  teams: DispatchTeam[];
+}
+
+export interface DispatchAssignmentCreateInput {
+  day: string;
+  jobId: string;
+  memberId: string;
+}
+
+export interface DispatchMoveInput {
+  toJobId: string;
+}
+
+export interface DispatchChecklistUpdateInput {
+  items: DispatchChecklistItem[];
+}
+
+export interface PortalDispatchAssignment {
+  id: string;
+  day: string;
+  jobId: string;
+  /** @nullable */
+  jobNo?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  propertyAddress?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** assigned | pending_move */
+  status: string;
+  checklist: DispatchChecklistItem[];
+  /** @nullable */
+  pendingJobLabel?: string | null;
+}
+
+export interface PortalPendingMove {
+  assignmentId: string;
+  /** @nullable */
+  memberId?: string | null;
+  memberName: string;
+  /** @nullable */
+  fromJobLabel?: string | null;
+  /** @nullable */
+  toJobLabel?: string | null;
+  requestedAt: string;
+}
+
+export interface PortalDispatchTeamMember {
+  id: string;
+  name: string;
+  /** @nullable */
+  selfiePath?: string | null;
+  assignments: PortalDispatchAssignment[];
+}
+
+export interface PortalDispatchTeam {
+  members: PortalDispatchTeamMember[];
+  pendingMoves: PortalPendingMove[];
+}
+
+export interface PortalDispatch {
+  day: string;
+  assignments: PortalDispatchAssignment[];
+  team?: PortalDispatchTeam | null;
+}
+
+export interface PortalDispatchCheckInput {
+  itemId: string;
+  done: boolean;
+}
+
+export interface PortalMoveDecisionInput {
+  approve: boolean;
+}
+
 export interface PresentationDemoState {
   active: boolean;
   /** @nullable */
@@ -2831,6 +3138,8 @@ export interface CrewInput {
   email?: string;
   isLeader?: boolean;
   /** @nullable */
+  leaderId?: string | null;
+  /** @nullable */
   paymentTerms?: string | null;
   services?: CrewService[];
 }
@@ -2843,6 +3152,8 @@ export interface CrewUpdate {
   /** @nullable */
   email?: string | null;
   isLeader?: boolean;
+  /** @nullable */
+  leaderId?: string | null;
   active?: boolean;
   /** @nullable */
   paymentTerms?: string | null;
@@ -4191,6 +4502,12 @@ export interface PortalCrew {
   agreementAcceptedAt?: string | null;
   /** @nullable */
   selfiePath?: string | null;
+  /** @nullable */
+  isLeader?: boolean | null;
+  /** @nullable */
+  leaderId?: string | null;
+  /** @nullable */
+  leaderName?: string | null;
 }
 
 export interface PortalSelfieInput {

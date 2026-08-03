@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { CrewAccess } from './crewAccess';
 import type { CrewService } from './crewService';
 
 export interface CrewToday {
@@ -18,6 +19,11 @@ export interface CrewToday {
   email?: string | null;
   /** @nullable */
   isLeader?: boolean | null;
+  /** @nullable */
+  leaderId?: string | null;
+  /** @nullable */
+  leaderName?: string | null;
+  access?: CrewAccess | null;
   /** @nullable */
   active?: boolean | null;
   /** @nullable */
