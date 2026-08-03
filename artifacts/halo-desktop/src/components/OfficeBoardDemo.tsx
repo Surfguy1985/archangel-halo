@@ -9,7 +9,7 @@ import { Sparkles, Pause, Play, X, ChevronLeft, ChevronRight } from "lucide-reac
 
 // Script + narration clips are shared with the mobile app via
 // @workspace/board-demo; only the spotlight targets are app-specific
-// (desktop spotlights lane-* testids from the AppleBoard).
+// (desktop spotlights the dense row list / filter chips testids).
 import { OFFICE_DEMO_SCRIPT, officeDemoClipFor as clipFor } from "@workspace/board-demo/office";
 
 type DemoStep = {
@@ -22,10 +22,10 @@ type DemoStep = {
 /** Per-step spotlight targets, zipped with the shared script by index. */
 const TARGETS: (string | null)[] = [
   null,
-  "lane-requested",
+  "board-row-list",
   "button-open-send-card",
-  "lane-requested",
-  "lane-requested",
+  "board-row-list",
+  "board-filter-chips",
   null,
   null,
 ];

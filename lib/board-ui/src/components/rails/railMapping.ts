@@ -84,7 +84,7 @@ export function plainStatus(card: any, rail: RailKey): string | null {
   return null;
 }
 
-function toneFor(card: any, rail: RailKey): RailTone {
+export function toneFor(card: any, rail: RailKey): RailTone {
   if (card.priority === 'urgent') return 'warning';
   if (rail === 'needs_you') return 'action';
   if (rail === 'done' || rail === 'paid') return 'done';

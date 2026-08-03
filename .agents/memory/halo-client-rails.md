@@ -15,4 +15,6 @@ Rules:
 **Why:** Halo master spec direction approved by user (desktop-first). One decision per screen; Needs you is the product.
 **How to apply:** Any new client-facing card family must map cleanly into one of the five rails and speak plain-phrase status (never internal enums) on its chip.
 
+Office side: halo-desktop ClientBoardOffice renders the SAME cards as a dense `BoardRowList` (compact density, ROW_SPINE/ROW_TOKENS in railTokens) with filter chips replacing the Board/Inbox/History switcher and a J/K/Enter/Esc keyboard map. Office demo spotlights `board-row-list` / `board-filter-chips` testids now, not lane-*. Only `push:*` cards are deletable (id = cardKey minus prefix); sheet Move-to chips reuse the guarded `card.moved` action.
+
 Known drift: tour/presentation narration MP3 clips still voice the pre-rails copy (targets/text were updated for rails); re-render clips or the drift-check task will flag it.

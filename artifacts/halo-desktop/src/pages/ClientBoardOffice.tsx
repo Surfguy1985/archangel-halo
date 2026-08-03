@@ -64,8 +64,9 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { AppleBoard, useBoardEvents } from "@workspace/board-ui";
+import { useBoardEvents, BoardRowList, mapCardsToRows, RAIL_ORDER, type RailKey } from "@workspace/board-ui";
 import { OfficeBoardDemo } from "@/components/OfficeBoardDemo";
+import { OfficeCardSheet } from "@/components/OfficeCardSheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -1265,7 +1266,14 @@ function HistoryView({ propertyId }: { propertyId: string }) {
 
 export default function ClientBoardOffice() {
   const { propertyId } = useParams();
-  const [view, setView] = useState<"board" | "inbox" | "history">("board");
+  // Filter chips replace the old Board/Inbox/History view switcher: board
+  // slices are rails over one dense list; inbox and history are chips too.
+  type Slice = "all" | RailKey | "inbox" | "history";
+  const [slice, setSlice] = useState<Slice>("all");
+  const view: "board" | "inbox" | "history" =
+    slice === "inbox" ? "inbox" : slice === "history" ? "history" : "board";
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [sheetCard, setSheetCard] = useState<any | null>(null);
   const [showPush, setShowPush] = useState(false);
   const [editCard, setEditCard] = useState<ClientBoardFeedCard | null>(null);
 
@@ -1386,6 +1394,54 @@ export default function ClientBoardOffice() {
 
   const pendingCount = inbox?.cards.filter((c) => c.status === "pending").length || 0;
 
+  // One dense list, sliced by chip. Rows come from the same tokens/mapping
+  // the client tiles use (compact density).
+  const rows = mapCardsToRows(
+    boardFull?.board?.cards,
+    slice === "all" || slice === "inbox" || slice === "history" ? null : slice,
+  );
+
+  // Keyboard map: J/K navigate, Enter opens sheet, N pushes a card.
+  // C/E act on the open sheet (wired inside OfficeCardSheet); Esc closes it.
+  useEffect(() => {
+    if (view !== "board") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      // While a dialog is open, only the sheet's own keys apply.
+      if (sheetCard || showPush || editCard || commentTarget || respondTarget) return;
+      const idx = rows.findIndex((r) => r.cardKey === selectedKey);
+      if (e.key === "j" || e.key === "J" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const next = rows[Math.min(idx + 1, rows.length - 1)] ?? rows[0];
+        if (next) setSelectedKey(next.cardKey);
+      } else if (e.key === "k" || e.key === "K" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const prev = rows[Math.max(idx - 1, 0)] ?? rows[0];
+        if (prev) setSelectedKey(prev.cardKey);
+      } else if (e.key === "Enter") {
+        const sel = rows.find((r) => r.cardKey === selectedKey);
+        if (sel) { e.preventDefault(); setSheetCard(sel.card); }
+      } else if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        setShowPush(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [view, rows, selectedKey, sheetCard, showPush, editCard, commentTarget, respondTarget]);
+
+  const CHIPS: Array<{ key: Slice; label: string; badge?: number }> = [
+    { key: "all", label: "All" },
+    ...RAIL_ORDER.map((r) => ({
+      key: r.key as Slice,
+      label: r.key === "needs_you" ? "Waiting on client" : r.label,
+    })),
+    { key: "inbox", label: "Client inbox", badge: pendingCount },
+    { key: "history", label: "History" },
+  ];
+
   return (
     <div className="h-full flex flex-col bg-[#F1F5F9] min-h-0">
       <div className="flex-none p-4 sm:p-6 pb-0 border-b border-border bg-card">
@@ -1408,55 +1464,40 @@ export default function ClientBoardOffice() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className="flex p-1.5 bg-muted rounded-xl">
-              <button
-                onClick={() => setView("board")}
-                className={`px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${
-                  view === "board"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Board View
-              </button>
-              <button
-                onClick={() => setView("inbox")}
-                className={`px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2 ${
-                  view === "inbox"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Client Inbox
-                {pendingCount > 0 && (
-                  <span className="bg-[#B4FF44] text-[#041029] px-2 py-0.5 rounded-full text-[10px] min-w-[22px] flex items-center justify-center shadow-sm">
-                    {pendingCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setView("history")}
-                data-testid="button-view-history"
-                className={`px-3 sm:px-4 py-1.5 rounded-lg text-sm font-bold transition-colors ${
-                  view === "history"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                History
-              </button>
-            </div>
-
             {view === "board" && (
               <button
                 onClick={() => setShowPush(true)}
                 data-testid="button-open-send-card"
                 className="px-4 py-2 bg-[#041029] text-[#B4FF44] text-sm font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm"
               >
-                <Plus className="w-4 h-4" /> Push card
+                <Plus className="w-4 h-4" /> Push card <span className="opacity-50 font-semibold">N</span>
               </button>
             )}
           </div>
+        </div>
+
+        {/* Filter chips — one list, sliced; inbox and history are chips too. */}
+        <div className="flex flex-wrap items-center gap-1.5 pb-3" data-testid="board-filter-chips">
+          {CHIPS.map((c) => (
+            <button
+              key={c.key}
+              onClick={() => { setSlice(c.key); setSelectedKey(null); }}
+              data-testid={`chip-${c.key}`}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-semibold transition-colors ${
+                slice === c.key
+                  ? "border-[#041029] bg-[#041029] text-white"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {c.label}
+              {!!c.badge && (
+                <span className="bg-[#B4FF44] text-[#041029] px-1.5 py-px rounded-full text-[10px]">{c.badge}</span>
+              )}
+            </button>
+          ))}
+          <span className="ml-auto hidden text-[11px] font-medium text-muted-foreground/70 sm:block">
+            J/K navigate · Enter opens · Esc closes
+          </span>
         </div>
       </div>
 
@@ -1491,21 +1532,39 @@ export default function ClientBoardOffice() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 min-h-0 flex flex-col mt-0 border-t border-border overflow-hidden">
-          <div className="flex-1 min-h-0 flex flex-col">
-            <AppleBoard
-              board={boardFull?.board as any}
-              isLoading={boardLoading}
-              viewerSide="office"
-              viewer={{ readOnly: false, authenticated: true, permissions: [] }}
-              boardKey={undefined}
-              onLoginRequired={() => {}}
-              onCardClick={() => {}}
-              onCardMove={handleCardMove}
-              showToast={toast}
+        <div className="flex-1 min-h-0 overflow-y-auto bg-card">
+          {boardLoading && !boardFull ? (
+            <div className="p-6 space-y-2">
+              <Skeleton className="h-[52px] w-full rounded-none" />
+              <Skeleton className="h-[52px] w-full rounded-none" />
+              <Skeleton className="h-[52px] w-full rounded-none" />
+            </div>
+          ) : (
+            <BoardRowList
+              rows={rows}
+              selectedKey={selectedKey}
+              onSelect={setSelectedKey}
+              onOpen={(card) => { setSelectedKey(card.cardKey); setSheetCard(card); }}
             />
-          </div>
+          )}
         </div>
+      )}
+
+      {sheetCard && (
+        <OfficeCardSheet
+          card={sheetCard}
+          lanes={(boardFull?.board?.lanes as any[]) ?? []}
+          onClose={() => setSheetCard(null)}
+          onMove={(cardKey, laneKey) => { handleCardMove(cardKey, laneKey); setSheetCard(null); }}
+          onComments={(card) => { setSheetCard(null); setCommentTarget({ cardKey: card.cardKey, title: card.title }); }}
+          onRemove={
+            // Only office-pushed cards are deletable; HALO-derived cards
+            // are recomputed on read and clear themselves.
+            String(sheetCard.cardKey).startsWith("push:")
+              ? (card) => { setSheetCard(null); handleRemove(String(card.cardKey).slice("push:".length)); }
+              : null
+          }
+        />
       )}
 
       {demoOpen && <OfficeBoardDemo onClose={() => setDemoOpen(false)} />}

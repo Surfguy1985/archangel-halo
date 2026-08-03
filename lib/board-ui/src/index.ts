@@ -11,5 +11,6 @@ export * from './components/rails/railTokens';
 export * from './components/rails/railMapping';
 export * from './components/rails/RailTile';
 export * from './components/rails/RailsBoard';
+export * from './components/rails/BoardRowList';
 export { WaybillStrip, WAYBILL_STAGE_ORDER } from './components/card/WaybillStrip';
 export type { WaybillStage, WaybillStageEntryView } from './components/card/WaybillStrip';

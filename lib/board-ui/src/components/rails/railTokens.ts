@@ -55,6 +55,25 @@ export const RAIL_DENSITY: Record<
   },
 };
 
+/** 3px status spine on compact office rows — solid echo of the tone. */
+export const ROW_SPINE: Record<RailTone, string> = {
+  action: 'bg-[#9DB40F] dark:bg-[#D8F84E]',
+  active: 'bg-stone-300 dark:bg-stone-600',
+  done: 'bg-emerald-500',
+  warning: 'bg-amber-500',
+};
+
+/** Compact office row: fixed height, square corners, hairline dividers,
+ *  hover is a background tint only. */
+export const ROW_TOKENS = {
+  height: 'h-[52px]',
+  hover: 'hover:bg-stone-50 dark:hover:bg-stone-800/60',
+  selected: 'bg-[#F5F9E0] dark:bg-[#2a3312]',
+  divider: 'divide-y divide-stone-200 dark:divide-stone-700',
+  amount: 'text-[14px] font-medium tabular-nums text-right',
+  owner: 'text-[12px] text-stone-500 dark:text-stone-400',
+};
+
 /** One motion curve everywhere. */
 export const RAIL_MOTION =
   'transition-transform duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100';
