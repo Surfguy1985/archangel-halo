@@ -18,23 +18,32 @@ interface Props {
 // Ensure the map zooms correctly based on active pins/property
 function FitToPoints({ 
   propertyLatLng, 
-  crews 
+  crews,
+  selectedTrailPoints,
 }: { 
   propertyLatLng: [number, number] | null;
   crews: any[];
+  // When a crew's trail is highlighted, fit to the whole trail instead of just the live pins.
+  selectedTrailPoints: [number, number][] | null;
 }) {
   const map = useMap();
+  const trailKey = selectedTrailPoints ? selectedTrailPoints.map((p) => `${p[0]}-${p[1]}`).join("|") : "";
   useEffect(() => {
     const points: [number, number][] = [];
     if (propertyLatLng) points.push(propertyLatLng);
-    crews.forEach((c) => {
-      if (c.lat != null && c.lng != null) points.push([c.lat, c.lng]);
-    });
+    if (selectedTrailPoints && selectedTrailPoints.length > 0) {
+      // Selected trail: show the full route (plus the property pin).
+      points.push(...selectedTrailPoints);
+    } else {
+      crews.forEach((c) => {
+        if (c.lat != null && c.lng != null) points.push([c.lat, c.lng]);
+      });
+    }
     
     if (points.length === 0) return;
     const bounds = latLngBounds(points);
     map.fitBounds(bounds.pad(0.3), { maxZoom: 17 });
-  }, [map, propertyLatLng, crews.map(c => `${c.lat}-${c.lng}`).join("|")]);
+  }, [map, propertyLatLng, trailKey, crews.map(c => `${c.lat}-${c.lng}`).join("|")]);
   
   return null;
 }
@@ -150,6 +159,16 @@ export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
 
   const propertyLatLng: [number, number] | null = data?.lat && data?.lng ? [data.lat, data.lng] : null;
 
+  // All GPS points of the highlighted crew's trail (plus their live pin), for auto-fit.
+  const selectedTrailPoints = useMemo<[number, number][] | null>(() => {
+    if (!selectedTrail) return null;
+    const crew = data?.crews?.find((c) => c.jobId === selectedTrail);
+    if (!crew) return null;
+    const pts = trailPoints((crew as any).events).map((p) => [p.lat, p.lng] as [number, number]);
+    if (crew.lat != null && crew.lng != null) pts.push([crew.lat, crew.lng]);
+    return pts.length ? pts : null;
+  }, [selectedTrail, data?.crews]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-none w-full h-[100dvh] p-0 rounded-none border-none overflow-hidden bg-background m-0 focus-visible:outline-none focus:outline-none focus-visible:ring-0">
@@ -176,7 +195,7 @@ export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
                   url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 />
-                <FitToPoints propertyLatLng={propertyLatLng} crews={data?.crews || []} />
+                <FitToPoints propertyLatLng={propertyLatLng} crews={data?.crews || []} selectedTrailPoints={selectedTrailPoints} />
                 
                 {propertyLatLng && (
                   <Marker position={propertyLatLng} icon={propertyIcon()}>
