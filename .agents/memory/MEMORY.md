@@ -76,8 +76,8 @@
 - [HALO client rails board](halo-client-rails.md) — vendors tab is five fixed rails (Needs you first), client-side mapping over unchanged lanes; no client drag; lime accent reserved; waybill lives on the sheet.
 - [HALO board concierge](halo-concierge.md) — chatbot tools go through internal HTTP with caller's creds; mutations only via one-time HMAC confirm chips (jti claimed in DB pre-execution).
 - [HALO office passcode gate](halo-office-auth.md) — office API locked behind passcode+cookie; new public token surfaces must join PUBLIC_PREFIXES or they 401.
-- [HALO crew office access](halo-crew-office-access.md) — portal links never carry permissions: office-view grants re-checked server-side per read, scoped, and must never expose money/client data.
-- [HALO member dispatch](halo-member-dispatch.md) — crews.leaderId teams + per-member day assignments; pending_move settles only via guarded conditional UPDATEs; members with foreman can't message office.
-- [HALO dispatch board](halo-dispatch-board.md) — one transactional /jobs/:id/dispatch move syncs crew, date, crewVacatedAt, boardStatus (filled↔reopened), broadcasts, and the schedules mirror.
 - [HALO crew route plans](halo-crew-route-plans.md) — day-route stop keys (schedule id / event-<id>) shared by office API + portal feed; free-text times must never sort lexicographically.
 - [HALO crew GPS trail](halo-gps-trail.md) — 30s breadcrumb pings; jobId always from the open check-in; local-midnight day basis as SQL param; after-photos checkout gate.
+- [HALO dispatch board](halo-dispatch-board.md) — one transactional /jobs/:id/dispatch move syncs crew, date, crewVacatedAt, boardStatus (filled↔reopened), broadcasts, and the schedules mirror.
+- [HALO crew office access](halo-crew-office-access.md) — portal links never carry permissions: office-view grants re-checked server-side per read, scoped, and must never expose money/client data.
+- [HALO member dispatch](halo-member-dispatch.md) — crews.leaderId teams + per-member day assignments; pending_move settles only via guarded conditional UPDATEs; members with foreman can't message office.

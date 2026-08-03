@@ -8,3 +8,5 @@ description: Ordered per-crew, per-day route plans — stop-key contract shared 
 - **How to apply:** any new stop source (e.g. another assignment rail) must emit keys the same way in both the office day-plan builder and the portal feed, and dedupe by jobId against schedule rows.
 - Saved plans are lenient: unknown/stale keys are filtered out on save and on read; unplanned stops append after planned ones, ordered chronologically via a free-text time parser (window times are strings like "9:00 AM" — never sort them lexicographically).
 - One plan per (crew, day) via unique index + upsert. Table is in the settings-reset wipe list and crew-delete cascade.
+
+**Testing office-gated endpoints:** supertest tests can mint a valid office session cookie themselves — HMAC `office.<exp>.<nonce>` with SESSION_SECRET (same scheme as officeAuth) — instead of running a passcode login flow. See crewRoutePlan.test.ts. Routes are mounted under `/api` in app.ts.
