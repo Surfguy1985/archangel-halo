@@ -88,7 +88,10 @@ export function BoardRowList({
   }
   return (
     <div
-      className={`w-full border-y border-stone-200 dark:border-stone-700 ${ROW_TOKENS.divider}`}
+      /* Component owns its surface: the dark rowStatus/owner tokens assume a
+         dark background, so provide it here instead of trusting the host page
+         (office apps are light-only and would leave pale text on white). */
+      className={`w-full border-y border-stone-200 bg-white text-stone-900 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 ${ROW_TOKENS.divider}`}
       role="list"
       data-testid="board-row-list"
     >
