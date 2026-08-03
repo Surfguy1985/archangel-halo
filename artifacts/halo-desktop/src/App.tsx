@@ -1,4 +1,5 @@
 import { Switch, Route, Router as WouterRouter} from "wouter";
+import { OfficeGate } from "./components/OfficeGate";
 import { QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import { Toaster} from "@/components/ui/toaster";
 import { TooltipProvider} from "@/components/ui/tooltip";
@@ -52,6 +53,7 @@ function App() {
           <Switch>
             <Route path="/portal/:token" component={CrewPortal} />
             <Route>
+              <OfficeGate>
               <SplashScreen />
               <DesktopLayout>
                 <Switch>
@@ -82,6 +84,7 @@ function App() {
                   <Route component={NotFound} />
                 </Switch>
               </DesktopLayout>
+              </OfficeGate>
             </Route>
           </Switch>
         </WouterRouter>

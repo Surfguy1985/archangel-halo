@@ -30,6 +30,10 @@ export const businessSettingsTable = pgTable("business_settings", {
   requireSummaryBeforeCloseOut: boolean("require_summary_before_close_out")
     .notNull()
     .default(false),
+  // scrypt hash of the office passcode ("s2:<salt>:<hash>", base64url). NULL
+  // until the office sets one up; while NULL the office API answers 401 with
+  // setupRequired so the apps show the create-passcode screen.
+  officePasscodeHash: text("office_passcode_hash"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

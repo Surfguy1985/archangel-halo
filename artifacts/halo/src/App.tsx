@@ -32,6 +32,7 @@ import Settings from "./pages/Settings";
 import Catalog from "./pages/Catalog";
 import Wings from "./pages/Wings";
 import NotFound from "@/pages/not-found";
+import { OfficeGate } from "./components/OfficeGate";
 
 // Live cross-device sync: every device polls the shared server every 15s,
 // refetches when the app regains focus or reconnects, so updates made on any
@@ -80,6 +81,14 @@ function AdminRouter() {
   );
 }
 
+function GatedAdminRouter() {
+  return (
+    <OfficeGate>
+      <AdminRouter />
+    </OfficeGate>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -121,7 +130,7 @@ function App() {
             <Route path="/client/:token/requests" component={ClientRequest} />
             <Route path="/track/:token" component={JobTracker} />
             <Route path="/pay/:token" component={PublicPayment} />
-            <Route component={AdminRouter} />
+            <Route component={GatedAdminRouter} />
           </Switch>
         </WouterRouter>
         <Toaster />

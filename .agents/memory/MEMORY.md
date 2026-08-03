@@ -2,7 +2,7 @@
 - [HALO email notifications](halo-email-notifications.md) — daily/urgent task-list emails from computeQueues feed via Resend; in-process setInterval scheduler; advance dedup state only after sent===true.
 - [HALO query invalidation](halo-query-invalidation.md) — create/action sheets must invalidate derived views (money summary, Today blockers, property detail), not just the primary list.
 - [HALO composite lib refs](halo-composite-lib-refs.md) — shared libs used as TS project references must emit .d.ts (composite+declaration) & be built before consuming apps typecheck.
-- [HALO no-auth posture](halo-no-auth-posture.md) — whole app is intentionally unauthenticated (single org, token portals); storage object routes are open by design, not a bug to "fix" with auth.
+- [HALO no-auth posture](halo-no-auth-posture.md) — client/crew portals are token-links by design, BUT office API is now passcode-gated — see halo-office-auth.md.
 - [HALO ingest pipeline](halo-ingest-pipeline.md) — AI file-import backend (/ingest/parse + /ingest/commit) already exists; reuse it, send extracted text not raw binary.
 - [HALO/Falkon palette](halo-brand-palette.md) — light theme, 5-color palette; --gold=dark lime for text, --gold-light=#B4FF44 for buttons w/ black text.
 - [HALO Margin Guardian](halo-margin-guardian.md) — marginPct is a FRACTION (0.25=25%); floor is per-property marginMin (default 0.25) excluding complete/paid/cancelled; surfaces in Today feed + emails.
@@ -75,3 +75,4 @@
 - [HALO work-request PO gate](halo-work-request-po.md) — work requests require a PO unless emergency; new insert paths must enforce or explicitly exempt (flags-schedule rail is exempt).
 - [HALO client rails board](halo-client-rails.md) — vendors tab is five fixed rails (Needs you first), client-side mapping over unchanged lanes; no client drag; lime accent reserved; waybill lives on the sheet.
 - [HALO board concierge](halo-concierge.md) — chatbot tools go through internal HTTP with caller's creds; mutations only via one-time HMAC confirm chips (jti claimed in DB pre-execution).
+- [HALO office passcode gate](halo-office-auth.md) — office API locked behind passcode+cookie; new public token surfaces must join PUBLIC_PREFIXES or they 401.
