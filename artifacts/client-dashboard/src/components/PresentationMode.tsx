@@ -73,7 +73,7 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
   {
     title: "Before and after, on every job",
     body: "Crews document their work as they go. Those photos land right on the board as a card — you can see the drywall damage and the finished eggshell wall without leaving your seat. Proof of work, attached to the work.",
-    target: "lane-requested",
+    target: "rail-requested",
   },
   {
     title: "Units, Hub, and instant search",

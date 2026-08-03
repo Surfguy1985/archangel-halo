@@ -11,7 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { DashboardTour } from '@/components/DashboardTour';
 import { PresentationMode } from '@/components/PresentationMode';
 import { motion } from 'framer-motion';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CardDetailDialog } from '@/components/kanban/CardDetailDialog';
 import { NewCardSpotlight } from '@/components/NewCardSpotlight';
@@ -145,12 +145,21 @@ function Board() {
   const viewerAuthenticated = board?.viewer?.authenticated ?? false;
   const viewerTourSeen = board?.viewer?.tourSeen ?? false;
   
+  // One-shot guard: this effect's deps include the markTourSeen mutation
+  // object, which react-query recreates on every render — firing the mutation
+  // re-renders the page, which re-ran the effect, which fired again, spamming
+  // POST /tour-seen in a loop until React hit "maximum update depth" and the
+  // board crashed mid-walkthrough. The ref makes the decision exactly once
+  // per board load, no matter how many times the effect re-runs.
+  const tourDecidedRef = useRef(false);
   useEffect(() => {
     if (!boardLoaded) return;
     if (presentationOpen) return; // presentation replaces the intro tour
     // Deep links (?map=1) open the map dialog on top of the board — defer the
     // tour until the map closes so it isn't shown (and marked seen) underneath.
     if (birdseyeOpen) return;
+    if (tourDecidedRef.current) return;
+    tourDecidedRef.current = true;
     const tourSeenKey = `halo_dashboard_tour_seen_${token}`;
     if (viewerAuthenticated) {
       if (!viewerTourSeen) {

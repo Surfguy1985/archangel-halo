@@ -38,3 +38,7 @@ Board now follows the uploaded fixed-seed spec (attached_assets/REPLIT_PROMPT_17
 - CardDetailDialog must receive a LIVE card (re-derived from board query data by cardKey), not a snapshot, or post-action flips (e.g. flags WORK REQUESTED) never appear in the dialog.
 - Playwright HTML5 drag simulation is flaky (dragstart often never fires); a failed synthetic drag is not proof the board broke — check for AppleCard console errors instead.
 - Two-tone tile scheme (user directive, Aug 2026): tiles are ONLY lime #B4FF44 (black text — billing/money/"needs you") or baby blue #79B8F3 (white text — everything else). Sources: board-ui palette.ts (APPLE_CATEGORY_COLORS/APPLE_CATEGORY_TEXT) + rails/railTokens.ts RAIL_TONES. White-text AppleCard headers use dark→light gradient + text shadow; check-card-contrast guard is per-text-color. RAIL_TONES.chip = white pill (always dark text), .rowStatus = office rows (has dark: variants) — don't swap them.
+
+## Tour-seen loop guard
+The board's tour-start useEffect has react-query mutation objects in deps (new identity every render). Any mutation fired inside it must be behind a one-shot ref guard (`tourDecidedRef`) or it loops: mutate → rerender → effect → mutate, spamming POST /tour-seen until React crashes ("maximum update depth"). Guard is set AFTER the defer-early-returns (map deep link, presentation) so those still get a tour later.
+**How to apply:** never fire mutations from effects whose deps include the mutation hook result; guard with a ref set after any defer conditions.
