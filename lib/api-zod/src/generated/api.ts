@@ -5338,7 +5338,8 @@ export const GetPortalResponse = zod.object({
   "messages": zod.number(),
   "packets": zod.number(),
   "documents": zod.number(),
-  "emergency": zod.number()
+  "emergency": zod.number(),
+  "approvals": zod.number().describe('Pending member-move approvals waiting on this foreman')
 })
 })
 
@@ -6345,7 +6346,7 @@ export const MarkPortalSeenParams = zod.object({
 })
 
 export const MarkPortalSeenBody = zod.object({
-  "section": zod.enum(['offers', 'schedule', 'messages', 'packets', 'documents', 'emergency'])
+  "section": zod.enum(['offers', 'schedule', 'messages', 'packets', 'documents', 'emergency', 'approvals'])
 })
 
 export const MarkPortalSeenResponse = zod.object({
@@ -6354,7 +6355,8 @@ export const MarkPortalSeenResponse = zod.object({
   "messages": zod.number(),
   "packets": zod.number(),
   "documents": zod.number(),
-  "emergency": zod.number()
+  "emergency": zod.number(),
+  "approvals": zod.number().describe('Pending member-move approvals waiting on this foreman')
 })
 
 

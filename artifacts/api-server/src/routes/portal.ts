@@ -152,7 +152,7 @@ async function computeUnseen(crew: CrewRow) {
   const since = (section: string) =>
     seen[section] ? new Date(seen[section]!) : new Date(0);
 
-  const [offers, sched, events, messages, packets, documents, emergency] =
+  const [offers, sched, events, messages, packets, documents, emergency, approvals] =
     await Promise.all([
       db
         .select({ n: count() })
@@ -221,6 +221,23 @@ async function computeUnseen(crew: CrewRow) {
             gt(emergencyPingTargetsTable.sentAt, since("emergency")),
           ),
         ),
+      // Member moves waiting on this foreman's approval (non-foremen get 0).
+      db
+        .select({ n: count() })
+        .from(crewDispatchAssignmentsTable)
+        .where(
+          and(
+            eq(crewDispatchAssignmentsTable.status, "pending_move"),
+            gt(crewDispatchAssignmentsTable.moveRequestedAt, since("approvals")),
+            inArray(
+              crewDispatchAssignmentsTable.memberId,
+              db
+                .select({ id: crewsTable.id })
+                .from(crewsTable)
+                .where(and(eq(crewsTable.leaderId, crew.id), ne(crewsTable.id, crew.id))),
+            ),
+          ),
+        ),
     ]);
 
   return {
@@ -230,6 +247,7 @@ async function computeUnseen(crew: CrewRow) {
     packets: packets[0]?.n ?? 0,
     documents: documents[0]?.n ?? 0,
     emergency: emergency[0]?.n ?? 0,
+    approvals: approvals[0]?.n ?? 0,
   };
 }
 

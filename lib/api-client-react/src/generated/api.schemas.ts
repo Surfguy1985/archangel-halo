@@ -4673,6 +4673,8 @@ export interface PortalUnseen {
   packets: number;
   documents: number;
   emergency: number;
+  /** Pending member-move approvals waiting on this foreman */
+  approvals: number;
 }
 
 export interface PortalBundle {
@@ -4927,6 +4929,7 @@ export const PortalSeenInputSection = {
   packets: 'packets',
   documents: 'documents',
   emergency: 'emergency',
+  approvals: 'approvals',
 } as const;
 
 export interface PortalSeenInput {

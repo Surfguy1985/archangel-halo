@@ -197,6 +197,8 @@ export default function CrewPortal() {
     if (primary) sections.push(primary);
     // When the Offers tab is opened, also mark emergency pings as seen.
     if (tab === "offers") sections.push("emergency");
+    // Pending move approvals live in the Schedule tab's dispatch section.
+    if (tab === "schedule") sections.push("approvals");
     const toMark = sections.filter((section) => (unseenMap[section] ?? 0) > 0);
     if (toMark.length === 0) return;
     // Only refetch after the seen-marks actually succeed — otherwise a failing
@@ -238,7 +240,7 @@ export default function CrewPortal() {
   const officeView = officeViewData;
   const tabs: { key: Tab; label: string; icon: any; badge?: number; alert?: number }[] = [
     { key: "offers", label: "Offers", icon: Briefcase, badge: pendingOffersCount, alert: (u?.offers ?? 0) + (u?.emergency ?? 0) },
-    { key: "schedule", label: "Schedule", icon: Calendar, alert: u?.schedule },
+    { key: "schedule", label: "Schedule", icon: Calendar, alert: (u?.schedule ?? 0) + (u?.approvals ?? 0) },
     ...(officeView?.enabled
       ? [{ key: "office" as Tab, label: "Office", icon: Home }]
       : []),

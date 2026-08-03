@@ -13,4 +13,6 @@ export interface PortalUnseen {
   packets: number;
   documents: number;
   emergency: number;
+  /** Pending member-move approvals waiting on this foreman */
+  approvals: number;
 }

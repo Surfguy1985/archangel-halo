@@ -24,8 +24,53 @@ import {
   UpdateDispatchChecklistBody,
   UpdateDispatchChecklistResponse,
 } from "@workspace/api-zod";
+import { smsEnabled, sendSms } from "../lib/sms";
+import { sendEmail } from "../lib/email";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
+
+// Best-effort ping to the foreman when a move enters pending_move — SMS first,
+// email fallback. Never throws; the move must not fail because a text didn't go.
+async function notifyForemanOfPendingMove(opts: {
+  leaderId: string;
+  memberName: string;
+  fromJobNo: string;
+  toJobNo: string;
+  day: string;
+}): Promise<void> {
+  try {
+    const [leader] = await db
+      .select()
+      .from(crewsTable)
+      .where(eq(crewsTable.id, opts.leaderId));
+    if (!leader) return;
+    const domain =
+      process.env.REPLIT_DOMAINS?.split(",")[0] ?? process.env.REPLIT_DEV_DOMAIN;
+    const portalUrl =
+      leader.portalToken && domain
+        ? `https://${domain}/portal/${leader.portalToken}`
+        : null;
+    const line = `Move waiting on you: ${opts.memberName} from job ${opts.fromJobNo} to job ${opts.toJobNo} (${opts.day}). Open your crew portal to approve or decline.`;
+    if (leader.phone && (await smsEnabled())) {
+      const result = await sendSms(
+        leader.phone,
+        portalUrl ? `${line} ${portalUrl}` : line,
+      );
+      if (result.ok) return;
+      logger.warn({ error: result.error }, "foreman move-approval sms failed");
+    }
+    if (leader.email) {
+      await sendEmail({
+        to: leader.email,
+        subject: `Approval needed: move ${opts.memberName} to job ${opts.toJobNo}`,
+        html: `<p>${line}</p>${portalUrl ? `<p><a href="${portalUrl}">Open your crew portal</a></p>` : ""}`,
+      });
+    }
+  } catch (err) {
+    logger.warn({ err }, "foreman move-approval notification failed");
+  }
+}
 
 const FINISHED = new Set(["complete", "paid", "cancelled"]);
 
@@ -410,6 +455,13 @@ router.post("/dispatch-assignments/:id/move", async (req, res): Promise<void> =>
       entityId: body.toJobId,
       kind: "flag",
       body: `Move requested: ${member!.name} from job ${fromJob?.jobNo ?? "?"} to job ${target.jobNo} — awaiting foreman approval`,
+    });
+    await notifyForemanOfPendingMove({
+      leaderId: member!.leaderId!,
+      memberName: member!.name,
+      fromJobNo: fromJob?.jobNo ?? "?",
+      toJobNo: target.jobNo,
+      day: a.day,
     });
   } else {
     const checklist = await seedChecklist(body.toJobId);

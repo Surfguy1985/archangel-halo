@@ -12740,7 +12740,7 @@ components:
           $ref: "#/components/schemas/PortalUnseen"
     PortalUnseen:
       type: object
-      required: [offers, schedule, messages, packets, documents, emergency]
+      required: [offers, schedule, messages, packets, documents, emergency, approvals]
       properties:
         offers: { type: number }
         schedule: { type: number }
@@ -12748,6 +12748,11 @@ components:
         packets: { type: number }
         documents: { type: number }
         emergency: { type: number }
+        approvals:
+          {
+            type: number,
+            description: "Pending member-move approvals waiting on this foreman",
+          }
     PortalEmergencyOffer:
       type: object
       required: [id, pingId, jobId, status, pingStatus, filledByYou, payAmount, bonusAmount]
@@ -12985,7 +12990,7 @@ components:
         section:
           {
             type: string,
-            enum: [offers, schedule, messages, packets, documents, emergency],
+            enum: [offers, schedule, messages, packets, documents, emergency, approvals],
           }
     CrewInvoiceItemInput:
       type: object
