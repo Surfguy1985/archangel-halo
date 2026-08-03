@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { uploadFile } from '@/lib/upload';
-import { Loader2, Camera, X, Siren, ChevronLeft } from 'lucide-react';
+import { Loader2, Camera, X, Siren, ChevronLeft, Plus } from 'lucide-react';
 
 /** A job card the client is requesting a change against (change order mode). */
 export type ChangeOrderTarget = { jobId: string; title: string };
@@ -53,6 +53,7 @@ export function RequestWorkDialog({
   const [customLabel, setCustomLabel] = useState('');
   const [units, setUnits] = useState<string[]>([]);
   const [unitInput, setUnitInput] = useState('');
+  const [addingUnit, setAddingUnit] = useState(false);
   const [notes, setNotes] = useState('');
   const [neededBy, setNeededBy] = useState('');
   const [deadlineChip, setDeadlineChip] = useState<string>(''); // today | 48h | week | pick | ''
@@ -139,6 +140,7 @@ export function RequestWorkDialog({
     setCustomLabel('');
     setUnits([]);
     setUnitInput('');
+    setAddingUnit(false);
     setNotes('');
     setNeededBy('');
     setDeadlineChip('');
@@ -300,9 +302,50 @@ export function RequestWorkDialog({
                   Units {units.length > 0 && <span className="text-[#007AFF]">· {units.length} selected</span>}
                 </label>
                 {unitLabels.length > 0 ? (
-                  <div className="max-h-[168px] overflow-y-auto rounded-[10px] border border-black/10 bg-white p-2">
+                  <div className="max-h-[200px] overflow-y-auto rounded-[10px] border border-black/10 bg-white p-2">
+                    {/* Featured box — add a unit that isn't on the roster yet */}
+                    {addingUnit ? (
+                      <div className="mb-2 flex gap-2 rounded-[10px] border-2 border-[#B4FF44] bg-[#B4FF44]/15 p-2">
+                        <input
+                          data-testid="input-new-unit"
+                          autoFocus
+                          value={unitInput}
+                          onChange={(e) => setUnitInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addTypedUnit();
+                            }
+                            if (e.key === 'Escape') {
+                              setAddingUnit(false);
+                              setUnitInput('');
+                            }
+                          }}
+                          placeholder="New unit — e.g. 204"
+                          className="h-9 w-full min-w-0 rounded-[8px] border border-black/10 bg-white px-2.5 text-[13px] outline-none focus:border-[#1d1d1f]"
+                        />
+                        <button
+                          type="button"
+                          data-testid="button-add-new-unit"
+                          onClick={addTypedUnit}
+                          className="shrink-0 rounded-[8px] bg-[#B4FF44] px-3 text-[13px] font-bold text-black"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        data-testid="button-new-unit"
+                        onClick={() => setAddingUnit(true)}
+                        className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-[10px] border-2 border-dashed border-[#9DB40F] bg-[#B4FF44]/15 px-3 py-2 text-[13px] font-bold text-[#3a4708] hover:bg-[#B4FF44]/30"
+                      >
+                        <Plus className="h-4 w-4" strokeWidth={2.5} />
+                        Add a new unit
+                      </button>
+                    )}
                     <div className="flex flex-wrap gap-1.5">
-                      {unitLabels.map((u) => (
+                      {[...unitLabels, ...units.filter((u) => !unitLabels.includes(u))].map((u) => (
                         <button
                           key={u}
                           type="button"

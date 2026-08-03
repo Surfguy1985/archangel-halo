@@ -251,7 +251,7 @@ export const VENDOR_TEMPLATES: AppleTemplate[] = [
 // Palette lives in ./palette (dependency-free) so the contrast guard can
 // import it without pulling in lucide/react; re-exported here to keep the
 // existing import surface unchanged.
-export { APPLE_CATEGORY_COLORS } from './palette';
+export { APPLE_CATEGORY_COLORS, APPLE_CATEGORY_TEXT } from './palette';
 
 // ---------------------------------------------------------------------------
 // HARDENING: audience-aware template resolution.

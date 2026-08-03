@@ -1,5 +1,5 @@
 import React from 'react';
-import { APPLE_CATEGORY_COLORS, resolveTemplate, type BoardAudience } from './templates';
+import { APPLE_CATEGORY_COLORS, APPLE_CATEGORY_TEXT, resolveTemplate, type BoardAudience } from './templates';
 import { MessageSquare, Calendar, Wrench, FileText, FileSearch, HardHat, FileSignature, Layers, Trash2 } from 'lucide-react';
 import { formatDistanceToNow, parseISO, isBefore, startOfDay } from 'date-fns';
 import { ModuleMetrics, ModuleEvidence, ModuleDecision } from '../kanban/BoardCardModules';
@@ -159,11 +159,16 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
 
   const waybill = card.waybill as { stages: Array<{ stage: string; at: string; byLabel?: string | null }>; holder?: string; live?: boolean } | undefined;
 
-  // ── Falkon face for EVERY card, color-coded by service (template category).
-  // The gradient header carries the service color; the network strip stays
-  // dark with volt dots so progress reads identically across services.
-  const headerColor = headerBase(color);
-  const gradient = `linear-gradient(135deg, ${headerColor}, ${shade(headerColor, -0.38)})`;
+  // ── Falkon face for EVERY card: two-tone scheme — lime tiles carry BLACK
+  // header text on the raw lime; blue tiles carry WHITE text over a baby-blue
+  // gradient. The network strip stays uniform across both.
+  const headerText = APPLE_CATEGORY_TEXT[template.category] ?? '#FFFFFF';
+  const darkText = headerText === '#000000';
+  // White-text tiles run dark→light (135deg) so the header text (top-left)
+  // always sits on the deep end while the tile still reads baby blue.
+  const gradient = darkText
+    ? `linear-gradient(135deg, ${color}, ${shade(color, -0.12)})`
+    : `linear-gradient(135deg, ${shade(color, -0.42)}, ${color})`;
   const serviceLabel = template.labelPreset || SERVICE_LABELS[template.category] || template.category;
 
   return (
@@ -180,21 +185,33 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
       className="flex flex-col border rounded-[18px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.12)] transition-all cursor-pointer active:scale-[0.98] max-sm:select-none overflow-hidden relative bg-white"
       style={{ WebkitTouchCallout: 'none', borderColor: `${color}40` } as React.CSSProperties}
     >
-      {/* Branded header — service color owns the gradient */}
-      <div className="px-4 pt-3 pb-3 text-white" style={{ backgroundImage: gradient }}>
+      {/* Branded header — service color owns the gradient; black text on lime, white on blue */}
+      <div
+        className="px-4 pt-3 pb-3"
+        style={{
+          backgroundImage: gradient,
+          color: headerText,
+          // White text can cross the gradient's lighter end — a soft shadow
+          // keeps it readable across the full header width.
+          textShadow: darkText ? undefined : '0 1px 2px rgba(0,0,0,.3)',
+        }}
+      >
         <div className="flex items-center gap-2 flex-wrap">
           <span
             className="w-6 h-6 rounded-[7px] border-[1.5px] grid place-items-center shrink-0"
-            style={{ borderColor: '#B4FF44', color: '#B4FF44' }}
+            style={darkText ? { borderColor: '#0B1428', color: '#0B1428' } : { borderColor: '#B4FF44', color: '#B4FF44' }}
           >
             <Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
           </span>
-          <span className="text-[9px] font-extrabold tracking-[.09em] uppercase bg-white/20 px-2 py-[3px] rounded-md">
+          <span
+            className="text-[9px] font-extrabold tracking-[.09em] uppercase px-2 py-[3px] rounded-md"
+            style={darkText ? { background: 'rgba(11,20,40,.12)' } : { background: 'rgba(255,255,255,.2)' }}
+          >
             {serviceLabel}
           </span>
           <span
             className="ml-auto inline-flex items-center gap-1 text-[9px] font-bold px-2 py-[3px] rounded-md whitespace-nowrap"
-            style={{ background: 'rgba(11,20,40,.42)', color: '#B4FF44' }}
+            style={darkText ? { background: 'rgba(11,20,40,.85)', color: '#B4FF44' } : { background: 'rgba(11,20,40,.42)', color: '#B4FF44' }}
           >
             Sealed to you
           </span>

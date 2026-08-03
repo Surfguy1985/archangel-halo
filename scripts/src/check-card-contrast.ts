@@ -2,32 +2,32 @@
  * Card header contrast guard.
  *
  * Every board card renders the Falkon face colored by service category
- * (APPLE_CATEGORY_COLORS in lib/board-ui/.../templates.ts) with WHITE header
- * text. Readability relies on headerBase() (lib/board-ui/.../contrast.ts)
- * darkening light palette entries until white text reaches ~4.5:1 (WCAG AA).
+ * (APPLE_CATEGORY_COLORS in lib/board-ui/.../palette.ts) with per-category
+ * header text declared in APPLE_CATEGORY_TEXT: black text on lime tiles,
+ * white text on blue tiles.
  *
- * headerBase() darkens in at most 6 steps of -14%, so an extremely light
- * palette entry could exhaust the loop and still ship an unreadable header.
- * This guard iterates the real palette through the real headerBase() and
- * fails loudly — naming the offending category and color — if any header
- * would fall below the 4.5:1 threshold.
+ * - Black-text tiles: black must reach ≥4.5:1 against the raw tile color
+ *   (AppleCard renders black text directly on the tile gradient).
+ * - White-text tiles: AppleCard's gradient runs dark→light — from
+ *   shade(color, -0.42) at the top-left (where the header text sits) to the
+ *   raw color; white text must reach ≥4.5:1 against that dark end.
  *
- * It runs as part of `pnpm run typecheck` (see scripts/package.json), so CI
- * and the root build catch palette regressions automatically.
+ * This guard iterates the real palette through the real shade()/luminance()
+ * helpers and fails loudly — naming the offending category and color.
+ * It runs as part of `pnpm run typecheck` (see scripts/package.json).
  */
-import { APPLE_CATEGORY_COLORS } from '@workspace/board-ui/palette';
-import {
-  headerBase,
-  luminance,
-  contrastVsWhite,
-  HEADER_MAX_LUMINANCE,
-} from '@workspace/board-ui/contrast';
+import { APPLE_CATEGORY_COLORS, APPLE_CATEGORY_TEXT } from '@workspace/board-ui/palette';
+import { shade, luminance } from '@workspace/board-ui/contrast';
 
 const entries = Object.entries(APPLE_CATEGORY_COLORS);
 if (entries.length === 0) {
   console.error('check-card-contrast: APPLE_CATEGORY_COLORS is empty — palette not found?');
   process.exit(1);
 }
+
+const contrast = (a: number, b: number) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+const WHITE = 1.0;
+const BLACK = 0.0;
 
 const failures: string[] = [];
 
@@ -36,14 +36,27 @@ for (const [category, color] of entries) {
     failures.push(`category "${category}": color "${color}" is not a #RRGGBB hex value`);
     continue;
   }
-  const header = headerBase(color);
-  const ratio = contrastVsWhite(header);
-  if (luminance(header) > HEADER_MAX_LUMINANCE) {
-    failures.push(
-      `category "${category}": palette color ${color} → headerBase ${header} gives only ` +
-        `${ratio.toFixed(2)}:1 contrast for white header text (needs ≥ 4.5:1). ` +
-        `Pick a darker palette color or one headerBase() can darken within its 6 steps.`,
-    );
+  const text = APPLE_CATEGORY_TEXT[category];
+  if (text !== '#000000' && text !== '#FFFFFF') {
+    failures.push(`category "${category}": missing/invalid APPLE_CATEGORY_TEXT entry (${text})`);
+    continue;
+  }
+  if (text === '#000000') {
+    const ratio = contrast(BLACK, luminance(color));
+    if (ratio < 4.5) {
+      failures.push(
+        `category "${category}": black text on ${color} gives only ${ratio.toFixed(2)}:1 (needs ≥ 4.5:1).`,
+      );
+    }
+  } else {
+    const darkEnd = shade(color, -0.42);
+    const ratioDark = contrast(WHITE, luminance(darkEnd));
+    if (ratioDark < 4.5) {
+      failures.push(
+        `category "${category}": white text on gradient start ${darkEnd} gives only ` +
+          `${ratioDark.toFixed(2)}:1 (needs ≥ 4.5:1). Pick a deeper tile color.`,
+      );
+    }
   }
 }
 
@@ -54,4 +67,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`check-card-contrast: OK — ${entries.length} category colors all yield ≥4.5:1 white header contrast.`);
+console.log(
+  `check-card-contrast: OK — ${entries.length} category colors all yield readable header text.`,
+);

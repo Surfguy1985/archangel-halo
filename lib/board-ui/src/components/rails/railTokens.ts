@@ -9,24 +9,49 @@ export type BoardDensity = 'comfortable' | 'compact';
 
 export type RailTone = 'action' | 'active' | 'done' | 'warning';
 
-/** Status-only color: panels tint by state, chips echo it, nothing else. */
-export const RAIL_TONES: Record<RailTone, { panel: string; chip: string }> = {
+/**
+ * Two-tone client scheme: tiles waiting on the viewer are LIME with BLACK
+ * text; every other tile is BABY BLUE with WHITE text. The chip pill stays
+ * white so status text keeps its tone color for scanning.
+ */
+export const RAIL_TONES: Record<
+  RailTone,
+  { panel: string; body: string; title: string; subtitle: string; chip: string; rowStatus: string }
+> = {
   // Brand lime — the one accent, reserved for cards waiting on the viewer.
+  // `chip` renders on an always-white pill (dark text, no dark variant);
+  // `rowStatus` renders directly on office rows (needs dark-mode variants).
   action: {
-    panel: 'bg-[#F5F9E0] dark:bg-[#2a3312]',
-    chip: 'text-[#55660a] dark:text-[#D8F84E]',
+    panel: 'bg-[#B4FF44]',
+    body: 'bg-[#B4FF44]',
+    title: 'text-black',
+    subtitle: 'text-black/65',
+    chip: 'text-[#55660a]',
+    rowStatus: 'text-[#55660a] dark:text-[#D8F84E]',
   },
   active: {
-    panel: 'bg-stone-100 dark:bg-stone-800',
-    chip: 'text-stone-700 dark:text-stone-300',
+    panel: 'bg-[#79B8F3]',
+    body: 'bg-[#466B8D]',
+    title: 'text-white',
+    subtitle: 'text-white/75',
+    chip: 'text-stone-700',
+    rowStatus: 'text-stone-700 dark:text-stone-300',
   },
   done: {
-    panel: 'bg-emerald-50 dark:bg-emerald-950/50',
-    chip: 'text-emerald-800 dark:text-emerald-200',
+    panel: 'bg-[#79B8F3]',
+    body: 'bg-[#466B8D]',
+    title: 'text-white',
+    subtitle: 'text-white/75',
+    chip: 'text-emerald-800',
+    rowStatus: 'text-emerald-800 dark:text-emerald-200',
   },
   warning: {
-    panel: 'bg-amber-50 dark:bg-amber-950/50',
-    chip: 'text-amber-900 dark:text-amber-200',
+    panel: 'bg-[#79B8F3]',
+    body: 'bg-[#466B8D]',
+    title: 'text-white',
+    subtitle: 'text-white/75',
+    chip: 'text-amber-900',
+    rowStatus: 'text-amber-900 dark:text-amber-200',
   },
 };
 

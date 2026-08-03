@@ -42,7 +42,8 @@ export const RailTile = memo(function RailTile({
         data-testid={`rail-tile-${tile.cardKey}`}
         onClick={onOpen}
         className={[
-          'block w-full min-w-0 text-left rounded-2xl overflow-hidden bg-white dark:bg-stone-900',
+          'block w-full min-w-0 text-left rounded-2xl overflow-hidden',
+          t.body,
           tile.accent ? RAIL_ACCENT_BORDER : RAIL_HAIRLINE_BORDER,
           RAIL_MOTION,
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9DB40F]',
@@ -63,7 +64,7 @@ export const RailTile = memo(function RailTile({
             <span
               className={[
                 'absolute bottom-2.5 left-2.5 max-w-[calc(100%-20px)] truncate',
-                'rounded-full bg-white/95 dark:bg-stone-900/95 px-2.5 py-1',
+                'rounded-full bg-white/95 px-2.5 py-1',
                 'text-[11px] font-medium',
                 t.chip,
               ].join(' ')}
@@ -83,8 +84,8 @@ export const RailTile = memo(function RailTile({
 
         {/* CONTAIN — min-w-0 again; flex/grid children default min-width:auto. */}
         <div className={`min-w-0 ${d.body}`}>
-          <p className={`truncate ${d.title} text-stone-900 dark:text-stone-50`}>{tile.title}</p>
-          <p className={`mt-0.5 truncate ${d.subtitle} text-stone-500 dark:text-stone-400`}>
+          <p className={`truncate ${d.title} ${t.title}`}>{tile.title}</p>
+          <p className={`mt-0.5 truncate ${d.subtitle} ${t.subtitle}`}>
             {tile.subtitle ?? '\u00A0'}
           </p>
         </div>

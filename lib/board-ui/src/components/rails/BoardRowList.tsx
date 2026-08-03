@@ -132,7 +132,7 @@ export function BoardRowList({
             </span>
 
             {/* Plain-phrase status */}
-            <span className={`w-[110px] shrink-0 truncate text-[12px] font-semibold ${RAIL_TONES[r.tone].chip}`}>
+            <span className={`w-[110px] shrink-0 truncate text-[12px] font-semibold ${RAIL_TONES[r.tone].rowStatus}`}>
               {r.status ?? ''}
             </span>
 
