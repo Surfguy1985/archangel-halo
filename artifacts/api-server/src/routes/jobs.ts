@@ -94,6 +94,7 @@ import {
 } from "@workspace/api-zod";
 import { completeText } from "../lib/ai";
 import { sendEmail, sendCrewThankYouEmail } from "../lib/email";
+import { AUTO_EMAILS } from "../lib/emailPolicy";
 import { logger } from "../lib/logger";
 import { ser, serList } from "../lib/serialize";
 import { crewPhotosForJobs, type CrewJobPhoto } from "../lib/jobPhotos";
@@ -977,7 +978,8 @@ router.post("/jobs/:id/close-out", async (req, res): Promise<void> => {
   }
 
   let emailSent = false;
-  if (job.crewLeaderId) {
+  // Owner decision: crew thank-you emails on close-out are off.
+  if (AUTO_EMAILS.crewThankYou && job.crewLeaderId) {
     const [crew] = await db
       .select()
       .from(crewsTable)
@@ -1259,6 +1261,8 @@ async function autoSendLiveLink(
   event: "scheduled" | "completed",
 ): Promise<void> {
   try {
+    // Owner decision: automatic recap/live-link emails are off.
+    if (!AUTO_EMAILS.autoJobRecapLinks) return;
     const [settings] = await db.select().from(businessSettingsTable);
     if (settings && settings.autoSendRecapLinks === false) return;
 

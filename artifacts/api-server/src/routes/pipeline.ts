@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { AUTO_EMAILS } from "../lib/emailPolicy";
 import { desc, eq, asc, and } from "drizzle-orm";
 import {
   db,
@@ -339,6 +340,15 @@ router.post("/leads/:id/campaign", async (req, res): Promise<void> => {
   const def = campaignByKind(body.kind);
   if (!def) {
     res.status(400).json({ error: "Unknown campaign" });
+    return;
+  }
+  // Owner decision: lead nurture drip emails are off. Starting a campaign
+  // would immediately send step 0 and queue the rest, so refuse up front.
+  if (!AUTO_EMAILS.leadNurtureDrip) {
+    res.status(400).json({
+      error:
+        "Automatic lead nurture emails are currently turned off. Use a one-off email from the templates instead.",
+    });
     return;
   }
   const recipient = await resolveLeadRecipient(lead);

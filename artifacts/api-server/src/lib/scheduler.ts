@@ -14,6 +14,7 @@ import { sendClientCardDigests } from "./clientCardDigest";
 import { expireOverdueEmergencyPings } from "./emergencyExpiry";
 import { runWingsAutomation } from "../wings/services/automation";
 import { sendCampaignStepEmail } from "../routes/pipeline";
+import { AUTO_EMAILS } from "./emailPolicy";
 import { logger } from "./logger";
 
 const DAILY_HOUR = 6;
@@ -79,6 +80,10 @@ function nowInEastern(): {
 let campaignProcessingRunning = false;
 
 async function processDueCampaignSteps(): Promise<void> {
+  // Owner decision: lead nurture drips are off. Campaign rows are left
+  // intact (status/nextSendAt untouched) so re-enabling the flag resumes
+  // processing where it left off.
+  if (!AUTO_EMAILS.leadNurtureDrip) return;
   // Re-entry guard: never let overlapping ticks process campaigns at once.
   if (campaignProcessingRunning) return;
   campaignProcessingRunning = true;
@@ -211,6 +216,7 @@ async function tick(): Promise<void> {
   }
 
   if (
+    AUTO_EMAILS.dailyDigest &&
     hour === DAILY_HOUR &&
     minute >= DAILY_MINUTE &&
     lastDailyDate !== date
@@ -224,6 +230,7 @@ async function tick(): Promise<void> {
   }
 
   if (
+    AUTO_EMAILS.eveningClose &&
     hour === CLOSE_HOUR &&
     minute >= CLOSE_MINUTE &&
     lastCloseDate !== date
