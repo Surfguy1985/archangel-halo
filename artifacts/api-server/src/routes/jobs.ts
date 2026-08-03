@@ -762,6 +762,13 @@ router.post("/jobs/:id/dispatch", async (req, res): Promise<void> => {
   const body = DispatchJobBody.parse(req.body);
   const crewLeaderId = body.crewLeaderId ?? null;
   const scheduledOn = body.scheduledOn ?? null;
+  // Optional start time: undefined = leave unchanged, null = clear, "HH:MM" = set.
+  const timeProvided = body.scheduledTime !== undefined;
+  const scheduledTime = body.scheduledTime ?? null;
+  if (timeProvided && scheduledTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(scheduledTime)) {
+    res.status(400).json({ error: "Start time must be HH:MM (24-hour)." });
+    return;
+  }
   if (crewLeaderId && !scheduledOn) {
     res.status(400).json({ error: "Pick a day to dispatch the crew to." });
     return;
@@ -796,6 +803,7 @@ router.post("/jobs/:id/dispatch", async (req, res): Promise<void> => {
       .set({
         crewLeaderId,
         scheduledOn,
+        ...(timeProvided ? { scheduledTime } : {}),
         // Any dispatch decision clears the "lost its crew" flag — either the
         // job just got a crew, or the office deliberately sent it to backlog.
         crewVacatedAt: null,
@@ -856,7 +864,9 @@ router.post("/jobs/:id/dispatch", async (req, res): Promise<void> => {
       .select()
       .from(schedulesTable)
       .where(eq(schedulesTable.jobId, id));
-    const windowStart = existing.find((s) => s.windowStart)?.windowStart ?? null;
+    const windowStart = timeProvided
+      ? scheduledTime
+      : (existing.find((s) => s.windowStart)?.windowStart ?? null);
     await tx.delete(schedulesTable).where(eq(schedulesTable.jobId, id));
     if (crewLeaderId && scheduledOn) {
       await tx.insert(schedulesTable).values({

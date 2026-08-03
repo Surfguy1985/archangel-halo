@@ -52,6 +52,14 @@ export default function Dispatch() {
   const today = useMemo(() => new Date(), []);
   const [cursor, setCursor] = useState<Date>(today);
   const [over, setOver] = useState<string | null>(null);
+  // After a drop on a crew/day, offer an optional start time (skippable).
+  const [timePrompt, setTimePrompt] = useState<{
+    jobId: string;
+    jobNo: string;
+    crewId: string;
+    date: string;
+    time: string;
+  } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -126,11 +134,36 @@ export default function Dispatch() {
       dispatch.mutate({ id: jobId, data: { crewLeaderId: null, scheduledOn: null } });
     } else {
       if (job.crewLeaderId === target.crewId && job.scheduledOn === target.date) return;
-      dispatch.mutate({
-        id: jobId,
-        data: { crewLeaderId: target.crewId, scheduledOn: target.date },
-      });
+      dispatch.mutate(
+        {
+          id: jobId,
+          data: { crewLeaderId: target.crewId, scheduledOn: target.date },
+        },
+        {
+          onSuccess: () =>
+            setTimePrompt({
+              jobId,
+              jobNo: job.jobNo,
+              crewId: target.crewId,
+              date: target.date,
+              time: job.scheduledTime ?? "",
+            }),
+        },
+      );
     }
+  };
+
+  const commitTime = () => {
+    if (!timePrompt || !timePrompt.time) return;
+    dispatch.mutate({
+      id: timePrompt.jobId,
+      data: {
+        crewLeaderId: timePrompt.crewId,
+        scheduledOn: timePrompt.date,
+        scheduledTime: timePrompt.time,
+      },
+    });
+    setTimePrompt(null);
   };
 
   const dragProps = (target: DropTarget) => ({
@@ -287,6 +320,57 @@ export default function Dispatch() {
                   No active crews yet — add crews to start dispatching.
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {timePrompt && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/20"
+          onClick={() => setTimePrompt(null)}
+          data-testid="overlay-dispatch-time"
+        >
+          <div
+            className="bg-card rounded-[16px] border border-[var(--hairline)] shadow-[0_8px_32px_rgba(0,0,0,0.16)] p-5 w-[300px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-sm font-display font-bold text-[var(--ink)]">
+              Set a start time?
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {timePrompt.jobNo} is on the day — optionally pick when the crew
+              should start.
+            </p>
+            <input
+              type="time"
+              value={timePrompt.time}
+              onChange={(e) =>
+                setTimePrompt((p) => (p ? { ...p, time: e.target.value } : p))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitTime();
+              }}
+              autoFocus
+              className="mt-3 w-full h-10 px-3 rounded-[10px] border border-[var(--hairline)] bg-card text-sm text-[var(--ink)]"
+              data-testid="input-dispatch-start-time"
+            />
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setTimePrompt(null)}
+                className="px-3.5 h-9 text-sm font-semibold rounded-full border border-[var(--hairline)] bg-card hover:bg-black/5 transition-colors"
+                data-testid="button-skip-start-time"
+              >
+                Skip
+              </button>
+              <button
+                onClick={commitTime}
+                disabled={!timePrompt.time || dispatch.isPending}
+                className="px-4 h-9 text-sm font-bold rounded-full bg-[var(--gold-light,#B4FF44)] text-black disabled:opacity-50 transition-opacity"
+                data-testid="button-set-start-time"
+              >
+                Set time
+              </button>
             </div>
           </div>
         </div>

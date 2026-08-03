@@ -2012,7 +2012,8 @@ export const DispatchJobParams = zod.object({
 
 export const DispatchJobBody = zod.object({
   "crewLeaderId": zod.string().nullish().describe('Crew to assign; null sends the job to the backlog'),
-  "scheduledOn": zod.string().nullish().describe('Day (YYYY-MM-DD) to schedule on; null clears the date')
+  "scheduledOn": zod.string().nullish().describe('Day (YYYY-MM-DD) to schedule on; null clears the date'),
+  "scheduledTime": zod.string().nullish().describe('Optional start time (HH:MM, 24h); null clears the time, omit to leave unchanged')
 })
 
 export const DispatchJobResponse = zod.object({

@@ -10871,6 +10871,10 @@ components:
           type: string
           nullable: true
           description: Day (YYYY-MM-DD) to schedule on; null clears the date
+        scheduledTime:
+          type: string
+          nullable: true
+          description: Optional start time (HH:MM, 24h); null clears the time, omit to leave unchanged
 
     JobEvent:
       type: object

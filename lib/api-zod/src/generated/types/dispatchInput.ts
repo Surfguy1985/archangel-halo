@@ -11,4 +11,6 @@ export interface DispatchInput {
   crewLeaderId?: string | null;
   /** Day (YYYY-MM-DD) to schedule on; null clears the date */
   scheduledOn?: string | null;
+  /** Optional start time (HH:MM, 24h); null clears the time, omit to leave unchanged */
+  scheduledTime?: string | null;
 }
