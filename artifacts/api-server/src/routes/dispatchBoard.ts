@@ -29,6 +29,15 @@ const router: IRouter = Router();
 
 const FINISHED = new Set(["complete", "paid", "cancelled"]);
 
+// Postgres unique-index violation. Drizzle wraps the pg error (DrizzleQueryError),
+// so the code may live on the error itself OR on its `cause`.
+export function isUniqueViolation(e: unknown): boolean {
+  const code =
+    (e as { code?: string })?.code ??
+    ((e as { cause?: { code?: string } })?.cause?.code);
+  return code === "23505";
+}
+
 type ChecklistItem = { id: string; text: string; done: boolean };
 
 function readChecklist(raw: unknown): ChecklistItem[] {
@@ -287,7 +296,7 @@ router.post("/dispatch-assignments", async (req, res): Promise<void> => {
       .returning();
   } catch (e) {
     // Unique index (member, day, job): concurrent double-assign lands here.
-    if ((e as { code?: string })?.code === "23505") {
+    if (isUniqueViolation(e)) {
       res.status(409).json({ error: `${member.name} is already on this job that day.` });
       return;
     }

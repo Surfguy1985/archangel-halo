@@ -34,7 +34,7 @@ import {
   crewPayoutsTable,
   crewDispatchAssignmentsTable,
 } from "@workspace/db";
-import { seedChecklist, jobShortLabel } from "./dispatchBoard";
+import { seedChecklist, jobShortLabel, isUniqueViolation } from "./dispatchBoard";
 import {
   GetPortalDispatchParams,
   GetPortalDispatchResponse,
@@ -2627,7 +2627,7 @@ router.post(
           )
           .returning();
       } catch (e) {
-        if ((e as { code?: string })?.code === "23505") {
+        if (isUniqueViolation(e)) {
           // Already has a row on the target job for that day — drop this one.
           await db
             .delete(crewDispatchAssignmentsTable)

@@ -1,3 +1,4 @@
+- [Drizzle pg error codes](halo-drizzle-error-codes.md) — drizzle wraps pg errors; 23505 checks must read err.code OR err.cause.code (bare err.code silently misses → 500s).
 - [HALO CRUD deletes](halo-crud-deletes.md) — no DB FKs: delete handlers need transactions + manual guards/cascades; client errors live on ApiError.data, not err.error.
 - [HALO email notifications](halo-email-notifications.md) — daily/urgent task-list emails from computeQueues feed via Resend; in-process setInterval scheduler; advance dedup state only after sent===true.
 - [HALO query invalidation](halo-query-invalidation.md) — create/action sheets must invalidate derived views (money summary, Today blockers, property detail), not just the primary list.
