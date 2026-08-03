@@ -82,6 +82,17 @@ export function LoginDialog({ token, open, onOpenChange, onSuccess }: LoginDialo
               />
             </div>
             {error && <div className="text-sm text-destructive">{error}</div>}
+            <p className="text-[12px] leading-relaxed text-muted-foreground">
+              No login yet? Ask your board admin to invite you from the{' '}
+              <a
+                href={`${import.meta.env.BASE_URL}${token}/team`}
+                className="font-semibold text-[#007AFF] underline-offset-2 hover:underline"
+                data-testid="link-login-team"
+              >
+                Team page
+              </a>
+              . First one here? The Team page also lets you set up the board as its admin.
+            </p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

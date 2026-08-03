@@ -149,6 +149,9 @@ function Board() {
   useEffect(() => {
     if (!boardLoaded) return;
     if (presentationOpen) return; // presentation replaces the intro tour
+    // Deep links (?map=1) open the map dialog on top of the board — defer the
+    // tour until the map closes so it isn't shown (and marked seen) underneath.
+    if (birdseyeOpen) return;
     const tourSeenKey = `halo_dashboard_tour_seen_${token}`;
     if (viewerAuthenticated) {
       if (!viewerTourSeen) {
@@ -166,7 +169,7 @@ function Board() {
       try { localStorage.setItem(tourSeenKey, '1'); } catch {}
       setTourOpen(true);
     }
-  }, [boardLoaded, viewerAuthenticated, viewerTourSeen, token, markTourSeen, presentationOpen]);
+  }, [boardLoaded, viewerAuthenticated, viewerTourSeen, token, markTourSeen, presentationOpen, birdseyeOpen]);
 
   // Presentation Mode live actions: driven through the office API so the
   // audience watches the real SSE pipeline update the board. Manual /api URLs
