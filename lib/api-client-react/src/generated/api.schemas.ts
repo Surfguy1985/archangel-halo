@@ -601,6 +601,18 @@ export interface InvoiceModule {
   /** @nullable */
   disputeNote?: string | null;
   /** @nullable */
+  disputedBy?: string | null;
+  /**
+     * Set when the office clears a dispute
+     * @nullable
+     */
+  disputeResolvedAt?: string | null;
+  /**
+     * Office note back to the client when the dispute was cleared
+     * @nullable
+     */
+  disputeResponse?: string | null;
+  /** @nullable */
   photoUrls?: string[] | null;
   /** @nullable */
   lineItems?: InvoiceModuleLineItemsItem[] | null;
@@ -1026,6 +1038,14 @@ export interface OfficeClientBoardCardEditInput {
   /** Rebuild the module snapshot from the card's original source; client action state is preserved */
   refreshModule?: boolean;
   links?: ClientBoardFeedCardLink[];
+}
+
+export interface ResolveInvoiceDisputeInput {
+  /**
+     * Optional response — posted to the card's client thread
+     * @nullable
+     */
+  note?: string | null;
 }
 
 export interface ClientBoardFeedCardUpdateInput {

@@ -459,6 +459,7 @@ export * from './reportJob';
 export * from './reportLine';
 export * from './reportSuggestion';
 export * from './reportTotals';
+export * from './resolveInvoiceDisputeInput';
 export * from './reverseGeocodeParams';
 export * from './reverseGeocodeResult';
 export * from './savePacketInput';

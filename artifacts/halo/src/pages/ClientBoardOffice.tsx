@@ -12,9 +12,11 @@ import {
   getListOfficeCardCommentsQueryKey,
   useAddOfficeCardComment,
   useMarkOfficeCardCommentsSeen,
+  useResolveOfficeInvoiceDispute,
   type ClientBoardFeedCard,
 } from "@workspace/api-client-react";
 import {
+  AlertTriangle,
   Archive,
   ChevronLeft,
   CheckCircle2,
@@ -300,6 +302,102 @@ function ThreadSheet({
   );
 }
 
+// One disputed invoice → an actionable row: the client's complaint, an
+// optional response box, and one button that clears the banner on their card.
+function DisputeRow({ propertyId, card }: { propertyId: string; card: ClientBoardFeedCard }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const resolve = useResolveOfficeInvoiceDispute();
+  const [note, setNote] = useState("");
+  const mod = (card.module ?? {}) as Record<string, unknown>;
+  const submit = () => {
+    resolve.mutate(
+      { propertyId, cardId: card.id, data: { note: note.trim() || null } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId) });
+          toast({ title: "Dispute cleared", description: "The banner is off the client's card." });
+        },
+        onError: (err: any) =>
+          toast({
+            title: "Couldn't clear the dispute",
+            description: err?.data?.error ?? err.message,
+            variant: "destructive",
+          }),
+      },
+    );
+  };
+  return (
+    <div
+      className="rounded-[14px] border border-red-200 bg-red-50/60 p-[12px] space-y-[8px]"
+      data-testid={`dispute-row-${card.id}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[13.5px] font-semibold truncate">{card.title}</div>
+          <div className="text-[11px] font-medium text-red-700 mt-0.5">
+            Disputed{typeof mod.disputedBy === "string" && mod.disputedBy ? ` by ${mod.disputedBy}` : ""}
+            {typeof mod.disputedAt === "string"
+              ? ` · ${new Date(mod.disputedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+              : ""}
+          </div>
+        </div>
+        {card.amount != null && (
+          <span className="text-[13px] font-bold tabular-nums shrink-0">{usd(card.amount)}</span>
+        )}
+      </div>
+      {typeof mod.disputeNote === "string" && mod.disputeNote && (
+        <div className="text-[12.5px] text-red-800 bg-white/70 border border-red-100 rounded-[10px] px-[10px] py-[8px]">
+          “{mod.disputeNote}”
+        </div>
+      )}
+      <div className="flex gap-2">
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Response to the client (optional)"
+          className="flex-1 px-[12px] py-[9px] rounded-[10px] border border-border bg-background text-[13px] font-medium outline-none focus:ring-2 focus:ring-[var(--gold-light,#B4FF44)]"
+          data-testid={`input-dispute-response-${card.id}`}
+        />
+        <button
+          onClick={submit}
+          disabled={resolve.isPending}
+          className="px-[12px] py-[9px] bg-[var(--ink,#17181C)] text-white text-[12.5px] font-bold rounded-[10px] disabled:opacity-50 shrink-0 flex items-center gap-1.5 transition-transform active:scale-[0.97]"
+          data-testid={`button-resolve-dispute-${card.id}`}
+        >
+          {resolve.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+          Clear dispute
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DisputesSection({ propertyId, cards }: { propertyId: string; cards: ClientBoardFeedCard[] }) {
+  const disputed = cards.filter(
+    (c) => (c.module as any)?.type === "invoice" && (c.module as any)?.disputedAt,
+  );
+  if (disputed.length === 0) return null;
+  return (
+    <section className="mb-[18px]" data-testid="section-disputes">
+      <div className="flex items-center gap-2 px-[2px] mb-[8px]">
+        <AlertTriangle className="h-4 w-4 text-red-600" />
+        <h2 className="font-display font-semibold text-[12px] tracking-[0.18em] uppercase text-red-700">
+          Disputed invoices
+        </h2>
+        <span className="text-[11px] font-bold bg-red-600 text-white rounded-full px-1.5 py-px" data-testid="badge-disputes-count">
+          {disputed.length}
+        </span>
+      </div>
+      <div className="space-y-[10px]">
+        {disputed.map((c) => (
+          <DisputeRow key={c.id} propertyId={propertyId} card={c} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function CardView({
   card,
   onOpenThread,
@@ -308,15 +406,26 @@ function CardView({
   onOpenThread: () => void;
 }) {
   const meta = KIND_META[card.kind] ?? KIND_META.manual;
+  const isDisputed = (card.module as any)?.type === "invoice" && !!(card.module as any)?.disputedAt;
   return (
     <div
       className="rounded-[14px] border border-border bg-card p-[12px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] space-y-[8px]"
       data-testid={`card-${card.id}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${meta.cls}`}>
-          {card.kind === "flag" ? <Flag className="inline h-3 w-3 mr-1 -mt-0.5" /> : null}
-          {meta.label}
+        <span className="flex items-center gap-1.5 min-w-0">
+          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${meta.cls}`}>
+            {card.kind === "flag" ? <Flag className="inline h-3 w-3 mr-1 -mt-0.5" /> : null}
+            {meta.label}
+          </span>
+          {isDisputed && (
+            <span
+              className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-600 text-white"
+              data-testid={`badge-disputed-${card.id}`}
+            >
+              Disputed
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-2">
           {card.amount != null && (
@@ -685,6 +794,8 @@ export default function ClientBoardOffice() {
       )}
 
       {formOpen && <SendCardForm propertyId={propertyId} onClose={() => setFormOpen(false)} />}
+
+      <DisputesSection propertyId={propertyId} cards={board.cards} />
 
       <div className="space-y-[18px]">
         {COLUMNS.map((col) => {

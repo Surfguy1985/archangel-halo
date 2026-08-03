@@ -451,6 +451,13 @@ function InvoiceApprovePay({
         </div>
       )}
 
+      {!disputed && module.disputeResolvedAt && !isPaid && (
+        <div data-testid="invoice-dispute-resolved" className="flex items-start gap-2 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-sm font-medium text-emerald-700">
+          <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>Dispute resolved by the office{module.disputeResponse ? `: “${module.disputeResponse}”` : '.'}</span>
+        </div>
+      )}
+
       {/* Line items */}
       {lineItems.length > 0 && (
         <div className="rounded-xl border border-border overflow-hidden" data-testid="invoice-line-items">

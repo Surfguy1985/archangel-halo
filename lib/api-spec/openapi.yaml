@@ -6171,6 +6171,53 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/accounts/{propertyId}/board/cards/{cardId}/dispute/resolve:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: resolveOfficeInvoiceDispute
+      tags: [admin]
+      summary: Clear a client's invoice dispute — optional note goes back to the client's card thread
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cardId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveInvoiceDisputeInput"
+      responses:
+        "200":
+          description: The card with the dispute cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBoardFeedCard"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Not disputed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /admin/accounts/{propertyId}/board/inbox:
     get:
       security: [{ adminSession: [] }]
@@ -9225,6 +9272,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ClientBoardFeedCardLink"
+
+    ResolveInvoiceDisputeInput:
+      type: object
+      properties:
+        note: { type: ["string", "null"], description: "Optional response — posted to the card's client thread" }
 
     ClientBoardFeedCardUpdateInput:
       type: object
@@ -13986,6 +14038,9 @@ components:
         requestedBudget: { type: ["number", "null"], description: "Budget from the originating client work request, for the billed-vs-requested check" }
         disputedAt: { type: ["string", "null"] }
         disputeNote: { type: ["string", "null"] }
+        disputedBy: { type: ["string", "null"] }
+        disputeResolvedAt: { type: ["string", "null"], description: "Set when the office clears a dispute" }
+        disputeResponse: { type: ["string", "null"], description: "Office note back to the client when the dispute was cleared" }
         photoUrls:
           type: ["array", "null"]
           items: { type: string }

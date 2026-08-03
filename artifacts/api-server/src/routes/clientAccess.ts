@@ -38,6 +38,8 @@ import {
   UpdateOfficeClientBoardCardBody,
   UpdateOfficeClientBoardCardResponse,
   DeleteOfficeClientBoardCardResponse,
+  ResolveOfficeInvoiceDisputeBody,
+  ResolveOfficeInvoiceDisputeResponse,
   ClientBoardCardActionBody,
   ClientBoardCardActionResponse,
   GetClientBoardInboxResponse,
@@ -1550,6 +1552,100 @@ router.delete(
     });
     emitBoardEvent(propertyId);
     res.json(DeleteOfficeClientBoardCardResponse.parse({ ok: true }));
+  },
+);
+
+// Office clears an invoice dispute: the disputed banner comes off the client's
+// card, an optional response note lands in the card's thread, and the
+// resolution is recorded in the activity log.
+router.post(
+  "/admin/accounts/:propertyId/board/cards/:cardId/dispute/resolve",
+  async (req, res): Promise<void> => {
+    const parsed = ResolveOfficeInvoiceDisputeBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const note = parsed.data.note?.trim() || null;
+    if (note && note.length > 1000) {
+      res.status(400).json({ error: "Keep the response under 1000 characters" });
+      return;
+    }
+    const propertyId = String(req.params.propertyId);
+    const cardId = String(req.params.cardId);
+    if (!UUID_RE.test(propertyId)) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const [existing] = await db
+      .select()
+      .from(clientBoardCardsTable)
+      .where(
+        and(
+          eq(clientBoardCardsTable.id, cardId),
+          eq(clientBoardCardsTable.propertyId, propertyId),
+        ),
+      )
+      .limit(1);
+    if (!existing) {
+      res.status(404).json({ error: "Card not found" });
+      return;
+    }
+    const module = { ...((existing.module ?? {}) as Record<string, unknown>) };
+    if (module.type !== "invoice") {
+      res.status(400).json({ error: "Only invoice cards carry disputes" });
+      return;
+    }
+    if (!module.disputedAt) {
+      res.status(409).json({ error: "This invoice isn't disputed" });
+      return;
+    }
+    const disputeNote = typeof module.disputeNote === "string" ? module.disputeNote : null;
+    const nowIso = new Date().toISOString();
+    delete module.disputedAt;
+    delete module.disputeNote;
+    delete module.disputedBy;
+    module.disputeResolvedAt = nowIso;
+    module.disputeResponse = note;
+    const [card] = await db
+      .update(clientBoardCardsTable)
+      .set({ module, updatedAt: new Date() })
+      .where(eq(clientBoardCardsTable.id, existing.id))
+      .returning();
+    const [prop] = await db
+      .select({ name: propertiesTable.name })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, propertyId))
+      .limit(1);
+    const propName = prop?.name ?? "the client";
+    const invoiceNo = typeof module.invoiceNo === "string" ? module.invoiceNo : "";
+    await db.insert(activitiesTable).values({
+      entityType: "property",
+      entityId: propertyId,
+      kind: "note",
+      body: `Invoice ${invoiceNo} dispute RESOLVED for ${propName}${note ? ` — response: ${note.slice(0, 300)}` : ""}${disputeNote ? ` (was: "${disputeNote.slice(0, 200)}")` : ""}`,
+    });
+    // The response note goes into the card's client ↔ office thread so the
+    // client sees it exactly where they raised the dispute.
+    if (note) {
+      const { canonical } = await threadKeysFor(propertyId, `push:${existing.id}`);
+      await db.insert(clientCardCommentsTable).values({
+        propertyId,
+        cardKey: canonical,
+        authorType: "office",
+        authorName: "Archangel",
+        body: note,
+      });
+    }
+    await notifyClientBoard(
+      propertyId,
+      "dispute_resolved",
+      `Dispute on invoice ${invoiceNo || "your invoice"} resolved`,
+      note ? note.slice(0, 300) : "The office reviewed your dispute and cleared it.",
+      `push:${existing.id}`,
+    );
+    emitBoardEvent(propertyId, "dashboard");
+    res.json(ResolveOfficeInvoiceDisputeResponse.parse(serCard(card!)));
   },
 );
 

@@ -142,6 +142,8 @@ export const ACTION_STATE_KEYS = [
   "disputedAt",
   "disputeNote",
   "disputedBy",
+  "disputeResolvedAt",
+  "disputeResponse",
 ] as const;
 
 function pickActionState(m: Record<string, unknown> | null | undefined): Record<string, unknown> {

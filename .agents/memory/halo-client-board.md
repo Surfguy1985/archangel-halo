@@ -27,3 +27,7 @@ The board page has a voice-guided tour (`BoardTour`, halo assets `board-tour/ste
 - client_dashboard_cards has a `board` column (vendor default | pm). The PM board (/board/pm endpoint, PM lanes planning/todo/doing/done) is client-created cards only — no HALO projection, no pushed cards. Lane validation is board-aware everywhere (create AND card.moved must resolve the card's board; the union set alone lets PM cards land in vendor lanes).
 - Shared detail components (comments/checklist/send-to-office/edit) must invalidate BOTH board query keys or the PM tab goes stale.
 - Orval gotcha: adding a query param to an op that already has path params generates colliding GetXParams exports (zod const vs type) — use a dedicated subpath endpoint instead of query params on such ops.
+
+## Invoice disputes
+- Dispute lifecycle lives in the invoice module's action state (`disputedAt/disputeNote/disputedBy`, cleared → `disputeResolvedAt/disputeResponse`). Any new module-state key must ALSO be added to `ACTION_STATE_KEYS` in `lib/clientBoard.ts` or a module refresh/re-send silently wipes it.
+- Office clears via `/admin/.../board/cards/:cardId/dispute/resolve`; the response note goes into the card's canonical comment thread (via `threadKeysFor`) so it lands where the client raised it.

@@ -24,12 +24,14 @@ import {
   getListOfficeCardCommentsQueryKey,
   useAddOfficeCardComment,
   useMarkOfficeCardCommentsSeen,
+  useResolveOfficeInvoiceDispute,
   type ClientBoardFeedCard,
   type ClientCardPushInput,
   type ClientInboxCard,
   type BoardCardComment,
 } from "@workspace/api-client-react";
 import {
+  AlertTriangle,
   Archive,
   ChevronLeft,
   DollarSign,
@@ -1131,6 +1133,88 @@ const HISTORY_STATUS_META: Record<string, { label: string; cls: string; Icon: ty
 
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
+// Disputed invoices, surfaced above the board rows: the client's complaint,
+// an optional response, and one button that clears the banner on their card.
+function DisputesSection({ propertyId }: { propertyId: string }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const resolve = useResolveOfficeInvoiceDispute();
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const { data: board } = useGetOfficeClientBoard(propertyId, {
+    query: { enabled: !!propertyId, queryKey: getGetOfficeClientBoardQueryKey(propertyId), refetchInterval: 15000 },
+  });
+  const disputed = (board?.cards ?? []).filter(
+    (c) => (c.module as any)?.type === "invoice" && (c.module as any)?.disputedAt,
+  );
+  if (disputed.length === 0) return null;
+  const submit = (card: ClientBoardFeedCard) => {
+    resolve.mutate(
+      { propertyId, cardId: card.id, data: { note: notes[card.id]?.trim() || null } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetOfficeClientBoardQueryKey(propertyId) });
+          queryClient.invalidateQueries({ queryKey: getGetOfficeBoardFullQueryKey(propertyId) });
+          toast({ title: "Dispute cleared", description: "The banner is off the client's card." });
+        },
+        onError: (err: any) =>
+          toast({ title: "Couldn't clear the dispute", description: err?.data?.error ?? err.message, variant: "destructive" }),
+      },
+    );
+  };
+  return (
+    <div className="border-b border-red-200 bg-red-50/70 px-4 sm:px-6 py-3" data-testid="section-disputes">
+      <div className="max-w-4xl mx-auto space-y-2">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <span className="text-[12px] font-bold uppercase tracking-wider text-red-700">Disputed invoices</span>
+          <span className="text-[10px] font-bold bg-red-600 text-white rounded-full px-1.5 py-px" data-testid="badge-disputes-count">
+            {disputed.length}
+          </span>
+        </div>
+        {disputed.map((card) => {
+          const mod = (card.module ?? {}) as Record<string, unknown>;
+          return (
+            <div
+              key={card.id}
+              className="rounded-xl border border-red-200 bg-white p-3 flex flex-col sm:flex-row sm:items-center gap-2"
+              data-testid={`dispute-row-${card.id}`}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold truncate">
+                  {card.title}
+                  {card.amount != null && <span className="ml-2 tabular-nums font-bold">{usd(card.amount)}</span>}
+                </div>
+                <div className="text-[12px] text-red-800 truncate">
+                  {typeof mod.disputedBy === "string" && mod.disputedBy ? `${mod.disputedBy}: ` : ""}
+                  {typeof mod.disputeNote === "string" && mod.disputeNote ? `“${mod.disputeNote}”` : "Disputed"}
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0 sm:w-[380px]">
+                <input
+                  value={notes[card.id] ?? ""}
+                  onChange={(e) => setNotes((n) => ({ ...n, [card.id]: e.target.value }))}
+                  placeholder="Response to the client (optional)"
+                  className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-[12.5px] font-medium outline-none focus:ring-2 focus:ring-[#B4FF44]"
+                  data-testid={`input-dispute-response-${card.id}`}
+                />
+                <button
+                  onClick={() => submit(card)}
+                  disabled={resolve.isPending}
+                  className="px-3 py-2 bg-[#041029] text-white text-[12px] font-bold rounded-lg disabled:opacity-50 flex items-center gap-1.5"
+                  data-testid={`button-resolve-dispute-${card.id}`}
+                >
+                  {resolve.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  Clear dispute
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function historyDayLabel(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
     weekday: "long",
@@ -1533,6 +1617,7 @@ export default function ClientBoardOffice() {
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto bg-card">
+          <DisputesSection propertyId={propertyId!} />
           {boardLoading && !boardFull ? (
             <div className="p-6 space-y-2">
               <Skeleton className="h-[52px] w-full rounded-none" />

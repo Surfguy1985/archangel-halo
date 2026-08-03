@@ -301,6 +301,7 @@ import type {
   ReceiptExtractInput,
   ReceiptExtractResult,
   ReportInsights,
+  ResolveInvoiceDisputeInput,
   ReverseGeocodeParams,
   ReverseGeocodeResult,
   SavePacketInput,
@@ -20178,6 +20179,80 @@ export const useDeleteOfficeClientBoardCard = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getDeleteOfficeClientBoardCardMutationOptions(options));
+    }
+
+export const getResolveOfficeInvoiceDisputeUrl = (propertyId: string,
+    cardId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/board/cards/${cardId}/dispute/resolve`
+}
+
+/**
+ * @summary Clear a client's invoice dispute — optional note goes back to the client's card thread
+ */
+export const resolveOfficeInvoiceDispute = async (propertyId: string,
+    cardId: string,
+    resolveInvoiceDisputeInput: ResolveInvoiceDisputeInput, options?: RequestInit): Promise<ClientBoardFeedCard> => {
+
+  return customFetch<ClientBoardFeedCard>(getResolveOfficeInvoiceDisputeUrl(propertyId,cardId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(resolveInvoiceDisputeInput)
+  }
+);}
+
+
+
+
+
+export const getResolveOfficeInvoiceDisputeMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveOfficeInvoiceDispute>>, TError,{propertyId: string;cardId: string;data: BodyType<ResolveInvoiceDisputeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolveOfficeInvoiceDispute>>, TError,{propertyId: string;cardId: string;data: BodyType<ResolveInvoiceDisputeInput>}, TContext> => {
+
+const mutationKey = ['resolveOfficeInvoiceDispute'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveOfficeInvoiceDispute>>, {propertyId: string;cardId: string;data: BodyType<ResolveInvoiceDisputeInput>}> = (props) => {
+          const {propertyId,cardId,data} = props ?? {};
+
+          return  resolveOfficeInvoiceDispute(propertyId,cardId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolveOfficeInvoiceDisputeMutationResult = NonNullable<Awaited<ReturnType<typeof resolveOfficeInvoiceDispute>>>
+    export type ResolveOfficeInvoiceDisputeMutationBody = BodyType<ResolveInvoiceDisputeInput>
+    export type ResolveOfficeInvoiceDisputeMutationError = ErrorType<Error>
+
+    /**
+ * @summary Clear a client's invoice dispute — optional note goes back to the client's card thread
+ */
+export const useResolveOfficeInvoiceDispute = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveOfficeInvoiceDispute>>, TError,{propertyId: string;cardId: string;data: BodyType<ResolveInvoiceDisputeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resolveOfficeInvoiceDispute>>,
+        TError,
+        {propertyId: string;cardId: string;data: BodyType<ResolveInvoiceDisputeInput>},
+        TContext
+      > => {
+      return useMutation(getResolveOfficeInvoiceDisputeMutationOptions(options));
     }
 
 export const getGetClientBoardInboxUrl = (propertyId: string,) => {
