@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, date, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, date, timestamp, boolean, jsonb, doublePrecision } from "drizzle-orm/pg-core";
 
 // Work requests submitted by property managers from their client dashboard.
 // Pending requests surface in the desktop Pipeline; accepting one creates a
@@ -15,6 +15,7 @@ export const workRequestsTable = pgTable("work_requests", {
   neededBy: date("needed_by", { mode: "string" }), // complete-by date (local)
   emergency: boolean("emergency").notNull().default(false), // ≤24h notice or explicit flag
   poNumber: text("po_number"), // required for normal requests; emergencies may omit it (office approves manually)
+  budgetEstimate: doublePrecision("budget_estimate"), // client's expected budget, pre-filled from the price list
   photoPaths: jsonb("photo_paths"), // string[] of /objects/... storage paths
   changeOrderJobId: uuid("change_order_job_id"), // set when this is a change order on an existing job
   status: text("status").notNull().default("pending"), // pending | accepted | declined

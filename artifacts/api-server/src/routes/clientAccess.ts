@@ -1153,6 +1153,44 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
           body: `${body.name?.trim() || "A contact"} — ${contact}${body.note?.trim() ? `. "${body.note.trim()}"` : ""}`,
         });
       }
+    } else if (body.action === "dispute") {
+      // One-field dispute: flags the invoice office-side (urgent notification
+      // + activity) without blocking the card — the office follows up.
+      if (module.type !== "invoice") {
+        status = 400;
+        payload = { error: "Only invoice cards can be disputed" };
+        return;
+      }
+      if (String(module.status ?? "").toLowerCase() === "paid") {
+        status = 409;
+        payload = { error: "This invoice is already paid" };
+        return;
+      }
+      const note = body.note?.trim();
+      if (!note) {
+        status = 400;
+        payload = { error: "Tell us what looks wrong" };
+        return;
+      }
+      if (!module.disputedAt) {
+        module.disputedAt = nowIso;
+        module.disputeNote = note.slice(0, 500);
+        module.disputedBy = actorName;
+        await tx.insert(activitiesTable).values({
+          entityType: "property",
+          entityId: account.propertyId,
+          kind: "note",
+          body: `Invoice ${module.invoiceNo ?? ""} DISPUTED by ${propName}${actorName ? ` (${actorName})` : ""}: ${note.slice(0, 300)}`,
+        });
+        await tx.insert(notificationsTable).values({
+          kind: "client_board",
+          priority: "urgent",
+          entityType: "property",
+          entityId: account.propertyId,
+          title: `Invoice ${module.invoiceNo ?? ""} disputed by ${propName}`,
+          body: `"${note.slice(0, 300)}" — from the "${card.title}" card. Review and respond before it can be approved.`,
+        });
+      }
     } else if (body.action === "acknowledge") {
       // Module-less cards (plain manual pushes) must STAY module-less: a bare
       // { acknowledgedAt } object has no `type`, which violates the

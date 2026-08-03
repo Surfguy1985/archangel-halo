@@ -21,7 +21,9 @@ import {
   crewPhotosTable,
   crewsTable,
   invoicesTable,
+  invoiceLineItemsTable,
   jobsTable,
+  workRequestsTable,
   jobSummariesTable,
   paymentRequestsTable,
   paymentRequestJobsTable,
@@ -149,6 +151,30 @@ export async function buildInvoiceModule(
   const payUrl = live
     ? `${publicBaseUrl()}/pay/${live.token}`
     : await createPayLinkForInvoice(inv);
+  // Approval-screen context: line items, job photos, and the budget from the
+  // originating client work request (billed-vs-requested check).
+  const lineRows = await db
+    .select()
+    .from(invoiceLineItemsTable)
+    .where(eq(invoiceLineItemsTable.invoiceId, inv.id));
+  lineRows.sort((a, b) => a.sortOrder - b.sortOrder);
+  let requestedBudget: number | null = null;
+  let photoUrls: string[] = [];
+  if (inv.jobId) {
+    const [req] = await db
+      .select({ budgetEstimate: workRequestsTable.budgetEstimate })
+      .from(workRequestsTable)
+      .where(eq(workRequestsTable.jobId, inv.jobId))
+      .limit(1);
+    requestedBudget = req?.budgetEstimate ?? null;
+    const photos = await db
+      .select({ storagePath: crewPhotosTable.storagePath })
+      .from(crewPhotosTable)
+      .where(eq(crewPhotosTable.jobId, inv.jobId))
+      .orderBy(desc(crewPhotosTable.createdAt));
+    // Manual /api asset links must be absolute — never BASE_URL-prefixed.
+    photoUrls = photos.slice(0, 8).map((p) => `/api/storage${p.storagePath}`);
+  }
   return {
     type: "invoice",
     invoiceId: inv.id,
@@ -159,6 +185,17 @@ export async function buildInvoiceModule(
     payUrl,
     pdfUrl: `/api/invoices/${inv.id}/pdf`,
     canApprove: inv.status !== "paid",
+    poNumber: inv.poNumber ?? null,
+    requestedBudget,
+    photoUrls: photoUrls.length ? photoUrls : null,
+    lineItems: lineRows.length
+      ? lineRows.slice(0, 12).map((li) => ({
+          label: li.description?.trim() || li.typeOfWork,
+          unitNo: li.unitNo ?? null,
+          qty: li.qty,
+          amount: li.amount,
+        }))
+      : null,
   };
 }
 

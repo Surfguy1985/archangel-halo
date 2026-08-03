@@ -40,4 +40,9 @@ export interface WorkRequestCreateInput {
   changeOrderJobId?: string | null;
   /** @nullable */
   requesterName?: string | null;
+  /**
+     * Client's expected budget, pre-filled from the price list
+     * @nullable
+     */
+  budgetEstimate?: number | null;
 }

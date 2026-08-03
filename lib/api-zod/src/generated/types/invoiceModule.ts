@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { InvoiceModuleLineItemsItem } from './invoiceModuleLineItemsItem';
 import type { InvoiceModuleType } from './invoiceModuleType';
 
 export interface InvoiceModule {
@@ -33,4 +34,19 @@ export interface InvoiceModule {
      * @nullable
      */
   payMethod?: string | null;
+  /** @nullable */
+  poNumber?: string | null;
+  /**
+     * Budget from the originating client work request, for the billed-vs-requested check
+     * @nullable
+     */
+  requestedBudget?: number | null;
+  /** @nullable */
+  disputedAt?: string | null;
+  /** @nullable */
+  disputeNote?: string | null;
+  /** @nullable */
+  photoUrls?: string[] | null;
+  /** @nullable */
+  lineItems?: InvoiceModuleLineItemsItem[] | null;
 }

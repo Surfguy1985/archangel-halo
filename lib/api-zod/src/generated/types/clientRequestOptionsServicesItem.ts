@@ -13,4 +13,9 @@ export type ClientRequestOptionsServicesItem = {
   detail?: string | null;
   /** @nullable */
   unit?: string | null;
+  /**
+     * Price-list rate, used to pre-fill the request budget
+     * @nullable
+     */
+  rate?: number | null;
 };

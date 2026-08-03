@@ -7,6 +7,7 @@
  */
 import type { CardAcknowledgeAction } from './cardAcknowledgeAction';
 import type { CardApproveAction } from './cardApproveAction';
+import type { CardDisputeAction } from './cardDisputeAction';
 import type { CardPayMethodAction } from './cardPayMethodAction';
 import type { CardReferAction } from './cardReferAction';
 import type { CardScheduleAction } from './cardScheduleAction';
@@ -14,4 +15,4 @@ import type { CardScheduleAction } from './cardScheduleAction';
 /**
  * Module action. Wire format is unchanged from the legacy flat shape — the union only narrows which fields are valid per action.
  */
-export type ClientCardActionInput = CardApproveAction | CardPayMethodAction | CardScheduleAction | CardReferAction | CardAcknowledgeAction;
+export type ClientCardActionInput = CardApproveAction | CardPayMethodAction | CardScheduleAction | CardReferAction | CardAcknowledgeAction | CardDisputeAction;

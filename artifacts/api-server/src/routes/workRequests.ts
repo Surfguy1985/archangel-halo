@@ -76,6 +76,7 @@ function serRequest(
     adjustNote: r.adjustNote,
     jobId: r.jobId,
     jobNo: jobNo ?? null,
+    budgetEstimate: r.budgetEstimate ?? null,
     decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null,
     createdAt: r.createdAt.toISOString(),
   };
@@ -129,6 +130,8 @@ router.get(
           service: s.service,
           detail: s.detail,
           unit: s.unit,
+          // Rate feeds the wizard's budget pre-fill (rate × units picked).
+          rate: s.rate ?? null,
         })),
         unitLabels,
       }),
@@ -223,6 +226,10 @@ router.post("/client/:token/requests", async (req, res): Promise<void> => {
       poNumber,
       photoPaths: photoPaths.length ? photoPaths : null,
       changeOrderJobId: changeOrderJob?.id ?? null,
+      budgetEstimate:
+        typeof body.budgetEstimate === "number" && Number.isFinite(body.budgetEstimate) && body.budgetEstimate > 0
+          ? body.budgetEstimate
+          : null,
     })
     .returning();
   const propName = await propertyNameMap();

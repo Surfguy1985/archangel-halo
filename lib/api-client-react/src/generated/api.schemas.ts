@@ -553,6 +553,16 @@ export const InvoiceModuleType = {
   invoice: 'invoice',
 } as const;
 
+export type InvoiceModuleLineItemsItem = {
+  label?: string;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  qty?: number | null;
+  /** @nullable */
+  amount?: number | null;
+};
+
 export interface InvoiceModule {
   type: InvoiceModuleType;
   /** @nullable */
@@ -579,6 +589,21 @@ export interface InvoiceModule {
      * @nullable
      */
   payMethod?: string | null;
+  /** @nullable */
+  poNumber?: string | null;
+  /**
+     * Budget from the originating client work request, for the billed-vs-requested check
+     * @nullable
+     */
+  requestedBudget?: number | null;
+  /** @nullable */
+  disputedAt?: string | null;
+  /** @nullable */
+  disputeNote?: string | null;
+  /** @nullable */
+  photoUrls?: string[] | null;
+  /** @nullable */
+  lineItems?: InvoiceModuleLineItemsItem[] | null;
 }
 
 export type InvoiceBatchModuleType = typeof InvoiceBatchModuleType[keyof typeof InvoiceBatchModuleType];
@@ -936,10 +961,25 @@ export interface CardAcknowledgeAction {
   note?: string | null;
 }
 
+export type CardDisputeActionAction = typeof CardDisputeActionAction[keyof typeof CardDisputeActionAction];
+
+
+export const CardDisputeActionAction = {
+  dispute: 'dispute',
+} as const;
+
+export interface CardDisputeAction {
+  action: CardDisputeActionAction;
+  /** One-field dispute reason — lands office-side as a flagged item */
+  note: string;
+  /** @nullable */
+  name?: string | null;
+}
+
 /**
  * Module action. Wire format is unchanged from the legacy flat shape — the union only narrows which fields are valid per action.
  */
-export type ClientCardActionInput = CardApproveAction | CardPayMethodAction | CardScheduleAction | CardReferAction | CardAcknowledgeAction;
+export type ClientCardActionInput = CardApproveAction | CardPayMethodAction | CardScheduleAction | CardReferAction | CardAcknowledgeAction | CardDisputeAction;
 
 export interface ClientBoardFeedView {
   propertyName: string;
@@ -1112,6 +1152,11 @@ export type ClientRequestOptionsServicesItem = {
   detail?: string | null;
   /** @nullable */
   unit?: string | null;
+  /**
+     * Price-list rate, used to pre-fill the request budget
+     * @nullable
+     */
+  rate?: number | null;
 };
 
 export interface ClientRequestOptions {
@@ -1157,6 +1202,11 @@ export interface WorkRequestCreateInput {
   changeOrderJobId?: string | null;
   /** @nullable */
   requesterName?: string | null;
+  /**
+     * Client's expected budget, pre-filled from the price list
+     * @nullable
+     */
+  budgetEstimate?: number | null;
 }
 
 export interface WorkRequestAcceptInput {
@@ -1206,6 +1256,8 @@ export interface WorkRequestRec {
   jobId?: string | null;
   /** @nullable */
   jobNo?: string | null;
+  /** @nullable */
+  budgetEstimate?: number | null;
   /** @nullable */
   decidedAt?: string | null;
   createdAt: string;

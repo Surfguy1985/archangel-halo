@@ -8361,7 +8361,18 @@ export const GetOfficeClientBoardResponse = zod.object({
   "payUrl": zod.string().nullish(),
   "canApprove": zod.boolean().nullish(),
   "approvedAt": zod.string().nullish(),
-  "payMethod": zod.string().nullish().describe('ach | check once chosen')
+  "payMethod": zod.string().nullish().describe('ach | check once chosen'),
+  "poNumber": zod.string().nullish(),
+  "requestedBudget": zod.number().nullish().describe('Budget from the originating client work request, for the billed-vs-requested check'),
+  "disputedAt": zod.string().nullish(),
+  "disputeNote": zod.string().nullish(),
+  "photoUrls": zod.array(zod.string()).nullish(),
+  "lineItems": zod.array(zod.object({
+  "label": zod.string().optional(),
+  "unitNo": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "amount": zod.number().nullish()
+})).nullish()
 }),zod.object({
   "type": zod.enum(['invoice_batch']),
   "unpaidAmount": zod.number().nullish(),
@@ -8502,7 +8513,18 @@ export const CreateOfficeClientBoardCardResponse = zod.object({
   "payUrl": zod.string().nullish(),
   "canApprove": zod.boolean().nullish(),
   "approvedAt": zod.string().nullish(),
-  "payMethod": zod.string().nullish().describe('ach | check once chosen')
+  "payMethod": zod.string().nullish().describe('ach | check once chosen'),
+  "poNumber": zod.string().nullish(),
+  "requestedBudget": zod.number().nullish().describe('Budget from the originating client work request, for the billed-vs-requested check'),
+  "disputedAt": zod.string().nullish(),
+  "disputeNote": zod.string().nullish(),
+  "photoUrls": zod.array(zod.string()).nullish(),
+  "lineItems": zod.array(zod.object({
+  "label": zod.string().optional(),
+  "unitNo": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "amount": zod.number().nullish()
+})).nullish()
 }),zod.object({
   "type": zod.enum(['invoice_batch']),
   "unpaidAmount": zod.number().nullish(),
@@ -8646,7 +8668,18 @@ export const UpdateOfficeClientBoardCardResponse = zod.object({
   "payUrl": zod.string().nullish(),
   "canApprove": zod.boolean().nullish(),
   "approvedAt": zod.string().nullish(),
-  "payMethod": zod.string().nullish().describe('ach | check once chosen')
+  "payMethod": zod.string().nullish().describe('ach | check once chosen'),
+  "poNumber": zod.string().nullish(),
+  "requestedBudget": zod.number().nullish().describe('Budget from the originating client work request, for the billed-vs-requested check'),
+  "disputedAt": zod.string().nullish(),
+  "disputeNote": zod.string().nullish(),
+  "photoUrls": zod.array(zod.string()).nullish(),
+  "lineItems": zod.array(zod.object({
+  "label": zod.string().optional(),
+  "unitNo": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "amount": zod.number().nullish()
+})).nullish()
 }),zod.object({
   "type": zod.enum(['invoice_batch']),
   "unpaidAmount": zod.number().nullish(),
@@ -9002,7 +9035,8 @@ export const GetClientRequestOptionsResponse = zod.object({
   "id": zod.string(),
   "service": zod.string(),
   "detail": zod.string().nullish(),
-  "unit": zod.string().nullish()
+  "unit": zod.string().nullish(),
+  "rate": zod.number().nullish().describe('Price-list rate, used to pre-fill the request budget')
 })),
   "unitLabels": zod.array(zod.string()).optional().describe('Unit labels from the property\'s unit map, for the multi-unit picker')
 })
@@ -9026,7 +9060,8 @@ export const CreateClientWorkRequestBody = zod.object({
   "poNumber": zod.string().nullish().describe('Client PO number — required unless the request is an emergency'),
   "photoPaths": zod.array(zod.string()).optional().describe('\/objects\/... storage paths of attached photos'),
   "changeOrderJobId": zod.string().nullish().describe('Job id when this is a change order on existing work'),
-  "requesterName": zod.string().nullish()
+  "requesterName": zod.string().nullish(),
+  "budgetEstimate": zod.number().nullish().describe('Client\'s expected budget, pre-filled from the price list')
 })
 
 export const CreateClientWorkRequestResponse = zod.object({
@@ -9050,6 +9085,7 @@ export const CreateClientWorkRequestResponse = zod.object({
   "adjustNote": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
+  "budgetEstimate": zod.number().nullish(),
   "decidedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -9083,6 +9119,7 @@ export const ListWorkRequestsResponseItem = zod.object({
   "adjustNote": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
+  "budgetEstimate": zod.number().nullish(),
   "decidedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -9122,6 +9159,7 @@ export const AcceptWorkRequestResponse = zod.object({
   "adjustNote": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
+  "budgetEstimate": zod.number().nullish(),
   "decidedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -9159,6 +9197,7 @@ export const DeclineWorkRequestResponse = zod.object({
   "adjustNote": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
+  "budgetEstimate": zod.number().nullish(),
   "decidedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -9365,7 +9404,18 @@ export const GetClientBoardFeedResponse = zod.object({
   "payUrl": zod.string().nullish(),
   "canApprove": zod.boolean().nullish(),
   "approvedAt": zod.string().nullish(),
-  "payMethod": zod.string().nullish().describe('ach | check once chosen')
+  "payMethod": zod.string().nullish().describe('ach | check once chosen'),
+  "poNumber": zod.string().nullish(),
+  "requestedBudget": zod.number().nullish().describe('Budget from the originating client work request, for the billed-vs-requested check'),
+  "disputedAt": zod.string().nullish(),
+  "disputeNote": zod.string().nullish(),
+  "photoUrls": zod.array(zod.string()).nullish(),
+  "lineItems": zod.array(zod.object({
+  "label": zod.string().optional(),
+  "unitNo": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "amount": zod.number().nullish()
+})).nullish()
 }),zod.object({
   "type": zod.enum(['invoice_batch']),
   "unpaidAmount": zod.number().nullish(),
@@ -9500,7 +9550,18 @@ export const UpdateClientBoardFeedCardResponse = zod.object({
   "payUrl": zod.string().nullish(),
   "canApprove": zod.boolean().nullish(),
   "approvedAt": zod.string().nullish(),
-  "payMethod": zod.string().nullish().describe('ach | check once chosen')
+  "payMethod": zod.string().nullish().describe('ach | check once chosen'),
+  "poNumber": zod.string().nullish(),
+  "requestedBudget": zod.number().nullish().describe('Budget from the originating client work request, for the billed-vs-requested check'),
+  "disputedAt": zod.string().nullish(),
+  "disputeNote": zod.string().nullish(),
+  "photoUrls": zod.array(zod.string()).nullish(),
+  "lineItems": zod.array(zod.object({
+  "label": zod.string().optional(),
+  "unitNo": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "amount": zod.number().nullish()
+})).nullish()
 }),zod.object({
   "type": zod.enum(['invoice_batch']),
   "unpaidAmount": zod.number().nullish(),
@@ -9626,6 +9687,10 @@ export const ClientBoardCardActionBody = zod.union([zod.object({
 }),zod.object({
   "action": zod.enum(['acknowledge']),
   "note": zod.string().nullish()
+}),zod.object({
+  "action": zod.enum(['dispute']),
+  "note": zod.string().describe('One-field dispute reason — lands office-side as a flagged item'),
+  "name": zod.string().nullish()
 })]).describe('Module action. Wire format is unchanged from the legacy flat shape — the union only narrows which fields are valid per action.')
 
 export const ClientBoardCardActionResponse = zod.object({
@@ -9653,7 +9718,18 @@ export const ClientBoardCardActionResponse = zod.object({
   "payUrl": zod.string().nullish(),
   "canApprove": zod.boolean().nullish(),
   "approvedAt": zod.string().nullish(),
-  "payMethod": zod.string().nullish().describe('ach | check once chosen')
+  "payMethod": zod.string().nullish().describe('ach | check once chosen'),
+  "poNumber": zod.string().nullish(),
+  "requestedBudget": zod.number().nullish().describe('Budget from the originating client work request, for the billed-vs-requested check'),
+  "disputedAt": zod.string().nullish(),
+  "disputeNote": zod.string().nullish(),
+  "photoUrls": zod.array(zod.string()).nullish(),
+  "lineItems": zod.array(zod.object({
+  "label": zod.string().optional(),
+  "unitNo": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "amount": zod.number().nullish()
+})).nullish()
 }),zod.object({
   "type": zod.enum(['invoice_batch']),
   "unpaidAmount": zod.number().nullish(),

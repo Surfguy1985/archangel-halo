@@ -1,6 +1,9 @@
-import { ExternalLink, CheckCircle2, Circle, FileText, Check, Users, Receipt, List, MapPin, AlertTriangle, Camera, X } from 'lucide-react';
+import { ExternalLink, CheckCircle2, Circle, FileText, Check, Users, Receipt, List, MapPin, AlertTriangle, Camera, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useClientBoardCardAction, getGetClientBoardQueryKey } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@/hooks/use-toast';
 import { PdfViewerDialog } from './PdfViewerDialog';
 import { BirdseyeMapDialog } from './BirdseyeMapDialog';
 import { ModuleDecision } from './kanban/BoardCardModules';
@@ -57,39 +60,16 @@ export function CardModuleDetail({ module, token, cardKey, readOnly, onReadOnlyC
 
   return (
     <div className="flex flex-col gap-6 py-4">
-      {/* INVOICE — full approve & pay flow inside the detail view */}
+      {/* INVOICE — guided approve → pay flow inside the detail view */}
       {module.type === 'invoice' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-end">
-            <div>
-              <h4 className="font-bold text-sm tracking-widest uppercase text-muted-foreground">Invoice {module.invoiceNo}</h4>
-              <div className="text-3xl font-bold mt-1">${module.amount?.toLocaleString()}</div>
-            </div>
-            <div className="text-right">
-              <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                String(module.status).toLowerCase() === 'paid' ? 'bg-emerald-500/10 text-emerald-600' :
-                String(module.status).toLowerCase() === 'overdue' ? 'bg-destructive/10 text-destructive' :
-                'bg-amber-500/10 text-amber-600'
-              }`}>{module.status}</span>
-              {module.dueDate && <div className="text-xs text-muted-foreground mt-2 font-medium">Due {module.dueDate}</div>}
-            </div>
-          </div>
-          {module.approvedAt && (
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-sm font-medium text-emerald-700">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              Approved{module.approvedBy ? ` by ${module.approvedBy}` : ''}
-              {module.payMethod && <span className="ml-auto text-[10px] font-bold uppercase tracking-widest">{module.payMethod === 'ach' ? 'Paying by ACH' : 'Paying by check'}</span>}
-            </div>
-          )}
-          {module.pdfUrl && (
-            <button type="button" onClick={() => setPdfViewerUrl(module.pdfUrl)} className="w-full flex justify-center items-center gap-2 px-4 py-3 bg-muted text-foreground font-bold text-sm rounded-xl border border-border hover:bg-muted/80 transition-colors">
-              <FileText className="w-4 h-4" /> View Invoice PDF
-            </button>
-          )}
-          {cardKey && (
-            <ModuleDecision cardKey={cardKey} token={token} module={module} readOnly={!!readOnly} onReadOnlyClick={onReadOnlyClick} tint={{ bd: '#e8e8ed' }} />
-          )}
-        </div>
+        <InvoiceApprovePay
+          module={module}
+          token={token}
+          cardKey={cardKey}
+          readOnly={!!readOnly}
+          onReadOnlyClick={onReadOnlyClick}
+          onViewPdf={(url) => setPdfViewerUrl(url)}
+        />
       )}
 
       {/* FLAGS — attention items with schedule action */}
@@ -337,6 +317,319 @@ export function CardModuleDetail({ module, token, cardKey, readOnly, onReadOnlyC
       )}
 
       <PdfViewerDialog url={pdfViewerUrl || ''} open={!!pdfViewerUrl} onOpenChange={(o) => { if(!o) setPdfViewerUrl(null); }} />
+    </div>
+  );
+}
+
+/**
+ * Guided invoice approve → pay motion (spec: one decision per screen).
+ * Hierarchy: amount + PO large, line items, swipeable photos, budget check
+ * vs. the original request. Approve is the single primary button; Dispute is
+ * a text button opening a one-field sheet. Approval chains straight into a
+ * pay state on the same sheet (existing pay-flow underneath), and payment
+ * hand-off shows a quiet auto-dismissing success moment.
+ */
+function InvoiceApprovePay({
+  module,
+  token,
+  cardKey,
+  readOnly,
+  onReadOnlyClick,
+  onViewPdf,
+}: {
+  module: any;
+  token: string;
+  cardKey?: string;
+  readOnly: boolean;
+  onReadOnlyClick?: () => void;
+  onViewPdf: (url: string) => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const actionMut = useClientBoardCardAction();
+  const [disputeOpen, setDisputeOpen] = useState(false);
+  const [disputeNote, setDisputeNote] = useState('');
+  const [photoIdx, setPhotoIdx] = useState(0);
+  // justApproved drives the slide-into-pay moment; justPaid the success check.
+  const [justApproved, setJustApproved] = useState(false);
+  const [justPaid, setJustPaid] = useState(false);
+
+  useEffect(() => {
+    if (!justPaid) return;
+    const t = setTimeout(() => setJustPaid(false), 2200);
+    return () => clearTimeout(t);
+  }, [justPaid]);
+
+  const isPaid = String(module.status || '').toLowerCase() === 'paid';
+  const isOverdue = String(module.status || '').toLowerCase() === 'overdue';
+  const approved = !!module.approvedAt;
+  const disputed = !!module.disputedAt;
+  const photos: string[] = module.photoUrls || [];
+  const lineItems: Array<{ label: string; unitNo?: string | null; qty?: number | null; amount?: number | null }> =
+    module.lineItems || [];
+  const requestedBudget: number | null = typeof module.requestedBudget === 'number' ? module.requestedBudget : null;
+  const amount: number = module.amount ?? 0;
+  const budgetDelta = requestedBudget != null ? amount - requestedBudget : null;
+
+  const guard = (fn: () => void) => {
+    if (readOnly) {
+      if (onReadOnlyClick) onReadOnlyClick();
+      else toast({ title: 'Sign in required', description: 'You are viewing as a guest.', variant: 'destructive' });
+      return;
+    }
+    fn();
+  };
+
+  const runAction = (data: Record<string, unknown>, opts?: { onDone?: () => void; openUrl?: string | null }) => {
+    // Open synchronously so mobile popup blockers allow it.
+    if (opts?.openUrl) window.open(opts.openUrl, '_blank', 'noopener');
+    actionMut.mutate(
+      { token, cardId: cardKey!, data: data as any },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          opts?.onDone?.();
+        },
+        onError: (err: any) => {
+          toast({ title: 'Action failed', description: err?.data?.error ?? err.message ?? 'Could not complete', variant: 'destructive' });
+        },
+      },
+    );
+  };
+
+  const pending = actionMut.isPending;
+
+  return (
+    <div className="space-y-4" data-testid="invoice-approve-pay">
+      {/* Big numbers first: amount + PO */}
+      <div className="flex items-end justify-between">
+        <div>
+          <h4 className="font-bold text-sm tracking-widest uppercase text-muted-foreground">Invoice {module.invoiceNo}</h4>
+          <div className="text-4xl font-bold mt-1 tabular-nums" data-testid="invoice-amount">${amount.toLocaleString()}</div>
+          {module.poNumber && (
+            <div className="mt-1 text-sm font-semibold text-muted-foreground" data-testid="invoice-po">PO {module.poNumber}</div>
+          )}
+        </div>
+        <div className="text-right">
+          <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
+            isPaid ? 'bg-emerald-500/10 text-emerald-600' :
+            isOverdue ? 'bg-destructive/10 text-destructive' :
+            'bg-amber-500/10 text-amber-600'
+          }`}>{module.status}</span>
+          {module.dueDate && <div className="text-xs text-muted-foreground mt-2 font-medium">Due {module.dueDate}</div>}
+        </div>
+      </div>
+
+      {/* Budget check vs. the original request */}
+      {requestedBudget != null && !isPaid && (
+        <div
+          data-testid="invoice-budget-check"
+          className={`flex items-center gap-2 p-3 rounded-xl text-sm font-medium border ${
+            budgetDelta != null && budgetDelta > 0.005
+              ? 'bg-amber-500/5 border-amber-500/20 text-amber-700'
+              : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-700'
+          }`}
+        >
+          {budgetDelta != null && budgetDelta > 0.005 ? (
+            <>
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              ${budgetDelta.toLocaleString()} over your requested budget of ${requestedBudget.toLocaleString()}
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              Within your requested budget of ${requestedBudget.toLocaleString()}
+            </>
+          )}
+        </div>
+      )}
+
+      {disputed && (
+        <div data-testid="invoice-disputed" className="flex items-start gap-2 p-3 rounded-xl bg-destructive/5 border border-destructive/20 text-sm font-medium text-destructive">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>Disputed — the office is reviewing{module.disputeNote ? `: “${module.disputeNote}”` : '.'}</span>
+        </div>
+      )}
+
+      {/* Line items */}
+      {lineItems.length > 0 && (
+        <div className="rounded-xl border border-border overflow-hidden" data-testid="invoice-line-items">
+          {lineItems.map((li, i) => (
+            <div key={i} className={`flex items-center justify-between gap-3 px-4 py-2.5 text-sm ${i > 0 ? 'border-t border-border/60' : ''}`}>
+              <div className="min-w-0">
+                <span className="font-medium">{li.label}</span>
+                {li.unitNo && <span className="ml-2 text-xs font-mono text-muted-foreground">Unit {li.unitNo}</span>}
+              </div>
+              <div className="shrink-0 tabular-nums font-medium">
+                {li.qty != null && li.qty !== 1 && <span className="mr-2 text-xs text-muted-foreground">×{li.qty}</span>}
+                {li.amount != null && <>${li.amount.toLocaleString()}</>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Swipeable job photos */}
+      {photos.length > 0 && (
+        <div data-testid="invoice-photos">
+          <div className="relative rounded-xl overflow-hidden border border-border aspect-video bg-muted">
+            <img src={photos[Math.min(photoIdx, photos.length - 1)]} alt="Job photo" className="w-full h-full object-cover" loading="lazy" />
+            {photos.length > 1 && (
+              <>
+                <button type="button" disabled={photoIdx === 0} onClick={() => setPhotoIdx((i) => Math.max(0, i - 1))} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1.5 text-white disabled:opacity-30">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button type="button" disabled={photoIdx >= photos.length - 1} onClick={() => setPhotoIdx((i) => Math.min(photos.length - 1, i + 1))} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1.5 text-white disabled:opacity-30">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white">
+                  {Math.min(photoIdx, photos.length - 1) + 1} / {photos.length}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {module.pdfUrl && (
+        <button type="button" onClick={() => onViewPdf(module.pdfUrl)} className="w-full flex justify-center items-center gap-2 px-4 py-3 bg-muted text-foreground font-bold text-sm rounded-xl border border-border hover:bg-muted/80 transition-colors">
+          <FileText className="w-4 h-4" /> View Invoice PDF
+        </button>
+      )}
+
+      {/* ------------------------------------------------- Decision / pay area */}
+      {justPaid ? (
+        /* Quiet success moment — auto-dismisses */
+        <div data-testid="invoice-pay-success" className="flex flex-col items-center justify-center gap-2 py-6 animate-in fade-in zoom-in-95 duration-300">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15">
+            <Check className="h-6 w-6 text-emerald-600" />
+          </div>
+          <div className="text-lg font-bold tabular-nums">${amount.toLocaleString()}</div>
+        </div>
+      ) : isPaid ? (
+        <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-sm font-bold text-emerald-700">
+          <CheckCircle2 className="w-4 h-4" /> Paid — thank you
+        </div>
+      ) : !approved ? (
+        /* Screen 1: approve is the single primary; dispute is a text button */
+        <div className="space-y-2">
+          {module.canApprove && cardKey && (
+            <button
+              type="button"
+              data-testid="button-invoice-approve"
+              disabled={pending}
+              onClick={() => guard(() => runAction({ action: 'approve' }, { onDone: () => setJustApproved(true) }))}
+              className="w-full rounded-xl bg-[#B4FF44] py-3.5 text-sm font-extrabold uppercase tracking-wider text-[#101C33] hover:bg-[#9EE622] disabled:opacity-50 transition-colors"
+            >
+              {pending ? 'Approving…' : 'Approve Invoice'}
+            </button>
+          )}
+          {!disputed && cardKey && (
+            <button
+              type="button"
+              data-testid="button-invoice-dispute"
+              onClick={() => guard(() => setDisputeOpen(true))}
+              className="w-full py-1.5 text-[13px] font-semibold text-muted-foreground hover:text-destructive transition-colors"
+            >
+              Something looks wrong? Dispute
+            </button>
+          )}
+        </div>
+      ) : (
+        /* Screen 2: approved — slide into the pay state, one full-width Pay */
+        <div className={`space-y-2 ${justApproved ? 'animate-in slide-in-from-bottom-4 fade-in duration-300' : ''}`} data-testid="invoice-pay-state">
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-sm font-medium text-emerald-700">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            Approved{module.approvedBy ? ` by ${module.approvedBy}` : ''}
+          </div>
+          {module.payMethod === 'check' ? (
+            <>
+              <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-sm font-bold text-emerald-700">
+                <CheckCircle2 className="w-4 h-4" /> Check on the way
+              </div>
+              {cardKey && (
+                <button
+                  type="button"
+                  data-testid="button-invoice-pay-ach-instead"
+                  disabled={pending}
+                  onClick={() => guard(() => runAction({ action: 'pay_method', method: 'ach' }, { openUrl: module.payUrl, onDone: () => setJustPaid(true) }))}
+                  className="w-full py-1.5 text-[13px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Pay by ACH instead
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {cardKey && (
+                <button
+                  type="button"
+                  data-testid="button-invoice-pay"
+                  disabled={pending || !module.payUrl}
+                  onClick={() => guard(() => runAction({ action: 'pay_method', method: 'ach' }, { openUrl: module.payUrl, onDone: () => setJustPaid(true) }))}
+                  className="w-full rounded-xl bg-[#B4FF44] py-3.5 text-sm font-extrabold uppercase tracking-wider text-[#101C33] hover:bg-[#9EE622] disabled:opacity-50 transition-colors"
+                >
+                  {pending ? 'Opening…' : `Pay $${amount.toLocaleString()}${module.payMethod === 'ach' ? ' · ACH' : ''}`}
+                </button>
+              )}
+              {cardKey && (
+                <button
+                  type="button"
+                  data-testid="button-invoice-pay-check"
+                  disabled={pending}
+                  onClick={() => guard(() => runAction({ action: 'pay_method', method: 'check' }))}
+                  className="w-full py-1.5 text-[13px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Mailing a check instead
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* One-field dispute sheet */}
+      {disputeOpen && (
+        <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center bg-black/40 p-4" onClick={() => setDisputeOpen(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-background p-5 shadow-xl" onClick={(e) => e.stopPropagation()} data-testid="invoice-dispute-sheet">
+            <h4 className="text-[15px] font-bold">What looks wrong?</h4>
+            <textarea
+              data-testid="input-dispute-note"
+              autoFocus
+              value={disputeNote}
+              onChange={(e) => setDisputeNote(e.target.value)}
+              rows={3}
+              placeholder="e.g. We were quoted $950 for this work"
+              className="mt-3 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-destructive/30"
+            />
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setDisputeOpen(false)} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold">
+                Cancel
+              </button>
+              <button
+                type="button"
+                data-testid="button-dispute-send"
+                disabled={pending || !disputeNote.trim()}
+                onClick={() =>
+                  runAction(
+                    { action: 'dispute', note: disputeNote.trim() },
+                    {
+                      onDone: () => {
+                        setDisputeOpen(false);
+                        setDisputeNote('');
+                        toast({ title: 'Dispute sent', description: 'The office was flagged and will follow up.' });
+                      },
+                    },
+                  )
+                }
+                className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-bold text-destructive-foreground disabled:opacity-50"
+              >
+                {pending ? 'Sending…' : 'Send dispute'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -129,7 +129,20 @@ async function postWebhook(propertyId: string, event: string, card: ClientBoardC
 }
 
 // Client action state keys that must survive a module refresh on re-send.
-export const ACTION_STATE_KEYS = ["approvedAt", "approvedBy", "requestedAt", "requestId", "acknowledgedAt", "referredAt"] as const;
+export const ACTION_STATE_KEYS = [
+  "approvedAt",
+  "approvedBy",
+  "requestedAt",
+  "requestId",
+  "acknowledgedAt",
+  "referredAt",
+  "payMethod",
+  "payMethodAt",
+  "payMethodBy",
+  "disputedAt",
+  "disputeNote",
+  "disputedBy",
+] as const;
 
 function pickActionState(m: Record<string, unknown> | null | undefined): Record<string, unknown> {
   if (!m) return {};

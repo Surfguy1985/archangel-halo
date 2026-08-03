@@ -41,6 +41,8 @@ export interface WorkRequestRec {
   /** @nullable */
   jobNo?: string | null;
   /** @nullable */
+  budgetEstimate?: number | null;
+  /** @nullable */
   decidedAt?: string | null;
   createdAt: string;
 }
