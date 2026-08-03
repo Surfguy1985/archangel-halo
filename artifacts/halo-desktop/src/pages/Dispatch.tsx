@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ChevronLeft, ChevronRight, Inbox, GripVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, Inbox, GripVertical, AlertTriangle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListJobs,
@@ -38,6 +38,17 @@ function fmtTimeShort(hhmm: string) {
 }
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** True when 2+ jobs in the cell share the same scheduledTime (both set). */
+function hasTimeClash(cellJobs: Job[]) {
+  const seen = new Set<string>();
+  for (const j of cellJobs) {
+    if (!j.scheduledTime) continue;
+    if (seen.has(j.scheduledTime)) return true;
+    seen.add(j.scheduledTime);
+  }
+  return false;
+}
 const FINISHED = new Set(["complete", "paid", "cancelled"]);
 
 type DropTarget =
@@ -436,6 +447,8 @@ function CrewRow({
         const cellJobs = byCell.get(cellKey) ?? [];
         const isOver = over === cellKey;
         const isToday = date === todayStr;
+        const overbooked = cellJobs.length > 1;
+        const clash = overbooked && hasTimeClash(cellJobs);
         return (
           <div
             key={cellKey}
@@ -443,12 +456,34 @@ function CrewRow({
             className={`border-b border-l border-border p-1.5 flex flex-col gap-1.5 min-h-[76px] transition-colors ${
               isOver
                 ? "bg-[color-mix(in_srgb,var(--gold-light)_14%,var(--card))]"
-                : isToday
-                  ? "bg-[var(--gold-tint,rgba(212,175,55,0.05))]"
-                  : ""
+                : clash
+                  ? "bg-red-500/10"
+                  : overbooked
+                    ? "bg-amber-400/10"
+                    : isToday
+                      ? "bg-[var(--gold-tint,rgba(212,175,55,0.05))]"
+                      : ""
             }`}
             data-testid={`dropzone-cell-${crew.id}-${date}`}
           >
+            {overbooked && (
+              <div
+                className={`flex items-center gap-1 self-start rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                  clash
+                    ? "bg-red-600 text-white"
+                    : "bg-amber-500/15 text-amber-700"
+                }`}
+                title={
+                  clash
+                    ? "Two or more jobs share the same start time"
+                    : `${cellJobs.length} jobs booked for this crew on this day`
+                }
+                data-testid={`badge-overbooked-${crew.id}-${date}`}
+              >
+                <AlertTriangle className="w-3 h-3" />
+                {clash ? "Time clash" : `${cellJobs.length} jobs`}
+              </div>
+            )}
             {cellJobs.map((j) => (
               <JobCard key={j.id} job={j} pending={pending} compact />
             ))}

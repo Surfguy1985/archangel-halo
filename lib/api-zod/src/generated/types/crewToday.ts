@@ -10,39 +10,56 @@ import type { CrewService } from './crewService';
 
 export interface CrewToday {
   id: string;
+
   name: string;
   /** @nullable */
+
   trade?: string | null;
   /** @nullable */
+
   phone?: string | null;
   /** @nullable */
+
   email?: string | null;
   /** @nullable */
+
   isLeader?: boolean | null;
   /** @nullable */
+
   leaderId?: string | null;
   /** @nullable */
+
   leaderName?: string | null;
+
   access?: CrewAccess | null;
   /** @nullable */
+
   active?: boolean | null;
   /** @nullable */
+
   preferredPaymentMethod?: string | null;
   /** @nullable */
+
   paymentDetails?: string | null;
   /** @nullable */
+
   paymentTerms?: string | null;
   /** @nullable */
+
   services?: CrewService[] | null;
   /** @nullable */
+
   selfiePath?: string | null;
   /**
      * route | site | done | idle
      * @nullable
      */
+
   todayStatus?: string | null;
   /** @nullable */
+
   todayJob?: string | null;
   /** @nullable */
+
   todayProperty?: string | null;
 }
