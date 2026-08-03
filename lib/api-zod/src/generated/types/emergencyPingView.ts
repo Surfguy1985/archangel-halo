@@ -27,6 +27,16 @@ export interface EmergencyPingView {
   filledAt?: string | null;
   /** @nullable */
   createdAt?: string | null;
+  /**
+     * Deadline after which an open ping auto-cancels
+     * @nullable
+     */
+  expiresAt?: string | null;
+  /**
+     * Set when the ping was closed by expiry (no one committed)
+     * @nullable
+     */
+  expiredAt?: string | null;
   hold?: EmergencyHoldView | null;
   targets: EmergencyPingTargetView[];
 }

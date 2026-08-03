@@ -13,4 +13,9 @@ export interface EmergencyPingInput {
   neededBy?: string | null;
   /** @nullable */
   note?: string | null;
+  /**
+     * Optional expiry — an open ping auto-cancels this many minutes after send
+     * @nullable
+     */
+  expiresInMinutes?: number | null;
 }

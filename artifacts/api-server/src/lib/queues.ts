@@ -17,8 +17,9 @@ import {
   crewPayoutsTable,
   crewPaymentsTable,
   crewsTable,
+  emergencyPingsTable,
 } from "@workspace/db";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { localToday } from "./localDate";
 import { emergencySettledKeys, outstandingHoldAmount } from "./emergencySettlement";
 
@@ -162,6 +163,38 @@ export async function computeQueues(): Promise<{
       entityId: j.id,
       meta: [{ label: "Uncrewed", warn: true }],
       actions: [{ label: "Restaff", action: "openJob", kind: "gold" }],
+    });
+  }
+
+  // Emergency pings that expired with no commit — the office needs to know
+  // the offer went unanswered so they can re-ping or staff the job manually.
+  // Shown while the job is still uncrewed and not finished (recent expiries
+  // only, so old history doesn't linger in Today forever).
+  const expiredPings = await db
+    .select()
+    .from(emergencyPingsTable)
+    .where(isNotNull(emergencyPingsTable.expiredAt));
+  for (const p of expiredPings) {
+    if (!p.expiredAt || Date.now() - p.expiredAt.getTime() > 3 * DAY) continue;
+    const job = jobs.find((j) => j.id === p.jobId);
+    if (
+      !job ||
+      job.crewLeaderId ||
+      job.clearedAt ||
+      ["complete", "paid", "cancelled"].includes(job.status)
+    )
+      continue;
+    feed.push({
+      id: `eping-expired-${p.id}`,
+      queue: "schedule",
+      tier: "now",
+      title: `Emergency ping expired — no one committed (${job.jobNo})`,
+      sub: `${propName.get(job.propertyId) ?? ""} — $${p.bonusAmount.toLocaleString()} bonus offer went unanswered`.trim(),
+      entityType: "job",
+      entityId: job.id,
+      propertyId: job.propertyId,
+      meta: [{ label: "No takers", warn: true }],
+      actions: [{ label: "Open job", action: "openJob", kind: "gold" }],
     });
   }
 

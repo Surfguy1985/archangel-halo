@@ -822,11 +822,24 @@ function EmergencyOfferCard({
   const [committedHold, setCommittedHold] = useState<number | null>(null);
 
   const isCommitted = offer.status === "committed" || offer.filledByYou;
+  const isExpired =
+    !isCommitted && (offer.status === "expired" || offer.pingStatus === "expired");
   const isOpenPending =
     offer.status === "pending" && offer.pingStatus === "open" && !offer.filledByYou;
   const isFilledByOther =
     !isCommitted &&
+    !isExpired &&
     (offer.status === "missed" || offer.pingStatus === "filled");
+  const expiresLabel = (() => {
+    if (!isOpenPending || !offer.expiresAt) return null;
+    const ms = new Date(offer.expiresAt).getTime() - Date.now();
+    if (ms <= 0) return "Offer expiring…";
+    const mins = Math.round(ms / 60000);
+    if (mins < 60) return `Offer expires in ${mins} min`;
+    const hrs = Math.floor(mins / 60);
+    const rem = mins % 60;
+    return `Offer expires in ${hrs}h${rem > 0 ? ` ${rem}m` : ""}`;
+  })();
 
   const handleCommit = () => {
     setErrorMsg(null);
@@ -893,6 +906,14 @@ function EmergencyOfferCard({
             )}
             <span className="text-red-600"> — same-day pay</span>
           </div>
+          {expiresLabel && (
+            <div
+              className="text-[12px] font-semibold text-red-600 mt-[4px]"
+              data-testid={`emergency-expires-${offer.id}`}
+            >
+              {expiresLabel} — first to commit wins
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-[12px]">
@@ -989,6 +1010,13 @@ function EmergencyOfferCard({
               {successMsg ??
                 `You're committed — ${moneyShort(holdOnCard)} on hold, releases on approval`}
             </span>
+          </div>
+        ) : isExpired ? (
+          <div
+            className="bg-black/5 text-muted-foreground px-[14px] py-[12px] rounded-[12px] text-[13.5px] font-semibold text-center"
+            data-testid={`emergency-expired-${offer.id}`}
+          >
+            This offer expired — no longer available
           </div>
         ) : isFilledByOther ? (
           <div

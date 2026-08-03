@@ -423,7 +423,12 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
     .where(
       and(
         eq(emergencyPingTargetsTable.crewId, crew.id),
-        inArray(emergencyPingTargetsTable.status, ["pending", "committed", "missed"]),
+        inArray(emergencyPingTargetsTable.status, [
+          "pending",
+          "committed",
+          "missed",
+          "expired",
+        ]),
       ),
     )
     .orderBy(desc(emergencyPingTargetsTable.sentAt));
@@ -438,7 +443,10 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
   const emergencyOffers = emergencyTargetRows
     .filter((t) => {
       const ping = pingById.get(t.pingId);
-      if (!ping || ping.status === "cancelled") return false;
+      if (!ping) return false;
+      // Manual cancels vanish from the portal; expired pings stay visible
+      // briefly as "expired" so the crew knows why the offer is gone.
+      if (ping.status === "cancelled" && !ping.expiredAt) return false;
       const job = jobsById.get(ping.jobId);
       if (!job) return false;
       // Drop stale resolved cards once the job is done.
@@ -454,11 +462,12 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
         pingId: ping.id,
         jobId: ping.jobId,
         status: t.status,
-        pingStatus: ping.status,
+        pingStatus: ping.expiredAt ? "expired" : ping.status,
         filledByYou: ping.status === "filled" && ping.filledByCrewId === crew.id,
         payAmount: ping.payAmount,
         bonusAmount: ping.bonusAmount,
         neededBy: ping.neededBy,
+        expiresAt: ping.expiresAt ? ping.expiresAt.toISOString() : null,
         note: ping.note,
         jobNo: job.jobNo,
         category: job.category,
@@ -1724,6 +1733,16 @@ router.post(
         if (!job) return { code: 404 as const, error: "Job no longer exists" };
 
         const now = new Date();
+
+        // Deadline guard: a stale offer can't be accepted past its expiry —
+        // the sweep will flip it, but this check closes the gap between
+        // deadline and the next sweep tick.
+        if (ping.expiresAt && ping.expiresAt.getTime() <= now.getTime()) {
+          return {
+            code: 409 as const,
+            error: "This emergency offer has expired and can no longer be accepted.",
+          };
+        }
 
         // FIRST-WINS GATE: guarded UPDATE + row-count. Only one crew can flip
         // the ping from open to filled; everyone else gets "filled".

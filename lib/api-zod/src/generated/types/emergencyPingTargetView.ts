@@ -10,7 +10,7 @@ export interface EmergencyPingTargetView {
   id: string;
   crewId: string;
   crewName: string;
-  /** pending | committed | declined | missed | cancelled */
+  /** pending | committed | declined | missed | cancelled | expired */
   status: string;
   /** @nullable */
   distanceMeters?: number | null;

@@ -11908,12 +11908,13 @@ components:
         id: { type: string }
         pingId: { type: string }
         jobId: { type: string }
-        status: { type: string, description: "pending | committed | missed" }
-        pingStatus: { type: string, description: "open | filled | cancelled" }
+        status: { type: string, description: "pending | committed | missed | expired" }
+        pingStatus: { type: string, description: "open | filled | cancelled | expired" }
         filledByYou: { type: boolean }
         payAmount: { type: number }
         bonusAmount: { type: number }
         neededBy: { type: ["string", "null"] }
+        expiresAt: { type: ["string", "null"], description: "Deadline after which the offer can no longer be accepted" }
         note: { type: ["string", "null"] }
         jobNo: { type: ["string", "null"] }
         category: { type: ["string", "null"] }
@@ -11995,6 +11996,9 @@ components:
         bonusAmount: { type: number }
         neededBy: { type: ["string", "null"] }
         note: { type: ["string", "null"] }
+        expiresInMinutes:
+          type: ["number", "null"]
+          description: "Optional expiry — an open ping auto-cancels this many minutes after send"
     EmergencyPingTargetView:
       type: object
       required: [id, crewId, crewName, status]
@@ -12002,7 +12006,7 @@ components:
         id: { type: string }
         crewId: { type: string }
         crewName: { type: string }
-        status: { type: string, description: "pending | committed | declined | missed | cancelled" }
+        status: { type: string, description: "pending | committed | declined | missed | cancelled | expired" }
         distanceMeters: { type: ["number", "null"] }
         smsSent: { type: ["string", "null"] }
         sentAt: { type: ["string", "null"] }
@@ -12033,6 +12037,8 @@ components:
         filledByCrewName: { type: ["string", "null"] }
         filledAt: { type: ["string", "null"] }
         createdAt: { type: ["string", "null"] }
+        expiresAt: { type: ["string", "null"], description: "Deadline after which an open ping auto-cancels" }
+        expiredAt: { type: ["string", "null"], description: "Set when the ping was closed by expiry (no one committed)" }
         hold:
           oneOf:
             - $ref: "#/components/schemas/EmergencyHoldView"

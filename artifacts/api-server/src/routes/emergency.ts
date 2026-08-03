@@ -165,6 +165,8 @@ async function pingView(ping: typeof emergencyPingsTable.$inferSelect) {
       : null,
     filledAt: ping.filledAt ? ping.filledAt.toISOString() : null,
     createdAt: ping.createdAt.toISOString(),
+    expiresAt: ping.expiresAt ? ping.expiresAt.toISOString() : null,
+    expiredAt: ping.expiredAt ? ping.expiredAt.toISOString() : null,
     hold: hold
       ? {
           id: hold.id,
@@ -214,6 +216,14 @@ router.post("/jobs/:id/emergency/ping", async (req, res): Promise<void> => {
   }
   if (body.bonusAmount < 0) {
     res.status(400).json({ error: "Bonus can't be negative" });
+    return;
+  }
+  const expiresInMinutes = body.expiresInMinutes ?? null;
+  if (
+    expiresInMinutes != null &&
+    (!Number.isFinite(expiresInMinutes) || expiresInMinutes < 1)
+  ) {
+    res.status(400).json({ error: "Expiry must be at least 1 minute" });
     return;
   }
   const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
@@ -276,6 +286,10 @@ router.post("/jobs/:id/emergency/ping", async (req, res): Promise<void> => {
         neededBy: body.neededBy ?? null,
         note: body.note ?? null,
         status: "open",
+        expiresAt:
+          expiresInMinutes != null
+            ? new Date(Date.now() + expiresInMinutes * 60 * 1000)
+            : null,
       })
       .returning();
     for (const crew of crews) {

@@ -4160,15 +4160,20 @@ export interface PortalEmergencyOffer {
   id: string;
   pingId: string;
   jobId: string;
-  /** pending | committed | missed */
+  /** pending | committed | missed | expired */
   status: string;
-  /** open | filled | cancelled */
+  /** open | filled | cancelled | expired */
   pingStatus: string;
   filledByYou: boolean;
   payAmount: number;
   bonusAmount: number;
   /** @nullable */
   neededBy?: string | null;
+  /**
+     * Deadline after which the offer can no longer be accepted
+     * @nullable
+     */
+  expiresAt?: string | null;
   /** @nullable */
   note?: string | null;
   /** @nullable */
@@ -4285,13 +4290,18 @@ export interface EmergencyPingInput {
   neededBy?: string | null;
   /** @nullable */
   note?: string | null;
+  /**
+     * Optional expiry — an open ping auto-cancels this many minutes after send
+     * @nullable
+     */
+  expiresInMinutes?: number | null;
 }
 
 export interface EmergencyPingTargetView {
   id: string;
   crewId: string;
   crewName: string;
-  /** pending | committed | declined | missed | cancelled */
+  /** pending | committed | declined | missed | cancelled | expired */
   status: string;
   /** @nullable */
   distanceMeters?: number | null;
@@ -4335,6 +4345,16 @@ export interface EmergencyPingView {
   filledAt?: string | null;
   /** @nullable */
   createdAt?: string | null;
+  /**
+     * Deadline after which an open ping auto-cancels
+     * @nullable
+     */
+  expiresAt?: string | null;
+  /**
+     * Set when the ping was closed by expiry (no one committed)
+     * @nullable
+     */
+  expiredAt?: string | null;
   hold?: EmergencyHoldView | null;
   targets: EmergencyPingTargetView[];
 }
@@ -6516,4 +6536,3 @@ status?: string;
 export type MarkClientBoardNotificationsRead200 = {
   ok: boolean;
 };
-

@@ -47,6 +47,26 @@ const money = (n: number) =>
 
 const BONUS_PRESETS = [50, 100, 150, 200];
 
+// Optional auto-expiry — an open ping cancels itself after this long.
+const EXPIRY_PRESETS: Array<{ label: string; minutes: number | null }> = [
+  { label: "No expiry", minutes: null },
+  { label: "30 min", minutes: 30 },
+  { label: "1 hr", minutes: 60 },
+  { label: "2 hrs", minutes: 120 },
+  { label: "4 hrs", minutes: 240 },
+];
+
+function expiryLabel(expiresAt: string | null | undefined): string | null {
+  if (!expiresAt) return null;
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return "expiring…";
+  const mins = Math.round(ms / 60000);
+  if (mins < 60) return `expires in ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return `expires in ${hrs}h${rem > 0 ? ` ${rem}m` : ""}`;
+}
+
 /** "0.3 mi" / "1.2 km fine as miles" — prefer miles, fall back to meters. */
 function distanceLabel(c: EmergencyCandidate): string | null {
   if (c.distanceMiles != null) return `${c.distanceMiles.toFixed(1)} mi`;
@@ -77,6 +97,7 @@ const TARGET_STYLES: Record<string, { label: string; cls: string }> = {
   declined: { label: "Declined", cls: "bg-muted text-muted-foreground border-border" },
   missed: { label: "Missed", cls: "bg-red-50 text-red-700 border-red-200" },
   cancelled: { label: "Cancelled", cls: "bg-muted text-muted-foreground border-border" },
+  expired: { label: "Expired", cls: "bg-muted text-muted-foreground border-border" },
 };
 
 export function EmergencyPingDialog({
@@ -105,6 +126,7 @@ export function EmergencyPingDialog({
   const [bonus, setBonus] = useState<number>(100);
   const [customBonus, setCustomBonus] = useState("");
   const [neededBy, setNeededBy] = useState("");
+  const [expiresIn, setExpiresIn] = useState<number | null>(null);
   const [note, setNote] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -130,6 +152,7 @@ export function EmergencyPingDialog({
     setBonus(100);
     setCustomBonus("");
     setNeededBy("");
+    setExpiresIn(null);
     setNote("");
     setErrorMsg(null);
     setConfirmCancel(false);
@@ -159,6 +182,7 @@ export function EmergencyPingDialog({
           crewIds: selected,
           bonusAmount,
           neededBy: neededBy.trim() || null,
+          expiresInMinutes: expiresIn,
           note: note.trim() || null,
         },
       },
@@ -241,6 +265,11 @@ export function EmergencyPingDialog({
                 </div>
                 {activePing.neededBy && (
                   <div className="mt-0.5 text-xs text-amber-700">Needed by {activePing.neededBy}</div>
+                )}
+                {expiryLabel(activePing.expiresAt) && (
+                  <div className="mt-0.5 text-xs text-amber-700" data-testid="emergency-expiry-countdown">
+                    Offer {expiryLabel(activePing.expiresAt)} — cancels itself if no one commits
+                  </div>
                 )}
               </div>
             )}
@@ -424,6 +453,36 @@ export function EmergencyPingDialog({
                 data-testid="input-needed-by"
               />
             </label>
+
+            {/* Auto-expiry */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-[var(--gold-dark)]">Auto-expire the offer</span>
+              <div className="flex flex-wrap gap-1.5">
+                {EXPIRY_PRESETS.map((p) => {
+                  const active = expiresIn === p.minutes;
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => setExpiresIn(p.minutes)}
+                      data-testid={`emergency-expiry-${p.minutes ?? "none"}`}
+                      className={`px-3.5 py-1.5 rounded-full text-sm font-bold border transition-colors ${
+                        active
+                          ? "bg-[var(--gold-light)] border-[var(--gold)] text-black"
+                          : "bg-white border-border text-foreground hover:bg-muted/50"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {expiresIn != null && (
+                <span className="text-[11px] text-muted-foreground">
+                  If no one commits in {expiresIn >= 60 ? `${expiresIn / 60} hr${expiresIn > 60 ? "s" : ""}` : `${expiresIn} min`}, the ping cancels itself and crews are told it expired.
+                </span>
+              )}
+            </div>
 
             {/* Note */}
             <label className="flex flex-col gap-1.5">

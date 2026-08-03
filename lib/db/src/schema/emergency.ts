@@ -23,6 +23,12 @@ export const emergencyPingsTable = pgTable(
     filledByCrewId: uuid("filled_by_crew_id"),
     filledAt: timestamp("filled_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    // Optional deadline: an open ping past this instant can no longer be
+    // committed — the sweep flips it to cancelled and stamps expiredAt.
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    // Set only when the ping was closed BY expiry (vs a manual cancel), so
+    // Today can surface "no one committed" without a new status enum value.
+    expiredAt: timestamp("expired_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

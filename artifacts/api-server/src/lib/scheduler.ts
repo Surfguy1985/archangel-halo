@@ -11,6 +11,7 @@ import {
 import { campaignByKind } from "./leadTemplates";
 import { runAutopilot } from "./autopilot";
 import { sendClientCardDigests } from "./clientCardDigest";
+import { expireOverdueEmergencyPings } from "./emergencyExpiry";
 import { runWingsAutomation } from "../wings/services/automation";
 import { sendCampaignStepEmail } from "../routes/pipeline";
 import { logger } from "./logger";
@@ -250,6 +251,14 @@ async function tick(): Promise<void> {
   }
 
   const stamp = Date.now();
+
+  // Every tick (1 min): expire stale emergency pings so an old offer can't
+  // be accepted hours later. Never throws; failures are logged per ping.
+  try {
+    await expireOverdueEmergencyPings();
+  } catch (err) {
+    logger.warn({ err }, "Emergency ping expiry sweep failed");
+  }
 
   if (stamp - lastAutopilotCheck >= AUTOPILOT_CHECK_MS) {
     lastAutopilotCheck = stamp;

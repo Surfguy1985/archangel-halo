@@ -10,15 +10,20 @@ export interface PortalEmergencyOffer {
   id: string;
   pingId: string;
   jobId: string;
-  /** pending | committed | missed */
+  /** pending | committed | missed | expired */
   status: string;
-  /** open | filled | cancelled */
+  /** open | filled | cancelled | expired */
   pingStatus: string;
   filledByYou: boolean;
   payAmount: number;
   bonusAmount: number;
   /** @nullable */
   neededBy?: string | null;
+  /**
+     * Deadline after which the offer can no longer be accepted
+     * @nullable
+     */
+  expiresAt?: string | null;
   /** @nullable */
   note?: string | null;
   /** @nullable */
