@@ -115,6 +115,7 @@ import { recomputeJobFinancials } from "../lib/jobFinance";
 import { emergencySettledKeys, outstandingHoldAmount } from "../lib/emergencySettlement";
 import { ser } from "../lib/serialize";
 import { buildJobLabel, jobLabelMap } from "../lib/jobLabels";
+import { ensurePropertiesGeocoded } from "../lib/geocode";
 
 const router: IRouter = Router();
 
@@ -2443,6 +2444,12 @@ router.get("/portal/:token/office-view", async (req, res): Promise<void> => {
   ].join(" · ");
 
   if (features.includes("properties")) {
+    // Backfill map pins: older properties (or failed geocodes) may lack
+    // coordinates. Fire-and-forget the lazy Nominatim geocoder so pins fill
+    // in on subsequent loads — never block this response on the 1 req/sec queue.
+    void ensurePropertiesGeocoded().catch((err) =>
+      logger.warn({ err }, "Background property geocoding failed"),
+    );
     const activeStatuses = new Set(["new", "scheduled", "in_progress"]);
     out.properties = scopedProps.map((p) => ({
       id: p.id,
