@@ -5,7 +5,7 @@ import {
   getGetClientRequestOptionsQueryKey,
   useCreateClientWorkRequest,
 } from "@workspace/api-client-react";
-import { CheckCircle2, Loader2, Send, ShieldCheck, Wrench } from "lucide-react";
+import { CheckCircle2, Loader2, Send, ShieldCheck, Siren, Wrench } from "lucide-react";
 import { FalkonBadge } from "@/components/FalkonBadge";
 
 export default function ClientRequest() {
@@ -28,6 +28,8 @@ export default function ClientRequest() {
   const [neededBy, setNeededBy] = useState("");
   const [notes, setNotes] = useState("");
   const [requesterName, setRequesterName] = useState("");
+  const [poNumber, setPoNumber] = useState("");
+  const [emergency, setEmergency] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,7 +54,15 @@ export default function ClientRequest() {
 
   const picked = data.services.find((s) => s.id === serviceId);
   const serviceLabel = serviceId === "other" ? customService.trim() : (picked?.service ?? "");
-  const canSubmit = serviceLabel.length > 0 && !create.isPending;
+  // Needed-by within 24h auto-flags an emergency (mirrors the server).
+  const within24h = (() => {
+    if (!neededBy) return false;
+    const [y, m, d] = neededBy.split("-").map(Number);
+    if (!y || !m || !d) return false;
+    return new Date(y, m - 1, d, 23, 59, 59).getTime() - Date.now() <= 24 * 3600 * 1000;
+  })();
+  const isEmergency = emergency || within24h;
+  const canSubmit = serviceLabel.length > 0 && (isEmergency || poNumber.trim().length > 0) && !create.isPending;
 
   const submit = () => {
     setError(null);
@@ -66,6 +76,8 @@ export default function ClientRequest() {
           neededBy: neededBy || null,
           notes: notes || null,
           requesterName: requesterName || null,
+          poNumber: poNumber.trim() || null,
+          emergency: isEmergency,
         },
       },
       {
@@ -76,6 +88,8 @@ export default function ClientRequest() {
           setUnitNo("");
           setNeededBy("");
           setNotes("");
+          setPoNumber("");
+          setEmergency(false);
         },
         onError: (err) => setError(err.message),
       },
@@ -166,6 +180,39 @@ export default function ClientRequest() {
                 data-testid="input-unit"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-[6px]">
+              PO number {isEmergency ? "(optional for emergencies)" : "*"}
+            </label>
+            <div className="flex items-stretch gap-[8px]">
+              <input
+                value={poNumber}
+                onChange={(e) => setPoNumber(e.target.value)}
+                placeholder={isEmergency ? "PO # (can follow later)" : "PO #"}
+                className={`${inputCls} flex-1`}
+                data-testid="input-po-number"
+              />
+              <button
+                type="button"
+                onClick={() => setEmergency((v) => !v)}
+                title="Emergency — skip the PO; the office reviews and approves it manually"
+                className={`shrink-0 flex items-center gap-[6px] rounded-[10px] border px-[12px] font-display font-bold text-[13px] ${
+                  isEmergency
+                    ? "border-destructive bg-destructive/10 text-destructive"
+                    : "border-border bg-card text-foreground"
+                }`}
+                data-testid="toggle-emergency"
+              >
+                <Siren className="w-[15px] h-[15px]" /> Emergency
+              </button>
+            </div>
+            <p className="mt-[6px] text-[11.5px] text-muted-foreground">
+              {isEmergency
+                ? "No PO needed — our office is alerted immediately and will approve & post the work manually."
+                : "A PO number is required to send a request — unless it's an emergency."}
+            </p>
           </div>
 
           <div>

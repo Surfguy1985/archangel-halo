@@ -66,6 +66,7 @@ function serRequest(
     notes: r.notes,
     neededBy: r.neededBy,
     emergency: r.emergency,
+    poNumber: r.poNumber,
     // Manual /api asset links must be absolute — never BASE_URL-prefixed.
     photoUrls: strArray(r.photoPaths).map((p) => `/api/storage${p}`),
     changeOrderJobId: r.changeOrderJobId,
@@ -199,6 +200,14 @@ router.post("/client/:token/requests", async (req, res): Promise<void> => {
     changeOrderJob = { id: job.id, jobNo: job.jobNo };
   }
   const emergency = body.emergency === true || isWithin24h(body.neededBy);
+  // PO number is mandatory for normal requests. Emergencies may skip it —
+  // they land as urgent "Action Required" items the office manually approves
+  // (and can attach a PO to) before the work is posted.
+  const poNumber = body.poNumber?.trim() || null;
+  if (!emergency && !poNumber) {
+    res.status(400).json({ error: "A PO number is required — or mark the request as an emergency" });
+    return;
+  }
   const [row] = await db
     .insert(workRequestsTable)
     .values({
@@ -211,6 +220,7 @@ router.post("/client/:token/requests", async (req, res): Promise<void> => {
       notes: body.notes?.trim() || null,
       neededBy: body.neededBy ?? null,
       emergency,
+      poNumber,
       photoPaths: photoPaths.length ? photoPaths : null,
       changeOrderJobId: changeOrderJob?.id ?? null,
     })
@@ -233,7 +243,7 @@ router.post("/client/:token/requests", async (req, res): Promise<void> => {
     title: emergency
       ? `EMERGENCY request from ${pn}`
       : `New ${kindLabel} from ${pn}`,
-    body: `${row!.serviceLabel}${unitsLabel}${row!.neededBy ? ` — needed by ${row!.neededBy}` : ""}. Review it in Today or Pipeline.`,
+    body: `${row!.serviceLabel}${unitsLabel}${row!.neededBy ? ` — needed by ${row!.neededBy}` : ""}${poNumber ? ` — PO ${poNumber}` : " — NO PO (manual approval)"}. Review it in Today or Pipeline.`,
   });
   await db.insert(activitiesTable).values({
     entityType: "property",
@@ -247,7 +257,7 @@ router.post("/client/:token/requests", async (req, res): Promise<void> => {
       await sendEmail({
         to: ADMIN_EMAIL,
         subject: `🚨 Emergency request — ${pn}: ${row!.serviceLabel}`,
-        html: `<p><strong>${pn}</strong> filed an emergency request${row!.requesterName ? ` (by ${row!.requesterName})` : ""}.</p><p>${row!.serviceLabel}${unitsLabel}${row!.neededBy ? ` — needed by <strong>${row!.neededBy}</strong>` : ""}</p>${row!.notes ? `<p>${row!.notes}</p>` : ""}<p>Approve or decline it from the Today feed.</p>`,
+        html: `<p><strong>${pn}</strong> filed an emergency request${row!.requesterName ? ` (by ${row!.requesterName})` : ""}.</p><p>${row!.serviceLabel}${unitsLabel}${row!.neededBy ? ` — needed by <strong>${row!.neededBy}</strong>` : ""}</p><p>${poNumber ? `PO ${poNumber}` : "<strong>No PO provided</strong> — approve and post it manually."}</p>${row!.notes ? `<p>${row!.notes}</p>` : ""}<p>Approve or decline it from the Today feed.</p>`,
       });
     } catch (err) {
       logger.error({ err }, "emergency work-request alert email failed");

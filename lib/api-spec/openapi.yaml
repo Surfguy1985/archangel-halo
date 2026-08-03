@@ -9365,6 +9365,7 @@ components:
         notes: { type: ["string", "null"] }
         neededBy: { type: ["string", "null"], description: "YYYY-MM-DD complete-by date" }
         emergency: { type: boolean, description: "Explicit emergency flag (≤24h notice is auto-flagged too)" }
+        poNumber: { type: ["string", "null"], description: "Client PO number — required unless the request is an emergency" }
         photoPaths:
           type: array
           items: { type: string }
@@ -9393,6 +9394,7 @@ components:
         notes: { type: ["string", "null"] }
         neededBy: { type: ["string", "null"] }
         emergency: { type: boolean }
+        poNumber: { type: ["string", "null"] }
         photoUrls:
           type: array
           items: { type: string }

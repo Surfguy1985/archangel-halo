@@ -23,6 +23,8 @@ export interface WorkRequestRec {
   /** @nullable */
   neededBy?: string | null;
   emergency?: boolean;
+  /** @nullable */
+  poNumber?: string | null;
   photoUrls?: string[];
   /** @nullable */
   changeOrderJobId?: string | null;

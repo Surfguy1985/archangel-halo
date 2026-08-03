@@ -14,6 +14,7 @@ export const workRequestsTable = pgTable("work_requests", {
   notes: text("notes"),
   neededBy: date("needed_by", { mode: "string" }), // complete-by date (local)
   emergency: boolean("emergency").notNull().default(false), // ≤24h notice or explicit flag
+  poNumber: text("po_number"), // required for normal requests; emergencies may omit it (office approves manually)
   photoPaths: jsonb("photo_paths"), // string[] of /objects/... storage paths
   changeOrderJobId: uuid("change_order_job_id"), // set when this is a change order on an existing job
   status: text("status").notNull().default("pending"), // pending | accepted | declined

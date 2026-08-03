@@ -78,6 +78,15 @@ function WorkRequestsPanel() {
                       <CalendarClock className="w-3.5 h-3.5" /> Complete by {format(new Date(`${r.neededBy}T12:00:00`), "MMM d, yyyy")}
                     </div>
                   )}
+                  {r.poNumber ? (
+                    <div className="text-[12px] font-semibold text-[var(--ink)] mt-1" data-testid={`text-request-po-${r.id}`}>
+                      PO {r.poNumber}
+                    </div>
+                  ) : (
+                    <div className="text-[12px] font-bold text-destructive mt-1" data-testid={`text-request-nopo-${r.id}`}>
+                      No PO — approve manually
+                    </div>
+                  )}
                   {r.notes && <p className="text-[12.5px] text-[var(--ink)] mt-1.5 whitespace-pre-wrap">{r.notes}</p>}
                 </div>
                 <div className="flex flex-col gap-2 shrink-0">

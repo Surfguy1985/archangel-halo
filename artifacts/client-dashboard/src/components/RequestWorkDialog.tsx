@@ -47,6 +47,7 @@ export function RequestWorkDialog({
   const [notes, setNotes] = useState('');
   const [neededBy, setNeededBy] = useState('');
   const [emergency, setEmergency] = useState(false);
+  const [poNumber, setPoNumber] = useState('');
   const [photos, setPhotos] = useState<Array<{ path: string; name: string }>>([]);
   const [uploading, setUploading] = useState(false);
 
@@ -103,12 +104,21 @@ export function RequestWorkDialog({
     setNotes('');
     setNeededBy('');
     setEmergency(false);
+    setPoNumber('');
     setPhotos([]);
   };
 
   const submit = () => {
     if (!serviceLabel) {
       toast({ title: 'What work do you need?', description: 'Pick a service or describe it.', variant: 'destructive' });
+      return;
+    }
+    if (!isEmergency && !poNumber.trim()) {
+      toast({
+        title: 'PO number required',
+        description: 'Add your PO number — or mark it as an emergency and the office will approve it manually.',
+        variant: 'destructive',
+      });
       return;
     }
     createRequest.mutate(
@@ -122,6 +132,7 @@ export function RequestWorkDialog({
           notes: notes.trim() || null,
           neededBy: neededBy || null,
           emergency: isEmergency,
+          poNumber: poNumber.trim() || null,
           photoPaths: photos.map((p) => p.path),
           changeOrderJobId: changeOrder?.jobId ?? null,
         },
@@ -267,24 +278,48 @@ export function RequestWorkDialog({
             />
           </div>
 
-          <button
-            type="button"
-            data-testid="toggle-request-emergency"
-            onClick={() => setEmergency((v) => !v)}
-            className={`flex w-full items-center gap-2.5 rounded-[10px] border px-3 py-2.5 transition-colors ${
-              isEmergency
-                ? 'border-[#FF3B30] bg-[#FF3B30]/10'
-                : 'border-black/10 bg-white hover:bg-[#f5f5f7]'
-            }`}
-          >
-            <Siren className={`h-4 w-4 ${isEmergency ? 'text-[#FF3B30]' : 'text-[#6e6e73]'}`} />
-            <span className={`text-[13px] font-semibold ${isEmergency ? 'text-[#c62828]' : 'text-[#1d1d1f]'}`}>
-              Emergency — needed within 24 hours
-            </span>
-            {within24h && !emergency && (
-              <span className="ml-auto text-[11px] font-semibold text-[#c62828]">auto — date is ≤24h out</span>
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold text-[#6e6e73]">
+              PO number {isEmergency ? '(optional for emergencies)' : '(required)'}
+            </label>
+            <div className="flex items-stretch gap-2">
+              <input
+                data-testid="input-request-po-number"
+                value={poNumber}
+                onChange={(e) => setPoNumber(e.target.value)}
+                placeholder={isEmergency ? 'PO # (can follow later)' : 'PO #'}
+                className={inputCls + ' flex-1'}
+              />
+              <button
+                type="button"
+                data-testid="toggle-request-emergency"
+                onClick={() => setEmergency((v) => !v)}
+                title="Emergency — skip the PO; the office reviews and approves it manually"
+                className={`flex shrink-0 items-center gap-1.5 rounded-[10px] border px-3 transition-colors ${
+                  isEmergency
+                    ? 'border-[#FF3B30] bg-[#FF3B30]/10'
+                    : 'border-black/10 bg-white hover:bg-[#f5f5f7]'
+                }`}
+              >
+                <Siren className={`h-4 w-4 ${isEmergency ? 'text-[#FF3B30]' : 'text-[#6e6e73]'}`} />
+                <span className={`text-[13px] font-semibold ${isEmergency ? 'text-[#c62828]' : 'text-[#1d1d1f]'}`}>
+                  Emergency
+                </span>
+              </button>
+            </div>
+            {isEmergency ? (
+              <p className="mt-1 text-[11px] font-medium text-[#c62828]">
+                {within24h && !emergency
+                  ? 'Auto-flagged — the date is ≤24h out. '
+                  : ''}
+                No PO needed — the office is alerted immediately and will approve &amp; post it manually.
+              </p>
+            ) : (
+              <p className="mt-1 text-[11px] text-[#6e6e73]">
+                Requests can't be sent without a PO — unless it's an emergency.
+              </p>
             )}
-          </button>
+          </div>
 
           <div>
             <label className="mb-1 block text-[12px] font-semibold text-[#6e6e73]">Details (optional)</label>

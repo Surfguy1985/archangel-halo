@@ -1143,6 +1143,11 @@ export interface WorkRequestCreateInput {
   neededBy?: string | null;
   /** Explicit emergency flag (≤24h notice is auto-flagged too) */
   emergency?: boolean;
+  /**
+     * Client PO number — required unless the request is an emergency
+     * @nullable
+     */
+  poNumber?: string | null;
   /** /objects/... storage paths of attached photos */
   photoPaths?: string[];
   /**
@@ -1184,6 +1189,8 @@ export interface WorkRequestRec {
   /** @nullable */
   neededBy?: string | null;
   emergency?: boolean;
+  /** @nullable */
+  poNumber?: string | null;
   photoUrls?: string[];
   /** @nullable */
   changeOrderJobId?: string | null;

@@ -162,8 +162,19 @@ const TOOLS: ToolDef[] = [
         notes: { type: "string" },
         neededBy: { type: "string", description: "YYYY-MM-DD" },
         emergency: { type: "boolean" },
+        poNumber: {
+          type: "string",
+          description:
+            "Client's PO number. REQUIRED unless emergency=true — ask the client for it before calling this tool. Emergencies may omit it (office approves manually).",
+        },
       },
       required: ["serviceLabel"],
+      // PO is conditionally required: normal requests must carry one,
+      // emergencies may omit it (office approves manually).
+      anyOf: [
+        { required: ["poNumber"] },
+        { properties: { emergency: { const: true } }, required: ["emergency"] },
+      ],
       additionalProperties: false,
     },
     mutating: true,
@@ -616,6 +627,7 @@ router.post(
           notes: a.notes != null ? String(a.notes) : null,
           neededBy: a.neededBy != null ? String(a.neededBy) : null,
           emergency: a.emergency === true,
+          poNumber: a.poNumber != null ? String(a.poNumber) : null,
           requesterName: viewer.name,
         },
       });

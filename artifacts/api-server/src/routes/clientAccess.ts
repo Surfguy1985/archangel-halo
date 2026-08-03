@@ -1030,6 +1030,9 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
             .slice(0, 3)
             .map((i) => `${i.unit ? `Unit ${i.unit} — ` : ""}${i.label}`)
             .join("; ") || card.title}`;
+        // NOTE: flags-card scheduling intentionally skips the PO gate — these
+        // originate from office-flagged items and land in Pipeline as pending,
+        // where the office manually approves (the card shows "No PO").
         const [rowReq] = await tx
           .insert(workRequestsTable)
           .values({
