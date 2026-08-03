@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { CardModuleDetail } from '../CardModuleDetail';
+import { WaybillStrip } from '@workspace/board-ui';
 
 interface CardDetailDialogProps {
   card: ClientBoardCardView | null;
@@ -85,6 +86,18 @@ export function CardDetailDialog({ card, token, readOnly, onClose, onReadOnlyCli
                 {card.cardKey} • {card.template}
               </DialogDescription>
             </DialogHeader>
+            {/* Tiles are minimal per the rails redesign — the network waybill
+                (FLK code + volt dots) now lives here on the detail sheet. */}
+            {(card as any).waybill?.stages && (
+              <div className="mt-3">
+                <WaybillStrip
+                  code={(card as any).waybillCode}
+                  stages={(card as any).waybill.stages}
+                  holder={(card as any).waybill.holder}
+                  live={(card as any).waybill.live !== false}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-6 px-8 py-4">

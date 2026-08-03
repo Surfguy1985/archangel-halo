@@ -36,34 +36,34 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
   },
   {
     title: "Your board is a story, left to right",
-    body: "This is a kanban board — like Trello, but it runs itself. New work starts in Requested, moves to Scheduled once a crew is on the calendar, In Progress while crews are on site, then Done. Invoices live in the Billing column. One glance tells you the state of your entire property.",
-    target: "lane-requested",
+    body: "The board reads in five rails: Needs you, In progress, Requested, Done, and Paid. Anything waiting on the owner is always first on screen. New work starts in Requested, moves through In progress while crews are on site, then lands in Done and Paid. One glance tells you the state of your entire property.",
+    target: "rail-requested",
   },
   {
     title: "Every card is a sealed waybill",
     body: "Each card carries a tracking code and a strip of six lights — like a package in transit. As real work happens, the lights turn on one by one: sealed, routed, delivered, opened, in review, settled. The cards are color-coded by service — blue for maintenance, orange for billing, green for leasing — so you can read the board from across the room.",
-    target: "lane-requested",
+    target: "rail-requested",
   },
   {
     title: "Watch the board move — live",
     body: "Right now, our office is approving the courtyard landscaping job. Keep your eyes on the card... There it goes — from Requested to Scheduled, on its own, the moment the office acted. No refresh, no email chain. Every person looking at this board sees the same truth within a second.",
-    target: "lane-scheduled",
+    target: "rail-in_progress",
     action: "move-demo-card-scheduled",
   },
   {
-    title: "Drag cards yourself",
-    body: "And it works both ways. Property managers drag cards to approve schedules, reprioritize work, or mark things handled — exactly like Trello. When you move a card, the office sees it instantly, and the card's lights update to match.",
-    target: "lane-scheduled",
+    title: "Cards move themselves",
+    body: "And it works both ways. When the office schedules, reprioritizes, or marks work handled, the card slides to its new rail on its own — and when you approve or pay from a card, their board updates the same instant. Nothing to drag, nothing to refresh.",
+    target: "rail-in_progress",
   },
   {
     title: "Pay invoices in two taps",
     body: "Here's the part your accounting team will love. When work is done, the invoice lands on the board as a card — with the PDF, the amount, the due date, and a live pay link all attached. Review it, tap pay, done. No portals, no logins, no lost paperwork. HALO's books reconcile automatically behind the scenes.",
-    target: "lane-billing",
+    target: "rail-needs_you",
   },
   {
     title: "Communicate right on the work",
     body: "Every card is also a conversation. Open one and leave a comment — the office is notified instantly and answers in the same thread, attached to the exact job you're talking about. No more digging through email to find which unit that message was about.",
-    target: "lane-in_progress",
+    target: "rail-in_progress",
   },
   {
     title: "See your crews live",

@@ -1,5 +1,5 @@
 import { useLocation, useParams } from 'wouter';
-import { useGetClientBoard, useMarkClientBoardTourSeen, useDispatchClientBoardAction, useCreateClientBoardCard, useCreateClientBoardAiCard, useGetClientPmBoard, getGetClientPmBoardQueryKey, useClearClientBoardCard, getGetClientBoardHistoryQueryKey } from '@workspace/api-client-react';
+import { useGetClientBoard, useMarkClientBoardTourSeen, useDispatchClientBoardAction, useCreateClientBoardCard, useGetClientPmBoard, getGetClientPmBoardQueryKey, useClearClientBoardCard, getGetClientBoardHistoryQueryKey } from '@workspace/api-client-react';
 import { HistoryTab } from '@/components/HistoryTab';
 import { LoginDialog } from '@/components/LoginDialog';
 import { useSessionExchange } from '@/hooks/useSessionExchange';
@@ -18,7 +18,7 @@ import { NewCardSpotlight } from '@/components/NewCardSpotlight';
 import { RequestWorkDialog, type ChangeOrderTarget } from '@/components/RequestWorkDialog';
 import { BirdseyeMapDialog } from '@/components/BirdseyeMapDialog';
 import { ConciergeChat } from '@/components/ConciergeChat';
-import { AppleBoard, useBoardEvents } from '@workspace/board-ui';
+import { AppleBoard, RailsBoard, useBoardEvents } from '@workspace/board-ui';
 import { getGetClientBoardQueryKey } from '@workspace/api-client-react';
 
 function Board() {
@@ -110,7 +110,6 @@ function Board() {
   useSessionExchange(token);
 
   const dispatchAction = useDispatchClientBoardAction();
-  const createAiCard = useCreateClientBoardAiCard();
   const createCard = useCreateClientBoardCard();
   const pmBoardQuery = useGetClientPmBoard(token, { query: { queryKey: getGetClientPmBoardQueryKey(token), enabled: activeTab === 'pm' }});
 
@@ -294,12 +293,6 @@ function Board() {
     });
   };
 
-  const handleCreateAiCard = async (prompt: string) => {
-    await createAiCard.mutateAsync({ token, data: { prompt }});
-    toast({ title: "Card created" });
-    queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
-  };
-
   const handleCreateCard = async (data: any) => {
     await createCard.mutateAsync({ token, data });
     toast({ title: "Card created" });
@@ -470,68 +463,32 @@ function Board() {
         </div>
       </div>
 
-      {/* "Needs your action" strip + request-work entry: open the board, see
-          the 0–3 things waiting on you, do them. Vendors board only. */}
-      {activeTab === 'vendors' && boardLoaded && (() => {
-        const actionCards = (board?.cards || []).filter((c: any) => c.needsAction && !c.snoozedUntil);
-        return (
-          <div className="shrink-0 border-b border-black/[0.06] bg-white px-3 sm:px-5 py-2" data-testid="action-strip">
-            <div className="flex items-center gap-2 overflow-x-auto">
-              {actionCards.length > 0 ? (
-                <>
-                  <span className="shrink-0 rounded-full bg-[#FF9500]/15 px-2.5 py-1 text-[11px] font-bold text-[#c93400]">
-                    Needs your action · {actionCards.length}
-                  </span>
-                  {actionCards.slice(0, 6).map((c: any) => (
-                    <button
-                      key={c.cardKey}
-                      data-testid={`action-chip-${c.cardKey}`}
-                      onClick={() => setDetailCard(c)}
-                      className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#FF9500]/40 bg-[#FFF7ED] px-3 py-1 text-[12px] font-semibold text-[#1d1d1f] hover:bg-[#FFEDD5] transition-colors"
-                    >
-                      <span className="max-w-[180px] truncate">{c.title}</span>
-                      {typeof c.amount === 'number' && (
-                        <span className="text-[#c93400]">${c.amount.toLocaleString()}</span>
-                      )}
-                    </button>
-                  ))}
-                </>
-              ) : (
-                <span className="shrink-0 text-[12px] font-medium text-[#6e6e73]">
-                  You're all caught up — nothing needs your action.
-                </span>
-              )}
-              <div className="ml-auto shrink-0">
-                <button
-                  data-testid="button-request-work"
-                  onClick={() => {
-                    if (!viewerAuthenticated) { setLoginOpen(true); return; }
-                    setRequestOpen(true);
-                  }}
-                  className="rounded-full bg-[#007AFF] px-3.5 py-1.5 text-[12px] font-semibold text-white hover:opacity-90 transition-opacity"
-                >
-                  + Request work
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {activeTab === 'history' ? (
         <HistoryTab token={token} canRestore={viewerAuthenticated && !viewer.readOnly} />
+      ) : activeTab === 'vendors' ? (
+        /* Rails redesign: five fixed rails, Needs you first. Cards move
+           themselves — no client drag; all actions live on the detail sheet. */
+        <RailsBoard
+          cards={board?.cards}
+          isLoading={isLoading}
+          onOpenCard={handleCardClick}
+          onClearCard={viewerAuthenticated && !viewer.readOnly ? handleCardClear : undefined}
+          onRequestWork={() => {
+            if (!viewerAuthenticated) { setLoginOpen(true); return; }
+            setRequestOpen(true);
+          }}
+          onOpenMap={() => setBirdseyeOpen(true)}
+        />
       ) : (
       <AppleBoard
         board={activeBoardData}
         token={token}
         isLoading={isLoadingActive}
         viewer={viewer as any}
-        boardKey={activeTab === 'pm' ? 'pm' : undefined}
+        boardKey="pm"
         onLoginRequired={() => setLoginOpen(true)}
-        onOpenBirdseye={activeTab === 'vendors' ? () => setBirdseyeOpen(true) : undefined}
         onCardClick={handleCardClick}
         onCardMove={handleCardMove}
-        onCreateAiCard={activeTab === 'vendors' ? handleCreateAiCard : undefined}
         onCreateCard={handleCreateCard}
         showToast={toast}
         onCardClear={handleCardClear}

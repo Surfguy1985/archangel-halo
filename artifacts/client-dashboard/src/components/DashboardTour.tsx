@@ -32,14 +32,14 @@ export const DASHBOARD_TOUR_STEPS: DashboardTourStep[] = [
     target: null,
   },
   {
-    title: "Work flows left to right",
-    body: "The board reads like a story. New work requests and open jobs start in Requested, move to Scheduled once a crew is on the calendar, then In Progress while crews are on site, and finish in Done. Invoices live in the Billing column.",
-    target: "lane-requested",
+    title: "Needs you always comes first",
+    body: "The board reads in five rails: Needs you, In progress, Requested, Done, and Paid. Anything waiting on you — an invoice to approve, a payment, a change order — is always the first thing on screen. When nothing needs you, that rail says so in one line.",
+    target: "rail-needs_you",
   },
   {
-    title: "Cards update themselves",
-    body: "When a crew checks in or a job wraps up, its card moves on its own — the Live badge up top means you're always looking at the current state. You can also drag your own cards between columns, just like Trello.",
-    target: "lane-in_progress",
+    title: "Cards move themselves",
+    body: "When a crew checks in, a job wraps up, or an invoice is paid, the card slides to its new rail on its own — no dragging, no refreshing. What you see is always the current state of your property.",
+    target: "rail-in_progress",
   },
   {
     title: "Tap a card for the full picture",
@@ -47,9 +47,9 @@ export const DASHBOARD_TOUR_STEPS: DashboardTourStep[] = [
     target: null,
   },
   {
-    title: "Add your own cards",
-    body: "Signed in? Use the plus button at the top of any column to add your own card — a reminder, a note for the crew, or work you want tracked. Guests can look around, but you'll need to sign in to make changes.",
-    target: "lane-requested",
+    title: "Request work in a tap",
+    body: "Signed in? Use the Request work button to send new work straight to the office — it lands in your Requested rail and on their board at the same moment. Guests can look around, but you'll need to sign in to make changes.",
+    target: "button-rails-request",
   },
   {
     title: "Maps, sign-in, and this tour",
