@@ -13724,6 +13724,21 @@ components:
         lat: { type: ["number", "null"] }
         lng: { type: ["number", "null"] }
         accuracy: { type: ["number", "null"] }
+        events:
+          type: array
+          description: "Full check-in/check-out trail for this crew's job, newest first"
+          items:
+            $ref: "#/components/schemas/ClientBoardMapEvent"
+
+    ClientBoardMapEvent:
+      type: object
+      required: [kind, at]
+      properties:
+        kind: { type: string, enum: [checkin, checkout] }
+        at: { type: string }
+        label: { type: ["string", "null"] }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
 
     ClientBoardHappening:
       type: object

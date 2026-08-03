@@ -53,7 +53,10 @@ function Board() {
   const [presentationOpen, setPresentationOpen] = useState(
     () => searchParams.get('present') === '1',
   );
-  const [birdseyeOpen, setBirdseyeOpen] = useState(false);
+  // ?map=1 deep link — a shared live-map URL opens the board straight to the map.
+  const [birdseyeOpen, setBirdseyeOpen] = useState(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('map') === '1',
+  );
   const [tourOpen, setTourOpen] = useState(false);
   const pwaInstall = usePwaInstall();
 

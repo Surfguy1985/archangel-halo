@@ -6040,6 +6040,25 @@ export interface ClientBoardActionOutcome {
   message?: string | null;
 }
 
+export type ClientBoardMapEventKind = typeof ClientBoardMapEventKind[keyof typeof ClientBoardMapEventKind];
+
+
+export const ClientBoardMapEventKind = {
+  checkin: 'checkin',
+  checkout: 'checkout',
+} as const;
+
+export interface ClientBoardMapEvent {
+  kind: ClientBoardMapEventKind;
+  at: string;
+  /** @nullable */
+  label?: string | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+}
+
 export interface ClientBoardMapCrew {
   crewName: string;
   /** @nullable */
@@ -6066,6 +6085,8 @@ export interface ClientBoardMapCrew {
   lng?: number | null;
   /** @nullable */
   accuracy?: number | null;
+  /** Full check-in/check-out trail for this crew's job, newest first */
+  events?: ClientBoardMapEvent[];
 }
 
 export interface ClientBoardHappening {

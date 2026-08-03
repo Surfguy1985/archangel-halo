@@ -1,10 +1,11 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { format } from "date-fns";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
 import { divIcon, latLngBounds } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useGetClientBoardMap, getGetClientBoardMapQueryKey } from "@workspace/api-client-react";
-import { MapPin, X, Users, Activity, Clock, LogIn, LogOut, Loader2, ArrowRight } from "lucide-react";
+import { MapPin, X, Users, Activity, Clock, LogIn, LogOut, Loader2, ArrowRight, Share2, ChevronDown, ChevronUp, History } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -79,7 +80,55 @@ function propertyIcon() {
   });
 }
 
+// Full check-in / check-out trail for one crew, newest first.
+function CrewTrail({ events }: { events: any[] }) {
+  if (!events?.length) {
+    return <div className="text-xs text-muted-foreground italic pt-1">No check-ins recorded yet.</div>;
+  }
+  return (
+    <div className="mt-2 space-y-1.5 border-l-2 border-border pl-3">
+      {events.map((e, i) => (
+        <div key={i} className="flex items-center gap-2 text-xs">
+          {e.kind === "checkin" ? (
+            <LogIn className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+          ) : (
+            <LogOut className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          )}
+          <span className="font-semibold">{e.kind === "checkin" ? "Checked in" : "Checked out"}</span>
+          <span className="text-muted-foreground ml-auto whitespace-nowrap">
+            {format(parseISO(e.at), "MMM d, h:mm a")}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [expandedCrew, setExpandedCrew] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const shareMap = async () => {
+    const url = `${window.location.origin}/board/${token}?map=1`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Live crew map", url });
+        return;
+      }
+    } catch {
+      /* fall through to clipboard */
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Last resort: show the link so sharing never silently no-ops.
+      window.prompt("Copy this link to share the live map:", url);
+    }
+  };
+
   const { data, isLoading } = useGetClientBoardMap(token, {
     query: {
       queryKey: getGetClientBoardMapQueryKey(token),
@@ -102,8 +151,8 @@ export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
         )}
 
         <div className="absolute inset-0 flex flex-col md:flex-row">
-          {/* Main Map Area */}
-          <div className="flex-1 relative h-[50dvh] md:h-full bg-muted">
+          {/* Main Map Area — full bleed; the roster slides over it on mobile */}
+          <div className="flex-1 relative h-full bg-muted">
             {propertyLatLng || (data?.crews && data.crews.some(c => c.lat && c.lng)) ? (
               <MapContainer
                 center={propertyLatLng || [0, 0]}
@@ -197,6 +246,26 @@ export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
             >
               <X className="w-6 h-6" />
             </button>
+
+            {/* Share the live map (deep link opens the board straight to it) */}
+            <button
+              onClick={shareMap}
+              className="absolute top-4 right-4 z-[400] h-12 px-4 bg-background/90 backdrop-blur rounded-full flex items-center gap-2 shadow-lg border border-border hover:bg-background transition-colors text-foreground text-sm font-semibold focus:outline-none"
+              data-testid="button-share-map"
+            >
+              <Share2 className="w-4 h-4" /> {copied ? "Link copied" : "Share"}
+            </button>
+
+            {/* Mobile: toggle the crew panel over the full-bleed map */}
+            <button
+              onClick={() => setPanelOpen((v) => !v)}
+              className="md:hidden absolute bottom-5 left-1/2 -translate-x-1/2 z-[420] h-11 px-5 bg-foreground text-background rounded-full flex items-center gap-2 shadow-xl text-sm font-bold focus:outline-none"
+              data-testid="button-toggle-crew-panel"
+            >
+              <Users className="w-4 h-4" />
+              {data?.crews?.length || 0} crew{(data?.crews?.length || 0) === 1 ? "" : "s"}
+              {panelOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </button>
             
             {/* Overlay Header */}
             {data?.propertyName && (
@@ -207,8 +276,10 @@ export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
             )}
           </div>
 
-          {/* Right/Bottom Panel - Roster & Happenings */}
-          <div className="w-full md:w-[400px] h-[50dvh] md:h-full bg-background border-t md:border-t-0 md:border-l border-border flex flex-col z-[410] shadow-2xl relative">
+          {/* Right/Bottom Panel - Roster & Happenings. Mobile: slide-up sheet over the map. */}
+          <div
+            className={`md:static md:translate-y-0 md:w-[400px] md:h-full md:rounded-none absolute inset-x-0 bottom-0 h-[62dvh] rounded-t-2xl transition-transform duration-300 ${panelOpen ? "translate-y-0" : "translate-y-full"} md:!translate-y-0 w-full bg-background border-t md:border-t-0 md:border-l border-border flex flex-col z-[410] shadow-2xl`}
+          >
             <div className="flex-1 overflow-y-auto hide-scrollbar">
               
               {/* Happenings Section */}
@@ -248,7 +319,12 @@ export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
 
                 <div className="space-y-3">
                   {data?.crews?.length ? data.crews.map((c, i) => (
-                    <div key={c.jobId || i} className="group flex items-start gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50">
+                    <div
+                      key={c.jobId || i}
+                      className="group flex items-start gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50 cursor-pointer"
+                      onClick={() => setExpandedCrew(expandedCrew === (c.jobId || String(i)) ? null : (c.jobId || String(i)))}
+                      data-testid={`row-crew-${c.jobId || i}`}
+                    >
                       <div className="relative">
                         <Avatar className="w-12 h-12 border border-border">
                           {c.selfieUrl ? <AvatarImage src={c.selfieUrl} /> : null}
@@ -283,12 +359,18 @@ export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
                               href={c.trackerUrl} 
                               target="_blank" 
                               rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
                               className="text-primary hover:underline ml-auto flex items-center gap-1"
                             >
                               Live Tracker <ArrowRight className="w-3 h-3" />
                             </a>
                           )}
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <History className="w-3 h-3" />
+                            {(c as any).events?.length || 0}
+                          </span>
                         </div>
+                        {expandedCrew === (c.jobId || String(i)) && <CrewTrail events={(c as any).events || []} />}
                       </div>
                     </div>
                   )) : (

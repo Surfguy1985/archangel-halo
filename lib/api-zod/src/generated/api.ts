@@ -10428,7 +10428,14 @@ export const GetClientBoardMapResponse = zod.object({
   "lastCheckinAt": zod.string().nullish(),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
-  "accuracy": zod.number().nullish()
+  "accuracy": zod.number().nullish(),
+  "events": zod.array(zod.object({
+  "kind": zod.enum(['checkin', 'checkout']),
+  "at": zod.string(),
+  "label": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish()
+})).optional().describe('Full check-in\/check-out trail for this crew\'s job, newest first')
 })),
   "happenings": zod.array(zod.object({
   "at": zod.string(),

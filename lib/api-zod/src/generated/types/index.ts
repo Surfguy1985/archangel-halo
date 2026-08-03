@@ -134,6 +134,8 @@ export * from './clientBoardKpis';
 export * from './clientBoardLane';
 export * from './clientBoardLoginInput';
 export * from './clientBoardMapCrew';
+export * from './clientBoardMapEvent';
+export * from './clientBoardMapEventKind';
 export * from './clientBoardMapView';
 export * from './clientBoardPhoto';
 export * from './clientBoardSession';

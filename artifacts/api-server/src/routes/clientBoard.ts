@@ -2486,6 +2486,39 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
   ]);
   const crewById = new Map(crews.map((c) => [c.id, c]));
   const jobById = new Map(active.map((j) => [j.id, j]));
+
+  // Per-job trail: up to 30 newest events for EACH job independently (the
+  // shared 200-row checkins query above can starve older jobs on busy
+  // properties, so the trail uses its own windowed query).
+  const trailByJob = new Map<
+    string,
+    { kind: string; at: string; label: string | null; lat: number | null; lng: number | null }[]
+  >();
+  if (jobIds.length) {
+    const trailRows = await db.execute(sql`
+      select job_id, kind, label, lat, lng, created_at
+      from (
+        select *, row_number() over (partition by job_id order by created_at desc) as rn
+        from crew_checkins
+        where job_id in (${sql.join(jobIds.map((id) => sql`${id}`), sql`, `)})
+      ) t
+      where rn <= 30
+      order by created_at desc
+    `);
+    for (const r of trailRows.rows as Record<string, unknown>[]) {
+      const jobId = String(r.job_id);
+      const list = trailByJob.get(jobId) ?? [];
+      list.push({
+        kind: r.kind === "checkout" ? "checkout" : "checkin",
+        at: new Date(r.created_at as string).toISOString(),
+        label: (r.label as string | null) ?? null,
+        lat: r.lat != null ? Number(r.lat) : null,
+        lng: r.lng != null ? Number(r.lng) : null,
+      });
+      trailByJob.set(jobId, list);
+    }
+  }
+
   const lastByJob = new Map<string, (typeof checkins)[number]>();
   for (const c of checkins) {
     if (c.jobId && !lastByJob.has(c.jobId)) lastByJob.set(c.jobId, c);
@@ -2516,6 +2549,9 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
         lat: last?.lat ?? null,
         lng: last?.lng ?? null,
         accuracy: last?.accuracy ?? null,
+        // Full check-in/check-out trail (newest first) so the client can see
+        // exactly when the crew arrived and left, not just the latest ping.
+        events: trailByJob.get(j.id) ?? [],
       };
     });
 

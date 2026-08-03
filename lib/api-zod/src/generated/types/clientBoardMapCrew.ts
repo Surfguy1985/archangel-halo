@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { ClientBoardMapEvent } from './clientBoardMapEvent';
 
 export interface ClientBoardMapCrew {
   crewName: string;
@@ -32,4 +33,6 @@ export interface ClientBoardMapCrew {
   lng?: number | null;
   /** @nullable */
   accuracy?: number | null;
+  /** Full check-in/check-out trail for this crew's job, newest first */
+  events?: ClientBoardMapEvent[];
 }
