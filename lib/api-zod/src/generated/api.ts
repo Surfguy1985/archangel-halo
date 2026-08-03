@@ -5563,6 +5563,7 @@ export const GetPortalOfficeViewResponse = zod.object({
   "jobNo": zod.string(),
   "description": zod.string().nullish(),
   "status": zod.string(),
+  "propertyId": zod.string().nullish(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "scheduledOn": zod.string().nullish(),

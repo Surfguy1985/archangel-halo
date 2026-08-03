@@ -2770,6 +2770,8 @@ export interface OfficeViewJob {
   description?: string | null;
   status: string;
   /** @nullable */
+  propertyId?: string | null;
+  /** @nullable */
   propertyName?: string | null;
   /** @nullable */
   unitNo?: string | null;

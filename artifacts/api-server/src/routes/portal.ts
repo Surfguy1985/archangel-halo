@@ -2474,6 +2474,7 @@ router.get("/portal/:token/office-view", async (req, res): Promise<void> => {
       jobNo: j.jobNo,
       description: j.description ?? null,
       status: j.status,
+      propertyId: j.propertyId ?? null,
       propertyName: propName.get(j.propertyId) ?? null,
       unitNo: j.unitNo ?? null,
       scheduledOn: j.scheduledOn ?? null,

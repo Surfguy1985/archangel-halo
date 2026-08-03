@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -1375,6 +1375,27 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
 }
 
 function OfficeViewTab({ view }: { view: PortalOfficeView }) {
+  // "View jobs" on a map pin filters the Jobs list to that property and
+  // scrolls the section into view.
+  const [jobsPropertyFilter, setJobsPropertyFilter] = useState<string | null>(null);
+  const jobsSectionRef = useRef<HTMLDivElement | null>(null);
+  const hasJobs = view.features.includes("jobs");
+  const viewJobsForProperty = (propertyId: string) => {
+    setJobsPropertyFilter(propertyId);
+    // Wait a tick so the (possibly re-rendered) section exists before scrolling.
+    requestAnimationFrame(() => {
+      jobsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+  const filteredJobs = jobsPropertyFilter
+    ? view.jobs.filter((j) => j.propertyId === jobsPropertyFilter)
+    : view.jobs;
+  const filterPropertyName =
+    jobsPropertyFilter
+      ? view.properties.find((p) => p.id === jobsPropertyFilter)?.name ??
+        view.jobs.find((j) => j.propertyId === jobsPropertyFilter)?.propertyName ??
+        "property"
+      : null;
   const statusColor = (s: string) =>
     s === "complete" || s === "paid"
       ? "bg-[var(--green)]/12 text-[var(--green)]"
@@ -1460,16 +1481,29 @@ function OfficeViewTab({ view }: { view: PortalOfficeView }) {
         </>
       )}
 
-      {view.features.includes("jobs") && (
-        <>
-          <div className="text-[13px] font-semibold mb-[8px]">Jobs</div>
-          {view.jobs.length === 0 ? (
+      {hasJobs && (
+        <div ref={jobsSectionRef} className="scroll-mt-[70px]">
+          <div className="flex items-center gap-[8px] mb-[8px]">
+            <div className="text-[13px] font-semibold">Jobs</div>
+            {filterPropertyName && (
+              <button
+                type="button"
+                onClick={() => setJobsPropertyFilter(null)}
+                className="flex items-center gap-[4px] text-[11px] font-semibold bg-[var(--gold-light)]/25 text-foreground rounded-full px-[8px] py-[2px] hover:bg-[var(--gold-light)]/40 transition-colors"
+                data-testid="button-clear-jobs-filter"
+              >
+                {filterPropertyName}
+                <X className="w-[11px] h-[11px]" />
+              </button>
+            )}
+          </div>
+          {filteredJobs.length === 0 ? (
             <div className={`${card} mb-[12px] text-[12.5px] text-muted-foreground`}>
-              No jobs in your scope.
+              {jobsPropertyFilter ? "No jobs at this property in your scope." : "No jobs in your scope."}
             </div>
           ) : (
             <div className="flex flex-col gap-[8px] mb-[14px]">
-              {view.jobs.slice(0, 50).map((j) => (
+              {filteredJobs.slice(0, 50).map((j) => (
                 <div key={j.id} className={card}>
                   <div className="flex items-center gap-[8px]">
                     <span className="text-[13.5px] font-semibold">{j.jobNo}</span>
@@ -1491,7 +1525,7 @@ function OfficeViewTab({ view }: { view: PortalOfficeView }) {
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {view.features.includes("properties") && (
@@ -1513,6 +1547,7 @@ function OfficeViewTab({ view }: { view: PortalOfficeView }) {
                   ]
                 : [],
             )}
+            onViewJobs={hasJobs ? viewJobsForProperty : undefined}
           />
           <div className="flex flex-col gap-[8px] mb-[14px]">
             {view.properties.map((p) => (

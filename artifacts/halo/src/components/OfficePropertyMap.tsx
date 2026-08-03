@@ -45,7 +45,13 @@ function FitToPins({ pins }: { pins: OfficePropertyPin[] }) {
   return null;
 }
 
-export function OfficePropertyMap({ pins }: { pins: OfficePropertyPin[] }) {
+export function OfficePropertyMap({
+  pins,
+  onViewJobs,
+}: {
+  pins: OfficePropertyPin[];
+  onViewJobs?: (propertyId: string) => void;
+}) {
   if (pins.length === 0) return null;
   const lat = pins.reduce((s, p) => s + p.lat, 0) / pins.length;
   const lng = pins.reduce((s, p) => s + p.lng, 0) / pins.length;
@@ -74,6 +80,27 @@ export function OfficePropertyMap({ pins }: { pins: OfficePropertyPin[] }) {
               <div style={{ fontSize: 12, marginTop: 2 }}>
                 {p.activeJobs} active job{p.activeJobs === 1 ? "" : "s"}
               </div>
+              {onViewJobs && (
+                <button
+                  type="button"
+                  onClick={() => onViewJobs(p.id)}
+                  data-testid={`button-view-jobs-${p.id}`}
+                  style={{
+                    marginTop: 6,
+                    display: "inline-block",
+                    background: "#B4FF44",
+                    color: "#101318",
+                    border: "1px solid #101318",
+                    borderRadius: 8,
+                    padding: "4px 10px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  View jobs
+                </button>
+              )}
             </Popup>
           </Marker>
         ))}

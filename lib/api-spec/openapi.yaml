@@ -11046,6 +11046,7 @@ components:
         jobNo: { type: string }
         description: { type: ["string", "null"] }
         status: { type: string }
+        propertyId: { type: ["string", "null"] }
         propertyName: { type: ["string", "null"] }
         unitNo: { type: ["string", "null"] }
         scheduledOn: { type: ["string", "null"] }
