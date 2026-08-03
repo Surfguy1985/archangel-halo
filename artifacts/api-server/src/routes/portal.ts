@@ -2450,6 +2450,8 @@ router.get("/portal/:token/office-view", async (req, res): Promise<void> => {
       address: p.address ?? null,
       city: p.city ?? null,
       units: p.units ?? null,
+      latitude: p.latitude ?? null,
+      longitude: p.longitude ?? null,
       activeJobs: scopedJobs.filter(
         (j) => j.propertyId === p.id && activeStatuses.has(j.status),
       ).length,

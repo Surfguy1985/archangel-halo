@@ -5554,6 +5554,8 @@ export const GetPortalOfficeViewResponse = zod.object({
   "address": zod.string().nullish(),
   "city": zod.string().nullish(),
   "units": zod.number().nullish(),
+  "latitude": zod.number().nullish(),
+  "longitude": zod.number().nullish(),
   "activeJobs": zod.number()
 })),
   "jobs": zod.array(zod.object({

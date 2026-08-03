@@ -11035,6 +11035,8 @@ components:
         address: { type: ["string", "null"] }
         city: { type: ["string", "null"] }
         units: { type: ["number", "null"] }
+        latitude: { type: ["number", "null"] }
+        longitude: { type: ["number", "null"] }
         activeJobs: { type: number }
     OfficeViewJob:
       type: object

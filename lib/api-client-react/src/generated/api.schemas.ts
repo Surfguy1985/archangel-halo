@@ -2756,6 +2756,10 @@ export interface OfficeViewProperty {
   city?: string | null;
   /** @nullable */
   units?: number | null;
+  /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
   activeJobs: number;
 }
 

@@ -96,6 +96,7 @@ import {
 } from "@/lib/invoicePdf";
 import WelcomeKitTab from "./WelcomeKitTab";
 import { FalkonBadge } from "@/components/FalkonBadge";
+import { OfficePropertyMap } from "@/components/OfficePropertyMap";
 import { portalGuide, type GuideLang } from "@/lib/portalGuideContent";
 import { WingsGuide, TierBadge, type WingsGuideLang } from "@/components/WingsGuide";
 import {
@@ -1496,6 +1497,23 @@ function OfficeViewTab({ view }: { view: PortalOfficeView }) {
       {view.features.includes("properties") && (
         <>
           <div className="text-[13px] font-semibold mb-[8px]">Properties</div>
+          <OfficePropertyMap
+            pins={view.properties.flatMap((p) =>
+              p.latitude != null && p.longitude != null
+                ? [
+                    {
+                      id: p.id,
+                      lat: p.latitude,
+                      lng: p.longitude,
+                      name: p.name,
+                      address:
+                        [p.address, p.city].filter(Boolean).join(", ") || null,
+                      activeJobs: p.activeJobs,
+                    },
+                  ]
+                : [],
+            )}
+          />
           <div className="flex flex-col gap-[8px] mb-[14px]">
             {view.properties.map((p) => (
               <div key={p.id} className={card}>
