@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, CircleMarker, useMap } from "react-leaflet";
 import { divIcon, latLngBounds } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useGetClientBoardMap, getGetClientBoardMapQueryKey } from "@workspace/api-client-react";
@@ -104,9 +104,20 @@ function CrewTrail({ events }: { events: any[] }) {
   );
 }
 
+// Points of a crew's trail that actually have GPS coordinates, oldest→newest
+// so the polyline follows the crew's real path through the day.
+function trailPoints(events: any[] | undefined): { lat: number; lng: number; at: string; kind: string; label: string | null }[] {
+  return (events || [])
+    .filter((e) => e.lat != null && e.lng != null)
+    .map((e) => ({ lat: e.lat as number, lng: e.lng as number, at: e.at as string, kind: e.kind as string, label: (e.label ?? null) as string | null }))
+    .reverse(); // payload is newest-first
+}
+
 export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [expandedCrew, setExpandedCrew] = useState<string | null>(null);
+  // Which crew's route trail is highlighted on the map (keyed by jobId).
+  const [selectedTrail, setSelectedTrail] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const shareMap = async () => {
@@ -176,10 +187,57 @@ export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
                   </Marker>
                 )}
                 
+                {/* Selected crew's route trail: polyline + a dot per GPS event */}
+                {data?.crews?.filter((c) => selectedTrail && c.jobId === selectedTrail).map((c) => {
+                  const pts = trailPoints((c as any).events);
+                  if (!pts.length) return null;
+                  return (
+                    <Fragment key={`trail-${c.jobId}`}>
+                      {pts.length > 1 && (
+                        <Polyline
+                          positions={pts.map((p) => [p.lat, p.lng] as [number, number])}
+                          pathOptions={{ color: "#2563eb", weight: 3, opacity: 0.75, dashArray: "6 8" }}
+                        />
+                      )}
+                      {pts.map((p, pi) => (
+                        <CircleMarker
+                          key={pi}
+                          center={[p.lat, p.lng]}
+                          radius={6}
+                          pathOptions={{
+                            color: "white",
+                            weight: 2,
+                            fillColor: p.kind === "checkout" ? "#9ca3af" : "#2563eb",
+                            fillOpacity: 1,
+                          }}
+                        >
+                          <Popup className="rounded-xl border-none shadow-xl">
+                            <div className="text-sm font-bold mb-0.5">
+                              {c.crewName} · {p.kind === "checkout" ? "Checked out" : "Checked in"}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {format(parseISO(p.at), "MMM d, h:mm a")}
+                            </div>
+                            {p.label && <div className="text-xs text-muted-foreground mt-0.5">{p.label}</div>}
+                          </Popup>
+                        </CircleMarker>
+                      ))}
+                    </Fragment>
+                  );
+                })}
+
                 {data?.crews?.map((c, i) => {
                   if (c.lat == null || c.lng == null) return null;
                   return (
-                    <Marker key={c.jobId || i} position={[c.lat, c.lng]} icon={crewIcon(c)}>
+                    <Marker
+                      key={c.jobId || i}
+                      position={[c.lat, c.lng]}
+                      icon={crewIcon(c)}
+                      eventHandlers={{
+                        // Tapping a crew marker highlights that crew's trail.
+                        click: () => setSelectedTrail(c.jobId ?? null),
+                      }}
+                    >
                       <Popup className="rounded-xl border-none shadow-xl min-w-[240px]">
                         <div className="flex items-center gap-3 mb-3">
                           <Avatar className="w-10 h-10 border border-border">
@@ -322,7 +380,13 @@ export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
                     <div
                       key={c.jobId || i}
                       className="group flex items-start gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50 cursor-pointer"
-                      onClick={() => setExpandedCrew(expandedCrew === (c.jobId || String(i)) ? null : (c.jobId || String(i)))}
+                      onClick={() => {
+                        const key = c.jobId || String(i);
+                        const opening = expandedCrew !== key;
+                        setExpandedCrew(opening ? key : null);
+                        // Tapping a roster row also highlights that crew's trail on the map.
+                        setSelectedTrail(opening ? (c.jobId ?? null) : null);
+                      }}
                       data-testid={`row-crew-${c.jobId || i}`}
                     >
                       <div className="relative">
