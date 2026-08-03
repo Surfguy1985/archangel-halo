@@ -1706,6 +1706,26 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
     daySeen.set(d, n);
     return { n, of: dayCounts.get(d) ?? 1 };
   };
+  // One-tap directions for the whole day: today's stops (in route order) as
+  // Google Maps waypoints. Address-based URL — no paid API. Stops without an
+  // address are skipped from the link but remain on the list.
+  const today = localToday();
+  const todayStops = items.filter((s) => s.scheduledOn === today);
+  const todayAddresses = todayStops
+    .map((s) =>
+      s.propertyAddress
+        ? s.propertyAddress
+        : s.propertyName
+          ? `${s.propertyName}${s.propertyCity ? `, ${s.propertyCity}` : ""}`
+          : null,
+    )
+    .filter((a): a is string => Boolean(a));
+  const dayDirectionsUrl =
+    todayStops.length >= 2 && todayAddresses.length >= 1
+      ? `https://www.google.com/maps/dir/${todayAddresses
+          .map((a) => encodeURIComponent(a))
+          .join("/")}`
+      : null;
   return (
     <div className="animate-in fade-in duration-200">
       <div className="text-[13px] text-muted-foreground mb-[12px]">
@@ -1717,6 +1737,19 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
         </div>
       ) : (
         <div className="flex flex-col gap-[10px]">
+          {dayDirectionsUrl && (
+            <a
+              href={dayDirectionsUrl}
+              target="_blank"
+              rel="noreferrer"
+              data-testid="link-directions-today"
+              className="flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] text-[14px] font-display font-bold text-primary-foreground bg-[var(--gold-light)] hover:brightness-105 transition-all active:scale-[0.98]"
+            >
+              <MapPin className="w-[16px] h-[16px]" />
+              Directions for today · {todayAddresses.length} stop
+              {todayAddresses.length === 1 ? "" : "s"}
+            </a>
+          )}
           {items.map((s) => {
             const isToday = s.scheduledOn === localToday();
             const { n: stopN, of: stopOf } = stopNo(s.scheduledOn ?? null);
