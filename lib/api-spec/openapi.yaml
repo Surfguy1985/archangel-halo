@@ -1179,6 +1179,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/Job"
 
+  /jobs/{id}/dispatch:
+    post:
+      operationId: dispatchJob
+      tags: [jobs]
+      summary: Drag-and-drop dispatch — assign/reschedule a job to a crew and day, or send it back to the backlog
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DispatchInput"
+      responses:
+        "200":
+          description: Dispatched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Job or crew not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Job is finished and cannot be dispatched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /jobs/{id}/line-items:
     post:
       operationId: addJobLineItem
@@ -10530,6 +10567,18 @@ components:
         scheduledOn: { type: string }
         windowStart: { type: string }
         crewLeaderId: { type: string }
+
+    DispatchInput:
+      type: object
+      properties:
+        crewLeaderId:
+          type: string
+          nullable: true
+          description: Crew to assign; null sends the job to the backlog
+        scheduledOn:
+          type: string
+          nullable: true
+          description: Day (YYYY-MM-DD) to schedule on; null clears the date
 
     JobEvent:
       type: object

@@ -2530,6 +2530,12 @@ export interface ScheduleInput {
   crewLeaderId?: string;
 }
 
+export interface DispatchInput {
+  /** Crew to assign; null sends the job to the backlog */
+  crewLeaderId?: string | null;
+  /** Day (YYYY-MM-DD) to schedule on; null clears the date */
+  scheduledOn?: string | null;
+}
 export interface JobEvent {
   /** accepted | checkin | checkout | photo_before | photo_after | photo_progress | note | completed | email */
   kind: string;
@@ -6678,4 +6684,3 @@ status?: string;
 export type MarkClientBoardNotificationsRead200 = {
   ok: boolean;
 };
-

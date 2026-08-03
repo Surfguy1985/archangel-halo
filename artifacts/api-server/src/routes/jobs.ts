@@ -44,6 +44,9 @@ import {
   ScheduleJobBody,
   ScheduleJobParams,
   ScheduleJobResponse,
+  DispatchJobBody,
+  DispatchJobParams,
+  DispatchJobResponse,
   CompleteJobParams,
   CompleteJobResponse,
   ListJobEventsParams,
@@ -735,6 +738,140 @@ router.post("/jobs/:id/schedule", async (req, res): Promise<void> => {
   await autoSendLiveLink(id, "scheduled");
   const { propName, crewName } = await lookups();
   res.json(ScheduleJobResponse.parse(decorateJob(row, propName, crewName)));
+});
+
+// Drag-and-drop dispatch board: one transactional move that assigns (or
+// unassigns) a crew and reschedules a job, keeping the job board, broadcast
+// offers, and the crew portal schedule mirror in sync — the same rules a
+// manual assignment applies, including clearing crewVacatedAt.
+router.post("/jobs/:id/dispatch", async (req, res): Promise<void> => {
+  const { id } = DispatchJobParams.parse(req.params);
+  const body = DispatchJobBody.parse(req.body);
+  const crewLeaderId = body.crewLeaderId ?? null;
+  const scheduledOn = body.scheduledOn ?? null;
+  if (crewLeaderId && !scheduledOn) {
+    res.status(400).json({ error: "Pick a day to dispatch the crew to." });
+    return;
+  }
+  const result = await db.transaction(async (tx) => {
+    const [job] = await tx
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, id))
+      .for("update");
+    if (!job) return { status: 404 as const, error: "Job not found" };
+    if (
+      job.status === "complete" ||
+      job.status === "paid" ||
+      job.status === "cancelled"
+    ) {
+      return {
+        status: 409 as const,
+        error: "This job is already finished — it can't be dispatched.",
+      };
+    }
+    let crew: typeof crewsTable.$inferSelect | undefined;
+    if (crewLeaderId) {
+      [crew] = await tx
+        .select()
+        .from(crewsTable)
+        .where(eq(crewsTable.id, crewLeaderId));
+      if (!crew) return { status: 404 as const, error: "Crew not found" };
+    }
+    const [updated] = await tx
+      .update(jobsTable)
+      .set({
+        crewLeaderId,
+        scheduledOn,
+        // Any dispatch decision clears the "lost its crew" flag — either the
+        // job just got a crew, or the office deliberately sent it to backlog.
+        crewVacatedAt: null,
+        status: crewLeaderId
+          ? "scheduled"
+          : job.status === "scheduled"
+            ? "open"
+            : job.status,
+        boardStatus: crewLeaderId
+          ? job.boardStatus !== "removed" && job.boardStatus !== "completed"
+            ? "filled"
+            : job.boardStatus
+          : // Backlogged: a filled listing loses its crew, so it reopens on
+            // the job board (same semantics as an emergency vacate).
+            job.boardStatus === "filled"
+            ? "reopened"
+            : job.boardStatus,
+      })
+      .where(eq(jobsTable.id, id))
+      .returning();
+    if (crewLeaderId) {
+      // Withdraw still-pending offers and any other crew's approved access,
+      // exactly like a manual assignment.
+      await tx
+        .update(jobBroadcastsTable)
+        .set({ status: "withdrawn", respondedAt: new Date() })
+        .where(
+          and(
+            eq(jobBroadcastsTable.jobId, id),
+            eq(jobBroadcastsTable.status, "pending"),
+          ),
+        );
+      await tx
+        .update(jobBroadcastsTable)
+        .set({ status: "withdrawn", respondedAt: new Date() })
+        .where(
+          and(
+            eq(jobBroadcastsTable.jobId, id),
+            eq(jobBroadcastsTable.status, "approved"),
+            ne(jobBroadcastsTable.crewId, crewLeaderId),
+          ),
+        );
+    } else {
+      // Sent back to backlog: the former crew loses portal access to it.
+      await tx
+        .update(jobBroadcastsTable)
+        .set({ status: "withdrawn", respondedAt: new Date() })
+        .where(
+          and(
+            eq(jobBroadcastsTable.jobId, id),
+            inArray(jobBroadcastsTable.status, ["pending", "approved"]),
+          ),
+        );
+    }
+    // Rebuild the schedules mirror so the crew portal feed reflects the move
+    // immediately: exactly one row per dispatched job, none when backlogged.
+    const existing = await tx
+      .select()
+      .from(schedulesTable)
+      .where(eq(schedulesTable.jobId, id));
+    const windowStart = existing.find((s) => s.windowStart)?.windowStart ?? null;
+    await tx.delete(schedulesTable).where(eq(schedulesTable.jobId, id));
+    if (crewLeaderId && scheduledOn) {
+      await tx.insert(schedulesTable).values({
+        jobId: id,
+        scheduledOn,
+        windowStart,
+        crewLeaderId,
+      });
+    }
+    await tx.insert(activitiesTable).values({
+      entityType: "job",
+      entityId: id,
+      kind: crewLeaderId ? "assigned" : "flag",
+      body: crewLeaderId
+        ? `Job ${updated!.jobNo} dispatched to ${crew!.name} for ${scheduledOn}`
+        : `Job ${updated!.jobNo} moved back to the dispatch backlog`,
+    });
+    return { status: 200 as const, job: updated! };
+  });
+  if (result.status !== 200) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  if (crewLeaderId) await autoSendLiveLink(id, "scheduled");
+  const { propName, crewName } = await lookups();
+  res.json(
+    DispatchJobResponse.parse(decorateJob(result.job, propName, crewName)),
+  );
 });
 
 router.post("/jobs/:id/complete", async (req, res): Promise<void> => {

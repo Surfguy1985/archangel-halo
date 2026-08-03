@@ -12,6 +12,7 @@ import Properties from "@/pages/Properties";
 import PropertyDetail from "@/pages/PropertyDetail";
 import Money from "@/pages/Money";
 import Calendar from "@/pages/Calendar";
+import Dispatch from "@/pages/Dispatch";
 import Import from "@/pages/Import";
 import Crews from "@/pages/Crews";
 import Pipeline from "@/pages/Pipeline";
@@ -66,6 +67,7 @@ function App() {
                   <Route path="/money" component={Money} />
                   <Route path="/money/payments" component={Payments} />
                   <Route path="/calendar" component={Calendar} />
+                  <Route path="/dispatch" component={Dispatch} />
                   <Route path="/crews" component={Crews} />
                   <Route path="/crews/:id" component={CrewDetail} />
                   <Route path="/wings" component={Wings} />

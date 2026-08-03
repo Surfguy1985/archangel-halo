@@ -103,6 +103,7 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
           <NavItem href="/pipeline" icon={Target} label="Pipeline" active={location.startsWith("/pipeline")} tourId="nav-pipeline" />
           <NavItem href="/supply" icon={Package} label="Supply" active={location.startsWith("/supply")} tourId="nav-supply" />
           <NavItem href="/calendar" icon={CalendarDays} label="Calendar" active={location.startsWith("/calendar")} tourId="nav-calendar" />
+          <NavItem href="/dispatch" icon={LayoutGrid} label="Dispatch" active={location.startsWith("/dispatch")} tourId="nav-dispatch" />
           <NavItem href="/import" icon={ImportIcon} label="Import" active={location.startsWith("/import")} tourId="nav-import" />
           <NavItem href="/admin" icon={ShieldCheck} label="Admin" active={location.startsWith("/admin")} tourId="nav-admin" />
         </nav>

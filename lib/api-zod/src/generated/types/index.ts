@@ -235,6 +235,7 @@ export * from './crewUpdate';
 export * from './deleteCalendarEvent200';
 export * from './deleteVendor200';
 export * from './disconnectBankParams';
+export * from './dispatchInput';
 export * from './documentModule';
 export * from './documentModuleType';
 export * from './emergencyCandidate';
