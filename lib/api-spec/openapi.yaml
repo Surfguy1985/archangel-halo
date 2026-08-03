@@ -1842,6 +1842,62 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CrewMapPin"
+  /crews/{id}/day-plan/{day}:
+    get:
+      operationId: getCrewDayPlan
+      tags: [jobs]
+      summary: Ordered route plan for one crew on one day (saved order first, unplanned stops after)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: day
+          in: path
+          required: true
+          schema:
+            type: string
+            description: "Local day, YYYY-MM-DD"
+      responses:
+        "200":
+          description: Day plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewDayPlan"
+        "404":
+          description: Crew not found
+    put:
+      operationId: saveCrewDayPlan
+      tags: [jobs]
+      summary: Save the ordered stop keys for a crew's day
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: day
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewDayPlanSaveInput"
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewDayPlan"
+        "404":
+          description: Crew not found
   /crews/{id}:
     patch:
       operationId: updateCrew
@@ -10656,6 +10712,42 @@ components:
           description: "Today's GPS breadcrumb trail for this crew (oldest first)"
           items:
             $ref: "#/components/schemas/TrailPoint"
+    CrewDayPlanSaveInput:
+      type: object
+      required: [day, stopKeys]
+      properties:
+        day: { type: string }
+        stopKeys:
+          type: array
+          items:
+            type: string
+    CrewDayPlanStop:
+      type: object
+      required: [key, kind, title]
+      properties:
+        key: { type: string, description: "schedule row id, or event-<calendarEventId>" }
+        kind: { type: string, description: "job | event" }
+        jobId: { type: ["string", "null"] }
+        jobNo: { type: ["string", "null"] }
+        title: { type: string }
+        propertyName: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        windowStart: { type: ["string", "null"] }
+        status: { type: ["string", "null"] }
+        planned: { type: boolean, description: "true if this stop's position comes from the saved plan" }
+    CrewDayPlan:
+      type: object
+      required: [day, crewId, stops]
+      properties:
+        day: { type: string }
+        crewId: { type: string }
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrewDayPlanStop"
     PresentationDemoState:
       type: object
       required: [active, dashboardToken, propertyId]

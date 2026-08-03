@@ -16,6 +16,8 @@ import {
   schedulesTable,
   jobsTable,
   propertiesTable,
+  calendarEventsTable,
+  crewRoutePlansTable,
 } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 import {
@@ -61,6 +63,11 @@ import {
   ReviewCrewInvoiceParams,
   ReviewCrewInvoiceBody,
   ReviewCrewInvoiceResponse,
+  GetCrewDayPlanParams,
+  GetCrewDayPlanResponse,
+  SaveCrewDayPlanParams,
+  SaveCrewDayPlanBody,
+  SaveCrewDayPlanResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 import { jobLabelMap } from "../lib/jobLabels";
@@ -413,6 +420,187 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
         }),
     ),
   );
+});
+
+// Builds the stops for one crew's day: schedule rows (job stops) plus
+// crew-assigned calendar events, deduped by jobId|date — same keys as the
+// portal schedule feed (schedule row id, or "event-<calendarEventId>").
+async function buildDayStops(crewId: string, day: string) {
+  const [schedRows, eventRows] = await Promise.all([
+    db
+      .select()
+      .from(schedulesTable)
+      .where(
+        and(
+          eq(schedulesTable.crewLeaderId, crewId),
+          eq(schedulesTable.scheduledOn, day),
+        ),
+      ),
+    db
+      .select()
+      .from(calendarEventsTable)
+      .where(
+        and(
+          eq(calendarEventsTable.crewId, crewId),
+          eq(calendarEventsTable.eventDate, day),
+        ),
+      ),
+  ]);
+  const jobIds = new Set<string>();
+  for (const s of schedRows) jobIds.add(s.jobId);
+  for (const ev of eventRows) if (ev.jobId) jobIds.add(ev.jobId);
+  const jobs = jobIds.size
+    ? await db
+        .select()
+        .from(jobsTable)
+        .where(inArray(jobsTable.id, [...jobIds]))
+    : [];
+  const jobsById = new Map(jobs.map((j) => [j.id, j]));
+  const propIds = [
+    ...new Set(jobs.map((j) => j.propertyId).filter((p): p is string => !!p)),
+  ];
+  const props = propIds.length
+    ? await db
+        .select()
+        .from(propertiesTable)
+        .where(inArray(propertiesTable.id, propIds))
+    : [];
+  const propsById = new Map(props.map((p) => [p.id, p]));
+
+  const stopFor = (job: (typeof jobs)[number] | undefined) => {
+    const prop = job?.propertyId ? propsById.get(job.propertyId) : undefined;
+    const address = prop
+      ? [prop.address, prop.city].filter(Boolean).join(", ") || null
+      : null;
+    return {
+      jobId: job?.id ?? null,
+      jobNo: job?.jobNo ?? null,
+      propertyName: prop?.name ?? null,
+      address,
+      unitNo: job?.unitNo ?? null,
+      lat: prop?.latitude != null ? Number(prop.latitude) : null,
+      lng: prop?.longitude != null ? Number(prop.longitude) : null,
+    };
+  };
+
+  const stops = schedRows.map((s) => {
+    const job = jobsById.get(s.jobId);
+    return {
+      key: s.id,
+      kind: "job",
+      title: job?.description || job?.jobNo || "Job",
+      windowStart: s.windowStart ?? null,
+      status: (s.status ?? null) as string | null,
+      ...stopFor(job),
+    };
+  });
+  const scheduledJobDays = new Set(schedRows.map((s) => s.jobId));
+  for (const ev of eventRows) {
+    if (ev.jobId && scheduledJobDays.has(ev.jobId)) continue;
+    const job = ev.jobId ? jobsById.get(ev.jobId) : undefined;
+    stops.push({
+      key: `event-${ev.id}`,
+      kind: "event",
+      title: ev.title,
+      windowStart: ev.startTime ?? null,
+      status: null,
+      ...stopFor(job),
+    });
+  }
+  return stops;
+}
+
+// Time windows are free text ("9:00 AM", "13:30"); parse to minutes so the
+// default order is chronological, with unparseable/missing times last.
+function windowMinutes(w: string | null): number {
+  if (!w) return Number.MAX_SAFE_INTEGER;
+  const m = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i.exec(w.trim());
+  if (!m) return Number.MAX_SAFE_INTEGER;
+  let h = Number(m[1]);
+  const min = m[2] ? Number(m[2]) : 0;
+  const ap = m[3]?.toLowerCase();
+  if (ap === "pm" && h < 12) h += 12;
+  if (ap === "am" && h === 12) h = 0;
+  return h * 60 + min;
+}
+
+// Orders stops by the saved plan: planned keys first (in saved order), then
+// unplanned stops by time window, with address-less stops last.
+function orderStops(
+  stops: Awaited<ReturnType<typeof buildDayStops>>,
+  savedKeys: string[],
+) {
+  const byKey = new Map(stops.map((s) => [s.key, s]));
+  const planned = savedKeys
+    .filter((k) => byKey.has(k))
+    .map((k) => ({ ...byKey.get(k)!, planned: true }));
+  const plannedSet = new Set(planned.map((s) => s.key));
+  const rest = stops
+    .filter((s) => !plannedSet.has(s.key))
+    .sort((a, b) => {
+      const aCoords = a.lat != null && a.lng != null;
+      const bCoords = b.lat != null && b.lng != null;
+      if (aCoords !== bCoords) return aCoords ? -1 : 1;
+      return windowMinutes(a.windowStart) - windowMinutes(b.windowStart);
+    })
+    .map((s) => ({ ...s, planned: false }));
+  return [...planned, ...rest];
+}
+
+router.get("/crews/:id/day-plan/:day", async (req, res): Promise<void> => {
+  const { id, day } = GetCrewDayPlanParams.parse(req.params);
+  const [crew] = await db
+    .select({ id: crewsTable.id })
+    .from(crewsTable)
+    .where(eq(crewsTable.id, id))
+    .limit(1);
+  if (!crew) {
+    res.status(404).json({ error: "Crew not found" });
+    return;
+  }
+  const [plan] = await db
+    .select()
+    .from(crewRoutePlansTable)
+    .where(
+      and(
+        eq(crewRoutePlansTable.crewId, id),
+        eq(crewRoutePlansTable.day, day),
+      ),
+    )
+    .limit(1);
+  const savedKeys = Array.isArray(plan?.stopKeys)
+    ? (plan.stopKeys as string[])
+    : [];
+  const stops = orderStops(await buildDayStops(id, day), savedKeys);
+  res.json(GetCrewDayPlanResponse.parse({ day, crewId: id, stops }));
+});
+
+router.put("/crews/:id/day-plan/:day", async (req, res): Promise<void> => {
+  const { id, day } = SaveCrewDayPlanParams.parse(req.params);
+  const body = SaveCrewDayPlanBody.parse(req.body);
+  const [crew] = await db
+    .select({ id: crewsTable.id })
+    .from(crewsTable)
+    .where(eq(crewsTable.id, id))
+    .limit(1);
+  if (!crew) {
+    res.status(404).json({ error: "Crew not found" });
+    return;
+  }
+  // Only store keys that actually exist for this crew's day, so junk or
+  // stale keys can't accumulate in the plan.
+  const stops = await buildDayStops(id, day);
+  const valid = new Set(stops.map((s) => s.key));
+  const keys = [...new Set(body.stopKeys)].filter((k) => valid.has(k));
+  await db
+    .insert(crewRoutePlansTable)
+    .values({ crewId: id, day, stopKeys: keys, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: [crewRoutePlansTable.crewId, crewRoutePlansTable.day],
+      set: { stopKeys: keys, updatedAt: new Date() },
+    });
+  const ordered = orderStops(stops, keys);
+  res.json(SaveCrewDayPlanResponse.parse({ day, crewId: id, stops: ordered }));
 });
 
 router.get("/crews/:id/checkins", async (req, res): Promise<void> => {

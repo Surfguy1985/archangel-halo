@@ -8,6 +8,7 @@ import {
   timestamp,
   date,
   jsonb,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const crewsTable = pgTable("crews", {
@@ -130,6 +131,25 @@ export const schedulesTable = pgTable("schedules", {
     .notNull()
     .defaultNow(),
 });
+
+// Per-crew, per-day route plan: an ordered list of stop keys. A stop key is
+// either a schedules-row id (job stop) or "event-<calendarEventId>" — the same
+// keys the crew portal schedule feed uses for its items.
+export const crewRoutePlansTable = pgTable(
+  "crew_route_plans",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    crewId: uuid("crew_id").notNull(),
+    day: date("day", { mode: "string" }).notNull(),
+    stopKeys: jsonb("stop_keys").notNull().default([]),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("crew_route_plans_crew_day_uq").on(t.crewId, t.day)],
+);
+
+export type CrewRoutePlan = typeof crewRoutePlansTable.$inferSelect;
 
 export type Crew = typeof crewsTable.$inferSelect;
 export type Job = typeof jobsTable.$inferSelect;

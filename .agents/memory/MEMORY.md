@@ -76,4 +76,5 @@
 - [HALO client rails board](halo-client-rails.md) — vendors tab is five fixed rails (Needs you first), client-side mapping over unchanged lanes; no client drag; lime accent reserved; waybill lives on the sheet.
 - [HALO board concierge](halo-concierge.md) — chatbot tools go through internal HTTP with caller's creds; mutations only via one-time HMAC confirm chips (jti claimed in DB pre-execution).
 - [HALO office passcode gate](halo-office-auth.md) — office API locked behind passcode+cookie; new public token surfaces must join PUBLIC_PREFIXES or they 401.
+- [HALO crew route plans](halo-crew-route-plans.md) — day-route stop keys (schedule id / event-<id>) shared by office API + portal feed; free-text times must never sort lexicographically.
 - [HALO crew GPS trail](halo-gps-trail.md) — 30s breadcrumb pings; jobId always from the open check-in; local-midnight day basis as SQL param; after-photos checkout gate.

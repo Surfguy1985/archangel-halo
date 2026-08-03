@@ -1345,6 +1345,20 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
 
 function ScheduleTab({ portal }: { portal: PortalBundle }) {
   const items = portal.schedule;
+  // Server returns items already in route order within each day; number the
+  // stops so crews can follow the plan (only shown for multi-stop days).
+  const dayCounts = new Map<string, number>();
+  for (const s of items) {
+    const d = s.scheduledOn ?? "";
+    dayCounts.set(d, (dayCounts.get(d) ?? 0) + 1);
+  }
+  const daySeen = new Map<string, number>();
+  const stopNo = (day: string | null) => {
+    const d = day ?? "";
+    const n = (daySeen.get(d) ?? 0) + 1;
+    daySeen.set(d, n);
+    return { n, of: dayCounts.get(d) ?? 1 };
+  };
   return (
     <div className="animate-in fade-in duration-200">
       <div className="text-[13px] text-muted-foreground mb-[12px]">
@@ -1358,6 +1372,7 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
         <div className="flex flex-col gap-[10px]">
           {items.map((s) => {
             const isToday = s.scheduledOn === localToday();
+            const { n: stopN, of: stopOf } = stopNo(s.scheduledOn ?? null);
             const mapsQuery = s.propertyAddress
               ? s.propertyAddress
               : s.propertyName
@@ -1376,6 +1391,11 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
                   {s.windowStart && (
                     <span className="text-[12px] text-muted-foreground">
                       · {s.windowStart}
+                    </span>
+                  )}
+                  {stopOf > 1 && (
+                    <span className="text-[10.5px] font-bold uppercase tracking-wide px-[7px] py-[2px] rounded-full bg-[var(--ink)]/8 text-[var(--ink)]">
+                      Stop {stopN} of {stopOf}
                     </span>
                   )}
                   {isToday && (

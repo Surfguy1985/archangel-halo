@@ -127,6 +127,8 @@ import type {
   CrewBankStatus,
   CrewCheckin,
   CrewCheckinInput,
+  CrewDayPlan,
+  CrewDayPlanSaveInput,
   CrewDetail,
   CrewDocument,
   CrewDocumentInput,
@@ -6328,6 +6330,162 @@ export function useGetCrewMapPins<TData = Awaited<ReturnType<typeof getCrewMapPi
 
 
 
+
+export const getGetCrewDayPlanUrl = (id: string,
+    day: string,) => {
+
+
+
+
+  return `/api/crews/${id}/day-plan/${day}`
+}
+
+/**
+ * @summary Ordered route plan for one crew on one day (saved order first, unplanned stops after)
+ */
+export const getCrewDayPlan = async (id: string,
+    day: string, options?: RequestInit): Promise<CrewDayPlan> => {
+
+  return customFetch<CrewDayPlan>(getGetCrewDayPlanUrl(id,day),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrewDayPlanQueryKey = (id: string,
+    day: string,) => {
+    return [
+    `/api/crews/${id}/day-plan/${day}`
+    ] as const;
+    }
+
+
+export const getGetCrewDayPlanQueryOptions = <TData = Awaited<ReturnType<typeof getCrewDayPlan>>, TError = ErrorType<void>>(id: string,
+    day: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewDayPlan>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrewDayPlanQueryKey(id,day);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrewDayPlan>>> = ({ signal }) => getCrewDayPlan(id,day, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined && day !== null && day !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrewDayPlan>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCrewDayPlanQueryResult = NonNullable<Awaited<ReturnType<typeof getCrewDayPlan>>>
+export type GetCrewDayPlanQueryError = ErrorType<void>
+
+
+/**
+ * @summary Ordered route plan for one crew on one day (saved order first, unplanned stops after)
+ */
+
+export function useGetCrewDayPlan<TData = Awaited<ReturnType<typeof getCrewDayPlan>>, TError = ErrorType<void>>(
+ id: string,
+    day: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewDayPlan>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCrewDayPlanQueryOptions(id,day,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveCrewDayPlanUrl = (id: string,
+    day: string,) => {
+
+
+
+
+  return `/api/crews/${id}/day-plan/${day}`
+}
+
+/**
+ * @summary Save the ordered stop keys for a crew's day
+ */
+export const saveCrewDayPlan = async (id: string,
+    day: string,
+    crewDayPlanSaveInput: CrewDayPlanSaveInput, options?: RequestInit): Promise<CrewDayPlan> => {
+
+  return customFetch<CrewDayPlan>(getSaveCrewDayPlanUrl(id,day),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewDayPlanSaveInput)
+  }
+);}
+
+
+
+
+
+export const getSaveCrewDayPlanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveCrewDayPlan>>, TError,{id: string;day: string;data: BodyType<CrewDayPlanSaveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveCrewDayPlan>>, TError,{id: string;day: string;data: BodyType<CrewDayPlanSaveInput>}, TContext> => {
+
+const mutationKey = ['saveCrewDayPlan'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveCrewDayPlan>>, {id: string;day: string;data: BodyType<CrewDayPlanSaveInput>}> = (props) => {
+          const {id,day,data} = props ?? {};
+
+          return  saveCrewDayPlan(id,day,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveCrewDayPlanMutationResult = NonNullable<Awaited<ReturnType<typeof saveCrewDayPlan>>>
+    export type SaveCrewDayPlanMutationBody = BodyType<CrewDayPlanSaveInput>
+    export type SaveCrewDayPlanMutationError = ErrorType<void>
+
+    /**
+ * @summary Save the ordered stop keys for a crew's day
+ */
+export const useSaveCrewDayPlan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveCrewDayPlan>>, TError,{id: string;day: string;data: BodyType<CrewDayPlanSaveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveCrewDayPlan>>,
+        TError,
+        {id: string;day: string;data: BodyType<CrewDayPlanSaveInput>},
+        TContext
+      > => {
+      return useMutation(getSaveCrewDayPlanMutationOptions(options));
+    }
 
 export const getUpdateCrewUrl = (id: string,) => {
 

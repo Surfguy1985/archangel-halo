@@ -2769,6 +2769,45 @@ export interface CrewMapPin {
   trail?: TrailPoint[];
 }
 
+export interface CrewDayPlanSaveInput {
+  day: string;
+  stopKeys: string[];
+}
+
+export interface CrewDayPlanStop {
+  /** schedule row id, or event-<calendarEventId> */
+  key: string;
+  /** job | event */
+  kind: string;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  jobNo?: string | null;
+  title: string;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** @nullable */
+  windowStart?: string | null;
+  /** @nullable */
+  status?: string | null;
+  /** true if this stop's position comes from the saved plan */
+  planned?: boolean;
+}
+
+export interface CrewDayPlan {
+  day: string;
+  crewId: string;
+  stops: CrewDayPlanStop[];
+}
+
 export interface PresentationDemoState {
   active: boolean;
   /** @nullable */

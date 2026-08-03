@@ -11,6 +11,7 @@ import {
   crewMessagesTable,
   crewCheckinsTable,
   crewTrackPointsTable,
+  crewRoutePlansTable,
   crewDocumentsTable,
   crewPacketsTable,
   crewPaymentsTable,
@@ -1747,6 +1748,9 @@ router.delete("/crews/:id", async (req, res): Promise<void> => {
     await tx.delete(crewMessagesTable).where(eq(crewMessagesTable.crewId, id));
     await tx.delete(crewCheckinsTable).where(eq(crewCheckinsTable.crewId, id));
     await tx.delete(crewTrackPointsTable).where(eq(crewTrackPointsTable.crewId, id));
+    await tx
+      .delete(crewRoutePlansTable)
+      .where(eq(crewRoutePlansTable.crewId, id));
     await tx
       .delete(crewDocumentsTable)
       .where(eq(crewDocumentsTable.crewId, id));

@@ -13,6 +13,7 @@ import {
   crewInvoicesTable,
   crewInvoiceItemsTable,
   schedulesTable,
+  crewRoutePlansTable,
   jobsTable,
   jobBroadcastsTable,
   priceItemsTable,
@@ -341,9 +342,47 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       tasks: ev.notes ? taskify(ev.notes) : taskify(job?.description),
     });
   }
-  schedule.sort((a, b) =>
-    (a.scheduledOn ?? "").localeCompare(b.scheduledOn ?? ""),
-  );
+  // Time windows are free text ("9:00 AM", "13:30"); parse to minutes so the
+  // fallback order is chronological, unparseable/missing last.
+  const windowMinutes = (w: string | null): number => {
+    if (!w) return Number.MAX_SAFE_INTEGER;
+    const m = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i.exec(w.trim());
+    if (!m) return Number.MAX_SAFE_INTEGER;
+    let h = Number(m[1]);
+    const min = m[2] ? Number(m[2]) : 0;
+    const ap = m[3]?.toLowerCase();
+    if (ap === "pm" && h < 12) h += 12;
+    if (ap === "am" && h === 12) h = 0;
+    return h * 60 + min;
+  };
+  // Apply the office's saved route order within each day: planned stops first
+  // (in saved order), everything else after by time.
+  const planRows = await db
+    .select()
+    .from(crewRoutePlansTable)
+    .where(
+      and(
+        eq(crewRoutePlansTable.crewId, crew.id),
+        gte(crewRoutePlansTable.day, weekStart),
+        lte(crewRoutePlansTable.day, weekEnd),
+      ),
+    );
+  const orderByDay = new Map<string, Map<string, number>>();
+  for (const p of planRows) {
+    const keys = Array.isArray(p.stopKeys) ? (p.stopKeys as string[]) : [];
+    orderByDay.set(p.day, new Map(keys.map((k, i) => [k, i])));
+  }
+  const planIdx = (item: { id: string; scheduledOn: string | null }) => {
+    const m = item.scheduledOn ? orderByDay.get(item.scheduledOn) : undefined;
+    return m?.get(item.id) ?? Number.MAX_SAFE_INTEGER;
+  };
+  schedule.sort((a, b) => {
+    const byDay = (a.scheduledOn ?? "").localeCompare(b.scheduledOn ?? "");
+    if (byDay !== 0) return byDay;
+    const byPlan = planIdx(a) - planIdx(b);
+    if (byPlan !== 0) return byPlan;
+    return windowMinutes(a.windowStart) - windowMinutes(b.windowStart);
+  });
 
   // Job offers broadcast to this crew (pending first, then recent responses).
   const offerRows = await db

@@ -2864,6 +2864,69 @@ export const GetCrewMapPinsResponseItem = zod.object({
 export const GetCrewMapPinsResponse = zod.array(GetCrewMapPinsResponseItem)
 
 
+/**
+ * @summary Ordered route plan for one crew on one day (saved order first, unplanned stops after)
+ */
+export const GetCrewDayPlanParams = zod.object({
+  "id": zod.coerce.string(),
+  "day": zod.coerce.string()
+})
+
+export const GetCrewDayPlanResponse = zod.object({
+  "day": zod.string(),
+  "crewId": zod.string(),
+  "stops": zod.array(zod.object({
+  "key": zod.string().describe('schedule row id, or event-<calendarEventId>'),
+  "kind": zod.string().describe('job | event'),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "title": zod.string(),
+  "propertyName": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "windowStart": zod.string().nullish(),
+  "status": zod.string().nullish(),
+  "planned": zod.boolean().optional().describe('true if this stop\'s position comes from the saved plan')
+}))
+})
+
+
+/**
+ * @summary Save the ordered stop keys for a crew's day
+ */
+export const SaveCrewDayPlanParams = zod.object({
+  "id": zod.coerce.string(),
+  "day": zod.coerce.string()
+})
+
+export const SaveCrewDayPlanBody = zod.object({
+  "day": zod.string(),
+  "stopKeys": zod.array(zod.string())
+})
+
+export const SaveCrewDayPlanResponse = zod.object({
+  "day": zod.string(),
+  "crewId": zod.string(),
+  "stops": zod.array(zod.object({
+  "key": zod.string().describe('schedule row id, or event-<calendarEventId>'),
+  "kind": zod.string().describe('job | event'),
+  "jobId": zod.string().nullish(),
+  "jobNo": zod.string().nullish(),
+  "title": zod.string(),
+  "propertyName": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "windowStart": zod.string().nullish(),
+  "status": zod.string().nullish(),
+  "planned": zod.boolean().optional().describe('true if this stop\'s position comes from the saved plan')
+}))
+})
+
+
 export const UpdateCrewParams = zod.object({
   "id": zod.coerce.string()
 })

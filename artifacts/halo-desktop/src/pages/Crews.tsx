@@ -5,12 +5,15 @@ import { Users, Plus, Search, MapPin, CheckCircle, Clock, Pencil, Navigation} fr
 import { useState} from "react";
 import { AddCrewDialog, EditCrewDialog, type EditableCrew} from "@/components/CrewDialogs";
 import { CrewCommandCenter } from "@/components/CrewCommandCenter";
+import { CrewDayPlanDialog } from "@/components/CrewDayPlanDialog";
+import { Route } from "lucide-react";
 
 export default function Crews() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [editing, setEditing] = useState<EditableCrew | null>(null);
+  const [planCrew, setPlanCrew] = useState<{ id: string; name: string } | null>(null);
   const { data: crews, isLoading } = useListCrews();
 
   const filtered = crews?.filter(c => 
@@ -93,6 +96,18 @@ export default function Crews() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        setPlanCrew({ id: crew.id, name: crew.name });
+                      }}
+                      aria-label={`Plan ${crew.name}'s day`}
+                      title="Day route"
+                      className="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-black/5 hover:text-foreground transition-all"
+                    >
+                      <Route className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         setEditing(crew);
                       }}
                       aria-label={`Edit ${crew.name}`}
@@ -137,6 +152,13 @@ export default function Crews() {
         </div>
       )}
 
+      {planCrew && (
+        <CrewDayPlanDialog
+          crewId={planCrew.id}
+          crewName={planCrew.name}
+          onClose={() => setPlanCrew(null)}
+        />
+      )}
       <AddCrewDialog open={addOpen} onOpenChange={setAddOpen} />
       {editing && (
         <EditCrewDialog
