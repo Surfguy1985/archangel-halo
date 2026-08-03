@@ -9410,6 +9410,7 @@ components:
         jobId: { type: ["string", "null"] }
         jobNo: { type: ["string", "null"] }
         budgetEstimate: { type: ["number", "null"] }
+        listRate: { type: ["number", "null"], description: "Current price-list rate (per unit) for the requested service, for over-budget flagging" }
         decidedAt: { type: ["string", "null"] }
         createdAt: { type: string }
     WorkRequestDeclineInput:

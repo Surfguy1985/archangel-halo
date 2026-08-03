@@ -53,6 +53,7 @@ function serRequest(
   propName: Map<string, string>,
   jobNo?: string | null,
   changeOrderJobNo?: string | null,
+  listRate?: number | null,
 ) {
   return {
     id: r.id,
@@ -77,6 +78,7 @@ function serRequest(
     jobId: r.jobId,
     jobNo: jobNo ?? null,
     budgetEstimate: r.budgetEstimate ?? null,
+    listRate: listRate ?? null,
     decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null,
     createdAt: r.createdAt.toISOString(),
   };
@@ -298,10 +300,28 @@ router.get("/work-requests", async (req, res): Promise<void> => {
       .from(jobsTable);
     for (const j of jobs) jobNoById.set(j.id, j.jobNo);
   }
+  // Attach the current price-list rate so the office can spot budgets above
+  // list price before accepting.
+  const serviceIds = rows
+    .map((r) => r.serviceId)
+    .filter((v): v is string => !!v);
+  const rateByServiceId = new Map<string, number | null>();
+  if (serviceIds.length) {
+    const items = await db
+      .select({ id: priceItemsTable.id, rate: priceItemsTable.rate })
+      .from(priceItemsTable);
+    for (const it of items) rateByServiceId.set(it.id, it.rate ?? null);
+  }
   res.json(
     ListWorkRequestsResponse.parse(
       rows.map((r) =>
-        serRequest(r, propName, r.jobId ? jobNoById.get(r.jobId) : null),
+        serRequest(
+          r,
+          propName,
+          r.jobId ? jobNoById.get(r.jobId) : null,
+          null,
+          r.serviceId ? (rateByServiceId.get(r.serviceId) ?? null) : null,
+        ),
       ),
     ),
   );

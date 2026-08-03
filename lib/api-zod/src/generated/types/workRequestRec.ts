@@ -42,6 +42,11 @@ export interface WorkRequestRec {
   jobNo?: string | null;
   /** @nullable */
   budgetEstimate?: number | null;
+  /**
+     * Current price-list rate (per unit) for the requested service, for over-budget flagging
+     * @nullable
+     */
+  listRate?: number | null;
   /** @nullable */
   decidedAt?: string | null;
   createdAt: string;

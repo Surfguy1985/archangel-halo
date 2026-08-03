@@ -13,7 +13,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton} from "@/components/ui/skeleton";
-import { Plus, Target, FileText, Zap, Mail, Phone, Inbox, Check, X, CalendarClock, Loader2} from "lucide-react";
+import { Plus, Target, FileText, Zap, Mail, Phone, Inbox, Check, X, CalendarClock, Loader2, TriangleAlert } from "lucide-react";
 import { Card, CardContent} from "@/components/ui/card";
 import { format} from "date-fns";
 import {
@@ -78,6 +78,27 @@ function WorkRequestsPanel() {
                       <CalendarClock className="w-3.5 h-3.5" /> Complete by {format(new Date(`${r.neededBy}T12:00:00`), "MMM d, yyyy")}
                     </div>
                   )}
+                  {r.budgetEstimate != null && (() => {
+                    const unitCount = Math.max(r.units?.length ?? 0, 1);
+                    const listTotal = r.listRate != null ? r.listRate * unitCount : null;
+                    const overList = listTotal != null && r.budgetEstimate! > listTotal;
+                    return (
+                      <div className="flex items-center gap-1.5 text-[12px] mt-1" data-testid={`text-request-budget-${r.id}`}>
+                        <span className="font-semibold text-[var(--ink)]">
+                          Client budget ${r.budgetEstimate!.toLocaleString()}
+                        </span>
+                        {overList && (
+                          <span
+                            className="flex items-center gap-1 font-bold text-amber-700 bg-amber-100 rounded-full px-2 py-0.5"
+                            title={`Above list price — list is $${listTotal!.toLocaleString()} (${unitCount > 1 ? `${unitCount} × ` : ""}$${r.listRate!.toLocaleString()})`}
+                            data-testid={`badge-over-list-${r.id}`}
+                          >
+                            <TriangleAlert className="w-3 h-3" /> Above list (${listTotal!.toLocaleString()})
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {r.poNumber ? (
                     <div className="text-[12px] font-semibold text-[var(--ink)] mt-1" data-testid={`text-request-po-${r.id}`}>
                       PO {r.poNumber}

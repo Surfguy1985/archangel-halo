@@ -9086,6 +9086,7 @@ export const CreateClientWorkRequestResponse = zod.object({
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
   "budgetEstimate": zod.number().nullish(),
+  "listRate": zod.number().nullish().describe('Current price-list rate (per unit) for the requested service, for over-budget flagging'),
   "decidedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -9120,6 +9121,7 @@ export const ListWorkRequestsResponseItem = zod.object({
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
   "budgetEstimate": zod.number().nullish(),
+  "listRate": zod.number().nullish().describe('Current price-list rate (per unit) for the requested service, for over-budget flagging'),
   "decidedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -9160,6 +9162,7 @@ export const AcceptWorkRequestResponse = zod.object({
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
   "budgetEstimate": zod.number().nullish(),
+  "listRate": zod.number().nullish().describe('Current price-list rate (per unit) for the requested service, for over-budget flagging'),
   "decidedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -9198,6 +9201,7 @@ export const DeclineWorkRequestResponse = zod.object({
   "jobId": zod.string().nullish(),
   "jobNo": zod.string().nullish(),
   "budgetEstimate": zod.number().nullish(),
+  "listRate": zod.number().nullish().describe('Current price-list rate (per unit) for the requested service, for over-budget flagging'),
   "decidedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })

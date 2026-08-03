@@ -112,7 +112,14 @@ export async function computeQueues(): Promise<{
       entityType: "work_request",
       entityId: r.id,
       propertyId: r.propertyId,
-      meta: r.emergency ? [{ label: "≤24h notice", warn: true }] : undefined,
+      amount: r.budgetEstimate ?? undefined,
+      meta: (() => {
+        const pills: { label: string; warn?: boolean }[] = [];
+        if (r.emergency) pills.push({ label: "≤24h notice", warn: true });
+        if (r.budgetEstimate != null)
+          pills.push({ label: `Budget $${r.budgetEstimate.toLocaleString()}` });
+        return pills.length ? pills : undefined;
+      })(),
       actions: [
         { label: "Approve", action: "approveRequest", kind: "gold" },
         { label: "Decline", action: "declineRequest", kind: "line" },
