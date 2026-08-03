@@ -16,7 +16,7 @@ import {
   getGetTodayQueryKey,
   type InvoiceLineItemInput,
 } from "@workspace/api-client-react";
-import { ChevronLeft, Pencil, Plus, Save, Send, ShieldCheck, Trash2, Zap} from "lucide-react";
+import { AlertTriangle, ChevronLeft, Pencil, Plus, Save, Send, ShieldCheck, Trash2, Zap} from "lucide-react";
 import { useToast} from "@/hooks/use-toast";
 import { Button} from "@/components/ui/button";
 import { Input} from "@/components/ui/input";
@@ -227,6 +227,16 @@ export default function CreateInvoice() {
     () => Math.round(items.reduce((s, it) => s + itemAmount(it), 0) * 100) / 100,
     [items],
   );
+
+  // Client's stated budget carried from the work request onto the linked job:
+  // warn (don't block) when the invoice total exceeds what they expected.
+  const clientBudget =
+    initialJobId &&
+    initialJobDetail?.job &&
+    typeof initialJobDetail.job.clientBudget === "number"
+      ? initialJobDetail.job.clientBudget
+      : null;
+  const overBudget = clientBudget != null && total > clientBudget;
 
   const validItems = items.filter((it) => it.typeOfWork.trim());
   const canSave =
@@ -556,6 +566,21 @@ export default function CreateInvoice() {
             <span className="font-display font-bold text-sm">Total Due</span>
             <span className="font-display font-bold text-2xl font-mono text-[var(--secondary)]">{money(total)}</span>
           </div>
+          {overBudget && (
+            <div
+              className="rounded-lg border border-[rgba(190,140,20,0.35)] bg-[rgba(255,196,66,0.12)] p-3 flex items-start gap-2"
+              data-testid="banner-over-budget"
+            >
+              <AlertTriangle className="w-4 h-4 text-[#8f6a1f] shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <span className="font-semibold">Over the client's budget.</span>{" "}
+                <span className="text-muted-foreground">
+                  This total ({money(total)}) exceeds the {money(clientBudget!)} budget the client gave on
+                  their work request. You can still send it — just expect questions.
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Payment instructions + notes */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">

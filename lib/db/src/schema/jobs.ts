@@ -75,6 +75,9 @@ export const jobsTable = pgTable("jobs", {
   // Bonus offered on top of crewRate via an emergency ping; flows through
   // job financials and the labor ledger like any other crew cost.
   emergencyBonus: doublePrecision("emergency_bonus"),
+  // Client's stated budget carried over from the accepted work request; the
+  // invoice editors warn when an invoice total exceeds it.
+  clientBudget: doublePrecision("client_budget"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

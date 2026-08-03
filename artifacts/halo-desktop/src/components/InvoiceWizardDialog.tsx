@@ -320,6 +320,28 @@ function JobInvoiceBuilder({
           {draft.notes && (
             <div className="text-[12px] text-muted-foreground whitespace-pre-wrap">{draft.notes}</div>
           )}
+          {(() => {
+            // Client's stated budget carried from the work request onto the
+            // job: warn (don't block) when the draft total exceeds it.
+            const job = (jobs ?? []).find((j) => j.id === draft.jobId);
+            const budget = typeof job?.clientBudget === "number" ? job.clientBudget : null;
+            if (budget == null || draft.total <= budget) return null;
+            return (
+              <div
+                className="rounded-lg border border-[rgba(190,140,20,0.35)] bg-[rgba(255,196,66,0.12)] p-3 flex items-start gap-2"
+                data-testid="banner-over-budget"
+              >
+                <AlertTriangle className="w-4 h-4 text-[#8f6a1f] shrink-0 mt-0.5" />
+                <div className="text-[12.5px]">
+                  <span className="font-semibold">Over the client's budget.</span>{" "}
+                  <span className="text-muted-foreground">
+                    This total ({money(draft.total)}) exceeds the {money(budget)} budget the client gave
+                    on their work request. You can still send it — just expect questions.
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
 
           <Button
             onClick={runCreate}

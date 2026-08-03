@@ -10210,6 +10210,7 @@ components:
         crewPaidAt: { type: ["string", "null"], description: "When the crew payment was completed (property detail only)" }
         isRecurring: { type: ["boolean", "null"] }
         recurrence: { type: ["string", "null"], description: "daily | weekly | biweekly | monthly | quarterly" }
+        clientBudget: { type: ["number", "null"], description: "Client's stated budget carried from the accepted work request; invoice editors warn when the total exceeds it" }
         createdAt: { type: ["string", "null"] }
         lineItems:
           type: array

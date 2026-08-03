@@ -253,6 +253,15 @@ export function InvoiceEditor({
     (parseFloat(r.qty) || 0) * (parseFloat(r.unitPrice) || 0);
   const total = rows.reduce((s, r) => s + rowAmount(r), 0);
 
+  // Client's stated budget carried from the work request onto the linked job:
+  // warn (don't block) when the invoice total exceeds what they expected.
+  const linkedJob =
+    jobs?.find((j) => j.id === jobId) ??
+    (initialJobDetail?.job?.id === jobId ? initialJobDetail.job : undefined);
+  const clientBudget =
+    typeof linkedJob?.clientBudget === "number" ? linkedJob.clientBudget : null;
+  const overBudget = clientBudget != null && total > clientBudget;
+
   const validRows = rows.filter((r) => r.typeOfWork.trim());
   const canSubmit = !!propertyId && validRows.length > 0 && !pending;
 
@@ -481,6 +490,27 @@ export function InvoiceEditor({
                     {money(total)}
                   </span>
                 </div>
+                {overBudget && (
+                  <div
+                    className="mb-[10px] rounded-[16px] border border-[rgba(190,140,20,0.35)] bg-[rgba(255,196,66,0.12)] p-[12px]"
+                    data-testid="banner-over-budget"
+                  >
+                    <div className="flex items-start gap-[8px]">
+                      <AlertTriangle className="w-[16px] h-[16px] text-[#8f6a1f] shrink-0 mt-[2px]" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-[13px] text-[var(--ink)]">
+                          Over the client's budget
+                        </div>
+                        <div className="text-[12px] text-muted-foreground mt-[2px]">
+                          This total ({money(total)}) exceeds the{" "}
+                          {money(clientBudget!)} budget the client gave on their
+                          work request. You can still send it — just expect
+                          questions.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {rows.length === 0 && (
                   <div className="text-[13px] text-muted-foreground bg-card/60 border border-dashed border-[var(--hairline)] rounded-[14px] p-[14px] text-center mb-[10px]">
                     {priceItems.length > 0

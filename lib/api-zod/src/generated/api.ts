@@ -268,6 +268,7 @@ export const GetPropertyResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1285,6 +1286,7 @@ export const QuickCreateJobResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1351,6 +1353,7 @@ export const PullCrewToJobResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1402,6 +1405,7 @@ export const PullCrewToJobResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1461,6 +1465,7 @@ export const ListJobsResponseItem = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1536,6 +1541,7 @@ export const CreateJobResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1594,6 +1600,7 @@ export const GetJobResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1718,6 +1725,7 @@ export const UpdateJobResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1790,6 +1798,7 @@ export const CompleteJobResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1850,6 +1859,7 @@ export const ClearJobResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1910,6 +1920,7 @@ export const RestartJobResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1976,6 +1987,7 @@ export const ScheduleJobResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -2122,6 +2134,7 @@ export const SendJobRecapResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -2425,6 +2438,7 @@ export const ListJobBoardResponseItem = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -2551,6 +2565,7 @@ export const UpdateBoardSettingsResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -2611,6 +2626,7 @@ export const ReopenJobResponse = zod.object({
   "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),

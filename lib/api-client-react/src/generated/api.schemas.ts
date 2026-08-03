@@ -1774,6 +1774,11 @@ export interface Job {
      * @nullable
      */
   recurrence?: string | null;
+  /**
+     * Client's stated budget carried from the accepted work request; invoice editors warn when the total exceeds it
+     * @nullable
+     */
+  clientBudget?: number | null;
   /** @nullable */
   createdAt?: string | null;
   lineItems?: JobLineItem[];

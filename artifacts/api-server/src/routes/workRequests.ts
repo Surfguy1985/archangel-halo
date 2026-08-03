@@ -403,6 +403,9 @@ router.post("/work-requests/:id/accept", async (req, res): Promise<void> => {
           // Requested complete-by date becomes a flex deadline on the card.
           scheduleType: neededBy ? "flex" : "scheduled",
           flexDueBy: neededBy,
+          // Carry the client's stated budget onto the job so invoice
+          // editors can flag over-budget totals before sending.
+          clientBudget: request.budgetEstimate ?? null,
         })
         .returning();
       jobId = job!.id;
