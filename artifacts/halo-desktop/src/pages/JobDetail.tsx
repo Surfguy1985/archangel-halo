@@ -30,6 +30,7 @@ import { PushCardDialog, type PushPrefill } from "@/components/PushCardDialog";
 import { RecordPaymentDialog } from "@/components/MoneyDialogs";
 import { SendInvoiceDialog } from "@/components/SendInvoiceDialog";
 import { MarginSection} from "@/components/MarginSection";
+import { JobDispatchMembers } from "@/components/PropertyDispatchDay";
 import { CrewPhotosSection} from "@/components/CrewPhotosSection";
 import { useQueryClient} from "@tanstack/react-query";
 import { useParams, Link, useLocation} from "wouter";
@@ -682,6 +683,29 @@ export default function JobDetail() {
               {!schedules.length && <div className="p-4 text-center text-sm text-muted-foreground">Not scheduled.</div>}
             </div>
           </section>
+
+          {(() => {
+            const active = schedules.find((s) => s.status !== "cancelled") ?? schedules[0];
+            const dispatchDay = active ? String(active.scheduledOn).slice(0, 10) : null;
+            if (!dispatchDay) return null;
+            return (
+              <section>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-display font-bold text-[var(--ink)]">Dispatched members</h2>
+                  <Link
+                    href={`/calendar?view=dispatch&day=${dispatchDay}`}
+                    data-testid="link-dispatch-view"
+                    className="text-sm font-semibold text-[var(--gold-dark)] hover:underline"
+                  >
+                    Open Dispatch
+                  </Link>
+                </div>
+                <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)]">
+                  <JobDispatchMembers day={dispatchDay} jobId={id} />
+                </div>
+              </section>
+            );
+          })()}
 
           <section>
             <h2 className="text-lg font-display font-bold mb-3 text-[var(--ink)]">Expenses</h2>

@@ -72,6 +72,86 @@ function CheckinDot({ status }: { status?: string | null }) {
   );
 }
 
+/**
+ * Read-only member chips for one job on a given day, reused on the job
+ * detail page. Shows each assigned member with check-in dot + checklist
+ * progress, pulled from the same dispatch board feed.
+ */
+export function JobDispatchMembers({ day, jobId }: { day: string; jobId: string }) {
+  const { data, isLoading, error } = useGetDispatchBoard(day, {
+    query: {
+      queryKey: getGetDispatchBoardQueryKey(day),
+      refetchInterval: 30_000,
+    },
+  });
+
+  if (isLoading) return <Skeleton className="h-16 w-full" />;
+  if (error || !data) {
+    return (
+      <div className="p-4 text-center text-sm text-muted-foreground">
+        Couldn't load dispatch info.
+      </div>
+    );
+  }
+
+  const job = data.properties
+    .flatMap((p) => p.jobs)
+    .find((j) => j.jobId === jobId);
+  const assignments = job?.assignments ?? [];
+
+  if (assignments.length === 0) {
+    return (
+      <div className="p-4 text-center text-sm text-muted-foreground">
+        No members dispatched for this day yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-3 space-y-1.5">
+      {assignments.map((a) => {
+        const done = a.checklist.filter((i) => i.done).length;
+        return (
+          <div
+            key={a.id}
+            data-testid={`dispatch-member-${a.id}`}
+            className="flex items-center gap-2.5 bg-black/[0.03] rounded-xl px-2.5 py-1.5"
+          >
+            <Avatar name={a.memberName} selfiePath={a.selfiePath} size={7} />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-[var(--ink)] truncate flex items-center gap-1.5">
+                {a.memberName} <CheckinDot status={a.checkinStatus} />
+                {a.status === "pending_move" && (
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-wider text-[var(--orange)] inline-flex items-center gap-1"
+                    title={`Move to ${a.pendingJobLabel ?? "another job"} awaiting foreman ${a.leaderName ?? ""}`}
+                  >
+                    <Hourglass className="w-3 h-3" /> awaiting foreman
+                  </span>
+                )}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {a.checklist.length > 0 ? (
+                  <span className="inline-flex items-center gap-1">
+                    {done === a.checklist.length ? (
+                      <CheckCircle2 className="w-3 h-3 text-[var(--green)]" />
+                    ) : (
+                      <ListChecks className="w-3 h-3" />
+                    )}
+                    {done}/{a.checklist.length} scope items
+                  </span>
+                ) : (
+                  "No scope items"
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function PropertyDispatchDay({ day }: { day: string }) {
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useGetDispatchBoard(day, {

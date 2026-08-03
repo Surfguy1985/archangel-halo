@@ -52,8 +52,20 @@ const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function Calendar() {
   const today = useMemo(() => new Date(), []);
-  const [view, setView] = useState<ViewMode>("month");
-  const [cursor, setCursor] = useState<Date>(today);
+  // Deep-link support: /calendar?view=dispatch&day=YYYY-MM-DD
+  const initial = useMemo(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const v = sp.get("view");
+    const view: ViewMode =
+      v === "day" || v === "week" || v === "month" || v === "dispatch" ? v : "month";
+    let cursor = today;
+    const day = sp.get("day");
+    const m = day?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) cursor = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return { view, cursor };
+  }, [today]);
+  const [view, setView] = useState<ViewMode>(initial.view);
+  const [cursor, setCursor] = useState<Date>(initial.cursor);
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
