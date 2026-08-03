@@ -4,7 +4,7 @@ import { useLocation, useParams } from 'wouter';
 import { useGetClientBoardMap, getGetClientBoardMapQueryKey } from '@workspace/api-client-react';
 import { Loader2, ArrowLeft, Map as MapIcon, User, ExternalLink, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { formatDistanceToNow } from 'date-fns';
@@ -201,6 +201,17 @@ export default function MapView() {
                 <div className="font-bold">{propertyName}</div>
               </Popup>
             </Marker>
+
+            {/* Live GPS trails — green breadcrumb line per crew (today) */}
+            {crews.map((crew, idx) =>
+              (crew.trail ?? []).length > 1 ? (
+                <Polyline
+                  key={`trail-${crew.jobId}-${idx}`}
+                  positions={(crew.trail ?? []).map((p) => [p.lat, p.lng] as [number, number])}
+                  pathOptions={{ color: "#16a34a", weight: 4, opacity: 0.85 }}
+                />
+              ) : null,
+            )}
 
             {/* Crew Markers */}
             {crews.map((crew, idx) => {

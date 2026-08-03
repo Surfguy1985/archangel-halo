@@ -6,6 +6,7 @@ import {
   useListPortalMessages,
   useSendPortalMessage,
   useCreatePortalCheckin,
+  createPortalTrackPoint,
   useListPortalDocuments,
   useUploadPortalDocument,
   useListPortalPhotos,
@@ -1565,6 +1566,25 @@ function getPosition(): Promise<GeolocationPosition | null> {
   });
 }
 
+// Local YYYY-MM-DD (never UTC) so the trail resets at the crew's midnight.
+function localDay(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+type TrackState = { day: string; jobId: string | null };
+
+function readTrackState(token: string): TrackState | null {
+  try {
+    const raw = localStorage.getItem(`halo_gps_trail_${token}`);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as TrackState;
+    return s.day === localDay() ? s : null;
+  } catch {
+    return null;
+  }
+}
+
 function CheckinTab({ token }: { token: string }) {
   const queryClient = useQueryClient();
   const checkin = useCreatePortalCheckin();
@@ -1573,6 +1593,40 @@ function CheckinTab({ token }: { token: string }) {
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState<"checkin" | "checkout" | null>(null);
+  const [tracking, setTracking] = useState<TrackState | null>(() => readTrackState(token));
+
+  // While checked in, breadcrumb the crew's GPS every 30 seconds so the office
+  // and client maps can draw the live trail. Stops on checkout, at midnight,
+  // or when the server says we're no longer checked in (409).
+  useEffect(() => {
+    if (!tracking) return;
+    let cancelled = false;
+    const stop = () => {
+      try { localStorage.removeItem(`halo_gps_trail_${token}`); } catch {}
+      setTracking(null);
+    };
+    const ping = async () => {
+      if (cancelled) return;
+      if (tracking.day !== localDay()) { stop(); return; }
+      const pos = await getPosition();
+      if (cancelled || !pos) return;
+      try {
+        await createPortalTrackPoint(token, {
+          jobId: tracking.jobId,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        });
+      } catch (err) {
+        const status = (err as { status?: number } | null)?.status;
+        if (status === 409 || status === 404) stop();
+        // other errors (offline, flaky signal): keep trying
+      }
+    };
+    void ping();
+    const iv = window.setInterval(() => void ping(), 30_000);
+    return () => { cancelled = true; window.clearInterval(iv); };
+  }, [token, tracking]);
 
   const doPunch = async (kind: "checkin" | "checkout") => {
     setStatus(null);
@@ -1598,17 +1652,30 @@ function CheckinTab({ token }: { token: string }) {
       {
         onSuccess: () => {
           setBusy(null);
-          if (kind === "checkout") setNote("");
+          if (kind === "checkout") {
+            setNote("");
+            try { localStorage.removeItem(`halo_gps_trail_${token}`); } catch {}
+            setTracking(null);
+          } else {
+            const next: TrackState = { day: localDay(), jobId: selectedJobId || null };
+            try { localStorage.setItem(`halo_gps_trail_${token}`, JSON.stringify(next)); } catch {}
+            setTracking(next);
+          }
           setStatus(
             kind === "checkout"
               ? "Checked out! Your time and work note were recorded."
-              : "Checked in! Your arrival time and location were recorded.",
+              : "Checked in! Your location will be shared every 30 seconds until you check out — keep this page open.",
           );
           queryClient.invalidateQueries({ queryKey: getGetPortalQueryKey(token) });
         },
-        onError: () => {
+        onError: (err) => {
           setBusy(null);
-          setStatus("Couldn't save. Check your connection and try again.");
+          const data = (err as { data?: { code?: string; error?: string } | null })?.data;
+          if (data?.code === "after_photos_required") {
+            setStatus("Before you can check out, add your AFTER photos in the Photos tab.");
+          } else {
+            setStatus(data?.error ?? "Couldn't save. Check your connection and try again.");
+          }
         },
       },
     );
@@ -1649,6 +1716,15 @@ function CheckinTab({ token }: { token: string }) {
             <MapPin className="w-[26px] h-[26px] text-[var(--gold)]" />
           </div>
           <div className="font-display font-bold text-[17px]">GPS job tracker</div>
+          {tracking && (
+            <div
+              data-testid="text-gps-trail-live"
+              className="mt-[6px] flex items-center gap-[6px] text-[12px] font-semibold text-[#3f7d20]"
+            >
+              <span className="w-[8px] h-[8px] rounded-full bg-[#4ade80] animate-pulse" />
+              Live trail on — location shared every 30s until you check out
+            </div>
+          )}
           <p className="text-[12.5px] text-muted-foreground text-center mt-[4px] mb-[14px] max-w-[320px]">
             Check in when you arrive and check out when you finish. Your time
             and location are recorded as proof you were on site.

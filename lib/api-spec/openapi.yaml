@@ -3632,6 +3632,41 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /portal/{token}/track-points:
+    post:
+      operationId: createPortalTrackPoint
+      tags: [portal]
+      summary: 30-second GPS breadcrumb ping while the crew is checked in
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrackPointInput"
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "409":
+          description: Not currently checked in — client should stop pinging
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /portal/{token}/documents:
     get:
       operationId: listPortalDocuments
@@ -10616,6 +10651,11 @@ components:
         lastCheckinKind: { type: ["string", "null"], description: "checkin | checkout" }
         lastCheckinLabel: { type: ["string", "null"] }
         lastCheckinAt: { type: ["string", "null"] }
+        trail:
+          type: array
+          description: "Today's GPS breadcrumb trail for this crew (oldest first)"
+          items:
+            $ref: "#/components/schemas/TrailPoint"
     PresentationDemoState:
       type: object
       required: [active, dashboardToken, propertyId]
@@ -11649,6 +11689,21 @@ components:
         readAt: { type: ["string", "null"] }
         createdAt: { type: ["string", "null"] }
 
+    TrackPointInput:
+      type: object
+      required: [lat, lng]
+      properties:
+        jobId: { type: ["string", "null"] }
+        lat: { type: number }
+        lng: { type: number }
+        accuracy: { type: ["number", "null"] }
+    TrailPoint:
+      type: object
+      required: [lat, lng, at]
+      properties:
+        lat: { type: number }
+        lng: { type: number }
+        at: { type: string }
     CrewCheckinInput:
       type: object
       properties:
@@ -12185,6 +12240,11 @@ components:
               note: { type: string }
               crewName: { type: ["string", "null"] }
               createdAt: { type: ["string", "null"] }
+        trail:
+          type: array
+          description: "Today's GPS breadcrumb trail for this job (oldest first)"
+          items:
+            $ref: "#/components/schemas/TrailPoint"
     PortalSeenInput:
       type: object
       required: [section]
@@ -13796,6 +13856,11 @@ components:
           description: "Full check-in/check-out trail for this crew's job, newest first"
           items:
             $ref: "#/components/schemas/ClientBoardMapEvent"
+        trail:
+          type: array
+          description: "Today's GPS breadcrumb trail for this job (oldest first)"
+          items:
+            $ref: "#/components/schemas/TrailPoint"
 
     ClientBoardMapEvent:
       type: object

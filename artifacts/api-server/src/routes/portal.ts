@@ -6,6 +6,7 @@ import {
   crewsTable,
   crewMessagesTable,
   crewCheckinsTable,
+  crewTrackPointsTable,
   crewDocumentsTable,
   crewPhotosTable,
   crewPacketsTable,
@@ -42,6 +43,9 @@ import {
   CreatePortalCheckinParams,
   CreatePortalCheckinBody,
   CreatePortalCheckinResponse,
+  CreatePortalTrackPointParams,
+  CreatePortalTrackPointBody,
+  CreatePortalTrackPointResponse,
   ListPortalDocumentsParams,
   ListPortalDocumentsResponse,
   UploadPortalDocumentParams,
@@ -968,6 +972,39 @@ router.post("/portal/:token/checkins", async (req, res): Promise<void> => {
       return;
     }
   }
+  if (kind === "checkout") {
+    // Checkout requires after photos. Gate on the job being checked out —
+    // explicit jobId, or the job from this crew's latest open check-in.
+    let gateJobId = body.jobId ?? null;
+    if (!gateJobId) {
+      const [lastIn] = await db
+        .select()
+        .from(crewCheckinsTable)
+        .where(eq(crewCheckinsTable.crewId, crew.id))
+        .orderBy(desc(crewCheckinsTable.createdAt))
+        .limit(1);
+      if (lastIn && lastIn.kind !== "checkout") gateJobId = lastIn.jobId;
+    }
+    if (gateJobId) {
+      const [{ n }] = await db
+        .select({ n: count() })
+        .from(crewPhotosTable)
+        .where(
+          and(
+            eq(crewPhotosTable.jobId, gateJobId),
+            eq(crewPhotosTable.crewId, crew.id),
+            eq(crewPhotosTable.phase, "after"),
+          ),
+        );
+      if (Number(n) === 0) {
+        res.status(409).json({
+          error: "Add your after photos before checking out",
+          code: "after_photos_required",
+        });
+        return;
+      }
+    }
+  }
   const [row] = await db
     .insert(crewCheckinsTable)
     .values({
@@ -1000,6 +1037,60 @@ router.post("/portal/:token/checkins", async (req, res): Promise<void> => {
   });
   res.status(201).json(CreatePortalCheckinResponse.parse(ser(row)));
 });
+
+// LOCAL date parts, never UTC — see replit.md date handling rules.
+function localDayStrOf(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+function localDayStr(): string {
+  return localDayStrOf(new Date());
+}
+
+// 30-second GPS breadcrumb ping while checked in. 409 tells the client to
+// stop pinging (not checked in / already checked out).
+router.post(
+  "/portal/:token/track-points",
+  limits.trackPoint,
+  async (req, res): Promise<void> => {
+    const { token } = CreatePortalTrackPointParams.parse(req.params);
+    const crew = await crewByToken(token);
+    if (!crew) {
+      res.status(404).json({ error: "Invalid portal link" });
+      return;
+    }
+    const body = CreatePortalTrackPointBody.parse(req.body);
+    const [last] = await db
+      .select()
+      .from(crewCheckinsTable)
+      .where(eq(crewCheckinsTable.crewId, crew.id))
+      .orderBy(desc(crewCheckinsTable.createdAt))
+      .limit(1);
+    const today = localDayStr();
+    const lastDay = last?.createdAt ? localDayStrOf(new Date(last.createdAt)) : null;
+    if (!last || last.kind === "checkout" || lastDay !== today) {
+      res.status(409).json({ error: "Not checked in" });
+      return;
+    }
+    // Breadcrumbs are attributed ONLY to the job of the open check-in — a
+    // client-supplied jobId that disagrees would put the crew's real location
+    // on the wrong job's (client-visible) map.
+    if (body.jobId && last.jobId && body.jobId !== last.jobId) {
+      res.status(409).json({ error: "Checked in on a different job" });
+      return;
+    }
+    await db.insert(crewTrackPointsTable).values({
+      crewId: crew.id,
+      jobId: last.jobId ?? null,
+      lat: body.lat,
+      lng: body.lng,
+      accuracy: body.accuracy ?? null,
+    });
+    res.status(201).json(CreatePortalTrackPointResponse.parse({ ok: true }));
+  },
+);
 
 router.get("/portal/:token/documents", async (req, res): Promise<void> => {
   const { token } = ListPortalDocumentsParams.parse(req.params);
@@ -1333,7 +1424,9 @@ router.get("/track/:token", async (req, res): Promise<void> => {
   const crewName = new Map(crews.map((c) => [c.id, c.name]));
   const lead = job.crewLeaderId ? crews.find((c) => c.id === job.crewLeaderId) : null;
 
-  const [checkins, photos] = await Promise.all([
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const [checkins, photos, trailPoints] = await Promise.all([
     db
       .select()
       .from(crewCheckinsTable)
@@ -1344,6 +1437,17 @@ router.get("/track/:token", async (req, res): Promise<void> => {
       .from(crewPhotosTable)
       .where(eq(crewPhotosTable.jobId, job.id))
       .orderBy(crewPhotosTable.createdAt),
+    db
+      .select()
+      .from(crewTrackPointsTable)
+      .where(
+        and(
+          eq(crewTrackPointsTable.jobId, job.id),
+          gte(crewTrackPointsTable.createdAt, dayStart),
+        ),
+      )
+      .orderBy(crewTrackPointsTable.createdAt)
+      .limit(3000),
   ]);
 
   res.json(
@@ -1381,6 +1485,11 @@ router.get("/track/:token", async (req, res): Promise<void> => {
         createdAt: p.createdAt ? p.createdAt.toISOString() : null,
         sha256: p.sha256,
         crewName: crewName.get(p.crewId) ?? null,
+      })),
+      trail: trailPoints.map((p) => ({
+        lat: p.lat,
+        lng: p.lng,
+        at: p.createdAt.toISOString(),
       })),
       workNotes: checkins
         .filter((c) => c.kind === "checkout" && c.note)

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ClientBoardMapEvent } from './clientBoardMapEvent';
+import type { TrailPoint } from './trailPoint';
 
 export interface ClientBoardMapCrew {
   crewName: string;
@@ -35,4 +36,6 @@ export interface ClientBoardMapCrew {
   accuracy?: number | null;
   /** Full check-in/check-out trail for this crew's job, newest first */
   events?: ClientBoardMapEvent[];
+  /** Today's GPS breadcrumb trail for this job (oldest first) */
+  trail?: TrailPoint[];
 }

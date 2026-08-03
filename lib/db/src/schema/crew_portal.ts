@@ -5,6 +5,7 @@ import {
   boolean,
   doublePrecision,
   timestamp,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const crewMessagesTable = pgTable("crew_messages", {
@@ -34,6 +35,27 @@ export const crewCheckinsTable = pgTable("crew_checkins", {
     .notNull()
     .defaultNow(),
 });
+
+// 30-second GPS breadcrumb pings while a crew is checked in (live trail).
+export const crewTrackPointsTable = pgTable(
+  "crew_track_points",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    crewId: uuid("crew_id").notNull(),
+    jobId: uuid("job_id"),
+    lat: doublePrecision("lat").notNull(),
+    lng: doublePrecision("lng").notNull(),
+    accuracy: doublePrecision("accuracy"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("crew_track_points_job_created_idx").on(t.jobId, t.createdAt),
+    index("crew_track_points_crew_created_idx").on(t.crewId, t.createdAt),
+    index("crew_track_points_created_idx").on(t.createdAt),
+  ],
+);
 
 export const crewDocumentsTable = pgTable("crew_documents", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -141,6 +163,7 @@ export type CrewPhoto = typeof crewPhotosTable.$inferSelect;
 export type PhotoShare = typeof photoSharesTable.$inferSelect;
 export type CrewMessage = typeof crewMessagesTable.$inferSelect;
 export type CrewCheckin = typeof crewCheckinsTable.$inferSelect;
+export type CrewTrackPoint = typeof crewTrackPointsTable.$inferSelect;
 export type CrewDocument = typeof crewDocumentsTable.$inferSelect;
 export type CrewPayment = typeof crewPaymentsTable.$inferSelect;
 export type CrewInvoice = typeof crewInvoicesTable.$inferSelect;

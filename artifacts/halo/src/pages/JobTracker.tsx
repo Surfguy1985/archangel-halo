@@ -203,6 +203,7 @@ export default function JobTracker() {
                     label: `${c.kind === "checkout" ? "Checked out" : "Checked in"} — ${c.crewName ?? "Crew"}`,
                     sublabel: fmtWhen(c.createdAt),
                   }))}
+                trail={(data.trail ?? []).map((p) => ({ lat: p.lat, lng: p.lng }))}
               />
             </div>
           )}

@@ -10,6 +10,7 @@ import {
   schedulesTable,
   crewMessagesTable,
   crewCheckinsTable,
+  crewTrackPointsTable,
   crewDocumentsTable,
   crewPacketsTable,
   crewPaymentsTable,
@@ -603,6 +604,7 @@ router.delete("/jobs/:id", async (req, res): Promise<void> => {
     }
     await tx.delete(schedulesTable).where(eq(schedulesTable.jobId, id));
     await tx.delete(crewCheckinsTable).where(eq(crewCheckinsTable.jobId, id));
+    await tx.delete(crewTrackPointsTable).where(eq(crewTrackPointsTable.jobId, id));
     await tx
       .delete(jobBroadcastsTable)
       .where(eq(jobBroadcastsTable.jobId, id));
@@ -1744,6 +1746,7 @@ router.delete("/crews/:id", async (req, res): Promise<void> => {
       .where(eq(schedulesTable.crewLeaderId, id));
     await tx.delete(crewMessagesTable).where(eq(crewMessagesTable.crewId, id));
     await tx.delete(crewCheckinsTable).where(eq(crewCheckinsTable.crewId, id));
+    await tx.delete(crewTrackPointsTable).where(eq(crewTrackPointsTable.crewId, id));
     await tx
       .delete(crewDocumentsTable)
       .where(eq(crewDocumentsTable.crewId, id));

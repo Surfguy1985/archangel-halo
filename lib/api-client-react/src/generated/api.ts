@@ -318,6 +318,7 @@ import type {
   TaxPlannerState,
   TaxReport,
   TodayPayload,
+  TrackPointInput,
   TrackerShare,
   UnitBoxInput,
   UnitBoxRec,
@@ -12642,6 +12643,78 @@ export const useCreatePortalCheckin = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getCreatePortalCheckinMutationOptions(options));
+    }
+
+export const getCreatePortalTrackPointUrl = (token: string,) => {
+
+
+
+
+  return `/api/portal/${token}/track-points`
+}
+
+/**
+ * @summary 30-second GPS breadcrumb ping while the crew is checked in
+ */
+export const createPortalTrackPoint = async (token: string,
+    trackPointInput: TrackPointInput, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getCreatePortalTrackPointUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trackPointInput)
+  }
+);}
+
+
+
+
+
+export const getCreatePortalTrackPointMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPortalTrackPoint>>, TError,{token: string;data: BodyType<TrackPointInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPortalTrackPoint>>, TError,{token: string;data: BodyType<TrackPointInput>}, TContext> => {
+
+const mutationKey = ['createPortalTrackPoint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPortalTrackPoint>>, {token: string;data: BodyType<TrackPointInput>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  createPortalTrackPoint(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePortalTrackPointMutationResult = NonNullable<Awaited<ReturnType<typeof createPortalTrackPoint>>>
+    export type CreatePortalTrackPointMutationBody = BodyType<TrackPointInput>
+    export type CreatePortalTrackPointMutationError = ErrorType<Error>
+
+    /**
+ * @summary 30-second GPS breadcrumb ping while the crew is checked in
+ */
+export const useCreatePortalTrackPoint = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPortalTrackPoint>>, TError,{token: string;data: BodyType<TrackPointInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPortalTrackPoint>>,
+        TError,
+        {token: string;data: BodyType<TrackPointInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePortalTrackPointMutationOptions(options));
     }
 
 export const getListPortalDocumentsUrl = (token: string,) => {

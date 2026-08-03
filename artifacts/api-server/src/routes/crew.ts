@@ -323,13 +323,21 @@ router.get("/photo-shares/:token/report", async (req, res): Promise<void> => {
   res.send(Buffer.from(pdf));
 });
 
+// Node-local midnight — the app's single "today" basis for trails (never
+// date_trunc in SQL, which uses the DB session timezone).
+function localDayStart(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 router.get("/crews/map", async (_req, res): Promise<void> => {
   const today = new Date();
   const y = today.getFullYear();
   const m = String(today.getMonth() + 1).padStart(2, "0");
   const d = String(today.getDate()).padStart(2, "0");
   const todayStr = `${y}-${m}-${d}`;
-  const [crews, schedules, jobs, props, checkins] = await Promise.all([
+  const [crews, schedules, jobs, props, checkins, trackPoints] = await Promise.all([
     db.select().from(crewsTable),
     db.select().from(schedulesTable).where(eq(schedulesTable.scheduledOn, todayStr)),
     db.select().from(jobsTable),
@@ -340,6 +348,13 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
       FROM crew_checkins
       WHERE lat IS NOT NULL AND lng IS NOT NULL
       ORDER BY crew_id, created_at DESC
+    `),
+    db.execute(sql`
+      SELECT crew_id AS "crewId", lat, lng, created_at AS "createdAt"
+      FROM crew_track_points
+      WHERE created_at >= ${localDayStart()}
+      ORDER BY created_at ASC
+      LIMIT 20000
     `),
   ]);
   const propName = new Map(props.map((p) => [p.id, p.name]));
@@ -354,6 +369,17 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
   };
   const lastRows = (checkins.rows ?? []) as unknown as LastCheckin[];
   const lastByCrew = new Map(lastRows.map((c) => [c.crewId, c]));
+  type TrackRow = { crewId: string; lat: number | string; lng: number | string; createdAt: string | Date };
+  const trailByCrew = new Map<string, { lat: number; lng: number; at: string }[]>();
+  for (const r of (trackPoints.rows ?? []) as unknown as TrackRow[]) {
+    const list = trailByCrew.get(r.crewId) ?? [];
+    list.push({
+      lat: Number(r.lat),
+      lng: Number(r.lng),
+      at: new Date(r.createdAt).toISOString(),
+    });
+    trailByCrew.set(r.crewId, list);
+  }
   res.json(
     GetCrewMapPinsResponse.parse(
       crews
@@ -362,6 +388,12 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
           const sched = schedules.find((s) => s.crewLeaderId === c.id);
           const job = sched ? jobById.get(sched.jobId) : undefined;
           const last = lastByCrew.get(c.id);
+          const trail = trailByCrew.get(c.id) ?? [];
+          // Pin follows the freshest signal: latest breadcrumb beats an older check-in.
+          const tip = trail.length ? trail[trail.length - 1] : null;
+          const tipNewer =
+            tip &&
+            (!last?.createdAt || new Date(tip.at).getTime() > new Date(last.createdAt).getTime());
           return {
             id: c.id,
             name: c.name,
@@ -371,11 +403,12 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
             todayStatus: sched ? (sched.status === "done" ? "done" : "site") : "idle",
             todayJob: job?.jobNo ?? null,
             todayProperty: job ? (propName.get(job.propertyId) ?? null) : null,
-            lat: last?.lat != null ? Number(last.lat) : null,
-            lng: last?.lng != null ? Number(last.lng) : null,
+            lat: tipNewer ? tip.lat : last?.lat != null ? Number(last.lat) : null,
+            lng: tipNewer ? tip.lng : last?.lng != null ? Number(last.lng) : null,
             lastCheckinKind: last?.kind ?? null,
             lastCheckinLabel: last?.label ?? null,
             lastCheckinAt: last?.createdAt ? new Date(last.createdAt).toISOString() : null,
+            trail,
           };
         }),
     ),

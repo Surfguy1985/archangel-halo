@@ -8,6 +8,7 @@
 import type { JobTrackerViewWorkNotesItem } from './jobTrackerViewWorkNotesItem';
 import type { TrackerCheckin } from './trackerCheckin';
 import type { TrackerPhoto } from './trackerPhoto';
+import type { TrailPoint } from './trailPoint';
 
 export interface JobTrackerView {
   jobNo: string;
@@ -35,4 +36,6 @@ export interface JobTrackerView {
   checkins: TrackerCheckin[];
   photos: TrackerPhoto[];
   workNotes: JobTrackerViewWorkNotesItem[];
+  /** Today's GPS breadcrumb trail for this job (oldest first) */
+  trail?: TrailPoint[];
 }

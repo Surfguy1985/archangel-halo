@@ -1,4 +1,4 @@
-import { and, eq, lte, isNotNull } from "drizzle-orm";
+import { and, eq, lte, isNotNull, sql } from "drizzle-orm";
 import { db, leadCampaignsTable, leadsTable } from "@workspace/db";
 import { computeQueues } from "./queues";
 import {
@@ -315,6 +315,19 @@ export function startScheduler(): void {
   setInterval(() => {
     void tick();
   }, TICK_MS);
+  // GPS breadcrumb retention: trails matter for "today"; keep 30 days for
+  // dispute review, purge older so the table can't grow unbounded.
+  const purgeTrackPoints = async () => {
+    try {
+      await db.execute(
+        sql`DELETE FROM crew_track_points WHERE created_at < now() - interval '30 days'`,
+      );
+    } catch (err) {
+      logger.warn({ err }, "Track point purge failed");
+    }
+  };
+  void purgeTrackPoints();
+  setInterval(() => void purgeTrackPoints(), 6 * 3_600_000);
   logger.info(
     {
       dailyHour: DAILY_HOUR,

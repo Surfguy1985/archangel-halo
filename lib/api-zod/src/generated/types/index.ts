@@ -507,6 +507,8 @@ export * from './trackerModule';
 export * from './trackerModuleType';
 export * from './trackerPhoto';
 export * from './trackerShare';
+export * from './trackPointInput';
+export * from './trailPoint';
 export * from './unitBoxInput';
 export * from './unitBoxRec';
 export * from './unitBoxUpdate';

@@ -206,6 +206,20 @@ export function BirdseyeMapDialog({ token, open, onOpenChange }: Props) {
                   </Marker>
                 )}
                 
+                {/* Live GPS breadcrumb trail — green line per crew (today) */}
+                {data?.crews?.map((c) => {
+                  const gps = (c.trail ?? []) as { lat: number; lng: number }[];
+                  if (gps.length < 2) return null;
+                  const dimmed = selectedTrail && c.jobId !== selectedTrail;
+                  return (
+                    <Polyline
+                      key={`gps-${c.jobId}`}
+                      positions={gps.map((p) => [p.lat, p.lng] as [number, number])}
+                      pathOptions={{ color: "#16a34a", weight: 4, opacity: dimmed ? 0.25 : 0.85 }}
+                    />
+                  );
+                })}
+
                 {/* Selected crew's route trail: polyline + a dot per GPS event */}
                 {data?.crews?.filter((c) => selectedTrail && c.jobId === selectedTrail).map((c) => {
                   const pts = trailPoints((c as any).events);

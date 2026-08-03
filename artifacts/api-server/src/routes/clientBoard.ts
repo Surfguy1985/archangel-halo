@@ -2519,6 +2519,32 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
     }
   }
 
+  // Today's 30-second GPS breadcrumb trail per job (oldest first).
+  const gpsTrailByJob = new Map<string, { lat: number; lng: number; at: string }[]>();
+  if (jobIds.length) {
+    // Node-local midnight, same basis as the ping-gate's local day.
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const gpsRows = await db.execute(sql`
+      select job_id, lat, lng, created_at
+      from crew_track_points
+      where created_at >= ${dayStart}
+        and job_id in (${sql.join(jobIds.map((id) => sql`${id}`), sql`, `)})
+      order by created_at asc
+      limit 20000
+    `);
+    for (const r of gpsRows.rows as Record<string, unknown>[]) {
+      const jobId = String(r.job_id);
+      const list = gpsTrailByJob.get(jobId) ?? [];
+      list.push({
+        lat: Number(r.lat),
+        lng: Number(r.lng),
+        at: new Date(r.created_at as string).toISOString(),
+      });
+      gpsTrailByJob.set(jobId, list);
+    }
+  }
+
   const lastByJob = new Map<string, (typeof checkins)[number]>();
   for (const c of checkins) {
     if (c.jobId && !lastByJob.has(c.jobId)) lastByJob.set(c.jobId, c);
@@ -2529,6 +2555,10 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
     .map((j) => {
       const crew = crewById.get(j.crewLeaderId!);
       const last = lastByJob.get(j.id);
+      const gpsTrail = gpsTrailByJob.get(j.id) ?? [];
+      const tip = gpsTrail.length ? gpsTrail[gpsTrail.length - 1] : null;
+      const tipNewer =
+        !!tip && (!last || new Date(tip.at).getTime() > new Date(last.createdAt).getTime());
       const onSite =
         !!last &&
         last.kind !== "checkout" &&
@@ -2546,12 +2576,13 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
         trackerUrl: j.trackerToken ? `/track/${j.trackerToken}` : null,
         lastCheckinKind: last?.kind ?? null,
         lastCheckinAt: last ? last.createdAt.toISOString() : null,
-        lat: last?.lat ?? null,
-        lng: last?.lng ?? null,
-        accuracy: last?.accuracy ?? null,
+        lat: tipNewer ? tip.lat : (last?.lat ?? null),
+        lng: tipNewer ? tip.lng : (last?.lng ?? null),
+        accuracy: tipNewer ? null : (last?.accuracy ?? null),
         // Full check-in/check-out trail (newest first) so the client can see
         // exactly when the crew arrived and left, not just the latest ping.
         events: trailByJob.get(j.id) ?? [],
+        trail: gpsTrail,
       };
     });
 

@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { TrailPoint } from './trailPoint';
 
 export interface CrewMapPin {
   id: string;
@@ -37,4 +38,6 @@ export interface CrewMapPin {
   lastCheckinLabel?: string | null;
   /** @nullable */
   lastCheckinAt?: string | null;
+  /** Today's GPS breadcrumb trail for this crew (oldest first) */
+  trail?: TrailPoint[];
 }

@@ -2854,7 +2854,12 @@ export const GetCrewMapPinsResponseItem = zod.object({
   "lng": zod.number().nullish(),
   "lastCheckinKind": zod.string().nullish().describe('checkin | checkout'),
   "lastCheckinLabel": zod.string().nullish(),
-  "lastCheckinAt": zod.string().nullish()
+  "lastCheckinAt": zod.string().nullish(),
+  "trail": zod.array(zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "at": zod.string()
+})).optional().describe('Today\'s GPS breadcrumb trail for this crew (oldest first)')
 })
 export const GetCrewMapPinsResponse = zod.array(GetCrewMapPinsResponseItem)
 
@@ -5081,6 +5086,25 @@ export const CreatePortalCheckinResponse = zod.object({
 })
 
 
+/**
+ * @summary 30-second GPS breadcrumb ping while the crew is checked in
+ */
+export const CreatePortalTrackPointParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const CreatePortalTrackPointBody = zod.object({
+  "jobId": zod.string().nullish(),
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "accuracy": zod.number().nullish()
+})
+
+export const CreatePortalTrackPointResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
 export const ListPortalDocumentsParams = zod.object({
   "token": zod.coerce.string()
 })
@@ -5290,7 +5314,12 @@ export const GetJobTrackerResponse = zod.object({
   "note": zod.string(),
   "crewName": zod.string().nullish(),
   "createdAt": zod.string().nullish()
-}))
+})),
+  "trail": zod.array(zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "at": zod.string()
+})).optional().describe('Today\'s GPS breadcrumb trail for this job (oldest first)')
 })
 
 
@@ -10710,7 +10739,12 @@ export const GetClientBoardMapResponse = zod.object({
   "label": zod.string().nullish(),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish()
-})).optional().describe('Full check-in\/check-out trail for this crew\'s job, newest first')
+})).optional().describe('Full check-in\/check-out trail for this crew\'s job, newest first'),
+  "trail": zod.array(zod.object({
+  "lat": zod.number(),
+  "lng": zod.number(),
+  "at": zod.string()
+})).optional().describe('Today\'s GPS breadcrumb trail for this job (oldest first)')
 })),
   "happenings": zod.array(zod.object({
   "at": zod.string(),

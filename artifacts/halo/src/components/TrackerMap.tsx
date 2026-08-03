@@ -1,5 +1,5 @@
 import { Fragment, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from "react-leaflet";
 import { divIcon, latLngBounds } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -38,10 +38,13 @@ function FitToPins({ pins }: { pins: TrackerPin[] }) {
   return null;
 }
 
-export function TrackerMap({ pins }: { pins: TrackerPin[] }) {
-  if (pins.length === 0) return null;
-  const lat = pins.reduce((s, p) => s + p.lat, 0) / pins.length;
-  const lng = pins.reduce((s, p) => s + p.lng, 0) / pins.length;
+export type TrailPt = { lat: number; lng: number };
+
+export function TrackerMap({ pins, trail = [] }: { pins: TrackerPin[]; trail?: TrailPt[] }) {
+  if (pins.length === 0 && trail.length === 0) return null;
+  const all = pins.length ? pins : trail;
+  const lat = all.reduce((s, p) => s + p.lat, 0) / all.length;
+  const lng = all.reduce((s, p) => s + p.lng, 0) / all.length;
   return (
     <div className="rounded-[16px] overflow-hidden border border-[var(--hairline)]" data-testid="tracker-map">
       <MapContainer
@@ -56,6 +59,12 @@ export function TrackerMap({ pins }: { pins: TrackerPin[] }) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <FitToPins pins={pins} />
+        {trail.length > 1 && (
+          <Polyline
+            positions={trail.map((p) => [p.lat, p.lng] as [number, number])}
+            pathOptions={{ color: "#16a34a", weight: 4, opacity: 0.85 }}
+          />
+        )}
         {pins.map((p) => (
           <Fragment key={p.id}>
             <Marker position={[p.lat, p.lng]} icon={pinIcon(p.kind)}>

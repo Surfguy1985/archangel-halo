@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
@@ -285,6 +285,20 @@ export function CrewCommandCenter({ onClose }: { onClose: () => void }) {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MapBoundsFitter pins={pins} selectedId={selectedId} />
+            {/* Live GPS trails — green breadcrumb line per crew (today) */}
+            {mapPins.map(pin =>
+              (pin.trail ?? []).length > 1 ? (
+                <Polyline
+                  key={`trail-${pin.id}`}
+                  positions={(pin.trail ?? []).map(p => [p.lat, p.lng] as [number, number])}
+                  pathOptions={{
+                    color: "#16a34a",
+                    weight: selectedId === pin.id ? 5 : 4,
+                    opacity: selectedId && selectedId !== pin.id ? 0.35 : 0.85,
+                  }}
+                />
+              ) : null
+            )}
             {mapPins.map(pin => (
               <Marker 
                 key={pin.id} 

@@ -2728,6 +2728,12 @@ export interface CrewToday {
   todayProperty?: string | null;
 }
 
+export interface TrailPoint {
+  lat: number;
+  lng: number;
+  at: string;
+}
+
 export interface CrewMapPin {
   id: string;
   name: string;
@@ -2759,6 +2765,8 @@ export interface CrewMapPin {
   lastCheckinLabel?: string | null;
   /** @nullable */
   lastCheckinAt?: string | null;
+  /** Today's GPS breadcrumb trail for this crew (oldest first) */
+  trail?: TrailPoint[];
 }
 
 export interface PresentationDemoState {
@@ -3837,6 +3845,15 @@ export interface CrewMessage {
   createdAt?: string | null;
 }
 
+export interface TrackPointInput {
+  /** @nullable */
+  jobId?: string | null;
+  lat: number;
+  lng: number;
+  /** @nullable */
+  accuracy?: number | null;
+}
+
 /**
  * Defaults to checkin
  * @nullable
@@ -4531,6 +4548,8 @@ export interface JobTrackerView {
   checkins: TrackerCheckin[];
   photos: TrackerPhoto[];
   workNotes: JobTrackerViewWorkNotesItem[];
+  /** Today's GPS breadcrumb trail for this job (oldest first) */
+  trail?: TrailPoint[];
 }
 
 export type PortalSeenInputSection = typeof PortalSeenInputSection[keyof typeof PortalSeenInputSection];
@@ -6196,6 +6215,8 @@ export interface ClientBoardMapCrew {
   accuracy?: number | null;
   /** Full check-in/check-out trail for this crew's job, newest first */
   events?: ClientBoardMapEvent[];
+  /** Today's GPS breadcrumb trail for this job (oldest first) */
+  trail?: TrailPoint[];
 }
 
 export interface ClientBoardHappening {

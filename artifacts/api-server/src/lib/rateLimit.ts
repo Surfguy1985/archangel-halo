@@ -82,6 +82,8 @@ export const limits = {
   session: rateLimit({ limit: 10, windowMs: 60_000 }),
   /** bank detail writes */
   bank: rateLimit({ limit: 5, windowMs: 60_000 }),
+  /** 30-second GPS breadcrumb pings — 1 legit ping per 30s, allow retries */
+  trackPoint: rateLimit({ limit: 10, windowMs: 60_000 }),
 };
 
 /**
