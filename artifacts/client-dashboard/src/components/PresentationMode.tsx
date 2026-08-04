@@ -1,12 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Sparkles, Pause, Play, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { OfficeBoardPanel } from "./OfficeBoardPanel";
 
-// Presentation Mode: an investor-grade, narrated walkthrough of the live
-// client board. Same narration chain as DashboardTour (pre-rendered
-// ElevenLabs MP3 → SpeechSynthesis → reading timer, guarded by a generation
-// nonce), plus per-step live actions — the board actually moves a card while
-// the narrator explains it, driven through the office API so the audience
-// watches the real SSE pipeline do its thing.
+// Presentation Mode: an investor-grade, narrated INTERACTIVE SIMULCAST that
+// walks the entire work lifecycle across BOTH boards — the live client board
+// (behind the overlay) and the picture-in-picture "Office Board — live" panel.
+// The UI actually opens cards and clicks buttons as the narrator speaks.
+//
+// Narration chain (kept from the original): pre-rendered ElevenLabs MP3 →
+// SpeechSynthesis → reading timer, guarded by a generation nonce.
+//
+// Each step may carry:
+//  - target: a data-testid to spotlight (string OR a resolver function that
+//    returns a testid given a card getter — for dynamic testids like
+//    rail-tile-<cardKey>).
+//  - serverStep: a name from the demo server contract, fired ~2s in, exactly
+//    once, through POST /api/presentation/demo/step (best-effort, try/catch).
+//  - uiScript: an async choreography run after the server step — it dispatches
+//    REAL clicks on data-testid elements with human-ish delays, awaiting
+//    elements via waitFor(); it never hangs and skips gracefully so narration
+//    always continues. All async work is guarded by the generation nonce.
 
 const clipFiles = import.meta.glob("../assets/presentation/*.mp3", {
   eager: true,
@@ -19,92 +32,383 @@ function clipFor(index: number): string | null {
   return hit ? hit[1] : null;
 }
 
+/** Get all board cards at call time (live). */
+export type CardGetter = () => any[];
+
+/** Context handed to resolvers / uiScripts. */
+export type StepCtx = {
+  getCards: CardGetter;
+  /** True while this step is still the active generation. */
+  alive: () => boolean;
+  /** Fire the demo server step by name (best-effort). */
+  server: (name: string) => Promise<void>;
+  /** Open a card in the client detail dialog by cardKey (via board.tsx). */
+  openCard: (cardKey: string) => void;
+  /** Close any open card detail dialog. */
+  closeCard: () => void;
+  /** Direct client card-action POST fallback (e.g. pay_method). */
+  cardAction: (cardKey: string, data: Record<string, unknown>) => Promise<void>;
+};
+
 export type PresentationStep = {
   title: string;
   body: string;
-  /** data-testid to spotlight, or null to center. */
-  target: string | null;
-  /** Live action fired when the step starts. */
-  action?: "move-demo-card-scheduled" | "move-demo-card-in-progress";
+  /** data-testid to spotlight, a resolver, or null to center. */
+  target: string | ((ctx: StepCtx) => string | null) | null;
+  /** Server-truth step fired ~2s in, once. */
+  serverStep?: string;
+  /** Async choreography run after the server step. */
+  uiScript?: (ctx: StepCtx) => Promise<void>;
 };
+
+// --------------------------------------------------------------------------
+// Small DOM helpers (all no-throw, all bounded — never hang the narration).
+// --------------------------------------------------------------------------
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** Resolve a data-testid element, polling up to timeoutMs. Null if never seen. */
+async function waitFor(testid: string, timeoutMs = 4000): Promise<HTMLElement | null> {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    const el = document.querySelector<HTMLElement>(`[data-testid="${testid}"]`);
+    if (el) return el;
+    await sleep(120);
+  }
+  return null;
+}
+
+/** Click a testid element if present within timeout; returns true if clicked. */
+async function clickTestid(testid: string, timeoutMs = 4000): Promise<boolean> {
+  const el = await waitFor(testid, timeoutMs);
+  if (!el) return false;
+  el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+  await sleep(200);
+  el.click();
+  return true;
+}
+
+/** Find the demo "Make Ready" / Unit 204 job card in board data by fuzzy match. */
+function findJobCard(getCards: CardGetter): any | null {
+  const cards = getCards() || [];
+  const match = (c: any) => {
+    const title = String(c?.title ?? "").toLowerCase();
+    const unit = String(c?.unitNo ?? c?.module?.unitNo ?? "").toLowerCase();
+    return (
+      title.includes("make ready") ||
+      title.includes("204") ||
+      unit === "204"
+    );
+  };
+  // Prefer job: cards, then anything matching.
+  return (
+    cards.find((c: any) => String(c?.cardKey ?? "").startsWith("job:") && match(c)) ??
+    cards.find(match) ??
+    null
+  );
+}
+
+/** Find the invoice card in board data. */
+function findInvoiceCard(getCards: CardGetter): any | null {
+  const cards = getCards() || [];
+  return (
+    cards.find((c: any) => c?.module?.kind === "invoice" || c?.module?.invoiceNo) ??
+    cards.find((c: any) => String(c?.title ?? "").toLowerCase().includes("invoice")) ??
+    null
+  );
+}
+
+// --------------------------------------------------------------------------
+// The lifecycle story.
+// NOTE: `title:` at line start is counted by check-demo-narration.ts — every
+// step has exactly one, and there are no other line-start `title:` keys inside
+// this array literal. Step count MUST equal the number of step-N.mp3 files.
+// --------------------------------------------------------------------------
 
 export const PRESENTATION_STEPS: PresentationStep[] = [
   {
-    title: "Welcome to HALO",
-    body: "This is HALO — the operations platform that gives property managers one live board for every job, crew, and dollar on their property. What you're looking at right now is a real, working dashboard — every card, invoice, and crew on this screen is live demo data. Let's walk through it.",
+    title: "Two boards, one job",
+    body: "Welcome to HALO. What you're watching is live — the client's board fills the screen, and up in the corner is the office's board, the exact same job seen from the other side. Every move you're about to see happens on real software, in real time, on both boards at once. Let's run one job end to end.",
     target: null,
   },
   {
-    title: "Your board is a story, left to right",
-    body: "The board reads in five rails: Needs you, In progress, Requested, Done, and Paid. Anything waiting on the owner is always first on screen. New work starts in Requested, moves through In progress while crews are on site, then lands in Done and Paid. One glance tells you the state of your entire property.",
+    title: "Color tells you everything",
+    body: "The board reads left to right, and every card is color-coded by type. Lime means money or anything that needs you — approvals and invoices. Blue means work in motion — crews, schedules, jobs on site. One glance across the room and you know exactly where your attention is owed.",
     target: "rail-requested",
   },
   {
-    title: "Every card is a sealed waybill",
-    body: "Each card carries a tracking code and a strip of six lights — like a package in transit. As real work happens, the lights turn on one by one: sealed, routed, delivered, opened, in review, settled. The cards are color-coded by service — blue for maintenance, orange for billing, green for leasing — so you can read the board from across the room.",
-    target: "rail-requested",
+    title: "Requesting the work",
+    body: "It starts with a request. We open the request form, choose Unit 204, and pick Make Ready from the price book. Watch the line items populate straight from your negotiated rates — no guessing, no back-and-forth. We send it, and the card lands in Requested on PO 2044.",
+    target: "button-rails-request",
+    serverStep: "request_created",
+    uiScript: async (ctx) => {
+      // Visually open and walk the wizard, then CLOSE without submitting —
+      // the serverStep is the canonical source of truth.
+      const opened = await clickTestid("button-rails-request", 3000);
+      if (opened) {
+        await waitFor("wizard-step-what", 3000);
+        await sleep(1500); // "choose Unit 204 / Make Ready"
+        await clickTestid("wizard-next", 2000);
+        await waitFor("wizard-step-when", 3000);
+        await sleep(1500); // "price-book line items appear"
+        await clickTestid("wizard-next", 2000);
+        await waitFor("wizard-step-confirm", 3000);
+        await sleep(1200);
+        // Close WITHOUT submitting — Escape, then a fallback click if still open.
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        await sleep(300);
+        if (document.querySelector('[data-testid="wizard-step-confirm"]')) {
+          document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        }
+        await sleep(400);
+      }
+      if (!ctx.alive()) return;
+      // Fire the canonical request AFTER the visual walkthrough.
+      await ctx.server("request_created");
+    },
   },
   {
-    title: "Watch the board move — live",
-    body: "Right now, our office is approving the courtyard landscaping job. Keep your eyes on the card... There it goes — from Requested to Scheduled, on its own, the moment the office acted. No refresh, no email chain. Every person looking at this board sees the same truth within a second.",
-    target: "rail-in_progress",
-    action: "move-demo-card-scheduled",
+    title: "It hits the office board",
+    body: "The instant we sent that, it appeared on the office board — top right. There it is in the office inbox, glowing. No email, no phone call. The office already has the request, the unit, the PO, and the budget in front of them.",
+    target: "office-board-panel",
   },
   {
-    title: "Cards move themselves",
-    body: "And it works both ways. When the office schedules, reprioritizes, or marks work handled, the card slides to its new rail on its own — and when you approve or pay from a card, their board updates the same instant. Nothing to drag, nothing to refresh.",
-    target: "rail-in_progress",
+    title: "The office approves",
+    body: "The office reviews it and approves. Watch the card move on their board — approval turns a request into a real job. That single action fans out to everyone looking, on both sides, within a second.",
+    target: "office-board-panel",
+    serverStep: "office_accept",
   },
   {
-    title: "Pay invoices in two taps",
-    body: "Here's the part your accounting team will love. When work is done, the invoice lands on the board as a card — with the PDF, the amount, the due date, and a live pay link all attached. Review it, tap pay, done. No portals, no logins, no lost paperwork. HALO's books reconcile automatically behind the scenes.",
-    target: "rail-needs_you",
+    title: "Crew and schedule",
+    body: "Now the job is scheduled and a crew is assigned for today. On the client board the card glides into In progress, carrying the schedule, the crew, and a summary of the work. And if anything changes, the client can raise a change order right here — one tap, fully documented.",
+    target: (ctx) => {
+      const card = findJobCard(ctx.getCards);
+      return card ? `rail-tile-${card.cardKey}` : "rail-in_progress";
+    },
+    serverStep: "assign_schedule",
+    uiScript: async (ctx) => {
+      await ctx.server("assign_schedule");
+      await sleep(2200); // let the card settle into In progress
+      if (!ctx.alive()) return;
+      const card = findJobCard(ctx.getCards);
+      if (card) {
+        const clicked = await clickTestid(`rail-tile-${card.cardKey}`, 3000);
+        if (clicked) {
+          await sleep(1800); // read the schedule + crew + summary
+          if (!ctx.alive()) return;
+          // Point out the change-order button.
+          await waitFor("button-change-order", 1500);
+          await sleep(1400);
+          ctx.closeCard();
+        }
+      }
+    },
   },
   {
-    title: "Communicate right on the work",
-    body: "Every card is also a conversation. Open one and leave a comment — the office is notified instantly and answers in the same thread, attached to the exact job you're talking about. No more digging through email to find which unit that message was about.",
-    target: "rail-in_progress",
+    title: "Day of — live on site",
+    body: "On the day of the work, a live tracker card appears with a map thumbnail — you can see the crew is checked in at the property, right now. We open it for a beat: this is where the work is happening, live, without a single phone call to the office.",
+    target: (ctx) => {
+      const cards = ctx.getCards() || [];
+      const t = cards.find((c: any) =>
+        String(c?.title ?? "").toLowerCase().includes("track") ||
+        String(c?.module?.kind ?? "").toLowerCase().includes("track") ||
+        String(c?.module?.kind ?? "").toLowerCase().includes("map"),
+      );
+      return t ? `rail-tile-${t.cardKey}` : "rail-in_progress";
+    },
+    serverStep: "tracker_live",
+    uiScript: async (ctx) => {
+      await ctx.server("tracker_live");
+      await sleep(2000);
+      if (!ctx.alive()) return;
+      const cards = ctx.getCards() || [];
+      const t = cards.find((c: any) =>
+        String(c?.title ?? "").toLowerCase().includes("track") ||
+        String(c?.module?.kind ?? "").toLowerCase().includes("map"),
+      );
+      if (t) {
+        const clicked = await clickTestid(`rail-tile-${t.cardKey}`, 3000);
+        if (clicked) {
+          await sleep(1800);
+          if (!ctx.alive()) return;
+          ctx.closeCard();
+        }
+      }
+    },
   },
   {
-    title: "See your crews live",
-    body: "This card is a live window to your site. Marco's paint crew is checked in at Unit 204 right now — and the Map view shows every crew's position on a real map, updated as they check in and out. You always know who is on your property, and where.",
-    target: "button-map-view",
+    title: "Before and after",
+    body: "As the crew works, they document it. Those photos land right on the board — the drywall damage before, the finished eggshell wall after. Proof of work, attached to the work itself, so the client never has to ask what they're paying for.",
+    target: (ctx) => {
+      const cards = ctx.getCards() || [];
+      const p = cards.find((c: any) =>
+        String(c?.module?.kind ?? "").toLowerCase().includes("photo") ||
+        String(c?.title ?? "").toLowerCase().includes("photo"),
+      );
+      return p ? `rail-tile-${p.cardKey}` : "rail-in_progress";
+    },
+    serverStep: "photos",
   },
   {
-    title: "Before and after, on every job",
-    body: "Crews document their work as they go. Those photos land right on the board as a card — you can see the drywall damage and the finished eggshell wall without leaving your seat. Proof of work, attached to the work.",
-    target: "rail-requested",
+    title: "The summary — and two flags",
+    body: "When the work wraps, a summary card posts the recap. And notice the two flagged discoveries — out-of-scope items the crew found on site. They're surfaced right here, so nothing shows up as a surprise line on the invoice. Transparency, built in.",
+    target: (ctx) => {
+      const cards = ctx.getCards() || [];
+      const s = cards.find((c: any) =>
+        String(c?.module?.kind ?? "").toLowerCase().includes("summary") ||
+        String(c?.title ?? "").toLowerCase().includes("summary") ||
+        String(c?.title ?? "").toLowerCase().includes("flag"),
+      );
+      return s ? `rail-tile-${s.cardKey}` : "rail-in_progress";
+    },
+    serverStep: "summary_flags",
   },
   {
-    title: "Units, Hub, and instant search",
-    body: "The Units view gives you a health map of every unit on the property. The Hub holds your documents and guides. And command-K search finds any card, invoice, or job in a keystroke. Everything about your property, three taps away or less.",
-    target: "button-site-map",
+    title: "The invoice arrives",
+    body: "Now the invoice. It arrives on the board as a card — the amount, the PDF, the due date, all attached, all checked against the budget you approved. No portal, no login, no chasing paperwork through email.",
+    target: (ctx) => {
+      const card = findInvoiceCard(ctx.getCards);
+      return card ? `rail-tile-${card.cardKey}` : "rail-needs_you";
+    },
+    serverStep: "invoice_sent",
   },
   {
-    title: "This board runs itself",
-    body: "Everything you just saw happened on live software — cards raised automatically as work happened, invoices that carry their own pay links, crews on a live map, and a board that keeps every stakeholder looking at the same truth. That's HALO. Welcome aboard.",
+    title: "Approve and pay",
+    body: "Here's the part your accounting team will love. Open the invoice, approve it, and choose how to pay — we'll mail a check. Two taps, done. The books reconcile automatically behind the scenes.",
+    target: (ctx) => {
+      const card = findInvoiceCard(ctx.getCards);
+      return card ? `rail-tile-${card.cardKey}` : "rail-needs_you";
+    },
+    uiScript: async (ctx) => {
+      const card = findInvoiceCard(ctx.getCards);
+      if (!card) return;
+      const opened = await clickTestid(`rail-tile-${card.cardKey}`, 3000);
+      if (!opened) return;
+      await waitFor("invoice-approve-pay", 3000);
+      await sleep(900);
+      if (!ctx.alive()) return;
+      // Try the real approve → pay-by-check click path first.
+      const approved = await clickTestid("button-invoice-approve", 2500);
+      await sleep(1400);
+      if (!ctx.alive()) return;
+      const paid = await clickTestid("button-invoice-pay-check", 3000);
+      // Fallback: if the real click path didn't land (auth / element missing),
+      // POST the pay_method action directly through the client card endpoint.
+      if (!paid) {
+        try {
+          await ctx.cardAction(card.cardKey, { action: "pay_method", method: "check" });
+        } catch {
+          /* narration continues regardless */
+        }
+      }
+      await sleep(1400);
+      if (!ctx.alive()) return;
+      ctx.closeCard();
+    },
+  },
+  {
+    title: "The office gets the receipt",
+    body: "And the loop closes. On the office board, a card drops into Done: check approved, Unit 204, issued Net 30. The office knows they've been paid the same instant the client acts. Nobody had to send a single message.",
+    target: "office-board-panel",
+    serverStep: "office_receipt",
+  },
+  {
+    title: "Both boards, one truth",
+    body: "Step back and look at both boards together. One job — requested, approved, scheduled, worked, documented, invoiced, and paid — and both sides watched the exact same truth unfold, live, from opposite ends. That is HALO.",
+    target: null,
+  },
+  {
+    title: "Run it again",
+    body: "That's the whole lifecycle, start to finish, on live software — no refresh, no email chain, no lost paperwork. Close this to return to the board, or replay it any time from the presentation link. Welcome aboard.",
     target: null,
   },
 ];
 
 export function PresentationMode({
   onClose,
-  onDemoAction,
+  token,
+  getCards,
+  onOpenCard,
+  onCloseCard,
 }: {
   onClose: () => void;
-  onDemoAction?: (action: NonNullable<PresentationStep["action"]>) => void;
+  /** The board token — must equal the demo dashboardToken for server steps to fire. */
+  token: string;
+  /** Live getter for the current board cards. */
+  getCards: CardGetter;
+  /** Open the client card detail dialog by cardKey. */
+  onOpenCard?: (cardKey: string) => void;
+  /** Close the client card detail dialog. */
+  onCloseCard?: () => void;
 }) {
   const [step, setStep] = useState(0);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-  const onDemoActionRef = useRef(onDemoAction);
-  onDemoActionRef.current = onDemoAction;
+  const getCardsRef = useRef(getCards);
+  getCardsRef.current = getCards;
+  const onOpenCardRef = useRef(onOpenCard);
+  onOpenCardRef.current = onOpenCard;
+  const onCloseCardRef = useRef(onCloseCard);
+  onCloseCardRef.current = onCloseCard;
+
   const [playing, setPlaying] = useState(true);
   const genRef = useRef(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [spot, setSpot] = useState<DOMRect | null>(null);
-  const firedActions = useRef(new Set<number>());
+  const firedSteps = useRef(new Set<number>());
+  // Demo-token match guard: only fire server steps when the demo dashboardToken
+  // equals this board's token. Cached once per mount.
+  const demoTokenOk = useRef<boolean | null>(null);
+  const demoTokenPromise = useRef<Promise<boolean> | null>(null);
+
+  const ensureDemoToken = useCallback(async (): Promise<boolean> => {
+    if (demoTokenOk.current !== null) return demoTokenOk.current;
+    if (!demoTokenPromise.current) {
+      demoTokenPromise.current = (async () => {
+        try {
+          const state = await fetch(
+            `/api/presentation/demo?token=${encodeURIComponent(token)}`,
+          ).then((r) => r.json());
+          const ok = !!state?.active && !!state?.matches;
+          demoTokenOk.current = ok;
+          return ok;
+        } catch {
+          demoTokenOk.current = false;
+          return false;
+        }
+      })();
+    }
+    return demoTokenPromise.current;
+  }, [token]);
+
+  const fireServerStep = useCallback(
+    async (name: string) => {
+      try {
+        const ok = await ensureDemoToken();
+        if (!ok) return;
+        await fetch("/api/presentation/demo/step", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, step: name }),
+        });
+      } catch {
+        // Narration always continues even if the server step fails.
+      }
+    },
+    [ensureDemoToken, token],
+  );
+
+  const cardAction = useCallback(
+    async (cardKey: string, data: Record<string, unknown>) => {
+      await fetch(`/api/client/${token}/board/cards/${cardKey}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+    },
+    [token],
+  );
 
   const stop = useCallback(() => {
     genRef.current += 1;
@@ -131,21 +435,69 @@ export function PresentationMode({
     [stop],
   );
 
-  // Fire the step's live action once, ~2.5s in so the narrator sets it up first.
+  // Build the choreography context for the current generation.
+  const makeCtx = useCallback(
+    (gen: number): StepCtx => ({
+      getCards: () => getCardsRef.current(),
+      alive: () => genRef.current === gen,
+      server: (name: string) => fireServerStep(name),
+      openCard: (cardKey: string) => onOpenCardRef.current?.(cardKey),
+      closeCard: () => onCloseCardRef.current?.(),
+      cardAction,
+    }),
+    [cardAction, fireServerStep],
+  );
+
+  // Fire the step's serverStep + uiScript once, ~2s in so the narrator sets it
+  // up first. If a step has a uiScript, the uiScript owns the serverStep call
+  // (it decides ordering); otherwise we fire the bare serverStep here.
   useEffect(() => {
     const s = PRESENTATION_STEPS[step];
-    if (!s?.action || firedActions.current.has(step)) return;
-    firedActions.current.add(step);
-    const t = setTimeout(() => onDemoActionRef.current?.(s.action!), 2500);
+    if (!s || firedSteps.current.has(step)) return;
+    firedSteps.current.add(step);
+    const gen = genRef.current;
+    const t = setTimeout(async () => {
+      if (genRef.current !== gen) return;
+      const ctx = makeCtx(gen);
+      if (s.uiScript) {
+        try {
+          await s.uiScript(ctx);
+        } catch {
+          /* choreography is best-effort */
+        }
+      } else if (s.serverStep) {
+        await fireServerStep(s.serverStep);
+      }
+    }, 2000);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
-  // Highlight geometry (same no-op-skip pattern as DashboardTour).
+  // Resolve the step's spotlight target (string or resolver).
+  const resolveTarget = useCallback(
+    (s: PresentationStep | undefined): string | null => {
+      if (!s) return null;
+      if (typeof s.target === "function") {
+        try {
+          return s.target(makeCtx(genRef.current));
+        } catch {
+          return null;
+        }
+      }
+      return s.target;
+    },
+    [makeCtx],
+  );
+
+  // Highlight geometry — re-resolves the target periodically because dynamic
+  // testids (rail-tile-<cardKey>) may not exist until the server step lands.
   useEffect(() => {
-    const target = PRESENTATION_STEPS[step]?.target;
-    const el = target ? document.querySelector(`[data-testid="${target}"]`) : null;
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-    const update = () =>
+    const s = PRESENTATION_STEPS[step];
+    let raf = 0;
+    const compute = () => {
+      const target = resolveTarget(s);
+      const el = target ? document.querySelector(`[data-testid="${target}"]`) : null;
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
       setSpot((prev) => {
         const next = el ? el.getBoundingClientRect() : null;
         if (
@@ -155,18 +507,29 @@ export function PresentationMode({
         ) {
           return prev;
         }
+        if (!prev && !next) return prev;
         return next;
       });
-    update();
+    };
+    compute();
+    // Re-resolve a few times so late-appearing cards get spotlighted.
+    const reResolve = setInterval(compute, 700);
+    const update = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(compute);
+    };
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
     return () => {
+      clearInterval(reResolve);
+      cancelAnimationFrame(raf);
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
     };
-  }, [step]);
+  }, [step, resolveTarget]);
 
-  // Narration: MP3 → SpeechSynthesis → timer, nonce-guarded.
+  // Narration: MP3 → SpeechSynthesis → timer, nonce-guarded. Auto-advance is
+  // delayed enough that the uiScript choreography can finish before we move on.
   useEffect(() => {
     if (!playing) {
       stop();
@@ -175,9 +538,19 @@ export function PresentationMode({
     genRef.current += 1;
     const gen = genRef.current;
     const s = PRESENTATION_STEPS[step];
+    // Give scripted steps a floor of dwell time so the choreography completes.
+    const scriptFloorMs = s.uiScript ? 9000 : 0;
     const finish = () => {
       if (genRef.current === gen) advance(1);
     };
+    const finishAfterFloor = (spentMs: number) => {
+      const remain = Math.max(0, scriptFloorMs - spentMs);
+      if (remain === 0) return finish();
+      timerRef.current = setTimeout(() => {
+        if (genRef.current === gen) finish();
+      }, remain);
+    };
+    const startedAt = Date.now();
     const speakFallback = () => {
       if (genRef.current !== gen) return;
       const synth = window.speechSynthesis;
@@ -185,7 +558,7 @@ export function PresentationMode({
         const u = new SpeechSynthesisUtterance(`${s.title}. ${s.body}`);
         u.rate = 0.98;
         u.onend = () => {
-          if (genRef.current === gen) finish();
+          if (genRef.current === gen) finishAfterFloor(Date.now() - startedAt);
         };
         u.onerror = () => {
           if (genRef.current === gen) startTimer();
@@ -197,14 +570,14 @@ export function PresentationMode({
       }
     };
     const startTimer = () => {
-      const ms = Math.max(4500, (s.title.length + s.body.length) * 55);
+      const ms = Math.max(4500, (s.title.length + s.body.length) * 55, scriptFloorMs);
       timerRef.current = setTimeout(finish, ms);
     };
     const url = clipFor(step);
     if (url) {
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = finish;
+      audio.onended = () => finishAfterFloor(Date.now() - startedAt);
       audio.onerror = speakFallback;
       audio.play().catch(speakFallback);
     } else {
@@ -214,7 +587,7 @@ export function PresentationMode({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, playing]);
 
-  // Dialog semantics.
+  // Dialog semantics + Escape close.
   const panelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
@@ -256,6 +629,10 @@ export function PresentationMode({
             : { background: "rgba(4,10,26,0.62)", pointerEvents: "none" }
         }
       />
+
+      {/* Picture-in-picture office board — shown only during presentation. */}
+      <OfficeBoardPanel token={token} />
+
       <div
         ref={panelRef}
         role="dialog"

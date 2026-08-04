@@ -11,10 +11,10 @@ export type RailKey = 'needs_you' | 'in_progress' | 'requested' | 'done' | 'paid
 
 export const RAIL_ORDER: Array<{ key: RailKey; label: string; empty: string }> = [
   { key: 'needs_you', label: 'Needs you', empty: 'Nothing needs you right now' },
-  { key: 'in_progress', label: 'In progress', empty: 'Nothing in motion right now' },
   { key: 'requested', label: 'Requested', empty: 'No open requests' },
+  { key: 'in_progress', label: 'In progress', empty: 'Nothing in motion right now' },
   { key: 'done', label: 'Done', empty: 'Nothing recently finished' },
-  { key: 'paid', label: 'Paid', empty: 'No payments yet' },
+  { key: 'paid', label: 'Billing', empty: 'No billing activity yet' },
 ];
 
 export interface RailTileModel {

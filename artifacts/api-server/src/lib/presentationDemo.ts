@@ -7,7 +7,7 @@
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import {
   db,
   propertiesTable,
@@ -28,12 +28,30 @@ import {
   crewCheckinsTable,
   crewMessagesTable,
   crewPhotosTable,
+  priceItemsTable,
+  workRequestsTable,
+  jobSummariesTable,
+  activitiesTable,
+  notificationsTable,
 } from "@workspace/db";
-import { raiseClientCard } from "./clientBoard";
-import { buildInvoiceModule, buildCrewMapModule, buildPhotosModule } from "./cardModules";
+import { raiseClientCard, completeClientCard } from "./clientBoard";
+import {
+  buildInvoiceModule,
+  buildCrewMapModule,
+  buildPhotosModule,
+  buildTrackerModule,
+  buildSummaryModule,
+  buildFlagsModule,
+} from "./cardModules";
+import { acceptWorkRequest } from "../routes/workRequests";
+import { applySopToInvoice } from "../routes/sop";
+import { resolveTaxAmount } from "../routes/money";
+import { recomputeJobFinancials } from "./jobFinance";
+import { syncInvoiceLedger } from "./ledger";
 import { objectStorageClient, ObjectStorageService } from "./objectStorage";
 import { logger } from "./logger";
 import { rebuildLedger, withRefLock } from "./ledger";
+import { emitBoardEvent } from "./boardEvents";
 
 export const DEMO_PROPERTY_NAME = "Falkon Demo — Skyline Terrace";
 // Hard demo marker: the property must ALSO carry this exact brief before
@@ -126,8 +144,25 @@ async function teardownPresentationDemoInner(): Promise<boolean> {
       await tx.delete(crewsTable).where(inArray(crewsTable.id, crewIds));
     }
     if (jobIds.length) {
+      // Job summaries + crew photos hang off jobIds (no FKs — delete manually).
+      await tx.delete(jobSummariesTable).where(inArray(jobSummariesTable.jobId, jobIds));
+      await tx.delete(crewPhotosTable).where(inArray(crewPhotosTable.jobId, jobIds));
+      await tx.delete(activitiesTable).where(inArray(activitiesTable.entityId, jobIds));
+      await tx.delete(notificationsTable).where(inArray(notificationsTable.entityId, jobIds));
       await tx.delete(jobsTable).where(inArray(jobsTable.id, jobIds));
     }
+    // Lifecycle rows the demo steps create, all keyed to the demo propertyId.
+    const wrs = await tx
+      .select({ id: workRequestsTable.id })
+      .from(workRequestsTable)
+      .where(eq(workRequestsTable.propertyId, pid));
+    const wrIds = wrs.map((w) => w.id);
+    if (wrIds.length) {
+      await tx.delete(notificationsTable).where(inArray(notificationsTable.entityId, wrIds));
+    }
+    await tx.delete(activitiesTable).where(eq(activitiesTable.entityId, pid));
+    await tx.delete(workRequestsTable).where(eq(workRequestsTable.propertyId, pid));
+    await tx.delete(priceItemsTable).where(eq(priceItemsTable.propertyId, pid));
     await tx.delete(clientBoardCardsTable).where(eq(clientBoardCardsTable.propertyId, pid));
     await tx.delete(clientDashboardCardsTable).where(eq(clientDashboardCardsTable.propertyId, pid));
     await tx.delete(clientDashboardActionsTable).where(eq(clientDashboardActionsTable.propertyId, pid));
@@ -182,6 +217,14 @@ async function seedPresentationDemoInner(): Promise<{
     dashboardToken,
     notes: "Presentation Mode demo account (mock data).",
   });
+
+  // Small price book so the lifecycle demo's client work request can price its
+  // line items from the property's own catalog (like a real request would).
+  await db.insert(priceItemsTable).values([
+    { propertyId: prop.id, service: "Make Ready", detail: "Full unit turnover — make ready", unit: "unit", rate: 850 },
+    { propertyId: prop.id, service: "Cleaning", detail: "Move-out deep clean", unit: "unit", rate: 250 },
+    { propertyId: prop.id, service: "Paint", detail: "Interior repaint", unit: "unit", rate: 400 },
+  ]);
 
   const crewRows = await db
     .insert(crewsTable)
@@ -377,6 +420,484 @@ async function seedPresentationDemoInner(): Promise<{
   await rebuildLedger();
 
   return { dashboardToken, propertyId: prop.id };
+}
+
+// ---------------------------------------------------------------------------
+// Full card-lifecycle walkthrough (Presentation Mode "step" engine)
+//
+// Each step below is IDEMPOTENT: everything is keyed to fixed demo markers so
+// re-running any step (or the whole sequence twice) never duplicates data.
+// These run against the DEMO PROPERTY ONLY and must NOT send real emails/SMS —
+// they build the same rows the real code paths do (reusing the same helpers)
+// but skip the notification side effects.
+// ---------------------------------------------------------------------------
+
+// Fixed markers for the lifecycle work request (so it's found, not duplicated).
+const LC_UNIT = "204";
+const LC_SERVICE = "Make Ready";
+const LC_PO = "PO-2044";
+const LC_NOTE = "Unit 204 turnover — make ready for new tenant";
+
+export const PRESENTATION_DEMO_STEPS = [
+  "reset",
+  "request_created",
+  "office_accept",
+  "assign_schedule",
+  "tracker_live",
+  "photos",
+  "summary_flags",
+  "invoice_sent",
+  "office_receipt",
+] as const;
+export type PresentationDemoStep = (typeof PRESENTATION_DEMO_STEPS)[number];
+
+/** The demo crew leader (Marco) — leader of the seeded J-9001 paint job. */
+async function demoCrewLeaderId(pid: string): Promise<string | null> {
+  const [seedJob] = await db
+    .select({ crewLeaderId: jobsTable.crewLeaderId })
+    .from(jobsTable)
+    .where(and(eq(jobsTable.propertyId, pid), eq(jobsTable.jobNo, "J-9001")))
+    .limit(1);
+  return seedJob?.crewLeaderId ?? null;
+}
+
+/** The lifecycle work request (unit 204 make-ready), if it exists. */
+async function findLifecycleRequest(pid: string) {
+  const [wr] = await db
+    .select()
+    .from(workRequestsTable)
+    .where(and(eq(workRequestsTable.propertyId, pid), eq(workRequestsTable.poNumber, LC_PO)))
+    .limit(1);
+  return wr ?? null;
+}
+
+/** The lifecycle job created from the request, if it exists. */
+async function findLifecycleJob(pid: string) {
+  const wr = await findLifecycleRequest(pid);
+  if (!wr?.jobId) return null;
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, wr.jobId)).limit(1);
+  return job ?? null;
+}
+
+/** The lifecycle invoice for the lifecycle job, if it exists. */
+async function findLifecycleInvoice(pid: string) {
+  const job = await findLifecycleJob(pid);
+  if (!job) return null;
+  const [inv] = await db
+    .select()
+    .from(invoicesTable)
+    .where(and(eq(invoicesTable.propertyId, pid), eq(invoicesTable.jobId, job.id)))
+    .limit(1);
+  return inv ?? null;
+}
+
+/**
+ * Restore the demo to its post-seed state: delete only the rows the lifecycle
+ * steps below create (work request + job + invoice + summary + pushed cards),
+ * leaving the base seed (property, account, seeded crews/jobs/invoices) intact.
+ */
+async function stepReset(pid: string): Promise<void> {
+  const wr = await findLifecycleRequest(pid);
+  const job = wr?.jobId
+    ? (await db.select().from(jobsTable).where(eq(jobsTable.id, wr.jobId)).limit(1))[0]
+    : null;
+  const jobIds = job ? [job.id] : [];
+  const inv = job ? await findLifecycleInvoice(pid) : null;
+  // The summary/flags cards are keyed to the job_summary row's id, not the
+  // job/request/invoice ids — collect it so reset removes those cards too.
+  const summaries = jobIds.length
+    ? await db.select({ id: jobSummariesTable.id }).from(jobSummariesTable).where(inArray(jobSummariesTable.jobId, jobIds))
+    : [];
+
+  await db.transaction(async (tx) => {
+    // Pushed cards created by the steps (keyed to lifecycle sources).
+    const sourceIds = [
+      wr?.id ?? "",
+      ...jobIds,
+      inv?.id ?? "",
+      ...summaries.map((s) => s.id),
+      ...jobIds.map((j) => `demo-receipt-${j}`),
+    ].filter(Boolean);
+    if (sourceIds.length) {
+      await tx
+        .delete(clientBoardCardsTable)
+        .where(inArray(clientBoardCardsTable.sourceId, sourceIds));
+    }
+    if (inv) {
+      await tx.delete(paymentsTable).where(eq(paymentsTable.invoiceId, inv.id));
+      await tx.delete(invoiceLineItemsTable).where(eq(invoiceLineItemsTable.invoiceId, inv.id));
+      await tx.delete(invoicesTable).where(eq(invoicesTable.id, inv.id));
+    }
+    if (jobIds.length) {
+      await tx.delete(jobSummariesTable).where(inArray(jobSummariesTable.jobId, jobIds));
+      await tx.delete(crewPhotosTable).where(inArray(crewPhotosTable.jobId, jobIds));
+      await tx.delete(crewCheckinsTable).where(inArray(crewCheckinsTable.jobId, jobIds));
+      await tx.delete(activitiesTable).where(inArray(activitiesTable.entityId, jobIds));
+      await tx.delete(notificationsTable).where(inArray(notificationsTable.entityId, jobIds));
+      await tx.delete(jobsTable).where(inArray(jobsTable.id, jobIds));
+    }
+    if (wr) {
+      await tx.delete(notificationsTable).where(eq(notificationsTable.entityId, wr.id));
+      await tx.delete(workRequestsTable).where(eq(workRequestsTable.id, wr.id));
+    }
+  });
+  // Demo invoice must not linger in the Books after a reset.
+  await rebuildLedger();
+}
+
+/** Client files the unit-204 make-ready work request. Idempotent by PO. */
+async function stepRequestCreated(pid: string): Promise<void> {
+  if (await findLifecycleRequest(pid)) return; // already created
+  const [makeReady] = await db
+    .select()
+    .from(priceItemsTable)
+    .where(and(eq(priceItemsTable.propertyId, pid), eq(priceItemsTable.service, LC_SERVICE)))
+    .limit(1);
+  await db.insert(workRequestsTable).values({
+    propertyId: pid,
+    requesterName: "Skyline Terrace PM",
+    serviceId: makeReady?.id ?? null,
+    serviceLabel: LC_SERVICE,
+    unitNo: LC_UNIT,
+    units: [LC_UNIT],
+    notes: LC_NOTE,
+    emergency: false,
+    poNumber: LC_PO,
+    // Client's stated budget from the price book (Make Ready + Cleaning + Paint).
+    budgetEstimate: (makeReady?.rate ?? 850) + 250 + 400,
+    status: "pending",
+  });
+  // NOTE: no office email/SMS — this is the demo property.
+  emitBoardEvent(pid);
+}
+
+/** Office accepts the request → job (reuses the shared accept helper). */
+async function stepOfficeAccept(pid: string): Promise<void> {
+  const wr = await findLifecycleRequest(pid);
+  if (!wr) throw new Error("Run request_created first");
+  if (wr.status === "accepted" && wr.jobId) return; // already accepted
+  await acceptWorkRequest(wr.id, {});
+}
+
+/** Assign the demo crew as leader + schedule today so it lands In progress. */
+async function stepAssignSchedule(pid: string): Promise<void> {
+  const job = await findLifecycleJob(pid);
+  if (!job) throw new Error("Run office_accept first");
+  const leaderId = await demoCrewLeaderId(pid);
+  const today = new Date();
+  await db
+    .update(jobsTable)
+    .set({
+      crewLeaderId: leaderId,
+      // crewVacatedAt MUST be cleared whenever a crew leader is (re)assigned.
+      crewVacatedAt: null,
+      status: "in_progress",
+      scheduledOn: localYmd(today),
+      scheduledTime: "9:00 AM",
+      scheduleType: "scheduled",
+    })
+    .where(eq(jobsTable.id, job.id));
+  // A recent on-site check-in projects the card into the In progress lane.
+  if (leaderId) {
+    const already = await db
+      .select({ id: crewCheckinsTable.id })
+      .from(crewCheckinsTable)
+      .where(and(eq(crewCheckinsTable.jobId, job.id), eq(crewCheckinsTable.kind, "site")))
+      .limit(1);
+    if (already.length === 0) {
+      await db.insert(crewCheckinsTable).values({
+        crewId: leaderId,
+        jobId: job.id,
+        kind: "site",
+        lat: 34.1181,
+        lng: -118.3449,
+        label: `On site — Unit ${LC_UNIT}`,
+        createdAt: new Date(today.getTime() - 15 * 60000),
+      });
+    }
+  }
+  emitBoardEvent(pid);
+}
+
+/** Push the live tracker card for the lifecycle job. */
+async function stepTrackerLive(pid: string): Promise<void> {
+  const job = await findLifecycleJob(pid);
+  if (!job) throw new Error("Run office_accept first");
+  // Ensure the job has a tracker token (atomic first-wins like the real flow).
+  if (!job.trackerToken) {
+    await db
+      .update(jobsTable)
+      .set({ trackerToken: newToken() })
+      .where(and(eq(jobsTable.id, job.id), isNull(jobsTable.trackerToken)));
+  }
+  const module = await buildTrackerModule(pid, job.id);
+  await raiseClientCard({
+    propertyId: pid,
+    kind: "tracker",
+    title: `Live tracker — Unit ${LC_UNIT} make ready`,
+    body: "Your crew is on site now. Follow the live GPS tracker and check-ins.",
+    actionLabel: "Watch live",
+    sourceType: "tracker",
+    sourceId: job.id,
+    jobId: job.id,
+    module,
+  });
+}
+
+/** Push the before/after photos card, reusing the seeded demo photos. */
+async function stepPhotos(pid: string): Promise<void> {
+  const job = await findLifecycleJob(pid);
+  if (!job) throw new Error("Run office_accept first");
+  const leaderId = await demoCrewLeaderId(pid);
+  // Attach the four bundled demo photos to the lifecycle job (idempotent —
+  // fixed object names, and we only insert when the job has none yet).
+  const existing = await db
+    .select({ id: crewPhotosTable.id })
+    .from(crewPhotosTable)
+    .where(eq(crewPhotosTable.jobId, job.id))
+    .limit(1);
+  if (existing.length === 0 && leaderId) {
+    await seedDemoPhotos(leaderId, job.id, new Date());
+  }
+  const module = await buildPhotosModule(pid, job.id);
+  if (!module) return; // storage unavailable — degrade gracefully
+  await raiseClientCard({
+    propertyId: pid,
+    kind: "photos",
+    title: `Before & after — Unit ${LC_UNIT} make ready`,
+    body: "Your crew documented the turnover from first look to final walk. Tap through the before/after set.",
+    actionLabel: "View photos",
+    sourceType: "photos",
+    sourceId: job.id,
+    jobId: job.id,
+    module,
+  });
+}
+
+/** Push the work-summary card (result "exceeded") + a flags card (2 items). */
+async function stepSummaryFlags(pid: string): Promise<void> {
+  const job = await findLifecycleJob(pid);
+  if (!job) throw new Error("Run office_accept first");
+  const leaderId = await demoCrewLeaderId(pid);
+  let leaderName: string | null = null;
+  if (leaderId) {
+    const [c] = await db.select({ name: crewsTable.name }).from(crewsTable).where(eq(crewsTable.id, leaderId)).limit(1);
+    leaderName = c?.name ?? null;
+  }
+  const flags = [
+    { label: "Unit 204 — water stain on bathroom ceiling", checked: true, note: "Likely a slow leak above — recommend a plumbing look." },
+    { label: "Hallway 2F — cracked window latch", checked: true, note: "Safety item — replace latch." },
+  ];
+  // One summary per job (jobId is unique). Upsert-by-lookup for idempotency.
+  const [existingSummary] = await db
+    .select()
+    .from(jobSummariesTable)
+    .where(eq(jobSummariesTable.jobId, job.id))
+    .limit(1);
+  const checklist = [
+    {
+      section: "Turnover checklist",
+      items: [
+        { label: "Walls patched & painted", checked: true },
+        { label: "Floors cleaned & sealed", checked: true },
+        { label: "Fixtures swapped", checked: true },
+        { label: "Deep clean complete", checked: true },
+        { label: "Final walk-through", checked: true },
+      ],
+    },
+  ];
+  let summaryId: string;
+  if (existingSummary) {
+    summaryId = existingSummary.id;
+    await db
+      .update(jobSummariesTable)
+      .set({ checklist, flags, overallResult: "exceeded", status: "sent", sentAt: new Date(), updatedAt: new Date() })
+      .where(eq(jobSummariesTable.id, summaryId));
+  } else {
+    const [s] = await db
+      .insert(jobSummariesTable)
+      .values({
+        jobId: job.id,
+        propertyId: pid,
+        token: newToken(),
+        title: `Service Recap — Unit ${LC_UNIT}`,
+        unitNumber: LC_UNIT,
+        serviceDate: localYmd(new Date()),
+        crewLead: leaderName,
+        checklist,
+        flags,
+        overallResult: "exceeded",
+        observations: "Turnover completed ahead of schedule — unit is rent ready.",
+        status: "sent",
+        sentAt: new Date(),
+      })
+      .returning();
+    summaryId = s!.id;
+  }
+  const summaryModule = await buildSummaryModule(pid, summaryId);
+  await raiseClientCard({
+    propertyId: pid,
+    kind: "summary",
+    title: `Work summary — Unit ${LC_UNIT} make ready`,
+    body: "Turnover complete — every checklist item passed and the crew exceeded scope. Full recap with photos attached.",
+    actionLabel: "View recap",
+    sourceType: "job_summary",
+    sourceId: summaryId,
+    jobId: job.id,
+    module: summaryModule,
+  });
+  const flagsModule = await buildFlagsModule(pid);
+  await raiseClientCard({
+    propertyId: pid,
+    kind: "flag",
+    title: `⚑ 2 areas flagged — Unit ${LC_UNIT}`,
+    body: flags.map((f) => `• ${f.label}${f.note ? ` — ${f.note}` : ""}`).join("\n"),
+    actionLabel: "Review flagged areas",
+    sourceType: "job_summary_flags",
+    sourceId: summaryId,
+    jobId: job.id,
+    module: flagsModule,
+  });
+}
+
+/** Create + send a real invoice for the lifecycle job, then push its card. */
+async function stepInvoiceSent(pid: string): Promise<void> {
+  const job = await findLifecycleJob(pid);
+  if (!job) throw new Error("Run office_accept first");
+  let inv = await findLifecycleInvoice(pid);
+  if (!inv) {
+    const items = [
+      { typeOfWork: LC_SERVICE, description: "Full unit turnover — make ready", qty: 1, unitPrice: 850, amount: 850 },
+      { typeOfWork: "Cleaning", description: "Move-out deep clean", qty: 1, unitPrice: 250, amount: 250 },
+      { typeOfWork: "Paint", description: "Interior repaint", qty: 1, unitPrice: 400, amount: 400 },
+    ];
+    const total = items.reduce((s, i) => s + i.amount, 0);
+    const issuedOn = localYmd(new Date());
+    const dueAt = new Date(Date.now() + 30 * 86400000);
+    // Same enforcement helper every invoice-create path uses. The demo
+    // property has no SOP rule, so this is a no-op (returns null) — but wiring
+    // it keeps the demo honest with the real POST /invoices contract.
+    const sop = await applySopToInvoice(pid, {
+      issuedOn,
+      poNumber: LC_PO,
+      dueProvided: true,
+      total,
+    });
+    if (sop && !sop.ok) throw new Error(sop.error);
+    const [prop] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, pid)).limit(1);
+    const taxAmount = sop && sop.ok ? sop.taxAmount : await resolveTaxAmount(undefined, total);
+    const [created] = await db
+      .insert(invoicesTable)
+      .values({
+        invoiceNo: sop && sop.ok && sop.invoiceNo ? sop.invoiceNo : `INV-9${Date.now().toString().slice(-3)}`,
+        jobId: job.id,
+        propertyId: pid,
+        amount: total,
+        status: "draft",
+        terms: "Net 30",
+        poNumber: LC_PO,
+        billToName: prop?.pmcName ?? prop?.name ?? "Falkon Property Group",
+        propertyAddress: prop?.address ?? null,
+        issuedOn,
+        dueAt,
+        taxAmount: taxAmount ?? 0,
+      })
+      .returning();
+    await db.insert(invoiceLineItemsTable).values(
+      items.map((it, i) => ({
+        invoiceId: created!.id,
+        unitNo: LC_UNIT,
+        typeOfWork: it.typeOfWork,
+        description: it.description,
+        qty: it.qty,
+        unitPrice: it.unitPrice,
+        amount: it.amount,
+        sortOrder: i,
+      })),
+    );
+    inv = created!;
+  }
+  // "Send" the invoice — mirror POST /invoices/:id/send WITHOUT the email.
+  if (inv.status === "draft") {
+    const [sent] = await db
+      .update(invoicesTable)
+      .set({ status: "sent", sentAt: new Date() })
+      .where(eq(invoicesTable.id, inv.id))
+      .returning();
+    inv = sent!;
+  }
+  await recomputeJobFinancials(job.id);
+  await syncInvoiceLedger(inv.id);
+  const invTotal = inv.amount + (inv.taxAmount ?? 0);
+  const module = await buildInvoiceModule(pid, inv.id);
+  await raiseClientCard({
+    propertyId: pid,
+    kind: "invoice",
+    title: `Invoice ${inv.invoiceNo} — ${invTotal.toLocaleString("en-US", { style: "currency", currency: "USD" })}`,
+    body: `Unit ${LC_UNIT} turnover complete — make ready, cleaning, and paint. Review & approve, then pick how you'd like to pay.`,
+    actionLabel: "Review & approve",
+    amount: invTotal,
+    dueDate: inv.dueAt ? localYmd(inv.dueAt) : null,
+    links: [{ label: `Invoice ${inv.invoiceNo} (PDF)`, url: `/api/invoices/${inv.id}/pdf`, kind: "pdf" }],
+    sourceType: "invoice",
+    sourceId: inv.id,
+    jobId: job.id,
+    module,
+  });
+}
+
+/** After the client picks "mail a check", raise the OFFICE Done-lane card. */
+async function stepOfficeReceipt(pid: string): Promise<void> {
+  const job = await findLifecycleJob(pid);
+  if (!job) throw new Error("Run office_accept first");
+  const sourceId = `demo-receipt-${job.id}`;
+  await raiseClientCard({
+    propertyId: pid,
+    kind: "summary",
+    title: `Check approved — Unit ${LC_UNIT}`,
+    body: "Payment approved by owner. Check will be issued Net 30.",
+    sourceType: "office_receipt",
+    sourceId,
+    jobId: job.id,
+  });
+  // Force it into the Done lane (raiseClientCard lands cards in inbox; a
+  // completed card projects onto the Done lane on both boards). Idempotent.
+  await completeClientCard("office_receipt", sourceId);
+}
+
+/**
+ * Run one lifecycle step against the active demo property. Serialized with the
+ * seed/teardown lock so concurrent drives can't race. Idempotent per step.
+ */
+export async function runPresentationDemoStep(step: string): Promise<void> {
+  if (!(PRESENTATION_DEMO_STEPS as readonly string[]).includes(step)) {
+    throw new Error(`Unknown step: ${step}`);
+  }
+  await withRefLock("presentation-demo", async () => {
+    const prop = await findDemoProperty();
+    if (!prop) throw new Error("Presentation demo is not active");
+    const pid = prop.id;
+    switch (step as PresentationDemoStep) {
+      case "reset":
+        return stepReset(pid);
+      case "request_created":
+        return stepRequestCreated(pid);
+      case "office_accept":
+        return stepOfficeAccept(pid);
+      case "assign_schedule":
+        return stepAssignSchedule(pid);
+      case "tracker_live":
+        return stepTrackerLive(pid);
+      case "photos":
+        return stepPhotos(pid);
+      case "summary_flags":
+        return stepSummaryFlags(pid);
+      case "invoice_sent":
+        return stepInvoiceSent(pid);
+      case "office_receipt":
+        return stepOfficeReceipt(pid);
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------

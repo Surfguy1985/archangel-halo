@@ -253,48 +253,109 @@ export function ModuleMetrics({ module, tint }: { module: any; tint: any }) {
 
 export function ModuleEvidence({ module, tint }: { module: any; tint: any }) {
   if (module.type === 'invoice') {
+    const hasPdf = !!module.pdfUrl;
     return (
-      <div className="bg-[#FBFAF7] rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col p-[12px] relative" style={{ border: `1px solid ${tint.bd}` }}>
-        <div className="flex justify-between items-start border-b border-dashed border-black/10 pb-2 mb-2">
-          <div className="flex flex-col">
-             <span className="text-[10px] font-[800] text-[#96948B] tracking-widest uppercase">TOTAL DUE</span>
-             <span className="text-[20px] font-[800] text-[#101C33] tracking-tight leading-none mt-1">${module.amount?.toLocaleString() || '0'}</span>
+      <div className="rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex items-center justify-center relative" style={{ border: `1px solid ${tint.bd}`, background: 'linear-gradient(135deg, #EFEDE7, #F7F5F0)' }} data-testid={`module-invoice-evidence-${module.invoiceNo || ''}`}>
+        {/* Miniature invoice "paper" sheet — slightly rotated with a soft shadow,
+            same document-thumbnail spirit as the photos grid. */}
+        <div className="relative w-[150px] h-[110px] bg-white rounded-[4px] shadow-[0_6px_16px_rgba(0,0,0,0.18)] rotate-[-4deg] overflow-hidden border border-black/5">
+          {/* letterhead bar */}
+          <div className="h-[14px] w-full bg-[#101C33] flex items-center px-2">
+            <span className="text-[6px] font-[800] tracking-[0.12em] text-[#B4FF44] uppercase">Invoice</span>
           </div>
-          <FileText className="h-7 w-7 text-black/10" />
-        </div>
-        <div className="flex flex-col gap-1.5 mt-1 relative z-10">
-          <div className="flex justify-between items-end border-b border-black/5 pb-1">
-             <span className="text-[10px] font-[650] text-[#96948B] uppercase">Status</span>
-             <span className="text-[11px] font-[800] text-[#101C33] uppercase">{module.status || 'OPEN'}</span>
+          <div className="p-2 flex flex-col gap-[3px]">
+            {/* faux letterhead rows */}
+            <div className="h-[3px] w-[70%] rounded-full bg-black/10" />
+            <div className="h-[3px] w-[45%] rounded-full bg-black/[0.07]" />
+            {/* faux line-item rows */}
+            <div className="mt-1 flex flex-col gap-[3px]">
+              <div className="flex items-center gap-1">
+                <div className="h-[2.5px] flex-1 rounded-full bg-black/[0.06]" />
+                <div className="h-[2.5px] w-[16px] rounded-full bg-black/[0.10]" />
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-[2.5px] flex-1 rounded-full bg-black/[0.06]" />
+                <div className="h-[2.5px] w-[16px] rounded-full bg-black/[0.10]" />
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-[2.5px] w-[60%] rounded-full bg-black/[0.06]" />
+                <div className="h-[2.5px] w-[16px] rounded-full bg-black/[0.10]" />
+              </div>
+            </div>
           </div>
-          <div className="flex justify-between items-end">
-             <span className="text-[10px] font-[650] text-[#96948B] uppercase">Due Date</span>
-             <span className="text-[11px] font-[800] text-[#101C33] uppercase">{module.dueDate || '—'}</span>
+          {/* real amount overlaid on the sheet foot */}
+          <div className="absolute bottom-0 inset-x-0 bg-[#FBFAF7] border-t border-black/5 px-2 py-1 flex items-end justify-between">
+            <span className="text-[6px] font-[800] tracking-widest text-[#96948B] uppercase">Total Due</span>
+            <span className="text-[13px] font-[800] text-[#101C33] tracking-tight leading-none">${module.amount?.toLocaleString() || '0'}</span>
           </div>
         </div>
-        {/* Fake watermark */}
-        <div className="absolute -bottom-4 -right-2 text-[60px] font-[900] text-black/[0.02] tracking-tighter select-none pointer-events-none transform -rotate-12">
-           INV
+        {/* invoice number + status overlay */}
+        <div className="absolute left-2 bottom-2 z-10 flex flex-col">
+          <span className="text-[9px] font-[800] text-[#101C33] tracking-tight">{module.invoiceNo || '—'}</span>
+          <span className="text-[8px] font-[700] uppercase tracking-wider text-[#96948B]">{module.status || 'OPEN'}</span>
         </div>
+        {/* PDF badge when a document is attached */}
+        {hasPdf && (
+          <div className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-[5px] bg-[#101C33] px-1.5 py-0.5 shadow-sm">
+            <FileText className="h-2.5 w-2.5 text-[#B4FF44]" strokeWidth={2.5} />
+            <span className="text-[8px] font-[800] tracking-wider text-white">PDF</span>
+          </div>
+        )}
       </div>
     );
   }
   if (module.type === 'tracker') {
+    const crewName: string = module.crewName || '';
+    const crewInitial = crewName ? crewName.charAt(0).toUpperCase() : 'C';
+    const unitLabel = module.unitNo || module.jobNo || 'On site';
     return (
-      <div className="bg-white rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col relative group" style={{ border: `1px solid ${tint.bd}` }}>
-        {/* Map-like background pattern */}
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, black 1px, transparent 0)', backgroundSize: '12px 12px' }} />
-        <div className="relative z-10 flex flex-col h-full p-[12px]">
-           <div className="flex items-center gap-2 mb-2">
-              <MapPin className="h-4 w-4 text-[#101C33]" />
-              <span className="text-[11px] font-[800] uppercase tracking-wider text-[#101C33]">Live Tracker Active</span>
-           </div>
-           <p className="text-[12px] font-[500] text-[#6E6C63] leading-snug line-clamp-3 mt-1">
-             {module.scope || 'Crew is en route or currently on site.'}
-           </p>
-           <div className="mt-auto flex items-center gap-2 text-[10px] font-[700] text-[#96948B]">
-              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" /> GPS transmitting
-           </div>
+      <div className="rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col relative group" style={{ border: `1px solid ${tint.bd}` }} data-testid={`module-tracker-evidence-${module.jobId || ''}`}>
+        {/* Stylized live-map background — light paper with soft road lines,
+            no external tiles/deps. Reads instantly as "map preview". */}
+        <div className="absolute inset-0" style={{ backgroundColor: '#FDFBF7' }} />
+        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 340 130" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          {/* park / block fills */}
+          <rect x="14" y="10" width="70" height="46" rx="4" fill="#EAF3E6" />
+          <rect x="236" y="66" width="86" height="52" rx="4" fill="#E7EEF6" />
+          <rect x="150" y="12" width="60" height="40" rx="4" fill="#F1EEE7" />
+          {/* soft road lines */}
+          <path d="M-10 44 H360" stroke="#E4DFD4" strokeWidth="10" strokeLinecap="round" />
+          <path d="M-10 92 H360" stroke="#E4DFD4" strokeWidth="8" strokeLinecap="round" />
+          <path d="M118 -10 V140" stroke="#E4DFD4" strokeWidth="9" strokeLinecap="round" />
+          <path d="M232 -10 V140" stroke="#E4DFD4" strokeWidth="7" strokeLinecap="round" />
+          {/* thin center dashes on the main road */}
+          <path d="M-10 44 H360" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="7 7" />
+          <path d="M118 -10 V140" stroke="#FFFFFF" strokeWidth="1.5" strokeDasharray="7 7" />
+        </svg>
+        {/* Pulsing location pin near the road intersection */}
+        <div className="absolute left-[112px] top-[36px] z-10">
+          <span className="absolute inset-0 -m-1 rounded-full bg-[#101C33]/20 animate-ping" style={{ width: 22, height: 22 }} />
+          <span className="relative grid place-items-center w-[22px] h-[22px] rounded-full bg-[#101C33] shadow-md">
+            <MapPin className="h-3 w-3 text-[#B4FF44]" strokeWidth={2.5} />
+          </span>
+        </div>
+        {/* Foreground crew + LIVE overlay */}
+        <div className="relative z-20 mt-auto flex items-center gap-2 p-[10px]">
+          <div className="relative shrink-0">
+            {module.crewSelfieUrl ? (
+              <img src={module.crewSelfieUrl} alt={crewName || 'Crew'} className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-[#101C33] text-white flex items-center justify-center text-[12px] font-[800] border-2 border-white shadow-sm">
+                {crewInitial}
+              </div>
+            )}
+            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-white animate-pulse" />
+          </div>
+          <div className="flex-1 min-w-0 rounded-[7px] bg-white/85 backdrop-blur-sm px-2 py-1 shadow-sm border border-black/5">
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse shrink-0" />
+              <span className="text-[9px] font-[800] uppercase tracking-wider text-[#1F7A52]">Live</span>
+              <span className="text-[9px] font-[700] text-[#96948B] truncate">· {unitLabel}</span>
+            </div>
+            <div className="text-[11px] font-[700] text-[#101C33] truncate leading-tight">
+              {crewName || 'Crew on the move'}
+            </div>
+          </div>
         </div>
       </div>
     );

@@ -1162,17 +1162,18 @@ router.get(["/client/:token/board", "/client/:token/board/pm"], async (req, res)
 // Office full board — the SAME projected vendor board the client sees, served
 // to the admin apps so the office view is pixel-identical and always in sync.
 // ---------------------------------------------------------------------------
-router.get("/admin/accounts/:propertyId/board/full", async (req, res): Promise<void> => {
-  const propertyId = String(req.params.propertyId);
+// Office-side full board projection for a property. Extracted so other
+// surfaces (Presentation Mode's public demo office-board endpoint) render the
+// exact same office view. Returns null when the property has no client account.
+export async function getOfficeBoardFull(
+  propertyId: string,
+): Promise<Record<string, unknown> | null> {
   const [account] = await db
     .select()
     .from(clientAccountsTable)
     .where(eq(clientAccountsTable.propertyId, propertyId))
     .limit(1);
-  if (!account) {
-    res.status(404).json({ error: "No client account for this property yet" });
-    return;
-  }
+  if (!account) return null;
   const [prop] = await db
     .select()
     .from(propertiesTable)
@@ -1195,7 +1196,7 @@ router.get("/admin/accounts/:propertyId/board/full", async (req, res): Promise<v
         ? `https://${domain}/board/${account.dashboardToken}`
         : `/board/${account.dashboardToken}`
       : null;
-  res.json({
+  return {
     propertyName: prop?.name ?? "Property",
     dashboardUrl,
     board: {
@@ -1226,7 +1227,17 @@ router.get("/admin/accounts/:propertyId/board/full", async (req, res): Promise<v
         createdAt: a.createdAt.toISOString(),
       })),
     },
-  });
+  };
+}
+
+router.get("/admin/accounts/:propertyId/board/full", async (req, res): Promise<void> => {
+  const propertyId = String(req.params.propertyId);
+  const full = await getOfficeBoardFull(propertyId);
+  if (!full) {
+    res.status(404).json({ error: "No client account for this property yet" });
+    return;
+  }
+  res.json(full);
 });
 
 // ---------------------------------------------------------------------------

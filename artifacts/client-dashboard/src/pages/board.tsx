@@ -154,7 +154,18 @@ function Board() {
   const tourDecidedRef = useRef(false);
   useEffect(() => {
     if (!boardLoaded) return;
-    if (presentationOpen) return; // presentation replaces the intro tour
+    if (presentationOpen) {
+      // The presentation REPLACES the intro tour — decide once and mark it
+      // seen so the tour never auto-launches the moment the presentation
+      // closes (two overlapping tutorials).
+      if (!tourDecidedRef.current) {
+        tourDecidedRef.current = true;
+        const tourSeenKey = `halo_dashboard_tour_seen_${token}`;
+        try { localStorage.setItem(tourSeenKey, '1'); } catch { /* ignore */ }
+        if (viewerAuthenticated && !viewerTourSeen) markTourSeen.mutate({ token });
+      }
+      return;
+    }
     // Deep links (?map=1) open the map dialog on top of the board — defer the
     // tour until the map closes so it isn't shown (and marked seen) underneath.
     if (birdseyeOpen) return;
@@ -179,27 +190,35 @@ function Board() {
     }
   }, [boardLoaded, viewerAuthenticated, viewerTourSeen, token, markTourSeen, presentationOpen, birdseyeOpen]);
 
-  // Presentation Mode live actions: driven through the office API so the
-  // audience watches the real SSE pipeline update the board. Manual /api URLs
-  // must be absolute — never BASE_URL-prefixed.
-  const runPresentationAction = async (action: string) => {
+  // Presentation Mode: the narrated interactive simulcast. Server steps are
+  // fired inside PresentationMode against POST /api/presentation/demo/step
+  // (token-matched). We fire "reset" whenever the presentation closes — early
+  // or at the end — so the demo is always re-runnable. Guarded so it only
+  // fires when the demo dashboardToken matches this board. /api URLs absolute.
+  const closePresentation = async () => {
+    setPresentationOpen(false);
+    setDetailCard(null);
     try {
-      const state = await fetch('/api/presentation/demo').then((r) => r.json());
-      if (!state?.active || !state.propertyId || state.dashboardToken !== token) return;
-      const card = (board?.cards || []).find((c: any) =>
-        String(c.title || '').toLowerCase().includes('landscaping'),
-      );
-      if (!card) return;
-      const lane = action === 'move-demo-card-in-progress' ? 'in_progress' : 'scheduled';
-      await fetch(`/api/admin/accounts/${state.propertyId}/board/actions`, {
+      const state = await fetch(
+        `/api/presentation/demo?token=${encodeURIComponent(token)}`,
+      ).then((r) => r.json());
+      if (!state?.active || !state?.matches) return;
+      await fetch('/api/presentation/demo/step', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'card.moved', cardKey: card.cardKey, payload: { lane, position: 0 } }),
+        body: JSON.stringify({ token, step: 'reset' }),
       });
     } catch {
-      // The narration carries on even if the live move fails.
+      // Reset is best-effort — never block closing the presentation.
     }
   };
+
+  // Force the vendors (rails) tab whenever the presentation is running — the
+  // whole story is choreographed against the rails board testids.
+  useEffect(() => {
+    if (presentationOpen && activeTab !== 'vendors') setActiveTab('vendors');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presentationOpen]);
 
   const handleLogout = () => {
     localStorage.removeItem(`halo_client_session_${token}`);
@@ -534,8 +553,14 @@ function Board() {
 
       {presentationOpen && (
         <PresentationMode
-          onClose={() => setPresentationOpen(false)}
-          onDemoAction={(a) => void runPresentationAction(a)}
+          token={token}
+          onClose={() => void closePresentation()}
+          getCards={() => board?.cards || []}
+          onOpenCard={(cardKey) => {
+            const card = (board?.cards || []).find((c: any) => c.cardKey === cardKey);
+            if (card) setDetailCard(card);
+          }}
+          onCloseCard={() => setDetailCard(null)}
         />
       )}
 

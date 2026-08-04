@@ -132,6 +132,13 @@ const PUBLIC_PREFIXES = [
   "/job-summaries/",
   "/storage/",
   "/vapi/",
+  // Presentation Mode: an unauthenticated audience device drives the scripted
+  // card lifecycle and renders the office-side board. Both endpoints are
+  // token-guarded (current demo dashboardToken + active demo) and only ever
+  // touch the demo property's data, so exempting them from the passcode gate
+  // is safe. See routes/presentation.ts.
+  "/presentation/demo/step",
+  "/presentation/demo/office-board",
 ];
 
 const DEMO_ACTION_RE = /^\/admin\/accounts\/([^/]+)\/board\/actions$/;

@@ -177,7 +177,7 @@ export function CardDetailDialog({ card, token, readOnly, onClose, onReadOnlyCli
                 <Button
                   type="button"
                   variant="outline"
-                  data-testid="button-request-change"
+                  data-testid="button-change-order"
                   onClick={() => {
                     if (readOnly) { onReadOnlyClick?.(); return; }
                     onRequestChange(card);

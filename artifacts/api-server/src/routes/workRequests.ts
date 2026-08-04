@@ -327,27 +327,21 @@ router.get("/work-requests", async (req, res): Promise<void> => {
   );
 });
 
-router.post("/work-requests/:id/accept", async (req, res): Promise<void> => {
-  const id = String(req.params.id);
-  const parsedBody = AcceptWorkRequestBody.safeParse(req.body ?? {});
-  const adjust = parsedBody.success ? parsedBody.data : {};
-  if (adjust.neededBy && !/^\d{4}-\d{2}-\d{2}$/.test(adjust.neededBy)) {
-    res.status(400).json({ error: "Adjusted date must be YYYY-MM-DD" });
-    return;
-  }
+// Accept a pending work request → create its job. Extracted so any path
+// (the REST route below AND the Presentation Mode demo step) runs the exact
+// same accept logic instead of forking it. Throws a tagged Error for the
+// two guarded failures so callers can map them to 404/409.
+export async function acceptWorkRequest(
+  id: string,
+  adjust: { note?: string | null; neededBy?: string | null } = {},
+): Promise<{ jobId: string; jobNo: string; changeOrderJobNo: string | null }> {
   const [request] = await db
     .select()
     .from(workRequestsTable)
     .where(eq(workRequestsTable.id, id))
     .limit(1);
-  if (!request) {
-    res.status(404).json({ error: "Request not found" });
-    return;
-  }
-  if (request.status !== "pending") {
-    res.status(409).json({ error: `Request is already ${request.status}` });
-    return;
-  }
+  if (!request) throw new Error("REQUEST_NOT_FOUND");
+  if (request.status !== "pending") throw new Error(`REQUEST_ALREADY:${request.status}`);
   // Change orders reference an existing job; carry its number into the record.
   let changeOrderJobNo: string | null = null;
   if (request.changeOrderJobId) {
@@ -363,65 +357,56 @@ router.post("/work-requests/:id/accept", async (req, res): Promise<void> => {
   const units = strArray(request.units);
   let jobNo = "";
   let jobId = "";
-  try {
-    await db.transaction(async (tx) => {
-      // First-wins guard: only the transition pending -> accepted proceeds.
-      const claimed = await tx
-        .update(workRequestsTable)
-        .set({ status: "accepted", decidedAt: new Date(), adjustNote })
-        .where(
-          and(
-            eq(workRequestsTable.id, id),
-            eq(workRequestsTable.status, "pending"),
-          ),
-        )
-        .returning();
-      if (claimed.length === 0) throw new Error("ALREADY_DECIDED");
-      // Job number pattern matches POST /jobs (J-2xxx from row count).
-      const existing = await tx.select({ id: jobsTable.id }).from(jobsTable);
-      jobNo = `J-${String(2000 + existing.length + 1)}`;
-      const description = [
-        request.emergency ? "EMERGENCY (≤24h notice)" : null,
-        changeOrderJobNo ? `Change order on Job ${changeOrderJobNo}` : null,
-        request.serviceLabel,
-        units.length > 1 ? `Units: ${units.join(", ")}` : null,
-        request.notes ? `Notes from PM: ${request.notes}` : null,
-        adjustNote ? `Office adjustment: ${adjustNote}` : null,
-        request.requesterName ? `Requested by ${request.requesterName}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n");
-      const [job] = await tx
-        .insert(jobsTable)
-        .values({
-          jobNo,
-          propertyId: request.propertyId,
-          unitNo: request.unitNo,
-          category: request.serviceLabel,
-          description,
-          status: "open",
-          // Requested complete-by date becomes a flex deadline on the card.
-          scheduleType: neededBy ? "flex" : "scheduled",
-          flexDueBy: neededBy,
-          // Carry the client's stated budget onto the job so invoice
-          // editors can flag over-budget totals before sending.
-          clientBudget: request.budgetEstimate ?? null,
-        })
-        .returning();
-      jobId = job!.id;
-      await tx
-        .update(workRequestsTable)
-        .set({ jobId })
-        .where(eq(workRequestsTable.id, id));
-    });
-  } catch (e) {
-    if (e instanceof Error && e.message === "ALREADY_DECIDED") {
-      res.status(409).json({ error: "Request was already decided" });
-      return;
-    }
-    throw e;
-  }
-  const propName = await propertyNameMap();
+  await db.transaction(async (tx) => {
+    // First-wins guard: only the transition pending -> accepted proceeds.
+    const claimed = await tx
+      .update(workRequestsTable)
+      .set({ status: "accepted", decidedAt: new Date(), adjustNote })
+      .where(
+        and(
+          eq(workRequestsTable.id, id),
+          eq(workRequestsTable.status, "pending"),
+        ),
+      )
+      .returning();
+    if (claimed.length === 0) throw new Error("ALREADY_DECIDED");
+    // Job number pattern matches POST /jobs (J-2xxx from row count).
+    const existing = await tx.select({ id: jobsTable.id }).from(jobsTable);
+    jobNo = `J-${String(2000 + existing.length + 1)}`;
+    const description = [
+      request.emergency ? "EMERGENCY (≤24h notice)" : null,
+      changeOrderJobNo ? `Change order on Job ${changeOrderJobNo}` : null,
+      request.serviceLabel,
+      units.length > 1 ? `Units: ${units.join(", ")}` : null,
+      request.notes ? `Notes from PM: ${request.notes}` : null,
+      adjustNote ? `Office adjustment: ${adjustNote}` : null,
+      request.requesterName ? `Requested by ${request.requesterName}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const [job] = await tx
+      .insert(jobsTable)
+      .values({
+        jobNo,
+        propertyId: request.propertyId,
+        unitNo: request.unitNo,
+        category: request.serviceLabel,
+        description,
+        status: "open",
+        // Requested complete-by date becomes a flex deadline on the card.
+        scheduleType: neededBy ? "flex" : "scheduled",
+        flexDueBy: neededBy,
+        // Carry the client's stated budget onto the job so invoice
+        // editors can flag over-budget totals before sending.
+        clientBudget: request.budgetEstimate ?? null,
+      })
+      .returning();
+    jobId = job!.id;
+    await tx
+      .update(workRequestsTable)
+      .set({ jobId })
+      .where(eq(workRequestsTable.id, id));
+  });
   await db.insert(activitiesTable).values({
     entityType: "job",
     entityId: jobId,
@@ -440,6 +425,38 @@ router.post("/work-requests/:id/accept", async (req, res): Promise<void> => {
   }
   // The client's Requested card flips to the job card on next read.
   emitBoardEvent(request.propertyId);
+  return { jobId, jobNo, changeOrderJobNo };
+}
+
+router.post("/work-requests/:id/accept", async (req, res): Promise<void> => {
+  const id = String(req.params.id);
+  const parsedBody = AcceptWorkRequestBody.safeParse(req.body ?? {});
+  const adjust = parsedBody.success ? parsedBody.data : {};
+  if (adjust.neededBy && !/^\d{4}-\d{2}-\d{2}$/.test(adjust.neededBy)) {
+    res.status(400).json({ error: "Adjusted date must be YYYY-MM-DD" });
+    return;
+  }
+  let result: { jobId: string; jobNo: string; changeOrderJobNo: string | null };
+  try {
+    result = await acceptWorkRequest(id, { note: adjust.note, neededBy: adjust.neededBy });
+  } catch (e) {
+    if (e instanceof Error) {
+      if (e.message === "REQUEST_NOT_FOUND") {
+        res.status(404).json({ error: "Request not found" });
+        return;
+      }
+      if (e.message.startsWith("REQUEST_ALREADY:")) {
+        res.status(409).json({ error: `Request is already ${e.message.slice("REQUEST_ALREADY:".length)}` });
+        return;
+      }
+      if (e.message === "ALREADY_DECIDED") {
+        res.status(409).json({ error: "Request was already decided" });
+        return;
+      }
+    }
+    throw e;
+  }
+  const propName = await propertyNameMap();
   const [fresh] = await db
     .select()
     .from(workRequestsTable)
@@ -447,7 +464,7 @@ router.post("/work-requests/:id/accept", async (req, res): Promise<void> => {
     .limit(1);
   res.json(
     AcceptWorkRequestResponse.parse(
-      serRequest(fresh!, propName, jobNo, changeOrderJobNo),
+      serRequest(fresh!, propName, result.jobNo, result.changeOrderJobNo),
     ),
   );
 });

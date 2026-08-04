@@ -16,6 +16,14 @@ description: Investor demo — seeded mock property + narrated spotlight walkthr
 - Seed also uploads bundled before/after photos (`artifacts/api-server/assets/demo/*.jpg`) into object storage under fixed names `/objects/demo-board/*` (overwrite-safe) and raises a real `photos`-module card. The server runs bundled from dist, so asset paths must be probed (dist vs src vs cwd), never assumed from `import.meta.dirname`. Photo seeding is best-effort: storage failure skips the photos card, never fails the seed.
 - Re-seeding (POST) invalidates the previous dashboardToken — always re-fetch the token after any activate call when testing.
 
+## Simulcast lifecycle engine (client-dashboard presentation)
+- Client-dashboard `?present=1` is now a 14-step narrated SIMULCAST: `POST /presentation/demo/step` (body `{token, step}`) drives idempotent lifecycle steps (reset, request_created, office_accept, assign_schedule, tracker_live, photos, summary_flags, invoice_sent, office_receipt); `GET /presentation/demo/office-board?token=` feeds the PiP OfficeBoardPanel (2s poll). Both are in officeAuth PUBLIC_PREFIXES, token-guarded.
+- **Security invariant: public `GET /presentation/demo` must NEVER return the dashboardToken** — it returns only `{active, matches}` for a `?token=` query. The token is disclosed only by the office-gated seed POST. (Architect flagged token leak once; keep it closed.)
+- Office-board projection shape: `{propertyName, dashboardUrl, board: {lanes: [defs], cards: [flat, each with .lane]}}` — panel normalizer must unwrap `.board` and group flat cards by lane.
+- Board `?present=1` also permanently suppresses the intro DashboardTour (marks it seen once, ref-guarded) — otherwise two tutorials stack and the tour launches when the presentation closes.
+- Client rails order is needs_you, requested, in_progress, done, paid(label "Billing") — RAIL_ORDER in board-ui railMapping.ts.
+- Narration clips: generated via ElevenLabs external API, premade Jessica voice `cgSgspJ2msm6clMCkdW9`, `/with-timestamps?output_format=mp3_22050_32` (full-bitrate + /v1/voices responses blow the 1MB callback limit). Text = `title. body` per step.
+
 ## Desktop port
 - Desktop app has its own OfficeBoardDemo copy (assets + component duplicated from mobile) opened by ?present=1 on the office board page; entry points live in the sidebar More dropdown ("Showcase" section) and seed the demo via activate before navigating.
 - Desktop office board lanes are requested/scheduled/in_progress/done/billing (AppleBoard `lane-<key>` testids) — NOT the mobile column-inbox model; spotlight targets must use lane-requested for pushed cards.

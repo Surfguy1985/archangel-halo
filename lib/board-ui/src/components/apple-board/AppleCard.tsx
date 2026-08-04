@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { APPLE_CATEGORY_COLORS, APPLE_CATEGORY_TEXT, resolveTemplate, type BoardAudience } from './templates';
 import { MessageSquare, Calendar, Wrench, FileText, FileSearch, HardHat, FileSignature, Layers, Trash2 } from 'lucide-react';
 import { formatDistanceToNow, parseISO, isBefore, startOfDay } from 'date-fns';
@@ -171,9 +172,46 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
     : `linear-gradient(135deg, ${shade(color, -0.42)}, ${color})`;
   const serviceLabel = template.labelPreset || SERVICE_LABELS[template.category] || template.category;
 
+  // ── Lane-move landing glow ────────────────────────────────────────────
+  // When an SSE update re-parents this card into a new lane, framer-motion's
+  // shared layout (layoutId) glides it across the board instead of teleporting.
+  // On top of the glide we flash a subtle scale/glow highlight for ~1s so the
+  // eye lands on where the card went. First mount is baselined silently.
+  const prevLane = React.useRef<string | null>(null);
+  const [landed, setLanded] = React.useState(false);
+  React.useEffect(() => {
+    const lane = card.lane ?? null;
+    if (prevLane.current !== null && prevLane.current !== lane) {
+      setLanded(true);
+      const t = setTimeout(() => setLanded(false), 1000);
+      prevLane.current = lane;
+      return () => clearTimeout(t);
+    }
+    prevLane.current = lane;
+  }, [card.lane]);
+
   return (
-    <div
+    <motion.div
       id={`card-${card.cardKey}`}
+      // Shared-layout: a card keeps its identity across lanes, so a re-parent
+      // animates as a glide. Disabled mid-drag so the touch-drag inline
+      // transforms (set directly on this node in AppleBoard) aren't fought.
+      layout={isDragged ? false : 'position'}
+      layoutId={`card-${card.cardKey}`}
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{
+        opacity: 1,
+        scale: 1,
+        boxShadow: landed
+          ? '0 0 0 3px rgba(180,255,68,0.55), 0 8px 28px rgba(0,0,0,0.16)'
+          : '0 0 0 0px rgba(180,255,68,0), 0 0px 0px rgba(0,0,0,0)',
+      }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{
+        layout: { type: 'spring', stiffness: 550, damping: 42 },
+        boxShadow: { duration: landed ? 0.25 : 0.5 },
+        default: { duration: 0.18 },
+      }}
       draggable={!readOnly}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
@@ -182,7 +220,7 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
         if (justDragged.current) return; // swallow the tap that ends a touch drag
         onClick?.();
       }}
-      className="flex flex-col border rounded-[18px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.12)] transition-all cursor-pointer active:scale-[0.98] max-sm:select-none overflow-hidden relative bg-white"
+      className="flex flex-col border rounded-[18px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.12)] transition-shadow cursor-pointer active:scale-[0.98] max-sm:select-none overflow-hidden relative bg-white"
       style={{ WebkitTouchCallout: 'none', borderColor: `${color}40` } as React.CSSProperties}
     >
       {/* Branded header — service color owns the gradient; black text on lime, white on blue */}
@@ -345,6 +383,6 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

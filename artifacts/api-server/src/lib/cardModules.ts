@@ -383,6 +383,21 @@ export async function buildTrackerModule(
     .from(jobsTable)
     .where(and(eq(jobsTable.id, jobId), eq(jobsTable.propertyId, propertyId)));
   if (!job || !job.trackerToken) return null;
+  // Optional crew-leader identity for the live-map thumbnail: prefer the
+  // crew's selfie, fall back to the name initial in the card UI. Backward
+  // compatible — both fields are nullable and the UI degrades gracefully.
+  let crewName: string | null = null;
+  let crewSelfieUrl: string | null = null;
+  if (job.crewLeaderId) {
+    const [crew] = await db
+      .select()
+      .from(crewsTable)
+      .where(eq(crewsTable.id, job.crewLeaderId));
+    if (crew) {
+      crewName = crew.name ?? null;
+      crewSelfieUrl = crew.selfiePath ? `/api/storage${crew.selfiePath}` : null;
+    }
+  }
   return {
     type: "tracker",
     jobId: job.id,
@@ -390,6 +405,8 @@ export async function buildTrackerModule(
     unitNo: job.unitNo ?? null,
     scope: job.description ?? null,
     trackerUrl: `${publicBaseUrl()}/track/${job.trackerToken}`,
+    crewName,
+    crewSelfieUrl,
   };
 }
 
