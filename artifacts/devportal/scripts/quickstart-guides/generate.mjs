@@ -34,7 +34,8 @@ body {
   background: linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 60%, ${INK} 100%);
   color: #fff; padding: 0.34in 0.5in 0.30in; display: flex; align-items: center; gap: 0.28in;
 }
-.header img { width: 0.85in; height: 0.85in; border-radius: 0.14in; background: ${PAPER}; }
+.header img { width: 0.85in; height: 0.85in; border-radius: 0.14in; background: ${PAPER};
+  object-fit: contain; padding: 0.07in; }
 .kicker { font-family: Outfit, sans-serif; font-weight: 600; letter-spacing: 0.18em;
   text-transform: uppercase; font-size: 9.5pt; color: ${LIME}; margin-bottom: 4pt; }
 h1 { font-family: Outfit, sans-serif; font-weight: 700; font-size: 24pt; line-height: 1.1; }
