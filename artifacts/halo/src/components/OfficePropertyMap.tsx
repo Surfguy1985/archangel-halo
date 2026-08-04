@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import { divIcon, latLngBounds } from "leaflet";
+import { divIcon, latLngBounds, type Marker as LeafletMarker } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 export type OfficePropertyPin = {
@@ -45,13 +45,40 @@ function FitToPins({ pins }: { pins: OfficePropertyPin[] }) {
   return null;
 }
 
+// Fly to a focused pin and open its popup. `focus.nonce` changes on every
+// request so re-tapping the same job re-triggers the effect.
+function FocusOnPin({
+  focus,
+  pins,
+  markerRefs,
+}: {
+  focus: { id: string; nonce: number } | null;
+  pins: OfficePropertyPin[];
+  markerRefs: React.MutableRefObject<Record<string, LeafletMarker | null>>;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (!focus) return;
+    const pin = pins.find((p) => p.id === focus.id);
+    if (!pin) return;
+    map.flyTo([pin.lat, pin.lng], Math.max(map.getZoom(), 15), { duration: 0.6 });
+    // Open the popup after the fly animation settles so it isn't dragged around.
+    const t = setTimeout(() => markerRefs.current[focus.id]?.openPopup(), 650);
+    return () => clearTimeout(t);
+  }, [focus?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 export function OfficePropertyMap({
   pins,
   onViewJobs,
+  focus,
 }: {
   pins: OfficePropertyPin[];
   onViewJobs?: (propertyId: string) => void;
+  focus?: { id: string; nonce: number } | null;
 }) {
+  const markerRefs = useRef<Record<string, LeafletMarker | null>>({});
   if (pins.length === 0) return null;
   const lat = pins.reduce((s, p) => s + p.lat, 0) / pins.length;
   const lng = pins.reduce((s, p) => s + p.lng, 0) / pins.length;
@@ -72,8 +99,16 @@ export function OfficePropertyMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <FitToPins pins={pins} />
+        <FocusOnPin focus={focus ?? null} pins={pins} markerRefs={markerRefs} />
         {pins.map((p) => (
-          <Marker key={p.id} position={[p.lat, p.lng]} icon={propertyPinIcon(p.activeJobs)}>
+          <Marker
+            key={p.id}
+            position={[p.lat, p.lng]}
+            icon={propertyPinIcon(p.activeJobs)}
+            ref={(m) => {
+              markerRefs.current[p.id] = m;
+            }}
+          >
             <Popup>
               <div style={{ fontWeight: 700 }}>{p.name}</div>
               {p.address && <div style={{ fontSize: 12 }}>{p.address}</div>}

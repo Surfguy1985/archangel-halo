@@ -1380,6 +1380,25 @@ function OfficeViewTab({ view }: { view: PortalOfficeView }) {
   const [jobsPropertyFilter, setJobsPropertyFilter] = useState<string | null>(null);
   const jobsSectionRef = useRef<HTMLDivElement | null>(null);
   const hasJobs = view.features.includes("jobs");
+  const hasProperties = view.features.includes("properties");
+  // Reverse direction: tapping a job scrolls to the map and opens the pin.
+  const [mapFocus, setMapFocus] = useState<{ id: string; nonce: number } | null>(null);
+  const mapSectionRef = useRef<HTMLDivElement | null>(null);
+  const mappablePropertyIds = useMemo(
+    () =>
+      new Set(
+        view.properties
+          .filter((p) => p.latitude != null && p.longitude != null)
+          .map((p) => p.id),
+      ),
+    [view.properties],
+  );
+  const viewPropertyOnMap = (propertyId: string) => {
+    setMapFocus({ id: propertyId, nonce: Date.now() });
+    requestAnimationFrame(() => {
+      mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
   const viewJobsForProperty = (propertyId: string) => {
     setJobsPropertyFilter(propertyId);
     // Wait a tick so the (possibly re-rendered) section exists before scrolling.
@@ -1512,6 +1531,16 @@ function OfficeViewTab({ view }: { view: PortalOfficeView }) {
                     >
                       {j.status.replace(/_/g, " ")}
                     </span>
+                    {hasProperties && j.propertyId && mappablePropertyIds.has(j.propertyId) && (
+                      <button
+                        type="button"
+                        onClick={() => viewPropertyOnMap(j.propertyId!)}
+                        className="ml-auto flex items-center gap-[4px] text-[11px] font-semibold bg-[var(--gold-light)]/25 text-foreground rounded-full px-[8px] py-[3px] hover:bg-[var(--gold-light)]/40 transition-colors shrink-0"
+                        data-testid={`button-view-on-map-${j.id}`}
+                      >
+                        <MapPin className="w-[11px] h-[11px]" /> Map
+                      </button>
+                    )}
                   </div>
                   <div className="text-[12.5px] text-muted-foreground mt-[2px]">
                     {j.propertyName ?? ""}
@@ -1528,10 +1557,11 @@ function OfficeViewTab({ view }: { view: PortalOfficeView }) {
         </div>
       )}
 
-      {view.features.includes("properties") && (
-        <>
+      {hasProperties && (
+        <div ref={mapSectionRef} className="scroll-mt-[70px]">
           <div className="text-[13px] font-semibold mb-[8px]">Properties</div>
           <OfficePropertyMap
+            focus={mapFocus}
             pins={view.properties.flatMap((p) =>
               p.latitude != null && p.longitude != null
                 ? [
@@ -1561,7 +1591,7 @@ function OfficeViewTab({ view }: { view: PortalOfficeView }) {
               </div>
             ))}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
