@@ -101,6 +101,12 @@ export function AddPriceItemSheet({
               <input className={`${fieldCls} w-[110px]`} placeholder="Unit" value={unit} onChange={(e) => setUnit(e.target.value)} />
             </div>
           </div>
+          {create.isError && (
+            <div className="mt-[12px] text-[13px] text-destructive text-center">
+              {(create.error as { data?: { error?: string } })?.data?.error ||
+                "Couldn't save. Check the fields and try again."}
+            </div>
+          )}
           <button
             className="w-full mt-[18px] rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 transition-transform active:scale-[0.98]"
             onClick={submit}

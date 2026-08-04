@@ -556,7 +556,10 @@ export function AddPriceItemDialog({
           </button>
         </DialogFooter>
         {create.isError && (
-          <div className={errorCls}>Couldn't save. Check the fields and try again.</div>
+          <div className={errorCls}>
+            {(create.error as { data?: { error?: string } })?.data?.error ||
+              "Couldn't save. Check the fields and try again."}
+          </div>
         )}
       </DialogContent>
     </Dialog>
@@ -1092,7 +1095,12 @@ export function EditPriceItemDialog({
               </Field>
             </div>
           </div>
-          {update.isError && <div className={errorCls}>Couldn't save. Check the fields and try again.</div>}
+          {update.isError && (
+            <div className={errorCls}>
+              {(update.error as { data?: { error?: string } })?.data?.error ||
+                "Couldn't save. Check the fields and try again."}
+            </div>
+          )}
           {deleteError && <div className={errorCls}>{deleteError}</div>}
           <DialogFooter className="gap-2 sm:justify-between">
             <button

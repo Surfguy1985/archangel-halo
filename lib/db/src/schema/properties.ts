@@ -6,7 +6,9 @@ import {
   doublePrecision,
   timestamp,
   date,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const propertiesTable = pgTable("properties", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -57,18 +59,30 @@ export const contactsTable = pgTable("contacts", {
     .defaultNow(),
 });
 
-export const priceItemsTable = pgTable("price_items", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  propertyId: uuid("property_id").notNull(),
-  service: text("service").notNull(),
-  detail: text("detail"),
-  unit: text("unit"),
-  rate: doublePrecision("rate").notNull(),
-  marginFloor: doublePrecision("margin_floor"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const priceItemsTable = pgTable(
+  "price_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    propertyId: uuid("property_id").notNull(),
+    service: text("service").notNull(),
+    detail: text("detail"),
+    unit: text("unit"),
+    rate: doublePrecision("rate").notNull(),
+    marginFloor: doublePrecision("margin_floor"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // Autofill picks the price by exact service-name match — two rows with
+    // the same (property, service) would make the picked price depend on
+    // row order. Case/whitespace-insensitive so "Turn" and " turn " collide.
+    uniqueIndex("price_items_property_service_uq").on(
+      t.propertyId,
+      sql`lower(trim(${t.service}))`,
+    ),
+  ],
+);
 
 export const agreementsTable = pgTable("agreements", {
   id: uuid("id").primaryKey().defaultRandom(),

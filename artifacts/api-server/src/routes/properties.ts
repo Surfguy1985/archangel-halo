@@ -504,16 +504,27 @@ router.patch("/price-items/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: "No fields to update" });
     return;
   }
-  const [row] = await db
-    .update(priceItemsTable)
-    .set(body)
-    .where(eq(priceItemsTable.id, id))
-    .returning();
-  if (!row) {
-    res.status(404).json({ error: "Price item not found" });
-    return;
+  try {
+    const [row] = await db
+      .update(priceItemsTable)
+      .set(body.service != null ? { ...body, service: body.service.trim() } : body)
+      .where(eq(priceItemsTable.id, id))
+      .returning();
+    if (!row) {
+      res.status(404).json({ error: "Price item not found" });
+      return;
+    }
+    res.json(UpdatePriceItemResponse.parse(ser(row)));
+  } catch (err) {
+    // Renaming onto an existing service name would create a duplicate.
+    if (isPriceItemDuplicate(err)) {
+      res
+        .status(409)
+        .json({ error: duplicatePriceItemError(body.service?.trim() ?? "This service") });
+      return;
+    }
+    throw err;
   }
-  res.json(UpdatePriceItemResponse.parse(ser(row)));
 });
 
 router.delete("/price-items/:id", async (req, res): Promise<void> => {
@@ -529,14 +540,55 @@ router.delete("/price-items/:id", async (req, res): Promise<void> => {
   res.json(DeletePriceItemResponse.parse({ ok: true }));
 });
 
+// Drizzle sometimes wraps the pg error — the unique-violation code can live on
+// err.code OR err.cause.code depending on the driver path.
+function isPriceItemDuplicate(e: unknown): boolean {
+  if (typeof e !== "object" || e === null) return false;
+  const code =
+    (e as { code?: string }).code ??
+    ((e as { cause?: { code?: string } }).cause?.code);
+  return code === "23505";
+}
+
+const duplicatePriceItemError = (service: string) =>
+  `"${service}" is already on this property's price list. Edit the existing entry instead — two entries with the same name would make price autofill unpredictable.`;
+
 router.post("/properties/:id/price-items", async (req, res): Promise<void> => {
   const { id } = CreatePriceItemParams.parse(req.params);
   const body = CreatePriceItemBody.parse(req.body);
-  const [row] = await db
-    .insert(priceItemsTable)
-    .values({ ...body, propertyId: id })
-    .returning();
-  res.status(201).json(CreatePriceItemResponse.parse(ser(row)));
+  const service = body.service.trim();
+  if (!service) {
+    res.status(400).json({ error: "Service name is required" });
+    return;
+  }
+  const [dup] = await db
+    .select({ id: priceItemsTable.id })
+    .from(priceItemsTable)
+    .where(
+      and(
+        eq(priceItemsTable.propertyId, id),
+        sql`lower(trim(${priceItemsTable.service})) = lower(${service})`,
+      ),
+    );
+  if (dup) {
+    res.status(409).json({ error: duplicatePriceItemError(service) });
+    return;
+  }
+  try {
+    const [row] = await db
+      .insert(priceItemsTable)
+      .values({ ...body, service, propertyId: id })
+      .returning();
+    res.status(201).json(CreatePriceItemResponse.parse(ser(row)));
+  } catch (err) {
+    // Race: two concurrent creates can both pass the pre-check — the unique
+    // index is the backstop.
+    if (isPriceItemDuplicate(err)) {
+      res.status(409).json({ error: duplicatePriceItemError(service) });
+      return;
+    }
+    throw err;
+  }
 });
 
 router.get("/catalog-items", async (_req, res): Promise<void> => {
@@ -628,22 +680,29 @@ router.post(
 
     let imported: (typeof priceItemsTable.$inferSelect)[] = [];
     if (toInsert.length > 0) {
+      // onConflictDoNothing: a concurrent add can slip past the pre-filter —
+      // the (propertyId, service) unique index quietly skips it instead of
+      // failing the whole import.
       imported = await db
         .insert(priceItemsTable)
         .values(
           toInsert.map((c) => ({
             propertyId: id,
-            service: c.service,
+            service: c.service.trim(),
             detail: c.detail,
             unit: c.unit,
             rate: c.rate ?? 0,
           })),
         )
+        .onConflictDoNothing()
         .returning();
     }
 
     res.json(
-      ImportPriceItemsResponse.parse({ imported: serList(imported), skipped }),
+      ImportPriceItemsResponse.parse({
+        imported: serList(imported),
+        skipped: skipped + (toInsert.length - imported.length),
+      }),
     );
   },
 );
