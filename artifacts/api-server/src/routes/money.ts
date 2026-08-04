@@ -634,6 +634,15 @@ router.get("/invoices/:id/csv", async (req, res): Promise<void> => {
     .select()
     .from(propertiesTable)
     .where(eq(propertiesTable.id, inv.propertyId));
+  const [job] = inv.jobId
+    ? await db.select().from(jobsTable).where(eq(jobsTable.id, inv.jobId))
+    : [undefined];
+  const invPayments = await db
+    .select()
+    .from(paymentsTable)
+    .where(eq(paymentsTable.invoiceId, inv.id));
+  const amountPaid =
+    Math.round(invPayments.reduce((s, p) => s + p.amount, 0) * 100) / 100;
 
   // Format a YYYY-MM-DD / Date value per the SOP's date_format (default ISO).
   const fmt = (rule?.format?.date_format ?? "").toUpperCase();
@@ -670,6 +679,9 @@ router.get("/invoices/:id/csv", async (req, res): Promise<void> => {
   kv("Due Date", fmtDate(inv.dueAt));
   kv("Terms", inv.terms || rule?.format?.payment_terms || "");
   kv("PO Number", inv.poNumber ?? "");
+  kv("Job Number", job?.jobNo ?? "");
+  kv("Job", job ? [job.category, job.description].filter(Boolean).join(" — ") : "");
+  if (job?.unitNo) kv("Job Unit", job.unitNo);
   kv("Bill To", inv.billToName || rule?.property?.client_company || "");
   kv("Property", prop?.name ?? "");
   kv(
@@ -688,7 +700,7 @@ router.get("/invoices/:id/csv", async (req, res): Promise<void> => {
   kv("Status", inv.status);
   lines.push("");
   lines.push(
-    "Date of Work,Unit,Type of Work,Description,Qty,Unit Price,Amount",
+    "Date of Work,Unit,Type of Work,Description,Qty,Rate,Cost",
   );
   for (const li of items) {
     lines.push(
@@ -707,6 +719,10 @@ router.get("/invoices/:id/csv", async (req, res): Promise<void> => {
   lines.push(`Subtotal,,,,,,${money(subtotal - inv.taxAmount)}`);
   if (inv.taxAmount > 0) lines.push(`Tax,,,,,,${money(inv.taxAmount)}`);
   lines.push(`Total,,,,,,${money(inv.amount)}`);
+  lines.push(`Amount Paid,,,,,,${money(amountPaid)}`);
+  lines.push(
+    `Balance Due,,,,,,${money(Math.max(0, Math.round((inv.amount - amountPaid) * 100) / 100))}`,
+  );
   if (inv.notes?.trim()) {
     lines.push("");
     kv("Notes", inv.notes.trim());
