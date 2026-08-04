@@ -24,7 +24,7 @@ export type ShotRect = {
 
 export type ShotPhase = {
   rects: ShotRect[];
-  /** How long to hold this phase before cross-fading (ms). Default 2600. */
+  /** How long to hold this phase before cross-fading (ms). Default 4000. */
   hold?: number;
 };
 
@@ -90,7 +90,7 @@ export function PresentationShowcase({ showcase }: { showcase: Showcase }) {
     const timers: ReturnType<typeof setTimeout>[] = [];
     const schedule = () => {
       if (i >= phases.length - 1) return;
-      const hold = phases[i]?.hold ?? 2600;
+      const hold = phases[i]?.hold ?? 4000;
       const t = setTimeout(() => {
         i += 1;
         setPhaseIdx(i);

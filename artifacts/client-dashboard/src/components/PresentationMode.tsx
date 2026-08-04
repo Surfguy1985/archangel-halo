@@ -262,7 +262,7 @@ function findInvoiceCard(getCards: CardGetter): any | null {
 export const PRESENTATION_STEPS: PresentationStep[] = [
   {
     title: "Two boards, one job",
-    body: "Welcome to HALO. What you're watching is live — the client's board fills the screen, and up in the corner is the office's board, the exact same job seen from the other side. Every move you're about to see happens on real software, in real time, on both boards at once. Let's run one job end to end.",
+    body: "Welcome to HALO. What you're watching is live — your board fills the screen, and down in the corner is your vendor's board: the exact same job, exactly as your vendor sees it on their side. Every move you're about to see happens on real software, in real time, on both boards at once. Let's run one job end to end.",
     target: null,
   },
   {
@@ -288,15 +288,15 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
         if (!ctx.alive()) { ctx.closeRequest(); return; }
         // Pick Unit 204 — a roster chip if present, else type it in.
         await pickUnit204();
-        await sleep(1500); // "choose Unit 204 / Make Ready"
+        await sleep(2400); // "choose Unit 204 / Make Ready"
         if (!ctx.alive()) { ctx.closeRequest(); return; }
         await clickTestid("wizard-next", 2000);
         await waitFor("wizard-step-when", 3000);
-        await sleep(1600); // "price-book line items populate from your rates"
+        await sleep(2600); // "price-book line items populate from your rates"
         if (!ctx.alive()) { ctx.closeRequest(); return; }
         await clickTestid("wizard-next", 2000);
         await waitFor("wizard-step-confirm", 3000);
-        await sleep(1300);
+        await sleep(2000);
       }
       // Close WITHOUT submitting.
       ctx.closeRequest();
@@ -308,13 +308,13 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
     },
   },
   {
-    title: "It hits the office board",
-    body: "The instant we sent that, it appeared on the office board — top right. There it is in the office inbox, glowing. No email, no phone call. The office already has the request, the unit, the PO, and the budget in front of them.",
+    title: "It hits the vendor's board",
+    body: "The instant we sent that, it appeared on your vendor's board — bottom right. That panel is what the vendor sees: there's your request in their inbox, glowing. No email, no phone call. Your vendor already has the request, the unit, the PO, and the budget in front of them.",
     target: "office-board-panel",
   },
   {
-    title: "The office approves",
-    body: "The office reviews it and approves. Watch the card move on their board — approval turns a request into a real job. That single action fans out to everyone looking, on both sides, within a second.",
+    title: "The vendor approves",
+    body: "The vendor reviews it and approves. Watch the card move across their board — approval turns your request into a real job on the vendor's side. That single action fans out to everyone looking, on both sides, within a second.",
     target: "office-board-panel",
     serverStep: "office_accept",
   },
@@ -328,17 +328,17 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
     serverStep: "assign_schedule",
     uiScript: async (ctx) => {
       await ctx.server("assign_schedule");
-      await sleep(2200); // let the card settle into In progress
+      await sleep(3200); // let the card settle into In progress
       if (!ctx.alive()) return;
       const card = findJobCard(ctx.getCards);
       if (card) {
         const clicked = await clickTestid(`rail-tile-${card.cardKey}`, 3000);
         if (clicked) {
-          await sleep(1800); // read the schedule + crew + summary
+          await sleep(3000); // read the schedule + crew + summary
           if (!ctx.alive()) return;
           // Point out the change-order button.
           await waitFor("button-change-order", 1500);
-          await sleep(1400);
+          await sleep(2400);
           ctx.closeCard();
         }
       }
@@ -346,7 +346,7 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
   },
   {
     title: "Day of — live on site",
-    body: "On the day of the work, a live tracker card appears with a map thumbnail — you can see the crew is checked in at the property, right now. We open it for a beat: this is where the work is happening, live, without a single phone call to the office.",
+    body: "On the day of the work, a live tracker card appears with a map thumbnail — you can see the crew is checked in at the property, right now. We open it for a beat: this is where the work is happening, live, without a single phone call to your vendor.",
     target: (ctx) => {
       const t = findTrackerCard(ctx.getCards);
       return t ? `rail-tile-${t.cardKey}` : "rail-in_progress";
@@ -364,7 +364,7 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
             { x: 0.307, y: 0.288, w: 0.161, h: 0.21, label: "Crew on site" },
             { x: 0.317, y: 0.44, w: 0.142, h: 0.031 },
           ],
-          hold: 3200,
+          hold: 4400,
         },
         {
           rects: [
@@ -391,7 +391,7 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
       if (p) {
         const clicked = await clickTestid(`rail-tile-${p.cardKey}`, 3500);
         if (clicked) {
-          await sleep(2800); // dwell on the before/after gallery
+          await sleep(4400); // dwell on the before/after gallery
           if (!ctx.alive()) { ctx.closeCard(); return; }
           ctx.closeCard();
         }
@@ -414,7 +414,7 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
       if (s) {
         const clicked = await clickTestid(`rail-tile-${s.cardKey}`, 3500);
         if (clicked) {
-          await sleep(2800); // dwell on the recap + the two flagged items
+          await sleep(4400); // dwell on the recap + the two flagged items
           if (!ctx.alive()) { ctx.closeCard(); return; }
           ctx.closeCard();
         }
@@ -437,10 +437,10 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
       heading: "Invoice · attached to the card",
       ratio: 3450 / 1974,
       phases: [
-        { rects: [{ x: 0.354, y: 0.6, w: 0.096, h: 0.068, label: "Amount" }], hold: 2600 },
+        { rects: [{ x: 0.354, y: 0.6, w: 0.096, h: 0.068, label: "Amount" }], hold: 4000 },
         {
           rects: [{ x: 0.347, y: 0.676, w: 0.293, h: 0.126, label: "Line items vs. budget" }],
-          hold: 2800,
+          hold: 4200,
         },
         { rects: [{ x: 0.359, y: 0.812, w: 0.278, h: 0.055, label: "Invoice PDF" }] },
       ],
@@ -464,19 +464,19 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
       const opened = await clickTestid(`rail-tile-${card.cardKey}`, 3500);
       if (!opened) return;
       await waitFor("invoice-approve-pay", 3000);
-      await sleep(1200);
+      await sleep(2000);
       if (!ctx.alive()) { ctx.closeCard(); return; }
       // Reveal the Approve button (the real action affordance).
       const approveBtn = await waitFor("button-invoice-approve", 2000);
       approveBtn?.scrollIntoView({ behavior: "smooth", block: "center" });
-      await sleep(2000);
+      await sleep(3200);
       if (!ctx.alive()) { ctx.closeCard(); return; }
       // Reveal the pay-by-check affordance if the dialog exposes it.
       const payBtn =
         (await waitFor("button-invoice-pay-check", 1200)) ??
         (await waitFor("invoice-pay-options", 1200));
       payBtn?.scrollIntoView({ behavior: "smooth", block: "center" });
-      await sleep(1800);
+      await sleep(3000);
       // Safety net: if any gated click ever surfaced a sign-in prompt, close it
       // via its own Cancel button (never Escape — that would close the demo).
       await dismissLoginDialog();
@@ -485,8 +485,8 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
     },
   },
   {
-    title: "The office gets the receipt",
-    body: "And the loop closes. On the office board, a card drops into Done: check approved, Unit 204, issued Net 30. The office knows they've been paid the same instant the client acts. Nobody had to send a single message.",
+    title: "The vendor gets the receipt",
+    body: "And the loop closes. On the vendor's board, a card drops into Done: check approved, Unit 204, issued Net 30. Your vendor knows they've been paid the same instant you act. Nobody had to send a single message.",
     target: "office-board-panel",
     serverStep: "office_receipt",
     // The office board reacts live in the corner; alongside it we showcase the
@@ -496,8 +496,8 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
       heading: "Invoice settled · paid",
       ratio: 3456 / 2166,
       phases: [
-        { rects: [{ x: 0.571, y: 0.215, w: 0.073, h: 0.022, label: "Complete" }], hold: 2600 },
-        { rects: [{ x: 0.354, y: 0.584, w: 0.281, h: 0.047, label: "Paid" }], hold: 2600 },
+        { rects: [{ x: 0.571, y: 0.215, w: 0.073, h: 0.022, label: "Complete" }], hold: 4000 },
+        { rects: [{ x: 0.354, y: 0.584, w: 0.281, h: 0.047, label: "Paid" }], hold: 4000 },
         { rects: [{ x: 0.354, y: 0.696, w: 0.291, h: 0.044, label: "Reconciled" }] },
       ],
     },
@@ -763,7 +763,7 @@ export function PresentationMode({
     const gen = genRef.current;
     const s = PRESENTATION_STEPS[step];
     // Give scripted steps a floor of dwell time so the choreography completes.
-    const scriptFloorMs = s.uiScript ? 9000 : 0;
+    const scriptFloorMs = Math.max(s.uiScript ? 14000 : 0, s.showcase ? 12000 : 0);
     const finish = () => {
       if (genRef.current === gen) advance(1);
     };

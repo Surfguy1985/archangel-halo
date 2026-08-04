@@ -191,7 +191,7 @@ export function OfficeBoardPanel({ token }: { token: string }) {
             <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: LIME }} />
           </span>
           <span className="text-[10px] font-bold uppercase tracking-widest text-white/80">
-            Office Board — Live
+            Vendor's Board — Live
           </span>
         </div>
         <button
@@ -215,7 +215,7 @@ export function OfficeBoardPanel({ token }: { token: string }) {
             <div className="flex gap-2 overflow-x-auto p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {lanes.length === 0 ? (
                 <div className="w-full py-8 text-center text-[11px] text-white/40">
-                  Waiting for the office board…
+                  Waiting for the vendor's board…
                 </div>
               ) : (
                 lanes.map((lane) => (
