@@ -163,3 +163,24 @@ uri = "file://attached_assets/generated/Archangel-Contractors-Price-List-OnePage
 type = "pdf"
 title = "Archangel Contractors — Price List One-Pager"
 description = "Branded one-page Service & Pricing Guide (Letter PDF): navy/gold wings branding, all eight service categories with exact rates, A-Z services, and contact footer."
+
+[[outputs]]
+id = "pEC8TlHumCbL862LD2jQz"
+uri = "file://artifacts/devportal/public/downloads/halo-quickstart-office.pdf"
+type = "pdf"
+title = "Office Quick-Start Guide"
+description = "One-page branded guide for office staff — Today feed, Quick Job, dispatch, invoices, check scanning, close-out."
+
+[[outputs]]
+id = "uT3iUAPjaDCa5ihU7cXGx"
+uri = "file://artifacts/devportal/public/downloads/halo-quickstart-crew.pdf"
+type = "pdf"
+title = "Crew Quick-Start Guide (EN/ES)"
+description = "Bilingual one-pager for crews — portal link, routes, check-in/out with photos, messaging, portal invoices."
+
+[[outputs]]
+id = "a_7GaG0_9-48NYqfsRsPu"
+uri = "file://artifacts/devportal/public/downloads/halo-quickstart-client.pdf"
+type = "pdf"
+title = "Client Board Quick-Start Guide"
+description = "One-pager for clients/PMs — reading the board, card messaging, paying from a card, requests, Units map, History."

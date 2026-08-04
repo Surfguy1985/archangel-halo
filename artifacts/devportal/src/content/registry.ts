@@ -2,6 +2,7 @@ import billingService from "./billing-service.md?raw";
 import billingIntegrationAddendum from "./billing-integration-addendum.md?raw";
 import pricingModel from "./pricing-model.md?raw";
 import pricingConfig from "./pricing-config.md?raw";
+import quickstartGuides from "./quickstart-guides.md?raw";
 
 export interface DocEntry {
   slug: string;
@@ -12,6 +13,14 @@ export interface DocEntry {
 }
 
 export const docs: DocEntry[] = [
+  {
+    slug: "quickstart-guides",
+    title: "Role Quick-Start Guides",
+    category: "Onboarding",
+    description:
+      "Printable one-page quick-start PDFs for Office, Crews (English + Spanish), and Clients/PMs — brand-styled, US Letter, ready to hand out.",
+    markdown: quickstartGuides,
+  },
   {
     slug: "billing-service",
     title: "Billing Service",
