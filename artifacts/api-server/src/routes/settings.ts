@@ -18,6 +18,8 @@ import {
   photoSharesTable,
   recapSharesTable,
   crewPhotosTable,
+  walksTable,
+  walkCapturesTable,
   crewDocumentsTable,
   crewCheckinsTable,
   crewTrackPointsTable,
@@ -287,6 +289,8 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(photoSharesTable);
     await tx.delete(recapSharesTable);
     await tx.delete(crewPhotosTable);
+    await tx.delete(walkCapturesTable);
+    await tx.delete(walksTable);
     await tx.delete(crewDocumentsTable);
     await tx.delete(crewCheckinsTable);
     await tx.delete(crewTrackPointsTable);

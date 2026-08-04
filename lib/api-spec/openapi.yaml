@@ -1776,6 +1776,201 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /walks:
+    get:
+      operationId: listWalks
+      tags: [walks]
+      summary: List walks, newest first
+      parameters:
+        - name: propertyId
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Walks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Walk"
+    post:
+      operationId: createWalk
+      tags: [walks]
+      summary: Start a new property walk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalkInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Walk"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /walks/{id}:
+    get:
+      operationId: getWalk
+      tags: [walks]
+      summary: Walk detail with captures
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Walk detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalkDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteWalk
+      tags: [walks]
+      summary: Discard a walk that has not been completed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Walk already completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /walks/{id}/captures:
+    post:
+      operationId: addWalkCapture
+      tags: [walks]
+      summary: Add a capture (photo + scope) to a walk
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalkCaptureInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalkCapture"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Walk not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Walk already completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /walk-captures/{id}:
+    delete:
+      operationId: deleteWalkCapture
+      tags: [walks]
+      summary: Remove a capture from a walk
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Walk already completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /walks/{id}/complete:
+    post:
+      operationId: completeWalk
+      tags: [walks]
+      summary: Complete a walk — creates one HALO job per unit from the captures and links photos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalkCompletion"
+      responses:
+        "200":
+          description: Walk completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalkCompleteResult"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Walk already completed or has no captures
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /job-board:
     get:
       operationId: listJobBoard
@@ -15167,3 +15362,102 @@ components:
           type: ["string", "null"]
           enum: [client, office, crew, system, null]
         at: { type: string, description: "ISO timestamp" }
+
+    Walk:
+      type: object
+      required: [id, propertyId, kind, status, startedAt, captureCount]
+      properties:
+        id: { type: string }
+        propertyId: { type: string }
+        propertyName: { type: ["string", "null"] }
+        kind:
+          type: string
+          enum: [baseline, qa, completion, discovery]
+        status:
+          type: string
+          enum: [open, completed]
+        startedAt: { type: string, description: "ISO timestamp" }
+        endedAt: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        captureCount: { type: number }
+
+    WalkInput:
+      type: object
+      required: [propertyId]
+      properties:
+        propertyId: { type: string }
+        kind:
+          type: ["string", "null"]
+          enum: [baseline, qa, completion, discovery, null]
+          description: "Defaults to discovery"
+        notes: { type: ["string", "null"] }
+
+    WalkCapture:
+      type: object
+      required: [id, walkId, createdAt]
+      properties:
+        id: { type: string }
+        walkId: { type: string }
+        unitNo: { type: ["string", "null"] }
+        storagePath: { type: ["string", "null"], description: "Object storage path of the photo; serve via /api/storage/objects" }
+        service: { type: ["string", "null"], description: "Scope / price-book service name" }
+        qty: { type: ["number", "null"] }
+        unitPrice: { type: ["number", "null"] }
+        note: { type: ["string", "null"] }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+        createdAt: { type: string, description: "ISO timestamp" }
+
+    WalkCaptureInput:
+      type: object
+      properties:
+        unitNo: { type: ["string", "null"] }
+        storagePath: { type: ["string", "null"] }
+        service: { type: ["string", "null"] }
+        qty: { type: ["number", "null"] }
+        unitPrice: { type: ["number", "null"] }
+        note: { type: ["string", "null"] }
+        lat: { type: ["number", "null"] }
+        lng: { type: ["number", "null"] }
+
+    WalkDetail:
+      type: object
+      required: [walk, captures]
+      properties:
+        walk:
+          $ref: "#/components/schemas/Walk"
+        captures:
+          type: array
+          items:
+            $ref: "#/components/schemas/WalkCapture"
+        createdJobs:
+          type: array
+          items:
+            type: object
+            required: [id, jobNo]
+            properties:
+              id: { type: string }
+              jobNo: { type: string }
+              unitNo: { type: ["string", "null"] }
+
+    WalkCompletion:
+      type: object
+      properties:
+        notes: { type: ["string", "null"] }
+
+    WalkCompleteResult:
+      type: object
+      required: [walk, jobs]
+      properties:
+        walk:
+          $ref: "#/components/schemas/Walk"
+        jobs:
+          type: array
+          items:
+            type: object
+            required: [id, jobNo]
+            properties:
+              id: { type: string }
+              jobNo: { type: string }
+              unitNo: { type: ["string", "null"] }
+              photoCount: { type: number }

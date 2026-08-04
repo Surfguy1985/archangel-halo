@@ -1,0 +1,79 @@
+import React from 'react';
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query';
+import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import NotFound from '@/pages/not-found';
+import { Route, Switch, Router as WouterRouter } from 'wouter';
+import { AuthProvider, notifyUnauthorized } from '@/components/auth-provider';
+import StartScreen from '@/pages/start';
+import CaptureScreen from '@/pages/capture';
+import ReviewScreen from '@/pages/review';
+
+const is401 = (error: any) =>
+  error?.status === 401 || error?.response?.status === 401 || error?.message?.includes('401');
+
+// Module-level singleton so the QueryClientProvider can sit OUTSIDE the
+// AuthProvider (which itself needs useQueryClient). 401s are routed to the
+// auth layer via notifyUnauthorized.
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error: any) => {
+      if (is401(error)) notifyUnauthorized();
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error: any) => {
+      if (is401(error)) notifyUnauthorized();
+    },
+  }),
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error: any) => {
+        if (is401(error)) return false;
+        return failureCount < 2;
+      },
+    },
+  },
+});
+
+function Router() {
+  return (
+    <Switch>
+      <Route path="/" component={StartScreen} />
+      <Route path="/walk/:id" component={CaptureScreen} />
+      <Route path="/walk/:id/review" component={ReviewScreen} />
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+            <div className="min-h-[100dvh] w-full bg-background flex flex-col">
+              {/* Header */}
+              <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                <div className="flex h-14 items-center px-4 max-w-md mx-auto w-full">
+                  <div className="font-bold text-xl tracking-tight text-foreground">
+                    HALO Walk
+                  </div>
+                </div>
+              </header>
+              
+              {/* Main content - mobile constrained */}
+              <main className="flex-1 w-full max-w-md mx-auto bg-card shadow-sm border-x border-border/20 relative">
+                <Router />
+              </main>
+            </div>
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;

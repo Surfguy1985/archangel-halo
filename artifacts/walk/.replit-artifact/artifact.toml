@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/walk/"
+title = "HALO Walk"
+description = "A dead-simple property walk app for property managers and the office: pick a property, walk it unit by unit capturing photos and picking scopes from the property's price book, then review — the walk creates job cards, priced line items, and photos directly in the main HALO system."
+version = "1.0.0"
+id = "artifacts/walk"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/walk/" ]
+localPort = 26257
+
+[services.development]
+run = "pnpm --filter @workspace/walk run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/walk", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/walk/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26257"
+BASE_PATH = "/walk/"

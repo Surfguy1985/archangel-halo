@@ -20,3 +20,4 @@ export * from "./work_requests";
 export * from "./client_board";
 export * from "./client_cms";
 export * from "./emergency";
+export * from "./walks";

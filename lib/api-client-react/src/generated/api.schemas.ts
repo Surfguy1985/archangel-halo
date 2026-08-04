@@ -6922,6 +6922,144 @@ export interface BoardEvent {
   at: string;
 }
 
+export type WalkKind = typeof WalkKind[keyof typeof WalkKind];
+
+
+export const WalkKind = {
+  baseline: 'baseline',
+  qa: 'qa',
+  completion: 'completion',
+  discovery: 'discovery',
+} as const;
+
+export type WalkStatus = typeof WalkStatus[keyof typeof WalkStatus];
+
+
+export const WalkStatus = {
+  open: 'open',
+  completed: 'completed',
+} as const;
+
+export interface Walk {
+  id: string;
+  propertyId: string;
+  /** @nullable */
+  propertyName?: string | null;
+  kind: WalkKind;
+  status: WalkStatus;
+  /** ISO timestamp */
+  startedAt: string;
+  /** @nullable */
+  endedAt?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  captureCount: number;
+}
+
+/**
+ * Defaults to discovery
+ * @nullable
+ */
+export type WalkInputKind = typeof WalkInputKind[keyof typeof WalkInputKind] | null;
+
+
+export const WalkInputKind = {
+  baseline: 'baseline',
+  qa: 'qa',
+  completion: 'completion',
+  discovery: 'discovery',
+} as const;
+
+export interface WalkInput {
+  propertyId: string;
+  /**
+     * Defaults to discovery
+     * @nullable
+     */
+  kind?: WalkInputKind;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface WalkCapture {
+  id: string;
+  walkId: string;
+  /** @nullable */
+  unitNo?: string | null;
+  /**
+     * Object storage path of the photo; serve via /api/storage/objects
+     * @nullable
+     */
+  storagePath?: string | null;
+  /**
+     * Scope / price-book service name
+     * @nullable
+     */
+  service?: string | null;
+  /** @nullable */
+  qty?: number | null;
+  /** @nullable */
+  unitPrice?: number | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** ISO timestamp */
+  createdAt: string;
+}
+
+export interface WalkCaptureInput {
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  storagePath?: string | null;
+  /** @nullable */
+  service?: string | null;
+  /** @nullable */
+  qty?: number | null;
+  /** @nullable */
+  unitPrice?: number | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+}
+
+export type WalkDetailCreatedJobsItem = {
+  id: string;
+  jobNo: string;
+  /** @nullable */
+  unitNo?: string | null;
+};
+
+export interface WalkDetail {
+  walk: Walk;
+  captures: WalkCapture[];
+  createdJobs?: WalkDetailCreatedJobsItem[];
+}
+
+export interface WalkCompletion {
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type WalkCompleteResultJobsItem = {
+  id: string;
+  jobNo: string;
+  /** @nullable */
+  unitNo?: string | null;
+  photoCount?: number;
+};
+
+export interface WalkCompleteResult {
+  walk: Walk;
+  jobs: WalkCompleteResultJobsItem[];
+}
+
 export type ListPropertiesParams = {
 search?: string;
 };
@@ -6932,6 +7070,10 @@ status?: string;
 
 export type ListJobsParams = {
 status?: string;
+propertyId?: string;
+};
+
+export type ListWalksParams = {
 propertyId?: string;
 };
 

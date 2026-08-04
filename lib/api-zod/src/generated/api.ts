@@ -2703,6 +2703,174 @@ export const CancelEmergencyPingResponse = zod.object({
 
 
 /**
+ * @summary List walks, newest first
+ */
+export const ListWalksQueryParams = zod.object({
+  "propertyId": zod.coerce.string().optional()
+})
+
+export const ListWalksResponseItem = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string().nullish(),
+  "kind": zod.enum(['baseline', 'qa', 'completion', 'discovery']),
+  "status": zod.enum(['open', 'completed']),
+  "startedAt": zod.string().describe('ISO timestamp'),
+  "endedAt": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "captureCount": zod.number()
+})
+export const ListWalksResponse = zod.array(ListWalksResponseItem)
+
+
+/**
+ * @summary Start a new property walk
+ */
+export const CreateWalkBody = zod.object({
+  "propertyId": zod.string(),
+  "kind": zod.union([zod.literal('baseline'),zod.literal('qa'),zod.literal('completion'),zod.literal('discovery'),zod.literal(null)]).nullish().describe('Defaults to discovery'),
+  "notes": zod.string().nullish()
+})
+
+export const CreateWalkResponse = zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string().nullish(),
+  "kind": zod.enum(['baseline', 'qa', 'completion', 'discovery']),
+  "status": zod.enum(['open', 'completed']),
+  "startedAt": zod.string().describe('ISO timestamp'),
+  "endedAt": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "captureCount": zod.number()
+})
+
+
+/**
+ * @summary Walk detail with captures
+ */
+export const GetWalkParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetWalkResponse = zod.object({
+  "walk": zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string().nullish(),
+  "kind": zod.enum(['baseline', 'qa', 'completion', 'discovery']),
+  "status": zod.enum(['open', 'completed']),
+  "startedAt": zod.string().describe('ISO timestamp'),
+  "endedAt": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "captureCount": zod.number()
+}),
+  "captures": zod.array(zod.object({
+  "id": zod.string(),
+  "walkId": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "storagePath": zod.string().nullish().describe('Object storage path of the photo; serve via \/api\/storage\/objects'),
+  "service": zod.string().nullish().describe('Scope \/ price-book service name'),
+  "qty": zod.number().nullish(),
+  "unitPrice": zod.number().nullish(),
+  "note": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "createdAt": zod.string().describe('ISO timestamp')
+})),
+  "createdJobs": zod.array(zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "unitNo": zod.string().nullish()
+})).optional()
+})
+
+
+/**
+ * @summary Discard a walk that has not been completed
+ */
+export const DeleteWalkParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteWalkResponse = zod.void()
+
+
+/**
+ * @summary Add a capture (photo + scope) to a walk
+ */
+export const AddWalkCaptureParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const AddWalkCaptureBody = zod.object({
+  "unitNo": zod.string().nullish(),
+  "storagePath": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "unitPrice": zod.number().nullish(),
+  "note": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish()
+})
+
+export const AddWalkCaptureResponse = zod.object({
+  "id": zod.string(),
+  "walkId": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "storagePath": zod.string().nullish().describe('Object storage path of the photo; serve via \/api\/storage\/objects'),
+  "service": zod.string().nullish().describe('Scope \/ price-book service name'),
+  "qty": zod.number().nullish(),
+  "unitPrice": zod.number().nullish(),
+  "note": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "createdAt": zod.string().describe('ISO timestamp')
+})
+
+
+/**
+ * @summary Remove a capture from a walk
+ */
+export const DeleteWalkCaptureParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DeleteWalkCaptureResponse = zod.void()
+
+
+/**
+ * @summary Complete a walk — creates one HALO job per unit from the captures and links photos
+ */
+export const CompleteWalkParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CompleteWalkBody = zod.object({
+  "notes": zod.string().nullish()
+})
+
+export const CompleteWalkResponse = zod.object({
+  "walk": zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "propertyName": zod.string().nullish(),
+  "kind": zod.enum(['baseline', 'qa', 'completion', 'discovery']),
+  "status": zod.enum(['open', 'completed']),
+  "startedAt": zod.string().describe('ISO timestamp'),
+  "endedAt": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "captureCount": zod.number()
+}),
+  "jobs": zod.array(zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "photoCount": zod.number().optional()
+}))
+})
+
+
+/**
  * @summary Job board cards (job + property price list + photos + broadcast statuses)
  */
 export const ListJobBoardResponseItem = zod.object({

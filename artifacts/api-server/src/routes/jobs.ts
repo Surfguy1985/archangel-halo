@@ -17,6 +17,7 @@ import {
   crewPacketsTable,
   crewPaymentsTable,
   crewPhotosTable,
+  walkCapturesTable,
   photoSharesTable,
   propertiesTable,
   contactsTable,
@@ -1304,6 +1305,22 @@ router.get("/jobs/:id/events", async (req, res): Promise<void> => {
             : "Crew uploaded progress photos",
       at: (p.capturedAt ?? p.createdAt).toISOString(),
       crewName: crewName(p.crewId),
+    });
+  }
+
+  // Photos captured during a property walk that produced this job.
+  const walkPhotos = await db
+    .select()
+    .from(walkCapturesTable)
+    .where(eq(walkCapturesTable.jobId, id));
+  const walkPhotoCount = walkPhotos.filter((p) => p.storagePath).length;
+  if (walkPhotoCount > 0) {
+    const first = walkPhotos[0];
+    events.push({
+      kind: "photo_before",
+      label: `${walkPhotoCount} photo${walkPhotoCount === 1 ? "" : "s"} captured on the property walk`,
+      at: first.createdAt.toISOString(),
+      crewName: null,
     });
   }
 

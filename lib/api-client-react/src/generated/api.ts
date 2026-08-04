@@ -232,6 +232,7 @@ import type {
   ListLedgerAccounts200,
   ListPropertiesParams,
   ListPurchaseOrdersParams,
+  ListWalksParams,
   ListWingsAuditParams,
   ListWingsQualityParams,
   ListWorkRequestsParams,
@@ -356,6 +357,13 @@ import type {
   VoiceParseResult,
   W9Data,
   W9Response,
+  Walk,
+  WalkCapture,
+  WalkCaptureInput,
+  WalkCompleteResult,
+  WalkCompletion,
+  WalkDetail,
+  WalkInput,
   WingsAuditEntry,
   WingsAutomationRun,
   WingsCandidate,
@@ -5973,6 +5981,524 @@ export const useCancelEmergencyPing = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getCancelEmergencyPingMutationOptions(options));
+    }
+
+export const getListWalksUrl = (params?: ListWalksParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/walks?${stringifiedParams}` : `/api/walks`
+}
+
+/**
+ * @summary List walks, newest first
+ */
+export const listWalks = async (params?: ListWalksParams, options?: RequestInit): Promise<Walk[]> => {
+
+  return customFetch<Walk[]>(getListWalksUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWalksQueryKey = (params?: ListWalksParams,) => {
+    return [
+    `/api/walks`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListWalksQueryOptions = <TData = Awaited<ReturnType<typeof listWalks>>, TError = ErrorType<unknown>>(params?: ListWalksParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWalks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWalksQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWalks>>> = ({ signal }) => listWalks(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWalks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWalksQueryResult = NonNullable<Awaited<ReturnType<typeof listWalks>>>
+export type ListWalksQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List walks, newest first
+ */
+
+export function useListWalks<TData = Awaited<ReturnType<typeof listWalks>>, TError = ErrorType<unknown>>(
+ params?: ListWalksParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWalks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWalksQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateWalkUrl = () => {
+
+
+
+
+  return `/api/walks`
+}
+
+/**
+ * @summary Start a new property walk
+ */
+export const createWalk = async (walkInput: WalkInput, options?: RequestInit): Promise<Walk> => {
+
+  return customFetch<Walk>(getCreateWalkUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(walkInput)
+  }
+);}
+
+
+
+
+
+export const getCreateWalkMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWalk>>, TError,{data: BodyType<WalkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createWalk>>, TError,{data: BodyType<WalkInput>}, TContext> => {
+
+const mutationKey = ['createWalk'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWalk>>, {data: BodyType<WalkInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createWalk(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateWalkMutationResult = NonNullable<Awaited<ReturnType<typeof createWalk>>>
+    export type CreateWalkMutationBody = BodyType<WalkInput>
+    export type CreateWalkMutationError = ErrorType<Error>
+
+    /**
+ * @summary Start a new property walk
+ */
+export const useCreateWalk = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWalk>>, TError,{data: BodyType<WalkInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createWalk>>,
+        TError,
+        {data: BodyType<WalkInput>},
+        TContext
+      > => {
+      return useMutation(getCreateWalkMutationOptions(options));
+    }
+
+export const getGetWalkUrl = (id: string,) => {
+
+
+
+
+  return `/api/walks/${id}`
+}
+
+/**
+ * @summary Walk detail with captures
+ */
+export const getWalk = async (id: string, options?: RequestInit): Promise<WalkDetail> => {
+
+  return customFetch<WalkDetail>(getGetWalkUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWalkQueryKey = (id: string,) => {
+    return [
+    `/api/walks/${id}`
+    ] as const;
+    }
+
+
+export const getGetWalkQueryOptions = <TData = Awaited<ReturnType<typeof getWalk>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalk>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWalkQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWalk>>> = ({ signal }) => getWalk(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWalk>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWalkQueryResult = NonNullable<Awaited<ReturnType<typeof getWalk>>>
+export type GetWalkQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Walk detail with captures
+ */
+
+export function useGetWalk<TData = Awaited<ReturnType<typeof getWalk>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalk>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWalkQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDeleteWalkUrl = (id: string,) => {
+
+
+
+
+  return `/api/walks/${id}`
+}
+
+/**
+ * @summary Discard a walk that has not been completed
+ */
+export const deleteWalk = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteWalkUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteWalkMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWalk>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteWalk>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteWalk'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWalk>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteWalk(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteWalkMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWalk>>>
+
+    export type DeleteWalkMutationError = ErrorType<Error>
+
+    /**
+ * @summary Discard a walk that has not been completed
+ */
+export const useDeleteWalk = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWalk>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteWalk>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteWalkMutationOptions(options));
+    }
+
+export const getAddWalkCaptureUrl = (id: string,) => {
+
+
+
+
+  return `/api/walks/${id}/captures`
+}
+
+/**
+ * @summary Add a capture (photo + scope) to a walk
+ */
+export const addWalkCapture = async (id: string,
+    walkCaptureInput: WalkCaptureInput, options?: RequestInit): Promise<WalkCapture> => {
+
+  return customFetch<WalkCapture>(getAddWalkCaptureUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(walkCaptureInput)
+  }
+);}
+
+
+
+
+
+export const getAddWalkCaptureMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addWalkCapture>>, TError,{id: string;data: BodyType<WalkCaptureInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addWalkCapture>>, TError,{id: string;data: BodyType<WalkCaptureInput>}, TContext> => {
+
+const mutationKey = ['addWalkCapture'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addWalkCapture>>, {id: string;data: BodyType<WalkCaptureInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addWalkCapture(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddWalkCaptureMutationResult = NonNullable<Awaited<ReturnType<typeof addWalkCapture>>>
+    export type AddWalkCaptureMutationBody = BodyType<WalkCaptureInput>
+    export type AddWalkCaptureMutationError = ErrorType<Error>
+
+    /**
+ * @summary Add a capture (photo + scope) to a walk
+ */
+export const useAddWalkCapture = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addWalkCapture>>, TError,{id: string;data: BodyType<WalkCaptureInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addWalkCapture>>,
+        TError,
+        {id: string;data: BodyType<WalkCaptureInput>},
+        TContext
+      > => {
+      return useMutation(getAddWalkCaptureMutationOptions(options));
+    }
+
+export const getDeleteWalkCaptureUrl = (id: string,) => {
+
+
+
+
+  return `/api/walk-captures/${id}`
+}
+
+/**
+ * @summary Remove a capture from a walk
+ */
+export const deleteWalkCapture = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteWalkCaptureUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteWalkCaptureMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWalkCapture>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteWalkCapture>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteWalkCapture'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWalkCapture>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteWalkCapture(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteWalkCaptureMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWalkCapture>>>
+
+    export type DeleteWalkCaptureMutationError = ErrorType<Error>
+
+    /**
+ * @summary Remove a capture from a walk
+ */
+export const useDeleteWalkCapture = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWalkCapture>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteWalkCapture>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteWalkCaptureMutationOptions(options));
+    }
+
+export const getCompleteWalkUrl = (id: string,) => {
+
+
+
+
+  return `/api/walks/${id}/complete`
+}
+
+/**
+ * @summary Complete a walk — creates one HALO job per unit from the captures and links photos
+ */
+export const completeWalk = async (id: string,
+    walkCompletion?: WalkCompletion, options?: RequestInit): Promise<WalkCompleteResult> => {
+
+  return customFetch<WalkCompleteResult>(getCompleteWalkUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(walkCompletion)
+  }
+);}
+
+
+
+
+
+export const getCompleteWalkMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeWalk>>, TError,{id: string;data?: BodyType<WalkCompletion>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeWalk>>, TError,{id: string;data?: BodyType<WalkCompletion>}, TContext> => {
+
+const mutationKey = ['completeWalk'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeWalk>>, {id: string;data?: BodyType<WalkCompletion>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  completeWalk(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteWalkMutationResult = NonNullable<Awaited<ReturnType<typeof completeWalk>>>
+    export type CompleteWalkMutationBody = BodyType<WalkCompletion> | undefined
+    export type CompleteWalkMutationError = ErrorType<Error>
+
+    /**
+ * @summary Complete a walk — creates one HALO job per unit from the captures and links photos
+ */
+export const useCompleteWalk = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeWalk>>, TError,{id: string;data?: BodyType<WalkCompletion>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeWalk>>,
+        TError,
+        {id: string;data?: BodyType<WalkCompletion>},
+        TContext
+      > => {
+      return useMutation(getCompleteWalkMutationOptions(options));
     }
 
 export const getListJobBoardUrl = () => {

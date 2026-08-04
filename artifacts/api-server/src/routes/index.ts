@@ -37,6 +37,7 @@ import conciergeRouter from "./concierge";
 import presentationRouter from "./presentation";
 import emergencyRouter from "./emergency";
 import dispatchBoardRouter from "./dispatchBoard";
+import walksRouter from "./walks";
 
 const router: IRouter = Router();
 
@@ -100,5 +101,6 @@ router.use(conciergeRouter);
 router.use(workRequestsRouter);
 router.use(invoiceJobDraftRouter);
 router.use(presentationRouter);
+router.use(walksRouter);
 
 export default router;
