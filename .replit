@@ -5,7 +5,7 @@ router = "application"
 deploymentTarget = "autoscale"
 
 [deployment.postBuild]
-args = ["pnpm", "store", "prune"]
+args = ["bash", "-c", "pnpm store prune && rm -rf .local/share/pnpm .cache/pnpm .cache/typescript .local/state"]
 env = { "CI" = "true" }
 
 [workflows]
