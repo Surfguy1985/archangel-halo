@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import { Sparkles, Pause, Play, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { OfficeBoardPanel } from "./OfficeBoardPanel";
+import { PresentationShowcase, type Showcase } from "./PresentationShowcase";
+import shotLiveMap from "../assets/presentation/shots/live-map.png";
+import shotGpsCheckin from "../assets/presentation/shots/gps-checkin.png";
+import shotInvoiceDetail from "../assets/presentation/shots/invoice-detail.png";
+import shotInvoicePdf from "../assets/presentation/shots/invoice-pdf.png";
+import shotInvoicePaid from "../assets/presentation/shots/invoice-paid.png";
 
 // Presentation Mode: an investor-grade, narrated INTERACTIVE SIMULCAST that
 // walks the entire work lifecycle across BOTH boards — the live client board
@@ -63,6 +70,12 @@ export type PresentationStep = {
   serverStep?: string;
   /** Async choreography run after the server step. */
   uiScript?: (ctx: StepCtx) => Promise<void>;
+  /**
+   * A real-app SCREENSHOT showcase overlay timed to this step's narration.
+   * Only attached to steps that do NOT open a competing live dialog — we never
+   * show a screenshot and a live popup at the same time.
+   */
+  showcase?: Showcase;
 };
 
 // --------------------------------------------------------------------------
@@ -142,13 +155,15 @@ async function pickUnit204(): Promise<void> {
 async function dismissLoginDialog(): Promise<void> {
   const loginMarker = document.querySelector('[data-testid="link-login-team"]');
   if (!loginMarker) return;
-  // Escape closes the Radix dialog; retry once.
-  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  // Click the login dialog's own Cancel button — never dispatch Escape on the
+  // document, because PresentationMode listens for Escape and would close the
+  // entire presentation.
+  const dialog = loginMarker.closest('[role="dialog"]');
+  const cancel = Array.from(dialog?.querySelectorAll("button") ?? []).find(
+    (b) => (b.textContent ?? "").trim().toLowerCase() === "cancel",
+  ) as HTMLButtonElement | undefined;
+  cancel?.click();
   await sleep(250);
-  if (document.querySelector('[data-testid="link-login-team"]')) {
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    await sleep(250);
-  }
 }
 
 /** Set a controlled input's value so React's onChange fires (native setter + input event). */
@@ -337,19 +352,27 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
       return t ? `rail-tile-${t.cardKey}` : "rail-in_progress";
     },
     serverStep: "tracker_live",
-    uiScript: async (ctx) => {
-      await ctx.server("tracker_live");
-      await sleep(2600); // let the tracker card land and the board refetch
-      if (!ctx.alive()) return;
-      const t = findTrackerCard(ctx.getCards);
-      if (t) {
-        const clicked = await clickTestid(`rail-tile-${t.cardKey}`, 3500);
-        if (clicked) {
-          await sleep(2600); // dwell on the live tracker detail
-          if (!ctx.alive()) { ctx.closeCard(); return; }
-          ctx.closeCard();
-        }
-      }
+    // No live dialog here — the real live map / GPS check-in view can't be
+    // rendered from a guest board, so we showcase the real-app screenshots.
+    showcase: {
+      src: shotLiveMap,
+      heading: "Live map · crew on site",
+      ratio: 3438 / 2160,
+      phases: [
+        {
+          rects: [
+            { x: 0.307, y: 0.288, w: 0.161, h: 0.21, label: "Crew on site" },
+            { x: 0.317, y: 0.44, w: 0.142, h: 0.031 },
+          ],
+          hold: 3200,
+        },
+        {
+          rects: [
+            { x: 0.781, y: 0.047, w: 0.205, h: 0.622, label: "Live feed" },
+            { x: 0.781, y: 0.708, w: 0.205, h: 0.28, label: "Crew roster" },
+          ],
+        },
+      ],
     },
   },
   {
@@ -406,6 +429,22 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
       return card ? `rail-tile-${card.cardKey}` : "rail-needs_you";
     },
     serverStep: "invoice_sent",
+    // The invoice card opens LIVE in the next step ("Approve and pay"). Here we
+    // showcase the real invoice detail so the amount / line items / PDF read
+    // large while the card is still landing on the board.
+    showcase: {
+      src: shotInvoiceDetail,
+      heading: "Invoice · attached to the card",
+      ratio: 3450 / 1974,
+      phases: [
+        { rects: [{ x: 0.354, y: 0.6, w: 0.096, h: 0.068, label: "Amount" }], hold: 2600 },
+        {
+          rects: [{ x: 0.347, y: 0.676, w: 0.293, h: 0.126, label: "Line items vs. budget" }],
+          hold: 2800,
+        },
+        { rects: [{ x: 0.359, y: 0.812, w: 0.278, h: 0.055, label: "Invoice PDF" }] },
+      ],
+    },
   },
   {
     title: "Approve and pay",
@@ -415,42 +454,32 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
       return card ? `rail-tile-${card.cardKey}` : "rail-needs_you";
     },
     uiScript: async (ctx) => {
+      // Open the invoice LIVE and walk the approve → pay-by-check affordances.
+      // The demo board is viewed anonymously, so the mutation itself is gated
+      // (clicking Approve would pop a sign-in prompt); we therefore SHOWCASE the
+      // real buttons — scrolling each into view — without triggering the gate.
+      // The office_receipt step is the canonical "paid" completion.
       const card = findInvoiceCard(ctx.getCards);
       if (!card) return;
       const opened = await clickTestid(`rail-tile-${card.cardKey}`, 3500);
       if (!opened) return;
       await waitFor("invoice-approve-pay", 3000);
-      await sleep(1000);
+      await sleep(1200);
       if (!ctx.alive()) { ctx.closeCard(); return; }
-      // Reveal the approve button so viewers see the real action affordance.
+      // Reveal the Approve button (the real action affordance).
       const approveBtn = await waitFor("button-invoice-approve", 2000);
       approveBtn?.scrollIntoView({ behavior: "smooth", block: "center" });
-      await sleep(1200);
+      await sleep(2000);
       if (!ctx.alive()) { ctx.closeCard(); return; }
-      // Attempt the REAL approve → pay-by-check click path. The demo board is
-      // viewed anonymously, so the mutation is blocked (a sign-in prompt would
-      // appear); we detect that and dismiss it so no orphan dialog is left,
-      // then continue — the office_receipt step is the canonical completion.
-      approveBtn?.click();
-      await sleep(1000);
-      if (!ctx.alive()) { ctx.closeCard(); return; }
+      // Reveal the pay-by-check affordance if the dialog exposes it.
+      const payBtn =
+        (await waitFor("button-invoice-pay-check", 1200)) ??
+        (await waitFor("invoice-pay-options", 1200));
+      payBtn?.scrollIntoView({ behavior: "smooth", block: "center" });
+      await sleep(1800);
+      // Safety net: if any gated click ever surfaced a sign-in prompt, close it
+      // via its own Cancel button (never Escape — that would close the demo).
       await dismissLoginDialog();
-      // If approval actually landed (authenticated future demo), pay by check.
-      const payBtn = await waitFor("button-invoice-pay-check", 1500);
-      if (payBtn) {
-        payBtn.scrollIntoView({ behavior: "smooth", block: "center" });
-        await sleep(800);
-        payBtn.click();
-        await sleep(800);
-        await dismissLoginDialog();
-        // Best-effort direct action too (no-op / 401 for a guest).
-        try {
-          await ctx.cardAction(card.cardKey, { action: "pay_method", method: "check" });
-        } catch {
-          /* narration continues regardless */
-        }
-      }
-      await sleep(1200);
       if (!ctx.alive()) { ctx.closeCard(); return; }
       ctx.closeCard();
     },
@@ -460,6 +489,18 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
     body: "And the loop closes. On the office board, a card drops into Done: check approved, Unit 204, issued Net 30. The office knows they've been paid the same instant the client acts. Nobody had to send a single message.",
     target: "office-board-panel",
     serverStep: "office_receipt",
+    // The office board reacts live in the corner; alongside it we showcase the
+    // real settled-invoice detail so "paid" reads unmistakably.
+    showcase: {
+      src: shotInvoicePaid,
+      heading: "Invoice settled · paid",
+      ratio: 3456 / 2166,
+      phases: [
+        { rects: [{ x: 0.571, y: 0.215, w: 0.073, h: 0.022, label: "Complete" }], hold: 2600 },
+        { rects: [{ x: 0.354, y: 0.584, w: 0.281, h: 0.047, label: "Paid" }], hold: 2600 },
+        { rects: [{ x: 0.354, y: 0.696, w: 0.291, h: 0.044, label: "Reconciled" }] },
+      ],
+    },
   },
   {
     title: "Both boards, one truth",
@@ -625,14 +666,23 @@ export function PresentationMode({
   // Fire the step's serverStep + uiScript once, ~2s in so the narrator sets it
   // up first. If a step has a uiScript, the uiScript owns the serverStep call
   // (it decides ordering); otherwise we fire the bare serverStep here.
+  //
+  // NOTE: the fire-once guard (`firedSteps`) is checked INSIDE the timeout, not
+  // at schedule time. React StrictMode mounts→unmounts→remounts every effect in
+  // dev; guarding at schedule time meant the first mount added the step to
+  // `firedSteps` and its cleanup cleared the timer, then the remount saw the
+  // step already "fired" and never rescheduled — so the choreography never ran.
   useEffect(() => {
     const s = PRESENTATION_STEPS[step];
-    if (!s || firedSteps.current.has(step)) return;
-    firedSteps.current.add(step);
-    const gen = genRef.current;
+    if (!s || !playing) return;
     const t = setTimeout(async () => {
-      if (genRef.current !== gen) return;
-      const ctx = makeCtx(gen);
+      // Fire only if we're still on this step and it hasn't fired across any
+      // StrictMode remount. Aliveness for the async uiScript is tracked by the
+      // generation nonce captured at fire time (below).
+      if (stepRef.current !== step) return;
+      if (firedSteps.current.has(step)) return;
+      firedSteps.current.add(step);
+      const ctx = makeCtx(genRef.current);
       if (s.uiScript) {
         try {
           await s.uiScript(ctx);
@@ -645,7 +695,7 @@ export function PresentationMode({
     }, 2000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [step, playing]);
 
   // Resolve the step's spotlight target (string or resolver).
   const resolveTarget = useCallback(
@@ -806,6 +856,14 @@ export function PresentationMode({
 
       {/* Picture-in-picture office board — shown only during presentation. */}
       <OfficeBoardPanel token={token} />
+
+      {/* Screenshot showcase overlay — mounts/unmounts per step so highlights
+          are always keyed to the current narration (nonce-clean on advance). */}
+      <AnimatePresence>
+        {s?.showcase && (
+          <PresentationShowcase key={`showcase-${step}`} showcase={s.showcase} />
+        )}
+      </AnimatePresence>
 
       <div
         ref={panelRef}

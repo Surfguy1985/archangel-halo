@@ -22,6 +22,8 @@ description: Investor demo — seeded mock property + narrated spotlight walkthr
 - Office-board projection shape: `{propertyName, dashboardUrl, board: {lanes: [defs], cards: [flat, each with .lane]}}` — panel normalizer must unwrap `.board` and group flat cards by lane.
 - Board `?present=1` also permanently suppresses the intro DashboardTour (marks it seen once, ref-guarded) — otherwise two tutorials stack and the tour launches when the presentation closes.
 - Client rails order is needs_you, requested, in_progress, done, paid(label "Billing") — RAIL_ORDER in board-ui railMapping.ts.
+- Step firing must be StrictMode-proof: fire-once guards evaluated at timer *schedule* time get wiped by mount→cleanup→remount and steps silently never POST; check fired-set inside the timeout callback, gated on the current step ref.
+- Screenshot showcase overlays (PresentationShowcase, fractional lime highlight rects) use PNGs bundled from src/assets/presentation/shots/ — keep every image under 2 MiB or the PWA Workbox precache fails the production build.
 - Narration clips: generated via ElevenLabs external API, premade Jessica voice `cgSgspJ2msm6clMCkdW9`, `/with-timestamps?output_format=mp3_22050_32` (full-bitrate + /v1/voices responses blow the 1MB callback limit). Text = `title. body` per step.
 
 ## Desktop port
