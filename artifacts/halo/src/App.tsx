@@ -102,20 +102,20 @@ function App() {
             {/* Previously sent /dashboard links redirect to the new client board path. */}
             <Route path="/dashboard/:token">
               {(params) => {
-                window.location.replace(`/board/${params.token}`);
+                window.location.replace(`/board/${encodeURIComponent(params.token)}${window.location.search}${window.location.hash}`);
                 return null;
               }}
             </Route>
             <Route path="/dashboard/:token/:rest*">
               {(params) => {
-                window.location.replace(`/board/${params.token}`);
+                window.location.replace(`/board/${encodeURIComponent(params.token)}${window.location.search}${window.location.hash}`);
                 return null;
               }}
             </Route>
             {/* Bare client links now live on the client dashboard artifact. */}
             <Route path="/client/:token">
               {(params) => {
-                window.location.replace(`/board/${params.token}`);
+                window.location.replace(`/board/${encodeURIComponent(params.token)}${window.location.search}${window.location.hash}`);
                 return null;
               }}
             </Route>
@@ -123,7 +123,7 @@ function App() {
             {/* Old client board retired — bookmarked links land on the new dashboard. */}
             <Route path="/client/:token/board">
               {(params) => {
-                window.location.replace(`/board/${params.token}`);
+                window.location.replace(`/board/${encodeURIComponent(params.token)}${window.location.search}${window.location.hash}`);
                 return null;
               }}
             </Route>
