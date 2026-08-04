@@ -163,7 +163,8 @@ router.post("/invoices/job-draft", async (req, res): Promise<void> => {
     "Given a JOB and the property's SOP BILLING RULE, produce the invoice line items exactly the way the SOP demands: its categories, its description style, its rates when the SOP fixes them, its date format is handled elsewhere (always output dates as YYYY-MM-DD).",
     "Pricing sources in priority order: (1) rates fixed by the SOP line_item_rules, (2) the property price book, (3) approved job expenses passed through when the SOP allows, (4) job.crewRate only as a labor-cost hint, never as the billed price on its own.",
     "Never invent work that isn't evidenced by the job facts. Keep it to what was actually done.",
-    'Return JSON: {"lineItems":[{"dateOfWork":"YYYY-MM-DD","unitNo":"","typeOfWork":"","description":"","qty":1,"unitPrice":0}],"notes":"anything the SOP requires stated on the invoice, else empty"}',
+    'Return JSON: {"lineItems":[{"dateOfWork":"YYYY-MM-DD","unitNo":"","typeOfWork":"","description":"","qty":1,"unitPrice":0}],"notes":""}',
+    "Always return notes as an empty string — invoice notes are reserved for the user's own custom text.",
   ].join("\n");
 
   let lines: DraftLine[] = [];
@@ -294,7 +295,8 @@ router.post("/invoices/job-draft", async (req, res): Promise<void> => {
       billToName: applied?.billToName ?? rule.property?.client_company ?? null,
       propertyAddress: applied?.propertyAddress ?? rule.property?.billing_address ?? null,
       paymentInstructions: applied?.paymentInstructions ?? null,
-      notes: draftNotes || applied?.notes || null,
+      // Notes stay blank — reserved for the user's custom text in the wizard.
+      notes: null,
       // Parity with create: when the SOP doesn't fix a tax rate, the create
       // path falls back to the business tax rate — preview must match.
       taxPreview: applied?.taxAmount ?? (await resolveTaxAmount(undefined, total)) ?? null,

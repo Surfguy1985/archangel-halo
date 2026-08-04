@@ -150,9 +150,8 @@ export default function CreateInvoice() {
     if (r.format?.due_days != null && !dueTouched) {
       setDueOn(addDaysFrom(issuedOn || todayLocal(), r.format.due_days));
    }
-    if ((r.special_instructions?.length ?? 0) > 0) {
-      setNotes((prev) => prev || (r.special_instructions ?? []).map((s) =>`• ${s}`).join("\n"));
-   }
+    // SOP special_instructions no longer prefill notes — notes stay blank
+    // for custom text.
     // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [sopRule, propertyId]);
 

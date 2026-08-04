@@ -213,10 +213,9 @@ export async function applySopToInvoice(
             100,
         ) / 100
       : null;
-  const notes =
-    !draft.notes && (rule.special_instructions?.length ?? 0) > 0
-      ? (rule.special_instructions ?? []).map((s) => `• ${s}`).join("\n")
-      : null;
+  // SOP special_instructions intentionally do NOT prefill invoice notes —
+  // notes stay blank for the user's own custom text.
+  const notes = null;
   return {
     ok: true,
     invoiceNo,
