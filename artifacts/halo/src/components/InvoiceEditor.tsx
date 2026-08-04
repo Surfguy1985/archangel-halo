@@ -263,7 +263,7 @@ export function InvoiceEditor({
   const overBudget = clientBudget != null && total > clientBudget;
 
   const validRows = rows.filter((r) => r.typeOfWork.trim());
-  const canSubmit = !!propertyId && validRows.length > 0 && !pending;
+  const canSubmit = !!propertyId && !!jobId && validRows.length > 0 && !pending;
 
   const submit = () => {
     if (!canSubmit) return;
@@ -412,6 +412,32 @@ export function InvoiceEditor({
 
           {propertyId && (
             <>
+              {/* Every invoice belongs to a job card — required. */}
+              <div className="mb-[16px]">
+                <span className={labelCls}>Which job is this for? *</span>
+                {(jobs?.length ?? 0) > 0 ? (
+                  <select
+                    className={fieldCls}
+                    value={jobId}
+                    onChange={(e) => setJobId(e.target.value)}
+                    data-testid="select-invoice-job"
+                  >
+                    <option value="">Select the job…</option>
+                    {jobs?.map((j) => (
+                      <option key={j.id} value={j.id}>
+                        {j.jobNo} · {j.category || j.description}
+                        {j.unitNo ? ` · Unit ${j.unitNo}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-[13px] text-muted-foreground bg-card rounded-[14px] border border-[var(--hairline)] p-[14px]">
+                    No jobs at this property yet — every invoice must be tied
+                    to a job card. Create the job first, then bill it.
+                  </div>
+                )}
+              </div>
+
               {/* Heads-up: no billing email means the send will fail later. */}
               {missingBillingEmail && (
                 <div className="mb-[16px] rounded-[16px] border border-[rgba(190,140,20,0.35)] bg-[rgba(255,196,66,0.12)] p-[12px]">
@@ -669,23 +695,6 @@ export function InvoiceEditor({
               </button>
               {detailsOpen && (
                 <div className="flex flex-col gap-[10px] animate-in fade-in slide-in-from-top-2 duration-200">
-                  {(jobs?.length ?? 0) > 0 && (
-                    <div>
-                      <span className={labelCls}>Linked job (optional)</span>
-                      <select
-                        className={fieldCls}
-                        value={jobId}
-                        onChange={(e) => setJobId(e.target.value)}
-                      >
-                        <option value="">No linked job</option>
-                        {jobs?.map((j) => (
-                          <option key={j.id} value={j.id}>
-                            {j.jobNo} · {j.category || j.description}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
                   <div className="flex gap-[10px]">
                     <div className="flex-1">
                       <span className={labelCls}>Invoice date</span>

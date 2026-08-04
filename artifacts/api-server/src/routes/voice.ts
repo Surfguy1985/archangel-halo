@@ -57,7 +57,7 @@ const TOOLS = `Available tools and their fields:
 - create_bid { amount (number), propertyName?, scope?, unitNo? }
 - add_note { entityType (property|job), entityRef (name or job number), body }
 - complete_job { jobNo }
-- create_invoice { amount (number), propertyName, jobNo?, description? (what the work was), poNumber? }
+- create_invoice { amount (number), propertyName, jobNo (REQUIRED — every invoice must be tied to a job), description? (what the work was), poNumber? }
 - create_vendor { name, trade?, phone?, email? }
 - add_inventory_item { name, qty? (number), reorderAt? (number, restock threshold), unitCost? (number), preferredVendor? }
 - adjust_inventory { itemName, delta (number — positive when stock was bought/received, negative when materials were used) }
@@ -344,6 +344,13 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
         const job = f.jobNo
           ? jobByNo.get(String(f.jobNo).toLowerCase())
           : undefined;
+        if (!job) {
+          // Every invoice must be tied to a job card — no free-floating invoices.
+          messages.push(
+            `Skipped invoice for ${prop.name} — say which job it belongs to (its job number)`,
+          );
+          continue;
+        }
         // Max-based numbering so deletions never cause duplicate invoice numbers.
         const invRows = await db
           .select({ invoiceNo: invoicesTable.invoiceNo })

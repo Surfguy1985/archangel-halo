@@ -17,5 +17,7 @@ One SOP rule per property (unique propertyId), extracted by AI from an uploaded 
 - Table must stay in the Settings reset delete list.
 - "Create invoice from a job" (wizard) is a preview-only draft endpoint: pass 1 AI breakout + pass 2 independent AI audit (corrections applied) + deterministic applySopToInvoice preview; nothing persists — creation goes through the normal POST /invoices path so SOP/tax/ledger enforcement is never duplicated. Keep it that way for any new AI-drafting flow.
 - SOP uploads accept PDF/image AND text (text/csv, text/plain): text docs are base64-decoded and sent to the text-JSON completion, not the image path — keep both branches when touching the upload route.
+- Invoice notes stay BLANK by design — SOP special_instructions must never prefill notes (server applySopToInvoice, job-draft, and CreateInvoice all keep notes user-only).
+- GET /invoices/:id/csv exports an SOP-formatted CSV (dates per rule date_format from LOCAL parts, formula-injection guard); office-gated like the pdf route, not in openapi.yaml.
 - Wizard draft is edited client-side (lines/notes) but creation still goes only through POST /invoices; post-create panel keeps the dialog open with an absolute `/api/invoices/:id/pdf` download link.
 - Desktop: wizard dialog on PropertyDetail header; CreateInvoice shows banner, prefills, and blocks save when SOP requires a PO. Source doc link is absolute `/api/...` (never BASE_URL-prefixed).

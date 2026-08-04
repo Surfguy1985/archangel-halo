@@ -391,8 +391,29 @@ router.get("/invoices", async (req, res): Promise<void> => {
   res.json(ListInvoicesResponse.parse(items));
 });
 
+/**
+ * Every invoice must belong to a job card — no free-floating invoices.
+ * Returns an error string when the link is missing or invalid, else null.
+ */
+async function validateInvoiceJobLink(
+  jobId: string | null | undefined,
+  propertyId: string,
+): Promise<string | null> {
+  if (!jobId) return "Pick the job this invoice belongs to — every invoice must be tied to a job card.";
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
+  if (!job) return "That job no longer exists — pick the job this invoice belongs to.";
+  if (job.propertyId !== propertyId)
+    return "That job belongs to a different property — pick a job at this property.";
+  return null;
+}
+
 router.post("/invoices", async (req, res): Promise<void> => {
   const body = CreateInvoiceBody.parse(req.body);
+  const jobLinkError = await validateInvoiceJobLink(body.jobId, body.propertyId);
+  if (jobLinkError) {
+    res.status(400).json({ error: jobLinkError });
+    return;
+  }
   const items = normalizeItems(body.lineItems);
   const total =
     items.length > 0
@@ -497,6 +518,15 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
     body.dueOn || body.dueInDays != null ? computeDueAt(body) : existing.dueAt;
   const taxAmount = await resolveTaxAmount(body.taxAmount, total);
 
+  // Every invoice stays tied to a job card — an edit can move the link to
+  // another job at the property, but never clear it.
+  const nextJobId = body.jobId ?? existing.jobId;
+  const jobLinkError = await validateInvoiceJobLink(nextJobId, body.propertyId);
+  if (jobLinkError) {
+    res.status(400).json({ error: jobLinkError });
+    return;
+  }
+
   // SOP rule enforcement — an edit cannot strip a PO the SOP requires.
   const editRule = await getSopRule(body.propertyId);
   if (editRule?.format?.po_required && !body.poNumber) {
@@ -512,7 +542,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
       .update(invoicesTable)
       .set({
         propertyId: body.propertyId,
-        jobId: body.jobId ?? null,
+        jobId: nextJobId,
         amount: total,
         dueAt,
         issuedOn: body.issuedOn ?? existing.issuedOn,
@@ -582,6 +612,112 @@ router.get("/invoices/:id/pdf", async (req, res): Promise<void> => {
     `inline; filename="${inv.invoiceNo}.pdf"`,
   );
   res.end(Buffer.from(bytes));
+});
+
+// SOP-compliant CSV export. Mirrors the PDF's data but formatted per the
+// property's SOP billing rule (date format, remit-to, client company), so the
+// file can be dropped straight into the client's AP import.
+router.get("/invoices/:id/csv", async (req, res): Promise<void> => {
+  const id = String(req.params.id);
+  const [inv] = await db
+    .select()
+    .from(invoicesTable)
+    .where(eq(invoicesTable.id, id));
+  if (!inv) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+  const items = await lineItemsFor(inv.id);
+  const settings = await getBusinessSettings();
+  const rule = await getSopRule(inv.propertyId);
+  const [prop] = await db
+    .select()
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, inv.propertyId));
+
+  // Format a YYYY-MM-DD / Date value per the SOP's date_format (default ISO).
+  const fmt = (rule?.format?.date_format ?? "").toUpperCase();
+  const fmtDate = (v: string | Date | null): string => {
+    if (!v) return "";
+    // Date values use LOCAL calendar parts — never toISOString, or the day
+    // can shift across the UTC boundary (see local date handling rule).
+    const iso =
+      v instanceof Date
+        ? `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, "0")}-${String(v.getDate()).padStart(2, "0")}`
+        : String(v).slice(0, 10);
+    const [y, m, d] = iso.split("-");
+    if (!y || !m || !d) return iso;
+    if (fmt.startsWith("MM/DD")) return `${m}/${d}/${y}`;
+    if (fmt.startsWith("DD/MM")) return `${d}/${m}/${y}`;
+    if (fmt.startsWith("MM-DD")) return `${m}-${d}-${y}`;
+    if (fmt.startsWith("DD-MM")) return `${d}-${m}-${y}`;
+    return iso;
+  };
+  const esc = (v: unknown): string => {
+    let s = v == null ? "" : String(v);
+    // Neutralize spreadsheet formula injection (=, +, -, @, tab/CR prefixes).
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const money = (n: number) => n.toFixed(2);
+
+  const subtotal = items.reduce((s, li) => s + li.amount, 0);
+  const currency = rule?.format?.currency || "USD";
+  const lines: string[] = [];
+  const kv = (k: string, v: unknown) => lines.push(`${esc(k)},${esc(v)}`);
+  kv("Invoice Number", inv.invoiceNo);
+  kv("Invoice Date", fmtDate(inv.issuedOn));
+  kv("Due Date", fmtDate(inv.dueAt));
+  kv("Terms", inv.terms || rule?.format?.payment_terms || "");
+  kv("PO Number", inv.poNumber ?? "");
+  kv("Bill To", inv.billToName || rule?.property?.client_company || "");
+  kv("Property", prop?.name ?? "");
+  kv(
+    "Property Address",
+    inv.propertyAddress || rule?.property?.billing_address || "",
+  );
+  kv("Vendor", settings.companyName ?? "");
+  kv(
+    "Remit To",
+    rule?.format?.remit_to ||
+      inv.paymentInstructions ||
+      settings.paymentInstructions ||
+      "",
+  );
+  kv("Currency", currency);
+  kv("Status", inv.status);
+  lines.push("");
+  lines.push(
+    "Date of Work,Unit,Type of Work,Description,Qty,Unit Price,Amount",
+  );
+  for (const li of items) {
+    lines.push(
+      [
+        fmtDate(li.dateOfWork),
+        esc(li.unitNo),
+        esc(li.typeOfWork),
+        esc(li.description),
+        String(li.qty),
+        money(li.unitPrice),
+        money(li.amount),
+      ].join(","),
+    );
+  }
+  lines.push("");
+  lines.push(`Subtotal,,,,,,${money(subtotal - inv.taxAmount)}`);
+  if (inv.taxAmount > 0) lines.push(`Tax,,,,,,${money(inv.taxAmount)}`);
+  lines.push(`Total,,,,,,${money(inv.amount)}`);
+  if (inv.notes?.trim()) {
+    lines.push("");
+    kv("Notes", inv.notes.trim());
+  }
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${inv.invoiceNo}.csv"`,
+  );
+  res.end(lines.join("\r\n") + "\r\n");
 });
 
 function escapeHtml(s: string): string {

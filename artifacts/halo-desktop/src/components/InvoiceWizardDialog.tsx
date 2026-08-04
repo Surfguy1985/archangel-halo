@@ -213,6 +213,8 @@ function JobInvoiceBuilder({
       {
         onSuccess: (inv) => {
           queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+          if (propertyId)
+            queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
           toast({
             title: `Invoice ${inv.invoiceNo} created`,
             description: `${money(inv.amount)} · draft, SOP-compliant — ready to review and send.`,
@@ -476,7 +478,7 @@ function JobInvoiceBuilder({
                 <div>
                   <div className="font-bold">Invoice {created.invoiceNo} created — {money(created.amount)}</div>
                   <div className="text-sm text-white/70 mt-0.5">
-                    Saved as a draft, SOP-compliant. Grab the PDF here or open it to keep editing.
+                    Saved as a draft, SOP-compliant. Grab it as a PDF or a CSV formatted to the property's SOP, or open it to keep editing.
                   </div>
                 </div>
               </div>
@@ -487,6 +489,14 @@ function JobInvoiceBuilder({
                   data-testid="button-download-invoice-pdf"
                 >
                   <FileText className="w-4 h-4 mr-2" /> Download PDF
+                </Button>
+                <Button
+                  onClick={() => window.open(`/api/invoices/${created.id}/csv`, "_blank")}
+                  variant="outline"
+                  className="rounded-full font-bold bg-transparent text-white border-white/30 hover:bg-white/10 hover:text-white"
+                  data-testid="button-download-invoice-csv"
+                >
+                  <FileText className="w-4 h-4 mr-2" /> Download CSV
                 </Button>
                 <Button
                   variant="outline"

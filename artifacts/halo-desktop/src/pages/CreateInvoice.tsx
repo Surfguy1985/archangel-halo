@@ -6,6 +6,8 @@ import {
   useListProperties,
   useGetBusinessSettings,
   useGetJob,
+  useListJobs,
+  getListJobsQueryKey,
   useGetProperty,
   useGetPropertySopRule,
   getGetPropertySopRuleQueryKey,
@@ -92,6 +94,7 @@ export default function CreateInvoice() {
   const create = useCreateInvoice();
 
   const [propertyId, setPropertyId] = useState("");
+  const [jobId, setJobId] = useState("");
   const [billToName, setBillToName] = useState("");
   const [propertyAddress, setPropertyAddress] = useState("");
   const [poNumber, setPoNumber] = useState("");
@@ -122,6 +125,7 @@ export default function CreateInvoice() {
 
   const onPickProperty = (id: string) => {
     setPropertyId(id);
+    setJobId("");
     const prop = properties?.find((p) => p.id === id);
     if (prop) {
       setBillToName(prop.pmcName || prop.name);
@@ -154,6 +158,12 @@ export default function CreateInvoice() {
     // for custom text.
     // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [sopRule, propertyId]);
+
+  // Jobs at the selected property — every invoice must be tied to one.
+  const { data: propertyJobs } = useListJobs(
+    { propertyId },
+    { query: { enabled: !!propertyId, queryKey: getListJobsQueryKey({ propertyId }) } },
+  );
 
   // Price book for the selected property → one-click line items.
   const { data: propertyDetail} = useGetProperty(propertyId, {
@@ -205,6 +215,7 @@ export default function CreateInvoice() {
     if (!job) return;
     prefilled.current = true;
     onPickProperty(job.propertyId ?? initialPropertyId);
+    setJobId(job.id);
     const lineItems = job.lineItems ?? [];
     if (lineItems.length) {
       setItems(
@@ -240,6 +251,7 @@ export default function CreateInvoice() {
   const validItems = items.filter((it) => it.typeOfWork.trim());
   const canSave =
     !!propertyId &&
+    !!jobId &&
     validItems.length > 0 &&
     !create.isPending &&
     (!sopPoRequired || !!poNumber.trim());
@@ -263,11 +275,7 @@ export default function CreateInvoice() {
       {
         data: {
           propertyId,
-          ...(initialJobId &&
-          initialJobDetail?.job &&
-          propertyId === (initialJobDetail.job.propertyId ?? initialPropertyId)
-            ? { jobId: initialJobId}
-            : {}),
+          jobId,
           issuedOn,
           ...(dueOn ? { dueOn} : {}),
           ...(poNumber.trim() ? { poNumber: poNumber.trim()} : {}),
@@ -397,6 +405,24 @@ export default function CreateInvoice() {
                       {p.name}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+              <Select value={jobId} onValueChange={setJobId}>
+                <SelectTrigger data-testid="select-invoice-job">
+                  <SelectValue placeholder="Select the job this invoice belongs to…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(propertyJobs ?? []).map((j) => (
+                    <SelectItem key={j.id} value={j.id}>
+                      {j.jobNo} · {j.category || j.description}
+                      {j.unitNo ? ` · Unit ${j.unitNo}` : ""}
+                    </SelectItem>
+                  ))}
+                  {(propertyJobs ?? []).length === 0 && (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      No jobs at this property — create the job first.
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
               <Input
