@@ -2090,6 +2090,78 @@ export interface PriceItemImportResult {
   skipped: number;
 }
 
+/**
+ * @nullable
+ */
+export type PriceSheetExtractInputMediaType = typeof PriceSheetExtractInputMediaType[keyof typeof PriceSheetExtractInputMediaType] | null;
+
+
+export const PriceSheetExtractInputMediaType = {
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+  'image/webp': 'image/webp',
+  'image/gif': 'image/gif',
+  'application/pdf': 'application/pdf',
+} as const;
+
+export interface PriceSheetExtractInput {
+  /** @nullable */
+  filename?: string | null;
+  /**
+     * Plain text / CSV content of the price sheet
+     * @nullable
+     */
+  content?: string | null;
+  /**
+     * Base64-encoded image or PDF (no data: prefix)
+     * @nullable
+     */
+  image?: string | null;
+  /** @nullable */
+  mediaType?: PriceSheetExtractInputMediaType;
+}
+
+export interface PriceSheetRow {
+  service: string;
+  /** @nullable */
+  rate?: number | null;
+  /** @nullable */
+  unit?: string | null;
+  /** @nullable */
+  detail?: string | null;
+  /** True when the line is BID/quote-only or has no fixed price */
+  bidOnly: boolean;
+  /** @nullable */
+  confidence?: number | null;
+}
+
+export interface PriceSheetExtractResult {
+  /** @nullable */
+  summary?: string | null;
+  rows: PriceSheetRow[];
+}
+
+export interface PriceSheetSaveItem {
+  /** @minLength 1 */
+  service: string;
+  /** @minimum 0 */
+  rate: number;
+  /** @nullable */
+  unit?: string | null;
+  /** @nullable */
+  detail?: string | null;
+}
+
+export interface PriceSheetSaveInput {
+  /** @minItems 1 */
+  items: PriceSheetSaveItem[];
+}
+
+export interface PriceSheetSaveResult {
+  imported: PriceItem[];
+  updated: PriceItem[];
+}
+
 export interface Lead {
   id: string;
   /** @nullable */

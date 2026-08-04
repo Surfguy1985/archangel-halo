@@ -5,7 +5,7 @@ import { MarginSection} from "@/components/MarginSection";
 import { CrewPhotosSection} from "@/components/CrewPhotosSection";
 import { useQueryClient} from "@tanstack/react-query";
 import { useParams, Link} from "wouter";
-import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Radio, Repeat, BookOpen, Receipt, Users, Wand2, Zap} from "lucide-react";
+import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Radio, Repeat, BookOpen, FileUp, Receipt, Users, Wand2, Zap} from "lucide-react";
 import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton} from "@/components/ui/skeleton";
@@ -15,6 +15,7 @@ import { useToast} from "@/hooks/use-toast";
 import { JobLineItemsPanel} from "@/components/JobLineItemsPanel";
 import { JobSummaryDialog} from "@/components/JobSummaryDialog";
 import { ImportFromCatalogDialog} from "@/components/ImportFromCatalogDialog";
+import { ImportPriceSheetDialog} from "@/components/ImportPriceSheetDialog";
 import { QuickJobDialog} from "@/components/QuickJobDialog";
 import {
   EditPropertyDialog,
@@ -33,6 +34,7 @@ export default function PropertyDetail() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [priceSheetOpen, setPriceSheetOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
   const [quickJobOpen, setQuickJobOpen] = useState(false);
@@ -474,6 +476,7 @@ export default function PropertyDetail() {
       <EditPropertyDialog open={editOpen} onOpenChange={setEditOpen} property={property} />
       <AddPriceItemDialog open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
       <ImportFromCatalogDialog open={importOpen} onOpenChange={setImportOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />
+      <ImportPriceSheetDialog open={priceSheetOpen} onOpenChange={setPriceSheetOpen} propertyId={id} />
       <AddContactDialog open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
       <AddJobDialog open={jobOpen} onOpenChange={setJobOpen} propertyId={id} priceItems={priceItems} />
       <QuickJobDialog open={quickJobOpen} onOpenChange={setQuickJobOpen} propertyId={id} />
@@ -768,6 +771,13 @@ export default function PropertyDetail() {
                   Agreed rates{priceItems.length > 0 && <span className="font-normal"> · {priceItems.length}</span>}
                 </div>
                 <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setPriceSheetOpen(true)}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+                    data-testid="button-import-price-sheet"
+                  >
+                    <FileUp className="w-3.5 h-3.5" /> Import price list
+                  </button>
                   <button
                     onClick={() => setImportOpen(true)}
                     className="flex items-center gap-1.5 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"

@@ -54,11 +54,17 @@ import {
   ImportPriceItemsParams,
   ImportPriceItemsBody,
   ImportPriceItemsResponse,
+  ExtractPriceSheetParams,
+  ExtractPriceSheetBody,
+  ExtractPriceSheetResponse,
+  SavePriceSheetItemsParams,
+  SavePriceSheetItemsBody,
+  SavePriceSheetItemsResponse,
   WritePropertyBriefParams,
   WritePropertyBriefResponse,
 } from "@workspace/api-zod";
 import { ser, serList } from "../lib/serialize";
-import { completeText } from "../lib/ai";
+import { completeText, completeJson, completeJsonWithImage } from "../lib/ai";
 import {
   GeneratePropertyImageParams,
   GeneratePropertyImageResponse,
@@ -702,6 +708,180 @@ router.post(
       ImportPriceItemsResponse.parse({
         imported: serList(imported),
         skipped: skipped + (toInsert.length - imported.length),
+      }),
+    );
+  },
+);
+
+const normalizeService = (s: string): string =>
+  s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+
+const PRICE_SHEET_MAX_BASE64_CHARS = 14_000_000;
+
+type ExtractedPriceRow = {
+  service?: string;
+  rate?: number | null;
+  unit?: string | null;
+  detail?: string | null;
+  bidOnly?: boolean | null;
+  confidence?: number | null;
+};
+
+router.post(
+  "/properties/:id/price-items/extract",
+  async (req, res): Promise<void> => {
+    const { id } = ExtractPriceSheetParams.parse(req.params);
+    const body = ExtractPriceSheetBody.parse(req.body);
+
+    const [property] = await db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, id));
+    if (!property) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+
+    const hasText = !!body.content && body.content.trim().length > 0;
+    const hasImage = !!body.image && !!body.mediaType;
+    if (!hasText && !hasImage) {
+      res.status(400).json({ error: "Provide the file's text content or an image." });
+      return;
+    }
+    if (hasImage && (body.image as string).length > PRICE_SHEET_MAX_BASE64_CHARS) {
+      res.status(413).json({ error: "File too large. Try a smaller file or photo." });
+      return;
+    }
+
+    const systemPrompt = `You are HALO's price-sheet reader for a property-maintenance contractor.
+The office uploaded a price list / rate sheet / bid sheet for the property "${property.name}". Extract EVERY service line as one row.
+Rules:
+- service: the service name exactly as written (trim numbering/bullets).
+- rate: the price as a number (no $ or commas). If the price is "BID", "quote", "TBD", "per quote", "varies", or missing, set rate to null and bidOnly to true.
+- bidOnly: true ONLY for lines without a fixed price (bid/quote/TBD); false when a numeric price is given.
+- unit: the pricing unit when stated (each, sqft, hour, unit, door, month...), else null.
+- detail: any extra description/notes for the line, else null.
+- confidence: 0-1 how sure you are you read the line correctly.
+- Transcribe names and numbers EXACTLY as printed — never invent or round values. Skip headers, totals, and non-service text.
+Return {"summary": "one sentence", "rows": [{ "service", "rate", "unit", "detail", "bidOnly", "confidence" }]}.`;
+
+    let parsed: { summary?: string | null; rows?: ExtractedPriceRow[] };
+    try {
+      if (hasImage) {
+        parsed = await completeJsonWithImage<typeof parsed>(
+          systemPrompt,
+          `Filename: ${body.filename ?? "price sheet"}. Extract the price rows from this document.`,
+          body.image as string,
+          body.mediaType as
+            | "image/jpeg"
+            | "image/png"
+            | "image/webp"
+            | "image/gif"
+            | "application/pdf",
+          8192,
+        );
+      } else {
+        parsed = await completeJson<typeof parsed>(
+          systemPrompt,
+          `Filename: ${body.filename ?? "price sheet"}\n\nContent:\n${(body.content as string).slice(0, 40000)}`,
+          8192,
+        );
+      }
+    } catch (err) {
+      req.log.error({ err }, "price sheet extract failed");
+      res.status(502).json({ error: "Could not read the price sheet. Please try again." });
+      return;
+    }
+
+    const rows = (parsed.rows ?? [])
+      .filter((r) => r.service && String(r.service).trim())
+      .map((r) => {
+        const rate =
+          typeof r.rate === "number" && Number.isFinite(r.rate) && r.rate >= 0
+            ? r.rate
+            : null;
+        return {
+          service: String(r.service).trim(),
+          rate,
+          unit: r.unit ? String(r.unit) : null,
+          detail: r.detail ? String(r.detail) : null,
+          bidOnly: rate == null ? true : !!r.bidOnly,
+          confidence: typeof r.confidence === "number" ? r.confidence : null,
+        };
+      });
+
+    res.json(
+      ExtractPriceSheetResponse.parse({
+        summary: parsed.summary ?? null,
+        rows,
+      }),
+    );
+  },
+);
+
+router.post(
+  "/properties/:id/price-items/bulk",
+  async (req, res): Promise<void> => {
+    const { id } = SavePriceSheetItemsParams.parse(req.params);
+    const { items } = SavePriceSheetItemsBody.parse(req.body);
+
+    const result = await db.transaction(async (tx) => {
+      const [property] = await tx
+        .select()
+        .from(propertiesTable)
+        .where(eq(propertiesTable.id, id));
+      if (!property) return null;
+
+      const existing = await tx
+        .select()
+        .from(priceItemsTable)
+        .where(eq(priceItemsTable.propertyId, id));
+      const byService = new Map(existing.map((p) => [normalizeService(p.service), p]));
+
+      const imported: (typeof priceItemsTable.$inferSelect)[] = [];
+      const updated: (typeof priceItemsTable.$inferSelect)[] = [];
+      const seen = new Set<string>();
+      for (const item of items) {
+        const key = normalizeService(item.service);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        const match = byService.get(key);
+        if (match) {
+          const [row] = await tx
+            .update(priceItemsTable)
+            .set({
+              rate: item.rate,
+              unit: item.unit ?? match.unit,
+              detail: item.detail ?? match.detail,
+            })
+            .where(eq(priceItemsTable.id, match.id))
+            .returning();
+          updated.push(row);
+        } else {
+          const [row] = await tx
+            .insert(priceItemsTable)
+            .values({
+              propertyId: id,
+              service: item.service.trim(),
+              rate: item.rate,
+              unit: item.unit ?? null,
+              detail: item.detail ?? null,
+            })
+            .returning();
+          imported.push(row);
+        }
+      }
+      return { imported, updated };
+    });
+
+    if (!result) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    res.json(
+      SavePriceSheetItemsResponse.parse({
+        imported: serList(result.imported),
+        updated: serList(result.updated),
       }),
     );
   },

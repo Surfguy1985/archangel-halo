@@ -292,6 +292,10 @@ import type {
   PriceItemImportResult,
   PriceItemInput,
   PriceItemUpdate,
+  PriceSheetExtractInput,
+  PriceSheetExtractResult,
+  PriceSheetSaveInput,
+  PriceSheetSaveResult,
   Property,
   PropertyDetail,
   PropertyInput,
@@ -1911,6 +1915,150 @@ export const useImportPriceItems = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getImportPriceItemsMutationOptions(options));
+    }
+
+export const getExtractPriceSheetUrl = (id: string,) => {
+
+
+
+
+  return `/api/properties/${id}/price-items/extract`
+}
+
+/**
+ * @summary AI-read an uploaded price sheet (PDF text, CSV, or image) into reviewable price rows
+ */
+export const extractPriceSheet = async (id: string,
+    priceSheetExtractInput: PriceSheetExtractInput, options?: RequestInit): Promise<PriceSheetExtractResult> => {
+
+  return customFetch<PriceSheetExtractResult>(getExtractPriceSheetUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(priceSheetExtractInput)
+  }
+);}
+
+
+
+
+
+export const getExtractPriceSheetMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractPriceSheet>>, TError,{id: string;data: BodyType<PriceSheetExtractInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof extractPriceSheet>>, TError,{id: string;data: BodyType<PriceSheetExtractInput>}, TContext> => {
+
+const mutationKey = ['extractPriceSheet'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof extractPriceSheet>>, {id: string;data: BodyType<PriceSheetExtractInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  extractPriceSheet(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ExtractPriceSheetMutationResult = NonNullable<Awaited<ReturnType<typeof extractPriceSheet>>>
+    export type ExtractPriceSheetMutationBody = BodyType<PriceSheetExtractInput>
+    export type ExtractPriceSheetMutationError = ErrorType<unknown>
+
+    /**
+ * @summary AI-read an uploaded price sheet (PDF text, CSV, or image) into reviewable price rows
+ */
+export const useExtractPriceSheet = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof extractPriceSheet>>, TError,{id: string;data: BodyType<PriceSheetExtractInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof extractPriceSheet>>,
+        TError,
+        {id: string;data: BodyType<PriceSheetExtractInput>},
+        TContext
+      > => {
+      return useMutation(getExtractPriceSheetMutationOptions(options));
+    }
+
+export const getSavePriceSheetItemsUrl = (id: string,) => {
+
+
+
+
+  return `/api/properties/${id}/price-items/bulk`
+}
+
+/**
+ * @summary Save reviewed price-sheet rows into this property's price book (upsert by service name)
+ */
+export const savePriceSheetItems = async (id: string,
+    priceSheetSaveInput: PriceSheetSaveInput, options?: RequestInit): Promise<PriceSheetSaveResult> => {
+
+  return customFetch<PriceSheetSaveResult>(getSavePriceSheetItemsUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(priceSheetSaveInput)
+  }
+);}
+
+
+
+
+
+export const getSavePriceSheetItemsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof savePriceSheetItems>>, TError,{id: string;data: BodyType<PriceSheetSaveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof savePriceSheetItems>>, TError,{id: string;data: BodyType<PriceSheetSaveInput>}, TContext> => {
+
+const mutationKey = ['savePriceSheetItems'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof savePriceSheetItems>>, {id: string;data: BodyType<PriceSheetSaveInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  savePriceSheetItems(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SavePriceSheetItemsMutationResult = NonNullable<Awaited<ReturnType<typeof savePriceSheetItems>>>
+    export type SavePriceSheetItemsMutationBody = BodyType<PriceSheetSaveInput>
+    export type SavePriceSheetItemsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Save reviewed price-sheet rows into this property's price book (upsert by service name)
+ */
+export const useSavePriceSheetItems = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof savePriceSheetItems>>, TError,{id: string;data: BodyType<PriceSheetSaveInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof savePriceSheetItems>>,
+        TError,
+        {id: string;data: BodyType<PriceSheetSaveInput>},
+        TContext
+      > => {
+      return useMutation(getSavePriceSheetItemsMutationOptions(options));
     }
 
 export const getCreatePriceItemUrl = (id: string,) => {

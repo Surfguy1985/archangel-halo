@@ -676,6 +676,77 @@ export const ImportPriceItemsResponse = zod.object({
 })
 
 
+/**
+ * @summary AI-read an uploaded price sheet (PDF text, CSV, or image) into reviewable price rows
+ */
+export const ExtractPriceSheetParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ExtractPriceSheetBody = zod.object({
+  "filename": zod.string().nullish(),
+  "content": zod.string().nullish().describe('Plain text \/ CSV content of the price sheet'),
+  "image": zod.string().nullish().describe('Base64-encoded image or PDF (no data: prefix)'),
+  "mediaType": zod.union([zod.literal('image/jpeg'),zod.literal('image/png'),zod.literal('image/webp'),zod.literal('image/gif'),zod.literal('application/pdf'),zod.literal(null)]).nullish()
+})
+
+export const ExtractPriceSheetResponse = zod.object({
+  "summary": zod.string().nullish(),
+  "rows": zod.array(zod.object({
+  "service": zod.string(),
+  "rate": zod.number().nullish(),
+  "unit": zod.string().nullish(),
+  "detail": zod.string().nullish(),
+  "bidOnly": zod.boolean().describe('True when the line is BID\/quote-only or has no fixed price'),
+  "confidence": zod.number().nullish()
+}))
+})
+
+
+/**
+ * @summary Save reviewed price-sheet rows into this property's price book (upsert by service name)
+ */
+export const SavePriceSheetItemsParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+export const savePriceSheetItemsBodyItemsItemRateMin = 0;
+
+
+
+
+export const SavePriceSheetItemsBody = zod.object({
+  "items": zod.array(zod.object({
+  "service": zod.string().min(1),
+  "rate": zod.number().min(savePriceSheetItemsBodyItemsItemRateMin),
+  "unit": zod.string().nullish(),
+  "detail": zod.string().nullish()
+})).min(1)
+})
+
+export const SavePriceSheetItemsResponse = zod.object({
+  "imported": zod.array(zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "service": zod.string(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "marginFloor": zod.number().nullish()
+})),
+  "updated": zod.array(zod.object({
+  "id": zod.string(),
+  "propertyId": zod.string(),
+  "service": zod.string(),
+  "detail": zod.string().nullish(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "marginFloor": zod.number().nullish()
+}))
+})
+
+
 export const CreatePriceItemParams = zod.object({
   "id": zod.coerce.string()
 })

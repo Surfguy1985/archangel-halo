@@ -10,6 +10,7 @@ import { EditPropertySheet } from "@/components/EditPropertySheet";
 import { AddContactSheet } from "@/components/AddContactSheet";
 import { AddPriceItemSheet } from "@/components/AddPriceItemSheet";
 import { ImportFromCatalogSheet } from "@/components/ImportFromCatalogSheet";
+import { ImportPriceSheetSheet } from "@/components/ImportPriceSheetSheet";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
 import { AddJobSheet } from "@/components/AddJobSheet";
 import { EditJobSheet } from "@/components/EditJobSheet";
@@ -50,6 +51,7 @@ export default function PropertyDetail() {
   const [contactOpen, setContactOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
   const [importCatalogOpen, setImportCatalogOpen] = useState(false);
+  const [priceSheetOpen, setPriceSheetOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
   const [quickJobOpen, setQuickJobOpen] = useState(false);
@@ -629,12 +631,21 @@ export default function PropertyDetail() {
         <div className="flex items-center justify-between">
           <SectionHeader title="Price List" onAdd={() => setPriceOpen(true)} />
         </div>
-        <button
-          onClick={() => setImportCatalogOpen(true)}
-          className="w-full mb-[10px] rounded-[13px] py-[10px] text-[13.5px] font-display font-bold text-[var(--gold-dark)] bg-card border border-[var(--gold-tint,rgba(143,106,31,0.25))] shadow-[0_2px_8px_rgba(0,0,0,0.04)] active:scale-[0.98] transition-transform"
-        >
-          Add from Price Book
-        </button>
+        <div className="grid grid-cols-2 gap-[8px] mb-[10px]">
+          <button
+            onClick={() => setImportCatalogOpen(true)}
+            className="rounded-[13px] py-[10px] text-[13.5px] font-display font-bold text-[var(--gold-dark)] bg-card border border-[var(--gold-tint,rgba(143,106,31,0.25))] shadow-[0_2px_8px_rgba(0,0,0,0.04)] active:scale-[0.98] transition-transform"
+          >
+            Add from Price Book
+          </button>
+          <button
+            onClick={() => setPriceSheetOpen(true)}
+            className="rounded-[13px] py-[10px] text-[13.5px] font-display font-bold text-[var(--gold-dark)] bg-card border border-[var(--gold-tint,rgba(143,106,31,0.25))] shadow-[0_2px_8px_rgba(0,0,0,0.04)] active:scale-[0.98] transition-transform"
+            data-testid="button-import-price-sheet"
+          >
+            Import price list
+          </button>
+        </div>
         {priceItems.length > 0 ? (
           <div className="bg-card rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-[6px_14px]">
             {priceItems.map((item, idx) => (
@@ -737,6 +748,7 @@ export default function PropertyDetail() {
       <AddContactSheet open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
       <AddPriceItemSheet open={priceOpen} onOpenChange={setPriceOpen} propertyId={id} />
       <ImportFromCatalogSheet open={importCatalogOpen} onOpenChange={setImportCatalogOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />
+      <ImportPriceSheetSheet open={priceSheetOpen} onOpenChange={setPriceSheetOpen} propertyId={id} />
       <AddExpenseSheet open={expenseOpen} onOpenChange={setExpenseOpen} propertyId={id} />
       {expenseJobId && (
         <AddExpenseSheet
