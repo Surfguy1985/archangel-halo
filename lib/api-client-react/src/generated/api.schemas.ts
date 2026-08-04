@@ -3697,6 +3697,35 @@ export interface PaymentInput {
   checkImagePath?: string;
 }
 
+export interface CheckFileEntry {
+  id: string;
+  /** @nullable */
+  invoiceId?: string | null;
+  /** @nullable */
+  invoiceNo?: string | null;
+  /** @nullable */
+  invoiceStatus?: string | null;
+  /** @nullable */
+  propertyId?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  jobLabel?: string | null;
+  amount: number;
+  /** @nullable */
+  method?: string | null;
+  /** @nullable */
+  payerName?: string | null;
+  /** @nullable */
+  checkNumber?: string | null;
+  /** @nullable */
+  checkImagePath?: string | null;
+  /** @nullable */
+  receivedAt?: string | null;
+}
+
 export type CheckScanInputMediaType = typeof CheckScanInputMediaType[keyof typeof CheckScanInputMediaType];
 
 

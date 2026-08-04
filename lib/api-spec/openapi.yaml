@@ -3032,6 +3032,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /checks:
+    get:
+      operationId: listCheckFiles
+      tags: [money]
+      summary: Virtual check filing cabinet — every recorded check payment with its photo, invoice, property and job context
+      responses:
+        "200":
+          description: Check files, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CheckFileEntry"
+
   /checks/scan:
     post:
       operationId: scanCheck
@@ -12240,6 +12255,25 @@ components:
         payerName: { type: string }
         checkNumber: { type: string }
         checkImagePath: { type: string }
+
+    CheckFileEntry:
+      type: object
+      required: [id, amount]
+      properties:
+        id: { type: string }
+        invoiceId: { type: ["string", "null"] }
+        invoiceNo: { type: ["string", "null"] }
+        invoiceStatus: { type: ["string", "null"] }
+        propertyId: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"] }
+        jobId: { type: ["string", "null"] }
+        jobLabel: { type: ["string", "null"] }
+        amount: { type: number }
+        method: { type: ["string", "null"] }
+        payerName: { type: ["string", "null"] }
+        checkNumber: { type: ["string", "null"] }
+        checkImagePath: { type: ["string", "null"] }
+        receivedAt: { type: ["string", "null"] }
 
     CheckScanInput:
       type: object

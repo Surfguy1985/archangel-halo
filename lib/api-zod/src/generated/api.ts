@@ -4383,6 +4383,28 @@ export const SetInvoiceStatusResponse = zod.object({
 
 
 /**
+ * @summary Virtual check filing cabinet — every recorded check payment with its photo, invoice, property and job context
+ */
+export const ListCheckFilesResponseItem = zod.object({
+  "id": zod.string(),
+  "invoiceId": zod.string().nullish(),
+  "invoiceNo": zod.string().nullish(),
+  "invoiceStatus": zod.string().nullish(),
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "jobLabel": zod.string().nullish(),
+  "amount": zod.number(),
+  "method": zod.string().nullish(),
+  "payerName": zod.string().nullish(),
+  "checkNumber": zod.string().nullish(),
+  "checkImagePath": zod.string().nullish(),
+  "receivedAt": zod.string().nullish()
+})
+export const ListCheckFilesResponse = zod.array(ListCheckFilesResponseItem)
+
+
+/**
  * @summary Read a photo of a paper check with AI and suggest the matching open invoice
  */
 export const ScanCheckBody = zod.object({

@@ -32,6 +32,7 @@ import {
   Wallet,
   ScanLine,
   MoreHorizontal,
+  FileCheck2,
 } from "lucide-react";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { AddExpenseSheet } from "@/components/AddExpenseSheet";
@@ -50,6 +51,7 @@ import {
 import { exportCsv } from "@/lib/exportCsv";
 import { BusinessReportTab } from "@/components/BusinessReportTab";
 import { BooksTab } from "@/components/BooksTab";
+import { CheckFiles } from "@/components/CheckFiles";
 
 type HistoryRow = {
   id: string;
@@ -733,6 +735,7 @@ function CrewPay() {
 const MENU_ITEMS = [
   { id: "invoices", label: "Invoices & Billing", icon: FileText, desc: "Create invoices, track payments" },
   { id: "payments", label: "Payments", icon: Wallet, desc: "Collect & distribute payments", route: "/money/payments" },
+  { id: "checks", label: "Check Files", icon: FileCheck2, desc: "Scanned checks, searchable archive" },
   { id: "expenses", label: "Expenses", icon: Receipt, desc: "Log expenses, pay bills" },
   { id: "crew", label: "Crew Pay", icon: Users, desc: "Manage crew payouts" },
   { id: "bank", label: "Bank Account", icon: Landmark, desc: "Connected accounts & txns" },
@@ -742,7 +745,7 @@ const MENU_ITEMS = [
 
 export default function Money() {
   const search = useSearch();
-  const VALID_TABS = ["overview", "invoices", "expenses", "crew", "bank", "report", "books"];
+  const VALID_TABS = ["overview", "invoices", "checks", "expenses", "crew", "bank", "report", "books"];
   const rawTab = new URLSearchParams(search).get("tab") || "overview";
   const activeTab = VALID_TABS.includes(rawTab) ? rawTab : "overview";
   const [location, navigate] = useLocation();
@@ -754,6 +757,7 @@ export default function Money() {
   if (activeTab !== "overview") {
     const titles: Record<string, string> = {
       invoices: "Invoices & Billing",
+      checks: "Check Files",
       expenses: "Expenses",
       crew: "Crew Pay",
       bank: "Bank Account",
@@ -777,6 +781,7 @@ export default function Money() {
         </h1>
         <div className="px-[8px]">
           {activeTab === "invoices" && <Invoices />}
+          {activeTab === "checks" && <CheckFiles />}
           {activeTab === "expenses" && <Expenses />}
           {activeTab === "crew" && <CrewPay />}
           {activeTab === "bank" && <BankTab />}

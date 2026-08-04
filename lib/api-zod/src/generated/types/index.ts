@@ -92,6 +92,7 @@ export * from './catalogItemInput';
 export * from './catalogItemUpdate';
 export * from './categorizeBankTransactionParams';
 export * from './categoryAmount';
+export * from './checkFileEntry';
 export * from './checkScanInput';
 export * from './checkScanInputMediaType';
 export * from './checkScanResult';

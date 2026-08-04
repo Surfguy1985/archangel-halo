@@ -63,6 +63,7 @@ import { ZellePayDialog} from "@/components/ZellePayDialog";
 import { BusinessInfoDialog} from "@/components/BusinessInfoDialog";
 import { BusinessReportTab} from "@/components/BusinessReportTab";
 import { BooksTab} from "@/components/BooksTab";
+import { CheckFilesTab} from "@/components/CheckFilesTab";
 import { Link} from "wouter";
 
 const money = (n: number) =>
@@ -773,7 +774,7 @@ function CrewPay() {
   );
 }
 
-const MONEY_TABS = ["invoices", "expenses", "crew", "bank", "aging", "report", "books"];
+const MONEY_TABS = ["invoices", "checks", "expenses", "crew", "bank", "aging", "report", "books"];
 
 export default function Money() {
   const [, setLocation] = useLocation();
@@ -806,6 +807,7 @@ export default function Money() {
       <Tabs value={tab} onValueChange={(t) => { setTab(t); setLocation(`/money?tab=${t}`);}} className="space-y-6">
         <TabsList data-tour="money-tabs" className="bg-white border border-border shadow-sm p-1 rounded-none flex flex-wrap h-auto gap-1">
           <TabsTrigger value="invoices" className="rounded-none font-bold text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Invoices</TabsTrigger>
+          <TabsTrigger value="checks" data-testid="tab-checks" className="rounded-none font-bold text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Checks</TabsTrigger>
           <TabsTrigger value="expenses" className="rounded-none font-bold text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Expenses</TabsTrigger>
           <TabsTrigger value="crew" className="rounded-none font-bold text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Crew Pay</TabsTrigger>
           <TabsTrigger value="bank" className="rounded-none font-bold text-xs data-[state=active]:bg-[var(--secondary)] data-[state=active]:text-white data-[state=active]:shadow-none">Bank</TabsTrigger>
@@ -816,6 +818,9 @@ export default function Money() {
 
         <TabsContent value="invoices">
           <Invoices />
+        </TabsContent>
+        <TabsContent value="checks">
+          <CheckFilesTab />
         </TabsContent>
         <TabsContent value="expenses">
           <Expenses />

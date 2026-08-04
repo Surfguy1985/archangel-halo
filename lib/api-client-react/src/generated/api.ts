@@ -64,6 +64,7 @@ import type {
   CatalogItemInput,
   CatalogItemUpdate,
   CategorizeBankTransactionParams,
+  CheckFileEntry,
   CheckScanInput,
   CheckScanResult,
   ClientAccessInviteInput,
@@ -10206,6 +10207,83 @@ export const useSetInvoiceStatus = <TError = ErrorType<Error>,
       > => {
       return useMutation(getSetInvoiceStatusMutationOptions(options));
     }
+
+export const getListCheckFilesUrl = () => {
+
+
+
+
+  return `/api/checks`
+}
+
+/**
+ * @summary Virtual check filing cabinet — every recorded check payment with its photo, invoice, property and job context
+ */
+export const listCheckFiles = async ( options?: RequestInit): Promise<CheckFileEntry[]> => {
+
+  return customFetch<CheckFileEntry[]>(getListCheckFilesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCheckFilesQueryKey = () => {
+    return [
+    `/api/checks`
+    ] as const;
+    }
+
+
+export const getListCheckFilesQueryOptions = <TData = Awaited<ReturnType<typeof listCheckFiles>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCheckFiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCheckFilesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCheckFiles>>> = ({ signal }) => listCheckFiles({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCheckFiles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCheckFilesQueryResult = NonNullable<Awaited<ReturnType<typeof listCheckFiles>>>
+export type ListCheckFilesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Virtual check filing cabinet — every recorded check payment with its photo, invoice, property and job context
+ */
+
+export function useListCheckFiles<TData = Awaited<ReturnType<typeof listCheckFiles>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCheckFiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCheckFilesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getScanCheckUrl = () => {
 

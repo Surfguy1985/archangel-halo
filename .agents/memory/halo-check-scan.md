@@ -3,6 +3,7 @@ name: HALO check scan
 description: Check-photo OCR payment flow — design decisions and constraints
 ---
 
+- Virtual check filing: GET /checks (listCheckFiles) returns every payment with method "check" OR a checkImagePath, enriched with invoice/property/job labels; "Check Files" tab in Money on mobile + desktop filters client-side. New check-recording paths need no extra wiring — anything landing in payments shows up in the files.
 - Check scan applies payment via the existing recordPayment endpoint (method:"check" + payerName/checkNumber/checkImagePath); a paid invoice is the anchor — user MUST pick property + invoice (job optional) before applying.
 - **Why:** payments have no standalone entity; anchoring to an invoice keeps books/ledger/job margins consistent (syncInvoiceLedger + recomputeJobFinancials fire on the same path).
 - The scan UIs require a successfully scanned photo before submit, but the server intentionally does NOT reject photo-less check payments — the manual "Record payment" flow legitimately records checks without images.

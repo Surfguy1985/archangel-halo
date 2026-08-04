@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import {
   db,
   invoicesTable,
@@ -910,6 +910,53 @@ router.post("/invoices/:id/status", async (req, res): Promise<void> => {
   }
   const names = await propertyNames();
   res.json(SetInvoiceStatusResponse.parse(decorateInvoice(row, names)));
+});
+
+// Virtual check filing cabinet: every check payment (scanned or manually
+// recorded) with its invoice, property and job context so the office can
+// search files by property, job, date, amount, payer or check number.
+router.get("/checks", async (_req, res): Promise<void> => {
+  const payments = await db
+    .select()
+    .from(paymentsTable)
+    .orderBy(desc(paymentsTable.receivedAt));
+  const checks = payments.filter((p) => p.method === "check" || p.checkImagePath);
+  const invoiceIds = [...new Set(checks.map((p) => p.invoiceId).filter((v): v is string => !!v))];
+  const invoices = invoiceIds.length
+    ? await db.select().from(invoicesTable).where(inArray(invoicesTable.id, invoiceIds))
+    : [];
+  const invById = new Map(invoices.map((i) => [i.id, i]));
+  const propIds = [...new Set(invoices.map((i) => i.propertyId))];
+  const jobIds = [...new Set(invoices.map((i) => i.jobId).filter((v): v is string => !!v))];
+  const [props, jobs] = await Promise.all([
+    propIds.length ? db.select().from(propertiesTable).where(inArray(propertiesTable.id, propIds)) : [],
+    jobIds.length ? db.select().from(jobsTable).where(inArray(jobsTable.id, jobIds)) : [],
+  ]);
+  const propById = new Map(props.map((p) => [p.id, p]));
+  const jobById = new Map(jobs.map((j) => [j.id, j]));
+  res.json(
+    checks.map((p) => {
+      const inv = p.invoiceId ? invById.get(p.invoiceId) : undefined;
+      const prop = inv ? propById.get(inv.propertyId) : undefined;
+      const job = inv?.jobId ? jobById.get(inv.jobId) : undefined;
+      return {
+        id: p.id,
+        invoiceId: p.invoiceId ?? null,
+        invoiceNo: inv?.invoiceNo ?? null,
+        invoiceStatus: inv?.status ?? null,
+        propertyId: inv?.propertyId ?? null,
+        propertyName: prop?.name ?? null,
+        jobId: inv?.jobId ?? null,
+        jobLabel: job ? `Job ${job.jobNo}` : null,
+        amount: p.amount,
+        method: p.method ?? null,
+        payerName: p.payerName ?? null,
+        checkNumber: p.checkNumber ?? null,
+        checkImagePath: p.checkImagePath ?? null,
+        receivedAt: p.receivedAt ? p.receivedAt.toISOString() : null,
+      };
+    }),
+  );
 });
 
 router.post("/checks/scan", async (req, res): Promise<void> => {
