@@ -33,12 +33,15 @@ export function RequestWorkDialog({
   onOpenChange,
   initialUnits,
   changeOrder,
+  elevated,
 }: {
   token: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialUnits?: string[];
   changeOrder?: ChangeOrderTarget | null;
+  /** Raise z-index above the Presentation Mode overlay so the wizard is visible. */
+  elevated?: boolean;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -224,7 +227,10 @@ export function RequestWorkDialog({
         onOpenChange(o);
       }}
     >
-      <DialogContent className="flex h-[min(92vh,720px)] max-w-md flex-col gap-0 rounded-[16px] p-0">
+      <DialogContent
+        className={`flex h-[min(92vh,720px)] max-w-md flex-col gap-0 rounded-[16px] p-0 ${elevated ? 'z-[95]' : ''}`}
+        overlayClassName={elevated ? 'z-[94]' : undefined}
+      >
         <DialogHeader className="shrink-0 border-b border-black/5 px-5 pt-5 pb-3">
           <div className="flex items-center gap-2">
             {step > 0 && (

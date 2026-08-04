@@ -18,9 +18,11 @@ interface CardDetailDialogProps {
   onClose: () => void;
   /** Open the change-order composer for this job-linked card. */
   onRequestChange?: (card: ClientBoardCardView) => void;
+  /** Raise z-index above the Presentation Mode overlay so the sheet is visible. */
+  elevated?: boolean;
 }
 
-export function CardDetailDialog({ card, token, readOnly, onClose, onReadOnlyClick, onRequestChange }: CardDetailDialogProps) {
+export function CardDetailDialog({ card, token, readOnly, onClose, onReadOnlyClick, onRequestChange, elevated }: CardDetailDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const updateCard = useUpdateClientBoardCard();
@@ -77,7 +79,10 @@ export function CardDetailDialog({ card, token, readOnly, onClose, onReadOnlyCli
 
   return (
     <Dialog open={!!card} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-[28px] border-black/5 shadow-[0_24px_64px_rgba(0,0,0,0.15)] p-0">
+      <DialogContent
+        className={`sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-[28px] border-black/5 shadow-[0_24px_64px_rgba(0,0,0,0.15)] p-0 ${elevated ? 'z-[95]' : ''}`}
+        overlayClassName={elevated ? 'z-[94]' : undefined}
+      >
         <form onSubmit={handleSave} className="flex flex-col h-full">
           <div className="px-8 pt-8 pb-4">
             <DialogHeader>

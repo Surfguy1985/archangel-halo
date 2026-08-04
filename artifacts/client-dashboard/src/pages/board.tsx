@@ -90,8 +90,10 @@ function Board() {
     query: {
       queryKey: getGetClientBoardQueryKey(token),
       // Live updates arrive over SSE (EventSource effect below); this slow
-      // poll is only a fallback if the stream drops.
-      refetchInterval: 30000,
+      // poll is only a fallback if the stream drops. During Presentation Mode
+      // we poll fast (2s) so the board visibly reacts to each scripted server
+      // step even if SSE lags.
+      refetchInterval: presentationOpen ? 2000 : 30000,
     }
   });
 
@@ -541,6 +543,7 @@ function Board() {
           if (!open) setChangeOrder(null);
         }}
         changeOrder={changeOrder}
+        elevated={presentationOpen}
       />
 
       <BirdseyeMapDialog
@@ -561,6 +564,11 @@ function Board() {
             if (card) setDetailCard(card);
           }}
           onCloseCard={() => setDetailCard(null)}
+          onServerStep={() => {
+            queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          }}
+          onOpenRequest={() => setRequestOpen(true)}
+          onCloseRequest={() => setRequestOpen(false)}
         />
       )}
 
@@ -593,6 +601,7 @@ function Board() {
 
       <CardDetailDialog
         token={token}
+        elevated={presentationOpen}
         card={detailCard ? ((activeBoardData?.cards || []).find((c: any) => c.cardKey === detailCard.cardKey) ?? detailCard) : null}
         onClose={() => setDetailCard(null)}
         readOnly={viewer.readOnly}

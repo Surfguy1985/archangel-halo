@@ -46,6 +46,10 @@ export type StepCtx = {
   openCard: (cardKey: string) => void;
   /** Close any open card detail dialog. */
   closeCard: () => void;
+  /** Open the Request Work wizard directly (bypasses the button's auth gate). */
+  openRequest: () => void;
+  /** Close the Request Work wizard. */
+  closeRequest: () => void;
   /** Direct client card-action POST fallback (e.g. pay_method). */
   cardAction: (cardKey: string, data: Record<string, unknown>) => Promise<void>;
 };
@@ -88,32 +92,147 @@ async function clickTestid(testid: string, timeoutMs = 4000): Promise<boolean> {
   return true;
 }
 
-/** Find the demo "Make Ready" / Unit 204 job card in board data by fuzzy match. */
+/** Select a native <select data-testid="select-request-service"> option by fuzzy text. */
+async function selectServiceByText(needles: string[]): Promise<boolean> {
+  const sel = (await waitFor("select-request-service", 2500)) as HTMLSelectElement | null;
+  if (!sel) return false;
+  const opt = Array.from(sel.options).find((o) => {
+    const t = o.textContent?.toLowerCase() ?? "";
+    return needles.some((n) => t.includes(n));
+  });
+  if (!opt) return false;
+  sel.value = opt.value;
+  // React listens on the native change event via its synthetic system.
+  sel.dispatchEvent(new Event("change", { bubbles: true }));
+  return true;
+}
+
+/** Pick Unit 204 in the wizard — a roster chip if present, else type it in. */
+async function pickUnit204(): Promise<void> {
+  const chip = document.querySelector<HTMLElement>('[data-testid="unit-chip-204"]');
+  if (chip) {
+    chip.scrollIntoView({ behavior: "smooth", block: "center" });
+    await sleep(150);
+    chip.click();
+    return;
+  }
+  // No roster chip — reveal the "add a new unit" field and type 204.
+  const clickedNew = await clickTestid("button-new-unit", 1200);
+  if (clickedNew) {
+    const input = (await waitFor("input-new-unit", 1500)) as HTMLInputElement | null;
+    if (input) {
+      setNativeInputValue(input, "204");
+      await sleep(150);
+      await clickTestid("button-add-new-unit", 1200);
+      return;
+    }
+  }
+  // Fallback: the plain typed-unit input (no roster available).
+  const plain = document.querySelector<HTMLInputElement>('[data-testid="input-request-unit"]');
+  if (plain) {
+    setNativeInputValue(plain, "204");
+    plain.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  }
+}
+
+/**
+ * If a sign-in dialog popped (guest tried a gated action), close it so no
+ * orphan dialog is left over the presentation. Best-effort, never throws.
+ */
+async function dismissLoginDialog(): Promise<void> {
+  const loginMarker = document.querySelector('[data-testid="link-login-team"]');
+  if (!loginMarker) return;
+  // Escape closes the Radix dialog; retry once.
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await sleep(250);
+  if (document.querySelector('[data-testid="link-login-team"]')) {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await sleep(250);
+  }
+}
+
+/** Set a controlled input's value so React's onChange fires (native setter + input event). */
+function setNativeInputValue(input: HTMLInputElement, value: string) {
+  const proto = Object.getPrototypeOf(input);
+  const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+  setter?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+/** The card module's discriminator is `module.type` (photos|tracker|summary|flags|invoice…). */
+function moduleType(c: any): string {
+  return String(c?.module?.type ?? "").toLowerCase();
+}
+function titleOf(c: any): string {
+  return String(c?.title ?? "").toLowerCase();
+}
+
+/** Find the lifecycle "Make Ready" / Unit 204 job card. */
 function findJobCard(getCards: CardGetter): any | null {
   const cards = getCards() || [];
-  const match = (c: any) => {
-    const title = String(c?.title ?? "").toLowerCase();
-    const unit = String(c?.unitNo ?? c?.module?.unitNo ?? "").toLowerCase();
-    return (
-      title.includes("make ready") ||
-      title.includes("204") ||
-      unit === "204"
-    );
-  };
-  // Prefer job: cards, then anything matching.
+  const isJob = (c: any) => String(c?.cardKey ?? "").startsWith("job:");
+  // Prefer the make-ready job explicitly, then any 204 job card.
   return (
-    cards.find((c: any) => String(c?.cardKey ?? "").startsWith("job:") && match(c)) ??
-    cards.find(match) ??
+    cards.find((c: any) => isJob(c) && titleOf(c).includes("make ready")) ??
+    cards.find((c: any) => isJob(c) && titleOf(c).includes("204")) ??
+    cards.find((c: any) => isJob(c) && String(c?.unitNo ?? c?.module?.unitNo ?? "") === "204") ??
     null
   );
 }
 
-/** Find the invoice card in board data. */
-function findInvoiceCard(getCards: CardGetter): any | null {
+/** Find the lifecycle tracker card (Unit 204 make ready). */
+function findTrackerCard(getCards: CardGetter): any | null {
   const cards = getCards() || [];
   return (
-    cards.find((c: any) => c?.module?.kind === "invoice" || c?.module?.invoiceNo) ??
-    cards.find((c: any) => String(c?.title ?? "").toLowerCase().includes("invoice")) ??
+    cards.find((c: any) => moduleType(c) === "tracker" && titleOf(c).includes("make ready")) ??
+    cards.find((c: any) => moduleType(c) === "tracker" && titleOf(c).includes("204")) ??
+    cards.find((c: any) => moduleType(c) === "tracker") ??
+    null
+  );
+}
+
+/** Find the lifecycle before/after photos card (Unit 204 make ready). */
+function findPhotosCard(getCards: CardGetter): any | null {
+  const cards = getCards() || [];
+  return (
+    cards.find((c: any) => moduleType(c) === "photos" && titleOf(c).includes("make ready")) ??
+    cards.find((c: any) => moduleType(c) === "photos" && titleOf(c).includes("204")) ??
+    cards.find((c: any) => moduleType(c) === "photos") ??
+    null
+  );
+}
+
+/** Find the summary card (Unit 204 make ready). */
+function findSummaryCard(getCards: CardGetter): any | null {
+  const cards = getCards() || [];
+  return (
+    cards.find((c: any) => moduleType(c) === "summary" && titleOf(c).includes("204")) ??
+    cards.find((c: any) => moduleType(c) === "summary") ??
+    null
+  );
+}
+
+/** Find the flags ("out of scope") card. */
+function findFlagsCard(getCards: CardGetter): any | null {
+  const cards = getCards() || [];
+  return (
+    cards.find((c: any) => moduleType(c) === "flags") ??
+    cards.find((c: any) => titleOf(c).includes("flag")) ??
+    null
+  );
+}
+
+/** Find the lifecycle invoice card — prefer the PO-2044 / Unit 204 make-ready invoice. */
+function findInvoiceCard(getCards: CardGetter): any | null {
+  const cards = getCards() || [];
+  const invoices = cards.filter((c: any) => moduleType(c) === "invoice");
+  return (
+    invoices.find((c: any) => String(c?.module?.poNumber ?? "") === "PO-2044") ??
+    invoices.find((c: any) =>
+      (c?.module?.lineItems ?? []).some((li: any) => String(li?.unitNo ?? "") === "204"),
+    ) ??
+    invoices.find((c: any) => c?.module?.canApprove) ??
+    invoices[0] ??
     null
   );
 }
@@ -142,28 +261,34 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
     target: "button-rails-request",
     serverStep: "request_created",
     uiScript: async (ctx) => {
-      // Visually open and walk the wizard, then CLOSE without submitting —
-      // the serverStep is the canonical source of truth.
-      const opened = await clickTestid("button-rails-request", 3000);
-      if (opened) {
-        await waitFor("wizard-step-what", 3000);
+      // Open the wizard DIRECTLY (the button is auth-gated and would show the
+      // login dialog for a guest viewer). Then visibly walk it and close
+      // WITHOUT submitting — the serverStep is the canonical source of truth.
+      ctx.openRequest();
+      const shown = await waitFor("wizard-step-what", 3500);
+      if (shown && ctx.alive()) {
+        // Choose the "Make Ready" service so the price-book line items appear.
+        await selectServiceByText(["make ready", "make-ready", "makeready"]);
+        await sleep(700);
+        if (!ctx.alive()) { ctx.closeRequest(); return; }
+        // Pick Unit 204 — a roster chip if present, else type it in.
+        await pickUnit204();
         await sleep(1500); // "choose Unit 204 / Make Ready"
+        if (!ctx.alive()) { ctx.closeRequest(); return; }
         await clickTestid("wizard-next", 2000);
         await waitFor("wizard-step-when", 3000);
-        await sleep(1500); // "price-book line items appear"
+        await sleep(1600); // "price-book line items populate from your rates"
+        if (!ctx.alive()) { ctx.closeRequest(); return; }
         await clickTestid("wizard-next", 2000);
         await waitFor("wizard-step-confirm", 3000);
-        await sleep(1200);
-        // Close WITHOUT submitting — Escape, then a fallback click if still open.
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-        await sleep(300);
-        if (document.querySelector('[data-testid="wizard-step-confirm"]')) {
-          document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-        }
-        await sleep(400);
+        await sleep(1300);
       }
+      // Close WITHOUT submitting.
+      ctx.closeRequest();
+      await sleep(500);
       if (!ctx.alive()) return;
-      // Fire the canonical request AFTER the visual walkthrough.
+      // Fire the canonical request AFTER the visual walkthrough — the card
+      // then lands in Requested and the board refetches immediately.
       await ctx.server("request_created");
     },
   },
@@ -208,29 +333,20 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
     title: "Day of — live on site",
     body: "On the day of the work, a live tracker card appears with a map thumbnail — you can see the crew is checked in at the property, right now. We open it for a beat: this is where the work is happening, live, without a single phone call to the office.",
     target: (ctx) => {
-      const cards = ctx.getCards() || [];
-      const t = cards.find((c: any) =>
-        String(c?.title ?? "").toLowerCase().includes("track") ||
-        String(c?.module?.kind ?? "").toLowerCase().includes("track") ||
-        String(c?.module?.kind ?? "").toLowerCase().includes("map"),
-      );
+      const t = findTrackerCard(ctx.getCards);
       return t ? `rail-tile-${t.cardKey}` : "rail-in_progress";
     },
     serverStep: "tracker_live",
     uiScript: async (ctx) => {
       await ctx.server("tracker_live");
-      await sleep(2000);
+      await sleep(2600); // let the tracker card land and the board refetch
       if (!ctx.alive()) return;
-      const cards = ctx.getCards() || [];
-      const t = cards.find((c: any) =>
-        String(c?.title ?? "").toLowerCase().includes("track") ||
-        String(c?.module?.kind ?? "").toLowerCase().includes("map"),
-      );
+      const t = findTrackerCard(ctx.getCards);
       if (t) {
-        const clicked = await clickTestid(`rail-tile-${t.cardKey}`, 3000);
+        const clicked = await clickTestid(`rail-tile-${t.cardKey}`, 3500);
         if (clicked) {
-          await sleep(1800);
-          if (!ctx.alive()) return;
+          await sleep(2600); // dwell on the live tracker detail
+          if (!ctx.alive()) { ctx.closeCard(); return; }
           ctx.closeCard();
         }
       }
@@ -240,28 +356,47 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
     title: "Before and after",
     body: "As the crew works, they document it. Those photos land right on the board — the drywall damage before, the finished eggshell wall after. Proof of work, attached to the work itself, so the client never has to ask what they're paying for.",
     target: (ctx) => {
-      const cards = ctx.getCards() || [];
-      const p = cards.find((c: any) =>
-        String(c?.module?.kind ?? "").toLowerCase().includes("photo") ||
-        String(c?.title ?? "").toLowerCase().includes("photo"),
-      );
+      const p = findPhotosCard(ctx.getCards);
       return p ? `rail-tile-${p.cardKey}` : "rail-in_progress";
     },
     serverStep: "photos",
+    uiScript: async (ctx) => {
+      await ctx.server("photos");
+      await sleep(2600);
+      if (!ctx.alive()) return;
+      const p = findPhotosCard(ctx.getCards);
+      if (p) {
+        const clicked = await clickTestid(`rail-tile-${p.cardKey}`, 3500);
+        if (clicked) {
+          await sleep(2800); // dwell on the before/after gallery
+          if (!ctx.alive()) { ctx.closeCard(); return; }
+          ctx.closeCard();
+        }
+      }
+    },
   },
   {
     title: "The summary — and two flags",
     body: "When the work wraps, a summary card posts the recap. And notice the two flagged discoveries — out-of-scope items the crew found on site. They're surfaced right here, so nothing shows up as a surprise line on the invoice. Transparency, built in.",
     target: (ctx) => {
-      const cards = ctx.getCards() || [];
-      const s = cards.find((c: any) =>
-        String(c?.module?.kind ?? "").toLowerCase().includes("summary") ||
-        String(c?.title ?? "").toLowerCase().includes("summary") ||
-        String(c?.title ?? "").toLowerCase().includes("flag"),
-      );
+      const s = findSummaryCard(ctx.getCards) ?? findFlagsCard(ctx.getCards);
       return s ? `rail-tile-${s.cardKey}` : "rail-in_progress";
     },
     serverStep: "summary_flags",
+    uiScript: async (ctx) => {
+      await ctx.server("summary_flags");
+      await sleep(2600);
+      if (!ctx.alive()) return;
+      const s = findSummaryCard(ctx.getCards);
+      if (s) {
+        const clicked = await clickTestid(`rail-tile-${s.cardKey}`, 3500);
+        if (clicked) {
+          await sleep(2800); // dwell on the recap + the two flagged items
+          if (!ctx.alive()) { ctx.closeCard(); return; }
+          ctx.closeCard();
+        }
+      }
+    },
   },
   {
     title: "The invoice arrives",
@@ -282,27 +417,41 @@ export const PRESENTATION_STEPS: PresentationStep[] = [
     uiScript: async (ctx) => {
       const card = findInvoiceCard(ctx.getCards);
       if (!card) return;
-      const opened = await clickTestid(`rail-tile-${card.cardKey}`, 3000);
+      const opened = await clickTestid(`rail-tile-${card.cardKey}`, 3500);
       if (!opened) return;
       await waitFor("invoice-approve-pay", 3000);
-      await sleep(900);
-      if (!ctx.alive()) return;
-      // Try the real approve → pay-by-check click path first.
-      const approved = await clickTestid("button-invoice-approve", 2500);
-      await sleep(1400);
-      if (!ctx.alive()) return;
-      const paid = await clickTestid("button-invoice-pay-check", 3000);
-      // Fallback: if the real click path didn't land (auth / element missing),
-      // POST the pay_method action directly through the client card endpoint.
-      if (!paid) {
+      await sleep(1000);
+      if (!ctx.alive()) { ctx.closeCard(); return; }
+      // Reveal the approve button so viewers see the real action affordance.
+      const approveBtn = await waitFor("button-invoice-approve", 2000);
+      approveBtn?.scrollIntoView({ behavior: "smooth", block: "center" });
+      await sleep(1200);
+      if (!ctx.alive()) { ctx.closeCard(); return; }
+      // Attempt the REAL approve → pay-by-check click path. The demo board is
+      // viewed anonymously, so the mutation is blocked (a sign-in prompt would
+      // appear); we detect that and dismiss it so no orphan dialog is left,
+      // then continue — the office_receipt step is the canonical completion.
+      approveBtn?.click();
+      await sleep(1000);
+      if (!ctx.alive()) { ctx.closeCard(); return; }
+      await dismissLoginDialog();
+      // If approval actually landed (authenticated future demo), pay by check.
+      const payBtn = await waitFor("button-invoice-pay-check", 1500);
+      if (payBtn) {
+        payBtn.scrollIntoView({ behavior: "smooth", block: "center" });
+        await sleep(800);
+        payBtn.click();
+        await sleep(800);
+        await dismissLoginDialog();
+        // Best-effort direct action too (no-op / 401 for a guest).
         try {
           await ctx.cardAction(card.cardKey, { action: "pay_method", method: "check" });
         } catch {
           /* narration continues regardless */
         }
       }
-      await sleep(1400);
-      if (!ctx.alive()) return;
+      await sleep(1200);
+      if (!ctx.alive()) { ctx.closeCard(); return; }
       ctx.closeCard();
     },
   },
@@ -330,6 +479,9 @@ export function PresentationMode({
   getCards,
   onOpenCard,
   onCloseCard,
+  onServerStep,
+  onOpenRequest,
+  onCloseRequest,
 }: {
   onClose: () => void;
   /** The board token — must equal the demo dashboardToken for server steps to fire. */
@@ -340,6 +492,12 @@ export function PresentationMode({
   onOpenCard?: (cardKey: string) => void;
   /** Close the client card detail dialog. */
   onCloseCard?: () => void;
+  /** Called after each successful server step so the board can refetch now. */
+  onServerStep?: () => void;
+  /** Open the Request Work wizard directly (bypasses the button's auth gate). */
+  onOpenRequest?: () => void;
+  /** Close the Request Work wizard. */
+  onCloseRequest?: () => void;
 }) {
   const [step, setStep] = useState(0);
   const onCloseRef = useRef(onClose);
@@ -350,6 +508,10 @@ export function PresentationMode({
   onOpenCardRef.current = onOpenCard;
   const onCloseCardRef = useRef(onCloseCard);
   onCloseCardRef.current = onCloseCard;
+  const onOpenRequestRef = useRef(onOpenRequest);
+  onOpenRequestRef.current = onOpenRequest;
+  const onCloseRequestRef = useRef(onCloseRequest);
+  onCloseRequestRef.current = onCloseRequest;
 
   const [playing, setPlaying] = useState(true);
   const genRef = useRef(0);
@@ -382,6 +544,9 @@ export function PresentationMode({
     return demoTokenPromise.current;
   }, [token]);
 
+  const onServerStepRef = useRef(onServerStep);
+  onServerStepRef.current = onServerStep;
+
   const fireServerStep = useCallback(
     async (name: string) => {
       try {
@@ -392,6 +557,13 @@ export function PresentationMode({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token, step: name }),
         });
+        // The client board query does NOT auto-refetch on a server-side change,
+        // so the card the narrator just described would never appear. Force an
+        // immediate refetch, then a couple of follow-ups to catch the async
+        // projection settling — this is what makes the board visibly react.
+        onServerStepRef.current?.();
+        setTimeout(() => onServerStepRef.current?.(), 700);
+        setTimeout(() => onServerStepRef.current?.(), 1600);
       } catch {
         // Narration always continues even if the server step fails.
       }
@@ -443,6 +615,8 @@ export function PresentationMode({
       server: (name: string) => fireServerStep(name),
       openCard: (cardKey: string) => onOpenCardRef.current?.(cardKey),
       closeCard: () => onCloseCardRef.current?.(),
+      openRequest: () => onOpenRequestRef.current?.(),
+      closeRequest: () => onCloseRequestRef.current?.(),
       cardAction,
     }),
     [cardAction, fireServerStep],
@@ -639,7 +813,7 @@ export function PresentationMode({
         aria-modal="true"
         aria-label={`Presentation — ${s.title}`}
         tabIndex={-1}
-        className="absolute left-1/2 -translate-x-1/2 bottom-6 w-[min(520px,calc(100vw-24px))] rounded-2xl bg-[#0B1428] text-white shadow-2xl border border-white/10 p-4 outline-none"
+        className="absolute left-4 sm:left-6 bottom-6 w-[min(480px,calc(100vw-24px))] rounded-2xl bg-[#0B1428] text-white shadow-2xl border border-white/10 p-4 outline-none"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2 text-[11px] font-bold tracking-widest uppercase text-[#B4FF44]">

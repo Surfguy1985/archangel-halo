@@ -182,7 +182,7 @@ export function OfficeBoardPanel({ token }: { token: string }) {
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 260, damping: 24 }}
-      className="fixed right-4 top-20 z-[85] w-[380px] max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-white/10 bg-[#0B1428] text-white shadow-2xl"
+      className="fixed right-4 bottom-4 z-[86] w-[360px] max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-white/10 bg-[#0B1428] text-white shadow-2xl"
     >
       <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3.5 py-2.5">
         <div className="flex items-center gap-2">
