@@ -231,6 +231,8 @@ export function AddCrewDialog({
   const [email, setEmail] = useState("");
   const [isLeader, setIsLeader] = useState(false);
   const [leaderId, setLeaderId] = useState("");
+  const [role, setRole] = useState("crew");
+  const [hireDate, setHireDate] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [services, setServices] = useState<ServiceRow[]>([]);
   const create = useCreateCrew();
@@ -243,6 +245,8 @@ export function AddCrewDialog({
       setEmail("");
       setIsLeader(false);
       setLeaderId("");
+      setRole("crew");
+      setHireDate("");
       setPaymentTerms("");
       setServices([]);
       create.reset();
@@ -261,6 +265,8 @@ export function AddCrewDialog({
           email: email.trim() || undefined,
           isLeader,
           leaderId: isLeader ? null : leaderId || null,
+          role: role as "crew" | "lead" | "foreman" | "superintendent",
+          hireDate: hireDate || null,
           paymentTerms: paymentTerms || null,
           services: toServicePayload(services),
        },
@@ -321,6 +327,30 @@ export function AddCrewDialog({
               />
             </Field>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Wings role">
+              <select
+                className={fieldCls}
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                data-testid="select-crew-role"
+              >
+                <option value="crew">Crew member</option>
+                <option value="lead">Lead hand</option>
+                <option value="foreman">Foreman</option>
+                <option value="superintendent">Superintendent</option>
+              </select>
+            </Field>
+            <Field label="Start date">
+              <input
+                className={fieldCls}
+                type="date"
+                value={hireDate}
+                onChange={(e) => setHireDate(e.target.value)}
+                data-testid="input-crew-hire-date"
+              />
+            </Field>
+          </div>
           <Toggle
             checked={isLeader}
             onChange={() => setIsLeader((v) => !v)}
@@ -363,6 +393,8 @@ export type EditableCrew = {
   isLeader?: boolean | null;
   leaderId?: string | null;
   active?: boolean | null;
+  role?: string | null;
+  hireDate?: string | null;
   paymentTerms?: string | null;
   services?: { name: string; rate?: number | null}[] | null;
 };
@@ -386,6 +418,8 @@ export function EditCrewDialog({
   const [isLeader, setIsLeader] = useState(!!crew.isLeader);
   const [leaderId, setLeaderId] = useState(crew.leaderId ?? "");
   const [active, setActive] = useState(crew.active !== false);
+  const [role, setRole] = useState(crew.role ?? (crew.isLeader ? "foreman" : "crew"));
+  const [hireDate, setHireDate] = useState(crew.hireDate ?? "");
   const [paymentTerms, setPaymentTerms] = useState(crew.paymentTerms ?? "");
   const [services, setServices] = useState<ServiceRow[]>(
     (crew.services ?? []).map((s) => ({ name: s.name, rate: s.rate != null ? String(s.rate) : ""})),
@@ -402,6 +436,8 @@ export function EditCrewDialog({
       setIsLeader(!!crew.isLeader);
       setLeaderId(crew.leaderId ?? "");
       setActive(crew.active !== false);
+      setRole(crew.role ?? (crew.isLeader ? "foreman" : "crew"));
+      setHireDate(crew.hireDate ?? "");
       setPaymentTerms(crew.paymentTerms ?? "");
       setServices(
         (crew.services ?? []).map((s) => ({ name: s.name, rate: s.rate != null ? String(s.rate) : ""})),
@@ -433,6 +469,8 @@ export function EditCrewDialog({
           isLeader,
           leaderId: isLeader ? null : leaderId || null,
           active,
+          role: role as "crew" | "lead" | "foreman" | "superintendent",
+          hireDate: hireDate || null,
           paymentTerms: paymentTerms || null,
           services: toServicePayload(services),
        },
@@ -520,6 +558,30 @@ export function EditCrewDialog({
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Wings role">
+                <select
+                  className={fieldCls}
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  data-testid="select-crew-role"
+                >
+                  <option value="crew">Crew member</option>
+                  <option value="lead">Lead hand</option>
+                  <option value="foreman">Foreman</option>
+                  <option value="superintendent">Superintendent</option>
+                </select>
+              </Field>
+              <Field label="Start date">
+                <input
+                  className={fieldCls}
+                  type="date"
+                  value={hireDate}
+                  onChange={(e) => setHireDate(e.target.value)}
+                  data-testid="input-crew-hire-date"
                 />
               </Field>
             </div>

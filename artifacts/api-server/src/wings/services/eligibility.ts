@@ -29,10 +29,12 @@ export async function candidatesForJob(jobId: string): Promise<CandidateResult[]
   if (!job) throw new Error("Job not found.");
   const config = await getWingConfig();
 
-  const crews = await db
+  const allCrews = await db
     .select()
     .from(crewsTable)
     .where(eq(crewsTable.active, true));
+  // Crews excluded from the Wings Program never surface as candidates.
+  const crews = allCrews.filter((c) => c.wingsExcluded !== true);
   if (!crews.length) return [];
   const crewIds = crews.map((c) => c.id);
   const [members, openIncidents, activeAssignments] = await Promise.all([

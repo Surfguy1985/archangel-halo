@@ -99,6 +99,7 @@ import { FalkonBadge } from "@/components/FalkonBadge";
 import { OfficePropertyMap } from "@/components/OfficePropertyMap";
 import { portalGuide, type GuideLang } from "@/lib/portalGuideContent";
 import { WingsGuide, TierBadge, type WingsGuideLang } from "@/components/WingsGuide";
+import { WingsProgramPanel } from "@/components/WingsProgram";
 import {
   Sheet,
   SheetContent,
@@ -165,7 +166,26 @@ function initialGuideLang(): GuideLang | null {
 export default function CrewPortal() {
   const { token } = useParams<{ token: string }>();
   const [guideLang, setGuideLang] = useState<GuideLang>(() => initialGuideLang() ?? "en");
-  const [tab, setTab] = useState<Tab>(() => (initialGuideLang() ? "guide" : "schedule"));
+  const [tab, setTab] = useState<Tab>(() => {
+    if (initialGuideLang()) return "guide";
+    const t = new URLSearchParams(window.location.search).get("tab");
+    const valid: Tab[] = [
+      "offers",
+      "office",
+      "schedule",
+      "invoice",
+      "messages",
+      "photos",
+      "documents",
+      "checkin",
+      "pay",
+      "w9",
+      "packets",
+      "wings",
+      "guide",
+    ];
+    return valid.includes(t as Tab) ? (t as Tab) : "schedule";
+  });
   const queryClient = useQueryClient();
 
   const { data: portal, isLoading, isError } = useGetPortal(token);
@@ -183,6 +203,8 @@ export default function CrewPortal() {
     portal?.emergencyOffers?.filter(o => o.status === "pending" && o.pingStatus === "open").length || 0;
 
   useEffect(() => {
+    // Deep links (?tab=...) win over the offers auto-pull.
+    if (new URLSearchParams(window.location.search).get("tab")) return;
     if ((pendingOffersCount > 0 || pendingEmergencyCount > 0) && tab !== "offers" && tab !== "guide") {
       setTab("offers");
     }
@@ -679,6 +701,8 @@ function WingsTab({ token }: { token: string }) {
           </ul>
         )}
       </div>
+
+      <WingsProgramPanel wings={wings} lang={lang} card={card} />
 
       {wings.founderStatus && wings.founderStatus !== "NONE" && (
         <div className="bg-[var(--ink)] text-[var(--gold-light)] rounded-[16px] p-[14px] flex items-center gap-[10px]">

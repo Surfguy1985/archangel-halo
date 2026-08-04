@@ -25,6 +25,7 @@ import {
   type PortalOffer,
 } from "@workspace/api-client-react";
 import { WingsGuideContent, LangToggle, type GuideLang} from "@/components/WingsGuideDialog";
+import { WingsProgramPanel } from "@/components/WingsProgram";
 import { useUpload} from "@workspace/object-storage-web";
 import {
   Calendar,
@@ -94,13 +95,31 @@ function formatDay(iso?: string | null): string {
 
 export default function CrewPortal() {
   const { token} = useParams<{ token: string}>();
-  const [tab, setTab] = useState<Tab>("schedule");
+  const [tab, setTab] = useState<Tab>(() => {
+    // Deep links (?tab=wings) open the portal on a specific tab.
+    const t = new URLSearchParams(window.location.search).get("tab");
+    const valid: Tab[] = [
+      "offers",
+      "schedule",
+      "messages",
+      "photos",
+      "documents",
+      "checkin",
+      "pay",
+      "w9",
+      "wings",
+      "packets",
+    ];
+    return valid.includes(t as Tab) ? (t as Tab) : "schedule";
+  });
 
   const { data: portal, isLoading, isError} = useGetPortal(token);
 
   const pendingOffersCount = portal?.offers?.filter(o => o.status === "pending" && !o.filledByOther).length || 0;
 
   useEffect(() => {
+    // Deep links (?tab=...) win over the offers auto-pull.
+    if (new URLSearchParams(window.location.search).get("tab")) return;
     if (pendingOffersCount > 0 && tab !== "offers") {
       setTab("offers");
    }
@@ -258,6 +277,8 @@ function WingsTab({ token}: { token: string}) {
           <p className="text-[12px] text-white/60 mt-[10px]">{wings.scoreReasons.join(" · ")}</p>
         )}
       </div>
+
+      <WingsProgramPanel wings={wings} lang={lang} card={card} />
 
       {/* Founder banner */}
       {wings.founderStatus && wings.founderStatus !== "NONE" && (

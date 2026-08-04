@@ -10,18 +10,28 @@ import { getWingConfig } from "./config";
 import { buildScoreInput } from "./metrics";
 import { logWingAudit } from "./audit";
 
-/** Create wing member rows for any active crews that lack one. */
+/**
+ * Auto-import: create wing member rows for any active crews that lack one.
+ * Crews flagged wings_excluded are never enrolled. Auto-imported members come
+ * in ACTIVE — the office already vetted them when adding them as a crew, and
+ * their role/tenure (crews.role + hire_date) drives the program math.
+ */
 export async function ensureWingMembers(): Promise<number> {
   const crews = await db
-    .select({ id: crewsTable.id, trade: crewsTable.trade })
+    .select({
+      id: crewsTable.id,
+      trade: crewsTable.trade,
+      wingsExcluded: crewsTable.wingsExcluded,
+    })
     .from(crewsTable)
     .where(eq(crewsTable.active, true));
-  if (!crews.length) return 0;
+  const eligible = crews.filter((c) => c.wingsExcluded !== true);
+  if (!eligible.length) return 0;
   const existing = await db
     .select({ crewId: wingMembersTable.crewId })
     .from(wingMembersTable);
   const have = new Set(existing.map((m) => m.crewId));
-  const missing = crews.filter((c) => !have.has(c.id));
+  const missing = eligible.filter((c) => !have.has(c.id));
   for (const crew of missing) {
     await db
       .insert(wingMembersTable)
@@ -29,6 +39,9 @@ export async function ensureWingMembers(): Promise<number> {
         crewId: crew.id,
         tradeSkills: crew.trade ? [crew.trade] : [],
         certifications: [],
+        membershipStatus: "ACTIVE",
+        approvedAt: new Date(),
+        approvedBy: "AUTO_IMPORT",
       })
       .onConflictDoNothing();
   }

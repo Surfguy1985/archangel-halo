@@ -29,6 +29,8 @@ type CrewLike = {
   phone?: string | null;
   email?: string | null;
   isLeader?: boolean | null;
+  role?: string | null;
+  hireDate?: string | null;
   paymentTerms?: string | null;
   services?: { name: string; rate?: number | null }[] | null;
 };
@@ -48,6 +50,8 @@ export function EditCrewSheet({
   const [phone, setPhone] = useState(crew.phone ?? "");
   const [email, setEmail] = useState(crew.email ?? "");
   const [isLeader, setIsLeader] = useState(!!crew.isLeader);
+  const [role, setRole] = useState(crew.role ?? (crew.isLeader ? "foreman" : "crew"));
+  const [hireDate, setHireDate] = useState(crew.hireDate ?? "");
   const [paymentTerms, setPaymentTerms] = useState(crew.paymentTerms ?? "");
   const [services, setServices] = useState<{ name: string; rate: string }[]>(
     (crew.services ?? []).map((s) => ({ name: s.name, rate: s.rate != null ? String(s.rate) : "" })),
@@ -62,6 +66,8 @@ export function EditCrewSheet({
       setPhone(crew.phone ?? "");
       setEmail(crew.email ?? "");
       setIsLeader(!!crew.isLeader);
+      setRole(crew.role ?? (crew.isLeader ? "foreman" : "crew"));
+      setHireDate(crew.hireDate ?? "");
       setPaymentTerms(crew.paymentTerms ?? "");
       setServices(
         (crew.services ?? []).map((s) => ({ name: s.name, rate: s.rate != null ? String(s.rate) : "" })),
@@ -84,6 +90,8 @@ export function EditCrewSheet({
           phone: phone.trim() || undefined,
           email: email.trim() || null,
           isLeader,
+          role: role as "crew" | "lead" | "foreman" | "superintendent",
+          hireDate: hireDate || null,
           paymentTerms: paymentTerms || null,
           services: services
             .filter((s) => s.name.trim())
@@ -170,6 +178,36 @@ export function EditCrewSheet({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
+              <div className="grid grid-cols-2 gap-[10px]">
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground mb-[4px] pl-[4px]">
+                    Wings role
+                  </div>
+                  <select
+                    className={fieldCls}
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    data-testid="select-crew-role"
+                  >
+                    <option value="crew">Crew member</option>
+                    <option value="lead">Lead hand</option>
+                    <option value="foreman">Foreman</option>
+                    <option value="superintendent">Superintendent</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground mb-[4px] pl-[4px]">
+                    Start date
+                  </div>
+                  <input
+                    className={fieldCls}
+                    type="date"
+                    value={hireDate}
+                    onChange={(e) => setHireDate(e.target.value)}
+                    data-testid="input-crew-hire-date"
+                  />
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsLeader((v) => !v)}

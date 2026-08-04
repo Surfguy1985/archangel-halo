@@ -11425,6 +11425,9 @@ components:
         email: { type: ["string", "null"] }
         isLeader: { type: ["boolean", "null"] }
         leaderId: { type: ["string", "null"], description: "Foreman this member reports to" }
+        role: { type: ["string", "null"] }
+        hireDate: { type: ["string", "null"] }
+        wingsExcluded: { type: ["boolean", "null"] }
         active: { type: ["boolean", "null"] }
         paymentTerms: { type: ["string", "null"], description: "due_on_receipt | net15 | net30 | net45" }
         selfiePath: { type: ["string", "null"] }
@@ -11721,6 +11724,8 @@ components:
         email: { type: string }
         isLeader: { type: boolean }
         leaderId: { type: ["string", "null"] }
+        role: { type: ["string", "null"], enum: [crew, lead, foreman, superintendent, null], description: "Wings Program role tier" }
+        hireDate: { type: ["string", "null"], description: "YYYY-MM-DD start date for Wings tenure" }
         paymentTerms: { type: ["string", "null"] }
         services:
           type: array
@@ -11735,6 +11740,9 @@ components:
         email: { type: ["string", "null"] }
         isLeader: { type: boolean }
         leaderId: { type: ["string", "null"] }
+        role: { type: ["string", "null"], enum: [crew, lead, foreman, superintendent, null], description: "Wings Program role tier" }
+        hireDate: { type: ["string", "null"], description: "YYYY-MM-DD start date for Wings tenure" }
+        wingsExcluded: { type: ["boolean", "null"], description: "Excluded crews are never auto-imported into the Wings Program" }
         active: { type: boolean }
         paymentTerms: { type: ["string", "null"] }
         services:
@@ -12668,6 +12676,9 @@ components:
         phone: { type: ["string", "null"] }
         email: { type: ["string", "null"] }
         isLeader: { type: ["boolean", "null"] }
+        role: { type: ["string", "null"] }
+        hireDate: { type: ["string", "null"] }
+        wingsExcluded: { type: ["boolean", "null"] }
         active: { type: ["boolean", "null"] }
         portalToken: { type: ["string", "null"] }
         preferredPaymentMethod: { type: ["string", "null"] }
@@ -14061,6 +14072,46 @@ components:
           items: { type: string }
           nullable: true
         sponsorName: { type: string, nullable: true }
+        points:
+          type: object
+          nullable: true
+          description: Latest score-component breakdown (points earned out of each metric's max)
+          required: [quality, reliability, professionalism, safety, team]
+          properties:
+            quality: { type: number }
+            reliability: { type: number }
+            professionalism: { type: number }
+            safety: { type: number }
+            team: { type: number }
+        program:
+          type: object
+          description: Wings Program quarterly profit-share status for this crew
+          required:
+            [
+              roleKey,
+              baseWings,
+              founderBonus,
+              years,
+              yearsMultiplier,
+              scoreMultiplier,
+              wings,
+              eligible,
+              blockers,
+              hireDateSet,
+            ]
+          properties:
+            roleKey: { type: string, enum: [crew, lead, foreman, superintendent] }
+            baseWings: { type: number }
+            founderBonus: { type: number }
+            years: { type: number, nullable: true }
+            yearsMultiplier: { type: number }
+            scoreMultiplier: { type: number }
+            wings: { type: number }
+            eligible: { type: boolean }
+            blockers:
+              type: array
+              items: { type: string, enum: [under_one_year, score_under_60, start_date_missing] }
+            hireDateSet: { type: boolean }
         recruits:
           type: array
           items:

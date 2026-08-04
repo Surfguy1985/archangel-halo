@@ -2906,6 +2906,12 @@ export interface Crew {
      */
   leaderId?: string | null;
   /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  hireDate?: string | null;
+  /** @nullable */
+  wingsExcluded?: boolean | null;
+  /** @nullable */
   active?: boolean | null;
   /**
      * due_on_receipt | net15 | net30 | net45
@@ -3210,6 +3216,20 @@ export interface PresentationDemoState {
   propertyId: string | null;
 }
 
+/**
+ * Wings Program role tier
+ * @nullable
+ */
+export type CrewInputRole = typeof CrewInputRole[keyof typeof CrewInputRole] | null;
+
+
+export const CrewInputRole = {
+  crew: 'crew',
+  lead: 'lead',
+  foreman: 'foreman',
+  superintendent: 'superintendent',
+} as const;
+
 export interface CrewInput {
   /** @minLength 1 */
   name: string;
@@ -3219,10 +3239,34 @@ export interface CrewInput {
   isLeader?: boolean;
   /** @nullable */
   leaderId?: string | null;
+  /**
+     * Wings Program role tier
+     * @nullable
+     */
+  role?: CrewInputRole;
+  /**
+     * YYYY-MM-DD start date for Wings tenure
+     * @nullable
+     */
+  hireDate?: string | null;
   /** @nullable */
   paymentTerms?: string | null;
   services?: CrewService[];
 }
+
+/**
+ * Wings Program role tier
+ * @nullable
+ */
+export type CrewUpdateRole = typeof CrewUpdateRole[keyof typeof CrewUpdateRole] | null;
+
+
+export const CrewUpdateRole = {
+  crew: 'crew',
+  lead: 'lead',
+  foreman: 'foreman',
+  superintendent: 'superintendent',
+} as const;
 
 export interface CrewUpdate {
   /** @minLength 1 */
@@ -3234,6 +3278,21 @@ export interface CrewUpdate {
   isLeader?: boolean;
   /** @nullable */
   leaderId?: string | null;
+  /**
+     * Wings Program role tier
+     * @nullable
+     */
+  role?: CrewUpdateRole;
+  /**
+     * YYYY-MM-DD start date for Wings tenure
+     * @nullable
+     */
+  hireDate?: string | null;
+  /**
+     * Excluded crews are never auto-imported into the Wings Program
+     * @nullable
+     */
+  wingsExcluded?: boolean | null;
   active?: boolean;
   /** @nullable */
   paymentTerms?: string | null;
@@ -4176,6 +4235,12 @@ export interface CrewDetail {
   email?: string | null;
   /** @nullable */
   isLeader?: boolean | null;
+  /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  hireDate?: string | null;
+  /** @nullable */
+  wingsExcluded?: boolean | null;
   /** @nullable */
   active?: boolean | null;
   /** @nullable */
@@ -5738,6 +5803,52 @@ export interface WingsOverview {
   tierCounts: WingsOverviewTierCounts;
 }
 
+/**
+ * Latest score-component breakdown (points earned out of each metric's max)
+ */
+export type PortalWingsPoints = {
+  quality: number;
+  reliability: number;
+  professionalism: number;
+  safety: number;
+  team: number;
+} | null;
+
+export type PortalWingsProgramRoleKey = typeof PortalWingsProgramRoleKey[keyof typeof PortalWingsProgramRoleKey];
+
+
+export const PortalWingsProgramRoleKey = {
+  crew: 'crew',
+  lead: 'lead',
+  foreman: 'foreman',
+  superintendent: 'superintendent',
+} as const;
+
+export type PortalWingsProgramBlockersItem = typeof PortalWingsProgramBlockersItem[keyof typeof PortalWingsProgramBlockersItem];
+
+
+export const PortalWingsProgramBlockersItem = {
+  under_one_year: 'under_one_year',
+  score_under_60: 'score_under_60',
+  start_date_missing: 'start_date_missing',
+} as const;
+
+/**
+ * Wings Program quarterly profit-share status for this crew
+ */
+export type PortalWingsProgram = {
+  roleKey: PortalWingsProgramRoleKey;
+  baseWings: number;
+  founderBonus: number;
+  years: number | null;
+  yearsMultiplier: number;
+  scoreMultiplier: number;
+  wings: number;
+  eligible: boolean;
+  blockers: PortalWingsProgramBlockersItem[];
+  hireDateSet: boolean;
+};
+
 export type PortalWingsRecruitsItem = {
   crewName: string;
   tier: string;
@@ -5760,6 +5871,10 @@ export interface PortalWings {
   scoreUpdatedAt?: string | null;
   scoreReasons?: string[] | null;
   sponsorName?: string | null;
+  /** Latest score-component breakdown (points earned out of each metric's max) */
+  points?: PortalWingsPoints;
+  /** Wings Program quarterly profit-share status for this crew */
+  program?: PortalWingsProgram;
   recruits: PortalWingsRecruitsItem[];
   overrides: WingsOverride[];
   reserve: PortalWingsReserve;

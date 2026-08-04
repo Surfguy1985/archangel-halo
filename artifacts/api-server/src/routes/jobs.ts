@@ -30,6 +30,7 @@ import {
   jobSummariesTable,
   crewPayHoldsTable,
   notificationsTable,
+  wingMembersTable,
 } from "@workspace/db";
 import {
   ListJobsResponse,
@@ -1901,6 +1902,14 @@ router.patch("/crews/:id", async (req, res): Promise<void> => {
   if (!row) {
     res.status(404).json({ error: "Crew member not found" });
     return;
+  }
+  // Wings exclusion is permanent: drop their program membership so sweeps,
+  // eligibility, and accrual can't keep operating on a stale member row.
+  if (body.wingsExcluded === true) {
+    await db
+      .delete(wingMembersTable)
+      .where(eq(wingMembersTable.crewId, id))
+      .catch(() => {});
   }
   res.json(UpdateCrewResponse.parse(ser(row)));
 });

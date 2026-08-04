@@ -25,6 +25,12 @@ export interface Crew {
      */
   leaderId?: string | null;
   /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  hireDate?: string | null;
+  /** @nullable */
+  wingsExcluded?: boolean | null;
+  /** @nullable */
   active?: boolean | null;
   /**
      * due_on_receipt | net15 | net30 | net45

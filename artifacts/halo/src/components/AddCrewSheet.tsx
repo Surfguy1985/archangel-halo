@@ -22,6 +22,8 @@ export function AddCrewSheet({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [isLeader, setIsLeader] = useState(true);
+  const [role, setRole] = useState("crew");
+  const [hireDate, setHireDate] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [services, setServices] = useState<{ name: string; rate: string }[]>([]);
 
@@ -33,6 +35,8 @@ export function AddCrewSheet({
     setPhone("");
     setEmail("");
     setIsLeader(true);
+    setRole("crew");
+    setHireDate("");
     setPaymentTerms("");
     setServices([]);
   };
@@ -47,6 +51,8 @@ export function AddCrewSheet({
           phone: phone.trim() || undefined,
           email: email.trim() || undefined,
           isLeader,
+          role: role as "crew" | "lead" | "foreman" | "superintendent",
+          hireDate: hireDate || null,
           paymentTerms: paymentTerms || null,
           services: services
             .filter((s) => s.name.trim())
@@ -114,6 +120,36 @@ export function AddCrewSheet({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
+            <div className="grid grid-cols-2 gap-[10px]">
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground mb-[4px] pl-[4px]">
+                  Wings role
+                </div>
+                <select
+                  className={fieldCls}
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  data-testid="select-crew-role"
+                >
+                  <option value="crew">Crew member</option>
+                  <option value="lead">Lead hand</option>
+                  <option value="foreman">Foreman</option>
+                  <option value="superintendent">Superintendent</option>
+                </select>
+              </div>
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-muted-foreground mb-[4px] pl-[4px]">
+                  Start date
+                </div>
+                <input
+                  className={fieldCls}
+                  type="date"
+                  value={hireDate}
+                  onChange={(e) => setHireDate(e.target.value)}
+                  data-testid="input-crew-hire-date"
+                />
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => setIsLeader((v) => !v)}

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CrewService } from './crewService';
+import type { CrewUpdateRole } from './crewUpdateRole';
 
 export interface CrewUpdate {
   /** @minLength 1 */
@@ -17,6 +18,21 @@ export interface CrewUpdate {
   isLeader?: boolean;
   /** @nullable */
   leaderId?: string | null;
+  /**
+     * Wings Program role tier
+     * @nullable
+     */
+  role?: CrewUpdateRole;
+  /**
+     * YYYY-MM-DD start date for Wings tenure
+     * @nullable
+     */
+  hireDate?: string | null;
+  /**
+     * Excluded crews are never auto-imported into the Wings Program
+     * @nullable
+     */
+  wingsExcluded?: boolean | null;
   active?: boolean;
   /** @nullable */
   paymentTerms?: string | null;

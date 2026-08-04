@@ -2165,6 +2165,12 @@ router.get("/portal/:token/wings", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Invalid portal link" });
     return;
   }
+  if (crew.wingsExcluded === true) {
+    // Excluded crews aren't in the program — the portal shows its
+    // "not in the program yet" fallback on 404.
+    res.status(404).json({ error: "Not enrolled in the Wings Program" });
+    return;
+  }
   const [member] = await db
     .select()
     .from(wingMembersTable)
@@ -2203,6 +2209,65 @@ router.get("/portal/:token/wings", async (req, res): Promise<void> => {
     : [];
   const jobNo = new Map(overrideJobs.map((j) => [j.id, j.jobNo]));
   const account = accounts[0];
+  // ---- Wings Program (quarterly profit share) — simple, deterministic math
+  // straight from the printed program sheet:
+  //   Wings = (role base + founder bonus) × tenure multiplier × score multiplier
+  const haloScore = member?.haloScore ?? 85;
+  const ROLE_WINGS: Record<string, number> = {
+    crew: 10,
+    lead: 15,
+    foreman: 25,
+    superintendent: 35,
+  };
+  const roleKey =
+    crew.role && ROLE_WINGS[crew.role] !== undefined
+      ? crew.role
+      : crew.isLeader
+        ? "foreman"
+        : "crew";
+  const baseWings = ROLE_WINGS[roleKey];
+  const founderBonus =
+    member && member.founderStatus && member.founderStatus !== "NONE" ? 15 : 0;
+  let years: number | null = null; // exact — round only for display
+  if (crew.hireDate) {
+    const [y, m, d] = crew.hireDate.split("-").map(Number);
+    years =
+      (Date.now() - new Date(y, m - 1, d).getTime()) /
+      (365.25 * 24 * 3600 * 1000);
+  }
+  // Tenure: under 1 yr not eligible; missing start date defaults to ×1.00 so
+  // nobody is zeroed out by unfinished office data — flagged as a blocker note.
+  const yearsMultiplier =
+    years === null
+      ? 1
+      : years < 1
+        ? 0
+        : years < 2
+          ? 1
+          : years < 4
+            ? 1.15
+            : years < 7
+              ? 1.3
+              : 1.5;
+  const scoreMultiplier =
+    haloScore >= 95
+      ? 1.3
+      : haloScore >= 90
+        ? 1.15
+        : haloScore >= 80
+          ? 1
+          : haloScore >= 70
+            ? 0.8
+            : haloScore >= 60
+              ? 0.5
+              : 0;
+  const blockers: string[] = [];
+  if (years !== null && years < 1) blockers.push("under_one_year");
+  if (haloScore < 60) blockers.push("score_under_60");
+  if (years === null) blockers.push("start_date_missing");
+  const wings =
+    Math.round((baseWings + founderBonus) * yearsMultiplier * scoreMultiplier * 10) /
+    10;
   res.json({
     haloScore: member?.haloScore ?? 85,
     tier: member?.tier ?? "TRAINING",
@@ -2214,6 +2279,19 @@ router.get("/portal/:token/wings", async (req, res): Promise<void> => {
       ? member.scoreUpdatedAt.toISOString()
       : null,
     scoreReasons: (snapshots[0]?.reasons as string[] | null) ?? null,
+    points: (snapshots[0]?.points as Record<string, number> | null) ?? null,
+    program: {
+      roleKey,
+      baseWings,
+      founderBonus,
+      years: years === null ? null : Math.round(years * 10) / 10,
+      yearsMultiplier,
+      scoreMultiplier,
+      wings,
+      eligible: blockers.filter((b) => b !== "start_date_missing").length === 0,
+      blockers,
+      hireDateSet: years !== null,
+    },
     sponsorName: member?.sponsorCrewId
       ? (nameOf.get(member.sponsorCrewId) ?? null)
       : null,

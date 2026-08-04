@@ -18,6 +18,13 @@ export const crewsTable = pgTable("crews", {
   phone: text("phone"),
   email: text("email"),
   isLeader: boolean("is_leader").default(false),
+  // Wings Program: role tier (crew|lead|foreman|superintendent) + start date
+  // drive base Wings and the tenure multiplier. Null role = "crew".
+  role: text("role"),
+  hireDate: date("hire_date"),
+  // Excluded crews are never auto-imported into the Wings Program and their
+  // portal hides the Wings tab content.
+  wingsExcluded: boolean("wings_excluded").default(false),
   // Team structure: members report to a foreman (a crew with isLeader=true).
   // Null = independent (or is themselves a leader). No DB FK — guarded in code.
   leaderId: uuid("leader_id"),

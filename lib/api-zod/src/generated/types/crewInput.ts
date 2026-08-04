@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { CrewInputRole } from './crewInputRole';
 import type { CrewService } from './crewService';
 
 export interface CrewInput {
@@ -16,6 +17,16 @@ export interface CrewInput {
   isLeader?: boolean;
   /** @nullable */
   leaderId?: string | null;
+  /**
+     * Wings Program role tier
+     * @nullable
+     */
+  role?: CrewInputRole;
+  /**
+     * YYYY-MM-DD start date for Wings tenure
+     * @nullable
+     */
+  hireDate?: string | null;
   /** @nullable */
   paymentTerms?: string | null;
   services?: CrewService[];

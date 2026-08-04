@@ -20,6 +20,12 @@ export interface CrewDetail {
   /** @nullable */
   isLeader?: boolean | null;
   /** @nullable */
+  role?: string | null;
+  /** @nullable */
+  hireDate?: string | null;
+  /** @nullable */
+  wingsExcluded?: boolean | null;
+  /** @nullable */
   active?: boolean | null;
   /** @nullable */
   portalToken?: string | null;

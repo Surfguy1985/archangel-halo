@@ -5,6 +5,8 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { PortalWingsPoints } from './portalWingsPoints';
+import type { PortalWingsProgram } from './portalWingsProgram';
 import type { PortalWingsRecruitsItem } from './portalWingsRecruitsItem';
 import type { PortalWingsReserve } from './portalWingsReserve';
 import type { WingsOverride } from './wingsOverride';
@@ -19,6 +21,10 @@ export interface PortalWings {
   scoreUpdatedAt?: string | null;
   scoreReasons?: string[] | null;
   sponsorName?: string | null;
+  /** Latest score-component breakdown (points earned out of each metric's max) */
+  points?: PortalWingsPoints;
+  /** Wings Program quarterly profit-share status for this crew */
+  program?: PortalWingsProgram;
   recruits: PortalWingsRecruitsItem[];
   overrides: WingsOverride[];
   reserve: PortalWingsReserve;
