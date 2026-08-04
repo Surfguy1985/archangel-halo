@@ -15,7 +15,7 @@
  *   - card update response                 PATCH /client/:token/board/feed/cards/:id
  *   - card action response                 POST /client/:token/board/cards/:id/action
  */
-import { randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { eq } from "drizzle-orm";
@@ -49,6 +49,16 @@ function expectWaybill(card: AnyCard, where: string) {
   }
   expect(["sender", "network", "recipient", "done"]).toContain(waybill!.holder);
 }
+
+// Mint a signed office session cookie (same scheme as lib/officeAuth.ts).
+function officeCookie(): string {
+  const secret = process.env.SESSION_SECRET ?? "";
+  const payload = `office.${Math.floor(Date.now() / 1000) + 3600}.${randomBytes(9).toString("base64url")}`;
+  const mac = createHmac("sha256", secret).update(payload).digest("base64url");
+  return `halo_office_session=${payload}.${mac}`;
+}
+
+const OFFICE_COOKIE = officeCookie();
 
 const token = `wbtest-${randomUUID()}`;
 let propertyId = "";
@@ -138,7 +148,7 @@ describe("board waybill contract", () => {
   });
 
   it("office board full ships waybills on every card", async () => {
-    const res = await request(app).get(`/api/admin/accounts/${propertyId}/board/full`);
+    const res = await request(app).get(`/api/admin/accounts/${propertyId}/board/full`).set("Cookie", OFFICE_COOKIE);
     expect(res.status).toBe(200);
     const cards = res.body.board.cards as AnyCard[];
     expect(cards.length).toBeGreaterThan(0);
@@ -155,7 +165,7 @@ describe("board waybill contract", () => {
   });
 
   it("office feed ships waybills on every card", async () => {
-    const res = await request(app).get(`/api/admin/accounts/${propertyId}/board`);
+    const res = await request(app).get(`/api/admin/accounts/${propertyId}/board`).set("Cookie", OFFICE_COOKIE);
     expect(res.status).toBe(200);
     const cards = res.body.cards as AnyCard[];
     expect(cards.length).toBeGreaterThan(0);
