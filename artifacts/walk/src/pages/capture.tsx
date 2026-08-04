@@ -5,6 +5,7 @@ import {
   useGetProperty,
   useAddWalkCapture,
   useDeleteWalkCapture,
+  useDeleteWalk,
   WalkCapture,
   getGetWalkQueryKey,
   getGetPropertyQueryKey
@@ -75,6 +76,27 @@ export default function CaptureScreen() {
   // Mutations
   const addCapture = useAddWalkCapture({ request: { credentials: 'include' } });
   const deleteCapture = useDeleteWalkCapture({ request: { credentials: 'include' } });
+  const deleteWalk = useDeleteWalk({ request: { credentials: 'include' } });
+
+  const handleDiscardWalk = () => {
+    if (!confirm('Discard this walk and all its photos? This cannot be undone.')) return;
+    deleteWalk.mutate(
+      { id: walkId },
+      {
+        onSuccess: () => {
+          toast({ title: 'Walk discarded' });
+          setLocation('/');
+        },
+        onError: (err: any) => {
+          toast({
+            title: 'Could not discard walk',
+            description: err?.data?.error || err?.message || 'Please try again.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
 
   // Handle Photo Capture
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,7 +110,7 @@ export default function CaptureScreen() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ fileName: file.name, contentType: file.type }),
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
       });
       if (!reqRes.ok) throw new Error('Failed to request upload URL');
       const { uploadURL, objectPath } = await reqRes.json();
@@ -111,7 +133,7 @@ export default function CaptureScreen() {
       setIsTagging(true);
       
     } catch (err: any) {
-      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+      toast({ title: 'Upload failed', description: err?.data?.error || err?.message, variant: 'destructive' });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = ''; // reset input
@@ -147,7 +169,7 @@ export default function CaptureScreen() {
           toast({ title: 'Capture saved' });
         },
         onError: (err: any) => {
-          toast({ title: 'Failed to save', description: err.message, variant: 'destructive' });
+          toast({ title: 'Failed to save', description: err?.data?.error || err?.message, variant: 'destructive' });
         }
       }
     );
@@ -187,14 +209,27 @@ export default function CaptureScreen() {
           <h2 className="font-bold text-lg leading-tight">{walk.walk.propertyName}</h2>
           <p className="text-sm text-muted-foreground capitalize">{walk.walk.kind} Walk</p>
         </div>
-        <Button 
-          variant="default" 
-          onClick={() => setLocation(`/walk/${walkId}/review`)}
-          data-testid="button-finish-walk"
-          className="font-bold"
-        >
-          Review
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleDiscardWalk}
+            disabled={deleteWalk.isPending}
+            data-testid="button-discard-walk"
+            className="text-muted-foreground hover:text-destructive"
+            aria-label="Discard walk"
+          >
+            {deleteWalk.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+          </Button>
+          <Button 
+            variant="default" 
+            onClick={() => setLocation(`/walk/${walkId}/review`)}
+            data-testid="button-finish-walk"
+            className="font-bold"
+          >
+            Review
+          </Button>
+        </div>
       </div>
 
       {/* Main List */}

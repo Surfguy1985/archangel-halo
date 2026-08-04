@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRoute, useLocation } from 'wouter';
-import { useGetWalk, useCompleteWalk, WalkCapture, getGetWalkQueryKey } from '@workspace/api-client-react';
+import { useGetWalk, useCompleteWalk, useGetProperty, WalkCapture, getGetWalkQueryKey, getGetPropertyQueryKey } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowLeft, CheckCircle2, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -21,6 +21,19 @@ export default function ReviewScreen() {
     request: { credentials: 'include' }
   });
 
+  // Price book — mirrors the server's pricing rule: the book rate wins,
+  // the captured unitPrice only covers custom ("Other") services.
+  const propertyId = data?.walk?.propertyId;
+  const { data: property } = useGetProperty(propertyId || '', {
+    request: { credentials: 'include' },
+    query: { enabled: !!propertyId, queryKey: getGetPropertyQueryKey(propertyId || '') }
+  });
+  const bookRate = new Map<string, number>();
+  for (const p of property?.priceItems || []) {
+    const key = p.service.trim().toLowerCase();
+    if (!bookRate.has(key) && p.rate != null) bookRate.set(key, p.rate);
+  }
+
   const isCompleted = data?.walk?.status === 'completed';
 
   const handleComplete = () => {
@@ -31,7 +44,11 @@ export default function ReviewScreen() {
           toast({ title: 'Walk completed', description: 'Jobs have been created.' });
         },
         onError: (err: any) => {
-          toast({ title: 'Failed to complete', description: err.message, variant: 'destructive' });
+          toast({
+            title: 'Failed to complete',
+            description: err?.data?.error || err?.message || 'Please try again.',
+            variant: 'destructive',
+          });
         }
       }
     );
@@ -52,7 +69,8 @@ export default function ReviewScreen() {
     const u = cap.unitNo || 'Unassigned';
     if (!acc[u]) acc[u] = { count: 0, total: 0 };
     acc[u].count += 1;
-    if (cap.unitPrice) acc[u].total += (cap.unitPrice * (cap.qty || 1));
+    const rate = bookRate.get((cap.service || '').trim().toLowerCase()) ?? cap.unitPrice ?? 0;
+    acc[u].total += rate * (cap.qty || 1);
     return acc;
   }, {});
 
