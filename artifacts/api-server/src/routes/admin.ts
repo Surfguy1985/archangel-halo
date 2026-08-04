@@ -18,6 +18,12 @@ import {
   activitiesTable,
   paymentRequestsTable,
   paymentRequestJobsTable,
+  clientBoardCardsTable,
+  clientCardHistoryTable,
+  clientCardCommentsTable,
+  clientBoardNotificationsTable,
+  clientDashboardCardsTable,
+  clientDashboardActionsTable,
   type ClientAccount,
   type ClientUser,
   type ClientOnboardingSend,
@@ -563,6 +569,43 @@ router.post(
       .where(eq(clientAccountsTable.id, account.id))
       .returning();
     res.json(RegenerateDashboardTokenResponse.parse(serAccount(updated)));
+  },
+);
+
+// Office-gated maintenance: wipe every stored client-board row for a property
+// (pushed/override cards, history, comments, notifications, and the legacy
+// dashboard cards/actions) so the board reads as brand-new for a fresh send.
+// HALO-derived cards are recomputed on read, so this never touches jobs,
+// invoices, price items, or the account row itself.
+router.post(
+  "/admin/accounts/:propertyId/board-reset",
+  async (req, res): Promise<void> => {
+    const propertyId = req.params.propertyId;
+    const [property] = await db
+      .select()
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, propertyId));
+    if (!property) {
+      res.status(404).json({ error: "Property not found" });
+      return;
+    }
+    const deleted: Record<string, number> = {};
+    await db.transaction(async (tx) => {
+      const wipe = async (name: string, table: any) => {
+        const rows = await tx
+          .delete(table)
+          .where(eq(table.propertyId, propertyId))
+          .returning({ id: table.id });
+        deleted[name] = rows.length;
+      };
+      await wipe("boardCards", clientBoardCardsTable);
+      await wipe("cardHistory", clientCardHistoryTable);
+      await wipe("cardComments", clientCardCommentsTable);
+      await wipe("notifications", clientBoardNotificationsTable);
+      await wipe("dashboardCards", clientDashboardCardsTable);
+      await wipe("dashboardActions", clientDashboardActionsTable);
+    });
+    res.json({ ok: true, deleted });
   },
 );
 
