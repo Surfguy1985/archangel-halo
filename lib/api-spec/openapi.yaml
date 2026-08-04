@@ -13755,6 +13755,8 @@ components:
           enum:
             [
               application/pdf,
+              text/csv,
+              text/plain,
               image/png,
               image/jpeg,
               image/webp,

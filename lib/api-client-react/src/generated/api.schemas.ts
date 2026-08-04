@@ -5669,6 +5669,8 @@ export type SopDocumentUploadMediaType = typeof SopDocumentUploadMediaType[keyof
 
 export const SopDocumentUploadMediaType = {
   'application/pdf': 'application/pdf',
+  'text/csv': 'text/csv',
+  'text/plain': 'text/plain',
   'image/png': 'image/png',
   'image/jpeg': 'image/jpeg',
   'image/webp': 'image/webp',

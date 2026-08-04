@@ -11,7 +11,7 @@ import {
   UploadPropertySopDocumentBody,
   GetPropertySopRuleResponse,
 } from "@workspace/api-zod";
-import { completeJsonWithImage, COMPLEX_MODEL } from "../lib/ai";
+import { completeJson, completeJsonWithImage, COMPLEX_MODEL } from "../lib/ai";
 
 const router: IRouter = Router();
 
@@ -277,15 +277,24 @@ router.post("/properties/:id/sop-rule", async (req, res): Promise<void> => {
     return;
   }
   let rules: SopRuleSet;
+  const prompt = `Extract the billing rule from this SOP document. The property it governs in our system is named "${prop.name}"${prop.pmcName ? ` (managed by ${prop.pmcName})` : ""} — include that name or the document's own property name, plus any aliases.`;
+  const isTextDoc = body.mediaType === "text/csv" || body.mediaType === "text/plain";
   try {
-    const raw = await completeJsonWithImage(
-      EXTRACT_SYSTEM,
-      `Extract the billing rule from this SOP document. The property it governs in our system is named "${prop.name}"${prop.pmcName ? ` (managed by ${prop.pmcName})` : ""} — include that name or the document's own property name, plus any aliases.`,
-      body.data,
-      body.mediaType,
-      2048,
-      COMPLEX_MODEL,
-    );
+    const raw = isTextDoc
+      ? await completeJson(
+          EXTRACT_SYSTEM,
+          `${prompt}\n\nThe document is ${body.mediaType === "text/csv" ? "a CSV file" : "a plain-text file"} named "${body.fileName}". Analyze every row/line — rate tables, per-category pricing, PO and numbering conventions, tax, terms — nothing is decorative:\n\n${Buffer.from(body.data, "base64").toString("utf8").slice(0, 200_000)}`,
+          2048,
+          COMPLEX_MODEL,
+        )
+      : await completeJsonWithImage(
+          EXTRACT_SYSTEM,
+          prompt,
+          body.data,
+          body.mediaType as "application/pdf",
+          2048,
+          COMPLEX_MODEL,
+        );
     rules = normalizeRules(raw);
   } catch (err) {
     console.error("SOP extraction failed:", err);

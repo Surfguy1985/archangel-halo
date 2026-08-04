@@ -34,7 +34,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { prepareScanImage } from "@/lib/scanImage";
 
-const ACCEPT = "application/pdf,image/png,image/jpeg,image/webp,image/gif";
+const ACCEPT =
+  "application/pdf,text/csv,.csv,text/plain,.txt,image/png,image/jpeg,image/webp,image/gif";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -151,6 +152,9 @@ function JobInvoiceBuilder({
   const [jobId, setJobId] = useState("");
   const [po, setPo] = useState("");
   const [draft, setDraft] = useState<InvoiceJobDraft | null>(null);
+  const [items, setItems] = useState<InvoiceJobDraft["lineItems"]>([]);
+  const [notes, setNotes] = useState("");
+  const [created, setCreated] = useState<{ id: string; invoiceNo: string; amount: number } | null>(null);
 
   const { data: jobs } = useListJobs(
     { propertyId },
@@ -164,10 +168,15 @@ function JobInvoiceBuilder({
 
   const runBuild = () => {
     setDraft(null);
+    setCreated(null);
     build.mutate(
       { data: { jobId, poNumber: po || null } },
       {
-        onSuccess: (d) => setDraft(d),
+        onSuccess: (d) => {
+          setDraft(d);
+          setItems(d.lineItems.map((l) => ({ ...l })));
+          setNotes(d.notes ?? "");
+        },
         onError: (e) =>
           toast({ title: "Couldn't build the invoice", description: e.message, variant: "destructive" }),
       },
@@ -176,6 +185,13 @@ function JobInvoiceBuilder({
 
   const runCreate = () => {
     if (!draft) return;
+    const cleanItems = items
+      .map((l) => ({ ...l, typeOfWork: l.typeOfWork.trim() }))
+      .filter((l) => l.typeOfWork.length > 0);
+    if (cleanItems.length === 0) {
+      toast({ title: "Add at least one line item", variant: "destructive" });
+      return;
+    }
     create.mutate(
       {
         data: {
@@ -183,8 +199,8 @@ function JobInvoiceBuilder({
           jobId: draft.jobId,
           issuedOn: draft.issuedOn,
           poNumber: draft.poNumber ?? undefined,
-          notes: draft.notes ?? undefined,
-          lineItems: draft.lineItems,
+          notes: notes.trim() ? notes : undefined,
+          lineItems: cleanItems,
         },
       },
       {
@@ -194,10 +210,7 @@ function JobInvoiceBuilder({
             title: `Invoice ${inv.invoiceNo} created`,
             description: `${money(inv.amount)} · draft, SOP-compliant — ready to review and send.`,
           });
-          setDraft(null);
-          setJobId("");
-          setPo("");
-          onCreated();
+          setCreated({ id: inv.id, invoiceNo: inv.invoiceNo, amount: inv.amount });
         },
         onError: (e) =>
           toast({ title: "Couldn't create the invoice", description: e.message, variant: "destructive" }),
@@ -291,41 +304,117 @@ function JobInvoiceBuilder({
             </div>
             <table className="w-full text-[12.5px]">
               <tbody>
-                {draft.lineItems.map((l, i) => (
-                  <tr key={i} className="border-t border-border">
+                {items.map((l, i) => (
+                  <tr key={i} className="border-t border-border align-top">
                     <td className="px-3 py-2">
-                      <div className="font-semibold">{l.typeOfWork}</div>
-                      {l.description && <div className="text-muted-foreground">{l.description}</div>}
+                      <input
+                        value={l.typeOfWork}
+                        disabled={!!created}
+                        onChange={(e) => setItems((p) => p.map((x, xi) => (xi === i ? { ...x, typeOfWork: e.target.value } : x)))}
+                        className="w-full font-semibold bg-transparent border-b border-transparent focus:border-border outline-none"
+                        placeholder="Type of work"
+                        data-testid={`input-line-work-${i}`}
+                      />
+                      <input
+                        value={l.description ?? ""}
+                        disabled={!!created}
+                        onChange={(e) => setItems((p) => p.map((x, xi) => (xi === i ? { ...x, description: e.target.value || undefined } : x)))}
+                        className="w-full text-muted-foreground bg-transparent border-b border-transparent focus:border-border outline-none mt-0.5"
+                        placeholder="Description"
+                        data-testid={`input-line-desc-${i}`}
+                      />
                     </td>
-                    <td className="px-2 py-2 text-muted-foreground whitespace-nowrap">
-                      {l.unitNo ? `Unit ${l.unitNo}` : ""}
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      <input
+                        value={l.unitNo ?? ""}
+                        disabled={!!created}
+                        onChange={(e) => setItems((p) => p.map((x, xi) => (xi === i ? { ...x, unitNo: e.target.value || undefined } : x)))}
+                        className="w-[64px] text-muted-foreground bg-transparent border-b border-transparent focus:border-border outline-none"
+                        placeholder="Unit"
+                        data-testid={`input-line-unit-${i}`}
+                      />
                     </td>
                     <td className="px-2 py-2 text-right whitespace-nowrap">
-                      {(l.qty ?? 1) !== 1 ? `${l.qty} × ` : ""}{money(l.unitPrice)}
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={l.qty ?? 1}
+                        disabled={!!created}
+                        onChange={(e) => setItems((p) => p.map((x, xi) => (xi === i ? { ...x, qty: Number(e.target.value) || 0 } : x)))}
+                        className="w-[52px] text-right bg-transparent border-b border-border/60 outline-none"
+                        data-testid={`input-line-qty-${i}`}
+                      />
+                      <span className="mx-1 text-muted-foreground">×</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={l.unitPrice ?? 0}
+                        disabled={!!created}
+                        onChange={(e) => setItems((p) => p.map((x, xi) => (xi === i ? { ...x, unitPrice: Number(e.target.value) || 0 } : x)))}
+                        className="w-[84px] text-right bg-transparent border-b border-border/60 outline-none"
+                        data-testid={`input-line-price-${i}`}
+                      />
                     </td>
                     <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">
                       {money((l.qty ?? 1) * (l.unitPrice ?? 0))}
+                      {!created && (
+                        <button
+                          type="button"
+                          onClick={() => setItems((p) => p.filter((_, xi) => xi !== i))}
+                          className="ml-2 text-muted-foreground hover:text-destructive align-middle"
+                          title="Remove line"
+                          data-testid={`button-line-remove-${i}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 inline" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
                 <tr className="border-t-2 border-[var(--ink)]">
                   <td className="px-3 py-2 font-bold" colSpan={3}>
-                    Total{draft.taxPreview != null ? ` (includes ${money(draft.taxPreview)} tax per SOP)` : ""}
+                    Total{draft.taxPreview != null ? ` (tax recalculated per SOP on create)` : ""}
                   </td>
-                  <td className="px-3 py-2 text-right font-display font-bold">{money(draft.total)}</td>
+                  <td className="px-3 py-2 text-right font-display font-bold">
+                    {money(items.reduce((s, l) => s + (l.qty ?? 1) * (l.unitPrice ?? 0), 0))}
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
-          {draft.notes && (
-            <div className="text-[12px] text-muted-foreground whitespace-pre-wrap">{draft.notes}</div>
+          {!created && (
+            <button
+              type="button"
+              onClick={() =>
+                setItems((p) => [
+                  ...p,
+                  { typeOfWork: "", qty: 1, unitPrice: 0 },
+                ])
+              }
+              className="text-[12.5px] font-bold text-[var(--gold-dark,#5a7a00)] hover:underline"
+              data-testid="button-line-add"
+            >
+              + Add a line
+            </button>
           )}
+          <textarea
+            value={notes}
+            disabled={!!created}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Invoice notes (optional)"
+            rows={2}
+            className="w-full text-[12px] border border-border rounded-[10px] px-3 py-2 bg-white outline-none"
+            data-testid="input-invoice-notes"
+          />
           {(() => {
             // Client's stated budget carried from the work request onto the
             // job: warn (don't block) when the draft total exceeds it.
             const job = (jobs ?? []).find((j) => j.id === draft.jobId);
             const budget = typeof job?.clientBudget === "number" ? job.clientBudget : null;
-            if (budget == null || draft.total <= budget) return null;
+            const editedTotal = items.reduce((s, l) => s + (l.qty ?? 1) * (l.unitPrice ?? 0), 0);
+            if (budget == null || editedTotal <= budget) return null;
             return (
               <div
                 className="rounded-lg border border-[rgba(190,140,20,0.35)] bg-[rgba(255,196,66,0.12)] p-3 flex items-start gap-2"
@@ -335,7 +424,7 @@ function JobInvoiceBuilder({
                 <div className="text-[12.5px]">
                   <span className="font-semibold">Over the client's budget.</span>{" "}
                   <span className="text-muted-foreground">
-                    This total ({money(draft.total)}) exceeds the {money(budget)} budget the client gave
+                    This total ({money(editedTotal)}) exceeds the {money(budget)} budget the client gave
                     on their work request. You can still send it — just expect questions.
                   </span>
                 </div>
@@ -343,15 +432,54 @@ function JobInvoiceBuilder({
             );
           })()}
 
-          <Button
-            onClick={runCreate}
-            disabled={create.isPending}
-            className="w-full rounded-full bg-[var(--gold-light,#B4FF44)] text-black font-bold hover:opacity-90"
-            data-testid="button-create-sop-invoice"
-          >
-            {create.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
-            Create this invoice
-          </Button>
+          {!created ? (
+            <Button
+              onClick={runCreate}
+              disabled={create.isPending}
+              className="w-full rounded-full bg-[var(--gold-light,#B4FF44)] text-black font-bold hover:opacity-90"
+              data-testid="button-create-sop-invoice"
+            >
+              {create.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
+              Create this invoice
+            </Button>
+          ) : (
+            <div className="rounded-2xl bg-[var(--ink)] text-white p-4 space-y-3" data-testid="panel-invoice-created">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-[var(--gold-light,#B4FF44)] shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold">Invoice {created.invoiceNo} created — {money(created.amount)}</div>
+                  <div className="text-sm text-white/70 mt-0.5">
+                    Saved as a draft, SOP-compliant. Grab the PDF here or open it to keep editing.
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => window.open(`/api/invoices/${created.id}/pdf`, "_blank")}
+                  className="rounded-full bg-[var(--gold-light,#B4FF44)] text-black font-bold hover:opacity-90"
+                  data-testid="button-download-invoice-pdf"
+                >
+                  <FileText className="w-4 h-4 mr-2" /> Download PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-full font-bold bg-transparent text-white border-white/30 hover:bg-white/10 hover:text-white"
+                  onClick={() => { setDraft(null); setItems([]); setNotes(""); setCreated(null); setJobId(""); setPo(""); }}
+                  data-testid="button-build-another"
+                >
+                  Build another
+                </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-full font-bold bg-transparent text-white border-white/30 hover:bg-white/10 hover:text-white ml-auto"
+                  onClick={onCreated}
+                  data-testid="button-wizard-done"
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -393,8 +521,10 @@ export function InvoiceWizardDialog({
     if (!file) return;
     const isPdf = file.type === "application/pdf";
     const isImg = /^image\/(png|jpeg|webp|gif)$/.test(file.type);
-    if (!isPdf && !isImg) {
-      toast({ title: "Upload a PDF or an image (PNG/JPG) of the SOP", variant: "destructive" });
+    const isCsv = file.type === "text/csv" || /\.csv$/i.test(file.name);
+    const isTxt = !isCsv && (file.type === "text/plain" || /\.txt$/i.test(file.name));
+    if (!isPdf && !isImg && !isCsv && !isTxt) {
+      toast({ title: "Upload a PDF, CSV, or image (PNG/JPG) of the SOP", variant: "destructive" });
       return;
     }
     if (file.size > 6 * 1024 * 1024) {
@@ -404,9 +534,9 @@ export function InvoiceWizardDialog({
     try {
       let data: string;
       let mediaType: string;
-      if (isPdf) {
+      if (isPdf || isCsv || isTxt) {
         data = await fileToBase64(file);
-        mediaType = "application/pdf";
+        mediaType = isPdf ? "application/pdf" : isCsv ? "text/csv" : "text/plain";
       } else {
         const prepared = await prepareScanImage(file);
         data = prepared.base64;
@@ -492,7 +622,7 @@ export function InvoiceWizardDialog({
             <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
             <div className="font-bold mt-3">Drop in the SOP guideline document</div>
             <div className="text-sm text-muted-foreground mt-1">
-              PDF or image (PNG/JPG), up to 6 MB
+              PDF, CSV, or image (PNG/JPG), up to 6 MB
             </div>
           </button>
         )}

@@ -530,7 +530,7 @@ export const UploadPropertySopDocumentParams = zod.object({
 
 export const UploadPropertySopDocumentBody = zod.object({
   "fileName": zod.string().min(1),
-  "mediaType": zod.enum(['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif']),
+  "mediaType": zod.enum(['application/pdf', 'text/csv', 'text/plain', 'image/png', 'image/jpeg', 'image/webp', 'image/gif']),
   "data": zod.string().min(1).describe('Base64 file content')
 })
 
