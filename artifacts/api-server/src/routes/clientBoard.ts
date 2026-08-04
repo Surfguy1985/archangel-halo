@@ -1,7 +1,7 @@
 import { limits } from "../lib/rateLimit";
 import { Router, type IRouter, type Response } from "express";
 import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import {
   db,
   clientAccountsTable,
@@ -52,6 +52,7 @@ import {
 import { effectivePermissions } from "./clientAccess";
 import { completeJson } from "../lib/ai";
 import { raiseClientCard } from "../lib/clientBoard";
+import { getPresentationDemoState } from "../lib/presentationDemo";
 import {
   buildCrewMapModule,
   buildInvoiceModule,
@@ -868,6 +869,75 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   const clearedKeys = new Set(
     boardRows.filter((r) => r.archived).map((r) => r.cardKey),
   );
+
+  // Auto-archive: any card that reaches Done (completed jobs, paid invoices,
+  // finished pushed cards, custom cards moved to Done) is snapshotted into
+  // history on the next read and removed from the board — the History tab and
+  // its CSV export are the record of completed work. Completed items past the
+  // 30-day projection falloff are swept straight from their source rows so
+  // the history is complete even for work finished before this feature.
+  // A card whose history entry was manually restored is never auto-archived
+  // again, and the presentation demo board is exempt so the scripted
+  // walkthrough can show cards landing in Done.
+  const sweepKeys = cards
+    .filter(
+      (c) =>
+        c.lane === "done" &&
+        !c.cardKey.startsWith("push:") &&
+        !clearedKeys.has(c.cardKey),
+    )
+    .map((c) => c.cardKey);
+  for (const inv of invoices) {
+    if (inv.status === "paid" && inv.paidAt && now - new Date(inv.paidAt).getTime() > 30 * DAY) {
+      const key = `invoice:${inv.id}`;
+      if (!clearedKeys.has(key)) sweepKeys.push(key);
+    }
+  }
+  // Pushed cards need a CONCRETE completion signal — the projected lane alone
+  // can't be trusted (summary cards land in Done by intent the day they're
+  // pushed). Sweep only on: office marked done / completedAt stamped, or a
+  // money card whose underlying invoice (or module state) is paid.
+  const invoiceById = new Map(invoices.map((i) => [i.id, i]));
+  for (const c of pushed) {
+    const key = `push:${c.id}`;
+    if (clearedKeys.has(key)) continue;
+    const module = (c.module ?? null) as Record<string, unknown> | null;
+    const srcInv =
+      c.sourceType === "invoice" && c.sourceId ? invoiceById.get(c.sourceId) : undefined;
+    const moneyPaid =
+      (c.kind === "invoice" || c.kind === "payment_request") &&
+      (srcInv?.status === "paid" ||
+        String(module?.status ?? "").toLowerCase() === "paid");
+    if (c.column === "done" || c.completedAt || moneyPaid) sweepKeys.push(key);
+  }
+  if (sweepKeys.length) {
+    try {
+      const demo = await getPresentationDemoState();
+      if (!(demo.active && demo.propertyId === propertyId)) {
+        const restored = await db
+          .selectDistinct({ cardKey: clientCardHistoryTable.cardKey })
+          .from(clientCardHistoryTable)
+          .where(
+            and(
+              eq(clientCardHistoryTable.propertyId, propertyId),
+              isNotNull(clientCardHistoryTable.restoredAt),
+              inArray(clientCardHistoryTable.cardKey, sweepKeys),
+            ),
+          );
+        const restoredKeys = new Set(restored.map((r) => r.cardKey));
+        for (const key of sweepKeys) {
+          if (restoredKeys.has(key)) continue;
+          const snap = await snapshotForClear(propertyId, key, null);
+          if (!snap) continue;
+          await archiveCardToHistory(propertyId, key, snap, null);
+          clearedKeys.add(key);
+        }
+      }
+    } catch {
+      // Never let the auto-archive sweep break a board read.
+    }
+  }
+
   return cards.filter((c) => !clearedKeys.has(c.cardKey)).map(decorateWaybill);
 }
 
@@ -1981,11 +2051,34 @@ async function snapshotForClear(
       .where(and(eq(clientBoardCardsTable.id, cardKey.slice(5)), eq(clientBoardCardsTable.propertyId, propertyId)))
       .limit(1);
     if (!row) return null;
+    // Money cards snapshot the real paid total from their source invoice (or
+    // module state) so the History tab / CSV reflects what was actually paid.
+    const module = (row.module ?? null) as Record<string, unknown> | null;
+    let amountPaid = 0;
+    let paid = false;
+    if (row.sourceType === "invoice" && row.sourceId) {
+      const [inv] = await db
+        .select()
+        .from(invoicesTable)
+        .where(and(eq(invoicesTable.id, row.sourceId), eq(invoicesTable.propertyId, propertyId)))
+        .limit(1);
+      if (inv) {
+        amountPaid = await paidTotalForInvoice(inv);
+        paid = inv.status === "paid";
+      }
+    }
+    if (!paid && String(module?.status ?? "").toLowerCase() === "paid") {
+      paid = true;
+      if (!amountPaid) {
+        const modAmount = typeof module?.amount === "number" ? (module.amount as number) : 0;
+        amountPaid = row.amount ?? modAmount;
+      }
+    }
     return {
       title: row.title,
       template: `push_${row.kind}`,
-      status: row.column === "done" ? "completed" : "cleared",
-      amountPaid: 0,
+      status: paid ? "paid" : row.column === "done" || row.completedAt ? "completed" : "cleared",
+      amountPaid,
       unitLabel: null,
       jobLabel: null,
       summary: row.body ?? null,
@@ -2053,6 +2146,84 @@ function historyDto(row: typeof clientCardHistoryTable.$inferSelect) {
 // the endpoint can't be used to mint synthetic history rows.
 const CLEARABLE_KEY = /^(job|crew|invoice|request|push|custom):[\w:.-]{1,80}$/;
 
+// Shared by the manual clear endpoint and the auto-archive sweep: snapshot a
+// card into history and hide it behind an archived row. Idempotent — if the
+// card is already archived (double-tap, or a concurrent board read swept it
+// first) the existing history entry is returned instead of a duplicate.
+async function archiveCardToHistory(
+  propertyId: string,
+  cardKey: string,
+  snap: HistorySnapshot,
+  clearedBy: string | null,
+): Promise<{ entry: typeof clientCardHistoryTable.$inferSelect; duplicate: boolean }> {
+  return db.transaction(async (tx) => {
+    const latestEntry = async () => {
+      const [prev] = await tx
+        .select()
+        .from(clientCardHistoryTable)
+        .where(
+          and(
+            eq(clientCardHistoryTable.propertyId, propertyId),
+            eq(clientCardHistoryTable.cardKey, cardKey),
+          ),
+        )
+        .orderBy(desc(clientCardHistoryTable.clearedAt))
+        .limit(1);
+      return prev ?? null;
+    };
+    const [existing] = await tx
+      .select()
+      .from(clientDashboardCardsTable)
+      .where(
+        and(
+          eq(clientDashboardCardsTable.propertyId, propertyId),
+          eq(clientDashboardCardsTable.cardKey, cardKey),
+        ),
+      )
+      .limit(1)
+      .for("update");
+    if (existing?.archived) {
+      const prev = await latestEntry();
+      if (prev) return { entry: prev, duplicate: true };
+    }
+    if (existing) {
+      await tx
+        .update(clientDashboardCardsTable)
+        .set({ archived: true, updatedAt: new Date() })
+        .where(eq(clientDashboardCardsTable.id, existing.id));
+    } else {
+      // Unique (propertyId, cardKey) — if a concurrent sweep beat us to the
+      // insert, reuse its history entry instead of writing a duplicate.
+      const ins = await tx
+        .insert(clientDashboardCardsTable)
+        .values({ propertyId, cardKey, kind: "override", archived: true })
+        .onConflictDoNothing()
+        .returning();
+      if (!ins.length) {
+        const prev = await latestEntry();
+        if (prev) return { entry: prev, duplicate: true };
+      }
+    }
+    const inserted = await tx
+      .insert(clientCardHistoryTable)
+      .values({
+        propertyId,
+        cardKey,
+        title: snap.title,
+        template: snap.template,
+        status: snap.status,
+        amountPaid: snap.amountPaid,
+        unitLabel: snap.unitLabel,
+        jobLabel: snap.jobLabel,
+        summary: snap.summary,
+        frequency: snap.frequency,
+        clearedBy,
+      })
+      .returning();
+    return { entry: inserted[0]!, duplicate: false };
+  });
+}
+
 router.post(
   "/client/:token/board/cards/:cardKey/clear",
   limits.cardAction,
@@ -2078,77 +2249,12 @@ router.post(
       res.status(404).json({ error: "Card not found" });
       return;
     }
-    const result = await db.transaction(async (tx) => {
-      // Idempotency: if this card is already archived, return the existing
-      // history entry instead of inserting a duplicate (double-tap safe).
-      const [already] = await tx
-        .select()
-        .from(clientDashboardCardsTable)
-        .where(
-          and(
-            eq(clientDashboardCardsTable.propertyId, account.propertyId),
-            eq(clientDashboardCardsTable.cardKey, cardKey),
-          ),
-        )
-        .limit(1)
-        .for("update");
-      if (already?.archived) {
-        const [prev] = await tx
-          .select()
-          .from(clientCardHistoryTable)
-          .where(
-            and(
-              eq(clientCardHistoryTable.propertyId, account.propertyId),
-              eq(clientCardHistoryTable.cardKey, cardKey),
-            ),
-          )
-          .orderBy(desc(clientCardHistoryTable.clearedAt))
-          .limit(1);
-        if (prev) return { entry: prev, duplicate: true };
-      }
-      const inserted = await tx
-        .insert(clientCardHistoryTable)
-        .values({
-          propertyId: account.propertyId,
-          cardKey,
-          title: snap.title,
-          template: snap.template,
-          status: snap.status,
-          amountPaid: snap.amountPaid,
-          unitLabel: snap.unitLabel,
-          jobLabel: snap.jobLabel,
-          summary: snap.summary,
-          frequency: snap.frequency,
-          clearedBy: viewer.name ?? null,
-        })
-        .returning();
-      // Hide the card: custom cards archive their own row; every other card
-      // family stores the clear as an archived override keyed by cardKey.
-      const [existing] = await tx
-        .select()
-        .from(clientDashboardCardsTable)
-        .where(
-          and(
-            eq(clientDashboardCardsTable.propertyId, account.propertyId),
-            eq(clientDashboardCardsTable.cardKey, cardKey),
-          ),
-        )
-        .limit(1);
-      if (existing) {
-        await tx
-          .update(clientDashboardCardsTable)
-          .set({ archived: true, updatedAt: new Date() })
-          .where(eq(clientDashboardCardsTable.id, existing.id));
-      } else {
-        await tx.insert(clientDashboardCardsTable).values({
-          propertyId: account.propertyId,
-          cardKey,
-          kind: "override",
-          archived: true,
-        });
-      }
-      return { entry: inserted[0]!, duplicate: false };
-    });
+    const result = await archiveCardToHistory(
+      account.propertyId,
+      cardKey,
+      snap,
+      viewer.name ?? null,
+    );
     if (!result.duplicate) {
       await db.insert(clientDashboardActionsTable).values({
         propertyId: account.propertyId,

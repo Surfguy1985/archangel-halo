@@ -98,7 +98,7 @@ export function HistoryTab({ token, canRestore = false }: { token: string; canRe
       <div className="mx-auto max-w-2xl">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-[17px] font-bold text-[#1d1d1f]">Cleared cards</h2>
+            <h2 className="text-[17px] font-bold text-[#1d1d1f]">History</h2>
             <p className="text-[12px] font-medium text-[#6e6e73]">
               {entries.length} card{entries.length === 1 ? '' : 's'} · {money(totalPaid)} paid
             </p>
@@ -118,7 +118,7 @@ export function HistoryTab({ token, canRestore = false }: { token: string; canRe
           <div className="rounded-[14px] border border-dashed border-black/10 bg-white p-8 text-center">
             <Archive className="mx-auto h-6 w-6 text-[#c7c7cc]" />
             <p className="mt-2 text-[13px] font-medium text-[#6e6e73]">
-              Nothing cleared yet. Tap the trash icon on any card to move it here.
+              Nothing here yet. Completed cards move here automatically, and you can clear any card with its trash icon.
             </p>
           </div>
         )}
