@@ -480,6 +480,14 @@ export function InvoiceEditor({
                 </div>
               )}
 
+              <datalist id="editor-price-book-options">
+                {priceItems.map((pi) => (
+                  <option key={pi.id} value={pi.service}>
+                    {`$${pi.rate}${pi.detail ? ` — ${pi.detail}` : ""}`}
+                  </option>
+                ))}
+              </datalist>
+
               {/* STEP 3 — Line items */}
               <div className="mb-[4px]">
                 <div className="flex items-center justify-between mb-[8px]">
@@ -529,9 +537,19 @@ export function InvoiceEditor({
                           className={`${smallField} flex-1 font-semibold`}
                           placeholder="Type of work *"
                           value={r.typeOfWork}
-                          onChange={(e) =>
-                            setRow(r.key, { typeOfWork: e.target.value })
-                          }
+                          list="editor-price-book-options"
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            const hit = priceItems.find(
+                              (pi) => pi.service === v,
+                            );
+                            setRow(
+                              r.key,
+                              hit
+                                ? { typeOfWork: v, unitPrice: String(hit.rate) }
+                                : { typeOfWork: v },
+                            );
+                          }}
                         />
                         <button
                           onClick={() => removeRow(r.key)}

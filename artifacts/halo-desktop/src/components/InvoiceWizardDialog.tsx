@@ -9,6 +9,8 @@ import {
   getListJobsQueryKey,
   useBuildInvoiceJobDraft,
   useCreateInvoice,
+  useGetProperty,
+  getGetPropertyQueryKey,
   getListInvoicesQueryKey,
   type SopRuleDetail,
   type InvoiceJobDraft,
@@ -166,6 +168,11 @@ function JobInvoiceBuilder({
   const build = useBuildInvoiceJobDraft();
   const create = useCreateInvoice();
 
+  const { data: propertyDetail } = useGetProperty(propertyId, {
+    query: { enabled: !!propertyId, queryKey: getGetPropertyQueryKey(propertyId) },
+  });
+  const priceItems = propertyDetail?.priceItems ?? [];
+
   const runBuild = () => {
     setDraft(null);
     setCreated(null);
@@ -292,6 +299,13 @@ function JobInvoiceBuilder({
             ))}
           </div>
 
+          <datalist id="wizard-price-book-options">
+            {priceItems.map((pi) => (
+              <option key={pi.id} value={pi.service}>
+                {`$${pi.rate}${pi.detail ? ` — ${pi.detail}` : ""}`}
+              </option>
+            ))}
+          </datalist>
           <div className="rounded-xl border border-border overflow-hidden">
             <div className="px-3 py-2 bg-[var(--ink)] text-white flex items-center justify-between">
               <div className="text-[12.5px] font-bold">
@@ -310,7 +324,20 @@ function JobInvoiceBuilder({
                       <input
                         value={l.typeOfWork}
                         disabled={!!created}
-                        onChange={(e) => setItems((p) => p.map((x, xi) => (xi === i ? { ...x, typeOfWork: e.target.value } : x)))}
+                        list="wizard-price-book-options"
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const hit = priceItems.find((pi) => pi.service === v);
+                          setItems((p) =>
+                            p.map((x, xi) =>
+                              xi === i
+                                ? hit
+                                  ? { ...x, typeOfWork: v, unitPrice: hit.rate }
+                                  : { ...x, typeOfWork: v }
+                                : x,
+                            ),
+                          );
+                        }}
                         className="w-full font-semibold bg-transparent border-b border-transparent focus:border-border outline-none"
                         placeholder="Type of work"
                         data-testid={`input-line-work-${i}`}

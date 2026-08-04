@@ -497,6 +497,13 @@ export default function CreateInvoice() {
                 </span>
               ))}
             </div>
+            <datalist id="create-price-book-options">
+              {priceItems.map((pi) => (
+                <option key={pi.id} value={pi.service}>
+                  {`$${pi.rate}${pi.detail ? ` — ${pi.detail}` : ""}`}
+                </option>
+              ))}
+            </datalist>
             <div className="space-y-2">
               {items.map((it, idx) => (
                 <div
@@ -516,7 +523,12 @@ export default function CreateInvoice() {
                   <div className="col-span-2 md:col-span-1 space-y-1.5">
                     <Input
                       value={it.typeOfWork}
-                      onChange={(e) => setItem(idx, { typeOfWork: e.target.value})}
+                      list="create-price-book-options"
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const hit = priceItems.find((pi) => pi.service === v);
+                        setItem(idx, hit ? { typeOfWork: v, unitPrice: String(hit.rate) } : { typeOfWork: v });
+                      }}
                       placeholder="Type of work (required)"
                     />
                     <Input
