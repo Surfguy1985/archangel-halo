@@ -25,6 +25,11 @@ export interface ClientBoardCardView {
   stageIndex: number;
   /** @nullable */
   status?: string | null;
+  /**
+     * True while a client change order on this job awaits office review (banner on the card)
+     * @nullable
+     */
+  changeOrder?: boolean | null;
   /** @nullable */
   unitNo?: string | null;
   /** @nullable */

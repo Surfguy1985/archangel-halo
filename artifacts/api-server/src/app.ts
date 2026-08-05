@@ -46,6 +46,12 @@ app.use(
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// Preset stage artwork for board cards — static, safe to cache hard.
+app.use(
+  "/api/rails-art",
+  express.static("public/rails", { maxAge: "7d", immutable: false }),
+);
+
 app.use("/api", (_req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   next();

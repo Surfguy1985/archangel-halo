@@ -192,6 +192,15 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
     );
   };
 
+  // Job complete + invoice ready: flash a green border until the client
+  // picks how they'll pay (then the card settles into Billing as pending).
+  const invoiceReady =
+    !!cardModule &&
+    cardModule.type === 'invoice' &&
+    String(cardModule.status ?? '').toLowerCase() !== 'paid' &&
+    !cardModule.paymentChoice &&
+    !cardModule.clientPaidAt;
+
   const actionBtns = (card.actions ?? []).filter((a) => a.kind !== 'link');
   const linkBtns = (card.actions ?? []).filter((a) => a.kind === 'link');
   const primaryBtn = actionBtns.find((a) => a.kind === 'primary') ?? linkBtns[0] ?? actionBtns[0];
@@ -249,8 +258,9 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={`relative flex flex-col overflow-hidden rounded-[14px] shadow-[0_1px_2px_rgba(16,28,51,0.05)] hover:shadow-[0_12px_30px_rgba(16,28,51,0.15)] hover:-translate-y-[2px] transition-all duration-160 w-[340px] h-[430px] shrink-0 ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
-      style={{ background: tint.bg, border: `1px solid ${tint.bd}` }}
+      className={`relative flex flex-col overflow-hidden rounded-[14px] shadow-[0_1px_2px_rgba(16,28,51,0.05)] hover:shadow-[0_12px_30px_rgba(16,28,51,0.15)] hover:-translate-y-[2px] transition-all duration-160 w-[340px] h-[430px] shrink-0 ${draggable ? 'cursor-grab active:cursor-grabbing' : ''} ${invoiceReady ? 'animate-pulse ring-2 ring-emerald-500' : ''}`}
+      style={{ background: tint.bg, border: invoiceReady ? '2px solid #10b981' : `1px solid ${tint.bd}` }}
+      data-invoice-ready={invoiceReady ? 'true' : undefined}
     >
       {/* 1. SLA rail - 3px */}
       <div className="absolute top-0 left-0 w-full h-[3px]" style={{ background: tint.track }}>

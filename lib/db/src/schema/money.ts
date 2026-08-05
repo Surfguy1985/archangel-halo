@@ -27,6 +27,11 @@ export const invoicesTable = pgTable("invoices", {
   // same as paidAt, which the office records when money actually lands.
   clientPaidReportedAt: timestamp("client_paid_reported_at", { withTimezone: true }),
   clientPaidReportedBy: text("client_paid_reported_by"),
+  // How the client chose to pay from their board: "check" (mailing a check)
+  // or "platform" (uploaded to their payment platform, e.g. VendorAccess).
+  paymentChoice: text("payment_choice"),
+  paymentChoicePlatform: text("payment_choice_platform"),
+  paymentChoiceAt: timestamp("payment_choice_at", { withTimezone: true }),
   dueAt: timestamp("due_at", { withTimezone: true }),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   taxAmount: doublePrecision("tax_amount").notNull().default(0),

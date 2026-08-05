@@ -280,6 +280,11 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const weekStart = fmtDate(monday);
   const weekEnd = fmtDate(sunday);
+  // Schedule feed spans a wider window than the route-plan week so the portal
+  // can offer day/week/month views: start of the current month through the end
+  // of next month (all from LOCAL date parts).
+  const schedStart = fmtDate(new Date(now.getFullYear(), now.getMonth(), 1));
+  const schedEnd = fmtDate(new Date(now.getFullYear(), now.getMonth() + 2, 0));
 
   const [schedRows, eventRows, jobs, props, contacts] = await Promise.all([
     db
@@ -288,8 +293,8 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       .where(
         and(
           eq(schedulesTable.crewLeaderId, crew.id),
-          gte(schedulesTable.scheduledOn, weekStart),
-          lte(schedulesTable.scheduledOn, weekEnd),
+          gte(schedulesTable.scheduledOn, schedStart),
+          lte(schedulesTable.scheduledOn, schedEnd),
         ),
       )
       .orderBy(schedulesTable.scheduledOn),
@@ -299,8 +304,8 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       .where(
         and(
           eq(calendarEventsTable.crewId, crew.id),
-          gte(calendarEventsTable.eventDate, weekStart),
-          lte(calendarEventsTable.eventDate, weekEnd),
+          gte(calendarEventsTable.eventDate, schedStart),
+          lte(calendarEventsTable.eventDate, schedEnd),
         ),
       )
       .orderBy(calendarEventsTable.eventDate),
@@ -1755,7 +1760,15 @@ router.post(
         };
       }
 
-      // Approve: first crew in wins the job.
+      // Approve: first crew in wins the job. Dispatch is board-neutral (it
+      // never withdraws offers), so guard here: an office assignment to a
+      // different crew makes stale offers unapprovable.
+      if (job.crewLeaderId && job.crewLeaderId !== crew.id) {
+        return {
+          code: 409 as const,
+          error: "This job was already assigned to another crew.",
+        };
+      }
       if (job.boardStatus === "filled" || job.status === "complete") {
         return {
           code: 409 as const,

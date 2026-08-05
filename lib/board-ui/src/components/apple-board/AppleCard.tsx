@@ -190,6 +190,16 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
     prevLane.current = lane;
   }, [card.lane]);
 
+  // Invoice ready for payment: flash a green border until the client picks
+  // how they'll pay (check in the mail / their payment platform).
+  const cardModule: any = card?.module ?? null;
+  const invoiceReady =
+    !!cardModule &&
+    cardModule.type === 'invoice' &&
+    String(cardModule.status ?? '').toLowerCase() !== 'paid' &&
+    !cardModule.paymentChoice &&
+    !cardModule.clientPaidAt;
+
   return (
     <motion.div
       id={`card-${card.cardKey}`}
@@ -220,8 +230,9 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
         if (justDragged.current) return; // swallow the tap that ends a touch drag
         onClick?.();
       }}
-      className="flex flex-col border rounded-[18px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.12)] transition-shadow cursor-pointer active:scale-[0.98] max-sm:select-none overflow-hidden relative bg-white"
-      style={{ WebkitTouchCallout: 'none', borderColor: `${color}40` } as React.CSSProperties}
+      className={`flex flex-col border rounded-[18px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.12)] transition-shadow cursor-pointer active:scale-[0.98] max-sm:select-none overflow-hidden relative bg-white${invoiceReady ? ' animate-pulse ring-2 ring-emerald-500' : ''}`}
+      style={{ WebkitTouchCallout: 'none', borderColor: invoiceReady ? '#10b981' : `${color}40` } as React.CSSProperties}
+      data-invoice-ready={invoiceReady ? 'true' : undefined}
     >
       {/* Branded header — service color owns the gradient; black text on lime, white on blue */}
       <div

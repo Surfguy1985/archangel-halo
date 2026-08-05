@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { UnitCardInfo } from './unitCardInfo';
 
 export interface UnitStatusRec {
   id: string;
@@ -18,4 +19,5 @@ export interface UnitStatusRec {
   reasons: string[];
   openJobs: number;
   openInvoices: number;
+  card?: UnitCardInfo | null;
 }

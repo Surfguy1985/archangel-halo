@@ -8,7 +8,34 @@ import {
   RAIL_TONES,
   type BoardDensity,
 } from './railTokens';
-import type { RailTileModel } from './railMapping';
+import { RAIL_STAGE_MOTION, type RailTileModel } from './railMapping';
+
+/** Looping stage-art animations — injected once, shared by every tile. */
+const STAGE_ART_KEYFRAMES = `
+@keyframes rail-art-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes rail-art-slide { 0%,100% { transform: translateX(-2.5%) scale(1.08); } 50% { transform: translateX(2.5%) scale(1.08); } }
+@keyframes rail-art-pop { 0%,100% { transform: scale(1); } 40% { transform: scale(1.07); } 55% { transform: scale(1.03); } }
+@keyframes rail-art-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3%); } }
+@keyframes rail-art-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+.rail-art-pulse { animation: rail-art-pulse 2.6s ease-in-out infinite; }
+.rail-art-slide { animation: rail-art-slide 3.2s ease-in-out infinite; }
+.rail-art-pop { animation: rail-art-pop 2.4s ease-in-out infinite; }
+.rail-art-float { animation: rail-art-float 3s ease-in-out infinite; }
+.rail-art-blink { animation: rail-art-blink 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .rail-art-pulse, .rail-art-slide, .rail-art-pop, .rail-art-float, .rail-art-blink { animation: none; }
+}
+`;
+
+let stageArtStylesInjected = false;
+function ensureStageArtStyles() {
+  if (stageArtStylesInjected || typeof document === 'undefined') return;
+  const el = document.createElement('style');
+  el.setAttribute('data-rail-stage-art', '');
+  el.textContent = STAGE_ART_KEYFRAMES;
+  document.head.appendChild(el);
+  stageArtStylesInjected = true;
+}
 
 /**
  * Image-first tile per the Halo master spec's reference component.
@@ -28,6 +55,17 @@ export const RailTile = memo(function RailTile({
 }) {
   const t = RAIL_TONES[tile.tone];
   const d = RAIL_DENSITY[density];
+  ensureStageArtStyles();
+
+  // Invoice ready for payment: flash a green border until the client picks
+  // how they'll pay (check in the mail / their payment platform).
+  const m: any = tile.card?.module ?? null;
+  const invoiceReady =
+    !!m &&
+    m.type === 'invoice' &&
+    String(m.status ?? '').toLowerCase() !== 'paid' &&
+    !m.paymentChoice &&
+    !m.clientPaidAt;
 
   return (
     <div
@@ -47,7 +85,9 @@ export const RailTile = memo(function RailTile({
           tile.accent ? RAIL_ACCENT_BORDER : RAIL_HAIRLINE_BORDER,
           RAIL_MOTION,
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9DB40F]',
+          invoiceReady ? 'animate-pulse ring-2 ring-emerald-500 border-emerald-500' : '',
         ].join(' ')}
+        data-invoice-ready={invoiceReady ? 'true' : undefined}
       >
         <div className={`relative ${d.artwork} ${t.panel}`}>
           {tile.artworkUrl && (
@@ -57,8 +97,19 @@ export const RailTile = memo(function RailTile({
               loading="lazy"
               decoding="async"
               /* CONTAIN — object-cover + absolute inset holds any aspect ratio. */
-              className="absolute inset-0 h-full w-full object-cover"
+              className={[
+                'absolute inset-0 h-full w-full object-cover',
+                tile.stageArt ? RAIL_STAGE_MOTION[tile.rail] : '',
+              ].join(' ')}
             />
+          )}
+          {tile.card?.changeOrder && (
+            <span
+              className="absolute top-0 left-0 right-0 bg-amber-400 px-2.5 py-0.5 text-center text-[10px] font-bold uppercase tracking-widest text-black"
+              data-testid={`rail-tile-change-order-${tile.cardKey}`}
+            >
+              Change order
+            </span>
           )}
           {tile.chip && (
             <span

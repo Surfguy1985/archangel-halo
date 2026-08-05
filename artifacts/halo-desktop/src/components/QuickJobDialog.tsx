@@ -129,6 +129,30 @@ export function QuickJobDialog({
   }, [open, propertyId]);
 
   const priceItems = propertyDetail?.priceItems ?? [];
+  // Group the price book for the picker: services sized by bedroom count
+  // ("Cabinet Paint — 1/2/3 BR") collapse into one group with a size submenu;
+  // everything else is a single flat entry. Prices never show in the list.
+  const serviceGroups = useMemo(() => {
+    type Group = { base: string; sized: boolean; items: typeof priceItems };
+    const strip = (s: string) => s.replace(/\s*[—–-]\s*\d\s*BR\s*$/i, "").trim();
+    const byBase = new Map<string, Group>();
+    for (const pi of priceItems) {
+      const base = strip(pi.service);
+      const sized = /\d\s*BR\s*$/i.test(pi.service) || /^\d\s*BR$/i.test(pi.unit ?? "");
+      const g = byBase.get(base) ?? { base, sized: false, items: [] as typeof priceItems };
+      g.sized = g.sized || sized;
+      g.items.push(pi);
+      byBase.set(base, g);
+    }
+    const groups = [...byBase.values()];
+    for (const g of groups) {
+      // Only treat as a sized group when there is more than one option;
+      // sort sizes 1 BR → 3 BR.
+      g.sized = g.sized && g.items.length > 1;
+      if (g.sized) g.items.sort((a, b) => (a.unit ?? a.service).localeCompare(b.unit ?? b.service));
+    }
+    return groups.sort((a, b) => a.base.localeCompare(b.base));
+  }, [priceItems]);
   const pillCount = useMemo(() => {
     const m = new Map<string, number>();
     for (const id of pillIds) m.set(id, (m.get(id) ?? 0) + 1);
@@ -334,48 +358,81 @@ export function QuickJobDialog({
               {selectedProp && priceItems.length > 0 && (
                 <div className="flex flex-col gap-1.5">
                   <span className={`${labelCls} flex items-center gap-1`}>
-                    <Zap className="w-3 h-3" /> Tap to add — price book
+                    <Zap className="w-3 h-3" /> Add services — price book
                   </span>
-                  <div className="flex flex-wrap gap-2">
-                    {priceItems.map((pi) => {
-                      const n = pillCount.get(pi.id) ?? 0;
-                      return (
-                        <button
-                          key={pi.id}
-                          type="button"
-                          onClick={() => setPillIds((ids) => [...ids, pi.id])}
-                          className={`inline-flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full border text-sm font-semibold transition-colors ${
-                            n > 0
-                              ? "bg-[var(--gold-light)] border-transparent text-black"
-                              : "bg-white border-border text-foreground hover:border-[var(--gold-dark)]"
-                          }`}
-                          data-testid={`pill-quickjob-${pi.id}`}
-                        >
-                          {pi.service}
-                          <span className="text-xs font-bold tabular-nums">
-                            {money(pi.rate)}
-                          </span>
-                          {n > 0 ? (
-                            <span className="text-[11px] font-bold">×{n}</span>
-                          ) : (
-                            <Plus className="w-3 h-3" strokeWidth={3} />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {/* Organized picker: sized services (1/2/3 BR) group under one
+                      heading; no prices in the list — the rate comes straight
+                      from the price book when a service is picked. */}
+                  <select
+                    className={fieldCls}
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) setPillIds((ids) => [...ids, e.target.value]);
+                    }}
+                    data-testid="select-quickjob-service"
+                  >
+                    <option value="">Add a service…</option>
+                    {serviceGroups.map((g) =>
+                      g.sized ? (
+                        <optgroup key={g.base} label={g.base}>
+                          {g.items.map((pi) => (
+                            <option key={pi.id} value={pi.id}>
+                              {pi.unit || pi.service}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : (
+                        g.items.map((pi) => (
+                          <option key={pi.id} value={pi.id}>
+                            {g.base}
+                          </option>
+                        ))
+                      ),
+                    )}
+                  </select>
                   {pillIds.length > 0 && (
-                    <div className="flex items-center justify-between px-1">
-                      <button
-                        type="button"
-                        className="text-xs font-semibold text-muted-foreground underline"
-                        onClick={() => setPillIds([])}
-                      >
-                        Clear services
-                      </button>
-                      <span className="text-sm font-display font-bold tabular-nums">
-                        {money(pillTotal)}
-                      </span>
+                    <div className="flex flex-col gap-1">
+                      {[...pillCount.entries()].map(([id, qty]) => {
+                        const pi = priceItems.find((p) => p.id === id);
+                        if (!pi) return null;
+                        return (
+                          <div
+                            key={id}
+                            className="flex items-center justify-between rounded-xl border border-border bg-white px-3 py-1.5 text-sm"
+                            data-testid={`selected-service-${id}`}
+                          >
+                            <span className="truncate font-semibold">
+                              {pi.service}
+                              {qty > 1 ? ` ×${qty}` : ""}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={`Remove ${pi.service}`}
+                              className="ml-2 shrink-0 text-muted-foreground hover:text-destructive font-bold"
+                              onClick={() =>
+                                setPillIds((ids) => {
+                                  const idx = ids.lastIndexOf(id);
+                                  return idx === -1 ? ids : ids.filter((_, i) => i !== idx);
+                                })
+                              }
+                            >
+                              ×
+                            </button>
+                          </div>
+                        );
+                      })}
+                      <div className="flex items-center justify-between px-1">
+                        <button
+                          type="button"
+                          className="text-xs font-semibold text-muted-foreground underline"
+                          onClick={() => setPillIds([])}
+                        >
+                          Clear services
+                        </button>
+                        <span className="text-sm font-display font-bold tabular-nums">
+                          {money(pillTotal)}
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>

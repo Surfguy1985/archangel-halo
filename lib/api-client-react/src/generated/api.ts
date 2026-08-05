@@ -142,6 +142,8 @@ import type {
   CrewMapPin,
   CrewMessage,
   CrewPacket,
+  CrewPayClearInput,
+  CrewPayInput,
   CrewPayment,
   CrewPaymentInput,
   CrewPaymentUpdate,
@@ -345,6 +347,7 @@ import type {
   UnitBoxInput,
   UnitBoxRec,
   UnitBoxUpdate,
+  UnitChangeOrderInput,
   UnitGridInput,
   UnitMapImageInput,
   UnitMapView,
@@ -4958,6 +4961,77 @@ export const useUpdateDispatchChecklist = <TError = ErrorType<Error>,
       return useMutation(getUpdateDispatchChecklistMutationOptions(options));
     }
 
+export const getReopenJobChangeOrderUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/change-order/reopen`
+}
+
+/**
+ * @summary Clear a pending change order and put the job back into the flow with the same crew
+ */
+export const reopenJobChangeOrder = async (id: string, options?: RequestInit): Promise<Job> => {
+
+  return customFetch<Job>(getReopenJobChangeOrderUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReopenJobChangeOrderMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reopenJobChangeOrder>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reopenJobChangeOrder>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['reopenJobChangeOrder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reopenJobChangeOrder>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  reopenJobChangeOrder(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReopenJobChangeOrderMutationResult = NonNullable<Awaited<ReturnType<typeof reopenJobChangeOrder>>>
+
+    export type ReopenJobChangeOrderMutationError = ErrorType<Error>
+
+    /**
+ * @summary Clear a pending change order and put the job back into the flow with the same crew
+ */
+export const useReopenJobChangeOrder = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reopenJobChangeOrder>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reopenJobChangeOrder>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getReopenJobChangeOrderMutationOptions(options));
+    }
+
 export const getAddJobLineItemUrl = (id: string,) => {
 
 
@@ -6871,6 +6945,150 @@ export const useQualityCheckJob = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getQualityCheckJobMutationOptions(options));
+    }
+
+export const getPayJobCrewMemberUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/crew-pay`
+}
+
+/**
+ * @summary Record crew pay for one member from the board billing card (books an approved labor expense)
+ */
+export const payJobCrewMember = async (id: string,
+    crewPayInput: CrewPayInput, options?: RequestInit): Promise<Job> => {
+
+  return customFetch<Job>(getPayJobCrewMemberUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewPayInput)
+  }
+);}
+
+
+
+
+
+export const getPayJobCrewMemberMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof payJobCrewMember>>, TError,{id: string;data: BodyType<CrewPayInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof payJobCrewMember>>, TError,{id: string;data: BodyType<CrewPayInput>}, TContext> => {
+
+const mutationKey = ['payJobCrewMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof payJobCrewMember>>, {id: string;data: BodyType<CrewPayInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  payJobCrewMember(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PayJobCrewMemberMutationResult = NonNullable<Awaited<ReturnType<typeof payJobCrewMember>>>
+    export type PayJobCrewMemberMutationBody = BodyType<CrewPayInput>
+    export type PayJobCrewMemberMutationError = ErrorType<Error>
+
+    /**
+ * @summary Record crew pay for one member from the board billing card (books an approved labor expense)
+ */
+export const usePayJobCrewMember = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof payJobCrewMember>>, TError,{id: string;data: BodyType<CrewPayInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof payJobCrewMember>>,
+        TError,
+        {id: string;data: BodyType<CrewPayInput>},
+        TContext
+      > => {
+      return useMutation(getPayJobCrewMemberMutationOptions(options));
+    }
+
+export const getClearJobCrewPayUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/crew-pay/clear`
+}
+
+/**
+ * @summary Clear one crew member's pay-pending row; last clear sends the card to history
+ */
+export const clearJobCrewPay = async (id: string,
+    crewPayClearInput: CrewPayClearInput, options?: RequestInit): Promise<Job> => {
+
+  return customFetch<Job>(getClearJobCrewPayUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crewPayClearInput)
+  }
+);}
+
+
+
+
+
+export const getClearJobCrewPayMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearJobCrewPay>>, TError,{id: string;data: BodyType<CrewPayClearInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof clearJobCrewPay>>, TError,{id: string;data: BodyType<CrewPayClearInput>}, TContext> => {
+
+const mutationKey = ['clearJobCrewPay'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearJobCrewPay>>, {id: string;data: BodyType<CrewPayClearInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  clearJobCrewPay(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClearJobCrewPayMutationResult = NonNullable<Awaited<ReturnType<typeof clearJobCrewPay>>>
+    export type ClearJobCrewPayMutationBody = BodyType<CrewPayClearInput>
+    export type ClearJobCrewPayMutationError = ErrorType<Error>
+
+    /**
+ * @summary Clear one crew member's pay-pending row; last clear sends the card to history
+ */
+export const useClearJobCrewPay = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearJobCrewPay>>, TError,{id: string;data: BodyType<CrewPayClearInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof clearJobCrewPay>>,
+        TError,
+        {id: string;data: BodyType<CrewPayClearInput>},
+        TContext
+      > => {
+      return useMutation(getClearJobCrewPayMutationOptions(options));
     }
 
 export const getSetJobBoardStatusUrl = (id: string,) => {
@@ -26077,6 +26295,80 @@ export const useDeleteUnitBox = <TError = ErrorType<Error>,
       return useMutation(getDeleteUnitBoxMutationOptions(options));
     }
 
+export const getRequestUnitChangeOrderUrl = (token: string,
+    unitId: string,) => {
+
+
+
+
+  return `/api/client/${token}/unit-map/units/${unitId}/change-order`
+}
+
+/**
+ * @summary Client requests a change order on a unit's active job
+ */
+export const requestUnitChangeOrder = async (token: string,
+    unitId: string,
+    unitChangeOrderInput: UnitChangeOrderInput, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getRequestUnitChangeOrderUrl(token,unitId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(unitChangeOrderInput)
+  }
+);}
+
+
+
+
+
+export const getRequestUnitChangeOrderMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestUnitChangeOrder>>, TError,{token: string;unitId: string;data: BodyType<UnitChangeOrderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestUnitChangeOrder>>, TError,{token: string;unitId: string;data: BodyType<UnitChangeOrderInput>}, TContext> => {
+
+const mutationKey = ['requestUnitChangeOrder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestUnitChangeOrder>>, {token: string;unitId: string;data: BodyType<UnitChangeOrderInput>}> = (props) => {
+          const {token,unitId,data} = props ?? {};
+
+          return  requestUnitChangeOrder(token,unitId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestUnitChangeOrderMutationResult = NonNullable<Awaited<ReturnType<typeof requestUnitChangeOrder>>>
+    export type RequestUnitChangeOrderMutationBody = BodyType<UnitChangeOrderInput>
+    export type RequestUnitChangeOrderMutationError = ErrorType<Error>
+
+    /**
+ * @summary Client requests a change order on a unit's active job
+ */
+export const useRequestUnitChangeOrder = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestUnitChangeOrder>>, TError,{token: string;unitId: string;data: BodyType<UnitChangeOrderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestUnitChangeOrder>>,
+        TError,
+        {token: string;unitId: string;data: BodyType<UnitChangeOrderInput>},
+        TContext
+      > => {
+      return useMutation(getRequestUnitChangeOrderMutationOptions(options));
+    }
+
 export const getGetUnitSummaryUrl = (token: string,
     unitId: string,) => {
 
@@ -26965,6 +27257,80 @@ export const useOfficeDeleteUnitBox = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getOfficeDeleteUnitBoxMutationOptions(options));
+    }
+
+export const getRequestOfficeUnitChangeOrderUrl = (propertyId: string,
+    unitId: string,) => {
+
+
+
+
+  return `/api/admin/accounts/${propertyId}/unit-map/units/${unitId}/change-order`
+}
+
+/**
+ * @summary Office-side mirror of the unit change-order request
+ */
+export const requestOfficeUnitChangeOrder = async (propertyId: string,
+    unitId: string,
+    unitChangeOrderInput: UnitChangeOrderInput, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getRequestOfficeUnitChangeOrderUrl(propertyId,unitId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(unitChangeOrderInput)
+  }
+);}
+
+
+
+
+
+export const getRequestOfficeUnitChangeOrderMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOfficeUnitChangeOrder>>, TError,{propertyId: string;unitId: string;data: BodyType<UnitChangeOrderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestOfficeUnitChangeOrder>>, TError,{propertyId: string;unitId: string;data: BodyType<UnitChangeOrderInput>}, TContext> => {
+
+const mutationKey = ['requestOfficeUnitChangeOrder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestOfficeUnitChangeOrder>>, {propertyId: string;unitId: string;data: BodyType<UnitChangeOrderInput>}> = (props) => {
+          const {propertyId,unitId,data} = props ?? {};
+
+          return  requestOfficeUnitChangeOrder(propertyId,unitId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestOfficeUnitChangeOrderMutationResult = NonNullable<Awaited<ReturnType<typeof requestOfficeUnitChangeOrder>>>
+    export type RequestOfficeUnitChangeOrderMutationBody = BodyType<UnitChangeOrderInput>
+    export type RequestOfficeUnitChangeOrderMutationError = ErrorType<Error>
+
+    /**
+ * @summary Office-side mirror of the unit change-order request
+ */
+export const useRequestOfficeUnitChangeOrder = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOfficeUnitChangeOrder>>, TError,{propertyId: string;unitId: string;data: BodyType<UnitChangeOrderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestOfficeUnitChangeOrder>>,
+        TError,
+        {propertyId: string;unitId: string;data: BodyType<UnitChangeOrderInput>},
+        TContext
+      > => {
+      return useMutation(getRequestOfficeUnitChangeOrderMutationOptions(options));
     }
 
 export const getGetOfficeUnitSummaryUrl = (propertyId: string,

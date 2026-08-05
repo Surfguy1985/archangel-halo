@@ -1405,6 +1405,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /jobs/{id}/change-order/reopen:
+    post:
+      operationId: reopenJobChangeOrder
+      tags: [jobs]
+      summary: Clear a pending change order and put the job back into the flow with the same crew
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job reopened into its prior rail; crew alerted via portal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: No pending change order on this job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /jobs/{id}/line-items:
     post:
       operationId: addJobLineItem
@@ -2086,6 +2117,88 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /jobs/{id}/crew-pay:
+    post:
+      operationId: payJobCrewMember
+      tags: [jobs]
+      summary: Record crew pay for one member from the board billing card (books an approved labor expense)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewPayInput"
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /jobs/{id}/crew-pay/clear:
+    post:
+      operationId: clearJobCrewPay
+      tags: [jobs]
+      summary: Clear one crew member's pay-pending row; last clear sends the card to history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrewPayClearInput"
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already cleared
           content:
             application/json:
               schema:
@@ -8729,6 +8842,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /client/{token}/unit-map/units/{unitId}/change-order:
+    post:
+      operationId: requestUnitChangeOrder
+      tags: [admin]
+      summary: Client requests a change order on a unit's active job
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: unitId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnitChangeOrderInput"
+      responses:
+        "200":
+          description: Change order recorded; card moved to Requested on both boards
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Job already has a pending change order or is finished
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /client/{token}/unit-map/units/{unitId}/summary:
     get:
       operationId: getUnitSummary
@@ -9153,6 +9305,46 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /admin/accounts/{propertyId}/unit-map/units/{unitId}/change-order:
+    post:
+      security: [{ adminSession: [] }]
+      operationId: requestOfficeUnitChangeOrder
+      tags: [admin]
+      summary: Office-side mirror of the unit change-order request
+      parameters:
+        - name: propertyId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: unitId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnitChangeOrderInput"
+      responses:
+        "200":
+          description: Change order recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Job already has a pending change order or is finished
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /admin/accounts/{propertyId}/unit-map/units/{unitId}/summary:
     get:
       security: [{ adminSession: [] }]
@@ -11035,6 +11227,23 @@ components:
         isRecurring: { type: ["boolean", "null"] }
         recurrence: { type: ["string", "null"], description: "daily | weekly | biweekly | monthly | quarterly" }
         clientBudget: { type: ["number", "null"], description: "Client's stated budget carried from the accepted work request; invoice editors warn when the total exceeds it" }
+        changeOrderStatus: { type: ["string", "null"], description: "requested while a client change order awaits office review, else null" }
+        changeOrderReason: { type: ["string", "null"] }
+        changeOrderNote: { type: ["string", "null"] }
+        changeOrderAt: { type: ["string", "null"] }
+        crewPay:
+          anyOf:
+            - type: array
+              items:
+                $ref: "#/components/schemas/CrewPayEntry"
+            - type: "null"
+          description: "Board pay-flow tracker — one row per crew member paid from the billing card"
+        services:
+          anyOf:
+            - type: array
+              items: { type: string }
+            - type: "null"
+          description: "Distinct service names from the job's line items (job board only)"
         createdAt: { type: ["string", "null"] }
         lineItems:
           type: array
@@ -11205,6 +11414,10 @@ components:
       properties:
         job:
           $ref: "#/components/schemas/Job"
+        invoice:
+          anyOf:
+            - $ref: "#/components/schemas/JobBoardInvoiceInfo"
+            - type: "null"
         priceItems:
           type: array
           items:
@@ -11217,6 +11430,37 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/JobBroadcastInfo"
+    JobBoardInvoiceInfo:
+      type: object
+      required: [id, invoiceNo, total, status]
+      properties:
+        id: { type: string }
+        invoiceNo: { type: string }
+        total: { type: number }
+        status: { type: string }
+        paymentChoice: { type: ["string", "null"], description: "check | platform | null until the client picks" }
+        paymentChoicePlatform: { type: ["string", "null"] }
+        paidAt: { type: ["string", "null"] }
+    CrewPayEntry:
+      type: object
+      required: [crewId, name, amount]
+      properties:
+        crewId: { type: string }
+        name: { type: string }
+        amount: { type: number }
+        paidAt: { type: ["string", "null"] }
+        clearedAt: { type: ["string", "null"] }
+    CrewPayInput:
+      type: object
+      required: [crewId, amount]
+      properties:
+        crewId: { type: string }
+        amount: { type: number }
+    CrewPayClearInput:
+      type: object
+      required: [crewId]
+      properties:
+        crewId: { type: string }
     BroadcastInput:
       type: object
       required: [mode]
@@ -12431,6 +12675,7 @@ components:
         approvedAt: { type: ["string", "null"] }
         bankTxnId: { type: ["string", "null"] }
         bankTxnLabel: { type: ["string", "null"], description: "Human label of the matched bank transaction" }
+        unitNo: { type: ["string", "null"], description: "Unit number of the linked job, when the expense is tied to a job" }
     ExpenseInput:
       type: object
       required: [amount]
@@ -14726,6 +14971,7 @@ components:
           items: { type: string }
         stageIndex: { type: integer }
         status: { type: ["string", "null"] }
+        changeOrder: { type: ["boolean", "null"], description: "True while a client change order on this job awaits office review (banner on the card)" }
         unitNo: { type: ["string", "null"] }
         category: { type: ["string", "null"] }
         amount: { type: ["number", "null"] }
@@ -15151,6 +15397,32 @@ components:
           items: { type: string }
         openJobs: { type: number }
         openInvoices: { type: number }
+        card:
+          oneOf:
+            - $ref: "#/components/schemas/UnitCardInfo"
+            - type: "null"
+    UnitCardInfo:
+      type: object
+      required: [jobId, rail, title]
+      properties:
+        jobId: { type: string }
+        rail: { type: string, description: "Vendor board rail: requested | in_progress | done | billing | alert" }
+        title: { type: string }
+        scope: { type: ["string", "null"], description: "Scope of work summary" }
+        crewName: { type: ["string", "null"] }
+        services:
+          anyOf:
+            - type: array
+              items: { type: string }
+            - type: "null"
+        changeOrder: { type: boolean, description: "True while a change order on this unit's job awaits office review" }
+    UnitChangeOrderInput:
+      type: object
+      required: [jobId, reason]
+      properties:
+        jobId: { type: string }
+        reason: { type: string, description: "Selected change-order category" }
+        notes: { type: ["string", "null"] }
     UnitMapView:
       type: object
       required: [propertyName, imageUrl, canEdit, unitTarget, units]

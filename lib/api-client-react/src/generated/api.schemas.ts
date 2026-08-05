@@ -1670,6 +1670,16 @@ export interface PropertySummary {
   longitude?: number | null;
 }
 
+export interface CrewPayEntry {
+  crewId: string;
+  name: string;
+  amount: number;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  clearedAt?: string | null;
+}
+
 export interface JobLineItem {
   id: string;
   jobId: string;
@@ -1801,6 +1811,21 @@ export interface Job {
      * @nullable
      */
   clientBudget?: number | null;
+  /**
+     * requested while a client change order awaits office review, else null
+     * @nullable
+     */
+  changeOrderStatus?: string | null;
+  /** @nullable */
+  changeOrderReason?: string | null;
+  /** @nullable */
+  changeOrderNote?: string | null;
+  /** @nullable */
+  changeOrderAt?: string | null;
+  /** Board pay-flow tracker — one row per crew member paid from the billing card */
+  crewPay?: CrewPayEntry[] | null;
+  /** Distinct service names from the job's line items (job board only) */
+  services?: string[] | null;
   /** @nullable */
   createdAt?: string | null;
   lineItems?: JobLineItem[];
@@ -1845,6 +1870,11 @@ export interface Expense {
      * @nullable
      */
   bankTxnLabel?: string | null;
+  /**
+     * Unit number of the linked job, when the expense is tied to a job
+     * @nullable
+     */
+  unitNo?: string | null;
 }
 
 export interface Agreement {
@@ -2583,11 +2613,37 @@ export interface JobBroadcastInfo {
   respondedAt?: string | null;
 }
 
+export interface JobBoardInvoiceInfo {
+  id: string;
+  invoiceNo: string;
+  total: number;
+  status: string;
+  /**
+     * check | platform | null until the client picks
+     * @nullable
+     */
+  paymentChoice?: string | null;
+  /** @nullable */
+  paymentChoicePlatform?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+}
+
 export interface JobBoardCard {
   job: Job;
+  invoice?: JobBoardInvoiceInfo | null;
   priceItems: PriceItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];
+}
+
+export interface CrewPayInput {
+  crewId: string;
+  amount: number;
+}
+
+export interface CrewPayClearInput {
+  crewId: string;
 }
 
 export interface BroadcastInput {
@@ -6488,6 +6544,11 @@ export interface ClientBoardCardView {
   stageIndex: number;
   /** @nullable */
   status?: string | null;
+  /**
+     * True while a client change order on this job awaits office review (banner on the card)
+     * @nullable
+     */
+  changeOrder?: boolean | null;
   /** @nullable */
   unitNo?: string | null;
   /** @nullable */
@@ -6874,6 +6935,23 @@ export interface UnitBoxRec {
   h: number;
 }
 
+export interface UnitCardInfo {
+  jobId: string;
+  /** Vendor board rail: requested | in_progress | done | billing | alert */
+  rail: string;
+  title: string;
+  /**
+     * Scope of work summary
+     * @nullable
+     */
+  scope?: string | null;
+  /** @nullable */
+  crewName?: string | null;
+  services?: string[] | null;
+  /** True while a change order on this unit's job awaits office review */
+  changeOrder?: boolean;
+}
+
 export interface UnitStatusRec {
   id: string;
   label: string;
@@ -6886,6 +6964,15 @@ export interface UnitStatusRec {
   reasons: string[];
   openJobs: number;
   openInvoices: number;
+  card?: UnitCardInfo | null;
+}
+
+export interface UnitChangeOrderInput {
+  jobId: string;
+  /** Selected change-order category */
+  reason: string;
+  /** @nullable */
+  notes?: string | null;
 }
 
 export interface UnitMapView {

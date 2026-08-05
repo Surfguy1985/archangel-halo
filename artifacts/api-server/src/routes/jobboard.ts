@@ -10,7 +10,12 @@ import {
   propertiesTable,
   priceItemsTable,
   activitiesTable,
+  invoicesTable,
+  expensesTable,
+  jobLineItemsTable,
 } from "@workspace/db";
+import { syncExpenseLedger } from "../lib/ledger";
+import { recomputeJobFinancials } from "../lib/jobFinance";
 import {
   ListJobBoardResponse,
   BroadcastJobParams,
@@ -117,6 +122,13 @@ router.post("/jobs/:id/quality-check", qualityCheckLimit, async (req, res): Prom
       images,
     );
     const verdict = result.verdict === "pass" ? "pass" : "fail";
+    // Passing the AI check finishes the card — move it straight to Done.
+    if (verdict === "pass") {
+      await db
+        .update(jobsTable)
+        .set({ boardStatus: "completed" })
+        .where(eq(jobsTable.id, job.id));
+    }
     res.json({
       verdict,
       summary: result.summary || (verdict === "pass" ? "Work looks complete." : "Work needs a manual look."),
@@ -130,13 +142,15 @@ router.post("/jobs/:id/quality-check", qualityCheckLimit, async (req, res): Prom
 });
 
 router.get("/job-board", async (_req, res): Promise<void> => {
-  const [jobs, props, priceItems, broadcasts, crews, photoActs] =
+  const [jobs, props, priceItems, broadcasts, crews, invoices, lineItems, photoActs] =
     await Promise.all([
       db.select().from(jobsTable).orderBy(desc(jobsTable.createdAt)),
       db.select().from(propertiesTable),
       db.select().from(priceItemsTable),
       db.select().from(jobBroadcastsTable).orderBy(desc(jobBroadcastsTable.sentAt)),
       db.select().from(crewsTable),
+      db.select().from(invoicesTable).orderBy(desc(invoicesTable.createdAt)),
+      db.select().from(jobLineItemsTable),
       db
         .select()
         .from(activitiesTable)
@@ -160,6 +174,21 @@ router.get("/job-board", async (_req, res): Promise<void> => {
     list.push({ kind: a.kind, storagePath: a.storagePath });
     photosByJob.set(a.entityId, list);
   }
+  // Newest invoice per job — powers the billing-rail pay flow on the board.
+  const invoiceByJob = new Map<string, (typeof invoices)[number]>();
+  for (const inv of invoices) {
+    if (!inv.jobId || invoiceByJob.has(inv.jobId)) continue;
+    invoiceByJob.set(inv.jobId, inv);
+  }
+  // Distinct service names per job from its line items — the tile pill shows
+  // the exact work sold, not a generic category.
+  const servicesByJob = new Map<string, string[]>();
+  for (const li of lineItems) {
+    if (!li.service || li.service === "Quoted price") continue;
+    const list = servicesByJob.get(li.jobId) ?? [];
+    if (!list.includes(li.service)) list.push(li.service);
+    servicesByJob.set(li.jobId, list);
+  }
   const broadcastsByJob = new Map<string, typeof broadcasts>();
   for (const b of broadcasts) {
     const list = broadcastsByJob.get(b.jobId) ?? [];
@@ -179,7 +208,21 @@ router.get("/job-board", async (_req, res): Promise<void> => {
         crewLeaderName: j.crewLeaderId
           ? (crewsById.get(j.crewLeaderId)?.name ?? null)
           : null,
+        services: servicesByJob.get(j.id) ?? null,
       },
+      invoice: (() => {
+        const inv = invoiceByJob.get(j.id);
+        if (!inv) return null;
+        return {
+          id: inv.id,
+          invoiceNo: inv.invoiceNo,
+          total: inv.amount + (inv.taxAmount ?? 0),
+          status: inv.status,
+          paymentChoice: inv.paymentChoice ?? null,
+          paymentChoicePlatform: inv.paymentChoicePlatform ?? null,
+          paidAt: inv.paidAt ? inv.paidAt.toISOString() : null,
+        };
+      })(),
       priceItems: (priceByProp.get(j.propertyId) ?? []).map((pi) => ser(pi)),
       photos: photosByJob.get(j.id) ?? [],
       broadcasts: (broadcastsByJob.get(j.id) ?? [])
@@ -346,6 +389,188 @@ router.post("/jobs/:id/board-status", async (req, res): Promise<void> => {
     .where(eq(jobsTable.id, id))
     .returning();
   res.json(ser(updated));
+});
+
+// ---------------------------------------------------------------------------
+// Crew pay flow — office pays each crew member from the billing card, then
+// manually clears each "pay pending" row from the Alerts rail to history.
+// ---------------------------------------------------------------------------
+type CrewPayEntry = {
+  crewId: string;
+  name: string;
+  amount: number;
+  paidAt: string | null;
+  clearedAt: string | null;
+};
+
+function crewPayList(job: { crewPay: unknown }): CrewPayEntry[] {
+  return Array.isArray(job.crewPay) ? (job.crewPay as CrewPayEntry[]) : [];
+}
+
+/** Leader + active teammates for a job — the roster that has to be paid. */
+async function jobCrewRoster(job: { crewLeaderId: string | null }) {
+  if (!job.crewLeaderId) return [];
+  const crews = await db.select().from(crewsTable);
+  const leader = crews.find((c) => c.id === job.crewLeaderId);
+  if (!leader) return [];
+  const team = crews.filter(
+    (c) => c.leaderId === leader.id && c.active !== false,
+  );
+  return [leader, ...team];
+}
+
+router.post("/jobs/:id/crew-pay", async (req, res): Promise<void> => {
+  try {
+    const id = String(req.params.id);
+    const crewId = String(req.body?.crewId ?? "");
+    const amount = Number(req.body?.amount);
+    if (!crewId || !Number.isFinite(amount) || amount <= 0) {
+      res.status(400).json({ error: "crewId and a positive amount are required" });
+      return;
+    }
+    // Transactional with a row lock so two concurrent pays for the same crew
+    // member can't both pass the "already paid" check and double-book money.
+    const result = await db.transaction(async (tx) => {
+      const [job] = await tx
+        .select()
+        .from(jobsTable)
+        .where(eq(jobsTable.id, id))
+        .for("update");
+      if (!job) return { status: 404 as const, error: "Job not found" };
+      // Cash-control: crews get paid out of the client's payment. The linked
+      // invoice must actually be paid before any crew payout goes out.
+      if (job.id) {
+        const [inv] = await tx
+          .select()
+          .from(invoicesTable)
+          .where(eq(invoicesTable.jobId, job.id))
+          .orderBy(desc(invoicesTable.createdAt))
+          .limit(1);
+        if (!inv) return { status: 409 as const, error: "No invoice on this job yet — create and collect it first" };
+        if (inv.status !== "paid" && !inv.paidAt) {
+          return { status: 409 as const, error: "Client payment hasn't been received yet — mark the invoice paid first" };
+        }
+      }
+      const roster = await jobCrewRoster(job);
+      const crew = roster.find((c) => c.id === crewId);
+      if (!crew) return { status: 400 as const, error: "That crew member is not on this job" };
+      const entries = crewPayList(job);
+      if (entries.find((e) => e.crewId === crewId && e.paidAt)) {
+        return { status: 409 as const, error: `${crew.name} is already marked paid` };
+      }
+      // Crew pay lands on the books as an approved labor expense — job
+      // financials and the ledger pick it up like any other crew cost.
+      const [exp] = await tx
+        .insert(expensesTable)
+        .values({
+          jobId: job.id,
+          propertyId: job.propertyId,
+          vendor: crew.name,
+          category: "crew labor",
+          amount: Math.round(amount * 100) / 100,
+          source: "job_board_pay",
+          paymentStatus: "paid",
+          paidAt: new Date(),
+          approvalStatus: "approved",
+          approvedAt: new Date(),
+        })
+        .returning();
+      const next = entries.filter((e) => e.crewId !== crewId);
+      next.push({
+        crewId,
+        name: crew.name,
+        amount: Math.round(amount * 100) / 100,
+        paidAt: new Date().toISOString(),
+        clearedAt: null,
+      });
+      // Every roster member paid → the card moves to Alerts until each row is
+      // manually cleared.
+      const allPaid = roster.every((c) =>
+        next.find((e) => e.crewId === c.id && e.paidAt),
+      );
+      const [updated] = await tx
+        .update(jobsTable)
+        .set({ crewPay: next, ...(allPaid ? { boardStatus: "pay_alert" } : {}) })
+        .where(eq(jobsTable.id, job.id))
+        .returning();
+      await tx.insert(activitiesTable).values({
+        entityType: "job",
+        entityId: job.id,
+        kind: "note",
+        body: `Crew pay recorded — ${crew.name} paid ${amount.toLocaleString("en-US", { style: "currency", currency: "USD" })} for Job ${job.jobNo}`,
+      });
+      return { status: 200 as const, updated, expenseId: exp.id };
+    });
+    if (result.status !== 200) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+    // Derived books after the durable state change — safe to re-run if a
+    // retry hits, both are idempotent rebuild-style syncs.
+    await syncExpenseLedger(result.expenseId);
+    await recomputeJobFinancials(id);
+    res.json(ser(result.updated));
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message || "Crew pay failed" });
+  }
+});
+
+router.post("/jobs/:id/crew-pay/clear", async (req, res): Promise<void> => {
+  try {
+    const id = String(req.params.id);
+    const crewId = String(req.body?.crewId ?? "");
+    // Same lock discipline as crew-pay: concurrent clears must not race the
+    // "all cleared → removed" transition or double-fire the history snapshot.
+    const result = await db.transaction(async (tx) => {
+      const [job] = await tx
+        .select()
+        .from(jobsTable)
+        .where(eq(jobsTable.id, id))
+        .for("update");
+      if (!job) return { status: 404 as const, error: "Job not found" };
+      const entries = crewPayList(job);
+      const entry = entries.find((e) => e.crewId === crewId && e.paidAt);
+      if (!entry) return { status: 400 as const, error: "That crew member has not been paid yet" };
+      if (entry.clearedAt) return { status: 409 as const, error: "Already cleared" };
+      entry.clearedAt = new Date().toISOString();
+      const roster = await jobCrewRoster(job);
+      const allCleared =
+        roster.length > 0 &&
+        roster.every((c) =>
+          entries.find((e) => e.crewId === c.id && e.paidAt && e.clearedAt),
+        );
+      const [updated] = await tx
+        .update(jobsTable)
+        .set({
+          crewPay: entries,
+          // Last clear sends the card to history — off the board for good.
+          ...(allCleared
+            ? { boardStatus: "removed", clearedAt: new Date() }
+            : {}),
+        })
+        .where(eq(jobsTable.id, job.id))
+        .returning();
+      if (allCleared) {
+        const totals = entries
+          .map((e) => `${e.name} ${e.amount.toLocaleString("en-US", { style: "currency", currency: "USD" })}`)
+          .join(", ");
+        await tx.insert(activitiesTable).values({
+          entityType: "job",
+          entityId: job.id,
+          kind: "note",
+          body: `Job ${job.jobNo} cleared to history — crew pay settled (${totals})`,
+        });
+      }
+      return { status: 200 as const, updated };
+    });
+    if (result.status !== 200) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+    res.json(ser(result.updated));
+  } catch (e) {
+    res.status(500).json({ error: (e as Error).message || "Clear failed" });
+  }
 });
 
 router.post("/jobs/:id/board-settings", async (req, res): Promise<void> => {

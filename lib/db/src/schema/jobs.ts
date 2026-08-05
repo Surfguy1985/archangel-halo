@@ -93,6 +93,19 @@ export const jobsTable = pgTable("jobs", {
   // Client's stated budget carried over from the accepted work request; the
   // invoice editors warn when an invoice total exceeds it.
   clientBudget: doublePrecision("client_budget"),
+  // Client-initiated change order: while status is "requested" the card sits
+  // in the Requested rail on BOTH boards with a "Change order" banner until
+  // the office reviews upcharges and reopens it back into the flow.
+  changeOrderStatus: text("change_order_status"), // "requested" | null
+  changeOrderReason: text("change_order_reason"),
+  changeOrderNote: text("change_order_note"),
+  changeOrderAt: timestamp("change_order_at", { withTimezone: true }),
+  // Board status to restore when the office reopens the card.
+  changeOrderPrevBoardStatus: text("change_order_prev_board_status"),
+  // Crew payout tracker for the board pay flow: array of
+  // { crewId, name, amount, paidAt, clearedAt } — office pays each member,
+  // then manually clears each row; all cleared → card leaves the board.
+  crewPay: jsonb("crew_pay"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

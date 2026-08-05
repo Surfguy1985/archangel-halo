@@ -269,6 +269,18 @@ export const GetPropertyResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -298,7 +310,8 @@ export const GetPropertyResponse = zod.object({
   "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
   "approvedAt": zod.string().nullish(),
   "bankTxnId": zod.string().nullish(),
-  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction'),
+  "unitNo": zod.string().nullish().describe('Unit number of the linked job, when the expense is tied to a job')
 })),
   "agreements": zod.array(zod.object({
   "id": zod.string(),
@@ -1358,6 +1371,18 @@ export const QuickCreateJobResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1425,6 +1450,18 @@ export const PullCrewToJobResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1477,6 +1514,18 @@ export const PullCrewToJobResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1537,6 +1586,18 @@ export const ListJobsResponseItem = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1613,6 +1674,18 @@ export const CreateJobResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1672,6 +1745,18 @@ export const GetJobResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1710,7 +1795,8 @@ export const GetJobResponse = zod.object({
   "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
   "approvedAt": zod.string().nullish(),
   "bankTxnId": zod.string().nullish(),
-  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction'),
+  "unitNo": zod.string().nullish().describe('Unit number of the linked job, when the expense is tied to a job')
 })),
   "schedules": zod.array(zod.object({
   "id": zod.string(),
@@ -1797,6 +1883,18 @@ export const UpdateJobResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1870,6 +1968,18 @@ export const CompleteJobResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1931,6 +2041,18 @@ export const ClearJobResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -1992,6 +2114,18 @@ export const RestartJobResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -2059,6 +2193,18 @@ export const ScheduleJobResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -2126,6 +2272,18 @@ export const DispatchJobResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -2310,6 +2468,79 @@ export const UpdateDispatchChecklistResponse = zod.object({
 
 
 /**
+ * @summary Clear a pending change order and put the job back into the flow with the same crew
+ */
+export const ReopenJobChangeOrderParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ReopenJobChangeOrderResponse = zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "woNo": zod.string().nullish(),
+  "propertyId": zod.string().optional(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "crewLeaderId": zod.string().nullish(),
+  "crewLeaderName": zod.string().nullish(),
+  "bidId": zod.string().nullish(),
+  "contactId": zod.string().nullish(),
+  "inspectionRequired": zod.boolean().nullish(),
+  "inspectionPassedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
+  "recapSentAt": zod.string().nullish(),
+  "warrantyUntil": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
+  "grossProfit": zod.number().nullish(),
+  "marginPct": zod.number().nullish(),
+  "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
+  "invoicedTotal": zod.number().nullish().describe('Sum of non-draft invoices attached to this job (property detail only)'),
+  "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
+  "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "scheduleType": zod.string().nullish().describe('scheduled (crew commits to set days\/hours) | flex (crew works on own time before flexDueBy)'),
+  "flexDueBy": zod.string().nullish().describe('YYYY-MM-DD deadline for flex jobs, set at broadcast time'),
+  "crewsNeeded": zod.number().nullish().describe('Crew slots for this broadcasted job'),
+  "crewsFilled": zod.number().nullish().describe('Approved crew count so far'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
+})
+
+
+/**
  * @summary Attach a price-list item to a job (retail-style line item)
  */
 export const AddJobLineItemParams = zod.object({
@@ -2441,6 +2672,18 @@ export const SendJobRecapResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -2922,6 +3165,18 @@ export const ListJobBoardResponseItem = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -2935,6 +3190,15 @@ export const ListJobBoardResponseItem = zod.object({
 })).optional(),
   "lineTotal": zod.number().nullish()
 }),
+  "invoice": zod.union([zod.object({
+  "id": zod.string(),
+  "invoiceNo": zod.string(),
+  "total": zod.number(),
+  "status": zod.string(),
+  "paymentChoice": zod.string().nullish().describe('check | platform | null until the client picks'),
+  "paymentChoicePlatform": zod.string().nullish(),
+  "paidAt": zod.string().nullish()
+}),zod.null()]).optional(),
   "priceItems": zod.array(zod.object({
   "id": zod.string(),
   "propertyId": zod.string(),
@@ -3013,6 +3277,161 @@ export const QualityCheckJobResponse = zod.object({
 
 
 /**
+ * @summary Record crew pay for one member from the board billing card (books an approved labor expense)
+ */
+export const PayJobCrewMemberParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const PayJobCrewMemberBody = zod.object({
+  "crewId": zod.string(),
+  "amount": zod.number()
+})
+
+export const PayJobCrewMemberResponse = zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "woNo": zod.string().nullish(),
+  "propertyId": zod.string().optional(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "crewLeaderId": zod.string().nullish(),
+  "crewLeaderName": zod.string().nullish(),
+  "bidId": zod.string().nullish(),
+  "contactId": zod.string().nullish(),
+  "inspectionRequired": zod.boolean().nullish(),
+  "inspectionPassedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
+  "recapSentAt": zod.string().nullish(),
+  "warrantyUntil": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
+  "grossProfit": zod.number().nullish(),
+  "marginPct": zod.number().nullish(),
+  "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
+  "invoicedTotal": zod.number().nullish().describe('Sum of non-draft invoices attached to this job (property detail only)'),
+  "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
+  "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "scheduleType": zod.string().nullish().describe('scheduled (crew commits to set days\/hours) | flex (crew works on own time before flexDueBy)'),
+  "flexDueBy": zod.string().nullish().describe('YYYY-MM-DD deadline for flex jobs, set at broadcast time'),
+  "crewsNeeded": zod.number().nullish().describe('Crew slots for this broadcasted job'),
+  "crewsFilled": zod.number().nullish().describe('Approved crew count so far'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
+})
+
+
+/**
+ * @summary Clear one crew member's pay-pending row; last clear sends the card to history
+ */
+export const ClearJobCrewPayParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ClearJobCrewPayBody = zod.object({
+  "crewId": zod.string()
+})
+
+export const ClearJobCrewPayResponse = zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "woNo": zod.string().nullish(),
+  "propertyId": zod.string().optional(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "crewLeaderId": zod.string().nullish(),
+  "crewLeaderName": zod.string().nullish(),
+  "bidId": zod.string().nullish(),
+  "contactId": zod.string().nullish(),
+  "inspectionRequired": zod.boolean().nullish(),
+  "inspectionPassedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
+  "recapSentAt": zod.string().nullish(),
+  "warrantyUntil": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
+  "grossProfit": zod.number().nullish(),
+  "marginPct": zod.number().nullish(),
+  "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
+  "invoicedTotal": zod.number().nullish().describe('Sum of non-draft invoices attached to this job (property detail only)'),
+  "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
+  "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "scheduleType": zod.string().nullish().describe('scheduled (crew commits to set days\/hours) | flex (crew works on own time before flexDueBy)'),
+  "flexDueBy": zod.string().nullish().describe('YYYY-MM-DD deadline for flex jobs, set at broadcast time'),
+  "crewsNeeded": zod.number().nullish().describe('Crew slots for this broadcasted job'),
+  "crewsFilled": zod.number().nullish().describe('Approved crew count so far'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
+})
+
+
+/**
  * @summary Move a board card between rails (manual_check flags it for Alerts; completed sends it to Done)
  */
 export const SetJobBoardStatusParams = zod.object({
@@ -3062,6 +3481,18 @@ export const SetJobBoardStatusResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -3129,6 +3560,18 @@ export const UpdateBoardSettingsResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -3190,6 +3633,18 @@ export const ReopenJobResponse = zod.object({
   "isRecurring": zod.boolean().nullish(),
   "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
   "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "changeOrderStatus": zod.string().nullish().describe('requested while a client change order awaits office review, else null'),
+  "changeOrderReason": zod.string().nullish(),
+  "changeOrderNote": zod.string().nullish(),
+  "changeOrderAt": zod.string().nullish(),
+  "crewPay": zod.union([zod.array(zod.object({
+  "crewId": zod.string(),
+  "name": zod.string(),
+  "amount": zod.number(),
+  "paidAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish()
+})),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -4572,7 +5027,8 @@ export const ListExpensesResponseItem = zod.object({
   "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
   "approvedAt": zod.string().nullish(),
   "bankTxnId": zod.string().nullish(),
-  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction'),
+  "unitNo": zod.string().nullish().describe('Unit number of the linked job, when the expense is tied to a job')
 })
 export const ListExpensesResponse = zod.array(ListExpensesResponseItem)
 
@@ -4607,7 +5063,8 @@ export const CreateExpenseResponse = zod.object({
   "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
   "approvedAt": zod.string().nullish(),
   "bankTxnId": zod.string().nullish(),
-  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction'),
+  "unitNo": zod.string().nullish().describe('Unit number of the linked job, when the expense is tied to a job')
 })
 
 
@@ -4634,7 +5091,8 @@ export const ApproveExpenseResponse = zod.object({
   "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
   "approvedAt": zod.string().nullish(),
   "bankTxnId": zod.string().nullish(),
-  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction'),
+  "unitNo": zod.string().nullish().describe('Unit number of the linked job, when the expense is tied to a job')
 })
 
 
@@ -4661,7 +5119,8 @@ export const RejectExpenseResponse = zod.object({
   "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
   "approvedAt": zod.string().nullish(),
   "bankTxnId": zod.string().nullish(),
-  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction'),
+  "unitNo": zod.string().nullish().describe('Unit number of the linked job, when the expense is tied to a job')
 })
 
 
@@ -4688,7 +5147,8 @@ export const PayExpenseBillResponse = zod.object({
   "approvalStatus": zod.string().optional().describe('approved, pending, or rejected'),
   "approvedAt": zod.string().nullish(),
   "bankTxnId": zod.string().nullish(),
-  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction')
+  "bankTxnLabel": zod.string().nullish().describe('Human label of the matched bank transaction'),
+  "unitNo": zod.string().nullish().describe('Unit number of the linked job, when the expense is tied to a job')
 })
 
 
@@ -11114,6 +11574,7 @@ export const GetClientBoardResponse = zod.object({
   "pipeline": zod.array(zod.string()),
   "stageIndex": zod.number(),
   "status": zod.string().nullish(),
+  "changeOrder": zod.boolean().nullish().describe('True while a client change order on this job awaits office review (banner on the card)'),
   "unitNo": zod.string().nullish(),
   "category": zod.string().nullish(),
   "amount": zod.number().nullish(),
@@ -11223,6 +11684,7 @@ export const GetClientPmBoardResponse = zod.object({
   "pipeline": zod.array(zod.string()),
   "stageIndex": zod.number(),
   "status": zod.string().nullish(),
+  "changeOrder": zod.boolean().nullish().describe('True while a client change order on this job awaits office review (banner on the card)'),
   "unitNo": zod.string().nullish(),
   "category": zod.string().nullish(),
   "amount": zod.number().nullish(),
@@ -11335,6 +11797,7 @@ export const GetOfficeBoardFullResponse = zod.object({
   "pipeline": zod.array(zod.string()),
   "stageIndex": zod.number(),
   "status": zod.string().nullish(),
+  "changeOrder": zod.boolean().nullish().describe('True while a client change order on this job awaits office review (banner on the card)'),
   "unitNo": zod.string().nullish(),
   "category": zod.string().nullish(),
   "amount": zod.number().nullish(),
@@ -11864,7 +12327,16 @@ export const GetUnitMapResponse = zod.object({
   "status": zod.string().describe('red | yellow | green'),
   "reasons": zod.array(zod.string()),
   "openJobs": zod.number(),
-  "openInvoices": zod.number()
+  "openInvoices": zod.number(),
+  "card": zod.union([zod.object({
+  "jobId": zod.string(),
+  "rail": zod.string().describe('Vendor board rail: requested | in_progress | done | billing | alert'),
+  "title": zod.string(),
+  "scope": zod.string().nullish().describe('Scope of work summary'),
+  "crewName": zod.string().nullish(),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "changeOrder": zod.boolean().optional().describe('True while a change order on this unit\'s job awaits office review')
+}),zod.null()]).optional()
 }))
 })
 
@@ -11900,7 +12372,16 @@ export const UploadUnitMapImageResponse = zod.object({
   "status": zod.string().describe('red | yellow | green'),
   "reasons": zod.array(zod.string()),
   "openJobs": zod.number(),
-  "openInvoices": zod.number()
+  "openInvoices": zod.number(),
+  "card": zod.union([zod.object({
+  "jobId": zod.string(),
+  "rail": zod.string().describe('Vendor board rail: requested | in_progress | done | billing | alert'),
+  "title": zod.string(),
+  "scope": zod.string().nullish().describe('Scope of work summary'),
+  "crewName": zod.string().nullish(),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "changeOrder": zod.boolean().optional().describe('True while a change order on this unit\'s job awaits office review')
+}),zod.null()]).optional()
 }))
 })
 
@@ -11936,7 +12417,16 @@ export const GenerateUnitGridResponse = zod.object({
   "status": zod.string().describe('red | yellow | green'),
   "reasons": zod.array(zod.string()),
   "openJobs": zod.number(),
-  "openInvoices": zod.number()
+  "openInvoices": zod.number(),
+  "card": zod.union([zod.object({
+  "jobId": zod.string(),
+  "rail": zod.string().describe('Vendor board rail: requested | in_progress | done | billing | alert'),
+  "title": zod.string(),
+  "scope": zod.string().nullish().describe('Scope of work summary'),
+  "crewName": zod.string().nullish(),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "changeOrder": zod.boolean().optional().describe('True while a change order on this unit\'s job awaits office review')
+}),zod.null()]).optional()
 }))
 })
 
@@ -12001,6 +12491,25 @@ export const DeleteUnitBoxParams = zod.object({
 })
 
 export const DeleteUnitBoxResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Client requests a change order on a unit's active job
+ */
+export const RequestUnitChangeOrderParams = zod.object({
+  "token": zod.coerce.string(),
+  "unitId": zod.coerce.string()
+})
+
+export const RequestUnitChangeOrderBody = zod.object({
+  "jobId": zod.string(),
+  "reason": zod.string().describe('Selected change-order category'),
+  "notes": zod.string().nullish()
+})
+
+export const RequestUnitChangeOrderResponse = zod.object({
   "ok": zod.boolean()
 })
 
@@ -12177,7 +12686,16 @@ export const GetOfficeUnitMapResponse = zod.object({
   "status": zod.string().describe('red | yellow | green'),
   "reasons": zod.array(zod.string()),
   "openJobs": zod.number(),
-  "openInvoices": zod.number()
+  "openInvoices": zod.number(),
+  "card": zod.union([zod.object({
+  "jobId": zod.string(),
+  "rail": zod.string().describe('Vendor board rail: requested | in_progress | done | billing | alert'),
+  "title": zod.string(),
+  "scope": zod.string().nullish().describe('Scope of work summary'),
+  "crewName": zod.string().nullish(),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "changeOrder": zod.boolean().optional().describe('True while a change order on this unit\'s job awaits office review')
+}),zod.null()]).optional()
 }))
 })
 
@@ -12213,7 +12731,16 @@ export const OfficeUploadUnitMapImageResponse = zod.object({
   "status": zod.string().describe('red | yellow | green'),
   "reasons": zod.array(zod.string()),
   "openJobs": zod.number(),
-  "openInvoices": zod.number()
+  "openInvoices": zod.number(),
+  "card": zod.union([zod.object({
+  "jobId": zod.string(),
+  "rail": zod.string().describe('Vendor board rail: requested | in_progress | done | billing | alert'),
+  "title": zod.string(),
+  "scope": zod.string().nullish().describe('Scope of work summary'),
+  "crewName": zod.string().nullish(),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "changeOrder": zod.boolean().optional().describe('True while a change order on this unit\'s job awaits office review')
+}),zod.null()]).optional()
 }))
 })
 
@@ -12249,7 +12776,16 @@ export const OfficeGenerateUnitGridResponse = zod.object({
   "status": zod.string().describe('red | yellow | green'),
   "reasons": zod.array(zod.string()),
   "openJobs": zod.number(),
-  "openInvoices": zod.number()
+  "openInvoices": zod.number(),
+  "card": zod.union([zod.object({
+  "jobId": zod.string(),
+  "rail": zod.string().describe('Vendor board rail: requested | in_progress | done | billing | alert'),
+  "title": zod.string(),
+  "scope": zod.string().nullish().describe('Scope of work summary'),
+  "crewName": zod.string().nullish(),
+  "services": zod.union([zod.array(zod.string()),zod.null()]).optional(),
+  "changeOrder": zod.boolean().optional().describe('True while a change order on this unit\'s job awaits office review')
+}),zod.null()]).optional()
 }))
 })
 
@@ -12314,6 +12850,25 @@ export const OfficeDeleteUnitBoxParams = zod.object({
 })
 
 export const OfficeDeleteUnitBoxResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Office-side mirror of the unit change-order request
+ */
+export const RequestOfficeUnitChangeOrderParams = zod.object({
+  "propertyId": zod.coerce.string(),
+  "unitId": zod.coerce.string()
+})
+
+export const RequestOfficeUnitChangeOrderBody = zod.object({
+  "jobId": zod.string(),
+  "reason": zod.string().describe('Selected change-order category'),
+  "notes": zod.string().nullish()
+})
+
+export const RequestOfficeUnitChangeOrderResponse = zod.object({
   "ok": zod.boolean()
 })
 

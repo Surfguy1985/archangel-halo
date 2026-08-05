@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import {
   db,
   clientAccountsTable,
@@ -8,6 +8,7 @@ import {
   propertyUnitsTable,
   clientHubItemsTable,
   jobsTable,
+  jobLineItemsTable,
   crewsTable,
   crewCheckinsTable,
   crewPhotosTable,
@@ -36,6 +37,7 @@ import {
   UpdateHubItemBody,
   ContactMaintenanceBody,
   ContactMaintenanceResponse,
+  RequestUnitChangeOrderBody,
 } from "@workspace/api-zod";
 import { resolveViewer, requireWriter, type Viewer } from "./clientBoard";
 import { completeText, completeJsonWithImage } from "../lib/ai";
@@ -135,6 +137,19 @@ type UnitStatus = {
 };
 
 const OPEN_JOB = (j: Job) => j.status !== "cancelled" && j.status !== "complete" && !j.clearedAt && !j.completedAt;
+
+// Vendor-board rail for a job — MUST mirror jobRail() in the desktop Job
+// Board so the client site map shows the same color/stage as the office.
+export function vendorRail(j: Job): "requested" | "in_progress" | "done" | "billing" | "alert" {
+  if (j.changeOrderStatus === "requested") return "requested";
+  const board = j.boardStatus || "active";
+  if (board === "manual_check" || board === "pay_alert" || board === "reopened") return "alert";
+  if (board === "billing") return "billing";
+  if (j.status === "complete" || j.status === "paid") return "billing";
+  if (board === "completed") return "done";
+  if (board === "filled") return "in_progress";
+  return "requested";
+}
 
 export async function computeUnitStatuses(
   propertyId: string,
@@ -242,8 +257,72 @@ export async function computeUnitStatuses(
 
 const UNIT_TEMPLATE_SLOTS = 50;
 
+/**
+ * Newest live job per normalized unit key, plus display info for the site
+ * map card: vendor rail, scope, crew, services, change-order flag.
+ */
+async function unitCardsByKey(propertyId: string) {
+  const jobs = await db
+    .select()
+    .from(jobsTable)
+    .where(eq(jobsTable.propertyId, propertyId))
+    .orderBy(desc(jobsTable.createdAt));
+  const live = jobs.filter((j) => j.status !== "cancelled" && !j.clearedAt && j.unitNo);
+  const byKey = new Map<string, Job>();
+  for (const j of live) {
+    const key = normUnit(j.unitNo);
+    if (!key) continue;
+    const cur = byKey.get(key);
+    // Newest first; a pending change order always wins the slot.
+    if (!cur || (j.changeOrderStatus === "requested" && cur.changeOrderStatus !== "requested")) {
+      if (!cur || cur.changeOrderStatus !== "requested") byKey.set(key, j);
+    }
+  }
+  const picked = [...byKey.values()];
+  const crewIds = [...new Set(picked.map((j) => j.crewLeaderId).filter((x): x is string => !!x))];
+  const jobIds = picked.map((j) => j.id);
+  const [crews, lineItems] = await Promise.all([
+    crewIds.length ? db.select().from(crewsTable).where(inArray(crewsTable.id, crewIds)) : Promise.resolve([]),
+    jobIds.length
+      ? db.select().from(jobLineItemsTable).where(inArray(jobLineItemsTable.jobId, jobIds))
+      : Promise.resolve([]),
+  ]);
+  const crewName = new Map(crews.map((c) => [c.id, c.name]));
+  const servicesByJob = new Map<string, string[]>();
+  for (const li of lineItems) {
+    if (!li.service || li.service === "Quoted price") continue;
+    const arr = servicesByJob.get(li.jobId) ?? [];
+    if (!arr.includes(li.service)) arr.push(li.service);
+    servicesByJob.set(li.jobId, arr);
+  }
+  const cards = new Map<
+    string,
+    {
+      jobId: string;
+      rail: string;
+      title: string;
+      scope: string | null;
+      crewName: string | null;
+      services: string[] | null;
+      changeOrder: boolean;
+    }
+  >();
+  for (const [key, j] of byKey) {
+    cards.set(key, {
+      jobId: j.id,
+      rail: vendorRail(j),
+      title: j.description || `${j.category ?? "Job"} ${j.jobNo}`,
+      scope: j.description ?? null,
+      crewName: j.crewLeaderId ? (crewName.get(j.crewLeaderId) ?? null) : null,
+      services: servicesByJob.get(j.id) ?? null,
+      changeOrder: j.changeOrderStatus === "requested",
+    });
+  }
+  return cards;
+}
+
 async function unitMapView(propertyId: string, viewer: Viewer, extracted?: number) {
-  const [[prop], [map], unitsInitial, { byUnit: statuses, display }] = await Promise.all([
+  const [[prop], [map], unitsInitial, { byUnit: statuses, display }, unitCards] = await Promise.all([
     db.select().from(propertiesTable).where(eq(propertiesTable.id, propertyId)).limit(1),
     db.select().from(propertyMapsTable).where(eq(propertyMapsTable.propertyId, propertyId)).limit(1),
     db
@@ -252,6 +331,7 @@ async function unitMapView(propertyId: string, viewer: Viewer, extracted?: numbe
       .where(eq(propertyUnitsTable.propertyId, propertyId))
       .orderBy(asc(propertyUnitsTable.label)),
     computeUnitStatuses(propertyId),
+    unitCardsByKey(propertyId),
   ]);
 
   // Materialize units that only exist in HALO data (jobs, requests, invoices)
@@ -302,6 +382,7 @@ async function unitMapView(propertyId: string, viewer: Viewer, extracted?: numbe
         reasons: s?.reasons ?? [],
         openJobs: s?.openJobs ?? 0,
         openInvoices: s?.openInvoices ?? 0,
+        card: unitCards.get(normUnit(u.label)) ?? null,
       };
     }),
   };
@@ -961,6 +1042,91 @@ router.post("/client/:token/hub/contact-maintenance", async (req, res): Promise<
 });
 
 // ---------------------------------------------------------------------------
+// Change order — client asks for a scope change on a unit's active job. The
+// card moves to Requested on BOTH boards (change-order banner) until the
+// office reviews upcharges and reopens it back into the flow.
+// ---------------------------------------------------------------------------
+async function handleUnitChangeOrder(req: Request, res: Response): Promise<void> {
+  const scope = await resolveScope(req, res);
+  if (!scope) return;
+  if (denyIfReadOnly(scope.viewer, res)) return;
+  const body = RequestUnitChangeOrderBody.parse(req.body);
+  const [unit] = await db
+    .select()
+    .from(propertyUnitsTable)
+    .where(
+      and(
+        eq(propertyUnitsTable.id, String(req.params.unitId)),
+        eq(propertyUnitsTable.propertyId, scope.propertyId),
+      ),
+    )
+    .limit(1);
+  if (!unit) {
+    res.status(404).json({ error: "Unit not found" });
+    return;
+  }
+  const [job] = await db
+    .select()
+    .from(jobsTable)
+    .where(and(eq(jobsTable.id, body.jobId), eq(jobsTable.propertyId, scope.propertyId)))
+    .limit(1);
+  if (!job || normUnit(job.unitNo) !== normUnit(unit.label)) {
+    res.status(404).json({ error: "Job not found for this unit" });
+    return;
+  }
+  if (job.changeOrderStatus === "requested") {
+    res.status(409).json({ error: "A change order is already awaiting review on this job" });
+    return;
+  }
+  if (job.status === "cancelled" || job.clearedAt) {
+    res.status(409).json({ error: "This job is closed — request new work instead" });
+    return;
+  }
+  // Only the unit's CURRENT live job (the one shown on the site map card)
+  // can take a change order — stale/older jobIds are rejected.
+  const liveCards = await unitCardsByKey(scope.propertyId);
+  if (liveCards.get(normUnit(unit.label))?.jobId !== job.id) {
+    res.status(409).json({ error: "This isn't the unit's current job — refresh and try again" });
+    return;
+  }
+  // Guarded flip: only one change order can claim the job.
+  const [updated] = await db
+    .update(jobsTable)
+    .set({
+      changeOrderStatus: "requested",
+      changeOrderReason: body.reason,
+      changeOrderNote: body.notes ?? null,
+      changeOrderAt: new Date(),
+      changeOrderPrevBoardStatus: job.boardStatus,
+    })
+    .where(and(eq(jobsTable.id, job.id), isNull(jobsTable.changeOrderStatus)))
+    .returning();
+  if (!updated) {
+    res.status(409).json({ error: "A change order is already awaiting review on this job" });
+    return;
+  }
+  // Side effects must never 500 a committed change.
+  try {
+    await db.insert(notificationsTable).values({
+      kind: "client_dashboard",
+      title: `Change order — ${unit.label}`,
+      body: `${scope.viewer.name ?? "Client"} requested: ${body.reason}${body.notes ? ` — ${body.notes}` : ""} (Job ${job.jobNo})`,
+      entityType: "job",
+      entityId: job.id,
+    });
+    await db.insert(activitiesTable).values({
+      entityType: "job",
+      entityId: job.id,
+      kind: "change_order_requested",
+      body: `Change order requested on ${unit.label} (${body.reason}) — Job ${job.jobNo}`,
+    });
+  } catch (e) {
+    console.error("change-order side effects failed", e);
+  }
+  res.json({ ok: true });
+}
+
+// ---------------------------------------------------------------------------
 // Route registration — same handlers on the client (token) and office
 // (propertyId) mounts. Office writes are open by the app's no-auth posture,
 // matching every other /admin route.
@@ -973,6 +1139,7 @@ for (const base of ["/client/:token", "/admin/accounts/:propertyId"]) {
   router.patch(`${base}/unit-map/units/:unitId`, handleUpdateUnit);
   router.delete(`${base}/unit-map/units/:unitId`, handleDeleteUnit);
   router.get(`${base}/unit-map/units/:unitId/summary`, handleUnitSummary);
+  router.post(`${base}/unit-map/units/:unitId/change-order`, handleUnitChangeOrder);
   router.get(`${base}/hub`, handleGetHub);
   router.post(`${base}/hub/items`, handleCreateHubItem);
   router.patch(`${base}/hub/items/:itemId`, handleUpdateHubItem);

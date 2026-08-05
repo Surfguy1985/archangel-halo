@@ -551,6 +551,11 @@ function Expenses() {
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-[var(--ink)] truncate flex items-center gap-1.5">
                     {e.vendor || e.category || "Expense"}
+                    {e.unitNo && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--ink)]/8 text-[var(--ink)] shrink-0" data-testid={`expense-unit-${e.id}`}>
+                        Unit {e.unitNo}
+                      </span>
+                    )}
                     {e.receiptPath && (
                       <a
                         href={`/api/storage${e.receiptPath}`}

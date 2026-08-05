@@ -19,8 +19,32 @@ export const RAIL_ORDER: Array<{ key: RailKey; label: string; empty: string }> =
   { key: 'needs_you', label: 'Alerts', empty: 'No alerts — you\u2019re all caught up' },
 ];
 
+/** Preset stage artwork served by the API — same image for every card on a
+ *  rail; used whenever a card has no photo of its own. Absolute /api path so
+ *  every base-pathed app resolves it identically. */
+export const RAIL_STAGE_ART: Record<RailKey, string> = {
+  requested: '/api/rails-art/requested.jpg',
+  in_progress: '/api/rails-art/in_progress.jpg',
+  done: '/api/rails-art/done.jpg',
+  paid: '/api/rails-art/billing.jpg',
+  needs_you: '/api/rails-art/alert.jpg',
+};
+
+/** Gentle looping animation per stage — tailwind-free inline keyframes are
+ *  injected by RailTile; these map a rail to its animation class. */
+export const RAIL_STAGE_MOTION: Record<RailKey, string> = {
+  requested: 'rail-art-pulse',
+  in_progress: 'rail-art-slide',
+  done: 'rail-art-pop',
+  paid: 'rail-art-float',
+  needs_you: 'rail-art-blink',
+};
+
 export interface RailTileModel {
   cardKey: string;
+  rail: RailKey;
+  /** True when artworkUrl is the shared stage preset (animate it). */
+  stageArt: boolean;
   title: string;
   subtitle: string | null;
   chip: string | null;
@@ -118,13 +142,16 @@ export function tileFor(card: any): RailTileModel {
       : card.subtitle
         ? String(card.subtitle)
         : null;
+  const photoUrl = card.photos?.[0]?.url ?? null;
   return {
     cardKey: String(card.cardKey),
+    rail,
+    stageArt: !photoUrl,
     title,
     subtitle,
     chip: plainStatus(card, rail),
     tone: toneFor(card, rail),
-    artworkUrl: card.photos?.[0]?.url ?? null,
+    artworkUrl: photoUrl ?? RAIL_STAGE_ART[rail],
     accent: rail === 'needs_you',
     unread: Number(card.unreadComments ?? 0),
     card,

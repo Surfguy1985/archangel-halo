@@ -5,6 +5,7 @@ import {
   notificationsTable,
   invoicesTable,
   jobsTable,
+  workRequestsTable,
   propertiesTable,
   feedDismissalsTable,
 } from "@workspace/db";
@@ -55,37 +56,77 @@ async function visibleQueues() {
   return { feed: visibleFeed, queues: adjustedQueues };
 }
 
+// The morning brief pulls ONLY from the alert categories the owner asked
+// for: new job requests, invoices the client hasn't marked paid for 7+ days,
+// unfilled jobs, and jobs waiting on a manual verification check.
 async function briefContext() {
   const { feed, queues } = await visibleQueues();
   const needsYou = feed.filter((f) => f.tier === "now" || f.tier === "today").length;
-  const invoices = await db.select().from(invoicesTable);
-  const atRisk = invoices
-    .filter((i) => i.status === "sent" || i.status === "overdue")
-    .reduce((s, i) => s + i.amount, 0);
-  const openJobs = (await db.select().from(jobsTable)).filter(
-    (j) => !["complete", "closed", "cancelled"].includes(j.status),
+
+  const [invoices, jobs, requests] = await Promise.all([
+    db.select().from(invoicesTable),
+    db.select().from(jobsTable),
+    db.select().from(workRequestsTable),
+  ]);
+
+  const newRequests = requests.filter((r) => r.status === "pending").length;
+
+  const now = Date.now();
+  const staleInvoices = invoices.filter((i) => {
+    if (i.status !== "sent" && i.status !== "overdue") return false;
+    if (i.clientPaidReportedAt || i.paidAt) return false;
+    const sent = i.sentAt ?? i.createdAt;
+    return sent && now - new Date(sent).getTime() > 7 * 24 * 60 * 60 * 1000;
+  });
+  const staleInvoiceTotal = staleInvoices.reduce((s, i) => s + i.amount, 0);
+
+  const liveJobs = jobs.filter(
+    (j) =>
+      !["complete", "paid", "cancelled"].includes(j.status) &&
+      !j.clearedAt,
+  );
+  const unfilledJobs = liveJobs.filter(
+    (j) =>
+      !j.crewLeaderId &&
+      (j.boardStatus === "active" || j.boardStatus === "reopened"),
   ).length;
-  return { feed, queues, needsYou, atRisk, openJobs };
+  const manualChecks = liveJobs.filter((j) => j.boardStatus === "manual_check").length;
+
+  return {
+    feed,
+    queues,
+    needsYou,
+    newRequests,
+    staleInvoiceCount: staleInvoices.length,
+    staleInvoiceTotal,
+    unfilledJobs,
+    manualChecks,
+  };
 }
 
 function deterministicBrief(ctx: {
-  needsYou: number;
-  atRisk: number;
-  openJobs: number;
-  queues: { label: string; count: number }[];
+  newRequests: number;
+  staleInvoiceCount: number;
+  staleInvoiceTotal: number;
+  unfilledJobs: number;
+  manualChecks: number;
 }): string {
-  const top = ctx.queues
-    .filter((q) => q.count > 0)
-    .slice(0, 3)
-    .map((q) => `${q.count} ${q.label.toLowerCase()}`)
-    .join(", ");
-  const money =
-    ctx.atRisk > 0
-      ? ` You have $${ctx.atRisk.toLocaleString()} in receivables outstanding.`
-      : "";
-  return `${ctx.needsYou} item${ctx.needsYou === 1 ? "" : "s"} need you today${
-    top ? `: ${top}` : ""
-  }.${money} ${ctx.openJobs} job${ctx.openJobs === 1 ? "" : "s"} in flight.`;
+  const parts: string[] = [];
+  if (ctx.newRequests > 0)
+    parts.push(`${ctx.newRequests} new job request${ctx.newRequests === 1 ? "" : "s"} waiting`);
+  if (ctx.staleInvoiceCount > 0)
+    parts.push(
+      `${ctx.staleInvoiceCount} invoice${ctx.staleInvoiceCount === 1 ? "" : "s"} ($${ctx.staleInvoiceTotal.toLocaleString()}) unpaid by the client for over 7 days`,
+    );
+  if (ctx.unfilledJobs > 0)
+    parts.push(`${ctx.unfilledJobs} job${ctx.unfilledJobs === 1 ? "" : "s"} still without a crew`);
+  if (ctx.manualChecks > 0)
+    parts.push(
+      `${ctx.manualChecks} job${ctx.manualChecks === 1 ? "" : "s"} waiting on your manual verification check`,
+    );
+  if (parts.length === 0)
+    return "All clear — no new requests, no invoices past the 7-day mark, and every job is crewed and verified.";
+  return `Needs your eye: ${parts.join("; ")}.`;
 }
 
 router.get("/today", async (_req, res): Promise<void> => {
@@ -112,13 +153,14 @@ router.post("/brief/refresh", async (_req, res): Promise<void> => {
   let body: string;
   try {
     body = await completeText(
-      "You are HALO, chief of staff for a property-maintenance contractor. Write a warm, sharp morning brief in 2-3 short sentences. Lead with what needs the owner today, then money, then a note of momentum. Plain-spoken, confident, no headings or bullets.",
+      "You are HALO, chief of staff for a property-maintenance contractor. Write a sharp morning brief in 2-3 short sentences covering ONLY the alert items in the snapshot: new job requests, invoices the client hasn't marked paid in over 7 days, jobs without a crew, and jobs waiting on a manual verification check. Mention only categories with a count above zero; if everything is zero, say it's all clear. Plain-spoken, confident, no headings or bullets. Do not mention anything else.",
       `Live snapshot:\n${JSON.stringify(
         {
-          needsYou: ctx.needsYou,
-          atRisk: ctx.atRisk,
-          openJobs: ctx.openJobs,
-          queues: ctx.queues.filter((q) => q.count > 0),
+          newJobRequests: ctx.newRequests,
+          invoicesUnpaidOver7Days: ctx.staleInvoiceCount,
+          invoicesUnpaidOver7DaysTotal: ctx.staleInvoiceTotal,
+          jobsWithoutCrew: ctx.unfilledJobs,
+          jobsAwaitingManualCheck: ctx.manualChecks,
         },
         null,
         2,

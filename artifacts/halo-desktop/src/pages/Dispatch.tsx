@@ -51,6 +51,17 @@ function hasTimeClash(cellJobs: Job[]) {
 }
 const FINISHED = new Set(["complete", "paid", "cancelled"]);
 
+/** Dispatch cards show the exact service(s) sold; " — n BR" size suffixes are
+ *  stripped for readability. Falls back to category/description. */
+function serviceLabel(job: Job) {
+  const services = (job.services ?? []).map((s) =>
+    s.replace(/\s*[—–-]\s*\d\s*BR\s*$/i, "").trim(),
+  );
+  const unique = services.filter((s, i) => services.indexOf(s) === i);
+  if (unique.length > 0) return unique.join(" · ");
+  return job.category || job.description || "Job";
+}
+
 type DropTarget =
   | { kind: "cell"; crewId: string; date: string }
   | { kind: "backlog" };
@@ -520,14 +531,15 @@ function JobCard({
       <div className="flex items-start gap-1">
         <GripVertical className="w-3 h-3 mt-[3px] text-muted-foreground/50 shrink-0" />
         <div className="min-w-0 flex-1">
+          {/* Dispatch cards are deliberately minimal: unit # + service. */}
           <div className="flex items-center gap-1.5">
             <Link
               href={`/jobs/${job.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="text-[11px] font-display font-bold text-[var(--ink)] hover:underline shrink-0"
+              className="text-[15px] font-display font-bold text-[var(--ink)] hover:underline shrink-0 leading-tight"
               data-testid={`link-dispatch-job-${job.id}`}
             >
-              {job.jobNo}
+              {job.unitNo ? `#${job.unitNo}` : job.jobNo}
             </Link>
             {job.scheduledTime && (
               <span className="text-[10px] text-muted-foreground shrink-0">
@@ -539,13 +551,13 @@ function JobCard({
             className={`text-[11px] leading-tight text-foreground ${
               compact ? "line-clamp-2" : "line-clamp-3"
             }`}
+            data-testid={`text-dispatch-service-${job.id}`}
           >
-            {job.description || "No description"}
+            {serviceLabel(job)}
           </div>
-          {job.propertyName && (
+          {!compact && job.propertyName && (
             <div className="text-[10px] text-muted-foreground truncate mt-0.5">
               {job.propertyName}
-              {job.unitNo ? ` · ${job.unitNo}` : ""}
             </div>
           )}
           {showCrew && job.crewLeaderName && (

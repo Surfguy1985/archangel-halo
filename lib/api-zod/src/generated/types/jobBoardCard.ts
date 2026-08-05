@@ -6,12 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Job } from './job';
+import type { JobBoardInvoiceInfo } from './jobBoardInvoiceInfo';
 import type { JobBroadcastInfo } from './jobBroadcastInfo';
 import type { JobPhoto } from './jobPhoto';
 import type { PriceItem } from './priceItem';
 
 export interface JobBoardCard {
   job: Job;
+  invoice?: JobBoardInvoiceInfo | null;
   priceItems: PriceItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];

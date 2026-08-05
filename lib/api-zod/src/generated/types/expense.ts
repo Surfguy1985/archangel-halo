@@ -43,4 +43,9 @@ export interface Expense {
      * @nullable
      */
   bankTxnLabel?: string | null;
+  /**
+     * Unit number of the linked job, when the expense is tied to a job
+     * @nullable
+     */
+  unitNo?: string | null;
 }

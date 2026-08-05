@@ -9,10 +9,18 @@ import {
   useUpdateBoardSettings,
   useQualityCheckJob,
   useSetJobBoardStatus,
+  usePayJobCrewMember,
+  useCreateExpense,
+  useClearJobCrewPay,
+  useRecordPayment,
+  useRequestUploadUrl,
   useListCrews,
   getListCrewsQueryKey,
+  useReopenJobChangeOrder,
+  useAddJobLineItem,
   type JobBoardCard,
-  type Crew
+  type Crew,
+  type CrewToday
 } from "@workspace/api-client-react";
 import { Skeleton} from "@/components/ui/skeleton";
 import { Card, CardContent} from "@/components/ui/card";
@@ -40,8 +48,14 @@ import {
   ShieldCheck,
   Loader2,
   MessageSquare,
-  XCircle
+  XCircle,
+  FileText,
+  Banknote,
+  Receipt,
+  Plus,
+  Upload
 } from "lucide-react";
+import { useLocation } from "wouter";
 import { Badge} from "@/components/ui/badge";
 import { Input} from "@/components/ui/input";
 import { Textarea} from "@/components/ui/textarea";
@@ -64,9 +78,14 @@ type JobTone = "lime" | "blue" | "emerald" | "stone" | "red";
 
 /** Same five rails as the client board: Requested → In progress → Done → Billing → Alerts (red, last). */
 function jobRail(card: JobBoardCard): JobRailKey {
+  // A pending client change order pulls the card back to Requested until the
+  // office reviews upcharges and reopens it — mirrored on the client board.
+  if (card.job.changeOrderStatus === "requested") return "requested";
   const board = card.job.boardStatus || "active";
   if (board === "manual_check") return "alert"; // failed AI check — needs a manual look
+  if (board === "pay_alert") return "alert"; // crew paid — clear each row to history
   if (board === "reopened") return "alert"; // lost its crew — needs the office
+  if (board === "billing") return "billing"; // client picked a payment route
   if (card.job.status === "complete" || card.job.status === "paid") return "billing";
   if (board === "completed") return "done";
   if (board === "filled") return "in_progress";
@@ -106,6 +125,7 @@ export default function JobBoard() {
 
   return (
     <div className="p-8 max-w-[1400px] mx-auto space-y-8 min-h-[100dvh] flex flex-col bg-[var(--background)]">
+      <style>{STAGE_ART_CSS}</style>
       <header className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">Job Board</h1>
@@ -167,7 +187,7 @@ export default function JobBoard() {
             <DialogTitle>Job details</DialogTitle>
             <DialogDescription>Full job posting with actions</DialogDescription>
           </DialogHeader>
-          {openCard && <JobBoardItem card={openCard} />}
+          {openCard && <JobBoardItem card={openCard} crews={allCrews ?? []} />}
         </DialogContent>
       </Dialog>
     </div>
@@ -190,8 +210,41 @@ function CrewFace({ name, selfiePath, size = 5 }: { name: string; selfiePath?: s
   );
 }
 
+/** "Cabinet Paint — 2 BR" → "Cabinet Paint": strip the size suffix so the
+ *  pill reads as the service, while the size stays in the line items. */
+function serviceBase(s: string) {
+  return s.replace(/\s*[—–-]\s*\d\s*BR\s*$/i, "").trim();
+}
+
+// Preset stage artwork (served by the API) + a gentle loop per stage, used
+// whenever a job has no photo of its own. Tones map 1:1 onto rails.
+const STAGE_ART: Record<JobTone, { src: string; motion: string }> = {
+  lime: { src: "/api/rails-art/requested.jpg", motion: "rail-art-pulse" },
+  blue: { src: "/api/rails-art/in_progress.jpg", motion: "rail-art-slide" },
+  emerald: { src: "/api/rails-art/done.jpg", motion: "rail-art-pop" },
+  stone: { src: "/api/rails-art/billing.jpg", motion: "rail-art-float" },
+  red: { src: "/api/rails-art/alert.jpg", motion: "rail-art-blink" },
+};
+
+const STAGE_ART_CSS = `
+@keyframes rail-art-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes rail-art-slide { 0%,100% { transform: translateX(-2.5%) scale(1.08); } 50% { transform: translateX(2.5%) scale(1.08); } }
+@keyframes rail-art-pop { 0%,100% { transform: scale(1); } 40% { transform: scale(1.07); } 55% { transform: scale(1.03); } }
+@keyframes rail-art-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3%); } }
+@keyframes rail-art-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+.rail-art-pulse { animation: rail-art-pulse 2.6s ease-in-out infinite; }
+.rail-art-slide { animation: rail-art-slide 3.2s ease-in-out infinite; }
+.rail-art-pop { animation: rail-art-pop 2.4s ease-in-out infinite; }
+.rail-art-float { animation: rail-art-float 3s ease-in-out infinite; }
+.rail-art-blink { animation: rail-art-blink 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .rail-art-pulse, .rail-art-slide, .rail-art-pop, .rail-art-float, .rail-art-blink { animation: none; }
+}
+`;
+
 function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobTone; crews?: Crew[]; onOpen: () => void }) {
   const { job, photos, broadcasts } = card;
+  const services = job.services ?? [];
   const t = JOB_TONES[tone];
   // Assigned crew (in-progress rail only): leader first with a badge, then teammates.
   const leader = crews && job.crewLeaderId ? crews.find((c) => c.id === job.crewLeaderId) : undefined;
@@ -211,19 +264,33 @@ function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobT
       data-testid={`job-tile-${job.id}`}
       className="block w-full min-w-0 text-left rounded-2xl overflow-hidden bg-white border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9DB40F]"
     >
-      <div className="relative aspect-[5/2] bg-[var(--muted)]">
+      <div className="relative aspect-[5/2] overflow-hidden bg-[var(--muted)]">
         {artwork ? (
           <img src={`/api/storage${artwork}`} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <div className="absolute inset-0 bg-[var(--secondary)]" />
+          <img
+            src={STAGE_ART[tone].src}
+            alt=""
+            loading="lazy"
+            className={`absolute inset-0 h-full w-full object-cover ${STAGE_ART[tone].motion}`}
+            data-testid={`job-stage-art-${job.id}`}
+          />
         )}
-        {/* Big uniform unit number, white, top-left corner */}
+        {/* Big uniform unit number, white, top-left corner. Property-level
+            jobs (no unit) show the service big instead. */}
         {job.unitNo ? (
           <span
             className="absolute top-2 left-3 font-display font-bold text-4xl text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)] pointer-events-none"
             data-testid={`job-unit-${job.id}`}
           >
             {job.unitNo}
+          </span>
+        ) : services.length > 0 ? (
+          <span
+            className="absolute top-2 left-3 max-w-[calc(100%-24px)] truncate font-display font-bold text-2xl text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)] pointer-events-none"
+            data-testid={`job-service-big-${job.id}`}
+          >
+            {serviceBase(services[0])}
           </span>
         ) : (
           !artwork && (
@@ -232,12 +299,22 @@ function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobT
             </div>
           )
         )}
-        <span className={`absolute bottom-2 left-2 max-w-[calc(100%-16px)] truncate rounded-full px-2.5 py-1 text-[11px] font-medium ${t.chip}`}>
-          {job.category || job.boardStatus || "Job"}
+        <span className={`absolute bottom-2 left-2 max-w-[calc(100%-16px)] truncate rounded-full px-2.5 py-1 text-[11px] font-medium ${t.chip}`} data-testid={`job-services-${job.id}`}>
+          {services.length > 0
+            ? services.map(serviceBase).filter((s, i, a) => a.indexOf(s) === i).join(" · ")
+            : job.category || job.boardStatus || "Job"}
         </span>
         {pendingOffers > 0 && (
           <span className="absolute top-2 right-2 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold text-[var(--ink)]">
             {pendingOffers} offer{pendingOffers > 1 ? "s" : ""} out
+          </span>
+        )}
+        {job.changeOrderStatus === "requested" && (
+          <span
+            className="absolute bottom-0 left-0 right-0 bg-amber-400 px-2 py-0.5 text-center text-[10px] font-bold uppercase tracking-widest text-black"
+            data-testid={`job-change-order-${job.id}`}
+          >
+            Change order
           </span>
         )}
       </div>
@@ -285,7 +362,7 @@ function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobT
   );
 }
 
-function JobBoardItem({ card}: { card: JobBoardCard}) {
+function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] }) {
   const { job, priceItems, photos, broadcasts} = card;
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [reopenConfirmOpen, setReopenConfirmOpen] = useState(false);
@@ -293,6 +370,15 @@ function JobBoardItem({ card}: { card: JobBoardCard}) {
   const [editOpen, setEditOpen] = useState(false);
   const [postingOpen, setPostingOpen] = useState(false);
   const [checkWorkOpen, setCheckWorkOpen] = useState(false);
+  const [payFlowOpen, setPayFlowOpen] = useState(false);
+  const [expensesOpen, setExpensesOpen] = useState(false);
+  const [, navigate] = useLocation();
+  const [upchargeId, setUpchargeId] = useState<string>("");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const reopenChangeOrder = useReopenJobChangeOrder();
+  const addLineItem = useAddJobLineItem();
+  const pendingCO = job.changeOrderStatus === "requested";
   
   const statusColors: Record<string, string> = {
     active: "bg-blue-100 text-blue-800",
@@ -373,6 +459,80 @@ function JobBoardItem({ card}: { card: JobBoardCard}) {
 
       <CardContent className="p-0 flex-1 flex flex-col">
         <div className="p-5 flex-1 flex flex-col gap-6">
+          {pendingCO && (
+            <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-4" data-testid={`change-order-panel-${job.id}`}>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-amber-900">Change order — needs review</h4>
+                {job.changeOrderAt && (
+                  <span className="text-[10px] text-amber-800">{format(new Date(job.changeOrderAt), "MMM d, h:mm a")}</span>
+                )}
+              </div>
+              <p className="text-sm font-semibold text-amber-950">{job.changeOrderReason}</p>
+              {job.changeOrderNote && (
+                <p className="mt-1 text-sm whitespace-pre-wrap text-amber-900">{job.changeOrderNote}</p>
+              )}
+              <div className="mt-3 flex items-center gap-2">
+                <Select value={upchargeId} onValueChange={setUpchargeId}>
+                  <SelectTrigger className="h-9 flex-1 bg-white text-sm" data-testid={`select-upcharge-${job.id}`}>
+                    <SelectValue placeholder="Add upcharge from price list…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priceItems.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.service} — ${item.rate}{item.unit ? `/${item.unit}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!upchargeId || addLineItem.isPending}
+                  data-testid={`button-add-upcharge-${job.id}`}
+                  onClick={() =>
+                    addLineItem.mutate(
+                      { id: job.id, data: { priceItemId: upchargeId } },
+                      {
+                        onSuccess: () => {
+                          setUpchargeId("");
+                          queryClient.invalidateQueries();
+                          toast({ title: "Upcharge added to the job" });
+                        },
+                        onError: () => toast({ title: "Could not add upcharge", variant: "destructive" }),
+                      },
+                    )
+                  }
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Add
+                </Button>
+              </div>
+              <Button
+                className="mt-3 w-full rounded-full bg-amber-400 font-bold text-black hover:bg-amber-300"
+                disabled={reopenChangeOrder.isPending}
+                data-testid={`button-reopen-change-order-${job.id}`}
+                onClick={() =>
+                  reopenChangeOrder.mutate(
+                    { id: job.id },
+                    {
+                      onSuccess: () => {
+                        queryClient.invalidateQueries();
+                        toast({
+                          title: "Back in the flow",
+                          description: job.crewLeaderName
+                            ? `${job.crewLeaderName} was alerted through their live link.`
+                            : "Card returned to its rail.",
+                        });
+                      },
+                      onError: () => toast({ title: "Could not reopen", variant: "destructive" }),
+                    },
+                  )
+                }
+              >
+                <RotateCcw className="w-4 h-4 mr-2" /> Reopen into flow{job.crewLeaderName ? ` — same crew (${job.crewLeaderName})` : ""}
+              </Button>
+            </div>
+          )}
+
           {job.description && (
             <div>
               <h4 className="text-xs font-bold text-[var(--secondary)] mb-2">Scope of Work</h4>
@@ -481,21 +641,496 @@ function JobBoardItem({ card}: { card: JobBoardCard}) {
           {boardStatus === 'manual_check' && (
             <MarkCompleteButton jobId={job.id} />
           )}
-          {boardStatus === 'completed' && (
+          {boardStatus === 'completed' && !card.invoice && (
+            <Button
+              onClick={() => navigate(`/invoices/new?jobId=${job.id}&propertyId=${job.propertyId}`)}
+              data-testid={`create-invoice-${job.id}`}
+              className="bg-[var(--gold-light)] hover:opacity-90 text-black rounded-full font-bold"
+            >
+              <FileText className="w-4 h-4 mr-2" /> Create Invoice
+            </Button>
+          )}
+          {boardStatus === 'completed' && card.invoice && (
              <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium px-2">
-               <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Completed
+               <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Invoice {card.invoice.invoiceNo} · waiting on client
              </div>
+          )}
+          {boardStatus === 'completed' && (
+            <Button
+              variant="outline"
+              onClick={() => setExpensesOpen(true)}
+              data-testid={`log-expenses-${job.id}`}
+              className="rounded-full font-bold"
+            >
+              <Receipt className="w-4 h-4 mr-2" /> Log Expenses
+            </Button>
+          )}
+          {(boardStatus === 'billing' || boardStatus === 'pay_alert') && (
+            <Button
+              onClick={() => setPayFlowOpen(true)}
+              data-testid={`payment-pending-${job.id}`}
+              className={
+                boardStatus === 'billing' && !card.invoice?.paidAt
+                  ? "bg-yellow-400 hover:bg-yellow-500 text-black rounded-full font-bold"
+                  : "bg-emerald-500 hover:bg-emerald-600 text-white rounded-full font-bold"
+              }
+            >
+              {boardStatus === 'billing' && !card.invoice?.paidAt ? (
+                <><Clock className="w-4 h-4 mr-2" /> Job Payment Pending</>
+              ) : (
+                <><Banknote className="w-4 h-4 mr-2" /> Crew Pay</>
+              )}
+            </Button>
           )}
         </div>
       </CardContent>
 
       <CheckWorkDialog open={checkWorkOpen} onOpenChange={setCheckWorkOpen} job={job} photos={photos} />
+      <PaymentFlowDialog open={payFlowOpen} onOpenChange={setPayFlowOpen} card={card} crews={crews} />
+      <LogExpensesDialog open={expensesOpen} onOpenChange={setExpensesOpen} card={card} />
       <BroadcastDialog open={broadcastOpen} onOpenChange={setBroadcastOpen} job={job} />
       <ReopenConfirmDialog open={reopenConfirmOpen} onOpenChange={setReopenConfirmOpen} job={job} />
       <DeleteConfirmDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen} job={job} />
       <EditJobDialog open={editOpen} onOpenChange={setEditOpen} job={job} />
       <EditPostingDialog open={postingOpen} onOpenChange={setPostingOpen} job={job} />
     </Card>
+  );
+}
+
+/**
+ * Log job expenses by line item, with an optional receipt photo (camera scan
+ * on mobile). Each line posts as its own expense tied to the job + property,
+ * so the property's expense section and the books pick it up per unit.
+ */
+function LogExpensesDialog({
+  open,
+  onOpenChange,
+  card,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  card: JobBoardCard;
+}) {
+  const { job } = card;
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const createExpense = useCreateExpense();
+  const requestUpload = useRequestUploadUrl();
+
+  type ExpenseLine = { label: string; category: string; amount: string };
+  const [lines, setLines] = useState<ExpenseLine[]>([{ label: "", category: "materials", amount: "" }]);
+  const [receiptPath, setReceiptPath] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setLines([{ label: "", category: "materials", amount: "" }]);
+      setReceiptPath(null);
+    }
+  }, [open]);
+
+  const setLine = (i: number, patch: Partial<ExpenseLine>) =>
+    setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+
+  const handleUpload = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const r = await requestUpload.mutateAsync({
+        data: { name: file.name, size: file.size, contentType: file.type || "image/jpeg" },
+      });
+      await fetch(r.uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type || "image/jpeg" } });
+      setReceiptPath(r.objectPath);
+      toast({ title: "Receipt attached" });
+    } catch {
+      toast({ title: "Upload failed", description: "Try the photo again.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const valid = lines.filter((l) => l.label.trim() && Number.isFinite(Number(l.amount)) && Number(l.amount) > 0);
+  const total = valid.reduce((s, l) => s + Number(l.amount), 0);
+
+  const handleSave = async () => {
+    if (!valid.length) {
+      toast({ title: "Add at least one line item", description: "Each line needs a description and amount.", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    let saved = 0;
+    try {
+      for (const l of valid) {
+        await createExpense.mutateAsync({
+          data: {
+            jobId: job.id,
+            propertyId: job.propertyId,
+            vendor: l.label.trim(),
+            category: l.category,
+            amount: Math.round(Number(l.amount) * 100) / 100,
+            paymentStatus: "paid",
+            ...(receiptPath ? { receiptPath } : {}),
+          },
+        });
+        saved++;
+      }
+      toast({
+        title: `${saved} expense${saved === 1 ? "" : "s"} logged`,
+        description: `${total.toLocaleString("en-US", { style: "currency", currency: "USD" })} added to the books for ${job.jobNo}.`,
+      });
+      queryClient.invalidateQueries();
+      onOpenChange(false);
+    } catch (err) {
+      toast({
+        title: saved ? `Saved ${saved}, then hit an error` : "Couldn't log expenses",
+        description: (err as any)?.data?.error ?? "Something went wrong",
+        variant: "destructive",
+      });
+      queryClient.invalidateQueries();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[540px] rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="font-display">Log Expenses</DialogTitle>
+          <DialogDescription>
+            {job.propertyName ?? "Property"}{job.unitNo ? ` · Unit ${job.unitNo}` : ""} · {job.jobNo}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2" data-testid="expense-lines">
+          {lines.map((l, i) => (
+            <div key={i} className="flex items-center gap-2" data-testid={`expense-line-${i}`}>
+              <Input
+                value={l.label}
+                onChange={(e) => setLine(i, { label: e.target.value })}
+                placeholder="What was it? (e.g. Paint — Sherwin)"
+                className="flex-1 h-9"
+                data-testid={`expense-label-${i}`}
+              />
+              <select
+                value={l.category}
+                onChange={(e) => setLine(i, { category: e.target.value })}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                data-testid={`expense-category-${i}`}
+              >
+                <option value="materials">Materials</option>
+                <option value="equipment">Equipment</option>
+                <option value="subcontractor">Subcontractor</option>
+                <option value="disposal">Disposal</option>
+                <option value="other">Other</option>
+              </select>
+              <Input
+                value={l.amount}
+                onChange={(e) => setLine(i, { amount: e.target.value })}
+                placeholder="$"
+                inputMode="decimal"
+                className="w-24 h-9"
+                data-testid={`expense-amount-${i}`}
+              />
+              {lines.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setLines((ls) => ls.filter((_, idx) => idx !== i))}
+                  className="text-muted-foreground hover:text-destructive shrink-0"
+                  aria-label="Remove line"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setLines((ls) => [...ls, { label: "", category: "materials", amount: "" }])}
+            data-testid="add-expense-line"
+            className="text-[var(--gold-dark)] font-bold"
+          >
+            <Plus className="w-4 h-4 mr-1" /> Add line
+          </Button>
+        </div>
+
+        <div>
+          <Label className="text-xs">Receipt (optional — applies to all lines)</Label>
+          <label className="mt-1 flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-sm text-muted-foreground cursor-pointer hover:bg-muted/50">
+            <Upload className="w-4 h-4" />
+            {uploading ? "Uploading…" : receiptPath ? "Receipt attached ✓" : "Upload or scan the receipt"}
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              capture="environment"
+              className="hidden"
+              data-testid="expense-receipt-input"
+              onChange={(e) => handleUpload(e.target.files?.[0])}
+            />
+          </label>
+        </div>
+
+        <Button
+          onClick={handleSave}
+          disabled={saving || uploading}
+          data-testid="save-expenses-btn"
+          className="w-full bg-[var(--gold-light)] hover:opacity-90 text-black rounded-full font-bold"
+        >
+          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Receipt className="w-4 h-4 mr-2" />}
+          Log {valid.length || ""} Expense{valid.length === 1 ? "" : "s"}{total > 0 ? ` — ${total.toLocaleString("en-US", { style: "currency", currency: "USD" })}` : ""}
+        </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Billing-rail pay flow: mark the client's payment received (amount + check
+ * photo), then pay each crew member; paid rows show "Pay pending" until the
+ * office clears each one — last clear sends the card to history.
+ */
+function PaymentFlowDialog({
+  open,
+  onOpenChange,
+  card,
+  crews,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  card: JobBoardCard;
+  crews: CrewToday[];
+}) {
+  const { job } = card;
+  const invoice = card.invoice ?? null;
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const recordPayment = useRecordPayment();
+  const requestUpload = useRequestUploadUrl();
+  const payCrew = usePayJobCrewMember();
+  const clearPay = useClearJobCrewPay();
+
+  const [amount, setAmount] = useState("");
+  const [checkNumber, setCheckNumber] = useState("");
+  const [checkPath, setCheckPath] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [payAmounts, setPayAmounts] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (open) setAmount(invoice ? String(invoice.total) : "");
+  }, [open, invoice?.total]);
+
+  const paymentReceived = !!invoice?.paidAt || invoice?.status === "paid";
+  const leader = crews.find((c) => c.id === job.crewLeaderId) ?? null;
+  const roster = leader
+    ? [leader, ...crews.filter((c) => c.leaderId === leader.id && c.active !== false)]
+    : [];
+  const payEntries: { crewId: string; name: string; amount: number; paidAt: string | null; clearedAt: string | null }[] =
+    Array.isArray((job as any).crewPay) ? ((job as any).crewPay as any[]) : [];
+  const entryFor = (crewId: string) => payEntries.find((e) => e.crewId === crewId);
+
+  const refresh = () => queryClient.invalidateQueries();
+
+  const handleUpload = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const r = await requestUpload.mutateAsync({
+        data: { name: file.name, size: file.size, contentType: file.type || "image/jpeg" },
+      });
+      await fetch(r.uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type || "image/jpeg" } });
+      setCheckPath(r.objectPath);
+      toast({ title: "Check photo attached" });
+    } catch {
+      toast({ title: "Upload failed", description: "Try the photo again.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleMarkReceived = () => {
+    if (!invoice) return;
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      toast({ title: "Enter the check amount", variant: "destructive" });
+      return;
+    }
+    recordPayment.mutate(
+      {
+        data: {
+          invoiceId: invoice.id,
+          amount: amt,
+          method: invoice.paymentChoice === "platform" ? "platform" : "check",
+          ...(checkNumber.trim() ? { checkNumber: checkNumber.trim() } : {}),
+          ...(checkPath ? { checkImagePath: checkPath } : {}),
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Payment received", description: `Invoice ${invoice.invoiceNo} marked paid.` });
+          refresh();
+        },
+        onError: (err) =>
+          toast({ title: "Couldn't record payment", description: (err as any)?.data?.error ?? "Something went wrong", variant: "destructive" }),
+      },
+    );
+  };
+
+  const handlePayCrew = (crewId: string) => {
+    const amt = Number(payAmounts[crewId]);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      toast({ title: "Enter a pay amount first", variant: "destructive" });
+      return;
+    }
+    payCrew.mutate(
+      { id: job.id, data: { crewId, amount: amt } },
+      {
+        onSuccess: () => {
+          toast({ title: "Crew paid", description: "Logged to the books as crew labor." });
+          refresh();
+        },
+        onError: (err) =>
+          toast({ title: "Couldn't pay crew", description: (err as any)?.data?.error ?? "Something went wrong", variant: "destructive" }),
+      },
+    );
+  };
+
+  const handleClear = (crewId: string) => {
+    clearPay.mutate(
+      { id: job.id, data: { crewId } },
+      {
+        onSuccess: (updated) => {
+          refresh();
+          if ((updated as any)?.boardStatus === "removed") {
+            toast({ title: "All settled", description: "Card cleared to history — money section updated." });
+            onOpenChange(false);
+          } else {
+            toast({ title: "Cleared" });
+          }
+        },
+        onError: (err) =>
+          toast({ title: "Couldn't clear", description: (err as any)?.data?.error ?? "Something went wrong", variant: "destructive" }),
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[520px] rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="font-display">
+            {paymentReceived ? "Crew Pay" : "Job Payment Pending"}
+          </DialogTitle>
+          <DialogDescription>
+            {job.propertyName ?? "Property"}{job.unitNo ? ` · Unit ${job.unitNo}` : ""} · {job.jobNo}
+          </DialogDescription>
+        </DialogHeader>
+
+        {!invoice ? (
+          <p className="text-sm text-muted-foreground">No invoice on this job yet.</p>
+        ) : !paymentReceived ? (
+          <div className="space-y-4" data-testid="payment-pending-panel">
+            <div className="rounded-xl bg-yellow-50 border border-yellow-300 p-3 text-sm text-yellow-800 font-medium flex items-center gap-2">
+              <Clock className="w-4 h-4 shrink-0" />
+              Payment pending — client is {invoice.paymentChoice === "platform" ? "sending it through their payment platform" : "mailing a check"} for Invoice {invoice.invoiceNo}.
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Amount received</Label>
+                <Input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="decimal" data-testid="received-amount" />
+              </div>
+              <div>
+                <Label className="text-xs">Check # (optional)</Label>
+                <Input value={checkNumber} onChange={(e) => setCheckNumber(e.target.value)} data-testid="received-check-no" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Check photo (optional)</Label>
+              <label className="mt-1 flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-sm text-muted-foreground cursor-pointer hover:bg-muted/50">
+                <Upload className="w-4 h-4" />
+                {uploading ? "Uploading…" : checkPath ? "Check photo attached ✓" : "Upload or scan the check"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => handleUpload(e.target.files?.[0])}
+                />
+              </label>
+            </div>
+            <Button
+              onClick={handleMarkReceived}
+              disabled={recordPayment.isPending || uploading}
+              data-testid="mark-received-btn"
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white rounded-full font-bold"
+            >
+              {recordPayment.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Banknote className="w-4 h-4 mr-2" />}
+              Mark Received
+            </Button>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-800 font-medium flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" /> Payment received for Invoice {invoice.invoiceNo}.
+          </div>
+        )}
+
+        {roster.length > 0 && (
+          <div className="space-y-2 pt-2">
+            <p className="text-sm font-bold text-[var(--ink)]">Crew pay</p>
+            {roster.map((c) => {
+              const entry = entryFor(c.id);
+              return (
+                <div key={c.id} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2" data-testid={`crew-pay-row-${c.id}`}>
+                  <span className="text-sm font-medium flex-1 truncate">{c.name}</span>
+                  {!entry?.paidAt ? (
+                    <>
+                      <Input
+                        value={payAmounts[c.id] ?? ""}
+                        onChange={(e) => setPayAmounts((p) => ({ ...p, [c.id]: e.target.value }))}
+                        placeholder="$"
+                        inputMode="decimal"
+                        className="w-24 h-8"
+                        data-testid={`crew-pay-amount-${c.id}`}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => handlePayCrew(c.id)}
+                        disabled={payCrew.isPending || !paymentReceived}
+                        data-testid={`crew-pay-btn-${c.id}`}
+                        className="bg-[var(--gold-light)] hover:opacity-90 text-black rounded-full h-8 font-bold"
+                      >
+                        Pay
+                      </Button>
+                    </>
+                  ) : !entry.clearedAt ? (
+                    <>
+                      <Badge className="bg-yellow-100 text-yellow-800 border-none">Pay pending · ${entry.amount}</Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleClear(c.id)}
+                        disabled={clearPay.isPending}
+                        data-testid={`crew-clear-btn-${c.id}`}
+                        className="rounded-full h-8"
+                      >
+                        Clear
+                      </Button>
+                    </>
+                  ) : (
+                    <Badge className="bg-emerald-100 text-emerald-800 border-none">Paid ${entry.amount} ✓</Badge>
+                  )}
+                </div>
+              );
+            })}
+            {!paymentReceived && (
+              <p className="text-xs text-muted-foreground">Crew pay unlocks once the client's payment is received.</p>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

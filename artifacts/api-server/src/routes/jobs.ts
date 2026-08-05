@@ -52,6 +52,8 @@ import {
   DispatchJobResponse,
   CompleteJobParams,
   CompleteJobResponse,
+  ReopenJobChangeOrderParams,
+  ReopenJobChangeOrderResponse,
   ListJobEventsParams,
   ListJobEventsResponse,
   DraftJobRecapParams,
@@ -154,9 +156,26 @@ router.get("/jobs", async (req, res): Promise<void> => {
   let rows = await db.select().from(jobsTable).orderBy(desc(jobsTable.createdAt));
   if (status) rows = rows.filter((r) => r.status === status);
   if (propertyId) rows = rows.filter((r) => r.propertyId === propertyId);
-  const { propName, crewName } = await lookups();
+  const [{ propName, crewName }, lineItems] = await Promise.all([
+    lookups(),
+    db.select().from(jobLineItemsTable),
+  ]);
+  // Distinct service names per job so dispatch/calendar tiles can show the
+  // exact work sold instead of a generic category.
+  const servicesByJob = new Map<string, string[]>();
+  for (const li of lineItems) {
+    if (!li.service || li.service === "Quoted price") continue;
+    const list = servicesByJob.get(li.jobId) ?? [];
+    if (!list.includes(li.service)) list.push(li.service);
+    servicesByJob.set(li.jobId, list);
+  }
   res.json(
-    ListJobsResponse.parse(rows.map((j) => decorateJob(j, propName, crewName))),
+    ListJobsResponse.parse(
+      rows.map((j) => ({
+        ...decorateJob(j, propName, crewName),
+        services: servicesByJob.get(j.id) ?? null,
+      })),
+    ),
   );
 });
 
@@ -814,52 +833,12 @@ router.post("/jobs/:id/dispatch", async (req, res): Promise<void> => {
           : job.status === "scheduled"
             ? "open"
             : job.status,
-        boardStatus: crewLeaderId
-          ? job.boardStatus !== "removed" && job.boardStatus !== "completed"
-            ? "filled"
-            : job.boardStatus
-          : // Backlogged: a filled listing loses its crew, so it reopens on
-            // the job board (same semantics as an emergency vacate).
-            job.boardStatus === "filled"
-            ? "reopened"
-            : job.boardStatus,
+        // Deliberate product rule: dispatch moves are scheduling-only — they
+        // NEVER touch the vendor/job board (boardStatus, broadcasts, lanes).
+        // The board is managed from the Job Board itself.
       })
       .where(eq(jobsTable.id, id))
       .returning();
-    if (crewLeaderId) {
-      // Withdraw still-pending offers and any other crew's approved access,
-      // exactly like a manual assignment.
-      await tx
-        .update(jobBroadcastsTable)
-        .set({ status: "withdrawn", respondedAt: new Date() })
-        .where(
-          and(
-            eq(jobBroadcastsTable.jobId, id),
-            eq(jobBroadcastsTable.status, "pending"),
-          ),
-        );
-      await tx
-        .update(jobBroadcastsTable)
-        .set({ status: "withdrawn", respondedAt: new Date() })
-        .where(
-          and(
-            eq(jobBroadcastsTable.jobId, id),
-            eq(jobBroadcastsTable.status, "approved"),
-            ne(jobBroadcastsTable.crewId, crewLeaderId),
-          ),
-        );
-    } else {
-      // Sent back to backlog: the former crew loses portal access to it.
-      await tx
-        .update(jobBroadcastsTable)
-        .set({ status: "withdrawn", respondedAt: new Date() })
-        .where(
-          and(
-            eq(jobBroadcastsTable.jobId, id),
-            inArray(jobBroadcastsTable.status, ["pending", "approved"]),
-          ),
-        );
-    }
     // Rebuild the schedules mirror so the crew portal feed reflects the move
     // immediately: exactly one row per dispatched job, none when backlogged.
     const existing = await tx
@@ -897,6 +876,60 @@ router.post("/jobs/:id/dispatch", async (req, res): Promise<void> => {
   res.json(
     DispatchJobResponse.parse(decorateJob(result.job, propName, crewName)),
   );
+});
+
+// Clear a pending change order and put the job back into the flow: same
+// crew, prior rail restored, crew alerted through their portal thread.
+router.post("/jobs/:id/change-order/reopen", async (req, res): Promise<void> => {
+  const { id } = ReopenJobChangeOrderParams.parse(req.params);
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  if (job.changeOrderStatus !== "requested") {
+    res.status(409).json({ error: "No pending change order on this job" });
+    return;
+  }
+  // boardStatus was never touched by the change-order request (the Requested
+  // rail is driven purely by changeOrderStatus), so clearing the flag alone
+  // drops the card back onto whatever rail its CURRENT board status says —
+  // no risk of clobbering state that moved on while the CO sat in review.
+  const [row] = await db
+    .update(jobsTable)
+    .set({
+      changeOrderStatus: null,
+      changeOrderAt: null,
+      changeOrderPrevBoardStatus: null,
+      // Same crew stays on the job — make sure it never reads as vacated.
+      ...(job.crewLeaderId ? { crewVacatedAt: null } : {}),
+    })
+    .where(and(eq(jobsTable.id, id), eq(jobsTable.changeOrderStatus, "requested")))
+    .returning();
+  if (!row) {
+    res.status(409).json({ error: "No pending change order on this job" });
+    return;
+  }
+  // Side effects after the primary mutation — never 500 a committed change.
+  try {
+    await db.insert(activitiesTable).values({
+      entityType: "job",
+      entityId: id,
+      kind: "change_order_reopened",
+      body: `Change order reviewed — job put back into the flow (${job.changeOrderReason ?? "change order"})`,
+    });
+    if (row.crewLeaderId) {
+      await db.insert(crewMessagesTable).values({
+        crewId: row.crewLeaderId,
+        sender: "office",
+        body: `Change order on Job ${row.jobNo}${row.unitNo ? ` (Unit ${row.unitNo})` : ""}: ${job.changeOrderReason ?? "scope updated"}${job.changeOrderNote ? ` — ${job.changeOrderNote}` : ""}. The updated scope is back on your schedule — check the job details.`,
+      });
+    }
+  } catch (e) {
+    console.error("change-order reopen side effects failed", e);
+  }
+  const { propName, crewName } = await lookups();
+  res.json(ReopenJobChangeOrderResponse.parse(decorateJob(row, propName, crewName)));
 });
 
 router.post("/jobs/:id/complete", async (req, res): Promise<void> => {

@@ -466,6 +466,10 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       now - new Date(lastCheckin.createdAt).getTime() < 4 * 3_600_000;
     let { lane } = jobLane(job);
     if (lane !== "done" && onSite) lane = "in_progress";
+    // Pending change order: the card sits in Requested on BOTH boards until
+    // the office reviews upcharges and reopens it back into the flow.
+    const pendingChangeOrder = job.changeOrderStatus === "requested";
+    if (pendingChangeOrder) lane = "requested";
     const makeReady = isMakeReady(job);
     // Stage index within the template's own pipeline.
     const stageIndex = makeReady
@@ -494,10 +498,10 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
     if (lane !== "done") {
       actions.push({ key: "job.request_update", label: "Request Update", kind: "primary", href: null });
     }
-    cards.push(
-      applyOverride({
+    const jobCardRow = applyOverride({
         cardKey: `job:${job.id}`,
         template: makeReady ? "makeready" : "job",
+        changeOrder: pendingChangeOrder,
         title: job.description || `${job.category ?? "Job"} ${job.jobNo}`,
         subtitle: `Job ${job.jobNo}${job.woNo ? ` · WO ${job.woNo}` : ""}`,
         lane,
@@ -528,8 +532,10 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
         actions,
         editable: false,
         updatedAt: (job.completedAt ?? job.createdAt).toISOString(),
-      }),
-    );
+      });
+    // A pending change order wins over any manual lane override.
+    if (pendingChangeOrder) jobCardRow.lane = "requested";
+    cards.push(jobCardRow);
 
     // Vendor crew card for assigned, unfinished jobs
     if (crew && lane !== "done") {
@@ -668,7 +674,12 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
         actions:
           inv.status === "paid"
             ? []
-            : [{ key: "invoice.mark_reviewed", label: "Mark Reviewed", kind: "secondary", href: null }],
+            : inv.paymentChoice
+              ? [{ key: "invoice.mark_reviewed", label: "Mark Reviewed", kind: "secondary", href: null }]
+              : [
+                  { key: "invoice.pay_by_check", label: "Mail a Check", kind: "primary", href: null },
+                  { key: "invoice.pay_by_platform", label: "Payment Platform (VendorAccess, etc.)", kind: "secondary", href: null },
+                ],
         editable: false,
         // Display-only module so the detail view shows the invoice (amount,
         // status, PDF). Approval/pay-method actions live on pushed cards,
@@ -687,6 +698,8 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
           canApprove: false,
           clientPaidAt: inv.clientPaidReportedAt ? inv.clientPaidReportedAt.toISOString() : null,
           clientPaidBy: inv.clientPaidReportedBy ?? null,
+          paymentChoice: inv.paymentChoice ?? null,
+          paymentChoicePlatform: inv.paymentChoicePlatform ?? null,
         },
         updatedAt: (inv.paidAt ?? inv.sentAt ?? inv.createdAt).toISOString(),
       }),
@@ -1873,7 +1886,79 @@ const ACTIONS: Record<
       return { ok: true, blocked: false, message: `Invoice ${inv.invoiceNo} marked reviewed` };
     },
   },
+  "invoice.pay_by_check": {
+    requiresWrite: true,
+    run: (ctx) => choosePaymentRoute(ctx, "check"),
+  },
+  "invoice.pay_by_platform": {
+    requiresWrite: true,
+    run: (ctx) => choosePaymentRoute(ctx, "platform"),
+  },
 };
+
+/** Resolve the invoice behind a card key — live (invoice:<id>) or pushed (push:<rowId>). */
+async function invoiceFromCardKey(cardKey: string | null, propertyId: string) {
+  let invoiceId: string | null = null;
+  if (cardKey?.startsWith("invoice:")) invoiceId = cardKey.slice("invoice:".length);
+  else if (cardKey?.startsWith("push:")) {
+    const [row] = await db
+      .select()
+      .from(clientBoardCardsTable)
+      .where(eq(clientBoardCardsTable.id, cardKey.slice("push:".length)))
+      .limit(1);
+    if (row?.sourceType === "invoice") invoiceId = row.sourceId;
+  }
+  if (!invoiceId) return null;
+  const [inv] = await db
+    .select()
+    .from(invoicesTable)
+    .where(and(eq(invoicesTable.id, invoiceId), eq(invoicesTable.propertyId, propertyId)))
+    .limit(1);
+  return inv ?? null;
+}
+
+/**
+ * Client picked how they'll pay ("mail a check" / "upload to payment
+ * platform"). Records the choice on the invoice and moves the job card to
+ * the Billing rail on the office board — payment now pending.
+ */
+async function choosePaymentRoute(
+  ctx: ActionCtx,
+  method: "check" | "platform",
+): Promise<ActionOutcome> {
+  const inv = await invoiceFromCardKey(ctx.cardKey, ctx.account.propertyId);
+  if (!inv) return { ok: false, blocked: false, reason: "Invoice not found" };
+  if (inv.status === "paid")
+    return { ok: false, blocked: false, reason: "Invoice is already paid" };
+  await db
+    .update(invoicesTable)
+    .set({
+      paymentChoice: method,
+      paymentChoicePlatform: method === "platform" ? "client platform" : null,
+      paymentChoiceAt: new Date(),
+    })
+    .where(eq(invoicesTable.id, inv.id));
+  if (inv.jobId) {
+    await db
+      .update(jobsTable)
+      .set({ boardStatus: "billing" })
+      .where(eq(jobsTable.id, inv.jobId));
+  }
+  await db.insert(activitiesTable).values({
+    entityType: "invoice",
+    entityId: inv.id,
+    kind: "note",
+    body: `${ctx.viewer.name ?? "Client"} chose to pay Invoice ${inv.invoiceNo} ${method === "check" ? "by mailing a check" : "through their payment platform"}`,
+  });
+  return {
+    ok: true,
+    blocked: false,
+    message:
+      method === "check"
+        ? "Got it — we'll watch the mail for your check."
+        : "Got it — we'll watch for the payment on your platform.",
+  };
+}
 
 // Office dispatch — the admin apps move/act on client-board cards as the
 // office. Same ACTIONS table as the client route, but with a synthetic

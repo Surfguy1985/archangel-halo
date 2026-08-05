@@ -7,10 +7,25 @@ import {
   useDeleteUnitBox,
 
   useGetUnitSummary,
+  useRequestUnitChangeOrder,
   getGetUnitMapQueryKey,
   getGetUnitSummaryQueryKey,
   type UnitStatusRec,
 } from '@workspace/api-client-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { RequestWorkDialog } from '@/components/RequestWorkDialog';
@@ -60,6 +75,22 @@ function statusBg(status: string): string {
   }
 }
 
+// Vendor-board rail colors — the site map is just another view of the same
+// board, so the boxes match the Job Board rails exactly.
+const RAIL_META: Record<string, { box: string; label: string; dot: string }> = {
+  requested: { box: 'bg-[#B4FF44] text-black border-[#9DE02E]', label: 'Requested', dot: 'bg-[#B4FF44]' },
+  in_progress: { box: 'bg-[#79B8F3] text-white border-[#5AA3E8]', label: 'In progress', dot: 'bg-[#79B8F3]' },
+  done: { box: 'bg-emerald-500 text-white border-emerald-600', label: 'Done', dot: 'bg-emerald-500' },
+  billing: { box: 'bg-stone-400 text-white border-stone-500', label: 'Billing', dot: 'bg-stone-400' },
+  alert: { box: 'bg-[#DC2626] text-white border-[#B91C1C]', label: 'Alerts', dot: 'bg-[#DC2626]' },
+};
+
+function unitBoxCls(unit: UnitStatusRec): string {
+  const rail = unit.card?.rail;
+  if (rail && RAIL_META[rail]) return RAIL_META[rail].box;
+  return statusBg(unit.status);
+}
+
 function statusPill(status: string): { cls: string; label: string } {
   switch (status) {
     case 'red':
@@ -102,8 +133,8 @@ function UnitSlot({
 
   const box = (
     <div
-      className={`flex aspect-[5/4] items-center justify-center rounded-[12px] border shadow-sm transition-transform ${statusBg(
-        unit.status,
+      className={`relative flex aspect-[5/4] items-center justify-center rounded-[12px] border shadow-sm transition-transform ${unitBoxCls(
+        unit,
       )} ${editing ? 'cursor-pointer hover:ring-2 hover:ring-offset-2 hover:ring-primary' : 'cursor-pointer hover:scale-[1.03] hover:shadow-md'}`}
       data-testid={`unit-slot-${unit.label}`}
       onClick={() => {
@@ -113,6 +144,11 @@ function UnitSlot({
       <span className="pointer-events-none max-w-full truncate px-1 text-[13px] font-[800] leading-none tracking-tight">
         {unit.label}
       </span>
+      {unit.card?.changeOrder && (
+        <span className="pointer-events-none absolute top-0 left-0 right-0 rounded-t-[10px] bg-amber-400 text-center text-[7px] font-[800] uppercase tracking-widest text-black">
+          CO
+        </span>
+      )}
     </div>
   );
 
@@ -173,15 +209,18 @@ function UnitSlot({
 // ---------------------------------------------------------------------------
 function UnitSummarySheet({
   token,
-  unitId,
+  unit,
   onOpenChange,
   onRequestWork,
+  onChangeOrder,
 }: {
   token: string;
-  unitId: string | null;
+  unit: UnitStatusRec | null;
   onOpenChange: (open: boolean) => void;
   onRequestWork: (unitLabel: string) => void;
+  onChangeOrder: (unit: UnitStatusRec) => void;
 }) {
+  const unitId = unit?.id ?? null;
   const { data, isLoading } = useGetUnitSummary(token, unitId ?? '', {
     query: {
       queryKey: getGetUnitSummaryQueryKey(token, unitId ?? ''),
@@ -226,6 +265,52 @@ function UnitSummarySheet({
               >
                 Request work on {data.unitLabel}
               </Button>
+
+              {unit?.card && (
+                <div className="rounded-[16px] border border-black/10 bg-white p-4 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[11px] font-[800] uppercase tracking-widest text-muted-foreground">Current job</h4>
+                    <span
+                      className={`rounded-[6px] px-2 py-1 text-[10px] font-[800] uppercase tracking-wider ${
+                        RAIL_META[unit.card.rail]?.box ?? 'bg-black/5 text-[#101c33]'
+                      }`}
+                      data-testid="text-unit-card-rail"
+                    >
+                      {RAIL_META[unit.card.rail]?.label ?? unit.card.rail}
+                    </span>
+                  </div>
+                  {unit.card.changeOrder && (
+                    <div className="rounded-[8px] bg-amber-400 px-2 py-1 text-center text-[10px] font-[800] uppercase tracking-widest text-black">
+                      Change order — with the office
+                    </div>
+                  )}
+                  <p className="text-[14px] font-[700] text-[#101c33]">{unit.card.title}</p>
+                  {unit.card.scope && unit.card.scope !== unit.card.title && (
+                    <p className="text-[13px] font-[500] leading-relaxed text-[#101c33]/80">{unit.card.scope}</p>
+                  )}
+                  {(unit.card.services?.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {unit.card.services!.map((s) => (
+                        <span key={s} className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-[700] text-[#101c33]">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {unit.card.crewName && (
+                    <p className="text-[12px] font-[600] text-muted-foreground">Crew: {unit.card.crewName}</p>
+                  )}
+                  {!unit.card.changeOrder && (
+                    <Button
+                      data-testid="button-unit-change-order"
+                      onClick={() => onChangeOrder(unit)}
+                      className="h-11 w-full rounded-[12px] bg-amber-400 font-[800] text-black hover:bg-amber-300"
+                    >
+                      Change order on {unit.label}
+                    </Button>
+                  )}
+                </div>
+              )}
               {data.summary && (
                 <div className="p-4 rounded-[12px] bg-black/[0.02] border border-black/5">
                   <p className="text-[13px] font-[500] leading-relaxed text-[#101c33]">{data.summary}</p>
@@ -295,6 +380,118 @@ function UnitSummarySheet({
 }
 
 // ---------------------------------------------------------------------------
+// Change order dialog — simple dropdown + notes; the card jumps to Requested
+// on both boards the moment it's sent.
+// ---------------------------------------------------------------------------
+const CHANGE_ORDER_REASONS = [
+  'Add work / extra scope',
+  'Change materials or finish',
+  'Remove or reduce scope',
+  'Reschedule needed',
+  'Quality concern — needs rework',
+  'Other',
+];
+
+function ChangeOrderDialog({
+  token,
+  unit,
+  onOpenChange,
+}: {
+  token: string;
+  unit: UnitStatusRec | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const requestChangeOrder = useRequestUnitChangeOrder();
+  const [reason, setReason] = useState('');
+  const [notes, setNotes] = useState('');
+
+  // Reset the form each time a new unit opens.
+  React.useEffect(() => {
+    setReason('');
+    setNotes('');
+  }, [unit?.id]);
+
+  const submit = () => {
+    if (!unit?.card || !reason) return;
+    requestChangeOrder.mutate(
+      { token, unitId: unit.id, data: { jobId: unit.card.jobId, reason, notes: notes.trim() || null } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries();
+          toast({
+            title: 'Change order sent',
+            description: `${unit.label} moved to Requested — the office will review and update the job.`,
+          });
+          onOpenChange(false);
+        },
+        onError: (e: any) =>
+          toast({
+            title: 'Could not send change order',
+            description: e?.response?.data?.error ?? undefined,
+            variant: 'destructive',
+          }),
+      },
+    );
+  };
+
+  return (
+    <Dialog open={!!unit} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md rounded-[20px]">
+        <DialogHeader>
+          <DialogTitle className="text-[#101c33] font-[800]">
+            Change order — {unit?.label}
+          </DialogTitle>
+        </DialogHeader>
+        {unit?.card && (
+          <p className="text-[13px] font-[600] text-muted-foreground -mt-2">{unit.card.title}</p>
+        )}
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-[11px] font-[800] uppercase tracking-widest text-muted-foreground">
+              What needs to change?
+            </Label>
+            <Select value={reason} onValueChange={setReason}>
+              <SelectTrigger className="h-11 rounded-[10px] text-[13px] font-[600]" data-testid="select-change-order-reason">
+                <SelectValue placeholder="Pick a change type…" />
+              </SelectTrigger>
+              <SelectContent>
+                {CHANGE_ORDER_REASONS.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[11px] font-[800] uppercase tracking-widest text-muted-foreground">
+              Notes for the office
+            </Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Describe the change…"
+              className="min-h-[90px] rounded-[10px] text-[13px] font-[500]"
+              data-testid="input-change-order-notes"
+            />
+          </div>
+          <Button
+            className="h-11 w-full rounded-[12px] bg-amber-400 font-[800] text-black hover:bg-amber-300"
+            disabled={!reason || requestChangeOrder.isPending}
+            onClick={submit}
+            data-testid="button-send-change-order"
+          >
+            {requestChangeOrder.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send change order'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 export default function UnitsPage() {
@@ -307,6 +504,7 @@ export default function UnitsPage() {
   const [editing, setEditing] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
   const [requestUnit, setRequestUnit] = useState<string | null>(null);
+  const [changeOrderUnit, setChangeOrderUnit] = useState<UnitStatusRec | null>(null);
 
   const { data, isLoading, error } = useGetUnitMap(token, {
     query: {
@@ -438,12 +636,11 @@ export default function UnitsPage() {
       <main className="flex-1 p-6 md:p-8 overflow-y-auto">
         {/* Legend */}
         <div className="mx-auto max-w-5xl mb-8 flex flex-wrap items-center gap-6 text-[12px] font-[700] text-[#101c33] bg-white p-4 rounded-[16px] shadow-sm border border-black/5">
-          <span className="flex items-center gap-2">
-            <span className="h-4 w-4 rounded-[4px] bg-[#e11d48] shadow-sm" /> Needs attention
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="h-4 w-4 rounded-[4px] bg-[#f5f0d9] shadow-sm" /> In progress / pending
-          </span>
+          {Object.entries(RAIL_META).map(([key, meta]) => (
+            <span key={key} className="flex items-center gap-2">
+              <span className={`h-4 w-4 rounded-[4px] shadow-sm ${meta.dot}`} /> {meta.label}
+            </span>
+          ))}
           <span className="flex items-center gap-2">
             <span className="h-4 w-4 rounded-[4px] bg-[#1f7a52] shadow-sm" /> All clear
           </span>
@@ -495,12 +692,22 @@ export default function UnitsPage() {
 
       <UnitSummarySheet
         token={token}
-        unitId={selectedUnit}
+        unit={sorted.find((u) => u.id === selectedUnit) ?? null}
         onOpenChange={(open) => !open && setSelectedUnit(null)}
         onRequestWork={(unitLabel) => {
           setSelectedUnit(null);
           setRequestUnit(unitLabel);
         }}
+        onChangeOrder={(unit) => {
+          setSelectedUnit(null);
+          setChangeOrderUnit(unit);
+        }}
+      />
+
+      <ChangeOrderDialog
+        token={token}
+        unit={changeOrderUnit}
+        onOpenChange={(open) => !open && setChangeOrderUnit(null)}
       />
 
       <RequestWorkDialog

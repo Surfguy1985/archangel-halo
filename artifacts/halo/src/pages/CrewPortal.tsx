@@ -1798,7 +1798,55 @@ function PortalDispatchSection({ token }: { token: string }) {
 }
 
 function ScheduleTab({ portal }: { portal: PortalBundle }) {
-  const items = portal.schedule;
+  const allItems = portal.schedule;
+  // Day / Week / Month views over the (month-spanning) schedule feed.
+  const [schedView, setSchedView] = useState<"day" | "week" | "month">("week");
+  const [anchor, setAnchor] = useState<string>(() => localToday());
+  const shiftAnchor = (dir: -1 | 1) => {
+    const [y, m, d] = anchor.split("-").map((n) => parseInt(n, 10));
+    const dt = new Date(y!, m! - 1, d!);
+    if (schedView === "day") dt.setDate(dt.getDate() + dir);
+    else if (schedView === "week") dt.setDate(dt.getDate() + dir * 7);
+    else dt.setMonth(dt.getMonth() + dir, 1);
+    setAnchor(
+      `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`,
+    );
+  };
+  const range = (() => {
+    const [y, m, d] = anchor.split("-").map((n) => parseInt(n, 10));
+    const fmt = (dt: Date) =>
+      `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+    if (schedView === "day") return { from: anchor, to: anchor };
+    if (schedView === "week") {
+      const dt = new Date(y!, m! - 1, d!);
+      const diffToMon = (dt.getDay() + 6) % 7;
+      const mon = new Date(dt);
+      mon.setDate(dt.getDate() - diffToMon);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      return { from: fmt(mon), to: fmt(sun) };
+    }
+    return {
+      from: fmt(new Date(y!, m! - 1, 1)),
+      to: fmt(new Date(y!, m!, 0)),
+    };
+  })();
+  const items = allItems.filter(
+    (s) => s.scheduledOn && s.scheduledOn >= range.from && s.scheduledOn <= range.to,
+  );
+  const rangeLabel = (() => {
+    const [y, m, d] = anchor.split("-").map((n) => parseInt(n, 10));
+    const dt = new Date(y!, m! - 1, d!);
+    if (schedView === "day")
+      return dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    if (schedView === "month")
+      return dt.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    const [fy, fm, fd] = range.from.split("-").map((n) => parseInt(n, 10));
+    const [ty, tm, td] = range.to.split("-").map((n) => parseInt(n, 10));
+    const f = new Date(fy!, fm! - 1, fd!);
+    const t = new Date(ty!, tm! - 1, td!);
+    return `${f.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${t.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+  })();
   // Server returns items already in route order within each day; number the
   // stops so crews can follow the plan (only shown for multi-stop days).
   const dayCounts = new Map<string, number>();
@@ -1833,14 +1881,108 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
           .map((a) => encodeURIComponent(a))
           .join("/")}`
       : null;
+  // Month grid: which days in the anchor month have stops.
+  const monthDays = (() => {
+    if (schedView !== "month") return [];
+    const [y, m] = anchor.split("-").map((n) => parseInt(n, 10));
+    const daysIn = new Date(y!, m!, 0).getDate();
+    const firstDow = (new Date(y!, m! - 1, 1).getDay() + 6) % 7; // Mon=0
+    const counts = new Map<string, number>();
+    for (const s of items) {
+      if (s.scheduledOn) counts.set(s.scheduledOn, (counts.get(s.scheduledOn) ?? 0) + 1);
+    }
+    const cells: { key: string; day: number; count: number }[] = [];
+    for (let i = 0; i < firstDow; i++) cells.push({ key: `pad-${i}`, day: 0, count: 0 });
+    for (let d = 1; d <= daysIn; d++) {
+      const key = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      cells.push({ key, day: d, count: counts.get(key) ?? 0 });
+    }
+    return cells;
+  })();
   return (
     <div className="animate-in fade-in duration-200">
-      <div className="text-[13px] text-muted-foreground mb-[12px]">
-        Your upcoming assignments
+      <div className="flex items-center gap-[8px] mb-[12px]">
+        <div className="flex rounded-full bg-[var(--ink)]/6 p-[3px]">
+          {(["day", "week", "month"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setSchedView(v)}
+              className={`px-[12px] py-[5px] rounded-full text-[12px] font-bold capitalize transition-colors ${
+                schedView === v ? "bg-[var(--ink)] text-white" : "text-muted-foreground"
+              }`}
+              data-testid={`button-sched-view-${v}`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-[4px]">
+          <button
+            onClick={() => shiftAnchor(-1)}
+            aria-label="Previous"
+            className="w-[28px] h-[28px] grid place-items-center rounded-full bg-[var(--ink)]/6 text-[14px] font-bold"
+            data-testid="button-sched-prev"
+          >
+            ‹
+          </button>
+          <button
+            onClick={() => setAnchor(localToday())}
+            className="px-[10px] h-[28px] rounded-full bg-[var(--ink)]/6 text-[11.5px] font-bold"
+            data-testid="button-sched-today"
+          >
+            Today
+          </button>
+          <button
+            onClick={() => shiftAnchor(1)}
+            aria-label="Next"
+            className="w-[28px] h-[28px] grid place-items-center rounded-full bg-[var(--ink)]/6 text-[14px] font-bold"
+            data-testid="button-sched-next"
+          >
+            ›
+          </button>
+        </div>
       </div>
+      <div className="text-[13px] font-semibold mb-[10px]" data-testid="text-sched-range">
+        {rangeLabel}
+      </div>
+      {schedView === "month" && (
+        <div className={`${card} mb-[12px]`}>
+          <div className="grid grid-cols-7 gap-[2px] text-center">
+            {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+              <div key={i} className="text-[10px] font-bold text-muted-foreground py-[2px]">
+                {d}
+              </div>
+            ))}
+            {monthDays.map((c) =>
+              c.day === 0 ? (
+                <div key={c.key} />
+              ) : (
+                <button
+                  key={c.key}
+                  onClick={() => {
+                    if (c.count > 0) {
+                      setAnchor(c.key);
+                      setSchedView("day");
+                    }
+                  }}
+                  className={`relative py-[6px] rounded-[8px] text-[12px] font-semibold ${
+                    c.key === localToday() ? "bg-[var(--gold-light)]/25" : ""
+                  } ${c.count > 0 ? "text-[var(--ink)]" : "text-muted-foreground/50"}`}
+                  data-testid={`month-day-${c.key}`}
+                >
+                  {c.day}
+                  {c.count > 0 && (
+                    <span className="absolute left-1/2 -translate-x-1/2 bottom-[1px] w-[4px] h-[4px] rounded-full bg-[var(--gold)]" />
+                  )}
+                </button>
+              ),
+            )}
+          </div>
+        </div>
+      )}
       {items.length === 0 ? (
         <div className={`${card} text-center text-[13px] text-muted-foreground py-[30px]`}>
-          Nothing scheduled right now.
+          Nothing scheduled {schedView === "day" ? "this day" : schedView === "week" ? "this week" : "this month"}.
         </div>
       ) : (
         <div className="flex flex-col gap-[10px]">

@@ -1,4 +1,5 @@
-import { ExternalLink, CheckCircle2, Circle, FileText, Check, Users, Receipt, List, MapPin, AlertTriangle, Camera, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ExternalLink, CheckCircle2, Circle, FileText, Check, Users, Receipt, List, MapPin, AlertTriangle, Camera, X, ChevronLeft, ChevronRight, Clock, Mail, CreditCard } from 'lucide-react';
+import { useDispatchClientBoardAction } from '@workspace/api-client-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useEffect, useState } from 'react';
 import { useClientBoardCardAction, getGetClientBoardQueryKey } from '@workspace/api-client-react';
@@ -322,6 +323,58 @@ export function CardModuleDetail({ module, token, cardKey, readOnly, onReadOnlyC
 }
 
 /**
+ * "Process Payment" — the client picks how they'll pay: mail a check or run
+ * it through their own payment platform (VendorAccess etc.). The choice moves
+ * the card to Billing on both boards.
+ */
+function PaymentRouteChooser({ token, cardKey, guard }: { token: string; cardKey: string; guard: (fn: () => void) => void }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const dispatchAction = useDispatchClientBoardAction();
+  const choose = (action: 'invoice.pay_by_check' | 'invoice.pay_by_platform') =>
+    guard(() =>
+      dispatchAction.mutate(
+        { token, data: { action, cardKey } },
+        {
+          onSuccess: (outcome: any) => {
+            if (outcome?.ok === false) {
+              toast({ title: 'Could not save', description: outcome.reason || 'Try again', variant: 'destructive' });
+              return;
+            }
+            toast({ title: 'Payment on the way', description: outcome?.message || 'The office has been notified.' });
+            queryClient.invalidateQueries();
+          },
+          onError: (err: any) =>
+            toast({ title: 'Could not save', description: err?.data?.error ?? 'Try again', variant: 'destructive' }),
+        },
+      ),
+    );
+  return (
+    <div className="space-y-2" data-testid="payment-route-chooser">
+      <p className="text-sm font-bold tracking-widest uppercase text-muted-foreground">Process payment</p>
+      <button
+        type="button"
+        data-testid="button-pay-by-check"
+        disabled={dispatchAction.isPending}
+        onClick={() => choose('invoice.pay_by_check')}
+        className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#B4FF44] py-3.5 text-sm font-extrabold uppercase tracking-wider text-[#101C33] hover:bg-[#9EE622] disabled:opacity-50 transition-colors"
+      >
+        <Mail className="w-4 h-4" /> Mail a Check
+      </button>
+      <button
+        type="button"
+        data-testid="button-pay-by-platform"
+        disabled={dispatchAction.isPending}
+        onClick={() => choose('invoice.pay_by_platform')}
+        className="w-full flex items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-bold hover:bg-muted/60 disabled:opacity-50 transition-colors"
+      >
+        <CreditCard className="w-4 h-4" /> Upload to Payment Platform (VendorAccess, etc.)
+      </button>
+    </div>
+  );
+}
+
+/**
  * Guided invoice approve → pay motion (spec: one decision per screen).
  * Hierarchy: amount + PO large, line items, swipeable photos, budget check
  * vs. the original request. Approve is the single primary button; Dispute is
@@ -502,6 +555,16 @@ function InvoiceApprovePay({
         <button type="button" onClick={() => onViewPdf(module.pdfUrl)} className="w-full flex justify-center items-center gap-2 px-4 py-3 bg-muted text-foreground font-bold text-sm rounded-xl border border-border hover:bg-muted/80 transition-colors">
           <FileText className="w-4 h-4" /> View Invoice PDF
         </button>
+      )}
+
+      {/* Process payment — pick how you'll pay (mail a check / your payment platform) */}
+      {!isPaid && !module.paymentChoice && cardKey && (
+        <PaymentRouteChooser token={token} cardKey={cardKey} guard={guard} />
+      )}
+      {!isPaid && module.paymentChoice && (
+        <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-yellow-400/10 border border-yellow-500/40 text-sm font-bold text-yellow-700" data-testid="invoice-payment-pending">
+          <Clock className="w-4 h-4" /> Job payment pending — {module.paymentChoice === 'check' ? 'check is in the mail' : 'processing on your payment platform'}
+        </div>
       )}
 
       {/* Client already reported payment — "on its way" until the office confirms */}

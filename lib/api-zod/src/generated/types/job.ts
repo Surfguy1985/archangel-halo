@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { CrewPayEntry } from './crewPayEntry';
 import type { JobLineItem } from './jobLineItem';
 
 export interface Job {
@@ -125,6 +126,21 @@ export interface Job {
      * @nullable
      */
   clientBudget?: number | null;
+  /**
+     * requested while a client change order awaits office review, else null
+     * @nullable
+     */
+  changeOrderStatus?: string | null;
+  /** @nullable */
+  changeOrderReason?: string | null;
+  /** @nullable */
+  changeOrderNote?: string | null;
+  /** @nullable */
+  changeOrderAt?: string | null;
+  /** Board pay-flow tracker — one row per crew member paid from the billing card */
+  crewPay?: CrewPayEntry[] | null;
+  /** Distinct service names from the job's line items (job board only) */
+  services?: string[] | null;
   /** @nullable */
   createdAt?: string | null;
   lineItems?: JobLineItem[];

@@ -189,6 +189,10 @@ export async function buildInvoiceModule(
     // module refresh reconstructs the same state deterministically.
     clientPaidAt: inv.clientPaidReportedAt ? inv.clientPaidReportedAt.toISOString() : null,
     clientPaidBy: inv.clientPaidReportedBy ?? null,
+    // Client's chosen payment route ("check" | "platform") — until they pick
+    // one the card flashes green on their board (invoice ready).
+    paymentChoice: inv.paymentChoice ?? null,
+    paymentChoicePlatform: inv.paymentChoicePlatform ?? null,
     poNumber: inv.poNumber ?? null,
     requestedBudget,
     photoUrls: photoUrls.length ? photoUrls : null,

@@ -850,8 +850,25 @@ export default function PropertyDetail() {
             <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
               {expenses.map((e) => (
                 <div key={e.id} className="flex items-center gap-3 p-4">
+                  {e.receiptPath && (
+                    <a
+                      href={`/api/storage${e.receiptPath}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="View receipt"
+                      className="shrink-0 block w-10 h-10 rounded-lg overflow-hidden border border-[var(--hairline)] bg-muted"
+                      data-testid={`expense-receipt-${e.id}`}
+                    >
+                      <img src={`/api/storage${e.receiptPath}`} alt="Receipt" loading="lazy" className="w-full h-full object-cover" />
+                    </a>
+                  )}
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold">{e.vendor || e.category || "Expense"}</div>
+                    <div className="font-semibold flex items-center gap-1.5">
+                      <span className="truncate">{e.vendor || e.category || "Expense"}</span>
+                      {e.unitNo && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--ink)]/8 shrink-0">Unit {e.unitNo}</span>
+                      )}
+                    </div>
                     <div className="text-sm text-muted-foreground truncate">
                       {[e.category, e.spentOn ? new Date(e.spentOn).toLocaleDateString() : null].filter(Boolean).join(" · ")}
                     </div>

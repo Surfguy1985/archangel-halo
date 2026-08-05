@@ -60,6 +60,7 @@ import { applySopToInvoice, getSopRule } from "./sop";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { getBankMtdCashflow } from "../lib/plaidClient";
 import { raiseClientCard, completeClientCard } from "../lib/clientBoard";
+import { buildInvoiceModule } from "../lib/cardModules";
 
 type Settings = Awaited<ReturnType<typeof getBusinessSettings>>;
 
@@ -480,6 +481,27 @@ router.post("/invoices", async (req, res): Promise<void> => {
 
   if (row.jobId) await recomputeJobFinancials(row.jobId);
   await syncInvoiceLedger(row.id);
+  // Invoice tied to a job card → surface it on the client's board right away
+  // (flashing green = job complete, invoice ready to review and pay).
+  if (row.jobId) {
+    const invTotal = row.amount + (row.taxAmount ?? 0);
+    await raiseClientCard({
+      propertyId: row.propertyId,
+      kind: "invoice",
+      title: `Invoice ${row.invoiceNo} — ${invTotal.toLocaleString("en-US", { style: "currency", currency: "USD" })}`,
+      body: row.notes || `Job complete — Invoice ${row.invoiceNo} is ready to review.`,
+      actionLabel: "Review & pay",
+      amount: invTotal,
+      dueDate: row.dueAt
+        ? `${row.dueAt.getFullYear()}-${String(row.dueAt.getMonth() + 1).padStart(2, "0")}-${String(row.dueAt.getDate()).padStart(2, "0")}`
+        : null,
+      links: [{ label: `Invoice ${row.invoiceNo} (PDF)`, url: `/api/invoices/${row.id}/pdf`, kind: "pdf" }],
+      sourceType: "invoice",
+      sourceId: row.id,
+      jobId: row.jobId,
+      module: await buildInvoiceModule(row.propertyId, row.id),
+    });
+  }
   const names = await propertyNames();
   res.status(201).json(CreateInvoiceResponse.parse(decorateInvoice(row, names)));
 });
@@ -845,6 +867,7 @@ router.post("/invoices/:id/send", async (req, res): Promise<void> => {
     sourceType: "invoice",
     sourceId: row.id,
     jobId: row.jobId ?? null,
+    module: await buildInvoiceModule(row.propertyId, row.id),
   });
   res.json(SendInvoiceResponse.parse(decorateInvoice(row, names)));
 });
@@ -1073,7 +1096,17 @@ router.get("/expenses", async (req, res): Promise<void> => {
     .orderBy(desc(expensesTable.spentOn));
   if (propertyId) rows = rows.filter((r) => r.propertyId === propertyId);
   if (jobId) rows = rows.filter((r) => r.jobId === jobId);
-  res.json(ListExpensesResponse.parse(rows.map((r) => ser(r))));
+  // Attach the linked job's unit number so expense lists can group by unit.
+  const jobIds = [...new Set(rows.map((r) => r.jobId).filter(Boolean))] as string[];
+  const jobs = jobIds.length
+    ? await db.select().from(jobsTable).where(inArray(jobsTable.id, jobIds))
+    : [];
+  const unitByJob = new Map(jobs.map((j) => [j.id, j.unitNo ?? null]));
+  res.json(
+    ListExpensesResponse.parse(
+      rows.map((r) => ({ ...ser(r), unitNo: r.jobId ? (unitByJob.get(r.jobId) ?? null) : null })),
+    ),
+  );
 });
 
 router.post("/expenses", async (req, res): Promise<void> => {
