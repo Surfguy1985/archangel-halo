@@ -3,6 +3,7 @@ import billingIntegrationAddendum from "./billing-integration-addendum.md?raw";
 import pricingModel from "./pricing-model.md?raw";
 import pricingConfig from "./pricing-config.md?raw";
 import quickstartGuides from "./quickstart-guides.md?raw";
+import masterManual from "./master-manual.md?raw";
 
 export interface DocEntry {
   slug: string;
@@ -13,6 +14,14 @@ export interface DocEntry {
 }
 
 export const docs: DocEntry[] = [
+  {
+    slug: "master-manual",
+    title: "Master How-To Manual (SOP)",
+    category: "Onboarding",
+    description:
+      "One-page internal SOP with real screenshots: add a property, create a job, assign a crew, invoice, get paid, pay the crew, close out.",
+    markdown: masterManual,
+  },
   {
     slug: "quickstart-guides",
     title: "Role Quick-Start Guides",

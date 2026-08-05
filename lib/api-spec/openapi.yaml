@@ -2227,6 +2227,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /job-board/{jobId}/check-followup:
+    post:
+      operationId: sendCheckFollowup
+      tags: [jobs]
+      summary: Message the property's board thread asking them to verify the reported check payment was actually sent
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Follow-up message posted to the invoice card thread
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+        "404":
+          description: Job or invoice not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Invoice not awaiting check verification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /jobs/{id}/board-status:
     post:
       operationId: setJobBoardStatus
@@ -11615,6 +11648,7 @@ components:
         paymentChoice: { type: ["string", "null"], description: "check | platform | null until the client picks" }
         paymentChoicePlatform: { type: ["string", "null"] }
         paidAt: { type: ["string", "null"] }
+        clientPaidReportedAt: { type: ["string", "null"], description: "When the client reported the payment as sent from their board" }
     CrewPayEntry:
       type: object
       required: [crewId, name, amount]

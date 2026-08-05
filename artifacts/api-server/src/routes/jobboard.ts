@@ -13,7 +13,11 @@ import {
   invoicesTable,
   expensesTable,
   jobLineItemsTable,
+  clientCardCommentsTable,
+  crewMessagesTable,
 } from "@workspace/db";
+import { threadKeysFor, notifyClientBoard } from "./clientBoard";
+import { emitBoardEvent } from "../lib/boardEvents";
 import { syncExpenseLedger } from "../lib/ledger";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import {
@@ -227,6 +231,9 @@ router.get("/job-board", async (_req, res): Promise<void> => {
           paymentChoice: inv.paymentChoice ?? null,
           paymentChoicePlatform: inv.paymentChoicePlatform ?? null,
           paidAt: inv.paidAt ? inv.paidAt.toISOString() : null,
+          clientPaidReportedAt: inv.clientPaidReportedAt
+            ? inv.clientPaidReportedAt.toISOString()
+            : null,
         };
       })(),
       priceItems: (priceByProp.get(j.propertyId) ?? []).map((pi) => ser(pi)),
@@ -253,6 +260,69 @@ router.get("/job-board", async (_req, res): Promise<void> => {
   });
 
   res.json(ListJobBoardResponse.parse(cards));
+});
+
+// "Client says the check is on its way" follow-up: posts an office message
+// into the invoice card's thread on the client board asking the property to
+// verify the payment was actually sent. Used from the Alerts rail after the
+// reported payment has sat unverified for 7+ days.
+router.post("/job-board/:jobId/check-followup", async (req, res): Promise<void> => {
+  try {
+  const jobId = String(req.params.jobId);
+  if (!/^[0-9a-f-]{36}$/i.test(jobId)) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, jobId));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  const invoices = await db
+    .select()
+    .from(invoicesTable)
+    .where(eq(invoicesTable.jobId, jobId))
+    .orderBy(desc(invoicesTable.createdAt));
+  const inv = invoices[0];
+  if (!inv) {
+    res.status(404).json({ error: "No invoice on this job" });
+    return;
+  }
+  if (!inv.clientPaidReportedAt || inv.status === "paid") {
+    res.status(409).json({ error: "This invoice isn't waiting on a reported check" });
+    return;
+  }
+  const reportedOn = inv.clientPaidReportedAt.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+  const { canonical } = await threadKeysFor(inv.propertyId, `invoice:${inv.id}`);
+  await db.insert(clientCardCommentsTable).values({
+    propertyId: inv.propertyId,
+    cardKey: canonical,
+    authorType: "office",
+    authorName: "Archangel Office",
+    body: `Following up on invoice ${inv.invoiceNo} ($${(inv.amount + (inv.taxAmount ?? 0)).toFixed(2)}): payment was marked as sent on your side on ${reportedOn}, but we haven't received the check yet. Could you verify it was mailed, and let us know the check number or date sent? Thank you!`,
+  });
+  await notifyClientBoard(
+    inv.propertyId,
+    "comment",
+    "New reply from Archangel",
+    `Please verify the check for invoice ${inv.invoiceNo} was sent — we haven't received it yet.`,
+    canonical,
+  );
+  emitBoardEvent(inv.propertyId, "dashboard");
+  await db.insert(activitiesTable).values({
+    kind: "note",
+    body: `Check follow-up sent for ${inv.invoiceNo} — client reported paid ${reportedOn}, not yet received`,
+    entityType: "invoice",
+    entityId: inv.id,
+  });
+  res.json({ ok: true });
+  } catch (err) {
+    console.error("check-followup failed", err);
+    if (!res.headersSent) res.status(500).json({ error: "Couldn't send the follow-up" });
+  }
 });
 
 router.post("/jobs/:id/broadcast", async (req, res): Promise<void> => {
@@ -692,6 +762,38 @@ router.post("/jobs/:id/crew-pay", async (req, res): Promise<void> => {
     // retry hits, both are idempotent rebuild-style syncs.
     await syncExpenseLedger(result.expenseId);
     await recomputeJobFinancials(id);
+    // Let the crew know on their live portal link — payment is on its way.
+    // Never fail the payout over the courtesy message.
+    try {
+      const job = result.updated;
+      const [crew] = await db.select().from(crewsTable).where(eq(crewsTable.id, crewId));
+      if (crew) {
+        const [prop] = await db
+          .select()
+          .from(propertiesTable)
+          .where(eq(propertiesTable.id, job.propertyId));
+        const amt = Number(req.body?.amount).toLocaleString("en-US", {
+          style: "currency",
+          currency: "USD",
+        });
+        const via = crew.preferredPaymentMethod ? ` via ${crew.preferredPaymentMethod}` : "";
+        const where = [prop?.name, job.unitNo ? `Unit ${job.unitNo}` : null]
+          .filter(Boolean)
+          .join(" · ");
+        const today = new Date().toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+        await db.insert(crewMessagesTable).values({
+          crewId: crew.id,
+          sender: "admin",
+          body: `Your payment of ${amt} for Job ${job.jobNo}${where ? ` (${where})` : ""} has been sent${via} — ${today}. Thank you for the work!`,
+        });
+      }
+    } catch (msgErr) {
+      console.error("crew pay message failed", msgErr);
+    }
     res.json(ser(result.updated));
   } catch (e) {
     res.status(500).json({ error: (e as Error).message || "Crew pay failed" });

@@ -37,8 +37,13 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { prepareScanImage } from "@/lib/scanImage";
 
-const ACCEPT =
+export const SOP_ACCEPT =
   "application/pdf,text/csv,.csv,text/plain,.txt,image/png,image/jpeg,image/webp,image/gif";
+const ACCEPT = SOP_ACCEPT;
+
+export function sopFileToBase64(file: File): Promise<string> {
+  return fileToBase64(file);
+}
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -52,7 +57,7 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-function RuleSheet({ rule }: { rule: SopRuleDetail }) {
+export function RuleSheet({ rule }: { rule: SopRuleDetail }) {
   const r = rule.rules;
   const f = r.format ?? {};
   const p = r.property ?? {};

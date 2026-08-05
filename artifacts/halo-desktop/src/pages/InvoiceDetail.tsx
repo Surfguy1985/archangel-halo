@@ -10,7 +10,8 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient} from "@tanstack/react-query";
 import { useParams, Link, useLocation} from "wouter";
-import { ChevronLeft, Send, Download, Trash2, BellRing, CreditCard, MessageSquareShare, Pencil} from "lucide-react";
+import { ChevronLeft, Send, Download, Trash2, BellRing, CreditCard, MessageSquareShare, Pencil, Camera} from "lucide-react";
+import { ScanCheckDialog} from "@/components/ScanCheckDialog";
 import { PushCardDialog } from "@/components/PushCardDialog";
 import { useState} from "react";
 import { Skeleton} from "@/components/ui/skeleton";
@@ -71,6 +72,7 @@ export default function InvoiceDetail() {
     query: { enabled: !!id, queryKey: getGetInvoiceQueryKey(id)},
  });
   const [payOpen, setPayOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
@@ -320,12 +322,21 @@ export default function InvoiceDetail() {
               </button>
             )}
             {status !== "paid" && status !== "draft" && (
-              <button
-                onClick={openPay}
-                className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 font-display font-bold text-sm text-black bg-[var(--primary)] hover:opacity-90 transition-opacity"
-              >
-                <CreditCard className="w-4 h-4" /> Record payment
-              </button>
+              <>
+                <button
+                  onClick={() => setScanOpen(true)}
+                  data-testid="button-scan-check"
+                  className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 font-display font-bold text-sm text-black bg-[var(--primary)] hover:opacity-90 transition-opacity"
+                >
+                  <Camera className="w-4 h-4" /> Scan received check
+                </button>
+                <button
+                  onClick={openPay}
+                  className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 font-display font-bold text-sm bg-white border border-border shadow-sm hover:bg-black/[0.03] transition-colors"
+                >
+                  <CreditCard className="w-4 h-4" /> Record payment
+                </button>
+              </>
             )}
             {status !== "draft" && inv.propertyId && (
               <button
@@ -354,6 +365,12 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
+      <ScanCheckDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        presetPropertyId={inv.propertyId ?? undefined}
+        presetInvoiceId={inv.id}
+      />
       <SendInvoiceDialog
         open={sendOpen}
         onOpenChange={setSendOpen}

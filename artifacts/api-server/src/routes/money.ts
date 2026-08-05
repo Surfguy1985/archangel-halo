@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray } from "drizzle-orm";
 import {
   db,
   invoicesTable,
@@ -414,6 +414,26 @@ router.post("/invoices", async (req, res): Promise<void> => {
   if (jobLinkError) {
     res.status(400).json({ error: jobLinkError });
     return;
+  }
+  // Duplicate guard: one active invoice per job. A second invoice is only
+  // allowed once the existing one is paid or cancelled — otherwise every
+  // create surface (property card, job board, wizard, voice) could double-bill.
+  if (body.jobId) {
+    const existing = await db
+      .select()
+      .from(invoicesTable)
+      .where(eq(invoicesTable.jobId, body.jobId))
+      .orderBy(desc(invoicesTable.createdAt));
+    const active = existing.find(
+      (inv) => inv.status !== "paid" && inv.status !== "cancelled",
+    );
+    if (active) {
+      const state = active.status === "draft" ? "created (draft)" : "created and sent";
+      res.status(409).json({
+        error: `Invoice ${active.invoiceNo} was already ${state} for this job — open it instead of creating a duplicate.`,
+      });
+      return;
+    }
   }
   const items = normalizeItems(body.lineItems);
   const total =
@@ -916,9 +936,39 @@ router.post("/invoices/:id/remind", async (req, res): Promise<void> => {
   res.json(RemindInvoiceResponse.parse(decorateInvoice(inv, names)));
 });
 
+// A check is "on file" for an invoice when a payment row carries a scanned
+// check image; marking paid is locked until the scanned checks cover the
+// invoice amount (physical check received → scanned → verified → paid).
+// Paid-transition policy: manual/office flips (status endpoint, recordPayment,
+// voice command) require scanned-check coverage; electronic rails that move
+// real funds (pay hub, Plaid bank matches) mark paid on settlement directly.
+export async function checkCoverage(invoiceId: string): Promise<number> {
+  const rows = await db
+    .select()
+    .from(paymentsTable)
+    .where(eq(paymentsTable.invoiceId, invoiceId));
+  return rows
+    .filter((p) => p.checkImagePath)
+    .reduce((s, p) => s + (p.amount ?? 0), 0);
+}
+
 router.post("/invoices/:id/status", async (req, res): Promise<void> => {
   const { id } = SetInvoiceStatusParams.parse(req.params);
   const body = SetInvoiceStatusBody.parse(req.body);
+  if (body.status === "paid") {
+    const [existing] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, id));
+    if (!existing) {
+      res.status(404).json({ error: "Invoice not found" });
+      return;
+    }
+    const covered = await checkCoverage(id);
+    if (covered + 0.01 < existing.amount) {
+      res.status(409).json({
+        error: `Can't mark paid yet — scan the received check into this invoice first. Scanned checks on file cover $${covered.toFixed(2)} of the $${existing.amount.toFixed(2)} due.`,
+      });
+      return;
+    }
+  }
   const [row] = await db
     .update(invoicesTable)
     .set(
@@ -1073,15 +1123,25 @@ Return STRICT JSON: {"found": boolean, "amount": number|null, "payerName": strin
 router.post("/payments", async (req, res): Promise<void> => {
   const body = RecordPaymentBody.parse(req.body);
   const [row] = await db.insert(paymentsTable).values(body).returning();
-  const [inv] = await db
-    .update(invoicesTable)
-    .set({ status: "paid", paidAt: new Date() })
-    .where(eq(invoicesTable.id, body.invoiceId))
-    .returning();
+  // Only a scanned check on file can flip the invoice to paid: the payment is
+  // always recorded, but "paid" waits until check images cover the amount.
+  let [inv] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, body.invoiceId));
+  let verified = false;
+  if (inv && inv.status !== "paid") {
+    const covered = await checkCoverage(body.invoiceId);
+    if (covered + 0.01 >= inv.amount) {
+      verified = true;
+      [inv] = await db
+        .update(invoicesTable)
+        .set({ status: "paid", paidAt: new Date() })
+        .where(eq(invoicesTable.id, body.invoiceId))
+        .returning();
+    }
+  }
   if (inv?.jobId) await recomputeJobFinancials(inv.jobId);
   if (inv) await syncInvoiceLedger(inv.id);
   // The board mirrors reality: a paid invoice's card completes itself.
-  if (inv) await completeClientCard("invoice", inv.id, "Paid — thank you");
+  if (inv && (verified || inv.status === "paid")) await completeClientCard("invoice", inv.id, "Paid — thank you");
   if (inv && (body.checkNumber || body.checkImagePath)) {
     const names = await propertyNames();
     await db.insert(activitiesTable).values({
@@ -1130,6 +1190,34 @@ router.post("/expenses", async (req, res): Promise<void> => {
     if (body.propertyId && job.propertyId && job.propertyId !== body.propertyId) {
       res.status(400).json({ error: "Job does not belong to this property" });
       return;
+    }
+  }
+  // Duplicate guard: the same vendor + amount + category logged against the
+  // same job (or property) within 24h is almost always a double entry.
+  {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const scope = body.jobId
+      ? eq(expensesTable.jobId, body.jobId)
+      : body.propertyId
+        ? eq(expensesTable.propertyId, body.propertyId)
+        : null;
+    if (scope) {
+      const recent = await db
+        .select()
+        .from(expensesTable)
+        .where(and(scope, gte(expensesTable.spentOn, since)));
+      const dup = recent.find(
+        (e) =>
+          Math.abs(e.amount - body.amount) < 0.005 &&
+          (e.vendor ?? "").trim().toLowerCase() === (body.vendor ?? "").trim().toLowerCase() &&
+          (e.category ?? "").trim().toLowerCase() === (body.category ?? "").trim().toLowerCase(),
+      );
+      if (dup) {
+        res.status(409).json({
+          error: `This looks like a duplicate — a $${dup.amount.toFixed(2)} ${dup.category || "expense"}${dup.vendor ? ` from ${dup.vendor}` : ""} was already logged here in the last 24 hours.`,
+        });
+        return;
+      }
     }
   }
   // Approval workflow: expenses at/above the configured threshold start as

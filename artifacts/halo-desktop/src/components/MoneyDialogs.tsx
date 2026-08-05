@@ -135,7 +135,7 @@ export function RecordPaymentDialog({
           onOpenChange(false);
           toast({
             title: "Payment recorded",
-            description:`${invoice.invoiceNo} marked paid.`,
+            description:`Saved for ${invoice.invoiceNo} — it marks paid once the scanned check on file covers the amount.`,
          });
        },
         onError: (err: unknown) => {

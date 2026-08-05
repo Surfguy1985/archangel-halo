@@ -28,6 +28,7 @@ import { completeComplexJson } from "../lib/ai";
 import { applySopToInvoice } from "./sop";
 import { localToday } from "../lib/localDate";
 import { recomputeJobFinancials } from "../lib/jobFinance";
+import { checkCoverage } from "./money";
 import {
   postJournal,
   syncExpenseLedger,
@@ -384,6 +385,22 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
           messages.push(`Skipped invoice for ${prop.name} — ${sopApplied.error}`);
           continue;
         }
+        // Same duplicate guard as POST /invoices: one active invoice per job.
+        if (job?.id) {
+          const existingForJob = await db
+            .select()
+            .from(invoicesTable)
+            .where(eqId(invoicesTable.jobId, job.id));
+          const activeDup = existingForJob.find(
+            (inv) => inv.status !== "paid" && inv.status !== "cancelled",
+          );
+          if (activeDup) {
+            messages.push(
+              `Skipped invoice for ${prop.name} — ${activeDup.invoiceNo} is already ${activeDup.status === "draft" ? "created as a draft" : "created and sent"} for that job.`,
+            );
+            continue;
+          }
+        }
         if (sopApplied?.ok) {
           if (sopApplied.invoiceNo) invoiceNo = sopApplied.invoiceNo;
           if (sopApplied.dueAt) dueAt = sopApplied.dueAt;
@@ -665,6 +682,15 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
         }
         if (inv.status === "paid") {
           messages.push(`${inv.invoiceNo} is already marked paid`);
+          continue;
+        }
+        // Same paid-transition policy as the Money routes: a scanned check on
+        // file must cover the invoice before anything can flip it to paid.
+        const covered = await checkCoverage(inv.id);
+        if (covered + 0.01 < inv.amount) {
+          messages.push(
+            `Can't mark ${inv.invoiceNo} paid yet — scan the received check into the invoice first (checks on file cover $${covered.toFixed(2)} of $${inv.amount.toFixed(2)})`,
+          );
           continue;
         }
         const [updatedInv] = await db

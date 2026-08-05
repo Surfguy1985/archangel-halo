@@ -141,7 +141,11 @@ export default function PropertyDetail() {
     const jobId = invoices.find((inv) => inv.id === invoiceId)?.jobId ?? undefined;
     setStatus.mutate(
       { id: invoiceId, data: { status: next } },
-      { onSuccess: () => invalidateMoney(jobId) },
+      {
+        onSuccess: () => invalidateMoney(jobId),
+        onError: (err) =>
+          toast({ title: "Couldn't update invoice", description: err.message, variant: "destructive" }),
+      },
     );
   };
 
@@ -189,13 +193,45 @@ export default function PropertyDetail() {
         action = () => completeJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists });
       } else if (!invoice) {
         label = "Create invoice";
-        action = () => createInvoice.mutate({ data: { propertyId: id, jobId: job.id, amount: job.lineTotal || 0 } }, { onSuccess: () => invalidateMoney(job.id) });
+        action = () =>
+          createInvoice.mutate(
+            { data: { propertyId: id, jobId: job.id, amount: job.lineTotal || 0 } },
+            {
+              onSuccess: () => invalidateMoney(job.id),
+              onError: (err) =>
+                toast({
+                  title: "Invoice already exists",
+                  description: (err as any)?.data?.error ?? err.message,
+                  variant: "destructive",
+                }),
+            },
+          );
       } else if (invoice.status === "draft") {
         label = "Send invoice";
-        action = () => setStatus.mutate({ id: invoice.id, data: { status: "sent" } }, { onSuccess: () => invalidateMoney(job.id) });
+        action = () =>
+          setStatus.mutate(
+            { id: invoice.id, data: { status: "sent" } },
+            {
+              onSuccess: () => invalidateMoney(job.id),
+              onError: (err) =>
+                toast({
+                  title: "Couldn't send invoice",
+                  description: (err as any)?.data?.error ?? err.message,
+                  variant: "destructive",
+                }),
+            },
+          );
       } else if (invoice.status === "sent" || invoice.status === "past_due") {
         label = "Mark paid";
-        action = () => setStatus.mutate({ id: invoice.id, data: { status: "paid" } }, { onSuccess: () => invalidateMoney(job.id) });
+        action = () =>
+          setStatus.mutate(
+            { id: invoice.id, data: { status: "paid" } },
+            {
+              onSuccess: () => invalidateMoney(job.id),
+              onError: (err) =>
+                toast({ title: "Couldn't mark paid", description: err.message, variant: "destructive" }),
+            },
+          );
       } else if (invoice.status === "paid") {
         label = "Close out";
         // Close-out first opens the job summary form (prefilled recap for the PM).

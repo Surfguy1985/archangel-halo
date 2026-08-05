@@ -3292,7 +3292,8 @@ export const ListJobBoardResponseItem = zod.object({
   "status": zod.string(),
   "paymentChoice": zod.string().nullish().describe('check | platform | null until the client picks'),
   "paymentChoicePlatform": zod.string().nullish(),
-  "paidAt": zod.string().nullish()
+  "paidAt": zod.string().nullish(),
+  "clientPaidReportedAt": zod.string().nullish().describe('When the client reported the payment as sent from their board')
 }),zod.null()]).optional(),
   "priceItems": zod.array(zod.object({
   "id": zod.string(),
@@ -3550,6 +3551,18 @@ export const ClearJobCrewPayResponse = zod.object({
   "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
+})
+
+
+/**
+ * @summary Message the property's board thread asking them to verify the reported check payment was actually sent
+ */
+export const SendCheckFollowupParams = zod.object({
+  "jobId": zod.coerce.string()
+})
+
+export const SendCheckFollowupResponse = zod.object({
+  "ok": zod.boolean()
 })
 
 

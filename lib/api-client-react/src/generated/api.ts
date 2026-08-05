@@ -335,6 +335,7 @@ import type {
   ReverseGeocodeResult,
   SavePacketInput,
   ScheduleInput,
+  SendCheckFollowup200,
   SendInvoiceInput,
   SendPacketInput,
   SopDocumentUpload,
@@ -7165,6 +7166,77 @@ export const useClearJobCrewPay = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getClearJobCrewPayMutationOptions(options));
+    }
+
+export const getSendCheckFollowupUrl = (jobId: string,) => {
+
+
+
+
+  return `/api/job-board/${jobId}/check-followup`
+}
+
+/**
+ * @summary Message the property's board thread asking them to verify the reported check payment was actually sent
+ */
+export const sendCheckFollowup = async (jobId: string, options?: RequestInit): Promise<SendCheckFollowup200> => {
+
+  return customFetch<SendCheckFollowup200>(getSendCheckFollowupUrl(jobId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSendCheckFollowupMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendCheckFollowup>>, TError,{jobId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendCheckFollowup>>, TError,{jobId: string}, TContext> => {
+
+const mutationKey = ['sendCheckFollowup'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendCheckFollowup>>, {jobId: string}> = (props) => {
+          const {jobId} = props ?? {};
+
+          return  sendCheckFollowup(jobId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendCheckFollowupMutationResult = NonNullable<Awaited<ReturnType<typeof sendCheckFollowup>>>
+
+    export type SendCheckFollowupMutationError = ErrorType<Error>
+
+    /**
+ * @summary Message the property's board thread asking them to verify the reported check payment was actually sent
+ */
+export const useSendCheckFollowup = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendCheckFollowup>>, TError,{jobId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendCheckFollowup>>,
+        TError,
+        {jobId: string},
+        TContext
+      > => {
+      return useMutation(getSendCheckFollowupMutationOptions(options));
     }
 
 export const getSetJobBoardStatusUrl = (id: string,) => {

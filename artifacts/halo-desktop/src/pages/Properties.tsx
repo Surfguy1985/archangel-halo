@@ -1,10 +1,11 @@
 import { useListProperties, useGeneratePropertyImage, getListPropertiesQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Building, Plus, Search, MapPin, Briefcase, Building2, Sparkles } from "lucide-react";
+import { Building, Plus, Search, MapPin, Briefcase, Building2, Sparkles, Settings } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AddPropertyDialog } from "@/components/PropertyDialogs";
+import { PropertySopDialog } from "@/components/PropertySopDialog";
 
 function useAutoGenerateImages(properties?: { id: string; imagePath?: string | null }[]) {
   const queryClient = useQueryClient();
@@ -31,6 +32,7 @@ function useAutoGenerateImages(properties?: { id: string; imagePath?: string | n
 export default function Properties() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [sopProperty, setSopProperty] = useState<{ id: string; name: string } | null>(null);
   const { data: properties, isLoading } = useListProperties();
 
   useAutoGenerateImages(properties);
@@ -69,7 +71,15 @@ export default function Properties() {
           </div>
         </header>
 
-        <AddPropertyDialog open={addOpen} onOpenChange={setAddOpen} />
+        {sopProperty && (
+        <PropertySopDialog
+          propertyId={sopProperty.id}
+          propertyName={sopProperty.name}
+          open={!!sopProperty}
+          onOpenChange={(v) => { if (!v) setSopProperty(null); }}
+        />
+      )}
+      <AddPropertyDialog open={addOpen} onOpenChange={setAddOpen} />
 
         <div className="flex-1 flex flex-col">
           {isLoading ? (
@@ -80,12 +90,13 @@ export default function Properties() {
             </div>
           ) : (
             <div className="flex flex-col">
-              <div className="grid grid-cols-[48px_1fr_1.5fr_100px_100px] gap-4 pb-3 border-b border-white/10 text-white/40 text-xs font-bold uppercase tracking-wider px-4">
+              <div className="grid grid-cols-[48px_1fr_1.5fr_100px_100px_40px] gap-4 pb-3 border-b border-white/10 text-white/40 text-xs font-bold uppercase tracking-wider px-4">
                 <div></div>
                 <div>Name</div>
                 <div>Location</div>
                 <div>Status</div>
                 <div className="text-right">Balance</div>
+                <div></div>
               </div>
 
               <div data-tour="properties-list" className="flex flex-col mt-2">
@@ -96,7 +107,7 @@ export default function Properties() {
                     <Link
                       key={p.id}
                       href={`/properties/${p.id}`}
-                      className="group grid grid-cols-[48px_1fr_1.5fr_100px_100px] gap-4 items-center py-3 border-b border-white/5 hover:bg-white/5 transition-colors px-4 rounded-xl"
+                      className="group grid grid-cols-[48px_1fr_1.5fr_100px_100px_40px] gap-4 items-center py-3 border-b border-white/5 hover:bg-white/5 transition-colors px-4 rounded-xl"
                     >
                       <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/5 border border-white/10 shrink-0 relative flex items-center justify-center">
                         {p.imagePath ? (
@@ -151,6 +162,21 @@ export default function Properties() {
                           </span>
                         )}
                       </div>
+
+                      <button
+                        type="button"
+                        aria-label={`SOP invoice guidelines for ${p.name}`}
+                        title="SOP invoice guidelines"
+                        data-testid={`property-sop-settings-${p.id}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setSopProperty({ id: p.id, name: p.name });
+                        }}
+                        className="w-8 h-8 rounded-full grid place-items-center text-white/40 hover:text-[var(--gold-light)] hover:bg-white/10 transition-colors justify-self-end"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </button>
                     </Link>
                   );
                 })}

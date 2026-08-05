@@ -534,6 +534,7 @@ export * from './savePacketInputFormsData';
 export * from './savePacketInputSignatures';
 export * from './schedule';
 export * from './scheduleInput';
+export * from './sendCheckFollowup200';
 export * from './sendInvoiceInput';
 export * from './sendPacketInput';
 export * from './sopComplianceCheck';

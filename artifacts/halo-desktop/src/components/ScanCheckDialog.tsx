@@ -1,4 +1,4 @@
-import { useRef, useState} from "react";
+import { useEffect, useRef, useState} from "react";
 import { useQueryClient} from "@tanstack/react-query";
 import {
   useScanCheck,
@@ -59,9 +59,13 @@ async function uploadCheckFile(file: File): Promise<string | null> {
 export function ScanCheckDialog({
   open,
   onOpenChange,
+  presetPropertyId,
+  presetInvoiceId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  presetPropertyId?: string;
+  presetInvoiceId?: string;
 }) {
   const queryClient = useQueryClient();
   const { data: properties} = useListProperties();
@@ -112,6 +116,14 @@ export function ScanCheckDialog({
     if (!o) reset();
     onOpenChange(o);
  };
+
+  // Preset anchors (e.g. opened from an invoice card): pre-pick the property
+  // and invoice so the office only has to snap the check photo.
+  useEffect(() => {
+    if (!open) return;
+    if (presetPropertyId) setPropertyId(presetPropertyId);
+    if (presetInvoiceId) setInvoiceIds([presetInvoiceId]);
+  }, [open, presetPropertyId, presetInvoiceId]);
 
   const onPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

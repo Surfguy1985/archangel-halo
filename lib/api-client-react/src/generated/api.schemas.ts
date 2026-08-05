@@ -2738,6 +2738,11 @@ export interface JobBoardInvoiceInfo {
   paymentChoicePlatform?: string | null;
   /** @nullable */
   paidAt?: string | null;
+  /**
+     * When the client reported the payment as sent from their board
+     * @nullable
+     */
+  clientPaidReportedAt?: string | null;
 }
 
 export interface JobBoardCard {
@@ -7516,6 +7521,10 @@ propertyId?: string;
 
 export type ListWalksParams = {
 propertyId?: string;
+};
+
+export type SendCheckFollowup200 = {
+  ok: boolean;
 };
 
 export type GetCalendarParams = {

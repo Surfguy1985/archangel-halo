@@ -52,6 +52,7 @@ type ItemDraft = {
   description: string;
   qty: string;
   unitPrice: string;
+  customWork?: boolean;
 };
 
 const emptyItem = (): ItemDraft => ({
@@ -608,16 +609,55 @@ export default function CreateInvoice() {
                     placeholder="Unit"
                   />
                   <div className="col-span-2 md:col-span-1 space-y-1.5">
-                    <Input
-                      value={it.typeOfWork}
-                      list="create-price-book-options"
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        const hit = priceItems.find((pi) => pi.service === v);
-                        setItem(idx, hit ? { typeOfWork: v, unitPrice: String(hit.rate) } : { typeOfWork: v });
-                      }}
-                      placeholder="Type of work (required)"
-                    />
+                    {priceItems.length > 0 && (() => {
+                      const inList = priceItems.some((pi) => pi.service === it.typeOfWork);
+                      const isCustom = it.customWork || (it.typeOfWork.trim() !== "" && !inList);
+                      return (
+                        <>
+                          <select
+                            value={isCustom ? "__custom__" : it.typeOfWork}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (v === "__custom__") {
+                                setItem(idx, { customWork: true, typeOfWork: inList ? "" : it.typeOfWork });
+                                return;
+                              }
+                              const hit = priceItems.find((pi) => pi.service === v);
+                              setItem(
+                                idx,
+                                hit
+                                  ? { typeOfWork: v, unitPrice: String(hit.rate), customWork: false }
+                                  : { typeOfWork: v, customWork: false },
+                              );
+                            }}
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          >
+                            <option value="">Type of work (required)</option>
+                            {priceItems.map((pi) => (
+                              <option key={pi.id} value={pi.service}>
+                                {pi.service} — ${pi.rate}
+                              </option>
+                            ))}
+                            <option value="__custom__">Custom…</option>
+                          </select>
+                          {isCustom && (
+                            <Input
+                              value={it.typeOfWork}
+                              onChange={(e) => setItem(idx, { typeOfWork: e.target.value, customWork: true })}
+                              placeholder="Custom type of work (required)"
+                              autoFocus={it.typeOfWork === ""}
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
+                    {priceItems.length === 0 && (
+                      <Input
+                        value={it.typeOfWork}
+                        onChange={(e) => setItem(idx, { typeOfWork: e.target.value })}
+                        placeholder="Type of work (required)"
+                      />
+                    )}
                     <Input
                       value={it.description}
                       onChange={(e) => setItem(idx, { description: e.target.value})}

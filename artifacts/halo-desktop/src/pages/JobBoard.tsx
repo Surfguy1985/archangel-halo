@@ -21,7 +21,8 @@ import {
   useUpdateJobLineItem,
   type JobBoardCard,
   type Crew,
-  type CrewToday
+  type CrewToday,
+  useSendCheckFollowup,
 } from "@workspace/api-client-react";
 import { StageArtPanel, type RailKey } from "@workspace/board-ui";
 import { Skeleton} from "@/components/ui/skeleton";
@@ -56,8 +57,12 @@ import {
   Banknote,
   Receipt,
   Plus,
-  Upload
+  Upload,
+  Camera,
+  BellRing,
 } from "lucide-react";
+import { PushCardDialog } from "@/components/PushCardDialog";
+import { ScanCheckDialog } from "@/components/ScanCheckDialog";
 import { useLocation } from "wouter";
 import { Badge} from "@/components/ui/badge";
 import { Input} from "@/components/ui/input";
@@ -88,6 +93,14 @@ function jobRail(card: JobBoardCard): JobRailKey {
   if (board === "manual_check") return "alert"; // failed AI check — needs a manual look
   if (board === "pay_alert") return "alert"; // crew paid — clear each row to history
   if (board === "reopened") return "alert"; // lost its crew — needs the office
+  // Client reported the check as sent but we haven't verified/received it yet:
+  // the card sits in Alerts until the physical check is scanned in.
+  if (
+    card.invoice?.clientPaidReportedAt &&
+    !card.invoice.paidAt &&
+    card.invoice.status !== "paid"
+  )
+    return "alert";
   if (board === "billing") return "billing"; // client picked a payment route
   if (card.job.status === "complete" || card.job.status === "paid") return "billing";
   if (board === "completed") return "done";
@@ -403,6 +416,10 @@ function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] 
   const [checkWorkOpen, setCheckWorkOpen] = useState(false);
   const [payFlowOpen, setPayFlowOpen] = useState(false);
   const [expensesOpen, setExpensesOpen] = useState(false);
+  const [pushInvoiceOpen, setPushInvoiceOpen] = useState(false);
+  const [scanCheckOpen, setScanCheckOpen] = useState(false);
+  const checkFollowup = useSendCheckFollowup();
+  const rail = jobRail(card);
   const [, navigate] = useLocation();
   const [upchargeId, setUpchargeId] = useState<string>("");
   const queryClient = useQueryClient();
@@ -716,21 +733,9 @@ function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] 
           {boardStatus === 'manual_check' && (
             <MarkCompleteButton jobId={job.id} />
           )}
-          {boardStatus === 'completed' && !card.invoice && (
-            <Button
-              onClick={() => navigate(`/invoices/new?jobId=${job.id}&propertyId=${job.propertyId}`)}
-              data-testid={`create-invoice-${job.id}`}
-              className="bg-[var(--gold-light)] hover:opacity-90 text-black rounded-full font-bold"
-            >
-              <FileText className="w-4 h-4 mr-2" /> Create Invoice
-            </Button>
-          )}
-          {boardStatus === 'completed' && card.invoice && (
-             <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium px-2">
-               <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Invoice {card.invoice.invoiceNo} · waiting on client
-             </div>
-          )}
-          {boardStatus === 'completed' && (
+          {/* Invoice actions live only on billing-rail cards; Done-rail cards
+              wrap up the work itself (expenses) — no invoicing from Done. */}
+          {rail === 'done' && (
             <Button
               variant="outline"
               onClick={() => setExpensesOpen(true)}
@@ -739,6 +744,66 @@ function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] 
             >
               <Receipt className="w-4 h-4 mr-2" /> Log Expenses
             </Button>
+          )}
+          {rail === 'alert' && card.invoice?.clientPaidReportedAt && !card.invoice.paidAt && (
+            <>
+              <div className="flex items-center gap-2 text-amber-700 text-sm font-medium px-2">
+                <Clock className="w-4 h-4" /> Client says check sent{" "}
+                {format(new Date(card.invoice.clientPaidReportedAt), "MMM d")} · not received yet
+              </div>
+              {Date.now() - new Date(card.invoice.clientPaidReportedAt).getTime() > 7 * 24 * 60 * 60 * 1000 && (
+                <Button
+                  variant="outline"
+                  disabled={checkFollowup.isPending}
+                  onClick={() =>
+                    checkFollowup.mutate(
+                      { jobId: job.id },
+                      {
+                        onSuccess: () =>
+                          toast({ title: "Follow-up sent", description: "The property was asked to verify the check was mailed." }),
+                        onError: (err) =>
+                          toast({ title: "Couldn't send follow-up", description: (err as any)?.data?.error ?? err.message, variant: "destructive" }),
+                      },
+                    )
+                  }
+                  data-testid={`check-followup-${job.id}`}
+                  className="rounded-full font-bold text-amber-700 border-amber-400 hover:bg-amber-50"
+                >
+                  <BellRing className="w-4 h-4 mr-2" /> {checkFollowup.isPending ? "Sending…" : "Follow up with property"}
+                </Button>
+              )}
+              <Button
+                onClick={() => setScanCheckOpen(true)}
+                data-testid={`scan-check-${job.id}`}
+                className="bg-[var(--gold-light)] hover:opacity-90 text-black rounded-full font-bold"
+              >
+                <Camera className="w-4 h-4 mr-2" /> Scan received check
+              </Button>
+            </>
+          )}
+          {rail === 'billing' && !card.invoice && (
+            <Button
+              onClick={() => navigate(`/invoices/new?jobId=${job.id}&propertyId=${job.propertyId}`)}
+              data-testid={`create-invoice-${job.id}`}
+              className="bg-[var(--gold-light)] hover:opacity-90 text-black rounded-full font-bold"
+            >
+              <FileText className="w-4 h-4 mr-2" /> Create Invoice
+            </Button>
+          )}
+          {rail === 'billing' && card.invoice && (
+            <>
+              <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium px-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Invoice {card.invoice.invoiceNo}
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setPushInvoiceOpen(true)}
+                data-testid={`push-invoice-${job.id}`}
+                className="rounded-full font-bold"
+              >
+                <Send className="w-4 h-4 mr-2" /> Push to Client Board
+              </Button>
+            </>
           )}
           {(boardStatus === 'billing' || boardStatus === 'pay_alert') && (
             <Button
@@ -763,6 +828,27 @@ function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] 
       <CheckWorkDialog open={checkWorkOpen} onOpenChange={setCheckWorkOpen} job={job} photos={photos} />
       <PaymentFlowDialog open={payFlowOpen} onOpenChange={setPayFlowOpen} card={card} crews={crews} />
       <LogExpensesDialog open={expensesOpen} onOpenChange={setExpensesOpen} card={card} />
+      {card.invoice && job.propertyId && (
+        <ScanCheckDialog
+          open={scanCheckOpen}
+          onOpenChange={setScanCheckOpen}
+          presetPropertyId={job.propertyId}
+          presetInvoiceId={card.invoice.id}
+        />
+      )}
+      {card.invoice && job.propertyId && (
+        <PushCardDialog
+          propertyId={job.propertyId}
+          open={pushInvoiceOpen}
+          onOpenChange={setPushInvoiceOpen}
+          prefill={{
+            templateId: "invoice",
+            title: `Invoice ${card.invoice.invoiceNo}`,
+            amount: card.invoice.total ?? null,
+            source: { type: "invoice", id: card.invoice.id, jobId: job.id },
+          }}
+        />
+      )}
       <BroadcastDialog open={broadcastOpen} onOpenChange={setBroadcastOpen} job={job} />
       <ReopenConfirmDialog open={reopenConfirmOpen} onOpenChange={setReopenConfirmOpen} job={job} />
       <DeleteConfirmDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen} job={job} />
@@ -1044,7 +1130,12 @@ function PaymentFlowDialog({
       },
       {
         onSuccess: () => {
-          toast({ title: "Payment received", description: `Invoice ${invoice.invoiceNo} marked paid.` });
+          toast({
+            title: "Payment recorded",
+            description: checkPath
+              ? `Invoice ${invoice.invoiceNo} marked paid.`
+              : `Saved — ${invoice.invoiceNo} marks paid once the scanned check on file covers the amount.`,
+          });
           refresh();
         },
         onError: (err) =>
@@ -1093,16 +1184,20 @@ function PaymentFlowDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] rounded-2xl">
+      <DialogContent className="sm:max-w-[880px] rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="font-display">
-            {paymentReceived ? "Crew Pay" : "Job Payment Pending"}
-          </DialogTitle>
+          <DialogTitle className="font-display">Job Payments</DialogTitle>
           <DialogDescription>
             {job.propertyName ?? "Property"}{job.unitNo ? ` · Unit ${job.unitNo}` : ""} · {job.jobNo}
           </DialogDescription>
         </DialogHeader>
 
+        <div className="grid md:grid-cols-2 gap-6">
+        {/* LEFT — client invoice side */}
+        <div className="space-y-3 md:border-r md:border-border md:pr-6">
+        <p className="text-sm font-bold text-[var(--ink)] flex items-center gap-2">
+          <FileText className="w-4 h-4" /> Invoice
+        </p>
         {!invoice ? (
           <p className="text-sm text-muted-foreground">No invoice on this job yet.</p>
         ) : !paymentReceived ? (
@@ -1150,15 +1245,23 @@ function PaymentFlowDialog({
             <CheckCircle2 className="w-4 h-4 shrink-0" /> Payment received for Invoice {invoice.invoiceNo}.
           </div>
         )}
+        </div>
 
-        {roster.length > 0 && (
-          <div className="space-y-2 pt-2">
-            <p className="text-sm font-bold text-[var(--ink)]">Crew pay</p>
-            {roster.map((c) => {
-              const entry = entryFor(c.id);
-              return (
-                <div key={c.id} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2" data-testid={`crew-pay-row-${c.id}`}>
-                  <span className="text-sm font-medium flex-1 truncate">{c.name}</span>
+        {/* RIGHT — crew payments side */}
+        <div className="space-y-2">
+          <p className="text-sm font-bold text-[var(--ink)] flex items-center gap-2">
+            <Users className="w-4 h-4" /> Crew payments
+          </p>
+          {roster.length === 0 && (
+            <p className="text-sm text-muted-foreground">No crew assigned to this job yet.</p>
+          )}
+          {roster.map((c) => {
+            const entry = entryFor(c.id);
+            const method = c.preferredPaymentMethod?.trim() || null;
+            return (
+              <div key={c.id} className="rounded-xl border border-border px-3 py-2 space-y-1.5" data-testid={`crew-pay-row-${c.id}`}>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold flex-1 truncate">{c.name}</span>
                   {!entry?.paidAt ? (
                     <>
                       <Input
@@ -1176,7 +1279,7 @@ function PaymentFlowDialog({
                         data-testid={`crew-pay-btn-${c.id}`}
                         className="bg-[var(--gold-light)] hover:opacity-90 text-black rounded-full h-8 font-bold"
                       >
-                        Pay
+                        Paid
                       </Button>
                     </>
                   ) : !entry.clearedAt ? (
@@ -1197,13 +1300,29 @@ function PaymentFlowDialog({
                     <Badge className="bg-emerald-100 text-emerald-800 border-none">Paid ${entry.amount} ✓</Badge>
                   )}
                 </div>
-              );
-            })}
-            {!paymentReceived && (
-              <p className="text-xs text-muted-foreground">Crew pay unlocks once the client's payment is received.</p>
-            )}
-          </div>
-        )}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {method ? (
+                    <>
+                      <Badge variant="outline" className="rounded-full capitalize">{method}</Badge>
+                      {c.paymentDetails?.trim() && <span className="truncate">{c.paymentDetails}</span>}
+                    </>
+                  ) : (
+                    <span className="italic">No pay method on file — set it on the crew's profile</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {roster.length > 0 && !paymentReceived && (
+            <p className="text-xs text-muted-foreground">Crew pay unlocks once the client's payment is received.</p>
+          )}
+          {roster.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Clicking Paid logs it to the books and messages the crew's live link that their payment is on the way.
+            </p>
+          )}
+        </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

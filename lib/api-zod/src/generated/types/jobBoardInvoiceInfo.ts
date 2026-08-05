@@ -20,4 +20,9 @@ export interface JobBoardInvoiceInfo {
   paymentChoicePlatform?: string | null;
   /** @nullable */
   paidAt?: string | null;
+  /**
+     * When the client reported the payment as sent from their board
+     * @nullable
+     */
+  clientPaidReportedAt?: string | null;
 }
