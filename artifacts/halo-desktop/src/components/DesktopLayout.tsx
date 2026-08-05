@@ -1,6 +1,6 @@
 import { useState} from "react";
 import { Link, useLocation} from "wouter";
-import { Mic, Bell, LayoutGrid, CalendarDays, Home, Building, DollarSign, Users, Target, Package, Truck, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather, ShieldCheck, Presentation, ExternalLink, Loader2} from "lucide-react";
+import { Mic, Bell, LayoutGrid, Home, Building, DollarSign, Users, Package, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather, Presentation, ExternalLink, Loader2, Plus, Briefcase, Receipt, HandCoins} from "lucide-react";
 import { useToast} from "@/hooks/use-toast";
 import { useQueryClient} from "@tanstack/react-query";
 import {
@@ -12,6 +12,8 @@ import {
 } from "@workspace/api-client-react";
 import haloLogo from "../assets/halo-logo.png";
 import { NotificationsPopover} from "./NotificationsPopover";
+import { QuickJobDialog} from "./QuickJobDialog";
+import { AddPropertyDialog} from "./PropertyDialogs";
 import { VoiceCaptureDialog} from "./VoiceCaptureDialog";
 import { BusinessInfoDialog} from "./BusinessInfoDialog";
 import { GuidedTour} from "./GuidedTour";
@@ -40,6 +42,8 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
     setVoiceOpen(true);
  };
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [quickJobOpen, setQuickJobOpen] = useState(false);
+  const [newPropertyOpen, setNewPropertyOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [wingsGuideOpen, setWingsGuideOpen] = useState(false);
   const { data: today} = useGetToday({
@@ -95,17 +99,30 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
         </div>
 
         <nav data-tour="sidebar" className="flex-1 py-6 px-4 flex flex-col gap-2 overflow-y-auto overflow-x-hidden">
-          <NavItem href="/" icon={Home} label="Today" active={location === "/"} tourId="nav-today" />
-          <NavItem href="/jobboard" icon={ClipboardList} label="Job Board" active={location.startsWith("/jobboard")} tourId="nav-jobboard" />
-          <NavItem href="/properties" icon={Building} label="Properties" active={location.startsWith("/properties")} tourId="nav-properties" />
+          <NavItem href="/" icon={Home} label="Home" active={location === "/"} tourId="nav-today" />
+          <NavItem
+            href="/jobboard"
+            icon={ClipboardList}
+            label="Work"
+            active={location.startsWith("/jobboard") || location.startsWith("/dispatch") || location.startsWith("/calendar") || location.startsWith("/jobs/")}
+            tourId="nav-jobboard"
+          />
+          <NavItem
+            href="/properties"
+            icon={Building}
+            label="Clients"
+            active={location.startsWith("/properties") || location.startsWith("/pipeline") || location.startsWith("/admin")}
+            tourId="nav-properties"
+          />
           <NavItem href="/money" icon={DollarSign} label="Money" active={location.startsWith("/money") || location.startsWith("/invoices")} tourId="nav-money" />
-          <NavItem href="/crews" icon={Users} label="Crews" active={location.startsWith("/crews")} tourId="nav-crews" />
-          <NavItem href="/pipeline" icon={Target} label="Pipeline" active={location.startsWith("/pipeline")} tourId="nav-pipeline" />
-          <NavItem href="/supply" icon={Package} label="Supply" active={location.startsWith("/supply")} tourId="nav-supply" />
-          <NavItem href="/calendar" icon={CalendarDays} label="Calendar" active={location.startsWith("/calendar")} tourId="nav-calendar" />
-          <NavItem href="/dispatch" icon={LayoutGrid} label="Dispatch" active={location.startsWith("/dispatch")} tourId="nav-dispatch" />
-          <NavItem href="/import" icon={ImportIcon} label="Import" active={location.startsWith("/import")} tourId="nav-import" />
-          <NavItem href="/admin" icon={ShieldCheck} label="Admin" active={location.startsWith("/admin")} tourId="nav-admin" />
+          <NavItem href="/crews" icon={Users} label="Crews" active={location.startsWith("/crews") || location.startsWith("/wings")} tourId="nav-crews" />
+          <NavItem
+            href="/catalog"
+            icon={Package}
+            label="Purchasing"
+            active={location.startsWith("/catalog") || location.startsWith("/supply") || location.startsWith("/vendors")}
+            tourId="nav-supply"
+          />
         </nav>
 
         <div className="p-4 border-t border-[var(--ink2)] flex flex-col group-hover/side:flex-row gap-2">
@@ -145,13 +162,9 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
             <DropdownMenuContent side="top" align="end" className="w-60 rounded-md border-[var(--border)] bg-card text-foreground">
               <DropdownMenuLabel className="font-display text-xs">Workspace</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-[var(--border)]" />
-              <DropdownMenuItem onSelect={() => navigate("/catalog")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-pricebook">
-                <BookOpen className="w-4 h-4 mr-2" />
-                Price Book
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => navigate("/vendors")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-vendors">
-                <Truck className="w-4 h-4 mr-2" />
-                Vendors
+              <DropdownMenuItem onSelect={() => navigate("/import")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-import">
+                <ImportIcon className="w-4 h-4 mr-2" />
+                Import a file
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => navigate("/wings")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-wings">
                 <Feather className="w-4 h-4 mr-2" />
@@ -191,8 +204,35 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
 
       {/* Main Content */}
       <main className="ml-[76px] flex-1 min-w-0 bg-background flex flex-col min-h-screen">
-        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md px-8 pt-6 pb-4 border-b border-border/50">
-          <div data-tour="ask-halo" className="relative max-w-2xl">
+        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md px-8 pt-6 pb-4 border-b border-border/50 flex items-center gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                data-testid="button-new-anything"
+                className="h-12 px-5 rounded-full bg-[var(--gold-light)] text-black font-display font-bold text-sm flex items-center gap-2 shadow-sm hover:shadow-[0_0_15px_rgba(180,255,68,0.35)] transition-all shrink-0"
+              >
+                <Plus className="w-4 h-4" /> New
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 rounded-md border-[var(--border)] bg-card text-foreground">
+              <DropdownMenuLabel className="font-display text-xs">Create</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-[var(--border)]" />
+              <DropdownMenuItem onSelect={() => setNewPropertyOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-new-property">
+                <Building className="w-4 h-4 mr-2" /> Property
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setQuickJobOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-new-job">
+                <Briefcase className="w-4 h-4 mr-2" /> Job
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => navigate("/invoices/new")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-new-invoice">
+                <Receipt className="w-4 h-4 mr-2" /> Invoice
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => navigate("/money/payments")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-new-pay-crew">
+                <HandCoins className="w-4 h-4 mr-2" /> Pay a crew
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <div data-tour="ask-halo" className="relative max-w-2xl flex-1">
             <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--primary)]" />
             <input
               value={cmdText}
@@ -231,6 +271,8 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
         initialText={cmdInitial}
       />
       <BusinessInfoDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <QuickJobDialog open={quickJobOpen} onOpenChange={setQuickJobOpen} />
+      <AddPropertyDialog open={newPropertyOpen} onOpenChange={setNewPropertyOpen} />
       <GuidedTour open={tourOpen} onOpenChange={setTourOpen} />
       <WingsGuideDialog open={wingsGuideOpen} onOpenChange={setWingsGuideOpen} />
     </div>

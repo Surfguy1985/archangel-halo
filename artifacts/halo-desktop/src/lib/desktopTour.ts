@@ -128,7 +128,7 @@ export const tourChapters: TourChapter[] = [
     steps: [
       {
         title: "The Properties tab",
-        body: "Click Properties in the sidebar to see every site you work on. This is your master list of locations.",
+        body: "Click Clients in the sidebar to see every site you work on — the Properties tab. This is your master list of locations.",
         route: "/properties",
         target: "nav-properties",
         placement: "right",
@@ -171,9 +171,9 @@ export const tourChapters: TourChapter[] = [
     steps: [
       {
         title: "The Price Book tab",
-        body: "Open the More menu at the bottom of the sidebar and click Price Book. This is your master list of every service you offer and its standard price. You set it up once, for the whole business.",
+        body: "Click Purchasing in the sidebar — the Price Book tab. This is your master list of every service you offer and its standard price. You set it up once, for the whole business.",
         route: "/catalog",
-        target: "more",
+        target: "nav-supply",
         placement: "right",
      },
       {
@@ -200,7 +200,7 @@ export const tourChapters: TourChapter[] = [
     steps: [
       {
         title: "The Job Board",
-        body: "Click Job Board in the sidebar. A job is any piece of work. This board shows your open work and lets you dispatch it to the right crew.",
+        body: "Click Work in the sidebar — the Board tab is your Job Board. A job is any piece of work. This board shows your open work and lets you dispatch it to the right crew.",
         route: "/jobboard",
         target: "nav-jobboard",
         placement: "right",
@@ -336,9 +336,9 @@ export const tourChapters: TourChapter[] = [
     steps: [
       {
         title: "The Calendar",
-        body: "Click Calendar in the sidebar. Switch between day, week, and month views to see your schedule at whatever zoom level you need.",
+        body: "Click Work in the sidebar, then the Calendar tab. Switch between day, week, and month views to see your schedule at whatever zoom level you need.",
         route: "/calendar",
-        target: "nav-calendar",
+        target: "nav-jobboard",
         placement: "right",
      },
       {
@@ -430,9 +430,9 @@ export const tourChapters: TourChapter[] = [
     steps: [
       {
         title: "The Pipeline",
-        body: "Click Pipeline in the sidebar. A lead is a potential customer or job. Add one whenever a new opportunity comes in so it never gets forgotten.",
+        body: "Click Clients in the sidebar, then the Pipeline tab. A lead is a potential customer or job. Add one whenever a new opportunity comes in so it never gets forgotten.",
         route: "/pipeline",
-        target: "nav-pipeline",
+        target: "nav-properties",
         placement: "right",
      },
       {
@@ -452,7 +452,7 @@ export const tourChapters: TourChapter[] = [
     steps: [
       {
         title: "The Supply tab",
-        body: "Click Supply in the sidebar. Track the materials you keep on hand and set a reorder point for each item.",
+        body: "Click Purchasing in the sidebar, then the Supply tab. Track the materials you keep on hand and set a reorder point for each item.",
         route: "/supply",
         target: "nav-supply",
         placement: "right",
@@ -474,9 +474,9 @@ export const tourChapters: TourChapter[] = [
     steps: [
       {
         title: "The Vendors tab",
-        body: "Open the More menu at the bottom of the sidebar and click Vendors. This is where you keep your subcontractors' insurance certificates, also called COIs, in one place.",
+        body: "Click Purchasing in the sidebar, then the Vendors tab. This is where you keep your subcontractors' insurance certificates, also called COIs, in one place.",
         route: "/vendors",
-        target: "more",
+        target: "nav-supply",
         placement: "right",
      },
       {
@@ -496,9 +496,9 @@ export const tourChapters: TourChapter[] = [
     steps: [
       {
         title: "The Import tab",
-        body: "Click Import in the sidebar. Upload a PDF or spreadsheet — a vendor invoice, an expense report, or a property list.",
+        body: "Open the More menu at the bottom of the sidebar and click Import a file. Upload a PDF or spreadsheet — a vendor invoice, an expense report, or a property list.",
         route: "/import",
-        target: "nav-import",
+        target: "more",
         placement: "right",
      },
       {

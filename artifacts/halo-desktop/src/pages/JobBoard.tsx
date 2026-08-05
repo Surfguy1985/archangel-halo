@@ -40,63 +40,148 @@ import { Badge} from "@/components/ui/badge";
 import { Input} from "@/components/ui/input";
 import { Textarea} from "@/components/ui/textarea";
 
+/**
+ * Rails layout mirroring the client board structure: fixed vertical rails,
+ * compact tiles, detail + actions in a sheet. Cards move themselves as
+ * status changes — no drag between rails.
+ */
+const JOB_RAILS: { key: string; label: string; tone: JobTone }[] = [
+  { key: "active", label: "Open", tone: "lime" },
+  { key: "reopened", label: "Reopened", tone: "orange" },
+  { key: "filled", label: "Filled", tone: "emerald" },
+  { key: "completed", label: "Completed", tone: "stone" },
+];
+
+type JobTone = "lime" | "orange" | "emerald" | "stone";
+
+const JOB_TONES: Record<JobTone, { chip: string; dot: string }> = {
+  lime: { chip: "bg-[var(--gold-light)] text-black", dot: "bg-[var(--gold-light)]" },
+  orange: { chip: "bg-orange-100 text-orange-800", dot: "bg-orange-400" },
+  emerald: { chip: "bg-emerald-100 text-emerald-800", dot: "bg-emerald-400" },
+  stone: { chip: "bg-stone-100 text-stone-600", dot: "bg-stone-300" },
+};
+
 export default function JobBoard() {
   const { data: jobBoard, isLoading} = useListJobBoard({
     query: { queryKey: getListJobBoardQueryKey(), refetchInterval: 5000},
  });
-  const [filter, setFilter] = useState<string>("active");
+  const [openId, setOpenId] = useState<string | null>(null);
 
-  const filteredJobs = jobBoard?.filter(card => {
-    if (filter === "all") return true;
-    return card.job.boardStatus === filter;
- }) || [];
+  const cards = jobBoard ?? [];
+  const openCard = cards.find((c) => c.job.id === openId) ?? null;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 min-h-[100dvh] flex flex-col bg-[var(--background)]">
+    <div className="p-8 max-w-[1400px] mx-auto space-y-8 min-h-[100dvh] flex flex-col bg-[var(--background)]">
       <header className="flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-4xl font-display font-bold text-foreground">Job Board</h1>
-          <p className="text-muted-foreground font-mono mt-1 text-sm">Available jobs and broadcast status</p>
-        </div>
-        
-        <div className="flex gap-2">
-          {["active", "filled", "reopened", "completed", "all"].map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-4 py-2 text-[10px] font-bold   rounded-full transition-colors ${
-                filter === status 
-                  ? "bg-[var(--primary)] text-black shadow-sm" 
-                  : "bg-[var(--secondary)] text-white hover:opacity-90"
-             }`}
-            >
-              {status}
-            </button>
-          ))}
+          <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">Job Board</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Open work, offers out to crews, and what's been claimed</p>
         </div>
       </header>
 
       <div className="flex-1 pb-12">
         {isLoading ? (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <Skeleton className="h-[400px] rounded-none bg-muted" />
-            <Skeleton className="h-[400px] rounded-none bg-muted" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {JOB_RAILS.map((r) => (
+              <Skeleton key={r.key} className="h-[320px] rounded-2xl bg-muted" />
+            ))}
           </div>
-        ) : filteredJobs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 border border-dashed border-border text-muted-foreground bg-card">
+        ) : cards.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 border border-dashed border-[var(--hairline)] text-muted-foreground bg-card rounded-2xl">
             <ClipboardList className="w-12 h-12 mb-4 text-border" />
-            <p className="font-medium text-lg text-[var(--secondary)]">No jobs found</p>
-            <p className="text-sm">There are no jobs matching the current filter.</p>
+            <p className="font-medium text-lg text-[var(--secondary)]">Nothing on the board yet</p>
+            <p className="text-sm">Post a job from a property, or use + New → Job.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {filteredJobs.map((card) => (
-              <JobBoardItem key={card.job.id} card={card} />
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start" data-testid="jobboard-rails">
+            {JOB_RAILS.map((rail) => {
+              const railCards = cards.filter((c) => (c.job.boardStatus || "active") === rail.key);
+              return (
+                <section key={rail.key} className="min-w-0" data-testid={`jobrail-${rail.key}`}>
+                  <div className="flex items-center gap-2 mb-3 px-1">
+                    <span className={`w-2 h-2 rounded-full ${JOB_TONES[rail.tone].dot}`} />
+                    <h2 className="font-display font-bold text-sm tracking-tight text-[var(--ink)]">{rail.label}</h2>
+                    <span className="text-xs font-mono text-muted-foreground">{railCards.length}</span>
+                  </div>
+                  <div className="space-y-3">
+                    {railCards.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-[var(--hairline)] px-4 py-6 text-center text-xs text-muted-foreground bg-card/50">
+                        Empty
+                      </div>
+                    ) : (
+                      railCards.map((card) => (
+                        <JobTile key={card.job.id} card={card} tone={rail.tone} onOpen={() => setOpenId(card.job.id)} />
+                      ))
+                    )}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         )}
       </div>
+
+      <Dialog open={!!openCard} onOpenChange={(o) => { if (!o) setOpenId(null); }}>
+        <DialogContent className="sm:max-w-[760px] p-0 gap-0 overflow-hidden rounded-2xl max-h-[88dvh] overflow-y-auto border-none bg-transparent shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Job details</DialogTitle>
+            <DialogDescription>Full job posting with actions</DialogDescription>
+          </DialogHeader>
+          {openCard && <JobBoardItem card={openCard} />}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function JobTile({ card, tone, onOpen }: { card: JobBoardCard; tone: JobTone; onOpen: () => void }) {
+  const { job, photos, broadcasts } = card;
+  const t = JOB_TONES[tone];
+  const filled = (job.crewsFilled ?? 0) >= (job.crewsNeeded ?? 1);
+  const artwork = photos[0]?.storagePath;
+  const pendingOffers = broadcasts.filter((b) => b.status === "sent" || b.status === "pending").length;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      data-testid={`job-tile-${job.id}`}
+      className="block w-full min-w-0 text-left rounded-2xl overflow-hidden bg-white border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9DB40F]"
+    >
+      <div className="relative aspect-[5/2] bg-[var(--muted)]">
+        {artwork ? (
+          <img src={`/api/storage${artwork}`} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 bg-[var(--secondary)] flex items-center justify-center">
+            <ClipboardList className="w-5 h-5 text-white/25" />
+          </div>
+        )}
+        <span className={`absolute bottom-2 left-2 max-w-[calc(100%-16px)] truncate rounded-full px-2.5 py-1 text-[11px] font-medium ${t.chip}`}>
+          {job.category || job.boardStatus || "Job"}
+        </span>
+        {pendingOffers > 0 && (
+          <span className="absolute top-2 right-2 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold text-[var(--ink)]">
+            {pendingOffers} offer{pendingOffers > 1 ? "s" : ""} out
+          </span>
+        )}
+      </div>
+      <div className="min-w-0 px-3.5 py-3">
+        <p className="truncate font-display font-bold text-sm text-[var(--ink)]">
+          {job.propertyName || "Unknown Property"}{job.unitNo ? ` · #${job.unitNo}` : ""}
+        </p>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+          {job.scheduledOn
+            ? `Needed ${format(new Date(job.scheduledOn + "T00:00:00"), "MMM d")}`
+            : job.scheduleType === "flex"
+              ? `Flex${job.flexDueBy ? ` · due ${format(new Date(job.flexDueBy + "T00:00:00"), "MMM d")}` : ""}`
+              : job.jobNo}
+          {" · "}
+          <span className={filled ? "text-emerald-600 font-medium" : ""}>
+            {job.crewsFilled ?? 0}/{job.crewsNeeded ?? 1} crews
+          </span>
+        </p>
+      </div>
+    </button>
   );
 }
 

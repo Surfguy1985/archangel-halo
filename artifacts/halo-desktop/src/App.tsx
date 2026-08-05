@@ -34,6 +34,7 @@ import AdminAccount from "@/pages/AdminAccount";
 // refetches when the app regains focus or reconnects, so updates made on any
 // phone or desktop appear everywhere without a manual reload.
 import ClientBoardOffice from "@/pages/ClientBoardOffice";
+import { HubShell, WORK_TABS, CLIENT_TABS, MONEY_TABS, PURCHASING_TABS } from "@/components/HubShell";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -59,25 +60,25 @@ function App() {
               <DesktopLayout>
                 <Switch>
                   <Route path="/" component={Today} />
-                  <Route path="/properties" component={Properties} />
+                  <Route path="/properties">{() => <HubShell title="Clients" tabs={CLIENT_TABS}><Properties /></HubShell>}</Route>
                   <Route path="/properties/:id" component={PropertyDetail} />
                   <Route path="/jobs/:id" component={JobDetail} />
                   <Route path="/invoices/new" component={CreateInvoice} />
                   <Route path="/invoices/:id" component={InvoiceDetail} />
-                  <Route path="/money" component={Money} />
-                  <Route path="/money/payments" component={Payments} />
-                  <Route path="/calendar" component={Calendar} />
-                  <Route path="/dispatch" component={Dispatch} />
+                  <Route path="/money">{() => <HubShell title="Money" tabs={MONEY_TABS}><Money /></HubShell>}</Route>
+                  <Route path="/money/payments">{() => <HubShell title="Money" tabs={MONEY_TABS}><Payments /></HubShell>}</Route>
+                  <Route path="/calendar">{() => <HubShell title="Work" tabs={WORK_TABS}><Calendar /></HubShell>}</Route>
+                  <Route path="/dispatch">{() => <HubShell title="Work" tabs={WORK_TABS}><Dispatch /></HubShell>}</Route>
                   <Route path="/crews" component={Crews} />
                   <Route path="/crews/:id" component={CrewDetail} />
                   <Route path="/wings" component={Wings} />
-                  <Route path="/pipeline" component={Pipeline} />
-                  <Route path="/catalog" component={Catalog} />
-                  <Route path="/supply" component={Supply} />
-                  <Route path="/vendors" component={Vendors} />
+                  <Route path="/pipeline">{() => <HubShell title="Clients" tabs={CLIENT_TABS}><Pipeline /></HubShell>}</Route>
+                  <Route path="/catalog">{() => <HubShell title="Purchasing" tabs={PURCHASING_TABS}><Catalog /></HubShell>}</Route>
+                  <Route path="/supply">{() => <HubShell title="Purchasing" tabs={PURCHASING_TABS}><Supply /></HubShell>}</Route>
+                  <Route path="/vendors">{() => <HubShell title="Purchasing" tabs={PURCHASING_TABS}><Vendors /></HubShell>}</Route>
                   <Route path="/import" component={Import} />
-                  <Route path="/jobboard" component={JobBoard} />
-                  <Route path="/admin" component={Admin} />
+                  <Route path="/jobboard">{() => <HubShell title="Work" tabs={WORK_TABS}><JobBoard /></HubShell>}</Route>
+                  <Route path="/admin">{() => <HubShell title="Clients" tabs={CLIENT_TABS}><Admin /></HubShell>}</Route>
                   <Route path="/admin/:propertyId" component={AdminAccount} />
                   <Route path="/admin/:propertyId/board" component={ClientBoardOffice} />
                   {/* Alias: the mobile app's Board Demo link uses /properties/:id/board?present=1;
