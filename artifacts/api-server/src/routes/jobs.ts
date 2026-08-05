@@ -1004,20 +1004,49 @@ router.post("/jobs/:id/change-order/reopen", async (req, res): Promise<void> => 
 
 router.post("/jobs/:id/complete", async (req, res): Promise<void> => {
   const { id } = CompleteJobParams.parse(req.params);
+  const force = req.body?.force === true;
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  // Guard: completing work is a real state claim — require a crew and a
+  // finished checklist unless the office explicitly overrides with force.
+  if (!force) {
+    const blockers: { code: string; text: string }[] = [];
+    if (!job.crewLeaderId) {
+      blockers.push({ code: "crew", text: "No crew is assigned to this job yet." });
+    }
+    const lineItems = await db
+      .select()
+      .from(jobLineItemsTable)
+      .where(eq(jobLineItemsTable.jobId, id));
+    const openItems = lineItems.filter((li) => !li.completedAt);
+    if (lineItems.length > 0 && openItems.length > 0) {
+      blockers.push({
+        code: "checklist",
+        text: `${openItems.length} of ${lineItems.length} work checklist item${openItems.length === 1 ? " is" : "s are"} still unfinished.`,
+      });
+    }
+    if (blockers.length > 0) {
+      res.status(409).json({
+        error: "This job doesn't look finished yet.",
+        missing: blockers.map((b) => b.text),
+        missingCodes: blockers.map((b) => b.code),
+      });
+      return;
+    }
+  }
   const [row] = await db
     .update(jobsTable)
     .set({ status: "complete", completedAt: new Date(), boardStatus: "completed" })
     .where(eq(jobsTable.id, id))
     .returning();
-  if (!row) {
-    res.status(404).json({ error: "Job not found" });
-    return;
-  }
   await db.insert(activitiesTable).values({
     entityType: "job",
     entityId: id,
     kind: "completed",
-    body: "Job marked complete",
+    body: force ? "Job marked complete (office override)" : "Job marked complete",
   });
   await syncJobLaborLedger(id);
   await autoSendLiveLink(id, "completed");
@@ -1025,28 +1054,35 @@ router.post("/jobs/:id/complete", async (req, res): Promise<void> => {
   res.json(CompleteJobResponse.parse(decorateJob(row, propName, crewName)));
 });
 
+interface CloseOutBlocker {
+  code: string;
+  text: string;
+}
+
 async function computeCloseOutMissing(
   job: typeof jobsTable.$inferSelect,
-): Promise<string[]> {
-  const missing: string[] = [];
+): Promise<CloseOutBlocker[]> {
+  const missing: CloseOutBlocker[] = [];
   if (job.status !== "complete") {
-    missing.push("Mark the work as verified complete first.");
+    missing.push({ code: "work", text: "Mark the work as verified complete first." });
   }
   const jobInvoices = await db
     .select()
     .from(invoicesTable)
     .where(eq(invoicesTable.jobId, job.id));
   if (jobInvoices.length === 0) {
-    missing.push("Add an invoice for this job.");
+    missing.push({ code: "invoice", text: "Add an invoice for this job." });
   } else if (!jobInvoices.every((i) => i.status === "paid")) {
-    missing.push(
-      jobInvoices.length > 1
-        ? "Mark every invoice on this job as payment received."
-        : "Mark the invoice as payment received.",
-    );
+    missing.push({
+      code: "invoice_paid",
+      text:
+        jobInvoices.length > 1
+          ? "Mark every invoice on this job as payment received."
+          : "Mark the invoice as payment received.",
+    });
   }
   if (!job.crewLeaderId) {
-    missing.push("Assign a crew to this job first.");
+    missing.push({ code: "crew", text: "Assign a crew to this job first." });
   } else {
     const payments = await db
       .select()
@@ -1071,7 +1107,7 @@ async function computeCloseOutMissing(
           ),
         );
       if (!heldHold) {
-        missing.push("Mark the crew member as paid for this job.");
+        missing.push({ code: "crew_pay", text: "Mark the crew member as paid for this job." });
       }
     }
   }
@@ -1084,7 +1120,7 @@ async function computeCloseOutMissing(
       .from(jobSummariesTable)
       .where(eq(jobSummariesTable.jobId, job.id));
     if (summary?.status !== "sent") {
-      missing.push("Send the job summary to the property manager first.");
+      missing.push({ code: "summary", text: "Send the job summary to the property manager first." });
     }
   }
   return missing;
@@ -1106,7 +1142,9 @@ router.post("/jobs/:id/clear", async (req, res): Promise<void> => {
   const missing = await computeCloseOutMissing(job);
   if (missing.length > 0) {
     res.status(409).json({
-      error: `Finish the close-out checklist first: ${missing.join(" ")}`,
+      error: `Finish the close-out checklist first: ${missing.map((m) => m.text).join(" ")}`,
+      missing: missing.map((m) => m.text),
+      missingCodes: missing.map((m) => m.code),
     });
     return;
   }
@@ -1144,7 +1182,8 @@ router.post("/jobs/:id/close-out", async (req, res): Promise<void> => {
   if (missing.length > 0) {
     res.status(409).json({
       error: "A few funnel steps still need to be finished.",
-      missing,
+      missing: missing.map((m) => m.text),
+      missingCodes: missing.map((m) => m.code),
     });
     return;
   }

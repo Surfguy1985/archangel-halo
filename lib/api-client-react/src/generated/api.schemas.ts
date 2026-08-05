@@ -2509,6 +2509,13 @@ export interface CloseOutJobResult {
 export interface CloseOutBlocked {
   error: string;
   missing: string[];
+  /** Machine-readable blocker codes (work, invoice, invoice_paid, crew, crew_pay, summary, checklist) so UIs can offer the right recovery action. */
+  missingCodes?: string[];
+}
+
+export interface ForceCompleteInput {
+  /** Office override — complete the job even if guards (no crew, unfinished checklist) would block it. */
+  force?: boolean;
 }
 
 export interface JobLineItemInput {

@@ -1167,6 +1167,12 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForceCompleteInput"
       responses:
         "200":
           description: Completed
@@ -1174,6 +1180,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Job"
+        "409":
+          description: Guards block completion (no crew / unfinished checklist) — retry with force to override
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloseOutBlocked"
   /jobs/{id}/clear:
     post:
       operationId: clearJob
@@ -11456,6 +11468,16 @@ components:
         missing:
           type: array
           items: { type: string }
+        missingCodes:
+          type: array
+          items: { type: string }
+          description: Machine-readable blocker codes (work, invoice, invoice_paid, crew, crew_pay, summary, checklist) so UIs can offer the right recovery action.
+    ForceCompleteInput:
+      type: object
+      properties:
+        force:
+          type: boolean
+          description: Office override — complete the job even if guards (no crew, unfinished checklist) would block it.
     JobLineItem:
       type: object
       required: [id, jobId, service, rate, qty, amount]

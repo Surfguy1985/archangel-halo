@@ -439,7 +439,22 @@ export default function PropertyDetail() {
                           </div>
                           <button
                             disabled={completeJob.isPending}
-                            onClick={() => completeJob.mutate({ id: job.id }, { onSuccess: () => invalidateJobLists() })}
+                            onClick={() => {
+                              const run = (force: boolean) =>
+                                completeJob.mutate(
+                                  { id: job.id, data: force ? { force: true } : {} },
+                                  {
+                                    onSuccess: () => invalidateJobLists(),
+                                    onError: (e) => {
+                                      const data = (e as any)?.data as { missing?: string[]; error?: string } | undefined;
+                                      if (!force && data?.missing?.length) {
+                                        if (window.confirm(`${data.error ?? "This job doesn't look finished yet."}\n\n• ${data.missing.join("\n• ")}\n\nComplete it anyway?`)) run(true);
+                                      }
+                                    },
+                                  },
+                                );
+                              run(false);
+                            }}
                             className="w-full flex justify-center items-center gap-[6px] text-[13px] font-semibold py-[10px] rounded-[8px] bg-emerald-50 text-emerald-700 border border-emerald-200 active:scale-[0.98] disabled:opacity-50 mt-[2px]"
                           >
                             <Check className="w-[15px] h-[15px]" /> Verify & Complete

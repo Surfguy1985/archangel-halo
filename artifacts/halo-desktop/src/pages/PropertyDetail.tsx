@@ -1,4 +1,4 @@
-import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, useCompleteJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey, getListExpensesQueryKey, useCreateInvoice, useListCrews, useBroadcastJob} from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, useCompleteJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey, getListExpensesQueryKey, useCreateInvoice, useListCrews, useBroadcastJob, useCreateCrewPayment} from "@workspace/api-client-react";
 import type { Job, Invoice } from "@workspace/api-client-react";
 import { AddExpenseDialog} from "@/components/MoneyDialogs";
 import { MarginSection} from "@/components/MarginSection";
@@ -56,6 +56,7 @@ export default function PropertyDetail() {
   const updateJob = useUpdateJob();
   const setStatus = useSetInvoiceStatus();
   const clearJob = useClearJob();
+  const createCrewPayment = useCreateCrewPayment();
   const restartJob = useRestartJob();
   const completeJob = useCompleteJob();
   const updateProperty = useUpdateProperty();
@@ -190,7 +191,26 @@ export default function PropertyDetail() {
         action = () => setAssignJobId(job.id);
       } else if (!isComplete) {
         label = "Complete work";
-        action = () => completeJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists });
+        action = () => {
+          const doComplete = (force: boolean) =>
+            completeJob.mutate(
+              { id: job.id, data: force ? { force: true } : {} },
+              {
+                onSuccess: invalidateJobLists,
+                onError: (err) => {
+                  const data = (err as any)?.data as { missing?: string[]; error?: string } | undefined;
+                  if (!force && data?.missing?.length) {
+                    if (window.confirm(`${data.error ?? "This job doesn't look finished yet."}\n\n• ${data.missing.join("\n• ")}\n\nComplete it anyway?`)) {
+                      doComplete(true);
+                    }
+                  } else {
+                    toast({ title: "Couldn't complete the job", description: data?.error ?? err.message, variant: "destructive" });
+                  }
+                },
+              },
+            );
+          doComplete(false);
+        };
       } else if (!invoice) {
         label = "Create invoice";
         action = () =>
@@ -492,22 +512,63 @@ export default function PropertyDetail() {
           jobId={summaryJobId}
           onClose={() => setSummaryJobId(null)}
           closeOutPending={clearJob.isPending}
-          onCloseOut={() =>
-            clearJob.mutate(
-              { id: summaryJobId },
-              {
-                onSuccess: () => {
-                  invalidateJobLists();
-                  setSummaryJobId(null);
-                  // Move the whole card to the History tab right away.
-                  setJobTab("history");
-                  toast({ title: "Job closed out", description: "Moved to History." });
+          onCloseOut={() => {
+            const doClear = () =>
+              clearJob.mutate(
+                { id: summaryJobId },
+                {
+                  onSuccess: () => {
+                    invalidateJobLists();
+                    setSummaryJobId(null);
+                    // Move the whole card to the History tab right away.
+                    setJobTab("history");
+                    toast({ title: "Job closed out", description: "Moved to History." });
+                  },
+                  onError: (err) => {
+                    const data = (err as any)?.data as
+                      | { missing?: string[]; missingCodes?: string[]; error?: string }
+                      | undefined;
+                    const job = jobs.find((j) => j.id === summaryJobId);
+                    // Crew-pay blocker: offer the fix right here instead of a dead end.
+                    if (data?.missingCodes?.includes("crew_pay") && job?.crewLeaderId) {
+                      const amt = job.crewRate ?? 0;
+                      if (
+                        window.confirm(
+                          `The crew hasn't been marked paid for this job yet.\n\nMark ${job.crewLeaderName ?? "the crew"} paid${amt ? ` ($${amt.toLocaleString()})` : ""} now and finish the close-out?`,
+                        )
+                      ) {
+                        createCrewPayment.mutate(
+                          {
+                            data: {
+                              crewId: job.crewLeaderId,
+                              amount: amt,
+                              status: "completed",
+                              jobId: job.id,
+                              note: `Job ${job.jobNo} close-out`,
+                            },
+                          },
+                          {
+                            onSuccess: () => {
+                              invalidateJobLists();
+                              doClear();
+                            },
+                            onError: (e) =>
+                              toast({ title: "Couldn't record the crew payment", description: (e as any)?.data?.error ?? e.message, variant: "destructive" }),
+                          },
+                        );
+                        return;
+                      }
+                    }
+                    toast({
+                      title: "Can't close out yet",
+                      description: data?.missing?.length ? data.missing.join(" ") : data?.error ?? err.message,
+                      variant: "destructive",
+                    });
+                  },
                 },
-                onError: (err) =>
-                  toast({ title: "Can't close out yet", description: err.message, variant: "destructive" }),
-              },
-            )
-          }
+              );
+            doClear();
+          }}
         />
       )}
       <EditPropertyDialog open={editOpen} onOpenChange={setEditOpen} property={property} />

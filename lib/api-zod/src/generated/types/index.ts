@@ -287,6 +287,7 @@ export * from './feedDismissInput';
 export * from './flagsModule';
 export * from './flagsModuleItemsItem';
 export * from './flagsModuleType';
+export * from './forceCompleteInput';
 export * from './getAccountLedgerParams';
 export * from './getBalanceSheetReportParams';
 export * from './getBankAnalysisParams';

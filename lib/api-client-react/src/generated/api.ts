@@ -175,6 +175,7 @@ import type {
   Expense,
   ExpenseInput,
   FeedDismissInput,
+  ForceCompleteInput,
   GetAccountLedgerParams,
   GetBalanceSheetReportParams,
   GetBankAnalysisParams,
@@ -4329,14 +4330,15 @@ export const getCompleteJobUrl = (id: string,) => {
 /**
  * @summary Mark a job complete (sets warranty, opens ready-to-invoice)
  */
-export const completeJob = async (id: string, options?: RequestInit): Promise<Job> => {
+export const completeJob = async (id: string,
+    forceCompleteInput?: ForceCompleteInput, options?: RequestInit): Promise<Job> => {
 
   return customFetch<Job>(getCompleteJobUrl(id),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(forceCompleteInput)
   }
 );}
 
@@ -4344,9 +4346,9 @@ export const completeJob = async (id: string, options?: RequestInit): Promise<Jo
 
 
 
-export const getCompleteJobMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof completeJob>>, TError,{id: string}, TContext> => {
+export const getCompleteJobMutationOptions = <TError = ErrorType<CloseOutBlocked>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeJob>>, TError,{id: string;data?: BodyType<ForceCompleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeJob>>, TError,{id: string;data?: BodyType<ForceCompleteInput>}, TContext> => {
 
 const mutationKey = ['completeJob'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -4358,10 +4360,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeJob>>, {id: string}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeJob>>, {id: string;data?: BodyType<ForceCompleteInput>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  completeJob(id,requestOptions)
+          return  completeJob(id,data,requestOptions)
         }
 
 
@@ -4372,18 +4374,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type CompleteJobMutationResult = NonNullable<Awaited<ReturnType<typeof completeJob>>>
-
-    export type CompleteJobMutationError = ErrorType<unknown>
+    export type CompleteJobMutationBody = BodyType<ForceCompleteInput> | undefined
+    export type CompleteJobMutationError = ErrorType<CloseOutBlocked>
 
     /**
  * @summary Mark a job complete (sets warranty, opens ready-to-invoice)
  */
-export const useCompleteJob = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useCompleteJob = <TError = ErrorType<CloseOutBlocked>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeJob>>, TError,{id: string;data?: BodyType<ForceCompleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof completeJob>>,
         TError,
-        {id: string},
+        {id: string;data?: BodyType<ForceCompleteInput>},
         TContext
       > => {
       return useMutation(getCompleteJobMutationOptions(options));

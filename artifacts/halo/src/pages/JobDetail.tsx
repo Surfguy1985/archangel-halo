@@ -87,9 +87,9 @@ export default function JobDetail() {
     queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
   };
 
-  const onComplete = () =>
+  const onComplete = (force = false) =>
     completeJob.mutate(
-      { id },
+      { id, data: force ? { force: true } : {} },
       {
         onSuccess: () => {
           invalidateJobLists();
@@ -100,8 +100,16 @@ export default function JobDetail() {
             toast({ title: "Job marked complete" });
           }
         },
-        onError: (e) =>
-          toast({ title: "Couldn't complete", description: e.message, variant: "destructive" }),
+        onError: (e) => {
+          const data = (e as any)?.data as { missing?: string[]; error?: string } | undefined;
+          if (!force && data?.missing?.length) {
+            if (window.confirm(`${data.error ?? "This job doesn't look finished yet."}\n\n• ${data.missing.join("\n• ")}\n\nComplete it anyway?`)) {
+              onComplete(true);
+            }
+            return;
+          }
+          toast({ title: "Couldn't complete", description: data?.error ?? e.message, variant: "destructive" });
+        },
       },
     );
 
@@ -282,7 +290,7 @@ export default function JobDetail() {
           <div className="flex flex-wrap items-center gap-[8px] mt-[12px] pt-[12px] border-t border-[var(--hairline)]">
             <button
               disabled={completeJob.isPending}
-              onClick={onComplete}
+              onClick={() => onComplete()}
               data-testid="button-complete-job"
               className="flex items-center gap-[6px] text-[13px] font-display font-bold px-[14px] py-[9px] rounded-full bg-[var(--gold-light)] text-black active:scale-[0.95] disabled:opacity-50 transition-all"
             >

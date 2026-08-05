@@ -9,4 +9,6 @@
 export interface CloseOutBlocked {
   error: string;
   missing: string[];
+  /** Machine-readable blocker codes (work, invoice, invoice_paid, crew, crew_pay, summary, checklist) so UIs can offer the right recovery action. */
+  missingCodes?: string[];
 }

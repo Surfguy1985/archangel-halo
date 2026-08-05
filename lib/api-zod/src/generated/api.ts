@@ -1981,6 +1981,10 @@ export const CompleteJobParams = zod.object({
   "id": zod.coerce.string()
 })
 
+export const CompleteJobBody = zod.object({
+  "force": zod.boolean().optional().describe('Office override — complete the job even if guards (no crew, unfinished checklist) would block it.')
+})
+
 export const CompleteJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
