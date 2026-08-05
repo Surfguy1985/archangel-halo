@@ -56,6 +56,31 @@ function queueColor(queue: string) {
   return QUEUE_COLORS[queue] ?? DEFAULT_QUEUE_COLOR;
 }
 
+/** Color coding per feed category (queue key). Grouped families share a hue. */
+const QUEUE_TONES: Record<string, { tabActive: string; tabIdle: string; dot: string }> = {
+  // client-facing — lime/gold family
+  requests: { tabActive: "bg-[var(--gold-light)] text-black", tabIdle: "bg-lime-100 text-lime-800", dot: "bg-lime-500" },
+  updates: { tabActive: "bg-[var(--gold-light)] text-black", tabIdle: "bg-lime-100 text-lime-800", dot: "bg-lime-500" },
+  // money — red family
+  money: { tabActive: "bg-[#FF3B30] text-white", tabIdle: "bg-red-100 text-red-800", dot: "bg-red-500" },
+  margin: { tabActive: "bg-[#FF3B30] text-white", tabIdle: "bg-red-100 text-red-800", dot: "bg-red-500" },
+  // billing — emerald family
+  invoice: { tabActive: "bg-emerald-600 text-white", tabIdle: "bg-emerald-100 text-emerald-800", dot: "bg-emerald-500" },
+  bids: { tabActive: "bg-teal-600 text-white", tabIdle: "bg-teal-100 text-teal-800", dot: "bg-teal-500" },
+  // scheduling / crews — blue family
+  schedule: { tabActive: "bg-sky-600 text-white", tabIdle: "bg-sky-100 text-sky-800", dot: "bg-sky-500" },
+  crew: { tabActive: "bg-blue-600 text-white", tabIdle: "bg-blue-100 text-blue-800", dot: "bg-blue-500" },
+  leads: { tabActive: "bg-indigo-600 text-white", tabIdle: "bg-indigo-100 text-indigo-800", dot: "bg-indigo-500" },
+  // operations — amber family
+  supply: { tabActive: "bg-amber-500 text-black", tabIdle: "bg-amber-100 text-amber-800", dot: "bg-amber-500" },
+  compliance: { tabActive: "bg-orange-600 text-white", tabIdle: "bg-orange-100 text-orange-800", dot: "bg-orange-500" },
+  followup: { tabActive: "bg-violet-600 text-white", tabIdle: "bg-violet-100 text-violet-800", dot: "bg-violet-500" },
+};
+const QUEUE_TONE_FALLBACK = { tabActive: "bg-[var(--secondary)] text-white", tabIdle: "bg-stone-100 text-stone-700", dot: "bg-stone-400" };
+function queueTone(key: string) {
+  return QUEUE_TONES[key] ?? QUEUE_TONE_FALLBACK;
+}
+
 export default function Today() {
   const { data: today, isLoading} = useGetToday({
     query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000},
@@ -272,25 +297,47 @@ export default function Today() {
 
           {/* Needs Attention */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-border">
-            <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-display font-bold text-foreground">Needs attention</h2>
-                {queueFilter && (
-                  <button
-                    onClick={() => setQueueFilter(null)}
-                    className="inline-flex items-center gap-1 text-[10px] font-bold px-3 py-1.5 bg-[var(--secondary)] text-white hover:bg-[var(--secondary)]/90 transition-colors rounded-full"
-                  >
-                    {queues?.find(q => q.key === queueFilter)?.label ?? queueFilter}
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
+            <div className="flex items-center justify-between pb-4">
+              <h2 className="text-xl font-display font-bold text-foreground">Needs attention</h2>
               <button 
                 onClick={() => queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()})}
                 className="text-xs font-bold text-muted-foreground bg-black/5 hover:bg-black/10 px-4 py-2 rounded-full transition-colors"
               >
                 Refresh
               </button>
+            </div>
+
+            {/* Category tabs — color coded by queue */}
+            <div className="flex flex-wrap gap-2 border-b border-border pb-4 mb-4" data-testid="attention-tabs">
+              <button
+                onClick={() => setQueueFilter(null)}
+                data-testid="attention-tab-all"
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                  !queueFilter
+                    ? "bg-[var(--secondary)] text-white shadow-sm"
+                    : "bg-black/5 text-muted-foreground hover:bg-black/10"
+                }`}
+              >
+                All <span className="font-mono ml-1 opacity-70">{today?.feed.length ?? 0}</span>
+              </button>
+              {(queues ?? []).filter(q => q.count > 0).map(q => {
+                const tone = queueTone(q.key);
+                const active = queueFilter === q.key;
+                return (
+                  <button
+                    key={q.key}
+                    onClick={() => setQueueFilter(active ? null : q.key)}
+                    data-testid={`attention-tab-${q.key}`}
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                      active ? tone.tabActive : `${tone.tabIdle} hover:opacity-80`
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-current opacity-80" : tone.dot}`} />
+                    {q.label}
+                    <span className="font-mono opacity-70">{q.count}</span>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="space-y-3">
@@ -304,8 +351,8 @@ export default function Today() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-1.5">
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-fuchsia-100 text-fuchsia-800 uppercase tracking-widest">
-                          {item.queue}
+                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest ${queueTone(item.queue).tabIdle}`}>
+                          {queues?.find(q => q.key === item.queue)?.label ?? item.queue}
                         </span>
                         {item.amount != null && (
                           <span className="text-sm font-mono font-bold text-[var(--secondary)]">
