@@ -504,6 +504,13 @@ function InvoiceApprovePay({
         </button>
       )}
 
+      {/* Client already reported payment — "on its way" until the office confirms */}
+      {!isPaid && module.clientPaidAt && (
+        <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-sky-500/5 border border-sky-500/20 text-sm font-bold text-sky-700" data-testid="invoice-payment-on-way">
+          <CheckCircle2 className="w-4 h-4" /> Payment on its way — the office will confirm
+        </div>
+      )}
+
       {/* ------------------------------------------------- Decision / pay area */}
       {justPaid ? (
         /* Quiet success moment — auto-dismisses */
@@ -593,6 +600,26 @@ function InvoiceApprovePay({
             </>
           )}
         </div>
+      )}
+
+      {/* Mark paid — client reports payment sent; card moves to "on its way" */}
+      {!isPaid && !module.clientPaidAt && cardKey && (
+        <button
+          type="button"
+          data-testid="button-invoice-mark-paid"
+          disabled={pending}
+          onClick={() =>
+            guard(() =>
+              runAction(
+                { action: 'mark_paid' },
+                { onDone: () => toast({ title: 'Marked as paid', description: 'The office was notified your payment is on its way.' }) },
+              ),
+            )
+          }
+          className="w-full rounded-xl border border-emerald-500/40 bg-emerald-500/5 py-3 text-sm font-bold text-emerald-700 hover:bg-emerald-500/10 disabled:opacity-50 transition-colors"
+        >
+          {pending ? 'Saving…' : "I've paid this — mark as paid"}
+        </button>
       )}
 
       {/* One-field dispute sheet */}

@@ -1,4 +1,4 @@
-import { deriveWaybill, waybillCodeFor } from "../lib/waybill";
+import { deriveWaybill, deriveLaneWaybill, waybillCodeFor } from "../lib/waybill";
 import { limits } from "../lib/rateLimit";
 import { Router, type IRouter } from "express";
 import { and, desc, eq, inArray, isNull, isNotNull, sql } from "drizzle-orm";
@@ -14,6 +14,7 @@ import {
   notificationsTable,
   workRequestsTable,
   paymentRequestsTable,
+  invoicesTable,
 } from "@workspace/db";
 import {
   GetClientAccessResponse,
@@ -961,6 +962,86 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
   const now = new Date();
   const nowIso = now.toISOString();
 
+  // Auto-projected invoice cards ("invoice:<id>") have no board-card row —
+  // mark_paid stamps the invoice itself and the projection picks it up.
+  if (String(req.params.cardId).startsWith("invoice:") ) {
+    if (body.action !== "mark_paid") {
+      res.status(400).json({ error: "This card only supports mark paid" });
+      return;
+    }
+    const invId = String(req.params.cardId).slice("invoice:".length);
+    const [inv] = await db
+      .select()
+      .from(invoicesTable)
+      .where(and(eq(invoicesTable.id, invId), eq(invoicesTable.propertyId, account.propertyId)));
+    if (!inv) {
+      res.status(404).json({ error: "Card not found" });
+      return;
+    }
+    if (inv.status === "paid") {
+      res.status(409).json({ error: "This invoice is already paid" });
+      return;
+    }
+    // Guarded UPDATE — only the caller whose update actually flips the null
+    // stamp emits side effects, so a double-tap can't double-notify.
+    const stamped = await db
+      .update(invoicesTable)
+      .set({ clientPaidReportedAt: now, clientPaidReportedBy: actorName })
+      .where(and(eq(invoicesTable.id, invId), isNull(invoicesTable.clientPaidReportedAt)))
+      .returning({ id: invoicesTable.id });
+    if (stamped.length > 0) {
+      await db.insert(activitiesTable).values({
+        entityType: "property",
+        entityId: account.propertyId,
+        kind: "note",
+        body: `Invoice ${inv.invoiceNo} marked paid by ${propName}${actorName ? ` (${actorName})` : ""} — payment on its way.`,
+      });
+      await db.insert(notificationsTable).values({
+        kind: "client_board",
+        priority: "high",
+        entityType: "property",
+        entityId: account.propertyId,
+        title: `Payment on its way from ${propName}`,
+        body: `Invoice ${inv.invoiceNo} was marked paid on their board. Confirm it in Money when the payment lands.`,
+      });
+      emitBoardEvent(account.propertyId);
+    }
+    const cardKey = `invoice:${inv.id}`;
+    res.json(
+      ClientBoardCardActionResponse.parse({
+        id: cardKey,
+        column: "in_progress",
+        kind: "invoice",
+        title: `Invoice ${inv.invoiceNo}`,
+        body: null,
+        actionLabel: null,
+        amount: inv.amount + (inv.taxAmount ?? 0),
+        dueDate: null,
+        links: [],
+        jobId: null,
+        module: {
+          type: "invoice",
+          invoiceId: inv.id,
+          invoiceNo: inv.invoiceNo,
+          amount: inv.amount + (inv.taxAmount ?? 0),
+          status: inv.status,
+          dueDate: null,
+          payUrl: null,
+          pdfUrl: `/api/invoices/${inv.id}/pdf`,
+          canApprove: false,
+          clientPaidAt: (inv.clientPaidReportedAt ?? now).toISOString(),
+          clientPaidBy: inv.clientPaidReportedBy ?? actorName,
+        },
+        completedAt: null,
+        createdAt: inv.createdAt.toISOString(),
+        updatedAt: nowIso,
+        waybillCode: waybillCodeFor(cardKey),
+        waybill: deriveLaneWaybill("billing", { updatedAt: nowIso, status: inv.status }),
+      }),
+    );
+    return;
+  }
+
   // Everything inside one transaction with the card row locked, so a
   // double-click can't approve twice or create duplicate work requests.
   let status = 200;
@@ -1191,6 +1272,50 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
           entityId: account.propertyId,
           title: `Invoice ${module.invoiceNo ?? ""} disputed by ${propName}`,
           body: `"${note.slice(0, 300)}" — from the "${card.title}" card. Review and respond before it can be approved.`,
+        });
+      }
+    } else if (body.action === "mark_paid") {
+      // Client says payment was sent — "payment on its way" until the office
+      // confirms the money landed. Idempotent on repeat taps.
+      if (module.type !== "invoice") {
+        status = 400;
+        payload = { error: "Only invoice cards can be marked paid" };
+        return;
+      }
+      if (String(module.status ?? "").toLowerCase() === "paid") {
+        status = 409;
+        payload = { error: "This invoice is already paid" };
+        return;
+      }
+      if (!module.clientPaidAt) {
+        module.clientPaidAt = nowIso;
+        module.clientPaidBy = actorName;
+        // Stamp the underlying invoice too so the Money pages see it.
+        if (card.sourceType === "invoice" && card.sourceId) {
+          await tx
+            .update(invoicesTable)
+            .set({ clientPaidReportedAt: now, clientPaidReportedBy: actorName })
+            .where(
+              and(
+                eq(invoicesTable.id, card.sourceId),
+                eq(invoicesTable.propertyId, account.propertyId),
+                isNull(invoicesTable.clientPaidReportedAt),
+              ),
+            );
+        }
+        await tx.insert(activitiesTable).values({
+          entityType: "property",
+          entityId: account.propertyId,
+          kind: "note",
+          body: `Invoice ${module.invoiceNo ?? ""} marked paid by ${propName}${actorName ? ` (${actorName})` : ""} — payment on its way.`,
+        });
+        await tx.insert(notificationsTable).values({
+          kind: "client_board",
+          priority: "high",
+          entityType: "property",
+          entityId: account.propertyId,
+          title: `Payment on its way from ${propName}`,
+          body: `Invoice ${module.invoiceNo ?? ""} was marked paid on the "${card.title}" card. Confirm it in Money when the payment lands.`,
         });
       }
     } else if (body.action === "acknowledge") {

@@ -23,6 +23,10 @@ export const invoicesTable = pgTable("invoices", {
   paymentInstructions: text("payment_instructions"),
   issuedOn: date("issued_on", { mode: "string" }),
   sentAt: timestamp("sent_at", { withTimezone: true }),
+  // Client reported payment from their board ("payment on its way") — not the
+  // same as paidAt, which the office records when money actually lands.
+  clientPaidReportedAt: timestamp("client_paid_reported_at", { withTimezone: true }),
+  clientPaidReportedBy: text("client_paid_reported_by"),
   dueAt: timestamp("due_at", { withTimezone: true }),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   taxAmount: doublePrecision("tax_amount").notNull().default(0),

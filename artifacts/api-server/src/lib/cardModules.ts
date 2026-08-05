@@ -185,6 +185,10 @@ export async function buildInvoiceModule(
     payUrl,
     pdfUrl: `/api/invoices/${inv.id}/pdf`,
     canApprove: inv.status !== "paid",
+    // Client-reported payment ("on its way") lives on the invoice row so a
+    // module refresh reconstructs the same state deterministically.
+    clientPaidAt: inv.clientPaidReportedAt ? inv.clientPaidReportedAt.toISOString() : null,
+    clientPaidBy: inv.clientPaidReportedBy ?? null,
     poNumber: inv.poNumber ?? null,
     requestedBudget,
     photoUrls: photoUrls.length ? photoUrls : null,

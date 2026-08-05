@@ -631,6 +631,14 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       continue;
     if (pushedInvoiceIds.has(inv.id)) continue;
     const stageIndex = inv.status === "paid" ? 4 : inv.status === "sent" ? 3 : 1;
+    // Billing holds an invoice for 24h max: after that an unpaid invoice is
+    // past due and needsAction flips it into the Alerts rail. A client-reported
+    // payment ("on its way") keeps it in Billing.
+    const billingSince = (inv.sentAt ?? inv.createdAt).getTime();
+    const invPastDue =
+      inv.status !== "paid" &&
+      !inv.clientPaidReportedAt &&
+      now - billingSince > 24 * 3_600_000;
     cards.push(
       applyOverride({
         cardKey: `invoice:${inv.id}`,
@@ -656,6 +664,7 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
         trackerUrl: null,
         payUrl: null,
         photos: [],
+        needsAction: invPastDue,
         actions:
           inv.status === "paid"
             ? []
@@ -676,6 +685,8 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
           payUrl: null,
           pdfUrl: `/api/invoices/${inv.id}/pdf`,
           canApprove: false,
+          clientPaidAt: inv.clientPaidReportedAt ? inv.clientPaidReportedAt.toISOString() : null,
+          clientPaidBy: inv.clientPaidReportedBy ?? null,
         },
         updatedAt: (inv.paidAt ?? inv.sentAt ?? inv.createdAt).toISOString(),
       }),
@@ -823,7 +834,11 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   ): boolean => {
     if (c.column === "done" || c.completedAt) return false;
     if (c.kind !== "invoice" && c.kind !== "payment_request") return false;
-    return String(module?.status ?? "").toLowerCase() !== "paid";
+    if (String(module?.status ?? "").toLowerCase() === "paid") return false;
+    // "Payment on its way" stays in Billing, never Alerts.
+    if (module?.clientPaidAt) return false;
+    // Money cards get 24 hours in Billing before they escalate to Alerts.
+    return now - c.createdAt.getTime() > 24 * 3_600_000;
   };
   for (const c of pushed) {
     // Old completed cards fall off after 30 days like paid invoices do.

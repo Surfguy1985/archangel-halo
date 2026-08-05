@@ -57,6 +57,13 @@ export interface InvoiceModule {
      * @nullable
      */
   disputeResponse?: string | null;
+  /**
+     * Client reported payment sent — 'payment on its way' until the office confirms
+     * @nullable
+     */
+  clientPaidAt?: string | null;
+  /** @nullable */
+  clientPaidBy?: string | null;
   /** @nullable */
   photoUrls?: string[] | null;
   /** @nullable */

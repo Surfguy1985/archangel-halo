@@ -612,6 +612,13 @@ export interface InvoiceModule {
      * @nullable
      */
   disputeResponse?: string | null;
+  /**
+     * Client reported payment sent — 'payment on its way' until the office confirms
+     * @nullable
+     */
+  clientPaidAt?: string | null;
+  /** @nullable */
+  clientPaidBy?: string | null;
   /** @nullable */
   photoUrls?: string[] | null;
   /** @nullable */
@@ -988,10 +995,25 @@ export interface CardDisputeAction {
   name?: string | null;
 }
 
+export type CardMarkPaidActionAction = typeof CardMarkPaidActionAction[keyof typeof CardMarkPaidActionAction];
+
+
+export const CardMarkPaidActionAction = {
+  mark_paid: 'mark_paid',
+} as const;
+
+export interface CardMarkPaidAction {
+  action: CardMarkPaidActionAction;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
 /**
  * Module action. Wire format is unchanged from the legacy flat shape — the union only narrows which fields are valid per action.
  */
-export type ClientCardActionInput = CardApproveAction | CardPayMethodAction | CardScheduleAction | CardReferAction | CardAcknowledgeAction | CardDisputeAction;
+export type ClientCardActionInput = CardApproveAction | CardPayMethodAction | CardScheduleAction | CardReferAction | CardAcknowledgeAction | CardDisputeAction | CardMarkPaidAction;
 
 export interface ClientBoardFeedView {
   propertyName: string;

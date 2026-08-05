@@ -9892,6 +9892,7 @@ components:
         - $ref: "#/components/schemas/CardReferAction"
         - $ref: "#/components/schemas/CardAcknowledgeAction"
         - $ref: "#/components/schemas/CardDisputeAction"
+        - $ref: "#/components/schemas/CardMarkPaidAction"
       discriminator:
         propertyName: action
         mapping:
@@ -9901,6 +9902,7 @@ components:
           schedule: "#/components/schemas/CardScheduleAction"
           refer: "#/components/schemas/CardReferAction"
           acknowledge: "#/components/schemas/CardAcknowledgeAction"
+          mark_paid: "#/components/schemas/CardMarkPaidAction"
 
     ClientBoardFeedView:
       type: object
@@ -15237,6 +15239,8 @@ components:
         disputedBy: { type: ["string", "null"] }
         disputeResolvedAt: { type: ["string", "null"], description: "Set when the office clears a dispute" }
         disputeResponse: { type: ["string", "null"], description: "Office note back to the client when the dispute was cleared" }
+        clientPaidAt: { type: ["string", "null"], description: "Client reported payment sent — 'payment on its way' until the office confirms" }
+        clientPaidBy: { type: ["string", "null"] }
         photoUrls:
           type: ["array", "null"]
           items: { type: string }
@@ -15431,6 +15435,14 @@ components:
         action: { type: string, enum: [dispute] }
         note: { type: string, description: "One-field dispute reason — lands office-side as a flagged item" }
         name: { type: ["string", "null"] }
+
+    CardMarkPaidAction:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [mark_paid] }
+        name: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
 
     BoardEvent:
       type: object

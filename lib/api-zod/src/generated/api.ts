@@ -9249,6 +9249,8 @@ export const GetOfficeClientBoardResponse = zod.object({
   "disputedBy": zod.string().nullish(),
   "disputeResolvedAt": zod.string().nullish().describe('Set when the office clears a dispute'),
   "disputeResponse": zod.string().nullish().describe('Office note back to the client when the dispute was cleared'),
+  "clientPaidAt": zod.string().nullish().describe('Client reported payment sent — \'payment on its way\' until the office confirms'),
+  "clientPaidBy": zod.string().nullish(),
   "photoUrls": zod.array(zod.string()).nullish(),
   "lineItems": zod.array(zod.object({
   "label": zod.string().optional(),
@@ -9404,6 +9406,8 @@ export const CreateOfficeClientBoardCardResponse = zod.object({
   "disputedBy": zod.string().nullish(),
   "disputeResolvedAt": zod.string().nullish().describe('Set when the office clears a dispute'),
   "disputeResponse": zod.string().nullish().describe('Office note back to the client when the dispute was cleared'),
+  "clientPaidAt": zod.string().nullish().describe('Client reported payment sent — \'payment on its way\' until the office confirms'),
+  "clientPaidBy": zod.string().nullish(),
   "photoUrls": zod.array(zod.string()).nullish(),
   "lineItems": zod.array(zod.object({
   "label": zod.string().optional(),
@@ -9562,6 +9566,8 @@ export const UpdateOfficeClientBoardCardResponse = zod.object({
   "disputedBy": zod.string().nullish(),
   "disputeResolvedAt": zod.string().nullish().describe('Set when the office clears a dispute'),
   "disputeResponse": zod.string().nullish().describe('Office note back to the client when the dispute was cleared'),
+  "clientPaidAt": zod.string().nullish().describe('Client reported payment sent — \'payment on its way\' until the office confirms'),
+  "clientPaidBy": zod.string().nullish(),
   "photoUrls": zod.array(zod.string()).nullish(),
   "lineItems": zod.array(zod.object({
   "label": zod.string().optional(),
@@ -9723,6 +9729,8 @@ export const ResolveOfficeInvoiceDisputeResponse = zod.object({
   "disputedBy": zod.string().nullish(),
   "disputeResolvedAt": zod.string().nullish().describe('Set when the office clears a dispute'),
   "disputeResponse": zod.string().nullish().describe('Office note back to the client when the dispute was cleared'),
+  "clientPaidAt": zod.string().nullish().describe('Client reported payment sent — \'payment on its way\' until the office confirms'),
+  "clientPaidBy": zod.string().nullish(),
   "photoUrls": zod.array(zod.string()).nullish(),
   "lineItems": zod.array(zod.object({
   "label": zod.string().optional(),
@@ -10453,6 +10461,8 @@ export const GetClientBoardFeedResponse = zod.object({
   "disputedBy": zod.string().nullish(),
   "disputeResolvedAt": zod.string().nullish().describe('Set when the office clears a dispute'),
   "disputeResponse": zod.string().nullish().describe('Office note back to the client when the dispute was cleared'),
+  "clientPaidAt": zod.string().nullish().describe('Client reported payment sent — \'payment on its way\' until the office confirms'),
+  "clientPaidBy": zod.string().nullish(),
   "photoUrls": zod.array(zod.string()).nullish(),
   "lineItems": zod.array(zod.object({
   "label": zod.string().optional(),
@@ -10602,6 +10612,8 @@ export const UpdateClientBoardFeedCardResponse = zod.object({
   "disputedBy": zod.string().nullish(),
   "disputeResolvedAt": zod.string().nullish().describe('Set when the office clears a dispute'),
   "disputeResponse": zod.string().nullish().describe('Office note back to the client when the dispute was cleared'),
+  "clientPaidAt": zod.string().nullish().describe('Client reported payment sent — \'payment on its way\' until the office confirms'),
+  "clientPaidBy": zod.string().nullish(),
   "photoUrls": zod.array(zod.string()).nullish(),
   "lineItems": zod.array(zod.object({
   "label": zod.string().optional(),
@@ -10738,6 +10750,10 @@ export const ClientBoardCardActionBody = zod.union([zod.object({
   "action": zod.enum(['dispute']),
   "note": zod.string().describe('One-field dispute reason — lands office-side as a flagged item'),
   "name": zod.string().nullish()
+}),zod.object({
+  "action": zod.enum(['mark_paid']),
+  "name": zod.string().nullish(),
+  "note": zod.string().nullish()
 })]).describe('Module action. Wire format is unchanged from the legacy flat shape — the union only narrows which fields are valid per action.')
 
 export const ClientBoardCardActionResponse = zod.object({
@@ -10773,6 +10789,8 @@ export const ClientBoardCardActionResponse = zod.object({
   "disputedBy": zod.string().nullish(),
   "disputeResolvedAt": zod.string().nullish().describe('Set when the office clears a dispute'),
   "disputeResponse": zod.string().nullish().describe('Office note back to the client when the dispute was cleared'),
+  "clientPaidAt": zod.string().nullish().describe('Client reported payment sent — \'payment on its way\' until the office confirms'),
+  "clientPaidBy": zod.string().nullish(),
   "photoUrls": zod.array(zod.string()).nullish(),
   "lineItems": zod.array(zod.object({
   "label": zod.string().optional(),

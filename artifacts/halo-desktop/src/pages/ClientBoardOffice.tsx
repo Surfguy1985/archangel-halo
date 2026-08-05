@@ -66,7 +66,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { useBoardEvents, BoardRowList, mapCardsToRows, RAIL_ORDER, type RailKey } from "@workspace/board-ui";
+import { useBoardEvents, RailsBoard, mapCardsToRows, railFor, RAIL_ORDER, type RailKey } from "@workspace/board-ui";
 import { OfficeBoardDemo } from "@/components/OfficeBoardDemo";
 import { OfficeCardSheet } from "@/components/OfficeCardSheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1485,6 +1485,13 @@ export default function ClientBoardOffice() {
     slice === "all" || slice === "inbox" || slice === "history" ? null : slice,
   );
 
+  // Vendor board mirrors the client board exactly — same rail tiles, same
+  // order, same colors. Chips slice by rail.
+  const railCards =
+    slice === "all" || slice === "inbox" || slice === "history"
+      ? (boardFull?.board?.cards as any[]) ?? []
+      : (((boardFull?.board?.cards as any[]) ?? []).filter((c) => railFor(c) === slice));
+
   // Keyboard map: J/K navigate, Enter opens sheet, N pushes a card.
   // C/E act on the open sheet (wired inside OfficeCardSheet); Esc closes it.
   useEffect(() => {
@@ -1520,7 +1527,7 @@ export default function ClientBoardOffice() {
     { key: "all", label: "All" },
     ...RAIL_ORDER.map((r) => ({
       key: r.key as Slice,
-      label: r.key === "needs_you" ? "Waiting on client" : r.label,
+      label: r.label,
     })),
     { key: "inbox", label: "Client inbox", badge: pendingCount },
     { key: "history", label: "History" },
@@ -1625,12 +1632,14 @@ export default function ClientBoardOffice() {
               <Skeleton className="h-[52px] w-full rounded-none" />
             </div>
           ) : (
-            <BoardRowList
-              rows={rows}
-              selectedKey={selectedKey}
-              onSelect={setSelectedKey}
-              onOpen={(card) => { setSelectedKey(card.cardKey); setSheetCard(card); }}
-            />
+            <div className="p-4 sm:p-6">
+              <RailsBoard
+                cards={railCards}
+                isLoading={false}
+                density="comfortable"
+                onOpenCard={(card: any) => { setSelectedKey(card.cardKey); setSheetCard(card); }}
+              />
+            </div>
           )}
         </div>
       )}

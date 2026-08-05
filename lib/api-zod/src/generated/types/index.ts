@@ -77,6 +77,8 @@ export * from './cardApproveActionAction';
 export * from './cardChip';
 export * from './cardDisputeAction';
 export * from './cardDisputeActionAction';
+export * from './cardMarkPaidAction';
+export * from './cardMarkPaidActionAction';
 export * from './cardPayMethodAction';
 export * from './cardPayMethodActionAction';
 export * from './cardPayMethodActionMethod';

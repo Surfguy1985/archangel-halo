@@ -18,16 +18,16 @@ export const RAIL_TONES: Record<
   RailTone,
   { panel: string; body: string; title: string; subtitle: string; chip: string; rowStatus: string }
 > = {
-  // Brand lime — the one accent, reserved for cards waiting on the viewer.
+  // ALERTS red — cards waiting on the viewer (past-due invoices, approvals).
   // `chip` renders on an always-white pill (dark text, no dark variant);
   // `rowStatus` renders directly on office rows (needs dark-mode variants).
   action: {
-    panel: 'bg-[#B4FF44]',
-    body: 'bg-[#B4FF44]',
-    title: 'text-black',
-    subtitle: 'text-black/65',
-    chip: 'text-[#55660a]',
-    rowStatus: 'text-[#55660a] dark:text-[#D8F84E]',
+    panel: 'bg-[#DC2626]',
+    body: 'bg-[#DC2626]',
+    title: 'text-white',
+    subtitle: 'text-white/80',
+    chip: 'text-[#B91C1C]',
+    rowStatus: 'text-[#B91C1C] dark:text-[#F87171]',
   },
   active: {
     panel: 'bg-[#79B8F3]',
@@ -55,8 +55,8 @@ export const RAIL_TONES: Record<
   },
 };
 
-/** Accent border — ONLY for tiles in the Needs you rail. */
-export const RAIL_ACCENT_BORDER = 'border-2 border-[#9DB40F] dark:border-[#D8F84E]';
+/** Accent border — ONLY for tiles in the Alerts rail. */
+export const RAIL_ACCENT_BORDER = 'border-2 border-[#B91C1C] dark:border-[#F87171]';
 export const RAIL_HAIRLINE_BORDER = 'border-[0.5px] border-stone-200 dark:border-stone-700';
 
 /** Type scale + spacing per density. Compact feeds the office rows task. */
@@ -82,7 +82,7 @@ export const RAIL_DENSITY: Record<
 
 /** 3px status spine on compact office rows — solid echo of the tone. */
 export const ROW_SPINE: Record<RailTone, string> = {
-  action: 'bg-[#9DB40F] dark:bg-[#D8F84E]',
+  action: 'bg-[#DC2626] dark:bg-[#F87171]',
   active: 'bg-stone-300 dark:bg-stone-600',
   done: 'bg-emerald-500',
   warning: 'bg-amber-500',

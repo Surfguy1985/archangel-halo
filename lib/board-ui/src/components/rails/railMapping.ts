@@ -10,11 +10,13 @@ import type { RailTone } from './railTokens';
 export type RailKey = 'needs_you' | 'in_progress' | 'requested' | 'done' | 'paid';
 
 export const RAIL_ORDER: Array<{ key: RailKey; label: string; empty: string }> = [
-  { key: 'needs_you', label: 'Needs you', empty: 'Nothing needs you right now' },
   { key: 'requested', label: 'Requested', empty: 'No open requests' },
   { key: 'in_progress', label: 'In progress', empty: 'Nothing in motion right now' },
   { key: 'done', label: 'Done', empty: 'Nothing recently finished' },
   { key: 'paid', label: 'Billing', empty: 'No billing activity yet' },
+  // Alerts sits AFTER Billing: past-due invoices and anything else waiting on
+  // the viewer lands here, in red.
+  { key: 'needs_you', label: 'Alerts', empty: 'No alerts — you\u2019re all caught up' },
 ];
 
 export interface RailTileModel {
@@ -39,8 +41,20 @@ function moduleStatus(card: any): string {
   return String(card?.module?.status ?? '').toLowerCase();
 }
 
+function isMoneyCard(card: any): boolean {
+  const t = String(card?.template ?? '');
+  return t.includes('invoice') || t.includes('payment') || card?.module?.type === 'invoice';
+}
+
+/** Client reported payment from their board — "payment on its way". */
+export function clientPaidPending(card: any): boolean {
+  return !!card?.module?.clientPaidAt && moduleStatus(card) !== 'paid';
+}
+
 export function railFor(card: any): RailKey {
   if (moduleStatus(card) === 'paid') return 'paid';
+  // "Payment on its way" sits in Billing, not Alerts, even if past due.
+  if (clientPaidPending(card)) return 'paid';
   if (card.needsAction && !card.snoozedUntil) return 'needs_you';
   switch (card.lane) {
     case 'requested':
@@ -51,8 +65,9 @@ export function railFor(card: any): RailKey {
     case 'done':
       return 'done';
     case 'billing':
-      // Invoice in flight but nothing waiting on the client.
-      return 'in_progress';
+      // Invoices wait in Billing (max 24h server-side, then needsAction flips
+      // them into Alerts as past due).
+      return 'paid';
     default:
       return 'requested';
   }
@@ -61,14 +76,13 @@ export function railFor(card: any): RailKey {
 /** Plain phrase, present tense — never an internal enum. */
 export function plainStatus(card: any, rail: RailKey): string | null {
   if (card.priority === 'urgent') return 'Emergency';
-  if (rail === 'paid') return 'Paid';
+  if (rail === 'paid') {
+    if (moduleStatus(card) === 'paid') return 'Paid';
+    if (clientPaidPending(card)) return 'Payment on its way';
+    return isMoneyCard(card) ? 'Awaiting payment' : 'Billing';
+  }
   if (rail === 'needs_you') {
-    const t = String(card.template ?? '');
-    if (t.includes('invoice') || t.includes('payment')) {
-      const mod = card.module ?? {};
-      if (mod.canApprove && !mod.approvedAt) return 'Approve';
-      return 'Pay';
-    }
+    if (isMoneyCard(card)) return 'Past due';
     return 'Needs you';
   }
   if (card.crew?.onSite) return 'Crew on site';

@@ -76,7 +76,7 @@
 - [HALO voice tools](halo-voice-tools.md) — adding a voice tool means editing BOTH the TOOLS prompt AND the /voice/confirm handler in voice.ts; field names must match drizzle schema; restart server for prompt changes.
 - [HALO emergency crew ping](halo-emergency-ping.md) — first-wins commit via guarded ping flip; holds settle only on payout or "Emergency same-day pay" payment; neededBy is free text.
 - [HALO work-request PO gate](halo-work-request-po.md) — work requests require a PO unless emergency; new insert paths must enforce or explicitly exempt (flags-schedule rail is exempt).
-- [HALO client rails board](halo-client-rails.md) — vendors tab is five fixed rails (Needs you first), client-side mapping over unchanged lanes; no client drag; lime accent reserved; waybill lives on the sheet.
+- [HALO client rails board](halo-client-rails.md) — five fixed rails ending in red Alerts; 24h billing SLA + client mark_paid ("payment on its way") are server-side; office board mirrors the same tiles.
 - [HALO board concierge](halo-concierge.md) — chatbot tools go through internal HTTP with caller's creds; mutations only via one-time HMAC confirm chips (jti claimed in DB pre-execution).
 - [HALO office passcode gate](halo-office-auth.md) — office API locked behind passcode+cookie; new public token surfaces must join PUBLIC_PREFIXES or they 401.
 - [HALO crew route plans](halo-crew-route-plans.md) — day-route stop keys (schedule id / event-<id>) shared by office API + portal feed; free-text times must never sort lexicographically.
