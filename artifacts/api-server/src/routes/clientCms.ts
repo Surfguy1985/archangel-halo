@@ -19,10 +19,13 @@ import {
   recapSharesTable,
   notificationsTable,
   activitiesTable,
+  priceItemsTable,
   type PropertyUnit,
   type ClientHubItem,
   type Job,
 } from "@workspace/db";
+import { getBusinessSettings } from "../lib/businessSettings";
+import { generatePriceListPdf, generateBoardTutorialPdf } from "../lib/clientDocsPdf";
 import {
   GetUnitMapResponse,
   UploadUnitMapImageBody,
@@ -880,6 +883,39 @@ async function handleGetHub(req: Request, res: Response): Promise<void> {
   );
 }
 
+// Built-in hub documents — generated on demand, never stored.
+async function handlePriceListPdf(req: Request, res: Response): Promise<void> {
+  const scope = await resolveScope(req, res);
+  if (!scope) return;
+  const [settings, [prop], items] = await Promise.all([
+    getBusinessSettings(),
+    db.select({ name: propertiesTable.name }).from(propertiesTable).where(eq(propertiesTable.id, scope.propertyId)).limit(1),
+    db
+      .select()
+      .from(priceItemsTable)
+      .where(eq(priceItemsTable.propertyId, scope.propertyId))
+      .orderBy(asc(priceItemsTable.service)),
+  ]);
+  const pdf = await generatePriceListPdf({
+    companyName: settings.companyName,
+    propertyName: prop?.name ?? "Your property",
+    items: items.map((i) => ({ service: i.service, detail: i.detail, unit: i.unit, rate: i.rate })),
+  });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename="price-list.pdf"`);
+  res.send(Buffer.from(pdf));
+}
+
+async function handleBoardTutorialPdf(req: Request, res: Response): Promise<void> {
+  const scope = await resolveScope(req, res);
+  if (!scope) return;
+  const settings = await getBusinessSettings();
+  const pdf = await generateBoardTutorialPdf(settings.companyName);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename="client-board-guide.pdf"`);
+  res.send(Buffer.from(pdf));
+}
+
 async function handleCreateHubItem(req: Request, res: Response): Promise<void> {
   const parsed = CreateHubItemBody.safeParse(req.body);
   if (!parsed.success) {
@@ -1141,6 +1177,8 @@ for (const base of ["/client/:token", "/admin/accounts/:propertyId"]) {
   router.get(`${base}/unit-map/units/:unitId/summary`, handleUnitSummary);
   router.post(`${base}/unit-map/units/:unitId/change-order`, handleUnitChangeOrder);
   router.get(`${base}/hub`, handleGetHub);
+  router.get(`${base}/hub/price-list.pdf`, handlePriceListPdf);
+  router.get(`${base}/hub/board-tutorial.pdf`, handleBoardTutorialPdf);
   router.post(`${base}/hub/items`, handleCreateHubItem);
   router.patch(`${base}/hub/items/:itemId`, handleUpdateHubItem);
   router.delete(`${base}/hub/items/:itemId`, handleDeleteHubItem);

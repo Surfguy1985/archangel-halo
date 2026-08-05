@@ -307,41 +307,9 @@ export default function Today() {
               </button>
             </div>
 
-            {/* Category tabs — color coded by queue */}
-            <div className="flex flex-wrap gap-2 border-b border-border pb-4 mb-4" data-testid="attention-tabs">
-              <button
-                onClick={() => setQueueFilter(null)}
-                data-testid="attention-tab-all"
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                  !queueFilter
-                    ? "bg-[var(--secondary)] text-white shadow-sm"
-                    : "bg-black/5 text-muted-foreground hover:bg-black/10"
-                }`}
-              >
-                All <span className="font-mono ml-1 opacity-70">{today?.feed.length ?? 0}</span>
-              </button>
-              {(queues ?? []).filter(q => q.count > 0).map(q => {
-                const tone = queueTone(q.key);
-                const active = queueFilter === q.key;
-                return (
-                  <button
-                    key={q.key}
-                    onClick={() => setQueueFilter(active ? null : q.key)}
-                    data-testid={`attention-tab-${q.key}`}
-                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                      active ? tone.tabActive : `${tone.tabIdle} hover:opacity-80`
-                    }`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-current opacity-80" : tone.dot}`} />
-                    {q.label}
-                    <span className="font-mono opacity-70">{q.count}</span>
-                  </button>
-                );
-              })}
-            </div>
-
             <div className="space-y-3">
-              {(today?.feed.filter(item => !queueFilter || item.queue === queueFilter) ?? []).map(item => {
+              {/* Emergencies only (tier "now"), capped at 3 */}
+              {(today?.feed.filter(item => item.tier === "now") ?? []).slice(0, 3).map(item => {
                 const route = entityRoute(item.entityType, item.entityId);
                 return (
                   <div
@@ -449,14 +417,9 @@ export default function Today() {
                   </div>
                 );
               })}
-              {today?.feed.length === 0 && (
+              {(today?.feed.filter(item => item.tier === "now").length ?? 0) === 0 && (
                 <div className="p-12 text-center text-muted-foreground text-sm">
-                  All caught up for now.
-                </div>
-              )}
-              {(today?.feed.length ?? 0) > 0 && queueFilter && today?.feed.every(item => item.queue !== queueFilter) && (
-                <div className="p-12 text-center text-muted-foreground text-sm">
-                  Nothing needs attention in this queue.
+                  No emergencies right now.
                 </div>
               )}
             </div>

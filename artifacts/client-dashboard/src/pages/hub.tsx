@@ -70,6 +70,52 @@ const SECTIONS: { key: SectionKey; title: string; icon: React.ElementType }[] = 
 const resolveUrl = (url: string) =>
   url.startsWith('/') ? window.location.origin + url : url;
 
+// Built-in hub items present on every property's hub. These are rendered
+// alongside CMS items but are not editable or deletable.
+const builtinItems = (token: string): HubItemRec[] => [
+  {
+    id: 'builtin-walk',
+    section: 'link',
+    title: 'HALO Walk',
+    subtitle: 'Walk the property and log findings on the spot',
+    // Root-relative so it resolves on both dev and the published domain —
+    // this is the Walk app's own path, NOT the desktop app.
+    url: '/walk/',
+    fileUrl: null,
+    body: null,
+    phone: null,
+    email: null,
+    createdBy: null,
+    createdAt: '',
+  },
+  {
+    id: 'builtin-price-list',
+    section: 'doc',
+    title: 'Your Price List',
+    subtitle: 'Agreed per-service pricing for this property (PDF)',
+    url: `/api/client/${token}/hub/price-list.pdf`,
+    fileUrl: null,
+    body: null,
+    phone: null,
+    email: null,
+    createdBy: null,
+    createdAt: '',
+  },
+  {
+    id: 'builtin-board-tutorial',
+    section: 'doc',
+    title: 'Client Board Quick Guide',
+    subtitle: 'One page on how your board works (PDF)',
+    url: `/api/client/${token}/hub/board-tutorial.pdf`,
+    fileUrl: null,
+    body: null,
+    phone: null,
+    email: null,
+    createdBy: null,
+    createdAt: '',
+  },
+];
+
 // ---------------------------------------------------------------------------
 // Item editor dialog
 // ---------------------------------------------------------------------------
@@ -608,7 +654,11 @@ export default function HubPage() {
 
       <main className="mx-auto w-full max-w-2xl flex-1 space-y-4 p-4">
         {SECTIONS.map(({ key, title, icon: Icon }) => {
-          const sectionItems = items.filter((i) => i.section === key);
+          const builtins = builtinItems(token).filter((i) => i.section === key);
+          const sectionItems = [
+            ...builtins,
+            ...items.filter((i) => i.section === key),
+          ];
           return (
             <Card key={key}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
@@ -649,7 +699,7 @@ export default function HubPage() {
                     <ItemRow
                       key={item.id}
                       item={item}
-                      canEdit={canEdit}
+                      canEdit={canEdit && !item.id.startsWith('builtin-')}
                       onEdit={() => {
                         setEditingItem(item);
                         setDialogSection(key);
