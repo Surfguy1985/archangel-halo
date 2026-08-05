@@ -97,11 +97,11 @@ function StageIcon({ rail, color }: { rail: RailKey; color: string }) {
 
 /** Solid rail-colored panel with one polished animated icon on the RIGHT —
  *  keeps the left side clear so text overlays never fight the artwork. */
-export function StageArtPanel({ rail, testId }: { rail: RailKey; testId?: string }) {
+export function StageArtPanel({ rail, testId, bg }: { rail: RailKey; testId?: string; bg?: string }) {
   const s = RAIL_STAGE_STYLE[rail];
   ensureStageArtStyles();
   return (
-    <div className="absolute inset-0" style={{ background: s.bg }} data-testid={testId}>
+    <div className="absolute inset-0" style={{ background: bg ?? s.bg }} data-testid={testId}>
       <span
         className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full"
         style={{ background: s.badgeBg }}

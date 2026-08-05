@@ -228,14 +228,8 @@ const TONE_RAIL: Record<JobTone, RailKey> = {
   red: "needs_you",
 };
 
-// Big overlay text needs dark ink on the light lime/tan panels.
-const TONE_OVERLAY_TEXT: Record<JobTone, string> = {
-  lime: "text-black/80 [text-shadow:none]",
-  blue: "text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]",
-  emerald: "text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]",
-  stone: "text-[#40361F] [text-shadow:none]",
-  red: "text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]",
-};
+// All panels share the navy background, so overlay text is always white.
+const OVERLAY_TEXT = "text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]";
 
 function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobTone; crews?: Crew[]; onOpen: () => void }) {
   const { job, photos, broadcasts } = card;
@@ -260,21 +254,21 @@ function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobT
       className="block w-full min-w-0 text-left rounded-2xl overflow-hidden bg-white border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9DB40F]"
     >
       <div className="relative aspect-[5/2] overflow-hidden bg-[var(--muted)]">
-        {/* Always the solid stage panel — job photos stay in the card dialog,
-            keeping the board tiles calm and color-coded. */}
-        <StageArtPanel rail={TONE_RAIL[tone]} testId={`job-stage-art-${job.id}`} />
+        {/* Always the solid stage panel — navy background on every card, the
+            rail's colored icon carries the color coding. */}
+        <StageArtPanel rail={TONE_RAIL[tone]} bg="var(--secondary)" testId={`job-stage-art-${job.id}`} />
         {/* Big uniform unit number, white, top-left corner. Property-level
             jobs (no unit) show the service big instead. */}
         {job.unitNo ? (
           <span
-            className={`absolute top-2 left-3 font-display font-bold text-4xl pointer-events-none ${TONE_OVERLAY_TEXT[tone]}`}
+            className={`absolute top-2 left-3 font-display font-bold text-4xl pointer-events-none ${OVERLAY_TEXT}`}
             data-testid={`job-unit-${job.id}`}
           >
             {job.unitNo}
           </span>
         ) : services.length > 0 ? (
           <span
-            className={`absolute top-2 left-3 max-w-[calc(100%-72px)] truncate font-display font-bold text-2xl pointer-events-none ${TONE_OVERLAY_TEXT[tone]}`}
+            className={`absolute top-2 left-3 max-w-[calc(100%-72px)] truncate font-display font-bold text-2xl pointer-events-none ${OVERLAY_TEXT}`}
             data-testid={`job-service-big-${job.id}`}
           >
             {serviceBase(services[0])}
