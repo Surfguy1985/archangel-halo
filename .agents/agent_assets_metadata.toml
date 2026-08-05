@@ -184,3 +184,10 @@ uri = "file://artifacts/devportal/public/downloads/halo-quickstart-client.pdf"
 type = "pdf"
 title = "Client Board Quick-Start Guide"
 description = "One-pager for clients/PMs — reading the board, card messaging, paying from a card, requests, Units map, History."
+
+[[outputs]]
+id = "bBQE1f8db55cbOjN8pT24"
+uri = "file://screenshots/vendor-crm/HALO-vendor-CRM-walkthrough.pdf"
+type = "pdf"
+title = "HALO Vendor-Side CRM — Full UX/UI Walkthrough"
+description = "All 20 office screens captured live: Today, Dispatch, Calendar, Job Board, Properties, Jobs, Pipeline, Crews, Wings, Money, Payments, Invoices, Catalog, Supply, Vendors, AI Import, Client Accounts, and the vendor board."
