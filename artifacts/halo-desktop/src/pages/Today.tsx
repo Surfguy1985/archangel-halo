@@ -1,9 +1,9 @@
-import { useGetToday, useRefreshBrief, useGetQueues, useListActivities, useDismissFeedItem, useAcceptWorkRequest, useDeclineWorkRequest, useRemindInvoice, useNudgeBid, getGetTodayQueryKey, getGetQueuesQueryKey, getListActivitiesQueryKey, getListWorkRequestsQueryKey, getListJobsQueryKey, getListInvoicesQueryKey, getListBidsQueryKey, type FeedCard} from "@workspace/api-client-react";
+import { useGetToday, useRefreshBrief, useGetQueues, useListActivities, useListJobs, useDismissFeedItem, useAcceptWorkRequest, useDeclineWorkRequest, useRemindInvoice, useNudgeBid, getGetTodayQueryKey, getGetQueuesQueryKey, getListActivitiesQueryKey, getListWorkRequestsQueryKey, getListJobsQueryKey, getListInvoicesQueryKey, getListBidsQueryKey, type FeedCard} from "@workspace/api-client-react";
 import { PushCardDialog, type PushPrefill} from "@/components/PushCardDialog";
 import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
 import { Skeleton} from "@/components/ui/skeleton";
-import { useState} from "react";
+import { useState, useMemo } from "react";
 import { useQueryClient} from "@tanstack/react-query";
 import { useToast} from "@/hooks/use-toast";
 import { useLocation} from "wouter";
@@ -107,6 +107,27 @@ export default function Today() {
   const [queueFilter, setQueueFilter] = useState<string | null>(null);
   const [activityOpen, setActivityOpen] = useState(false);
   const [quickJobOpen, setQuickJobOpen] = useState(false);
+
+  const { data: jobs } = useListJobs(undefined, {
+    query: { queryKey: getListJobsQueryKey(), refetchInterval: 10_000 },
+  });
+
+  // Work happening at each property today: in-progress jobs + jobs scheduled for today.
+  const todayByProperty = useMemo(() => {
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const active = (jobs ?? []).filter(
+      j => j.status === "in_progress" || (j.status === "scheduled" && j.scheduledOn === todayStr),
+    );
+    const groups = new Map<string, { propertyId: string; propertyName: string; jobs: typeof active }>();
+    for (const j of active) {
+      const key = j.propertyId ?? "unknown";
+      const g = groups.get(key) ?? { propertyId: key, propertyName: j.propertyName ?? "Unknown property", jobs: [] };
+      g.jobs.push(j);
+      groups.set(key, g);
+    }
+    return [...groups.values()].sort((a, b) => a.propertyName.localeCompare(b.propertyName));
+  }, [jobs]);
 
   const handleRefresh = async () => {
     try {
@@ -295,131 +316,62 @@ export default function Today() {
             </Card>
           )}
 
-          {/* Needs Attention */}
+          {/* Today at the properties */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-border">
             <div className="flex items-center justify-between pb-4">
-              <h2 className="text-xl font-display font-bold text-foreground">Needs attention</h2>
-              <button 
-                onClick={() => queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()})}
+              <h2 className="text-xl font-display font-bold text-foreground">Today at the properties</h2>
+              <button
+                onClick={() => queryClient.invalidateQueries({ queryKey: getListJobsQueryKey()})}
                 className="text-xs font-bold text-muted-foreground bg-black/5 hover:bg-black/10 px-4 py-2 rounded-full transition-colors"
               >
                 Refresh
               </button>
             </div>
 
-            <div className="space-y-3">
-              {/* Emergencies only (tier "now"), capped at 3 */}
-              {(today?.feed.filter(item => item.tier === "now") ?? []).slice(0, 3).map(item => {
-                const route = entityRoute(item.entityType, item.entityId);
-                return (
-                  <div
-                    key={item.id}
-                    onClick={route ? () => navigate(route) : undefined}
-                    className={`group flex items-center gap-4 p-4 rounded-2xl bg-black/[0.02] hover:bg-black/[0.04] border border-transparent transition-colors ${route ? "cursor-pointer" : ""}`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1.5">
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest ${queueTone(item.queue).tabIdle}`}>
-                          {queues?.find(q => q.key === item.queue)?.label ?? item.queue}
-                        </span>
-                        {item.amount != null && (
-                          <span className="text-sm font-mono font-bold text-[var(--secondary)]">
-                            ${item.amount.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="font-bold text-foreground text-base truncate">{item.title}</h3>
-                      <p className="text-muted-foreground text-sm truncate">{item.sub}</p>
-                      {item.entityType === "work_request" && item.entityId && (
-                        <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-                          {decliningId === item.entityId ? (
-                            <div className="flex items-center gap-2">
-                              <input
-                                value={declineReason}
-                                onChange={(e) => setDeclineReason(e.target.value)}
-                                placeholder="Reason the client will see (optional)"
-                                data-testid={`input-decline-reason-${item.id}`}
-                                className="flex-1 max-w-sm rounded-lg border border-black/10 bg-white px-3 py-1.5 text-sm outline-none focus:border-[var(--secondary)]"
-                              />
-                              <button
-                                onClick={() => void handleDecline(item.entityId!)}
-                                disabled={declineRequest.isPending}
-                                data-testid={`button-confirm-decline-${item.id}`}
-                                className="rounded-full bg-[#FF3B30] px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"
-                              >
-                                Confirm decline
-                              </button>
-                              <button
-                                onClick={() => { setDecliningId(null); setDeclineReason(""); }}
-                                className="rounded-full border border-black/10 px-4 py-1.5 text-xs font-bold"
-                              >
-                                Keep it
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex gap-2">
-                              <button
-                                onClick={(e) => void handleApprove(e, item.entityId!)}
-                                disabled={acceptRequest.isPending}
-                                data-testid={`button-approve-${item.id}`}
-                                className="rounded-full bg-[var(--primary)] px-4 py-1.5 text-xs font-bold text-black disabled:opacity-50"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setDecliningId(item.entityId!); setDeclineReason(""); }}
-                                data-testid={`button-decline-${item.id}`}
-                                className="rounded-full border border-black/10 px-4 py-1.5 text-xs font-bold"
-                              >
-                                Decline
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {item.entityType !== "work_request" && (item.actions?.length ?? 0) > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                          {item.actions!.map((a) => (
-                            <button
-                              key={a.action}
-                              onClick={() => void runFeedAction(item, a.action)}
-                              disabled={remindInvoice.isPending || nudgeBid.isPending}
-                              data-testid={`button-action-${a.action}-${item.id}`}
-                              className={`rounded-full px-4 py-1.5 text-xs font-bold disabled:opacity-50 transition-colors ${
-                                a.kind === "gold"
-                                  ? "bg-[var(--primary)] text-black hover:opacity-90"
-                                  : "border border-black/10 text-foreground hover:bg-black/5"
-                              }`}
-                            >
-                              {a.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <button
-                        onClick={(e) => handleDismiss(e, item.id)}
-                        disabled={dismissItem.isPending}
-                        aria-label="Clear"
-                        title="Clear from feed"
-                        data-testid={`button-dismiss-${item.id}`}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-black hover:bg-black/10 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                      {route && (
-                        <div className="w-10 h-10 rounded-xl bg-[var(--secondary)] text-white flex items-center justify-center group-hover:opacity-90 transition-opacity">
-                          <ArrowRight className="w-5 h-5" />
-                        </div>
-                      )}
-                    </div>
+            <div className="space-y-5">
+              {todayByProperty.map(group => (
+                <div key={group.propertyId}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--gold-light)]" />
+                    <h3 className="font-bold text-foreground text-sm">{group.propertyName}</h3>
+                    <span className="text-xs text-muted-foreground font-mono">{group.jobs.length}</span>
                   </div>
-                );
-              })}
-              {(today?.feed.filter(item => item.tier === "now").length ?? 0) === 0 && (
+                  <div className="space-y-2">
+                    {group.jobs.map(job => (
+                      <div
+                        key={job.id}
+                        onClick={() => navigate(`/jobs/${job.id}`)}
+                        data-testid={`today-job-${job.id}`}
+                        className="group flex items-center gap-4 p-3.5 rounded-2xl bg-black/[0.02] hover:bg-black/[0.04] transition-colors cursor-pointer"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-foreground text-sm truncate">
+                            {job.description || job.category || job.jobNo}
+                          </p>
+                          <p className="text-muted-foreground text-xs truncate mt-0.5">
+                            {[
+                              job.unitNo ? `Unit ${job.unitNo}` : null,
+                              job.crewLeaderName ?? "Unassigned",
+                              job.scheduledTime ?? null,
+                            ].filter(Boolean).join(" · ")}
+                          </p>
+                        </div>
+                        <span className={`shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest ${
+                          job.status === "in_progress"
+                            ? "bg-[var(--gold-light)] text-black"
+                            : "bg-sky-100 text-sky-800"
+                        }`}>
+                          {job.status === "in_progress" ? "In progress" : "Scheduled"}
+                        </span>
+                        <ArrowRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {todayByProperty.length === 0 && (
                 <div className="p-12 text-center text-muted-foreground text-sm">
-                  No emergencies right now.
+                  No work scheduled at the properties today.
                 </div>
               )}
             </div>
