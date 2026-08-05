@@ -45,20 +45,33 @@ import { Textarea} from "@/components/ui/textarea";
  * compact tiles, detail + actions in a sheet. Cards move themselves as
  * status changes — no drag between rails.
  */
-const JOB_RAILS: { key: string; label: string; tone: JobTone }[] = [
-  { key: "active", label: "Open", tone: "lime" },
-  { key: "reopened", label: "Reopened", tone: "orange" },
-  { key: "filled", label: "Filled", tone: "emerald" },
-  { key: "completed", label: "Completed", tone: "stone" },
+const JOB_RAILS: { key: JobRailKey; label: string; tone: JobTone; empty: string }[] = [
+  { key: "requested", label: "Requested", tone: "lime", empty: "No open requests" },
+  { key: "in_progress", label: "In progress", tone: "blue", empty: "Nothing in motion right now" },
+  { key: "done", label: "Done", tone: "emerald", empty: "Nothing finished yet" },
+  { key: "billing", label: "Billing", tone: "stone", empty: "No billing activity yet" },
+  { key: "alert", label: "Alerts", tone: "red", empty: "No alerts — all covered" },
 ];
 
-type JobTone = "lime" | "orange" | "emerald" | "stone";
+type JobRailKey = "requested" | "in_progress" | "done" | "billing" | "alert";
+type JobTone = "lime" | "blue" | "emerald" | "stone" | "red";
+
+/** Same five rails as the client board: Requested → In progress → Done → Billing → Alerts (red, last). */
+function jobRail(card: JobBoardCard): JobRailKey {
+  const board = card.job.boardStatus || "active";
+  if (board === "reopened") return "alert"; // lost its crew — needs the office
+  if (card.job.status === "complete" || card.job.status === "paid") return "billing";
+  if (board === "completed") return "done";
+  if (board === "filled") return "in_progress";
+  return "requested";
+}
 
 const JOB_TONES: Record<JobTone, { chip: string; dot: string }> = {
   lime: { chip: "bg-[var(--gold-light)] text-black", dot: "bg-[var(--gold-light)]" },
-  orange: { chip: "bg-orange-100 text-orange-800", dot: "bg-orange-400" },
+  blue: { chip: "bg-sky-100 text-sky-800", dot: "bg-sky-400" },
   emerald: { chip: "bg-emerald-100 text-emerald-800", dot: "bg-emerald-400" },
   stone: { chip: "bg-stone-100 text-stone-600", dot: "bg-stone-300" },
+  red: { chip: "bg-red-100 text-red-800", dot: "bg-[#DC2626]" },
 };
 
 export default function JobBoard() {
@@ -81,7 +94,7 @@ export default function JobBoard() {
 
       <div className="flex-1 pb-12">
         {isLoading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
             {JOB_RAILS.map((r) => (
               <Skeleton key={r.key} className="h-[320px] rounded-2xl bg-muted" />
             ))}
@@ -93,9 +106,9 @@ export default function JobBoard() {
             <p className="text-sm">Post a job from a property, or use + New → Job.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start" data-testid="jobboard-rails">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 items-start" data-testid="jobboard-rails">
             {JOB_RAILS.map((rail) => {
-              const railCards = cards.filter((c) => (c.job.boardStatus || "active") === rail.key);
+              const railCards = cards.filter((c) => jobRail(c) === rail.key);
               return (
                 <section key={rail.key} className="min-w-0" data-testid={`jobrail-${rail.key}`}>
                   <div className="flex items-center gap-2 mb-3 px-1">
@@ -106,7 +119,7 @@ export default function JobBoard() {
                   <div className="space-y-3">
                     {railCards.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-[var(--hairline)] px-4 py-6 text-center text-xs text-muted-foreground bg-card/50">
-                        Empty
+                        {rail.empty}
                       </div>
                     ) : (
                       railCards.map((card) => (
