@@ -151,6 +151,7 @@ export default function PropertyDetail() {
       { label: "Crew", done: !!job.crewLeaderId },
       { label: "Work", done: isComplete },
       { label: "Invoice", done: invoice?.status === "paid" },
+      { label: "Crew paid", done: job.crewPaymentStatus === "paid" },
       { label: "Close", done: !!job.clearedAt }
     ];
 
