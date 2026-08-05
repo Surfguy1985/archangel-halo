@@ -8,22 +8,29 @@ import {
   RAIL_TONES,
   type BoardDensity,
 } from './railTokens';
-import { RAIL_STAGE_MOTION, type RailTileModel } from './railMapping';
+import { RAIL_STAGE_STYLE, type RailKey, type RailTileModel } from './railMapping';
 
-/** Looping stage-art animations — injected once, shared by every tile. */
+/** Looping stage-icon animations — injected once, shared by every tile. */
 const STAGE_ART_KEYFRAMES = `
-@keyframes rail-art-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-@keyframes rail-art-slide { 0%,100% { transform: translateX(-2.5%) scale(1.08); } 50% { transform: translateX(2.5%) scale(1.08); } }
-@keyframes rail-art-pop { 0%,100% { transform: scale(1); } 40% { transform: scale(1.07); } 55% { transform: scale(1.03); } }
-@keyframes rail-art-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3%); } }
-@keyframes rail-art-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
-.rail-art-pulse { animation: rail-art-pulse 2.6s ease-in-out infinite; }
-.rail-art-slide { animation: rail-art-slide 3.2s ease-in-out infinite; }
-.rail-art-pop { animation: rail-art-pop 2.4s ease-in-out infinite; }
-.rail-art-float { animation: rail-art-float 3s ease-in-out infinite; }
-.rail-art-blink { animation: rail-art-blink 1.6s ease-in-out infinite; }
+@keyframes rail-icon-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+@keyframes rail-icon-sway { 0%,100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg); } }
+@keyframes rail-icon-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes rail-icon-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+@keyframes rail-check-draw {
+  0% { stroke-dashoffset: 48; opacity: 1; }
+  38% { stroke-dashoffset: 0; opacity: 1; }
+  78% { stroke-dashoffset: 0; opacity: 1; }
+  92% { stroke-dashoffset: 0; opacity: 0; }
+  100% { stroke-dashoffset: 48; opacity: 0; }
+}
+.rail-icon-pulse { animation: rail-icon-pulse 2.6s ease-in-out infinite; }
+.rail-icon-sway { animation: rail-icon-sway 2.8s ease-in-out infinite; transform-origin: 50% 50%; }
+.rail-icon-float { animation: rail-icon-float 3s ease-in-out infinite; }
+.rail-icon-blink { animation: rail-icon-blink 1.6s ease-in-out infinite; }
+.rail-check-path { stroke-dasharray: 48; stroke-dashoffset: 48; animation: rail-check-draw 2.8s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .rail-art-pulse, .rail-art-slide, .rail-art-pop, .rail-art-float, .rail-art-blink { animation: none; }
+  .rail-icon-pulse, .rail-icon-sway, .rail-icon-float, .rail-icon-blink { animation: none; }
+  .rail-check-path { animation: none; stroke-dashoffset: 0; }
 }
 `;
 
@@ -35,6 +42,76 @@ function ensureStageArtStyles() {
   el.textContent = STAGE_ART_KEYFRAMES;
   document.head.appendChild(el);
   stageArtStylesInjected = true;
+}
+
+/** One simple line icon per rail, drawn inline so the check can animate. */
+function StageIcon({ rail, color }: { rail: RailKey; color: string }) {
+  const common = {
+    width: 26,
+    height: 26,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: color,
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
+  switch (rail) {
+    case 'requested':
+      return (
+        <svg {...common}>
+          <rect x="5" y="4" width="14" height="17" rx="2" />
+          <path d="M9 4.5V3h6v1.5" />
+          <path d="M9 10h6M9 14h6M9 18h4" />
+        </svg>
+      );
+    case 'in_progress':
+      return (
+        <svg {...common}>
+          <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-2.4 2.6-2.6z" />
+        </svg>
+      );
+    case 'done':
+      return (
+        <svg {...common} strokeWidth={2.6}>
+          <path className="rail-check-path" pathLength={48} d="M4.5 12.5l5 5L19.5 6.5" />
+        </svg>
+      );
+    case 'paid':
+      return (
+        <svg {...common}>
+          <path d="M12 2.5v19" />
+          <path d="M16.5 5.5H10a3 3 0 0 0 0 6h4a3 3 0 0 1 0 6H7" />
+        </svg>
+      );
+    case 'needs_you':
+      return (
+        <svg {...common}>
+          <path d="M12 3.5 2.8 19.5h18.4L12 3.5z" />
+          <path d="M12 9.5v4.5" />
+          <path d="M12 17.2h.01" />
+        </svg>
+      );
+  }
+}
+
+/** Solid rail-colored panel with one polished animated icon on the RIGHT —
+ *  keeps the left side clear so text overlays never fight the artwork. */
+export function StageArtPanel({ rail, testId }: { rail: RailKey; testId?: string }) {
+  const s = RAIL_STAGE_STYLE[rail];
+  ensureStageArtStyles();
+  return (
+    <div className="absolute inset-0" style={{ background: s.bg }} data-testid={testId}>
+      <span
+        className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full"
+        style={{ background: s.badgeBg }}
+      >
+        <span className={s.motion ? `inline-flex ${s.motion}` : 'inline-flex'}>
+          <StageIcon rail={rail} color={s.icon} />
+        </span>
+      </span>
+    </div>
+  );
 }
 
 /**
@@ -90,18 +167,17 @@ export const RailTile = memo(function RailTile({
         data-invoice-ready={invoiceReady ? 'true' : undefined}
       >
         <div className={`relative ${d.artwork} ${t.panel}`}>
-          {tile.artworkUrl && (
+          {tile.artworkUrl ? (
             <img
               src={tile.artworkUrl}
               alt=""
               loading="lazy"
               decoding="async"
               /* CONTAIN — object-cover + absolute inset holds any aspect ratio. */
-              className={[
-                'absolute inset-0 h-full w-full object-cover',
-                tile.stageArt ? RAIL_STAGE_MOTION[tile.rail] : '',
-              ].join(' ')}
+              className="absolute inset-0 h-full w-full object-cover"
             />
+          ) : (
+            <StageArtPanel rail={tile.rail} />
           )}
           {tile.card?.changeOrder && (
             <span

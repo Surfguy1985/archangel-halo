@@ -22,6 +22,7 @@ import {
   type Crew,
   type CrewToday
 } from "@workspace/api-client-react";
+import { StageArtPanel, type RailKey } from "@workspace/board-ui";
 import { Skeleton} from "@/components/ui/skeleton";
 import { Card, CardContent} from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem} from "@/components/ui/radio-group";
@@ -48,6 +49,7 @@ import {
   ShieldCheck,
   Loader2,
   MessageSquare,
+  Users,
   XCircle,
   FileText,
   Banknote,
@@ -125,7 +127,6 @@ export default function JobBoard() {
 
   return (
     <div className="p-8 max-w-[1400px] mx-auto space-y-8 min-h-[100dvh] flex flex-col bg-[var(--background)]">
-      <style>{STAGE_ART_CSS}</style>
       <header className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">Job Board</h1>
@@ -216,31 +217,25 @@ function serviceBase(s: string) {
   return s.replace(/\s*[—–-]\s*\d\s*BR\s*$/i, "").trim();
 }
 
-// Preset stage artwork (served by the API) + a gentle loop per stage, used
-// whenever a job has no photo of its own. Tones map 1:1 onto rails.
-const STAGE_ART: Record<JobTone, { src: string; motion: string }> = {
-  lime: { src: "/api/rails-art/requested.jpg", motion: "rail-art-pulse" },
-  blue: { src: "/api/rails-art/in_progress.jpg", motion: "rail-art-slide" },
-  emerald: { src: "/api/rails-art/done.jpg", motion: "rail-art-pop" },
-  stone: { src: "/api/rails-art/billing.jpg", motion: "rail-art-float" },
-  red: { src: "/api/rails-art/alert.jpg", motion: "rail-art-blink" },
+// Solid stage panels (shared with the client board's rail tiles): the
+// thumbnail background matches the rail's color coding and one animated
+// icon sits on the right. Tones map 1:1 onto rails.
+const TONE_RAIL: Record<JobTone, RailKey> = {
+  lime: "requested",
+  blue: "in_progress",
+  emerald: "done",
+  stone: "paid",
+  red: "needs_you",
 };
 
-const STAGE_ART_CSS = `
-@keyframes rail-art-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-@keyframes rail-art-slide { 0%,100% { transform: translateX(-2.5%) scale(1.08); } 50% { transform: translateX(2.5%) scale(1.08); } }
-@keyframes rail-art-pop { 0%,100% { transform: scale(1); } 40% { transform: scale(1.07); } 55% { transform: scale(1.03); } }
-@keyframes rail-art-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3%); } }
-@keyframes rail-art-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
-.rail-art-pulse { animation: rail-art-pulse 2.6s ease-in-out infinite; }
-.rail-art-slide { animation: rail-art-slide 3.2s ease-in-out infinite; }
-.rail-art-pop { animation: rail-art-pop 2.4s ease-in-out infinite; }
-.rail-art-float { animation: rail-art-float 3s ease-in-out infinite; }
-.rail-art-blink { animation: rail-art-blink 1.6s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .rail-art-pulse, .rail-art-slide, .rail-art-pop, .rail-art-float, .rail-art-blink { animation: none; }
-}
-`;
+// Big overlay text needs dark ink on the light lime/tan panels.
+const TONE_OVERLAY_TEXT: Record<JobTone, string> = {
+  lime: "text-black/80 [text-shadow:none]",
+  blue: "text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]",
+  emerald: "text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]",
+  stone: "text-[#40361F] [text-shadow:none]",
+  red: "text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]",
+};
 
 function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobTone; crews?: Crew[]; onOpen: () => void }) {
   const { job, photos, broadcasts } = card;
@@ -265,29 +260,21 @@ function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobT
       className="block w-full min-w-0 text-left rounded-2xl overflow-hidden bg-white border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9DB40F]"
     >
       <div className="relative aspect-[5/2] overflow-hidden bg-[var(--muted)]">
-        {artwork ? (
-          <img src={`/api/storage${artwork}`} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
-        ) : (
-          <img
-            src={STAGE_ART[tone].src}
-            alt=""
-            loading="lazy"
-            className={`absolute inset-0 h-full w-full object-cover ${STAGE_ART[tone].motion}`}
-            data-testid={`job-stage-art-${job.id}`}
-          />
-        )}
+        {/* Always the solid stage panel — job photos stay in the card dialog,
+            keeping the board tiles calm and color-coded. */}
+        <StageArtPanel rail={TONE_RAIL[tone]} testId={`job-stage-art-${job.id}`} />
         {/* Big uniform unit number, white, top-left corner. Property-level
             jobs (no unit) show the service big instead. */}
         {job.unitNo ? (
           <span
-            className="absolute top-2 left-3 font-display font-bold text-4xl text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)] pointer-events-none"
+            className={`absolute top-2 left-3 font-display font-bold text-4xl pointer-events-none ${TONE_OVERLAY_TEXT[tone]}`}
             data-testid={`job-unit-${job.id}`}
           >
             {job.unitNo}
           </span>
         ) : services.length > 0 ? (
           <span
-            className="absolute top-2 left-3 max-w-[calc(100%-24px)] truncate font-display font-bold text-2xl text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)] pointer-events-none"
+            className={`absolute top-2 left-3 max-w-[calc(100%-72px)] truncate font-display font-bold text-2xl pointer-events-none ${TONE_OVERLAY_TEXT[tone]}`}
             data-testid={`job-service-big-${job.id}`}
           >
             {serviceBase(services[0])}
@@ -358,6 +345,54 @@ function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobT
       </div>
     </button>
     {job.boardStatus === "manual_check" && <MarkCompleteButton jobId={job.id} small />}
+    </div>
+  );
+}
+
+/** Assigned crew with a live link per member — jump straight to their page
+ *  to message them or see their live position on the map. */
+function AssignedCrewPanel({ job, crews }: { job: JobBoardCard["job"]; crews: CrewToday[] }) {
+  const [, navigate] = useLocation();
+  const leader = job.crewLeaderId ? crews.find((c) => c.id === job.crewLeaderId) : undefined;
+  if (!leader) return null;
+  const team = crews.filter((c) => c.leaderId === leader.id && c.active !== false);
+  const members = [leader, ...team];
+  const statusLabel: Record<string, string> = { route: "On route", site: "On site", done: "Done for today", idle: "Idle" };
+  return (
+    <div>
+      <h4 className="text-xs font-bold text-[var(--secondary)] mb-2 flex items-center gap-1">
+        <Users className="w-3.5 h-3.5" /> Crew
+      </h4>
+      <div className="space-y-2">
+        {members.map((m, i) => (
+          <div key={m.id} className="flex items-center gap-2.5 text-sm p-2 bg-[var(--background)] border border-border rounded-none" data-testid={`crew-member-${m.id}`}>
+            <CrewFace name={m.name} selfiePath={m.selfiePath} size={6} />
+            <div className="min-w-0 flex-1">
+              <span className="flex items-center gap-1.5 font-medium text-[var(--secondary)] truncate">
+                {m.name}
+                {i === 0 && <span className="rounded-full bg-[var(--gold-light,#B4FF44)] px-1.5 py-px text-[9px] font-bold text-black">LEADER</span>}
+              </span>
+              {m.todayStatus && (
+                <span className="block text-[11px] text-muted-foreground truncate">
+                  {statusLabel[m.todayStatus] ?? m.todayStatus}{m.todayProperty ? ` · ${m.todayProperty}` : ""}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate(`/crews/${m.id}`)}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1.5 text-[11px] font-bold text-[var(--secondary)] hover:bg-[var(--secondary)] hover:text-white transition-colors"
+              data-testid={`crew-live-link-${m.id}`}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              Live link
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -544,18 +579,21 @@ function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] 
             {priceItems.length > 0 && (
               <div>
                 <h4 className="text-xs font-bold text-[var(--secondary)] mb-2 flex items-center gap-1">
-                  <DollarSign className="w-3.5 h-3.5" /> Price List
+                  <ClipboardList className="w-3.5 h-3.5" /> Line Items
                 </h4>
+                {/* Work list only — no prices here; money lives in the invoice. */}
                 <div className="space-y-2">
                   {priceItems.map(item => (
-                    <div key={item.id} className="flex justify-between items-center text-sm p-2 bg-[var(--background)] border border-border rounded-none">
-                      <span className="font-medium text-[var(--secondary)] truncate pr-2">{item.service}</span>
-                      <span className="font-mono font-medium">${item.rate} {item.unit ?`/${item.unit}` : ''}</span>
+                    <div key={item.id} className="flex items-center gap-2 text-sm p-2 bg-[var(--background)] border border-border rounded-none" data-testid={`line-item-${item.id}`}>
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--primary)]" />
+                      <span className="font-medium text-[var(--secondary)] truncate">{item.service}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+
+            <AssignedCrewPanel job={job} crews={crews} />
 
             {broadcasts.length > 0 && (
               <div>

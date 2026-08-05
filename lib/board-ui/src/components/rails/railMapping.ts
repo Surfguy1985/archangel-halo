@@ -19,31 +19,25 @@ export const RAIL_ORDER: Array<{ key: RailKey; label: string; empty: string }> =
   { key: 'needs_you', label: 'Alerts', empty: 'No alerts — you\u2019re all caught up' },
 ];
 
-/** Preset stage artwork served by the API — same image for every card on a
- *  rail; used whenever a card has no photo of its own. Absolute /api path so
- *  every base-pathed app resolves it identically. */
-export const RAIL_STAGE_ART: Record<RailKey, string> = {
-  requested: '/api/rails-art/requested.jpg',
-  in_progress: '/api/rails-art/in_progress.jpg',
-  done: '/api/rails-art/done.jpg',
-  paid: '/api/rails-art/billing.jpg',
-  needs_you: '/api/rails-art/alert.jpg',
-};
-
-/** Gentle looping animation per stage — tailwind-free inline keyframes are
- *  injected by RailTile; these map a rail to its animation class. */
-export const RAIL_STAGE_MOTION: Record<RailKey, string> = {
-  requested: 'rail-art-pulse',
-  in_progress: 'rail-art-slide',
-  done: 'rail-art-pop',
-  paid: 'rail-art-float',
-  needs_you: 'rail-art-blink',
+/** Solid stage panel per rail — the thumbnail background matches the rail's
+ *  color coding (lime, teal, dark green, tan, red) and a single animated
+ *  icon sits on the RIGHT side, keeping the left clear for the headline. */
+export const RAIL_STAGE_STYLE: Record<
+  RailKey,
+  { bg: string; icon: string; badgeBg: string; motion: string }
+> = {
+  requested: { bg: '#B4FF44', icon: '#1A1A1A', badgeBg: 'rgba(0,0,0,0.10)', motion: 'rail-icon-pulse' },
+  in_progress: { bg: '#0F9D8F', icon: '#FFFFFF', badgeBg: 'rgba(255,255,255,0.18)', motion: 'rail-icon-sway' },
+  done: { bg: '#14532D', icon: '#B4FF44', badgeBg: 'rgba(255,255,255,0.12)', motion: '' },
+  paid: { bg: '#C9B88C', icon: '#40361F', badgeBg: 'rgba(255,255,255,0.30)', motion: 'rail-icon-float' },
+  needs_you: { bg: '#DC2626', icon: '#FFFFFF', badgeBg: 'rgba(255,255,255,0.18)', motion: 'rail-icon-blink' },
 };
 
 export interface RailTileModel {
   cardKey: string;
   rail: RailKey;
-  /** True when artworkUrl is the shared stage preset (animate it). */
+  /** True when the card has no photo — RailTile renders the solid
+   *  rail-colored stage panel with the animated right-side icon. */
   stageArt: boolean;
   title: string;
   subtitle: string | null;
@@ -142,16 +136,18 @@ export function tileFor(card: any): RailTileModel {
       : card.subtitle
         ? String(card.subtitle)
         : null;
-  const photoUrl = card.photos?.[0]?.url ?? null;
+  // Thumbnails are always the solid stage panel — job photos made the board
+  // read busy (and e.g. a hole-in-the-wall photo on a Done card is the wrong
+  // note); photos still live inside the card detail views.
   return {
     cardKey: String(card.cardKey),
     rail,
-    stageArt: !photoUrl,
+    stageArt: true,
     title,
     subtitle,
     chip: plainStatus(card, rail),
     tone: toneFor(card, rail),
-    artworkUrl: photoUrl ?? RAIL_STAGE_ART[rail],
+    artworkUrl: null,
     accent: rail === 'needs_you',
     unread: Number(card.unreadComments ?? 0),
     card,

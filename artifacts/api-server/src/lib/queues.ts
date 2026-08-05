@@ -282,8 +282,16 @@ export async function computeQueues(): Promise<{
     });
   }
 
-  // Jobs needing scheduling
-  const toSchedule = jobs.filter((j) => j.status === "open" && !j.scheduledOn);
+  // Jobs needing scheduling — one schedule alert per job: skip anything
+  // already surfaced above as vacated/unfilled/manual-check.
+  const alreadyAlerted = new Set<string>([
+    ...vacated.map((j) => j.id),
+    ...unfilled.map((j) => j.id),
+    ...manualChecks.map((j) => j.id),
+  ]);
+  const toSchedule = jobs.filter(
+    (j) => j.status === "open" && !j.scheduledOn && !alreadyAlerted.has(j.id),
+  );
   for (const j of toSchedule) {
     feed.push({
       id: `job-${j.id}`,

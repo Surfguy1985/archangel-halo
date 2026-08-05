@@ -188,6 +188,7 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
       return () => clearTimeout(t);
     }
     prevLane.current = lane;
+    return undefined;
   }, [card.lane]);
 
   // Invoice ready for payment: flash a green border until the client picks
@@ -223,8 +224,10 @@ export function AppleCard({ card, readOnly, isDragged, onDragStart, onDragEnd, o
         default: { duration: 0.18 },
       }}
       draggable={!readOnly}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      /* Native HTML5 drag handlers, not framer-motion's pan-drag — motion.div's
+         prop types only know the latter, so cast through. */
+      onDragStart={onDragStart as unknown as React.ComponentProps<typeof motion.div>['onDragStart']}
+      onDragEnd={onDragEnd as unknown as React.ComponentProps<typeof motion.div>['onDragEnd']}
       onTouchStart={handleTouchStart}
       onClick={() => {
         if (justDragged.current) return; // swallow the tap that ends a touch drag
