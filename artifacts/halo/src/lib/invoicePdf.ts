@@ -61,7 +61,7 @@ export function buildInvoicePdf(data: InvoicePdfData): jsPDF {
   doc.setFontSize(9);
   doc.setTextColor(MUTED);
   doc.setFont("helvetica", "normal");
-  doc.text("ArchAngel Contractors · HALO", right, y, { align: "right" });
+  doc.text("Archangel Ventures LLC · HALO", right, y, { align: "right" });
   y += 10;
   doc.setDrawColor(23, 24, 28);
   doc.setLineWidth(1.4);
@@ -103,7 +103,7 @@ export function buildInvoicePdf(data: InvoicePdfData): jsPDF {
   label("Bill To", billX, colY);
   let by = colY + 15;
   const billLines = [
-    { t: "ArchAngel Contractors", b: true },
+    { t: "Archangel Ventures LLC", b: true },
     { t: "ATTN: May Mahboob" },
     { t: "130 N Preston Rd, Suite 334" },
     { t: "Prosper, TX 75078" },

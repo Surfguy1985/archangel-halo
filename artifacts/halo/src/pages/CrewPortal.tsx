@@ -3863,7 +3863,7 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
           Bill to
         </div>
         <div className="text-[13.5px] leading-[1.55]">
-          <div className="font-bold">ArchAngel Contractors</div>
+          <div className="font-bold">Archangel Ventures LLC</div>
           <div>ATTN: May Mahboob</div>
           <div>130 N Preston Rd, Suite 334</div>
           <div>Prosper, TX 75078</div>

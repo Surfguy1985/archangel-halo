@@ -2,7 +2,7 @@ import { db, businessSettingsTable, type BusinessSettings } from "@workspace/db"
 
 export const DEFAULT_PAYMENT_INSTRUCTIONS =
   "Payment may be issued by check or ACH/bank transfer. " +
-  "Make checks payable to ArchAngel Contractors and mail to " +
+  "Make checks payable to Archangel Ventures LLC and mail to " +
   "130 N Preston Rd, Suite 334, Prosper, TX 75078. " +
   "For ACH remittance details, contact admin@archangelcontractors.com.";
 

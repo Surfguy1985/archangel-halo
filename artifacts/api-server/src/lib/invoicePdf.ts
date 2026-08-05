@@ -55,7 +55,7 @@ const ROW_ALT = rgb(0.972, 0.965, 0.945);
 const PAPER = rgb(0.99, 0.985, 0.972);
 
 const DEFAULT_COMPANY: InvoicePdfCompany = {
-  name: "ArchAngel Contractors",
+  name: "Archangel Ventures LLC",
   tagline: "Restoration & make-ready",
   street: "130 N Preston Rd, Suite 334",
   city: "Prosper, TX 75078",

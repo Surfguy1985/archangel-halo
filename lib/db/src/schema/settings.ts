@@ -2,7 +2,7 @@ import { boolean, doublePrecision, pgTable, uuid, text, timestamp } from "drizzl
 
 export const businessSettingsTable = pgTable("business_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
-  companyName: text("company_name").notNull().default("ArchAngel Contractors"),
+  companyName: text("company_name").notNull().default("Archangel Ventures LLC"),
   tagline: text("tagline").notNull().default("Restoration & Make-Ready"),
   street: text("street").notNull().default("130 N Preston Rd, Suite 334"),
   city: text("city").notNull().default("Prosper, TX 75078"),

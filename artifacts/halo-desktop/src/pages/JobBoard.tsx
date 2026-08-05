@@ -78,6 +78,8 @@ export default function JobBoard() {
   const { data: jobBoard, isLoading} = useListJobBoard({
     query: { queryKey: getListJobBoardQueryKey(), refetchInterval: 5000},
  });
+  // Crew roster so in-progress tiles can show the assigned team.
+  const { data: allCrews } = useListCrews({ query: { queryKey: getListCrewsQueryKey() } });
   const [openId, setOpenId] = useState<string | null>(null);
 
   const cards = jobBoard ?? [];
@@ -123,7 +125,13 @@ export default function JobBoard() {
                       </div>
                     ) : (
                       railCards.map((card) => (
-                        <JobTile key={card.job.id} card={card} tone={rail.tone} onOpen={() => setOpenId(card.job.id)} />
+                        <JobTile
+                          key={card.job.id}
+                          card={card}
+                          tone={rail.tone}
+                          crews={rail.key === "in_progress" ? allCrews : undefined}
+                          onOpen={() => setOpenId(card.job.id)}
+                        />
                       ))
                     )}
                   </div>
@@ -147,10 +155,32 @@ export default function JobBoard() {
   );
 }
 
-function JobTile({ card, tone, onOpen }: { card: JobBoardCard; tone: JobTone; onOpen: () => void }) {
+/** Tiny circular crew avatar — prefers the crew selfie over initials (project convention). */
+function CrewFace({ name, selfiePath, size = 5 }: { name: string; selfiePath?: string | null; size?: 5 | 6 }) {
+  const dim = size === 6 ? "h-6 w-6" : "h-5 w-5";
+  return selfiePath ? (
+    <img
+      src={`/api/storage${selfiePath}`}
+      alt={name}
+      className={`${dim} block shrink-0 rounded-full object-cover`}
+    />
+  ) : (
+    <span className={`flex ${dim} shrink-0 items-center justify-center rounded-full bg-[var(--secondary)] text-[9px] font-bold text-white`}>
+      {name.split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase()}
+    </span>
+  );
+}
+
+function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobTone; crews?: Crew[]; onOpen: () => void }) {
   const { job, photos, broadcasts } = card;
   const t = JOB_TONES[tone];
-  const filled = (job.crewsFilled ?? 0) >= (job.crewsNeeded ?? 1);
+  // Assigned crew (in-progress rail only): leader first with a badge, then teammates.
+  const leader = crews && job.crewLeaderId ? crews.find((c) => c.id === job.crewLeaderId) : undefined;
+  const team = leader ? (crews ?? []).filter((c) => c.leaderId === leader.id && c.active !== false) : [];
+  // A manually assigned leader counts as a filled slot even when no broadcast
+  // was claimed — otherwise assigned jobs read "0/1 crews".
+  const filledCount = Math.max(job.crewsFilled ?? 0, job.crewLeaderId ? 1 : 0);
+  const filled = filledCount >= (job.crewsNeeded ?? 1);
   const artwork = photos[0]?.storagePath;
   const pendingOffers = broadcasts.filter((b) => b.status === "sent" || b.status === "pending").length;
 
@@ -165,10 +195,21 @@ function JobTile({ card, tone, onOpen }: { card: JobBoardCard; tone: JobTone; on
         {artwork ? (
           <img src={`/api/storage${artwork}`} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <div className="absolute inset-0 bg-[var(--secondary)] flex items-center justify-center">
-            <ClipboardList className="w-5 h-5 text-white/25" />
-          </div>
+          <div className="absolute inset-0 bg-[var(--secondary)]" />
         )}
+        {/* Big uniform unit number, white, centered in the header */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          {job.unitNo ? (
+            <span
+              className="font-display font-bold text-4xl text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]"
+              data-testid={`job-unit-${job.id}`}
+            >
+              {job.unitNo}
+            </span>
+          ) : (
+            !artwork && <ClipboardList className="w-5 h-5 text-white/25" />
+          )}
+        </div>
         <span className={`absolute bottom-2 left-2 max-w-[calc(100%-16px)] truncate rounded-full px-2.5 py-1 text-[11px] font-medium ${t.chip}`}>
           {job.category || job.boardStatus || "Job"}
         </span>
@@ -190,9 +231,31 @@ function JobTile({ card, tone, onOpen }: { card: JobBoardCard; tone: JobTone; on
               : job.jobNo}
           {" · "}
           <span className={filled ? "text-emerald-600 font-medium" : ""}>
-            {job.crewsFilled ?? 0}/{job.crewsNeeded ?? 1} crews
+            {filledCount}/{job.crewsNeeded ?? 1} crews
           </span>
         </p>
+        {(leader || (crews && job.crewLeaderName)) && (
+          <div className="mt-2 flex items-center gap-2 min-w-0" data-testid={`job-crew-${job.id}`}>
+            {/* Overlapping circle photos: leader first (lime ring), then teammates */}
+            <span className="flex shrink-0 items-center">
+              <span className="rounded-full ring-2 ring-[var(--gold-light)]">
+                <CrewFace name={leader?.name ?? job.crewLeaderName ?? "Crew"} selfiePath={leader?.selfiePath} size={6} />
+              </span>
+              {team.map((m) => (
+                <span key={m.id} className="-ml-1.5 rounded-full ring-2 ring-white" title={m.name}>
+                  <CrewFace name={m.name} selfiePath={m.selfiePath} size={6} />
+                </span>
+              ))}
+            </span>
+            <span className="truncate text-[11px] font-semibold text-[var(--ink)]">
+              {leader?.name ?? job.crewLeaderName}
+              {team.length > 0 && <span className="font-normal text-muted-foreground"> +{team.length}</span>}
+            </span>
+            <span className="shrink-0 rounded-full bg-[var(--gold-light)] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-black">
+              Leader
+            </span>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -266,11 +329,11 @@ function JobBoardItem({ card}: { card: JobBoardCard}) {
             </span>
           )}
           <span className={`text-[10px] font-bold   px-3 py-1 rounded-full ${
-            (job.crewsFilled ?? 0) >= (job.crewsNeeded ?? 1)
+            Math.max(job.crewsFilled ?? 0, job.crewLeaderId ? 1 : 0) >= (job.crewsNeeded ?? 1)
               ? "bg-emerald-400 text-black"
               : "bg-white text-black"
          }`}>
-            {job.crewsFilled ?? 0} of {job.crewsNeeded ?? 1} crew{(job.crewsNeeded ?? 1) > 1 ? "s" : ""} filled
+            {Math.max(job.crewsFilled ?? 0, job.crewLeaderId ? 1 : 0)} of {job.crewsNeeded ?? 1} crew{(job.crewsNeeded ?? 1) > 1 ? "s" : ""} filled
           </span>
           {boardStatus !== "completed" && (
             <button
