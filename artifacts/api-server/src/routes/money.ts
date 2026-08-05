@@ -531,6 +531,13 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Invoice not found" });
     return;
   }
+  if (existing.status !== "draft") {
+    res.status(409).json({
+      error:
+        "Only draft invoices can be edited. This invoice has already been sent — record a payment or delete it instead.",
+    });
+    return;
+  }
   const items = normalizeItems(body.lineItems);
   const total =
     items.length > 0

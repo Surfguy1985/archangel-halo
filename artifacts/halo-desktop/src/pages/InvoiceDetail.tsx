@@ -10,7 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient} from "@tanstack/react-query";
 import { useParams, Link, useLocation} from "wouter";
-import { ChevronLeft, Send, Download, Trash2, BellRing, CreditCard, MessageSquareShare} from "lucide-react";
+import { ChevronLeft, Send, Download, Trash2, BellRing, CreditCard, MessageSquareShare, Pencil} from "lucide-react";
 import { PushCardDialog } from "@/components/PushCardDialog";
 import { useState} from "react";
 import { Skeleton} from "@/components/ui/skeleton";
@@ -294,12 +294,21 @@ export default function InvoiceDetail() {
 
           <div className="flex flex-col gap-2">
             {status === "draft" && (
-              <button
-                onClick={openSend}
-                className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 font-display font-bold text-sm text-black bg-[var(--primary)] hover:opacity-90 transition-opacity"
-              >
-                <Send className="w-4 h-4" /> Send invoice
-              </button>
+              <>
+                <button
+                  onClick={openSend}
+                  className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 font-display font-bold text-sm text-black bg-[var(--primary)] hover:opacity-90 transition-opacity"
+                >
+                  <Send className="w-4 h-4" /> Send invoice
+                </button>
+                <button
+                  onClick={() => navigate(`/invoices/new?editId=${inv.id}`)}
+                  data-testid="button-edit-invoice"
+                  className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 font-display font-bold text-sm bg-white border border-border shadow-sm hover:bg-black/[0.03] transition-colors"
+                >
+                  <Pencil className="w-4 h-4" /> Edit invoice
+                </button>
+              </>
             )}
             {status === "past_due" && (
               <button

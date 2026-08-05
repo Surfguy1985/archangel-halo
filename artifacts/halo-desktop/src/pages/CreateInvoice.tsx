@@ -3,6 +3,9 @@ import { Link, useLocation, useSearch} from "wouter";
 import { useQueryClient} from "@tanstack/react-query";
 import {
   useCreateInvoice,
+  useUpdateInvoice,
+  useGetInvoice,
+  getGetInvoiceQueryKey,
   useListProperties,
   useGetBusinessSettings,
   useGetJob,
@@ -92,6 +95,7 @@ export default function CreateInvoice() {
   const { data: properties} = useListProperties();
   const { data: settings} = useGetBusinessSettings();
   const create = useCreateInvoice();
+  const update = useUpdateInvoice();
 
   const [propertyId, setPropertyId] = useState("");
   const [jobId, setJobId] = useState("");
@@ -205,6 +209,48 @@ export default function CreateInvoice() {
   const params = useMemo(() => new URLSearchParams(search), [search]);
   const initialJobId = params.get("jobId") ?? "";
   const initialPropertyId = params.get("propertyId") ?? "";
+  const editId = params.get("editId") ?? "";
+  const isEdit = !!editId;
+
+  // Edit mode — load the existing invoice into the same template.
+  const { data: editInvoice } = useGetInvoice(editId, {
+    query: { enabled: !!editId, queryKey: getGetInvoiceQueryKey(editId) },
+  });
+  const editLoaded = useRef(false);
+  useEffect(() => {
+    if (!editId || editLoaded.current || !editInvoice) return;
+    editLoaded.current = true;
+    setPropertyId(editInvoice.propertyId ?? "");
+    sopAppliedFor.current = editInvoice.propertyId ?? null; // don't let SOP prefill overwrite saved values
+    setJobId(editInvoice.jobId ?? "");
+    setBillToName(editInvoice.billToName ?? "");
+    setPropertyAddress(editInvoice.propertyAddress ?? "");
+    setPoNumber(editInvoice.poNumber ?? "");
+    if (editInvoice.terms) setTerms(editInvoice.terms);
+    if (editInvoice.issuedOn) setIssuedOn(editInvoice.issuedOn.slice(0, 10));
+    if (editInvoice.dueAt) {
+      setDueOn(editInvoice.dueAt.slice(0, 10));
+      setDueTouched(true);
+    }
+    setNotes(editInvoice.notes ?? "");
+    if (editInvoice.paymentInstructions) {
+      setPaymentInstructions(editInvoice.paymentInstructions);
+      setInstructionsTouched(true);
+    }
+    const lineItems = editInvoice.lineItems ?? [];
+    if (lineItems.length) {
+      setItems(
+        lineItems.map((li) => ({
+          dateOfWork: li.dateOfWork ? li.dateOfWork.slice(0, 10) : "",
+          unitNo: li.unitNo ?? "",
+          typeOfWork: li.typeOfWork,
+          description: li.description ?? "",
+          qty: String(li.qty),
+          unitPrice: String(li.unitPrice),
+        })),
+      );
+    }
+  }, [editId, editInvoice]);
   const { data: initialJobDetail} = useGetJob(initialJobId, {
     query: { enabled: !!initialJobId, queryKey: getGetJobQueryKey(initialJobId)},
  });
@@ -254,6 +300,8 @@ export default function CreateInvoice() {
     !!jobId &&
     validItems.length > 0 &&
     !create.isPending &&
+    !update.isPending &&
+    (!isEdit || editInvoice?.status === "draft") &&
     (!sopPoRequired || !!poNumber.trim());
 
   const setItem = (idx: number, patch: Partial<ItemDraft>) =>
@@ -271,49 +319,58 @@ export default function CreateInvoice() {
 
   const save = (thenSend: boolean) => {
     if (!canSave) return;
-    create.mutate(
-      {
-        data: {
-          propertyId,
-          jobId,
-          issuedOn,
-          ...(dueOn ? { dueOn} : {}),
-          ...(poNumber.trim() ? { poNumber: poNumber.trim()} : {}),
-          terms,
-          ...(billToName.trim() ? { billToName: billToName.trim()} : {}),
-          ...(propertyAddress.trim() ? { propertyAddress: propertyAddress.trim()} : {}),
-          ...(notes.trim() ? { notes: notes.trim()} : {}),
-          ...(paymentInstructions.trim() &&
-          paymentInstructions.trim() !== (settings?.paymentInstructions ?? "").trim()
-            ? { paymentInstructions: paymentInstructions.trim()}
-            : {}),
-          lineItems: buildLineItems(),
-       },
-     },
-      {
-        onSuccess: (inv) => {
-          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
-          queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
-          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
-          queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
-          if (thenSend) {
-            setSendFor({
-              id: inv.id,
-              invoiceNo: inv.invoiceNo,
-              amount: inv.amount,
-              propertyId: inv.propertyId ?? propertyId ?? null,
-              billToName: billToName || null,
-              propertyAddress: propertyAddress || null,
-           });
-         } else {
-            toast({ title: "Invoice saved", description:`${inv.invoiceNo} created as a draft.`});
-            navigate(`/invoices/${inv.id}`);
-         }
-       },
-        onError: (e) =>
-          toast({ title: "Couldn't create invoice", description: e.message, variant: "destructive"}),
-     },
-    );
+    const data = {
+      propertyId,
+      jobId,
+      issuedOn,
+      ...(dueOn ? { dueOn} : {}),
+      ...(poNumber.trim() ? { poNumber: poNumber.trim()} : {}),
+      terms,
+      ...(billToName.trim() ? { billToName: billToName.trim()} : {}),
+      ...(propertyAddress.trim() ? { propertyAddress: propertyAddress.trim()} : {}),
+      ...(notes.trim() ? { notes: notes.trim()} : {}),
+      ...(paymentInstructions.trim() &&
+      paymentInstructions.trim() !== (settings?.paymentInstructions ?? "").trim()
+        ? { paymentInstructions: paymentInstructions.trim()}
+        : {}),
+      lineItems: buildLineItems(),
+    };
+    const onSuccess = (inv: { id: string; invoiceNo: string; amount: number; propertyId?: string | null }) => {
+      queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey()});
+      queryClient.invalidateQueries({ queryKey: getGetMoneySummaryQueryKey()});
+      queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
+      queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+      if (isEdit) queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(editId)});
+      if (thenSend) {
+        setSendFor({
+          id: inv.id,
+          invoiceNo: inv.invoiceNo,
+          amount: inv.amount,
+          propertyId: inv.propertyId ?? propertyId ?? null,
+          billToName: billToName || null,
+          propertyAddress: propertyAddress || null,
+       });
+     } else {
+        toast({
+          title: isEdit ? "Invoice updated" : "Invoice saved",
+          description: isEdit
+            ? `${inv.invoiceNo} saved with your changes.`
+            : `${inv.invoiceNo} created as a draft.`,
+        });
+        navigate(`/invoices/${inv.id}`);
+     }
+    };
+    const onError = (e: Error) =>
+      toast({
+        title: isEdit ? "Couldn't update invoice" : "Couldn't create invoice",
+        description: e.message,
+        variant: "destructive",
+      });
+    if (isEdit) {
+      update.mutate({ id: editId, data }, { onSuccess, onError });
+    } else {
+      create.mutate({ data }, { onSuccess, onError });
+    }
  };
 
   return (
@@ -327,14 +384,14 @@ export default function CreateInvoice() {
         </Link>
         <div className="flex items-center gap-2">
           <Button variant="outline" disabled={!canSave} onClick={() => save(false)}>
-            <Save className="w-4 h-4 mr-1.5" /> Save draft
+            <Save className="w-4 h-4 mr-1.5" /> {isEdit ? "Save changes" : "Save draft"}
           </Button>
           <Button
             disabled={!canSave}
             onClick={() => save(true)}
             className="bg-[var(--primary)] hover:opacity-90 text-black font-bold"
           >
-            <Send className="w-4 h-4 mr-1.5" /> {create.isPending ? "Saving…" : "Save & send"}
+            <Send className="w-4 h-4 mr-1.5" /> {create.isPending || update.isPending ? "Saving…" : "Save & send"}
           </Button>
         </div>
       </div>
@@ -368,7 +425,9 @@ export default function CreateInvoice() {
             </div>
             <div className="text-right">
               <div className="font-display font-bold text-2xl text-[var(--secondary)] leading-none">INVOICE</div>
-              <div className="font-mono text-sm text-muted-foreground mt-1">Number assigned on save</div>
+              <div className="font-mono text-sm text-muted-foreground mt-1">
+                {isEdit ? editInvoice?.invoiceNo ?? "Loading…" : "Number assigned on save"}
+              </div>
             </div>
           </div>
 
@@ -407,24 +466,6 @@ export default function CreateInvoice() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={jobId} onValueChange={setJobId}>
-                <SelectTrigger data-testid="select-invoice-job">
-                  <SelectValue placeholder="Select the job this invoice belongs to…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(propertyJobs ?? []).map((j) => (
-                    <SelectItem key={j.id} value={j.id}>
-                      {j.jobNo} · {j.category || j.description}
-                      {j.unitNo ? ` · Unit ${j.unitNo}` : ""}
-                    </SelectItem>
-                  ))}
-                  {(propertyJobs ?? []).length === 0 && (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">
-                      No jobs at this property — create the job first.
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
               <Input
                 value={billToName}
                 onChange={(e) => setBillToName(e.target.value)}
@@ -439,6 +480,27 @@ export default function CreateInvoice() {
 
             <div className="space-y-2">
               <span className={labelCls}>Invoice details</span>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Job this invoice covers</div>
+                <Select value={jobId} onValueChange={setJobId}>
+                  <SelectTrigger data-testid="select-invoice-job">
+                    <SelectValue placeholder="Select the job…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(propertyJobs ?? []).map((j) => (
+                      <SelectItem key={j.id} value={j.id}>
+                        {j.jobNo} · {j.category || j.description}
+                        {j.unitNo ? ` · Unit ${j.unitNo}` : ""}
+                      </SelectItem>
+                    ))}
+                    {(propertyJobs ?? []).length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        {propertyId ? "No jobs at this property — create the job first." : "Select a property first."}
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Invoice date</div>
