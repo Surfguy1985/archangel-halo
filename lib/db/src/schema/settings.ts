@@ -34,6 +34,9 @@ export const businessSettingsTable = pgTable("business_settings", {
   // until the office sets one up; while NULL the office API answers 401 with
   // setupRequired so the apps show the create-passcode screen.
   officePasscodeHash: text("office_passcode_hash"),
+  // scrypt hash of the Walk app's own passcode — deliberately separate from
+  // the office passcode so field staff can unlock Walk without office access.
+  walkPasscodeHash: text("walk_passcode_hash"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

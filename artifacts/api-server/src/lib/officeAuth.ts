@@ -32,6 +32,7 @@ import { getPresentationDemoState } from "./presentationDemo";
 import { limits } from "./rateLimit";
 
 const COOKIE_NAME = "halo_office_session";
+const WALK_COOKIE_NAME = "halo_walk_session";
 const SESSION_TTL_S = 60 * 60 * 24 * 30; // 30 days per device
 const SECRET = process.env.SESSION_SECRET ?? "";
 if (!SECRET) throw new Error("SESSION_SECRET is not set (Replit → Secrets)");
@@ -64,12 +65,12 @@ function sign(payload: string): string {
   return createHmac("sha256", SECRET).update(payload).digest("base64url");
 }
 
-function mintSession(): string {
-  const payload = `office.${Math.floor(Date.now() / 1000) + SESSION_TTL_S}.${randomBytes(9).toString("base64url")}`;
+function mintSession(scope: "office" | "walk"): string {
+  const payload = `${scope}.${Math.floor(Date.now() / 1000) + SESSION_TTL_S}.${randomBytes(9).toString("base64url")}`;
   return `${payload}.${sign(payload)}`;
 }
 
-export function verifyOfficeSession(cookie: string | undefined): boolean {
+function verifySessionScoped(cookie: string | undefined, expected: "office" | "walk"): boolean {
   if (!cookie) return false;
   const i = cookie.lastIndexOf(".");
   if (i < 0) return false;
@@ -79,12 +80,20 @@ export function verifyOfficeSession(cookie: string | undefined): boolean {
   const b = Buffer.from(sign(payload));
   if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
   const [scope, expStr] = payload.split(".");
-  if (scope !== "office" || !expStr) return false;
+  if (scope !== expected || !expStr) return false;
   return Number(expStr) >= Math.floor(Date.now() / 1000);
 }
 
-function setSessionCookie(res: Response): void {
-  res.cookie(COOKIE_NAME, mintSession(), {
+export function verifyOfficeSession(cookie: string | undefined): boolean {
+  return verifySessionScoped(cookie, "office");
+}
+
+export function verifyWalkSession(cookie: string | undefined): boolean {
+  return verifySessionScoped(cookie, "walk");
+}
+
+function setSessionCookie(res: Response, scope: "office" | "walk" = "office"): void {
+  res.cookie(scope === "walk" ? WALK_COOKIE_NAME : COOKIE_NAME, mintSession(scope), {
     httpOnly: true,
     secure: true,
     sameSite: "strict",
@@ -98,20 +107,32 @@ function setSessionCookie(res: Response): void {
 // ---------------------------------------------------------------------------
 
 let cachedHash: string | null | undefined; // undefined = not loaded yet
+let cachedWalkHash: string | null | undefined;
 let cachedAt = 0;
 const CACHE_TTL_MS = 10_000;
 
-async function passcodeHash(): Promise<string | null> {
+async function loadHashes(): Promise<void> {
   const now = Date.now();
-  if (cachedHash !== undefined && now - cachedAt < CACHE_TTL_MS) return cachedHash;
+  if (cachedHash !== undefined && now - cachedAt < CACHE_TTL_MS) return;
   const settings = await getBusinessSettings();
   cachedHash = settings.officePasscodeHash ?? null;
+  cachedWalkHash = settings.walkPasscodeHash ?? null;
   cachedAt = now;
-  return cachedHash;
+}
+
+async function passcodeHash(): Promise<string | null> {
+  await loadHashes();
+  return cachedHash ?? null;
+}
+
+async function walkPasscodeHash(): Promise<string | null> {
+  await loadHashes();
+  return cachedWalkHash ?? null;
 }
 
 function invalidateHashCache(): void {
   cachedHash = undefined;
+  cachedWalkHash = undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -122,6 +143,7 @@ function invalidateHashCache(): void {
 // /api is office-only.
 const PUBLIC_PREFIXES = [
   "/office-auth",
+  "/walk-auth",
   "/healthz",
   "/client/",
   "/pay/",
@@ -141,11 +163,13 @@ const PUBLIC_PREFIXES = [
   "/presentation/demo/office-board",
 ];
 
-// Walk app is passcode-free by design. Its routes self-scope to the single
-// Thornbury target property in routes/walks.ts and every mutation is
+// Walk app routes are gated by their OWN passcode (separate from the office
+// one) via the halo_walk_session cookie. Office sessions also pass, so a
+// signed-in office device can use Walk. The routes still self-scope to the
+// single Thornbury target property in routes/walks.ts and every mutation is
 // rate-limited there — keep both invariants. Boundary-anchored so a future
-// "/walks-report" style route does NOT silently become public.
-const WALK_PUBLIC_RE = /^\/(walk-target$|walks(\/|$)|walk-captures\/)/;
+// "/walks-report" style route does NOT silently join this bucket.
+const WALK_RE = /^\/(walk-target$|walks(\/|$)|walk-captures\/)/;
 
 const DEMO_ACTION_RE = /^\/admin\/accounts\/([^/]+)\/board\/actions$/;
 
@@ -154,7 +178,19 @@ export function officeGuard() {
     if (req.method === "OPTIONS") return next();
     const path = req.path;
     if (PUBLIC_PREFIXES.some((p) => path.startsWith(p))) return next();
-    if (WALK_PUBLIC_RE.test(path)) return next();
+    if (WALK_RE.test(path)) {
+      if (
+        verifyWalkSession(req.cookies?.[WALK_COOKIE_NAME]) ||
+        verifyOfficeSession(req.cookies?.[COOKIE_NAME])
+      )
+        return next();
+      const configured = (await walkPasscodeHash()) !== null;
+      res.status(401).json({
+        error: configured ? "Walk sign-in required" : "Walk passcode setup required",
+        setupRequired: !configured,
+      });
+      return;
+    }
     // The client board polls demo state to know a presentation is running.
     if ((req.method === "GET" || req.method === "HEAD") && path === "/presentation/demo")
       return next();
@@ -274,6 +310,109 @@ router.post("/office-auth/change", limits.login, async (req, res): Promise<void>
 
 router.post("/office-auth/logout", async (_req, res): Promise<void> => {
   res.clearCookie(COOKIE_NAME, { path: "/api" });
+  res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// Walk app auth: its own passcode, its own cookie. Same shape as office-auth.
+// ---------------------------------------------------------------------------
+
+router.get("/walk-auth/status", async (req, res): Promise<void> => {
+  const hash = await walkPasscodeHash();
+  res.json({
+    configured: hash !== null,
+    authenticated:
+      verifyWalkSession(req.cookies?.[WALK_COOKIE_NAME]) ||
+      verifyOfficeSession(req.cookies?.[COOKIE_NAME]),
+  });
+});
+
+// One-time setup while no walk passcode exists. Requires office authority so
+// a stranger can't claim the walk lock first: either an office session cookie
+// or the office passcode sent inline (the Walk lock screen asks for it).
+router.post("/walk-auth/setup", limits.login, async (req, res): Promise<void> => {
+  if (!verifyOfficeSession(req.cookies?.[COOKIE_NAME])) {
+    const officePasscode =
+      typeof req.body?.officePasscode === "string" ? req.body.officePasscode.trim() : "";
+    const officeHash0 = await passcodeHash();
+    if (!officeHash0 || !officePasscode || !verifyPasscode(officePasscode, officeHash0)) {
+      res.status(401).json({ error: "Office passcode required to set the Walk passcode" });
+      return;
+    }
+  }
+  const passcode = typeof req.body?.passcode === "string" ? req.body.passcode.trim() : "";
+  if (passcode.length < 6 || passcode.length > 128) {
+    res.status(400).json({ error: "Passcode must be at least 6 characters" });
+    return;
+  }
+  const officeHash = await passcodeHash();
+  if (officeHash && verifyPasscode(passcode, officeHash)) {
+    res.status(400).json({ error: "Walk passcode must be different from the office passcode" });
+    return;
+  }
+  const settings = await getBusinessSettings();
+  if (settings.walkPasscodeHash) {
+    res.status(409).json({ error: "A Walk passcode is already set" });
+    return;
+  }
+  const updated = await db
+    .update(businessSettingsTable)
+    .set({ walkPasscodeHash: hashPasscode(passcode), updatedAt: new Date() })
+    // Atomic first-wins, same as office setup.
+    .where(and(eq(businessSettingsTable.id, settings.id), isNull(businessSettingsTable.walkPasscodeHash)))
+    .returning({ id: businessSettingsTable.id });
+  invalidateHashCache();
+  if (!updated.length) {
+    res.status(409).json({ error: "Setup failed — reload and try again" });
+    return;
+  }
+  setSessionCookie(res, "walk");
+  res.json({ ok: true });
+});
+
+router.post("/walk-auth/login", limits.login, async (req, res): Promise<void> => {
+  const passcode = typeof req.body?.passcode === "string" ? req.body.passcode.trim() : "";
+  const hash = await walkPasscodeHash();
+  if (!hash) {
+    res.status(409).json({ error: "No Walk passcode set yet", setupRequired: true });
+    return;
+  }
+  if (!passcode || !verifyPasscode(passcode, hash)) {
+    res.status(401).json({ error: "Wrong passcode" });
+    return;
+  }
+  setSessionCookie(res, "walk");
+  res.json({ ok: true });
+});
+
+// Change the Walk passcode from a signed-in office device (no current walk
+// passcode needed — the office owns it and may need to reset a lost one).
+router.post("/walk-auth/change", limits.login, async (req, res): Promise<void> => {
+  if (!verifyOfficeSession(req.cookies?.[COOKIE_NAME])) {
+    res.status(401).json({ error: "Office sign-in required" });
+    return;
+  }
+  const next = typeof req.body?.next === "string" ? req.body.next.trim() : "";
+  if (next.length < 6 || next.length > 128) {
+    res.status(400).json({ error: "New passcode must be at least 6 characters" });
+    return;
+  }
+  const officeHash = await passcodeHash();
+  if (officeHash && verifyPasscode(next, officeHash)) {
+    res.status(400).json({ error: "Walk passcode must be different from the office passcode" });
+    return;
+  }
+  const settings = await getBusinessSettings();
+  await db
+    .update(businessSettingsTable)
+    .set({ walkPasscodeHash: hashPasscode(next), updatedAt: new Date() })
+    .where(eq(businessSettingsTable.id, settings.id));
+  invalidateHashCache();
+  res.json({ ok: true });
+});
+
+router.post("/walk-auth/logout", async (_req, res): Promise<void> => {
+  res.clearCookie(WALK_COOKIE_NAME, { path: "/api" });
   res.json({ ok: true });
 });
 

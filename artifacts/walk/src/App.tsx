@@ -7,12 +7,14 @@ import { Route, Switch, Router as WouterRouter } from 'wouter';
 import StartScreen from '@/pages/start';
 import CaptureScreen from '@/pages/capture';
 import ReviewScreen from '@/pages/review';
+import WalkGate from '@/components/WalkGate';
 
 const is401 = (error: any) =>
   error?.status === 401 || error?.response?.status === 401 || error?.message?.includes('401');
 
-// Walk app is passcode-free by design: the server scopes every walk route to
-// the single Thornbury target property, so there is no lock screen here.
+// Walk app has its own passcode (separate from the office one) — WalkGate
+// below blocks the UI until /walk-auth login succeeds. The server still
+// scopes every walk route to the single Thornbury target property.
 const queryClient = new QueryClient({
   queryCache: new QueryCache({}),
   mutationCache: new MutationCache({}),
@@ -53,8 +55,10 @@ function App() {
               </header>
               
               {/* Main content - mobile constrained */}
-              <main className="flex-1 w-full max-w-md mx-auto bg-card shadow-sm border-x border-border/20 relative">
-                <Router />
+              <main className="flex-1 w-full max-w-md mx-auto bg-card shadow-sm border-x border-border/20 relative flex flex-col">
+                <WalkGate>
+                  <Router />
+                </WalkGate>
               </main>
             </div>
           </WouterRouter>

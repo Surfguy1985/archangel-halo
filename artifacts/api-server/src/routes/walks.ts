@@ -74,7 +74,8 @@ async function propertyNames(): Promise<Map<string, string>> {
   return new Map(rows.map((r) => [r.id, r.name]));
 }
 
-// The Walk app is passcode-free and locked to a single property (Thornbury).
+// The Walk app is gated by its own passcode (see /walk-auth in officeAuth.ts)
+// and locked to a single property (Thornbury).
 // Every walk route below is public (see officeAuth PUBLIC_PREFIXES), so each
 // one must scope itself to this target property — never loosen that without
 // putting the routes back behind the office gate.
