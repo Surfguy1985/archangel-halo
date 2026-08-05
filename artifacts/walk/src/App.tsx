@@ -4,7 +4,6 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
-import { AuthProvider, notifyUnauthorized } from '@/components/auth-provider';
 import StartScreen from '@/pages/start';
 import CaptureScreen from '@/pages/capture';
 import ReviewScreen from '@/pages/review';
@@ -12,20 +11,11 @@ import ReviewScreen from '@/pages/review';
 const is401 = (error: any) =>
   error?.status === 401 || error?.response?.status === 401 || error?.message?.includes('401');
 
-// Module-level singleton so the QueryClientProvider can sit OUTSIDE the
-// AuthProvider (which itself needs useQueryClient). 401s are routed to the
-// auth layer via notifyUnauthorized.
+// Walk app is passcode-free by design: the server scopes every walk route to
+// the single Thornbury target property, so there is no lock screen here.
 const queryClient = new QueryClient({
-  queryCache: new QueryCache({
-    onError: (error: any) => {
-      if (is401(error)) notifyUnauthorized();
-    },
-  }),
-  mutationCache: new MutationCache({
-    onError: (error: any) => {
-      if (is401(error)) notifyUnauthorized();
-    },
-  }),
+  queryCache: new QueryCache({}),
+  mutationCache: new MutationCache({}),
   defaultOptions: {
     queries: {
       retry: (failureCount, error: any) => {
@@ -50,8 +40,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
+      <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
             <div className="min-h-[100dvh] w-full bg-background flex flex-col">
               {/* Header */}
@@ -70,8 +59,7 @@ function App() {
             </div>
           </WouterRouter>
           <Toaster />
-        </TooltipProvider>
-      </AuthProvider>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }

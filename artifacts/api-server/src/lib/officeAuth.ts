@@ -141,6 +141,12 @@ const PUBLIC_PREFIXES = [
   "/presentation/demo/office-board",
 ];
 
+// Walk app is passcode-free by design. Its routes self-scope to the single
+// Thornbury target property in routes/walks.ts and every mutation is
+// rate-limited there — keep both invariants. Boundary-anchored so a future
+// "/walks-report" style route does NOT silently become public.
+const WALK_PUBLIC_RE = /^\/(walk-target$|walks(\/|$)|walk-captures\/)/;
+
 const DEMO_ACTION_RE = /^\/admin\/accounts\/([^/]+)\/board\/actions$/;
 
 export function officeGuard() {
@@ -148,6 +154,7 @@ export function officeGuard() {
     if (req.method === "OPTIONS") return next();
     const path = req.path;
     if (PUBLIC_PREFIXES.some((p) => path.startsWith(p))) return next();
+    if (WALK_PUBLIC_RE.test(path)) return next();
     // The client board polls demo state to know a presentation is running.
     if ((req.method === "GET" || req.method === "HEAD") && path === "/presentation/demo")
       return next();

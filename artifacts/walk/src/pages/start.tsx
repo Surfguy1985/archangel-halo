@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
 import { useLocation } from 'wouter';
 import { 
-  useListProperties, 
+  useGetWalkTarget,
   useListWalks, 
   useCreateWalk, 
   Walk,
-  ListWalksParams,
   WalkInputKind
 } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowRight, Play, MapPin, ClipboardCheck, History } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
 
 const WALK_KINDS = [
@@ -22,11 +20,10 @@ const WALK_KINDS = [
 
 export default function StartScreen() {
   const [, setLocation] = useLocation();
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
   const [selectedKind, setSelectedKind] = useState<WalkInputKind>('discovery');
 
-  // Load properties
-  const { data: properties, isLoading: isLoadingProps } = useListProperties({}, {
+  // The Walk app is locked to a single property (Thornbury), resolved server-side.
+  const { data: target, isLoading: isLoadingProps } = useGetWalkTarget({
     request: { credentials: 'include' }
   });
 
@@ -43,10 +40,10 @@ export default function StartScreen() {
   });
 
   const handleStartWalk = () => {
-    if (!selectedPropertyId) return;
+    if (!target?.propertyId) return;
     
     createWalk.mutate(
-      { data: { propertyId: selectedPropertyId, kind: selectedKind } },
+      { data: { propertyId: target.propertyId, kind: selectedKind } },
       {
         onSuccess: (newWalk) => {
           setLocation(`/walk/${newWalk.id}`);
@@ -76,18 +73,15 @@ export default function StartScreen() {
             {isLoadingProps ? (
               <div className="h-14 w-full animate-pulse bg-muted rounded-xl border border-border" />
             ) : (
-              <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
-                <SelectTrigger className="h-16 text-lg rounded-xl" data-testid="select-property">
-                  <SelectValue placeholder="Select property..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-[60vh]">
-                  {properties?.map(p => (
-                    <SelectItem key={p.id} value={p.id} className="text-base py-3">
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div
+                className="flex items-center gap-3 h-16 px-4 rounded-xl border border-border bg-card"
+                data-testid="walk-target-property"
+              >
+                <MapPin className="w-5 h-5 text-primary shrink-0" />
+                <span className="text-lg font-semibold text-foreground truncate">
+                  {target?.name ?? 'Property unavailable'}
+                </span>
+              </div>
             )}
           </div>
 
@@ -120,7 +114,7 @@ export default function StartScreen() {
 
           <Button 
             className="w-full h-20 text-xl font-bold rounded-2xl shadow-xl mt-4" 
-            disabled={!selectedPropertyId || createWalk.isPending}
+            disabled={!target?.propertyId || createWalk.isPending}
             onClick={handleStartWalk}
             data-testid="button-start-walk"
           >

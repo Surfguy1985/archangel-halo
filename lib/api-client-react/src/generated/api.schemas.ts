@@ -7088,6 +7088,11 @@ export interface BoardEvent {
   at: string;
 }
 
+export interface WalkTarget {
+  propertyId: string;
+  name: string;
+}
+
 export type WalkKind = typeof WalkKind[keyof typeof WalkKind];
 
 

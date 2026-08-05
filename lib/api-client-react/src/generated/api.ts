@@ -365,6 +365,7 @@ import type {
   WalkCompletion,
   WalkDetail,
   WalkInput,
+  WalkTarget,
   WingsAuditEntry,
   WingsAutomationRun,
   WingsCandidate,
@@ -5983,6 +5984,83 @@ export const useCancelEmergencyPing = <TError = ErrorType<Error>,
       > => {
       return useMutation(getCancelEmergencyPingMutationOptions(options));
     }
+
+export const getGetWalkTargetUrl = () => {
+
+
+
+
+  return `/api/walk-target`
+}
+
+/**
+ * @summary The single property the Walk app is locked to
+ */
+export const getWalkTarget = async ( options?: RequestInit): Promise<WalkTarget> => {
+
+  return customFetch<WalkTarget>(getGetWalkTargetUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWalkTargetQueryKey = () => {
+    return [
+    `/api/walk-target`
+    ] as const;
+    }
+
+
+export const getGetWalkTargetQueryOptions = <TData = Awaited<ReturnType<typeof getWalkTarget>>, TError = ErrorType<Error>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalkTarget>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWalkTargetQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWalkTarget>>> = ({ signal }) => getWalkTarget({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWalkTarget>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWalkTargetQueryResult = NonNullable<Awaited<ReturnType<typeof getWalkTarget>>>
+export type GetWalkTargetQueryError = ErrorType<Error>
+
+
+/**
+ * @summary The single property the Walk app is locked to
+ */
+
+export function useGetWalkTarget<TData = Awaited<ReturnType<typeof getWalkTarget>>, TError = ErrorType<Error>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalkTarget>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWalkTargetQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListWalksUrl = (params?: ListWalksParams,) => {
   const normalizedParams = new URLSearchParams();

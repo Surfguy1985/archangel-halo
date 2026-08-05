@@ -1776,6 +1776,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /walk-target:
+    get:
+      operationId: getWalkTarget
+      tags: [walks]
+      summary: The single property the Walk app is locked to
+      responses:
+        "200":
+          description: Walk target property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalkTarget"
+        "404":
+          description: Target property not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /walks:
     get:
       operationId: listWalks
@@ -15459,6 +15478,13 @@ components:
           type: ["string", "null"]
           enum: [client, office, crew, system, null]
         at: { type: string, description: "ISO timestamp" }
+
+    WalkTarget:
+      type: object
+      required: [propertyId, name]
+      properties:
+        propertyId: { type: string }
+        name: { type: string }
 
     Walk:
       type: object

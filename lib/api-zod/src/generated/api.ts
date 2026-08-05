@@ -2703,6 +2703,15 @@ export const CancelEmergencyPingResponse = zod.object({
 
 
 /**
+ * @summary The single property the Walk app is locked to
+ */
+export const GetWalkTargetResponse = zod.object({
+  "propertyId": zod.string(),
+  "name": zod.string()
+})
+
+
+/**
  * @summary List walks, newest first
  */
 export const ListWalksQueryParams = zod.object({

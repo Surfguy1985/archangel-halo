@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, ilike } from "drizzle-orm";
 import {
   db,
   walksTable,
@@ -26,6 +26,7 @@ import {
   CompleteWalkBody,
   CompleteWalkResponse,
 } from "@workspace/api-zod";
+import { limits } from "../lib/rateLimit";
 
 const router: IRouter = Router();
 
@@ -73,12 +74,38 @@ async function propertyNames(): Promise<Map<string, string>> {
   return new Map(rows.map((r) => [r.id, r.name]));
 }
 
+// The Walk app is passcode-free and locked to a single property (Thornbury).
+// Every walk route below is public (see officeAuth PUBLIC_PREFIXES), so each
+// one must scope itself to this target property — never loosen that without
+// putting the routes back behind the office gate.
+async function getWalkTargetProperty(): Promise<
+  { id: string; name: string } | undefined
+> {
+  const [row] = await db
+    .select({ id: propertiesTable.id, name: propertiesTable.name })
+    .from(propertiesTable)
+    .where(ilike(propertiesTable.name, "%thornbur%"))
+    .limit(1);
+  return row;
+}
+
+router.get("/walk-target", async (_req, res): Promise<void> => {
+  const target = await getWalkTargetProperty();
+  if (!target) {
+    res.status(404).json({ error: "Walk target property not found" });
+    return;
+  }
+  res.json({ propertyId: target.id, name: target.name });
+});
+
 router.get("/walks", async (req, res): Promise<void> => {
   const { propertyId } = ListWalksQueryParams.parse(req.query);
+  const target = await getWalkTargetProperty();
   let walks = await db
     .select()
     .from(walksTable)
     .orderBy(desc(walksTable.startedAt));
+  walks = walks.filter((w) => w.propertyId === target?.id);
   if (propertyId) walks = walks.filter((w) => w.propertyId === propertyId);
   const captures = await db
     .select({ walkId: walkCapturesTable.walkId })
@@ -95,20 +122,21 @@ router.get("/walks", async (req, res): Promise<void> => {
   );
 });
 
-router.post("/walks", async (req, res): Promise<void> => {
+router.post("/walks", limits.walkWrite, async (req, res): Promise<void> => {
   const body = CreateWalkBody.parse(req.body);
-  const [property] = await db
-    .select({ id: propertiesTable.id, name: propertiesTable.name })
-    .from(propertiesTable)
-    .where(eq(propertiesTable.id, body.propertyId));
+  const property = await getWalkTargetProperty();
   if (!property) {
-    res.status(400).json({ error: "Property not found" });
+    res.status(400).json({ error: "Walk target property not found" });
+    return;
+  }
+  if (body.propertyId !== property.id) {
+    res.status(400).json({ error: "Walks are limited to the Thornbury property" });
     return;
   }
   const [row] = await db
     .insert(walksTable)
     .values({
-      propertyId: body.propertyId,
+      propertyId: property.id,
       kind: body.kind ?? "discovery",
       notes: body.notes ?? null,
     })
@@ -118,6 +146,10 @@ router.post("/walks", async (req, res): Promise<void> => {
 
 async function loadWalk(id: string): Promise<WalkRow | undefined> {
   const [walk] = await db.select().from(walksTable).where(eq(walksTable.id, id));
+  if (!walk) return undefined;
+  // Public surface: any walk outside the target property is invisible.
+  const target = await getWalkTargetProperty();
+  if (!target || walk.propertyId !== target.id) return undefined;
   return walk;
 }
 
@@ -145,7 +177,7 @@ router.get("/walks/:id", async (req, res): Promise<void> => {
   );
 });
 
-router.delete("/walks/:id", async (req, res): Promise<void> => {
+router.delete("/walks/:id", limits.walkWrite, async (req, res): Promise<void> => {
   const { id } = DeleteWalkParams.parse(req.params);
   const walk = await loadWalk(id);
   if (!walk) {
@@ -170,7 +202,7 @@ router.delete("/walks/:id", async (req, res): Promise<void> => {
   res.status(204).end();
 });
 
-router.post("/walks/:id/captures", async (req, res): Promise<void> => {
+router.post("/walks/:id/captures", limits.walkWrite, async (req, res): Promise<void> => {
   const { id } = AddWalkCaptureParams.parse(req.params);
   const body = AddWalkCaptureBody.parse(req.body);
   const outcome = await db.transaction(async (tx) => {
@@ -180,6 +212,9 @@ router.post("/walks/:id/captures", async (req, res): Promise<void> => {
       .where(eq(walksTable.id, id))
       .for("update");
     if (!locked) return { status: 404 as const };
+    const target = await getWalkTargetProperty();
+    if (!target || locked.propertyId !== target.id)
+      return { status: 404 as const };
     if (locked.status === "completed") return { status: 409 as const };
     const [row] = await tx
       .insert(walkCapturesTable)
@@ -208,7 +243,7 @@ router.post("/walks/:id/captures", async (req, res): Promise<void> => {
   res.status(201).json(AddWalkCaptureResponse.parse(captureDto(outcome.row)));
 });
 
-router.delete("/walk-captures/:id", async (req, res): Promise<void> => {
+router.delete("/walk-captures/:id", limits.walkWrite, async (req, res): Promise<void> => {
   const { id } = DeleteWalkCaptureParams.parse(req.params);
   const status = await db.transaction(async (tx) => {
     const [capture] = await tx
@@ -221,6 +256,8 @@ router.delete("/walk-captures/:id", async (req, res): Promise<void> => {
       .from(walksTable)
       .where(eq(walksTable.id, capture.walkId))
       .for("update");
+    const target = await getWalkTargetProperty();
+    if (walk && (!target || walk.propertyId !== target.id)) return 404 as const;
     if (walk && walk.status === "completed") return 409 as const;
     await tx.delete(walkCapturesTable).where(eq(walkCapturesTable.id, id));
     return 204 as const;
@@ -239,7 +276,7 @@ router.delete("/walk-captures/:id", async (req, res): Promise<void> => {
 // Completing a walk turns captures into real HALO jobs: one flex job per
 // unit, price-book scopes become line items, and photos stay linked so the
 // job timeline in the main app can surface them.
-router.post("/walks/:id/complete", async (req, res): Promise<void> => {
+router.post("/walks/:id/complete", limits.walkWrite, async (req, res): Promise<void> => {
   const { id } = CompleteWalkParams.parse(req.params);
   const body = CompleteWalkBody.parse(req.body ?? {});
   // Flex deadline a week out, built from LOCAL date parts (never UTC).
@@ -264,6 +301,9 @@ router.post("/walks/:id/complete", async (req, res): Promise<void> => {
       .where(eq(walksTable.id, id))
       .for("update");
     if (!walk) return { status: 404 as const };
+    const walkTarget = await getWalkTargetProperty();
+    if (!walkTarget || walk.propertyId !== walkTarget.id)
+      return { status: 404 as const };
     if (walk.status === "completed")
       return { status: 409 as const, error: "Walk already completed" };
     const captures = await tx

@@ -5,7 +5,8 @@ description: Field walk app (artifacts/walk) — walks/walk_captures data spine 
 
 # HALO Walk
 
-- Separate PWA-style web app at `/walk/` for the PM: Start (property + kind) → Capture (photo + unit + scope) → Review (complete → jobs). Uses the office passcode cookie; app shows its own lock screen on any 401 (queryClient onError → `notifyUnauthorized()` module hook — the QueryClientProvider must stay OUTSIDE AuthProvider).
+- Separate PWA-style web app at `/walk/` for the PM: Start (kind only) → Capture (photo + unit + scope) → Review (complete → jobs).
+- **Passcode-free + Thornbury-locked (Aug 2026, user request):** the lock screen was removed; walk routes are public via a boundary-anchored regex in officeAuth (`WALK_PUBLIC_RE`, not PUBLIC_PREFIXES). In exchange, EVERY walk route self-scopes server-side to the single target property resolved by `getWalkTargetProperty()` (name ilike '%thornbur%'; GET /walk-target exposes it, client shows it fixed) and every mutation carries `limits.walkWrite`. Never loosen the scoping or drop the rate limits without re-gating the routes; architect flagged the anonymous surface as the accepted tradeoff.
 - Data spine: `walks` + `walk_captures` (no FKs, per project convention). Both are in the Settings reset delete list.
 - **Completion is transactional and lock-guarded**: walk row `SELECT ... FOR UPDATE`, status claim open→completed, all job creation inside the same tx. Capture add/delete also lock the walk row and 409 once completed.
 - **Why:** review round found double-completion and capture races; locking made second completions fail deterministically.

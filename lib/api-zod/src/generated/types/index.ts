@@ -596,6 +596,7 @@ export * from './walkInput';
 export * from './walkInputKind';
 export * from './walkKind';
 export * from './walkStatus';
+export * from './walkTarget';
 export * from './waybillStage';
 export * from './waybillStageEntry';
 export * from './wingsAuditEntry';

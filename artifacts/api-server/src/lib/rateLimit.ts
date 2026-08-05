@@ -84,6 +84,8 @@ export const limits = {
   bank: rateLimit({ limit: 5, windowMs: 60_000 }),
   /** 30-second GPS breadcrumb pings — 1 legit ping per 30s, allow retries */
   trackPoint: rateLimit({ limit: 10, windowMs: 60_000 }),
+  /** passcode-free Walk app writes — a PM taps at human speed, scripts don't */
+  walkWrite: rateLimit({ limit: 30, windowMs: 60_000 }),
 };
 
 /**
