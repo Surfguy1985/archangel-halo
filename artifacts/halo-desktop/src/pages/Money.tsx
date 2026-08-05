@@ -908,9 +908,11 @@ function CrewPay() {
                     <span className="opacity-70">{money(paidTotal)} paid</span>
                   </span>
                 </div>
-                <div className="hidden md:grid grid-cols-[1fr_160px_110px_100px_220px] gap-2 px-5 py-2 border-b border-border text-[10px] font-bold uppercase tracking-wide text-muted-foreground bg-black/5">
-                  <span>Job · Unit / Service</span>
+                <div className="hidden md:grid grid-cols-[1fr_70px_150px_100px_100px_100px_220px] gap-2 px-5 py-2 border-b border-border text-[10px] font-bold uppercase tracking-wide text-muted-foreground bg-black/5">
+                  <span>Job / Service</span>
+                  <span>Unit</span>
                   <span>Crew</span>
+                  <span>Date</span>
                   <span className="text-right">Amount</span>
                   <span>Status</span>
                   <span />
@@ -927,15 +929,12 @@ function CrewPay() {
                       return (
                         <div
                           key={p.id}
-                          className="grid grid-cols-1 md:grid-cols-[1fr_160px_110px_100px_220px] gap-2 items-center px-5 py-3"
+                          className="grid grid-cols-1 md:grid-cols-[1fr_70px_150px_100px_100px_100px_220px] gap-2 items-center px-5 py-3"
                         >
                           <div className="min-w-0">
                             {i === 0 ? (
                               <>
-                                <div className="font-semibold text-sm truncate">
-                                  {jg.label}
-                                  {jg.unitNo ? ` · Unit ${jg.unitNo}` : ""}
-                                </div>
+                                <div className="font-semibold text-sm truncate">{jg.label}</div>
                                 {jg.service && (
                                   <div className="text-xs text-muted-foreground truncate">{jg.service}</div>
                                 )}
@@ -944,7 +943,17 @@ function CrewPay() {
                               <div className="text-xs text-muted-foreground pl-3">〃</div>
                             )}
                           </div>
+                          <div className="text-sm font-semibold tabular-nums">
+                            {jg.unitNo || <span className="text-muted-foreground">—</span>}
+                          </div>
                           <div className="text-sm font-semibold truncate">{p.crewName || "Unassigned crew"}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {p.paidAt
+                              ? fmtDate(p.paidAt)
+                              : p.dueOn
+                                ? `Due ${fmtDate(p.dueOn)}`
+                                : fmtDate(p.createdAt)}
+                          </div>
                           <div className="font-display font-bold tabular-nums text-right text-[var(--ink)]">
                             {money(p.amount)}
                           </div>
