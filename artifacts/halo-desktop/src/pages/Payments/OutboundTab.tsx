@@ -129,20 +129,43 @@ function PayCrewsDialog({ crews, open, onOpenChange}: { crews: PayoutQueueCrew[]
   const [amounts, setAmounts] = useState<Record<string, string>>(() =>
     Object.fromEntries(crews.map((c) => [c.crewId, c.suggestedAmount > 0 ? c.suggestedAmount.toFixed(2) : ""]))
   );
+  // Manual amounts for crews without a verified bank, keyed "crewId|jobId".
+  const [manualAmounts, setManualAmounts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      crews
+        .filter((c) => !c.bankVerified)
+        .flatMap((c) => c.jobs.map((j) => [`${c.crewId}|${j.jobId}`, j.suggestedAmount > 0 ? j.suggestedAmount.toFixed(2) : ""]))
+    )
+  );
   const batch = useCreateCrewPayoutBatch();
   const { toast} = useToast();
   const queryClient = useQueryClient();
 
-  const items = crews
+  const achItems = crews
     .filter((c) => c.bankVerified)
     .map((c) => ({ crewId: c.crewId, amount: parseFloat(amounts[c.crewId] || "0")}))
     .filter((i) => i.amount > 0);
+  const manualItems = crews
+    .filter((c) => !c.bankVerified)
+    .flatMap((c) =>
+      c.jobs.map((j) => ({
+        crewId: c.crewId,
+        jobId: j.jobId,
+        method: "manual" as const,
+        amount: parseFloat(manualAmounts[`${c.crewId}|${j.jobId}`] || "0"),
+      }))
+    )
+    .filter((i) => i.amount > 0);
+  const items = [...achItems, ...manualItems];
   const total = items.reduce((s, i) => s + i.amount, 0);
 
   const handlePay = () => {
     batch.mutate({ data: { items}}, {
       onSuccess: (rows) => {
-        toast({ title: "Payouts sent", description: `${rows.length} ACH payout${rows.length !== 1 ? "s" : ""} totaling ${money(total)}.`});
+        const parts = [];
+        if (achItems.length) parts.push(`${achItems.length} ACH payout${achItems.length !== 1 ? "s" : ""}`);
+        if (manualItems.length) parts.push(`${manualItems.length} manual payment${manualItems.length !== 1 ? "s" : ""} logged`);
+        toast({ title: "Payouts recorded", description: `${parts.join(" + ")} totaling ${money(total)}. (${rows.length} total)`});
         queryClient.invalidateQueries({ queryKey: getListCrewPayoutsQueryKey()});
         queryClient.invalidateQueries({ queryKey: getGetPayoutQueueQueryKey()});
         queryClient.invalidateQueries({ queryKey: getGetPayHubOverviewQueryKey()});
@@ -159,23 +182,17 @@ function PayCrewsDialog({ crews, open, onOpenChange}: { crews: PayoutQueueCrew[]
       <DialogContent className="sm:max-w-[520px] border-none shadow-xl rounded-3xl bg-[var(--background)]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-display font-bold text-[var(--secondary)] flex items-center gap-2">
-            <Banknote className="w-6 h-6" /> Pay crews via ACH
+            <Banknote className="w-6 h-6" /> Pay crews
           </DialogTitle>
         </DialogHeader>
         <div className="py-2 space-y-3 max-h-[50vh] overflow-y-auto">
-          {crews.map((c) => (
+          {crews.map((c) => c.bankVerified ? (
             <div key={c.crewId} className="flex items-center gap-3 bg-white border border-border p-3" data-testid={`row-pay-${c.crewId}`}>
-              {c.bankVerified ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" aria-label="Verified bank account" />
-              ) : (
-                <XCircle className="w-5 h-5 text-amber-500 shrink-0" aria-label="No verified bank account" />
-              )}
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" aria-label="Verified bank account" />
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-[var(--secondary)] text-sm">{c.crewName}</div>
                 <div className="text-xs text-muted-foreground truncate">
-                  {c.bankVerified
-                    ? `${c.jobs.length} job${c.jobs.length !== 1 ? "s" : ""}: ${c.jobs.map((j) => j.jobLabel).join(", ")}`
-                    : "Needs a verified bank account in their portal first"}
+                  {c.jobs.length} job{c.jobs.length !== 1 ? "s" : ""}: {c.jobs.map((j) => j.jobLabel).join(", ")}
                 </div>
               </div>
               <div className="relative shrink-0 w-28">
@@ -183,7 +200,6 @@ function PayCrewsDialog({ crews, open, onOpenChange}: { crews: PayoutQueueCrew[]
                 <Input
                   value={amounts[c.crewId] ?? ""}
                   onChange={(e) => setAmounts((a) => ({ ...a, [c.crewId]: e.target.value}))}
-                  disabled={!c.bankVerified}
                   inputMode="decimal"
                   placeholder="0.00"
                   className="pl-6 h-10 rounded-none border-border text-right tabular-nums"
@@ -191,7 +207,40 @@ function PayCrewsDialog({ crews, open, onOpenChange}: { crews: PayoutQueueCrew[]
                 />
               </div>
             </div>
+          ) : (
+            <div key={c.crewId} className="bg-white border border-border p-3 space-y-2" data-testid={`row-pay-${c.crewId}`}>
+              <div className="flex items-center gap-3">
+                <Landmark className="w-5 h-5 text-amber-500 shrink-0" aria-label="No verified bank account" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-[var(--secondary)] text-sm">{c.crewName}</div>
+                  <div className="text-xs text-amber-700">
+                    No verified bank — log a manual payment (cash, check, or other) per job instead
+                  </div>
+                </div>
+              </div>
+              {c.jobs.map((j) => (
+                <div key={j.jobId} className="flex items-center gap-3 pl-8" data-testid={`row-manual-${c.crewId}-${j.jobId}`}>
+                  <div className="flex-1 min-w-0 text-xs text-muted-foreground truncate">{j.jobLabel}</div>
+                  <div className="relative shrink-0 w-28">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                    <Input
+                      value={manualAmounts[`${c.crewId}|${j.jobId}`] ?? ""}
+                      onChange={(e) => setManualAmounts((a) => ({ ...a, [`${c.crewId}|${j.jobId}`]: e.target.value}))}
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      className="pl-6 h-10 rounded-none border-border text-right tabular-nums"
+                      data-testid={`input-manual-${c.crewId}-${j.jobId}`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           ))}
+          {manualItems.length > 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              Manual payments are logged against the job for the books — no money moves through the app.
+            </p>
+          )}
         </div>
         <DialogFooter className="items-center gap-3 sm:justify-between">
           <div className="text-sm font-bold text-[var(--secondary)]">

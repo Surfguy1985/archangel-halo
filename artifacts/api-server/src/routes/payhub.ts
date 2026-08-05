@@ -1063,9 +1063,12 @@ router.post("/pay-hub/payouts/batch", async (req, res): Promise<void> => {
     return;
   }
   const items = parsed.data.items;
-  const dupCheck = new Set(items.map((i) => i.crewId));
+  // Uniqueness: one ACH item per crew; manual items are per (crew, job).
+  const dupCheck = new Set(
+    items.map((i) => (i.method === "manual" ? `${i.crewId}|${i.jobId ?? ""}` : i.crewId)),
+  );
   if (dupCheck.size !== items.length) {
-    res.status(400).json({ error: "Each crew can only appear once per batch" });
+    res.status(400).json({ error: "Each crew (or crew + job for manual payments) can only appear once per batch" });
     return;
   }
   const queue = await computePayoutQueue();
@@ -1081,6 +1084,27 @@ router.post("/pay-hub/payouts/batch", async (req, res): Promise<void> => {
         .limit(1);
       res.status(409).json({
         error: `${crew?.name ?? "That crew"} has no completed jobs awaiting payout`,
+      });
+      return;
+    }
+    if (item.method === "manual") {
+      // Manual payments (cash/check/other, paid outside the app) are just
+      // logged here — no bank required, but they must name a queued job.
+      if (!item.jobId) {
+        res.status(400).json({ error: "Manual payments must specify the job they cover" });
+        return;
+      }
+      if (!q.jobs.some((j) => j.jobId === item.jobId)) {
+        res.status(409).json({
+          error: `That job is not in ${q.crewName}'s payout queue`,
+        });
+        return;
+      }
+      continue;
+    }
+    if (item.jobId && !q.jobs.some((j) => j.jobId === item.jobId)) {
+      res.status(409).json({
+        error: `That job is not in ${q.crewName}'s payout queue`,
       });
       return;
     }
@@ -1101,17 +1125,20 @@ router.post("/pay-hub/payouts/batch", async (req, res): Promise<void> => {
       const inserted: (typeof crewPayoutsTable.$inferSelect)[] = [];
       for (const item of items) {
         const q = byCrew.get(item.crewId)!;
-        const oldest = [...q.jobs].sort((a, b) =>
-          (a.completedAt ?? "").localeCompare(b.completedAt ?? ""),
-        )[0]!;
-        const confirmation = confirmationNo("ACH");
+        const manual = item.method === "manual";
+        const target = item.jobId
+          ? q.jobs.find((j) => j.jobId === item.jobId)!
+          : [...q.jobs].sort((a, b) =>
+              (a.completedAt ?? "").localeCompare(b.completedAt ?? ""),
+            )[0]!;
+        const confirmation = confirmationNo(manual ? "MAN" : "ACH");
         const [row] = await tx
           .insert(crewPayoutsTable)
           .values({
             crewId: item.crewId,
-            jobId: oldest.jobId,
+            jobId: target.jobId,
             amount: item.amount,
-            method: "ach",
+            method: manual ? "manual" : "ach",
             status: "paid",
             confirmationNo: confirmation,
           })
@@ -1120,7 +1147,9 @@ router.post("/pay-hub/payouts/batch", async (req, res): Promise<void> => {
           entityType: "crew",
           entityId: item.crewId,
           kind: "payment",
-          body: `Crew payout sent to ${q.crewName} — $${item.amount.toFixed(2)} for ${oldest.jobLabel} via ACH, confirmation ${confirmation}`,
+          body: manual
+            ? `Manual crew payment logged for ${q.crewName} — $${item.amount.toFixed(2)} for ${target.jobLabel} (paid outside the app), reference ${confirmation}`
+            : `Crew payout sent to ${q.crewName} — $${item.amount.toFixed(2)} for ${target.jobLabel} via ACH, confirmation ${confirmation}`,
         });
         inserted.push(row!);
       }

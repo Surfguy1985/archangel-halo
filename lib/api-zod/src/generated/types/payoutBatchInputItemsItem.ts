@@ -5,9 +5,14 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { PayoutBatchInputItemsItemMethod } from './payoutBatchInputItemsItemMethod';
 
 export type PayoutBatchInputItemsItem = {
   crewId: string;
   /** @exclusiveMinimum 0 */
   amount: number;
+  /** ach (default, requires verified bank) | manual — cash/check/other paid outside the app, just logged here */
+  method?: PayoutBatchInputItemsItemMethod;
+  /** Queue job to record the payout against (required for manual items); defaults to the crew's oldest queued job */
+  jobId?: string;
 };

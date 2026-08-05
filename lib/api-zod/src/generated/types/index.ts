@@ -426,6 +426,7 @@ export * from './paymentRequestUploadInput';
 export * from './paymentReturnInput';
 export * from './payoutBatchInput';
 export * from './payoutBatchInputItemsItem';
+export * from './payoutBatchInputItemsItemMethod';
 export * from './payoutDistribution';
 export * from './payoutDistributionRow';
 export * from './payoutQueueCrew';

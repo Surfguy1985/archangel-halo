@@ -9182,7 +9182,9 @@ export const createCrewPayoutBatchBodyItemsItemAmountExclusiveMin = 0;
 export const CreateCrewPayoutBatchBody = zod.object({
   "items": zod.array(zod.object({
   "crewId": zod.string(),
-  "amount": zod.number().gt(createCrewPayoutBatchBodyItemsItemAmountExclusiveMin)
+  "amount": zod.number().gt(createCrewPayoutBatchBodyItemsItemAmountExclusiveMin),
+  "method": zod.enum(['ach', 'manual']).optional().describe('ach (default, requires verified bank) | manual — cash\/check\/other paid outside the app, just logged here'),
+  "jobId": zod.string().optional().describe('Queue job to record the payout against (required for manual items); defaults to the crew\'s oldest queued job')
 })).min(1)
 })
 

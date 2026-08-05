@@ -6556,10 +6556,25 @@ export interface PayoutQueueCrew {
   jobs: PayoutQueueJob[];
 }
 
+/**
+ * ach (default, requires verified bank) | manual — cash/check/other paid outside the app, just logged here
+ */
+export type PayoutBatchInputItemsItemMethod = typeof PayoutBatchInputItemsItemMethod[keyof typeof PayoutBatchInputItemsItemMethod];
+
+
+export const PayoutBatchInputItemsItemMethod = {
+  ach: 'ach',
+  manual: 'manual',
+} as const;
+
 export type PayoutBatchInputItemsItem = {
   crewId: string;
   /** @exclusiveMinimum 0 */
   amount: number;
+  /** ach (default, requires verified bank) | manual — cash/check/other paid outside the app, just logged here */
+  method?: PayoutBatchInputItemsItemMethod;
+  /** Queue job to record the payout against (required for manual items); defaults to the crew's oldest queued job */
+  jobId?: string;
 };
 
 export interface PayoutBatchInput {
