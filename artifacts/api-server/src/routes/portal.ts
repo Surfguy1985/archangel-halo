@@ -16,6 +16,7 @@ import {
   crewRoutePlansTable,
   jobsTable,
   jobBroadcastsTable,
+  jobLineItemsTable,
   priceItemsTable,
   activitiesTable,
   propertiesTable,
@@ -40,6 +41,9 @@ import {
   GetPortalDispatchResponse,
   GetPortalOfficeViewParams,
   GetPortalOfficeViewResponse,
+  CompletePortalLineItemParams,
+  CompletePortalLineItemBody,
+  CompletePortalLineItemResponse,
   CheckPortalDispatchItemParams,
   CheckPortalDispatchItemBody,
   CheckPortalDispatchItemResponse,
@@ -482,6 +486,10 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
         crewsNeeded: job.crewsNeeded ?? 1,
         crewsFilled: job.crewsFilled ?? 0,
         filledByOther: job.boardStatus === "filled" && o.status !== "approved",
+        forServices: Array.isArray(o.forServices)
+          ? (o.forServices as unknown[]).filter((s): s is string => typeof s === "string")
+          : null,
+        startTime: o.startTime ?? null,
         tasks: taskify(job.description),
         photos: offerPhotos
           .filter(
@@ -1287,6 +1295,31 @@ router.get("/portal/:token/jobs", async (req, res): Promise<void> => {
   const sorted = jobs
     .filter((j) => j.status !== "cancelled")
     .sort((a, b) => (b.scheduledOn ?? "").localeCompare(a.scheduledOn ?? ""));
+  // Work checklist per job: crews see every line item, but only their own
+  // assigned items are actionable (mine=true).
+  const sortedIds = sorted.map((j) => j.id);
+  const items = sortedIds.length
+    ? await db
+        .select()
+        .from(jobLineItemsTable)
+        .where(inArray(jobLineItemsTable.jobId, sortedIds))
+    : [];
+  const assignedIds = Array.from(
+    new Set(items.map((i) => i.assignedCrewId).filter((x): x is string => !!x)),
+  );
+  const assignedCrews = assignedIds.length
+    ? await db
+        .select({ id: crewsTable.id, name: crewsTable.name })
+        .from(crewsTable)
+        .where(inArray(crewsTable.id, assignedIds))
+    : [];
+  const crewName = new Map(assignedCrews.map((c) => [c.id, c.name]));
+  const itemsByJob = new Map<string, typeof items>();
+  for (const li of items) {
+    const list = itemsByJob.get(li.jobId) ?? [];
+    list.push(li);
+    itemsByJob.set(li.jobId, list);
+  }
   res.json(
     ListPortalJobsResponse.parse(
       sorted.map((j) => ({
@@ -1296,10 +1329,89 @@ router.get("/portal/:token/jobs", async (req, res): Promise<void> => {
         propertyName: propName.get(j.propertyId) ?? null,
         unitNo: j.unitNo ?? null,
         status: j.status ?? null,
+        lineItems: (itemsByJob.get(j.id) ?? []).map((li) => ({
+          id: li.id,
+          service: li.service,
+          assignedCrewName: li.assignedCrewId
+            ? (crewName.get(li.assignedCrewId) ?? null)
+            : null,
+          mine: li.assignedCrewId === crew.id,
+          startTime: li.startTime ?? null,
+          completed: !!li.completedAt,
+          completedAt: li.completedAt ? li.completedAt.toISOString() : null,
+        })),
       })),
     ),
   );
 });
+
+// Crew marks one of THEIR assigned line items done. Ownership is enforced
+// server-side (assignedCrewId must match the requesting crew) — portal links
+// carry no permissions. When the last item completes, the job moves to Done.
+router.post(
+  "/portal/:token/jobs/:jobId/line-items/:lineItemId/complete",
+  async (req, res): Promise<void> => {
+    const { token, jobId, lineItemId } = CompletePortalLineItemParams.parse(req.params);
+    const body = CompletePortalLineItemBody.parse(req.body);
+    const crew = await crewByToken(token);
+    if (!crew) {
+      res.status(404).json({ error: "Invalid portal link" });
+      return;
+    }
+    const [item] = await db
+      .select()
+      .from(jobLineItemsTable)
+      .where(eq(jobLineItemsTable.id, lineItemId));
+    if (!item || item.jobId !== jobId) {
+      res.status(404).json({ error: "Line item not found" });
+      return;
+    }
+    if (item.assignedCrewId !== crew.id) {
+      res.status(403).json({ error: "This item is assigned to another crew" });
+      return;
+    }
+    await db
+      .update(jobLineItemsTable)
+      .set(
+        body.done
+          ? { completedAt: new Date(), completedByCrewId: crew.id }
+          : { completedAt: null, completedByCrewId: null },
+      )
+      .where(eq(jobLineItemsTable.id, lineItemId));
+
+    // All items done → the whole job moves to the Done rail. Guarded update:
+    // only advance live cards, never touch completed/manual_check states.
+    let jobCompleted = false;
+    if (body.done) {
+      const items = await db
+        .select({ completedAt: jobLineItemsTable.completedAt })
+        .from(jobLineItemsTable)
+        .where(eq(jobLineItemsTable.jobId, jobId));
+      if (items.length > 0 && items.every((i) => i.completedAt !== null)) {
+        const moved = await db
+          .update(jobsTable)
+          .set({ boardStatus: "completed" })
+          .where(
+            and(
+              eq(jobsTable.id, jobId),
+              inArray(jobsTable.boardStatus, ["active", "filled", "reopened"]),
+            ),
+          )
+          .returning({ id: jobsTable.id });
+        jobCompleted = moved.length > 0;
+        if (jobCompleted) {
+          await db.insert(activitiesTable).values({
+            entityType: "job",
+            entityId: jobId,
+            kind: "note",
+            body: `All work items checked off — ${crew.name} completed the last one. Job moved to Done.`,
+          });
+        }
+      }
+    }
+    res.json(CompletePortalLineItemResponse.parse({ ok: true, jobCompleted }));
+  },
+);
 
 router.get("/portal/:token/photos", async (req, res): Promise<void> => {
   const { token } = ListPortalPhotosParams.parse(req.params);

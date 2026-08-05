@@ -290,7 +290,11 @@ export const GetPropertyResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })),
@@ -1270,6 +1274,25 @@ export const SendBidResponse = zod.object({
 
 
 /**
+ * @summary AI market-rate check for a service — suggested pricing with wholesale notes
+ */
+export const GetBidAiPricingBody = zod.object({
+  "service": zod.string().describe('Service to price, e.g. \'gate repair\''),
+  "details": zod.string().nullish().describe('Extra scope details'),
+  "city": zod.string().nullish().describe('Market\/city context'),
+  "qty": zod.number().nullish()
+})
+
+export const GetBidAiPricingResponse = zod.object({
+  "suggested": zod.number().describe('Suggested unit price to bid'),
+  "marketLow": zod.number(),
+  "marketHigh": zod.number(),
+  "wholesaleNotes": zod.string().nullish().describe('Materials\/wholesale cost guidance'),
+  "rationale": zod.string()
+})
+
+
+/**
  * @summary Send a nudge email for a quiet bid
  */
 export const NudgeBidParams = zod.object({
@@ -1302,6 +1325,7 @@ export const GetStaffingContextResponseItem = zod.object({
   "name": zod.string(),
   "trade": zod.string().nullish(),
   "selfiePath": zod.string().nullish(),
+  "services": zod.array(zod.string()).optional().describe('Specialty profile — service names this crew covers'),
   "todayStatus": zod.string().describe('idle | site | done'),
   "currentJob": zod.union([zod.object({
   "id": zod.string(),
@@ -1392,7 +1416,11 @@ export const QuickCreateJobResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -1471,7 +1499,11 @@ export const PullCrewToJobResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 }),
@@ -1535,7 +1567,11 @@ export const PullCrewToJobResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -1607,7 +1643,11 @@ export const ListJobsResponseItem = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -1695,7 +1735,11 @@ export const CreateJobResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -1766,7 +1810,11 @@ export const GetJobResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 }),
@@ -1904,7 +1952,11 @@ export const UpdateJobResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -1989,7 +2041,11 @@ export const CompleteJobResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -2062,7 +2118,11 @@ export const ClearJobResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -2135,7 +2195,11 @@ export const RestartJobResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -2214,7 +2278,11 @@ export const ScheduleJobResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -2293,7 +2361,11 @@ export const DispatchJobResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -2534,7 +2606,11 @@ export const ReopenJobChangeOrderResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -2564,7 +2640,11 @@ export const AddJobLineItemResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })
 
 
@@ -2580,7 +2660,10 @@ export const updateJobLineItemBodyQtyMin = 0;
 
 
 export const UpdateJobLineItemBody = zod.object({
-  "qty": zod.number().min(updateJobLineItemBodyQtyMin).optional()
+  "qty": zod.number().min(updateJobLineItemBodyQtyMin).optional(),
+  "assignedCrewId": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completed": zod.boolean().optional().describe('Office override — mark this line item done\/undone')
 })
 
 export const UpdateJobLineItemResponse = zod.object({
@@ -2591,7 +2674,11 @@ export const UpdateJobLineItemResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })
 
 
@@ -2693,7 +2780,11 @@ export const SendJobRecapResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -3186,7 +3277,11 @@ export const ListJobBoardResponseItem = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 }),
@@ -3208,6 +3303,20 @@ export const ListJobBoardResponseItem = zod.object({
   "rate": zod.number(),
   "marginFloor": zod.number().nullish()
 })),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
+})).optional(),
   "photos": zod.array(zod.object({
   "kind": zod.string().nullish(),
   "storagePath": zod.string()
@@ -3246,9 +3355,13 @@ export const BroadcastJobParams = zod.object({
 })
 
 export const BroadcastJobBody = zod.object({
-  "mode": zod.string().describe('all | trade | crews'),
+  "mode": zod.string().describe('all | trade | crews | specialties (match each line item\'s service to crew specialty profiles)'),
   "trade": zod.string().optional(),
   "crewIds": zod.array(zod.string()).optional(),
+  "itemTimes": zod.array(zod.object({
+  "lineItemId": zod.string(),
+  "startTime": zod.string().nullish()
+})).optional().describe('Specialty mode — staggered start time per line item (HH:MM); persisted on the line items'),
   "scheduleType": zod.string().optional().describe('scheduled | flex (defaults to scheduled)'),
   "flexDays": zod.number().optional().describe('Flex timeframe in days from broadcast (default 7); sets flexDueBy'),
   "crewsNeeded": zod.number().optional().describe('Number of crew members needed (default 1)')
@@ -3257,7 +3370,8 @@ export const BroadcastJobBody = zod.object({
 export const BroadcastJobResponse = zod.object({
   "sent": zod.number(),
   "alreadySent": zod.number(),
-  "crewNames": zod.array(zod.string()).optional()
+  "crewNames": zod.array(zod.string()).optional(),
+  "unmatchedServices": zod.array(zod.string()).optional().describe('Specialty mode — services no active crew\'s specialty profile covers')
 })
 
 
@@ -3348,7 +3462,11 @@ export const PayJobCrewMemberResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -3425,7 +3543,11 @@ export const ClearJobCrewPayResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -3502,7 +3624,11 @@ export const SetJobBoardStatusResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -3581,7 +3707,11 @@ export const UpdateBoardSettingsResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -3654,7 +3784,11 @@ export const ReopenJobResponse = zod.object({
   "unit": zod.string().nullish(),
   "rate": zod.number(),
   "qty": zod.number(),
-  "amount": zod.number()
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
 })).optional(),
   "lineTotal": zod.number().nullish()
 })
@@ -6128,6 +6262,8 @@ export const GetPortalResponse = zod.object({
   "crewsNeeded": zod.number().nullish(),
   "crewsFilled": zod.number().nullish(),
   "filledByOther": zod.boolean().optional(),
+  "forServices": zod.array(zod.string()).nullish().describe('Specialty broadcast — only these services are offered to this crew'),
+  "startTime": zod.string().nullish().describe('HH:MM when this crew should start (staggered arrivals)'),
   "tasks": zod.array(zod.string()).optional(),
   "photos": zod.array(zod.object({
   "kind": zod.string().nullish(),
@@ -6532,9 +6668,37 @@ export const ListPortalJobsResponseItem = zod.object({
   "label": zod.string(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
-  "status": zod.string().nullish()
+  "status": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "service": zod.string(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM when this service\'s crew should start'),
+  "mine": zod.boolean().describe('True when this item is assigned to the requesting crew'),
+  "completed": zod.boolean(),
+  "completedAt": zod.string().nullish()
+})).optional()
 })
 export const ListPortalJobsResponse = zod.array(ListPortalJobsResponseItem)
+
+
+/**
+ * @summary Crew marks one of their assigned line items done (or undoes it)
+ */
+export const CompletePortalLineItemParams = zod.object({
+  "token": zod.coerce.string(),
+  "jobId": zod.coerce.string(),
+  "lineItemId": zod.coerce.string()
+})
+
+export const CompletePortalLineItemBody = zod.object({
+  "done": zod.boolean()
+})
+
+export const CompletePortalLineItemResponse = zod.object({
+  "ok": zod.boolean(),
+  "jobCompleted": zod.boolean().describe('True when this completion finished the whole job and moved it to Done')
+})
 
 
 export const ListPortalPhotosParams = zod.object({
@@ -9442,7 +9606,24 @@ export const GetClientAccountResponse = zod.object({
   "dashboardUrl": zod.string().nullish().describe('Full public URL to the client dashboard'),
   "notifyNewCards": zod.boolean().optional().describe('Email the billing contact a batched digest when new cards land on the board'),
   "onboardingStatus": zod.string().describe('not_sent | sent'),
-  "onboardingSentAt": zod.string().nullish()
+  "onboardingSentAt": zod.string().nullish(),
+  "billingDay": zod.number().optional().describe('Day of month the subscription charge pulls (1-28)'),
+  "paymentMethod": zod.union([zod.object({
+  "methodType": zod.string().describe('card | ach'),
+  "last4": zod.string(),
+  "brand": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "payerName": zod.string(),
+  "zip": zod.string().nullish(),
+  "updatedAt": zod.string().nullish()
+}),zod.null()]).optional(),
+  "billingContact": zod.union([zod.object({
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "company": zod.string().nullish(),
+  "phone": zod.string().nullish()
+}),zod.null()]).optional()
 }),
   "users": zod.array(zod.object({
   "id": zod.string(),
@@ -9501,6 +9682,12 @@ export const UpsertClientAccountParams = zod.object({
   "propertyId": zod.coerce.string()
 })
 
+export const upsertClientAccountBodyBillingDayMax = 28;
+
+export const upsertClientAccountBodyPaymentMethodOneLast4Max = 4;
+
+
+
 export const UpsertClientAccountBody = zod.object({
   "tier": zod.string().optional(),
   "userSeats": zod.number().optional(),
@@ -9509,7 +9696,23 @@ export const UpsertClientAccountBody = zod.object({
   "notes": zod.string().nullish(),
   "logoPath": zod.string().nullish(),
   "servicesOverview": zod.string().nullish(),
-  "notifyNewCards": zod.boolean().optional()
+  "notifyNewCards": zod.boolean().optional(),
+  "billingDay": zod.number().min(1).max(upsertClientAccountBodyBillingDayMax).optional(),
+  "billingContact": zod.union([zod.object({
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "company": zod.string().nullish(),
+  "phone": zod.string().nullish()
+}),zod.null()]).optional(),
+  "paymentMethod": zod.union([zod.object({
+  "methodType": zod.string().describe('card | ach'),
+  "last4": zod.string().max(upsertClientAccountBodyPaymentMethodOneLast4Max),
+  "brand": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "payerName": zod.string(),
+  "zip": zod.string().nullish()
+}),zod.null()]).optional()
 })
 
 export const UpsertClientAccountResponse = zod.object({
@@ -9526,7 +9729,24 @@ export const UpsertClientAccountResponse = zod.object({
   "dashboardUrl": zod.string().nullish().describe('Full public URL to the client dashboard'),
   "notifyNewCards": zod.boolean().optional().describe('Email the billing contact a batched digest when new cards land on the board'),
   "onboardingStatus": zod.string().describe('not_sent | sent'),
-  "onboardingSentAt": zod.string().nullish()
+  "onboardingSentAt": zod.string().nullish(),
+  "billingDay": zod.number().optional().describe('Day of month the subscription charge pulls (1-28)'),
+  "paymentMethod": zod.union([zod.object({
+  "methodType": zod.string().describe('card | ach'),
+  "last4": zod.string(),
+  "brand": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "payerName": zod.string(),
+  "zip": zod.string().nullish(),
+  "updatedAt": zod.string().nullish()
+}),zod.null()]).optional(),
+  "billingContact": zod.union([zod.object({
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "company": zod.string().nullish(),
+  "phone": zod.string().nullish()
+}),zod.null()]).optional()
 })
 
 
@@ -9640,7 +9860,24 @@ export const RegenerateDashboardTokenResponse = zod.object({
   "dashboardUrl": zod.string().nullish().describe('Full public URL to the client dashboard'),
   "notifyNewCards": zod.boolean().optional().describe('Email the billing contact a batched digest when new cards land on the board'),
   "onboardingStatus": zod.string().describe('not_sent | sent'),
-  "onboardingSentAt": zod.string().nullish()
+  "onboardingSentAt": zod.string().nullish(),
+  "billingDay": zod.number().optional().describe('Day of month the subscription charge pulls (1-28)'),
+  "paymentMethod": zod.union([zod.object({
+  "methodType": zod.string().describe('card | ach'),
+  "last4": zod.string(),
+  "brand": zod.string().nullish(),
+  "bankName": zod.string().nullish(),
+  "cardExp": zod.string().nullish(),
+  "payerName": zod.string(),
+  "zip": zod.string().nullish(),
+  "updatedAt": zod.string().nullish()
+}),zod.null()]).optional(),
+  "billingContact": zod.union([zod.object({
+  "name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "company": zod.string().nullish(),
+  "phone": zod.string().nullish()
+}),zod.null()]).optional()
 })
 
 
@@ -10637,6 +10874,25 @@ export const GetClientRequestOptionsResponse = zod.object({
 
 
 /**
+ * @summary Look up an office bid number to prefill a work request
+ */
+export const LookupClientBidParams = zod.object({
+  "token": zod.coerce.string(),
+  "bidNo": zod.coerce.string()
+})
+
+export const LookupClientBidResponse = zod.object({
+  "found": zod.boolean(),
+  "bidNo": zod.string().nullish(),
+  "scope": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "unitNo": zod.string().nullish(),
+  "serviceLabel": zod.string().nullish().describe('First line-item service, falls back to scope'),
+  "summary": zod.string().nullish().describe('Line items summarized for the notes field')
+})
+
+
+/**
  * @summary Property manager submits a work request
  */
 export const CreateClientWorkRequestParams = zod.object({
@@ -10655,7 +10911,8 @@ export const CreateClientWorkRequestBody = zod.object({
   "photoPaths": zod.array(zod.string()).optional().describe('\/objects\/... storage paths of attached photos'),
   "changeOrderJobId": zod.string().nullish().describe('Job id when this is a change order on existing work'),
   "requesterName": zod.string().nullish(),
-  "budgetEstimate": zod.number().nullish().describe('Client\'s expected budget, pre-filled from the price list')
+  "budgetEstimate": zod.number().nullish().describe('Client\'s expected budget, pre-filled from the price list'),
+  "bidNumber": zod.string().nullish().describe('Office bid number (B-xxxx) — prefills the request from that bid and links it')
 })
 
 export const CreateClientWorkRequestResponse = zod.object({
@@ -10681,6 +10938,7 @@ export const CreateClientWorkRequestResponse = zod.object({
   "jobNo": zod.string().nullish(),
   "budgetEstimate": zod.number().nullish(),
   "listRate": zod.number().nullish().describe('Current price-list rate (per unit) for the requested service, for over-budget flagging'),
+  "bidNumber": zod.string().nullish().describe('Office bid number the client entered (B-xxxx)'),
   "decidedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -10716,6 +10974,7 @@ export const ListWorkRequestsResponseItem = zod.object({
   "jobNo": zod.string().nullish(),
   "budgetEstimate": zod.number().nullish(),
   "listRate": zod.number().nullish().describe('Current price-list rate (per unit) for the requested service, for over-budget flagging'),
+  "bidNumber": zod.string().nullish().describe('Office bid number the client entered (B-xxxx)'),
   "decidedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -10757,6 +11016,7 @@ export const AcceptWorkRequestResponse = zod.object({
   "jobNo": zod.string().nullish(),
   "budgetEstimate": zod.number().nullish(),
   "listRate": zod.number().nullish().describe('Current price-list rate (per unit) for the requested service, for over-budget flagging'),
+  "bidNumber": zod.string().nullish().describe('Office bid number the client entered (B-xxxx)'),
   "decidedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -10796,6 +11056,7 @@ export const DeclineWorkRequestResponse = zod.object({
   "jobNo": zod.string().nullish(),
   "budgetEstimate": zod.number().nullish(),
   "listRate": zod.number().nullish().describe('Current price-list rate (per unit) for the requested service, for over-budget flagging'),
+  "bidNumber": zod.string().nullish().describe('Office bid number the client entered (B-xxxx)'),
   "decidedAt": zod.string().nullish(),
   "createdAt": zod.string()
 })

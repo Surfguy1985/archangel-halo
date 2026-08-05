@@ -925,6 +925,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BidSendResult"
+  /bids/ai-pricing:
+    post:
+      operationId: getBidAiPricing
+      tags: [pipeline]
+      summary: AI market-rate check for a service — suggested pricing with wholesale notes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BidAiPricingInput"
+      responses:
+        "200":
+          description: Pricing recommendation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BidAiPricingResult"
+        "502":
+          description: AI unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /bids/{id}/nudge:
     post:
       operationId: nudgeBid
@@ -4587,6 +4611,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /portal/{token}/jobs/{jobId}/line-items/{lineItemId}/complete:
+    post:
+      operationId: completePortalLineItem
+      tags: [portal]
+      summary: Crew marks one of their assigned line items done (or undoes it)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: lineItemId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PortalLineItemDoneInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, jobCompleted]
+                properties:
+                  ok: { type: boolean }
+                  jobCompleted:
+                    type: boolean
+                    description: True when this completion finished the whole job and moved it to Done
+        "403":
+          description: Not assigned to this crew
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Invalid link or line item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /portal/{token}/photos:
     get:
       operationId: listPortalPhotos
@@ -7470,6 +7543,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /client/{token}/bid-lookup/{bidNo}:
+    get:
+      operationId: lookupClientBid
+      tags: [admin]
+      summary: Look up an office bid number to prefill a work request
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: bidNo
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Lookup result (found=false when no matching bid for this property)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientBidLookup"
+        "404":
+          description: Invalid link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /client/{token}/requests:
     post:
       operationId: createClientWorkRequest
@@ -9898,6 +9999,15 @@ components:
         notifyNewCards: { type: boolean, description: "Email the billing contact a batched digest when new cards land on the board" }
         onboardingStatus: { type: string, description: "not_sent | sent" }
         onboardingSentAt: { type: ["string", "null"] }
+        billingDay: { type: integer, description: "Day of month the subscription charge pulls (1-28)" }
+        paymentMethod:
+          oneOf:
+            - $ref: "#/components/schemas/ClientStoredPaymentMethod"
+            - type: "null"
+        billingContact:
+          oneOf:
+            - $ref: "#/components/schemas/ClientBillingContact"
+            - type: "null"
     ClientAccountSummary:
       type: object
       required: [propertyId, propertyName, tier, status, userSeatsUsed, userSeats, guestSeats, onboardingStatus, hasAccount]
@@ -10387,6 +10497,7 @@ components:
         changeOrderJobId: { type: ["string", "null"], description: "Job id when this is a change order on existing work" }
         requesterName: { type: ["string", "null"] }
         budgetEstimate: { type: ["number", "null"], description: "Client's expected budget, pre-filled from the price list" }
+        bidNumber: { type: ["string", "null"], description: "Office bid number (B-xxxx) — prefills the request from that bid and links it" }
     WorkRequestAcceptInput:
       type: object
       properties:
@@ -10422,8 +10533,37 @@ components:
         jobNo: { type: ["string", "null"] }
         budgetEstimate: { type: ["number", "null"] }
         listRate: { type: ["number", "null"], description: "Current price-list rate (per unit) for the requested service, for over-budget flagging" }
+        bidNumber: { type: ["string", "null"], description: "Office bid number the client entered (B-xxxx)" }
         decidedAt: { type: ["string", "null"] }
         createdAt: { type: string }
+    BidAiPricingInput:
+      type: object
+      required: [service]
+      properties:
+        service: { type: string, description: "Service to price, e.g. 'gate repair'" }
+        details: { type: ["string", "null"], description: "Extra scope details" }
+        city: { type: ["string", "null"], description: "Market/city context" }
+        qty: { type: ["number", "null"] }
+    BidAiPricingResult:
+      type: object
+      required: [suggested, marketLow, marketHigh, rationale]
+      properties:
+        suggested: { type: number, description: "Suggested unit price to bid" }
+        marketLow: { type: number }
+        marketHigh: { type: number }
+        wholesaleNotes: { type: ["string", "null"], description: "Materials/wholesale cost guidance" }
+        rationale: { type: string }
+    ClientBidLookup:
+      type: object
+      required: [found]
+      properties:
+        found: { type: boolean }
+        bidNo: { type: ["string", "null"] }
+        scope: { type: ["string", "null"] }
+        amount: { type: ["number", "null"] }
+        unitNo: { type: ["string", "null"] }
+        serviceLabel: { type: ["string", "null"], description: "First line-item service, falls back to scope" }
+        summary: { type: ["string", "null"], description: "Line items summarized for the notes field" }
     WorkRequestDeclineInput:
       type: object
       properties:
@@ -10439,6 +10579,25 @@ components:
         logoPath: { type: ["string", "null"] }
         servicesOverview: { type: ["string", "null"] }
         notifyNewCards: { type: boolean }
+        billingDay: { type: integer, minimum: 1, maximum: 28 }
+        billingContact:
+          oneOf:
+            - $ref: "#/components/schemas/ClientBillingContact"
+            - type: "null"
+        # Sanitized display fields only — the office never enters full card/account numbers.
+        paymentMethod:
+          oneOf:
+            - type: object
+              required: [methodType, last4, payerName]
+              properties:
+                methodType: { type: string, description: "card | ach" }
+                last4: { type: string, maxLength: 4 }
+                brand: { type: ["string", "null"] }
+                bankName: { type: ["string", "null"] }
+                cardExp: { type: ["string", "null"] }
+                payerName: { type: string }
+                zip: { type: ["string", "null"] }
+            - type: "null"
     ClientUserCreate:
       type: object
       required: [name, email]
@@ -11276,6 +11435,10 @@ components:
         rate: { type: number }
         qty: { type: number }
         amount: { type: number }
+        assignedCrewId: { type: ["string", "null"] }
+        assignedCrewName: { type: ["string", "null"] }
+        startTime: { type: ["string", "null"], description: "HH:MM staggered start for this service's crew" }
+        completedAt: { type: ["string", "null"] }
     JobLineItemInput:
       type: object
       required: [priceItemId]
@@ -11286,6 +11449,9 @@ components:
       type: object
       properties:
         qty: { type: number, minimum: 0 }
+        assignedCrewId: { type: ["string", "null"] }
+        startTime: { type: ["string", "null"], description: "HH:MM staggered start for this service's crew" }
+        completed: { type: boolean, description: "Office override — mark this line item done/undone" }
     JobDetail:
       type: object
       required: [job, activities, expenses, schedules]
@@ -11371,6 +11537,10 @@ components:
         name: { type: string }
         trade: { type: ["string", "null"] }
         selfiePath: { type: ["string", "null"] }
+        services:
+          type: array
+          description: "Specialty profile — service names this crew covers"
+          items: { type: string }
         todayStatus: { type: string, description: "idle | site | done" }
         currentJob:
           oneOf:
@@ -11422,6 +11592,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PriceItem"
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/JobLineItem"
         photos:
           type: array
           items:
@@ -11465,11 +11639,20 @@ components:
       type: object
       required: [mode]
       properties:
-        mode: { type: string, description: "all | trade | crews" }
+        mode: { type: string, description: "all | trade | crews | specialties (match each line item's service to crew specialty profiles)" }
         trade: { type: string }
         crewIds:
           type: array
           items: { type: string }
+        itemTimes:
+          type: array
+          description: "Specialty mode — staggered start time per line item (HH:MM); persisted on the line items"
+          items:
+            type: object
+            required: [lineItemId]
+            properties:
+              lineItemId: { type: string }
+              startTime: { type: ["string", "null"] }
         scheduleType: { type: string, description: "scheduled | flex (defaults to scheduled)" }
         flexDays: { type: number, description: "Flex timeframe in days from broadcast (default 7); sets flexDueBy" }
         crewsNeeded: { type: number, description: "Number of crew members needed (default 1)" }
@@ -11501,6 +11684,10 @@ components:
         alreadySent: { type: number }
         crewNames:
           type: array
+          items: { type: string }
+        unmatchedServices:
+          type: array
+          description: "Specialty mode — services no active crew's specialty profile covers"
           items: { type: string }
 
     Schedule:
@@ -13211,6 +13398,26 @@ components:
         propertyName: { type: ["string", "null"] }
         unitNo: { type: ["string", "null"] }
         status: { type: ["string", "null"] }
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortalJobLineItem"
+    PortalLineItemDoneInput:
+      type: object
+      required: [done]
+      properties:
+        done: { type: boolean }
+    PortalJobLineItem:
+      type: object
+      required: [id, service, mine, completed]
+      properties:
+        id: { type: string }
+        service: { type: string }
+        assignedCrewName: { type: ["string", "null"] }
+        startTime: { type: ["string", "null"], description: "HH:MM when this service's crew should start" }
+        mine: { type: boolean, description: "True when this item is assigned to the requesting crew" }
+        completed: { type: boolean }
+        completedAt: { type: ["string", "null"] }
     CrewPhoto:
       type: object
       required: [id, crewId, storagePath, takenOn]
@@ -13394,6 +13601,11 @@ components:
         crewsNeeded: { type: ["number", "null"] }
         crewsFilled: { type: ["number", "null"] }
         filledByOther: { type: boolean }
+        forServices:
+          type: ["array", "null"]
+          description: "Specialty broadcast — only these services are offered to this crew"
+          items: { type: string }
+        startTime: { type: ["string", "null"], description: "HH:MM when this crew should start (staggered arrivals)" }
         tasks:
           type: array
           items: { type: string }

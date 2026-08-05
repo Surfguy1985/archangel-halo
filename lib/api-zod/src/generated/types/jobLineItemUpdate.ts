@@ -9,4 +9,13 @@
 export interface JobLineItemUpdate {
   /** @minimum 0 */
   qty?: number;
+  /** @nullable */
+  assignedCrewId?: string | null;
+  /**
+     * HH:MM staggered start for this service's crew
+     * @nullable
+     */
+  startTime?: string | null;
+  /** Office override — mark this line item done/undone */
+  completed?: boolean;
 }

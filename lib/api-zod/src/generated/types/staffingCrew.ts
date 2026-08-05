@@ -14,6 +14,8 @@ export interface StaffingCrew {
   trade?: string | null;
   /** @nullable */
   selfiePath?: string | null;
+  /** Specialty profile — service names this crew covers */
+  services?: string[];
   /** idle | site | done */
   todayStatus: string;
   currentJob?: StaffingCrewJob | null;

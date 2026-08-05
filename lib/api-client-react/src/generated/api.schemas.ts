@@ -207,6 +207,34 @@ export interface JobSummaryPublicView {
   hasBoard: boolean;
 }
 
+export interface ClientStoredPaymentMethod {
+  /** card | ach */
+  methodType: string;
+  last4: string;
+  /** @nullable */
+  brand?: string | null;
+  /** @nullable */
+  bankName?: string | null;
+  /** @nullable */
+  cardExp?: string | null;
+  payerName: string;
+  /** @nullable */
+  zip?: string | null;
+  /** @nullable */
+  updatedAt?: string | null;
+}
+
+export interface ClientBillingContact {
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  company?: string | null;
+  /** @nullable */
+  phone?: string | null;
+}
+
 export interface ClientAccountRec {
   id: string;
   propertyId: string;
@@ -234,6 +262,10 @@ export interface ClientAccountRec {
   onboardingStatus: string;
   /** @nullable */
   onboardingSentAt?: string | null;
+  /** Day of month the subscription charge pulls (1-28) */
+  billingDay?: number;
+  paymentMethod?: ClientStoredPaymentMethod | null;
+  billingContact?: ClientBillingContact | null;
 }
 
 export interface ClientAccountSummary {
@@ -433,34 +465,6 @@ export interface ClientPlan {
   userSeats: number;
   guestSeats: number;
   blurb: string;
-}
-
-export interface ClientStoredPaymentMethod {
-  /** card | ach */
-  methodType: string;
-  last4: string;
-  /** @nullable */
-  brand?: string | null;
-  /** @nullable */
-  bankName?: string | null;
-  /** @nullable */
-  cardExp?: string | null;
-  payerName: string;
-  /** @nullable */
-  zip?: string | null;
-  /** @nullable */
-  updatedAt?: string | null;
-}
-
-export interface ClientBillingContact {
-  /** @nullable */
-  name?: string | null;
-  /** @nullable */
-  email?: string | null;
-  /** @nullable */
-  company?: string | null;
-  /** @nullable */
-  phone?: string | null;
 }
 
 export interface ClientBoardFeedCardLink {
@@ -1249,6 +1253,11 @@ export interface WorkRequestCreateInput {
      * @nullable
      */
   budgetEstimate?: number | null;
+  /**
+     * Office bid number (B-xxxx) — prefills the request from that bid and links it
+     * @nullable
+     */
+  bidNumber?: string | null;
 }
 
 export interface WorkRequestAcceptInput {
@@ -1305,15 +1314,88 @@ export interface WorkRequestRec {
      * @nullable
      */
   listRate?: number | null;
+  /**
+     * Office bid number the client entered (B-xxxx)
+     * @nullable
+     */
+  bidNumber?: string | null;
   /** @nullable */
   decidedAt?: string | null;
   createdAt: string;
+}
+
+export interface BidAiPricingInput {
+  /** Service to price, e.g. 'gate repair' */
+  service: string;
+  /**
+     * Extra scope details
+     * @nullable
+     */
+  details?: string | null;
+  /**
+     * Market/city context
+     * @nullable
+     */
+  city?: string | null;
+  /** @nullable */
+  qty?: number | null;
+}
+
+export interface BidAiPricingResult {
+  /** Suggested unit price to bid */
+  suggested: number;
+  marketLow: number;
+  marketHigh: number;
+  /**
+     * Materials/wholesale cost guidance
+     * @nullable
+     */
+  wholesaleNotes?: string | null;
+  rationale: string;
+}
+
+export interface ClientBidLookup {
+  found: boolean;
+  /** @nullable */
+  bidNo?: string | null;
+  /** @nullable */
+  scope?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /**
+     * First line-item service, falls back to scope
+     * @nullable
+     */
+  serviceLabel?: string | null;
+  /**
+     * Line items summarized for the notes field
+     * @nullable
+     */
+  summary?: string | null;
 }
 
 export interface WorkRequestDeclineInput {
   /** @nullable */
   reason?: string | null;
 }
+
+export type ClientAccountUpsertPaymentMethod = {
+  /** card | ach */
+  methodType: string;
+  /** @maxLength 4 */
+  last4: string;
+  /** @nullable */
+  brand?: string | null;
+  /** @nullable */
+  bankName?: string | null;
+  /** @nullable */
+  cardExp?: string | null;
+  payerName: string;
+  /** @nullable */
+  zip?: string | null;
+} | null;
 
 export interface ClientAccountUpsert {
   tier?: string;
@@ -1327,6 +1409,13 @@ export interface ClientAccountUpsert {
   /** @nullable */
   servicesOverview?: string | null;
   notifyNewCards?: boolean;
+  /**
+     * @minimum 1
+     * @maximum 28
+     */
+  billingDay?: number;
+  billingContact?: ClientBillingContact | null;
+  paymentMethod?: ClientAccountUpsertPaymentMethod;
 }
 
 export interface ClientUserCreate {
@@ -1691,6 +1780,17 @@ export interface JobLineItem {
   rate: number;
   qty: number;
   amount: number;
+  /** @nullable */
+  assignedCrewId?: string | null;
+  /** @nullable */
+  assignedCrewName?: string | null;
+  /**
+     * HH:MM staggered start for this service's crew
+     * @nullable
+     */
+  startTime?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
 }
 
 export interface Job {
@@ -2420,6 +2520,15 @@ export interface JobLineItemInput {
 export interface JobLineItemUpdate {
   /** @minimum 0 */
   qty?: number;
+  /** @nullable */
+  assignedCrewId?: string | null;
+  /**
+     * HH:MM staggered start for this service's crew
+     * @nullable
+     */
+  startTime?: string | null;
+  /** Office override — mark this line item done/undone */
+  completed?: boolean;
 }
 
 export interface Activity {
@@ -2547,6 +2656,8 @@ export interface StaffingCrew {
   trade?: string | null;
   /** @nullable */
   selfiePath?: string | null;
+  /** Specialty profile — service names this crew covers */
+  services?: string[];
   /** idle | site | done */
   todayStatus: string;
   currentJob?: StaffingCrewJob | null;
@@ -2633,6 +2744,7 @@ export interface JobBoardCard {
   job: Job;
   invoice?: JobBoardInvoiceInfo | null;
   priceItems: PriceItem[];
+  lineItems?: JobLineItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];
 }
@@ -2646,11 +2758,19 @@ export interface CrewPayClearInput {
   crewId: string;
 }
 
+export type BroadcastInputItemTimesItem = {
+  lineItemId: string;
+  /** @nullable */
+  startTime?: string | null;
+};
+
 export interface BroadcastInput {
-  /** all | trade | crews */
+  /** all | trade | crews | specialties (match each line item's service to crew specialty profiles) */
   mode: string;
   trade?: string;
   crewIds?: string[];
+  /** Specialty mode — staggered start time per line item (HH:MM); persisted on the line items */
+  itemTimes?: BroadcastInputItemTimesItem[];
   /** scheduled | flex (defaults to scheduled) */
   scheduleType?: string;
   /** Flex timeframe in days from broadcast (default 7); sets flexDueBy */
@@ -2686,6 +2806,8 @@ export interface BroadcastResult {
   sent: number;
   alreadySent: number;
   crewNames?: string[];
+  /** Specialty mode — services no active crew's specialty profile covers */
+  unmatchedServices?: string[];
 }
 
 export interface ScheduleInput {
@@ -4602,6 +4724,23 @@ export interface CrewPhotoInput {
   capturedAt?: string | null;
 }
 
+export interface PortalJobLineItem {
+  id: string;
+  service: string;
+  /** @nullable */
+  assignedCrewName?: string | null;
+  /**
+     * HH:MM when this service's crew should start
+     * @nullable
+     */
+  startTime?: string | null;
+  /** True when this item is assigned to the requesting crew */
+  mine: boolean;
+  completed: boolean;
+  /** @nullable */
+  completedAt?: string | null;
+}
+
 export interface PortalJob {
   id: string;
   jobNo: string;
@@ -4612,6 +4751,11 @@ export interface PortalJob {
   unitNo?: string | null;
   /** @nullable */
   status?: string | null;
+  lineItems?: PortalJobLineItem[];
+}
+
+export interface PortalLineItemDoneInput {
+  done: boolean;
 }
 
 export interface CrewPhoto {
@@ -4867,6 +5011,16 @@ export interface PortalOffer {
   /** @nullable */
   crewsFilled?: number | null;
   filledByOther?: boolean;
+  /**
+     * Specialty broadcast — only these services are offered to this crew
+     * @nullable
+     */
+  forServices?: string[] | null;
+  /**
+     * HH:MM when this crew should start (staggered arrivals)
+     * @nullable
+     */
+  startTime?: string | null;
   tasks?: string[];
   photos: JobPhoto[];
 }
@@ -7429,6 +7583,12 @@ entityId?: string;
  * @maximum 200
  */
 limit?: number;
+};
+
+export type CompletePortalLineItem200 = {
+  ok: boolean;
+  /** True when this completion finished the whole job and moved it to Done */
+  jobCompleted: boolean;
 };
 
 export type ListLedgerAccounts200 = {

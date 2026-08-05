@@ -18,6 +18,8 @@ export const workRequestsTable = pgTable("work_requests", {
   budgetEstimate: doublePrecision("budget_estimate"), // client's expected budget, pre-filled from the price list
   photoPaths: jsonb("photo_paths"), // string[] of /objects/... storage paths
   changeOrderJobId: uuid("change_order_job_id"), // set when this is a change order on an existing job
+  bidId: uuid("bid_id"), // set when the client typed an office bid number — request prefilled from that bid
+  bidNumber: text("bid_number"), // the B-xxxx the client entered, kept for display
   status: text("status").notNull().default("pending"), // pending | accepted | declined
   declineReason: text("decline_reason"),
   adjustNote: text("adjust_note"), // office note back to the client when approved with changes

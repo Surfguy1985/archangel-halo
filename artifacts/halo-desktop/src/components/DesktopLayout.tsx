@@ -1,6 +1,6 @@
 import { useState} from "react";
 import { Link, useLocation} from "wouter";
-import { Mic, Bell, LayoutGrid, Home, Building, DollarSign, Users, Package, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather, Presentation, ExternalLink, Loader2, Plus, Briefcase, Receipt, HandCoins} from "lucide-react";
+import { Mic, Bell, LayoutGrid, Home, Building, DollarSign, Users, Package, Import as ImportIcon, ClipboardList, Settings, GraduationCap, BookOpen, Sparkles, Feather, Presentation, ExternalLink, Loader2, Plus, Briefcase, Receipt, HandCoins, FileSignature} from "lucide-react";
 import { useToast} from "@/hooks/use-toast";
 import { useQueryClient} from "@tanstack/react-query";
 import {
@@ -13,6 +13,7 @@ import {
 import haloLogo from "../assets/halo-logo.png";
 import { NotificationsPopover} from "./NotificationsPopover";
 import { QuickJobDialog} from "./QuickJobDialog";
+import QuickBidDialog from "./QuickBidDialog";
 import { AddPropertyDialog} from "./PropertyDialogs";
 import { VoiceCaptureDialog} from "./VoiceCaptureDialog";
 import { BusinessInfoDialog} from "./BusinessInfoDialog";
@@ -26,6 +27,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 
 export function DesktopLayout({ children}: { children: React.ReactNode}) {
@@ -43,6 +47,7 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
  };
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [quickJobOpen, setQuickJobOpen] = useState(false);
+  const [quickBidOpen, setQuickBidOpen] = useState(false);
   const [newPropertyOpen, setNewPropertyOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [wingsGuideOpen, setWingsGuideOpen] = useState(false);
@@ -221,9 +226,19 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
               <DropdownMenuItem onSelect={() => setNewPropertyOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-new-property">
                 <Building className="w-4 h-4 mr-2" /> Property
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setQuickJobOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-new-job">
-                <Briefcase className="w-4 h-4 mr-2" /> Job
-              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-new-job">
+                  <Briefcase className="w-4 h-4 mr-2" /> Job/Bid
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="rounded-md border-[var(--border)] bg-card text-foreground">
+                  <DropdownMenuItem onSelect={() => setQuickJobOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-new-job-job">
+                    <Briefcase className="w-4 h-4 mr-2" /> Job — schedule work now
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setQuickBidOpen(true)} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-new-bid">
+                    <FileSignature className="w-4 h-4 mr-2" /> Bid — price it for a client
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               <DropdownMenuItem onSelect={() => navigate("/invoices/new")} className="rounded-sm focus:bg-[var(--muted)] focus:text-[var(--primary)]" data-testid="menu-new-invoice">
                 <Receipt className="w-4 h-4 mr-2" /> Invoice
               </DropdownMenuItem>
@@ -272,6 +287,7 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
       />
       <BusinessInfoDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <QuickJobDialog open={quickJobOpen} onOpenChange={setQuickJobOpen} />
+      <QuickBidDialog open={quickBidOpen} onOpenChange={setQuickBidOpen} />
       <AddPropertyDialog open={newPropertyOpen} onOpenChange={setNewPropertyOpen} />
       <GuidedTour open={tourOpen} onOpenChange={setTourOpen} />
       <WingsGuideDialog open={wingsGuideOpen} onOpenChange={setWingsGuideOpen} />

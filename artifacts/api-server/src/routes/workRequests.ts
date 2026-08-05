@@ -10,6 +10,8 @@ import {
   jobsTable,
   notificationsTable,
   activitiesTable,
+  bidsTable,
+  bidLineItemsTable,
 } from "@workspace/db";
 import { sendEmail } from "../lib/email";
 import { ADMIN_EMAIL } from "../lib/notifications";
@@ -24,6 +26,7 @@ import {
   AcceptWorkRequestResponse,
   DeclineWorkRequestBody,
   DeclineWorkRequestResponse,
+  LookupClientBidResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -79,6 +82,7 @@ function serRequest(
     jobNo: jobNo ?? null,
     budgetEstimate: r.budgetEstimate ?? null,
     listRate: listRate ?? null,
+    bidNumber: r.bidNumber ?? null,
     decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null,
     createdAt: r.createdAt.toISOString(),
   };
@@ -140,6 +144,46 @@ router.get(
     );
   },
 );
+
+// Look up an office bid number (B-xxxx) so the request wizard can prefill.
+// Ownership: only bids on THIS client's property are visible (no enumeration
+// leak — anything else returns found:false, same as a typo).
+router.get("/client/:token/bid-lookup/:bidNo", async (req, res): Promise<void> => {
+  const account = await accountByToken(String(req.params.token));
+  if (!account) {
+    res.status(404).json({ error: "Invalid link" });
+    return;
+  }
+  const bidNo = String(req.params.bidNo).trim().toUpperCase();
+  const [bid] = await db
+    .select()
+    .from(bidsTable)
+    .where(and(eq(bidsTable.bidNo, bidNo), eq(bidsTable.propertyId, account.propertyId)))
+    .limit(1);
+  if (!bid) {
+    res.json(LookupClientBidResponse.parse({ found: false }));
+    return;
+  }
+  const lineItems = await db
+    .select()
+    .from(bidLineItemsTable)
+    .where(eq(bidLineItemsTable.bidId, bid.id));
+  lineItems.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  const summary = lineItems
+    .map((li) => `${li.service} — ${li.qty} × $${li.unitPrice}`)
+    .join("; ");
+  res.json(
+    LookupClientBidResponse.parse({
+      found: true,
+      bidNo: bid.bidNo,
+      scope: bid.scope,
+      amount: bid.amount,
+      unitNo: bid.unitNo ?? null,
+      serviceLabel: lineItems[0]?.service ?? bid.scope,
+      summary: summary || null,
+    }),
+  );
+});
 
 router.post("/client/:token/requests", async (req, res): Promise<void> => {
   const parsed = CreateClientWorkRequestBody.safeParse(req.body);
@@ -204,6 +248,21 @@ router.post("/client/:token/requests", async (req, res): Promise<void> => {
     }
     changeOrderJob = { id: job.id, jobNo: job.jobNo };
   }
+  // Bid link: a typed bid number must match a bid on THIS property.
+  let linkedBid: { id: string; bidNo: string } | null = null;
+  if (body.bidNumber?.trim()) {
+    const bidNo = body.bidNumber.trim().toUpperCase();
+    const [bid] = await db
+      .select({ id: bidsTable.id, bidNo: bidsTable.bidNo })
+      .from(bidsTable)
+      .where(and(eq(bidsTable.bidNo, bidNo), eq(bidsTable.propertyId, account.propertyId)))
+      .limit(1);
+    if (!bid) {
+      res.status(400).json({ error: "That bid number doesn't match a bid for your property" });
+      return;
+    }
+    linkedBid = bid;
+  }
   const emergency = body.emergency === true || isWithin24h(body.neededBy);
   // PO number is mandatory for normal requests. Emergencies may skip it —
   // they land as urgent "Action Required" items the office manually approves
@@ -228,6 +287,8 @@ router.post("/client/:token/requests", async (req, res): Promise<void> => {
       poNumber,
       photoPaths: photoPaths.length ? photoPaths : null,
       changeOrderJobId: changeOrderJob?.id ?? null,
+      bidId: linkedBid?.id ?? null,
+      bidNumber: linkedBid?.bidNo ?? null,
       budgetEstimate:
         typeof body.budgetEstimate === "number" && Number.isFinite(body.budgetEstimate) && body.budgetEstimate > 0
           ? body.budgetEstimate
@@ -251,7 +312,7 @@ router.post("/client/:token/requests", async (req, res): Promise<void> => {
     entityId: row!.id,
     title: emergency
       ? `EMERGENCY request from ${pn}`
-      : `New ${kindLabel} from ${pn}`,
+      : `New ${kindLabel} from ${pn}${linkedBid ? ` (Bid ${linkedBid.bidNo})` : ""}`,
     body: `${row!.serviceLabel}${unitsLabel}${row!.neededBy ? ` — needed by ${row!.neededBy}` : ""}${poNumber ? ` — PO ${poNumber}` : " — NO PO (manual approval)"}. Review it in Today or Pipeline.`,
   });
   await db.insert(activitiesTable).values({
@@ -422,6 +483,18 @@ export async function acceptWorkRequest(
       kind: "note",
       body: `Client change order approved → new Job ${jobNo}: ${request.serviceLabel}`,
     });
+  }
+  // A bid-backed request marks the bid accepted (best-effort — the job is
+  // already created; a bid status hiccup must not fail the accept).
+  if (request.bidId) {
+    try {
+      await db
+        .update(bidsTable)
+        .set({ status: "accepted", decidedAt: new Date() })
+        .where(and(eq(bidsTable.id, request.bidId), eq(bidsTable.status, "sent")));
+    } catch (err) {
+      logger.error({ err }, "bid status update on work-request accept failed");
+    }
   }
   // The client's Requested card flips to the job card on next read.
   emitBoardEvent(request.propertyId);

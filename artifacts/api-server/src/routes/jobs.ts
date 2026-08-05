@@ -303,9 +303,18 @@ router.post("/jobs/quick", async (req, res): Promise<void> => {
     return job;
   });
   const { propName, crewName } = await lookups();
-  res
-    .status(201)
-    .json(QuickCreateJobResponse.parse(decorateJob(row, propName, crewName)));
+  // Return the created line items too, so the quick-job sheet can staff each
+  // service (specialty dropdowns + staggered start times) without a refetch.
+  const createdItems = await db
+    .select()
+    .from(jobLineItemsTable)
+    .where(eq(jobLineItemsTable.jobId, row.id));
+  res.status(201).json(
+    QuickCreateJobResponse.parse({
+      ...decorateJob(row, propName, crewName),
+      lineItems: createdItems.map((li) => ({ ...serLineItem(li), assignedCrewName: null })),
+    }),
+  );
 });
 
 // Staffing context for the quick job sheet: every active crew with their
@@ -340,6 +349,11 @@ router.get("/staffing", async (_req, res): Promise<void> => {
             name: c.name,
             trade: c.trade ?? null,
             selfiePath: c.selfiePath ?? null,
+            services: Array.isArray(c.services)
+              ? (c.services as { name?: unknown }[])
+                  .map((s) => (typeof s?.name === "string" ? s.name : null))
+                  .filter((n): n is string => Boolean(n))
+              : [],
             todayStatus: sched ? (sched.status === "done" ? "done" : "site") : "idle",
             currentJob: job
               ? {
@@ -713,25 +727,81 @@ router.post("/jobs/:id/line-items", async (req, res): Promise<void> => {
 router.patch("/job-line-items/:id", async (req, res): Promise<void> => {
   const { id } = UpdateJobLineItemParams.parse(req.params);
   const body = UpdateJobLineItemBody.parse(req.body);
-  if (body.qty == null) {
-    res.status(400).json({ error: "No fields to update" });
-    return;
+  const patch: Partial<typeof jobLineItemsTable.$inferInsert> = {};
+  if (body.qty != null) {
+    if (body.qty <= 0) {
+      res.status(400).json({ error: "Quantity must be greater than zero." });
+      return;
+    }
+    patch.qty = body.qty;
   }
-  if (body.qty <= 0) {
-    res.status(400).json({ error: "Quantity must be greater than zero." });
+  if (body.assignedCrewId !== undefined) {
+    if (body.assignedCrewId) {
+      const [crew] = await db
+        .select({ id: crewsTable.id })
+        .from(crewsTable)
+        .where(eq(crewsTable.id, body.assignedCrewId));
+      if (!crew) {
+        res.status(400).json({ error: "Crew not found" });
+        return;
+      }
+    }
+    patch.assignedCrewId = body.assignedCrewId ?? null;
+  }
+  if (body.startTime !== undefined) {
+    patch.startTime = body.startTime?.trim() || null;
+  }
+  if (body.completed !== undefined) {
+    // Office override — mark done/undone without a crew attribution.
+    patch.completedAt = body.completed ? new Date() : null;
+    if (!body.completed) patch.completedByCrewId = null;
+  }
+  if (Object.keys(patch).length === 0) {
+    res.status(400).json({ error: "No fields to update" });
     return;
   }
   const [row] = await db
     .update(jobLineItemsTable)
-    .set({ qty: body.qty })
+    .set(patch)
     .where(eq(jobLineItemsTable.id, id))
     .returning();
   if (!row) {
     res.status(404).json({ error: "Line item not found" });
     return;
   }
-  res.json(UpdateJobLineItemResponse.parse(serLineItem(row)));
+  // Same rule as the crew portal: when the office override checks off the
+  // last open item, the job auto-moves to Done (guarded — live cards only).
+  if (body.completed === true) {
+    const items = await db
+      .select({ completedAt: jobLineItemsTable.completedAt })
+      .from(jobLineItemsTable)
+      .where(eq(jobLineItemsTable.jobId, row.jobId));
+    if (items.length > 0 && items.every((i) => i.completedAt !== null)) {
+      await db
+        .update(jobsTable)
+        .set({ boardStatus: "completed" })
+        .where(
+          and(
+            eq(jobsTable.id, row.jobId),
+            inArray(jobsTable.boardStatus, ["active", "filled", "reopened"]),
+          ),
+        );
+    }
+  }
+  res.json(UpdateJobLineItemResponse.parse(await serLineItemWithCrew(row)));
 });
+
+async function serLineItemWithCrew(row: typeof jobLineItemsTable.$inferSelect) {
+  let assignedCrewName: string | null = null;
+  if (row.assignedCrewId) {
+    const [crew] = await db
+      .select({ name: crewsTable.name })
+      .from(crewsTable)
+      .where(eq(crewsTable.id, row.assignedCrewId));
+    assignedCrewName = crew?.name ?? null;
+  }
+  return { ...serLineItem(row), assignedCrewName };
+}
 
 router.delete("/job-line-items/:id", async (req, res): Promise<void> => {
   const { id } = DeleteJobLineItemParams.parse(req.params);

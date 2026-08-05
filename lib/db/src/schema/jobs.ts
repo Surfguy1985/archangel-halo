@@ -122,17 +122,27 @@ export const recapSharesTable = pgTable("recap_shares", {
     .defaultNow(),
 });
 
-export const jobBroadcastsTable = pgTable("job_broadcasts", {
+export const jobBroadcastsTable = pgTable(
+  "job_broadcasts",
+  {
   id: uuid("id").primaryKey().defaultRandom(),
   jobId: uuid("job_id").notNull(),
   crewId: uuid("crew_id").notNull(),
   status: text("status").notNull().default("pending"),
+  // Specialty broadcast: which of the job's services this offer covers, and
+  // when that crew should start (staggered arrivals). Null = whole job.
+  forServices: jsonb("for_services"),
+  startTime: text("start_time"),
   sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   respondedAt: timestamp("responded_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+  },
+  // One offer row per (job, crew) — concurrent broadcasts must not create
+  // duplicate offers; writes upsert against this.
+  (t) => [uniqueIndex("job_broadcasts_job_crew_uq").on(t.jobId, t.crewId)],
+);
 
 export const jobLineItemsTable = pgTable("job_line_items", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -142,6 +152,13 @@ export const jobLineItemsTable = pgTable("job_line_items", {
   unit: text("unit"),
   rate: doublePrecision("rate").notNull(),
   qty: doublePrecision("qty").notNull().default(1),
+  // Per-item completion tracked by crew: the office assigns each line item to
+  // a crew; only that crew can mark it done from their live link.
+  assignedCrewId: uuid("assigned_crew_id"),
+  // Staggered starts: when this service's crew should arrive (HH:MM local).
+  startTime: text("start_time"),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  completedByCrewId: uuid("completed_by_crew_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

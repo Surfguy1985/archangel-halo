@@ -1,5 +1,5 @@
-import { Link } from "wouter";
-import { ShieldCheck, Users, Send, Building } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { ShieldCheck, Users, Send, Building, LayoutGrid } from "lucide-react";
 import { useListClientAccounts } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OfficePasscodeCard } from "@/components/OfficePasscodeCard";
@@ -12,94 +12,97 @@ const TIER_LABEL: Record<string, string> = {
 
 export default function Admin() {
   const { data: accounts, isLoading } = useListClientAccounts();
+  const [, navigate] = useLocation();
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-2xl bg-[var(--ink)] text-[var(--primary)] flex items-center justify-center">
-          <ShieldCheck className="w-6 h-6" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-display font-bold">Admin</h1>
-          <p className="text-muted-foreground text-sm font-medium">
-            Subscription back office — every active property as a managed account
-          </p>
-        </div>
-      </div>
+      <div className="bg-[var(--secondary)] rounded-[24px] p-6 lg:p-8 shadow-2xl flex flex-col min-h-[60vh] border border-white/5">
+        <header className="flex items-center gap-4 mb-8">
+          <div className="w-12 h-12 rounded-xl bg-[var(--gold-light)] text-black flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-display font-bold text-white tracking-tight">Admin</h1>
+            <p className="text-white/50 text-sm mt-0.5">Subscription back office — every active property as a managed account</p>
+          </div>
+        </header>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-36 rounded-2xl" />
-          ))}
-        </div>
-      ) : !accounts || accounts.length === 0 ? (
-        <div className="bg-card rounded-2xl p-10 text-center text-muted-foreground font-medium">
-          No active properties yet — add a property first, then manage its
-          subscription here.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {accounts.map((a) => (
-            <Link
-              key={a.propertyId}
-              href={`/admin/${a.propertyId}/board`}
-              className="block bg-[var(--ink)] text-white rounded-2xl p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all"
-              data-testid={`card-account-${a.propertyId}`}
-            >
-              <div className="flex items-start gap-4">
-                {a.logoPath ? (
-                  <img
-                    src={`/api/storage${a.logoPath}`}
-                    alt=""
-                    className="w-12 h-12 rounded-xl object-cover bg-white/10"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                    <Building className="w-6 h-6 text-white/50" />
+        {isLoading ? (
+          <div className="space-y-4 flex-1">
+             <Skeleton className="h-16 w-full rounded-xl bg-white/5" />
+             <Skeleton className="h-16 w-full rounded-xl bg-white/5" />
+             <Skeleton className="h-16 w-full rounded-xl bg-white/5" />
+          </div>
+        ) : !accounts || accounts.length === 0 ? (
+          <div className="py-20 text-center text-white/30 text-sm flex-1">
+            No active properties yet — add a property first, then manage its subscription here.
+          </div>
+        ) : (
+          <div className="flex flex-col flex-1">
+            <div className="grid grid-cols-[56px_1fr_1fr_100px_120px] gap-4 pb-3 border-b border-white/10 text-white/40 text-xs font-bold uppercase tracking-wider px-4">
+               <div></div>
+               <div>Property</div>
+               <div>Location</div>
+               <div>Status</div>
+               <div className="text-right">Seats</div>
+            </div>
+            <div className="flex flex-col mt-2">
+              {accounts.map(a => (
+                <Link
+                  key={a.propertyId}
+                  href={`/admin/${a.propertyId}`}
+                  className="group grid grid-cols-[56px_1fr_1fr_100px_120px] gap-4 items-center py-3 border-b border-white/5 hover:bg-white/5 transition-colors px-4 rounded-xl"
+                  data-testid={`card-account-${a.propertyId}`}
+                >
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/5 border border-white/10 relative flex items-center justify-center shrink-0">
+                    {a.logoPath ? (
+                      <img src={`/api/storage${a.logoPath}`} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    ) : (
+                      <Building className="w-5 h-5 text-white/20" />
+                    )}
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-display font-bold truncate">
-                    {a.propertyName}
-                  </h3>
-                  <p className="text-white/60 text-sm font-medium truncate">
+                  <div className="min-w-0">
+                    <div className="font-bold text-white truncate text-sm group-hover:text-[var(--gold-light)] transition-colors">{a.propertyName}</div>
+                    <div className="text-[10px] text-white/40 mt-1">{TIER_LABEL[a.tier] ?? a.tier}</div>
+                  </div>
+                  <div className="text-white/60 text-sm truncate">
                     {[a.pmcName, a.city].filter(Boolean).join(" · ") || "—"}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 text-[10px] font-bold uppercase tracking-wider rounded-full px-3 py-1 ${
-                    a.status === "active"
-                      ? "bg-[var(--primary)]/20 text-[var(--primary)]"
-                      : "bg-white/10 text-white/60"
-                  }`}
-                >
-                  {TIER_LABEL[a.tier] ?? a.tier}
-                  {a.status !== "active" ? ` · ${a.status}` : ""}
-                </span>
-              </div>
-              <div className="flex items-center gap-5 mt-5 text-sm text-white/70 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <Users className="w-4 h-4" />
-                  {a.userSeatsUsed}/{a.userSeats} seats
-                </span>
-                <span>{a.guestSeats} guest</span>
-                <span
-                  className={`ml-auto flex items-center gap-1.5 ${
-                    a.onboardingStatus === "sent"
-                      ? "text-[var(--primary)]"
-                      : "text-white/50"
-                  }`}
-                >
-                  <Send className="w-4 h-4" />
-                  {a.onboardingStatus === "sent" ? "Onboarded" : "Not onboarded"}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+                  </div>
+                  <div>
+                    <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      a.status === 'active' ? 'bg-[#B4FF44]/10 text-[#B4FF44] border border-[#B4FF44]/20' : 'bg-white/5 text-white/40 border border-white/10'
+                    }`}>
+                      {a.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-end gap-4 text-white/50 text-xs">
+                    <span className="flex items-center gap-1.5" title="User seats">
+                      <Users className="w-3.5 h-3.5" /> {a.userSeatsUsed}/{a.userSeats}
+                    </span>
+                    <span className={`flex items-center ${a.onboardingStatus === 'sent' ? 'text-[var(--gold-light)]' : 'text-white/20'}`} title={a.onboardingStatus === 'sent' ? 'Onboarded' : 'Not onboarded'}>
+                      <Send className="w-3.5 h-3.5" />
+                    </span>
+                    <button
+                      type="button"
+                      title="Open client board"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigate(`/admin/${a.propertyId}/board`);
+                      }}
+                      className="flex items-center text-white/40 hover:text-[var(--gold-light)] transition-colors"
+                      data-testid={`link-account-board-${a.propertyId}`}
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
+      </div>
       <OfficePasscodeCard />
     </div>
   );

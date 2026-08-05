@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { PortalJobLineItem } from './portalJobLineItem';
 
 export interface PortalJob {
   id: string;
@@ -16,4 +17,5 @@ export interface PortalJob {
   unitNo?: string | null;
   /** @nullable */
   status?: string | null;
+  lineItems?: PortalJobLineItem[];
 }

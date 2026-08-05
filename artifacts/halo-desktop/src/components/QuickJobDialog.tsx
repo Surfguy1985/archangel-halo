@@ -12,6 +12,7 @@ import {
   useGetProperty,
   useQuickCreateJob,
   useUpdateJob,
+  useUpdateJobLineItem,
   usePullCrewToJob,
   useBroadcastJob,
   useGetStaffingContext,
@@ -22,7 +23,28 @@ import {
   getListJobBoardQueryKey,
   getGetStaffingContextQueryKey,
   type Job,
+  type JobLineItem,
+  type StaffingCrew,
 } from "@workspace/api-client-react";
+
+/** Mirror of the server's specialty matcher: token containment either way. */
+function serviceTokens(s: string): string[] {
+  return s
+    .toLowerCase()
+    .replace(/\d\s*br\b/g, " ")
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length > 1);
+}
+function crewCoversService(crew: StaffingCrew, service: string): boolean {
+  const want = serviceTokens(service);
+  if (want.length === 0) return false;
+  const profiles = [...(crew.services ?? []), ...(crew.trade ? [crew.trade] : [])];
+  return profiles.some((p) => {
+    const have = serviceTokens(p);
+    if (have.length === 0) return false;
+    return want.every((t) => have.includes(t)) || have.every((t) => want.includes(t));
+  });
+}
 import { MapPin, Zap, Plus, Radio, UserCheck, UserMinus, Check } from "lucide-react";
 
 const fieldCls =
@@ -75,6 +97,9 @@ export function QuickJobDialog({
   const [dueOn, setDueOn] = useState("");
   const [pillIds, setPillIds] = useState<string[]>([]);
   const [createdJob, setCreatedJob] = useState<Job | null>(null);
+  // Per-service staffing: the created job's line items with local edits
+  // (crew picks + staggered start times) layered on top.
+  const [items, setItems] = useState<JobLineItem[]>([]);
   const [staffMode, setStaffMode] = useState<"assign" | "pull" | null>(null);
   const [staffedNote, setStaffedNote] = useState<string | null>(null);
   const [broadcastCount, setBroadcastCount] = useState(0);
@@ -82,6 +107,7 @@ export function QuickJobDialog({
 
   const create = useQuickCreateJob();
   const assign = useUpdateJob();
+  const updateItem = useUpdateJobLineItem();
   const pull = usePullCrewToJob();
   const broadcast = useBroadcastJob();
 
@@ -172,6 +198,7 @@ export function QuickJobDialog({
     setDueOn("");
     setPillIds([]);
     setCreatedJob(null);
+    setItems([]);
     setStaffMode(null);
     setStaffedNote(null);
     setBroadcastCount(0);
@@ -221,6 +248,7 @@ export function QuickJobDialog({
       {
         onSuccess: (job) => {
           setCreatedJob(job);
+          setItems((job.lineItems ?? []).filter((li) => li.service !== "Quoted price"));
           invalidateAll(selectedProp);
         },
         onError: () => setErrorMsg("Couldn't create the job. Try again."),
@@ -264,19 +292,39 @@ export function QuickJobDialog({
   const doBroadcast = () => {
     if (!createdJob) return;
     setErrorMsg(null);
+    // With line items, broadcast by specialty: each crew only gets an alert
+    // for the services in their specialty profile, with their start time.
+    const bySpecialty = items.length > 0;
     broadcast.mutate(
-      { id: createdJob.id, data: { mode: "all" } },
+      {
+        id: createdJob.id,
+        data: bySpecialty
+          ? {
+              mode: "specialties",
+              itemTimes: items.map((li) => ({
+                lineItemId: li.id,
+                startTime: li.startTime ?? null,
+              })),
+            }
+          : { mode: "all" },
+      },
       {
         onSuccess: (r) => {
           setBroadcastCount((c) => c + 1);
+          const unmatched = r.unmatchedServices ?? [];
           setStaffedNote(
             r.sent > 0
-              ? `Broadcast to ${r.sent} crew${r.sent === 1 ? "" : "s"} — first to accept wins.`
-              : "All crews already have this offer — rebroadcast refreshed it.",
+              ? `Broadcast to ${r.sent} crew${r.sent === 1 ? "" : "s"}${bySpecialty ? " by specialty" : ""} — first to accept wins.${unmatched.length > 0 ? ` No specialty match for: ${unmatched.join(", ")}.` : ""}`
+              : "All matching crews already have this offer — rebroadcast refreshed it.",
           );
           invalidateAll(createdJob.propertyId ?? selectedProp);
         },
-        onError: () => setErrorMsg("Broadcast failed. Try again."),
+        onError: (e) => {
+          const msg =
+            (e as { data?: { error?: string } })?.data?.error ??
+            "Broadcast failed. Try again.";
+          setErrorMsg(msg);
+        },
       },
     );
   };
@@ -480,6 +528,102 @@ export function QuickJobDialog({
                 <div className="text-sm font-semibold" data-testid="text-quickjob-staffed">
                   {staffedNote}
                 </div>
+              </div>
+            )}
+
+            {items.length > 0 && (
+              <div className="flex flex-col gap-1.5 py-1">
+                <span className={labelCls}>Staff by service — specialty crews</span>
+                {items.map((li) => {
+                  const specialists = (staffing ?? []).filter((c) =>
+                    crewCoversService(c, li.service),
+                  );
+                  const pool = specialists.length > 0 ? specialists : (staffing ?? []);
+                  return (
+                    <div
+                      key={li.id}
+                      className="flex flex-col gap-1.5 bg-white border border-border rounded-xl p-3"
+                      data-testid={`quickjob-item-${li.id}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold">{li.service}</span>
+                        {specialists.length === 0 && (
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                            No specialty match — showing all
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          className={fieldCls}
+                          value={li.assignedCrewId ?? ""}
+                          onChange={(e) => {
+                            const crewId = e.target.value || null;
+                            setItems((cur) =>
+                              cur.map((x) =>
+                                x.id === li.id
+                                  ? {
+                                      ...x,
+                                      assignedCrewId: crewId,
+                                      assignedCrewName:
+                                        pool.find((c) => c.id === crewId)?.name ?? null,
+                                    }
+                                  : x,
+                              ),
+                            );
+                            updateItem.mutate(
+                              { id: li.id, data: { assignedCrewId: crewId } },
+                              {
+                                onSuccess: () =>
+                                  invalidateAll(createdJob.propertyId ?? selectedProp),
+                                onError: () =>
+                                  setErrorMsg("Couldn't save that crew pick. Try again."),
+                              },
+                            );
+                          }}
+                          data-testid={`select-quickjob-itemcrew-${li.id}`}
+                        >
+                          <option value="">
+                            {specialists.length > 0 ? "Pick a specialist…" : "Pick a crew…"}
+                          </option>
+                          {pool.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                              {c.currentJob ? ` — on ${c.currentJob.jobNo}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                        {items.length > 1 && (
+                          <input
+                            type="time"
+                            className={fieldCls}
+                            value={li.startTime ?? ""}
+                            title="Start time — stagger arrivals so crews aren't on site at once"
+                            onChange={(e) => {
+                              const startTime = e.target.value || null;
+                              setItems((cur) =>
+                                cur.map((x) => (x.id === li.id ? { ...x, startTime } : x)),
+                              );
+                              updateItem.mutate(
+                                { id: li.id, data: { startTime } },
+                                {
+                                  onError: () =>
+                                    setErrorMsg("Couldn't save that start time. Try again."),
+                                },
+                              );
+                            }}
+                            data-testid={`input-quickjob-itemtime-${li.id}`}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {items.length > 1 && (
+                  <span className="text-[11px] text-muted-foreground px-1">
+                    Set start times so specialty crews arrive staggered, not all at once.
+                  </span>
+                )}
               </div>
             )}
 

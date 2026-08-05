@@ -48,7 +48,11 @@ import {
   SendBidResponse,
   NudgeBidParams,
   NudgeBidResponse,
+  GetBidAiPricingBody,
+  GetBidAiPricingResponse,
 } from "@workspace/api-zod";
+import { completeJson } from "../lib/ai";
+import { logger } from "../lib/logger";
 import { ser } from "../lib/serialize";
 import { sendEmail } from "../lib/email";
 import { getBusinessSettings } from "../lib/businessSettings";
@@ -595,35 +599,108 @@ router.get("/bids", async (req, res): Promise<void> => {
   );
 });
 
+// Drizzle wraps pg errors — unique-violation checks must read err.code OR err.cause.code.
+function isUniqueViolation(err: unknown): boolean {
+  const e = err as { code?: string; cause?: { code?: string } };
+  return e?.code === "23505" || e?.cause?.code === "23505";
+}
+
 router.post("/bids", async (req, res): Promise<void> => {
   const body = CreateBidBody.parse(req.body);
   const { lineItems, status, ...rest } = body;
-  const bidNo = await nextBidNo();
   const effectiveStatus = status ?? "sent";
-  const row = await db.transaction(async (tx) => {
-    const [created] = await tx
-      .insert(bidsTable)
-      .values({
-        ...rest,
-        bidNo,
-        status: effectiveStatus,
-        sentAt: effectiveStatus === "draft" ? null : new Date(),
-      })
-      .returning();
-    if (lineItems?.length) {
-      const total = await replaceLineItems(tx, created.id, lineItems);
-      if (total > 0 && Math.abs(total - created.amount) > 0.005) {
-        const [updated] = await tx
-          .update(bidsTable)
-          .set({ amount: total })
-          .where(eq(bidsTable.id, created.id))
+  // bid_no is DB-unique; concurrent creates retry with a fresh number.
+  let row: typeof bidsTable.$inferSelect | undefined;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const bidNo = await nextBidNo();
+    try {
+      row = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(bidsTable)
+          .values({
+            ...rest,
+            bidNo,
+            status: effectiveStatus,
+            sentAt: effectiveStatus === "draft" ? null : new Date(),
+          })
           .returning();
-        return updated;
-      }
+        if (lineItems?.length) {
+          const total = await replaceLineItems(tx, created.id, lineItems);
+          if (total > 0 && Math.abs(total - created.amount) > 0.005) {
+            const [updated] = await tx
+              .update(bidsTable)
+              .set({ amount: total })
+              .where(eq(bidsTable.id, created.id))
+              .returning();
+            return updated;
+          }
+        }
+        return created;
+      });
+      break;
+    } catch (err) {
+      if (isUniqueViolation(err) && attempt < 4) continue;
+      throw err;
     }
-    return created;
-  });
+  }
+  if (!row) {
+    res.status(500).json({ error: "Couldn't allocate a bid number — try again" });
+    return;
+  }
   res.status(201).json(CreateBidResponse.parse(await bidDetailJson(row)));
+});
+
+// AI market-rate check: suggested bid price for a service. The model has no
+// live web access — it's a knowledge-based estimate, and the response says so.
+router.post("/bids/ai-pricing", async (req, res): Promise<void> => {
+  const parsed = GetBidAiPricingBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { service, details, city, qty } = parsed.data;
+  try {
+    const out = await completeJson<{
+      suggested: number;
+      marketLow: number;
+      marketHigh: number;
+      wholesaleNotes: string | null;
+      rationale: string;
+    }>(
+      "You are a pricing analyst for a property-maintenance contractor bidding work to apartment property managers in the US.",
+      [
+        `Service to price: ${service}`,
+        details ? `Scope details: ${details}` : null,
+        city ? `Market: ${city}` : null,
+        typeof qty === "number" && qty > 1 ? `Quantity: ${qty} (price PER UNIT)` : null,
+        "Estimate the typical local market price range a contractor charges (marketLow, marketHigh, USD per unit), a suggested competitive bid price (suggested — near the middle, slightly above median for quality work), and wholesaleNotes: 1-2 sentences on typical materials/wholesale costs a contractor should expect (name typical supplier categories, not specific stores' live prices).",
+        "rationale: 2 short sentences on how you priced it. Be honest that these are typical-market estimates, not live quotes.",
+        'Respond ONLY with JSON: {"suggested":number,"marketLow":number,"marketHigh":number,"wholesaleNotes":string,"rationale":string}',
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+    if (
+      typeof out?.suggested !== "number" ||
+      typeof out?.marketLow !== "number" ||
+      typeof out?.marketHigh !== "number"
+    ) {
+      res.status(502).json({ error: "AI pricing came back malformed — try again or price manually" });
+      return;
+    }
+    res.json(
+      GetBidAiPricingResponse.parse({
+        suggested: Math.round(out.suggested * 100) / 100,
+        marketLow: Math.round(out.marketLow * 100) / 100,
+        marketHigh: Math.round(out.marketHigh * 100) / 100,
+        wholesaleNotes: typeof out.wholesaleNotes === "string" ? out.wholesaleNotes : null,
+        rationale: typeof out.rationale === "string" ? out.rationale : "Typical market estimate.",
+      }),
+    );
+  } catch (err) {
+    logger.error({ err }, "bid ai pricing failed");
+    res.status(502).json({ error: "AI pricing is unavailable right now — type a price manually" });
+  }
 });
 
 router.get("/bids/:id", async (req, res): Promise<void> => {

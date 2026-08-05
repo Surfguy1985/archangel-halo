@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   useCreateClientWorkRequest,
   useGetClientRequestOptions,
+  useLookupClientBid,
+  getLookupClientBidQueryKey,
   getGetClientRequestOptionsQueryKey,
   getGetClientBoardQueryKey,
 } from '@workspace/api-client-react';
@@ -66,6 +68,45 @@ export function RequestWorkDialog({
   const [poNumber, setPoNumber] = useState('');
   const [photos, setPhotos] = useState<Array<{ path: string; name: string }>>([]);
   const [uploading, setUploading] = useState(false);
+
+  // Bid number: typing the office's B-xxxx pre-fills the whole request.
+  const [bidInput, setBidInput] = useState('');
+  const [bidLookupNo, setBidLookupNo] = useState(''); // committed value that triggers the lookup
+  const [appliedBid, setAppliedBid] = useState<string | null>(null);
+  const bidLookup = useLookupClientBid(token, bidLookupNo, {
+    query: {
+      enabled: open && !!bidLookupNo,
+      queryKey: getLookupClientBidQueryKey(token, bidLookupNo),
+    },
+  });
+  useEffect(() => {
+    const d = bidLookup.data;
+    if (!d || !bidLookupNo) return;
+    if (!d.found) {
+      setAppliedBid(null);
+      toast({
+        title: 'Bid not found',
+        description: `${bidLookupNo} doesn't match a bid for your property — check the number on your bid document.`,
+        variant: 'destructive',
+      });
+      setBidLookupNo('');
+      return;
+    }
+    // Prefill ONCE per explicit Apply: clearing bidLookupNo disables the query
+    // so a background refetch can never re-overwrite the client's edits.
+    setBidLookupNo('');
+    setAppliedBid(d.bidNo ?? bidLookupNo);
+    setServiceId('');
+    setCustomLabel(d.serviceLabel ?? d.scope ?? '');
+    if (d.unitNo) setUnits((prev) => (prev.includes(d.unitNo!) ? prev : [d.unitNo!, ...prev]));
+    if (typeof d.amount === 'number' && d.amount > 0) {
+      setBudget(String(d.amount));
+      setBudgetTouched(true);
+    }
+    setNotes((prev) => prev || [`From Bid ${d.bidNo}`, d.scope, d.summary].filter(Boolean).join(' · '));
+    toast({ title: `Bid ${d.bidNo} applied`, description: 'Everything below is pre-filled — review and send.' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bidLookup.data]);
 
   // Prefill units when opened from a unit box on the map.
   useEffect(() => {
@@ -152,6 +193,9 @@ export function RequestWorkDialog({
     setEmergency(false);
     setPoNumber('');
     setPhotos([]);
+    setBidInput('');
+    setBidLookupNo('');
+    setAppliedBid(null);
   };
 
   const stepOneValid = !!serviceLabel;
@@ -190,6 +234,7 @@ export function RequestWorkDialog({
           photoPaths: photos.map((p) => p.path),
           changeOrderJobId: changeOrder?.jobId ?? null,
           budgetEstimate: Number.isFinite(budgetNum) && budgetNum > 0 ? budgetNum : null,
+          bidNumber: appliedBid,
         },
       },
       {
@@ -271,6 +316,54 @@ export function RequestWorkDialog({
           {/* ------------------------------------------------ Step 1 — What & Where */}
           {step === 0 && (
             <div className="space-y-4" data-testid="wizard-step-what">
+              {/* Bid number — typing the office's B-xxxx pre-fills everything */}
+              <div className={`rounded-[10px] border p-3 ${appliedBid ? 'border-[#B4FF44] bg-[#B4FF44]/15' : 'border-black/10 bg-black/[0.03]'}`}>
+                <label className={labelCls}>Have a bid number? (on your bid document)</label>
+                {appliedBid ? (
+                  <div className="flex items-center justify-between">
+                    <span data-testid="applied-bid-chip" className="text-[13px] font-bold text-[#1d1d1f]">
+                      Bid {appliedBid} applied ✓
+                    </span>
+                    <button
+                      type="button"
+                      data-testid="button-clear-bid"
+                      onClick={() => {
+                        setAppliedBid(null);
+                        setBidInput('');
+                        setBidLookupNo('');
+                      }}
+                      className="text-[12px] font-semibold text-[#6e6e73] underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      data-testid="input-bid-number"
+                      value={bidInput}
+                      onChange={(e) => setBidInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && bidInput.trim()) {
+                          e.preventDefault();
+                          setBidLookupNo(bidInput.trim().toUpperCase());
+                        }
+                      }}
+                      placeholder="e.g. B-1042"
+                      className={inputCls}
+                    />
+                    <button
+                      type="button"
+                      data-testid="button-apply-bid"
+                      disabled={!bidInput.trim() || bidLookup.isFetching}
+                      onClick={() => setBidLookupNo(bidInput.trim().toUpperCase())}
+                      className="shrink-0 rounded-[10px] bg-[#1d1d1f] px-4 text-[13px] font-semibold text-white disabled:opacity-40"
+                    >
+                      {bidLookup.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+                    </button>
+                  </div>
+                )}
+              </div>
               {services.length > 0 && (
                 <div>
                   <label className={labelCls}>Service</label>

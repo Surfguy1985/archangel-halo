@@ -182,6 +182,12 @@ router.get("/job-board", async (_req, res): Promise<void> => {
   }
   // Distinct service names per job from its line items — the tile pill shows
   // the exact work sold, not a generic category.
+  const itemsByJob = new Map<string, typeof lineItems>();
+  for (const li of lineItems) {
+    const list = itemsByJob.get(li.jobId) ?? [];
+    list.push(li);
+    itemsByJob.set(li.jobId, list);
+  }
   const servicesByJob = new Map<string, string[]>();
   for (const li of lineItems) {
     if (!li.service || li.service === "Quoted price") continue;
@@ -224,6 +230,13 @@ router.get("/job-board", async (_req, res): Promise<void> => {
         };
       })(),
       priceItems: (priceByProp.get(j.propertyId) ?? []).map((pi) => ser(pi)),
+      lineItems: (itemsByJob.get(j.id) ?? []).map((li) => ({
+        ...ser(li),
+        amount: Math.round(li.rate * li.qty * 100) / 100,
+        assignedCrewName: li.assignedCrewId
+          ? (crewsById.get(li.assignedCrewId)?.name ?? null)
+          : null,
+      })),
       photos: photosByJob.get(j.id) ?? [],
       broadcasts: (broadcastsByJob.get(j.id) ?? [])
         .filter((b) => b.status !== "withdrawn")
@@ -261,6 +274,77 @@ router.post("/jobs/:id/broadcast", async (req, res): Promise<void> => {
     .from(crewsTable)
     .where(eq(crewsTable.active, true));
 
+  // Specialty broadcast: each crew is offered only the line items whose
+  // service matches their specialty profile (crews.services names, with the
+  // trade field as a fallback). Staggered start times ride on the offer.
+  if (body.mode === "specialties") {
+    const items = await db
+      .select()
+      .from(jobLineItemsTable)
+      .where(eq(jobLineItemsTable.jobId, id));
+    const openItems = items.filter((li) => !li.completedAt);
+    if (openItems.length === 0) {
+      res.status(400).json({ error: "This job has no line items to match specialties against" });
+      return;
+    }
+    // Persist per-item staggered start times first, so offers and the crew
+    // checklist show the same times.
+    const timeById = new Map(
+      (body.itemTimes ?? []).map((t) => [t.lineItemId, t.startTime?.trim() || null]),
+    );
+    for (const li of openItems) {
+      if (timeById.has(li.id)) {
+        const startTime = timeById.get(li.id) ?? null;
+        if (startTime !== (li.startTime ?? null)) {
+          await db
+            .update(jobLineItemsTable)
+            .set({ startTime })
+            .where(eq(jobLineItemsTable.id, li.id));
+          li.startTime = startTime;
+        }
+      }
+    }
+    // Match each service to crews. Already-assigned items only go to their
+    // assigned crew; unassigned items go to every specialty match.
+    const perCrew = new Map<string, { services: string[]; startTime: string | null }>();
+    const unmatched: string[] = [];
+    for (const li of openItems) {
+      const matches = li.assignedCrewId
+        ? crews.filter((c) => c.id === li.assignedCrewId)
+        : crews.filter((c) => crewCoversService(c, li.service));
+      if (matches.length === 0) {
+        unmatched.push(li.service);
+        continue;
+      }
+      for (const c of matches) {
+        const cur = perCrew.get(c.id) ?? { services: [], startTime: null };
+        if (!cur.services.includes(li.service)) cur.services.push(li.service);
+        // Earliest start wins when one crew covers several services.
+        if (li.startTime && (!cur.startTime || li.startTime < cur.startTime)) {
+          cur.startTime = li.startTime;
+        }
+        perCrew.set(c.id, cur);
+      }
+    }
+    if (perCrew.size === 0) {
+      res.status(400).json({
+        error:
+          "No active crew has these services in their specialty profile. Add the services to crew profiles or broadcast to everyone.",
+      });
+      return;
+    }
+    const result = await sendBroadcasts(
+      job,
+      crews.filter((c) => perCrew.has(c.id)),
+      body,
+      (crewId) => perCrew.get(crewId) ?? null,
+    );
+    res.json(
+      BroadcastJobResponse.parse({ ...result, unmatchedServices: [...new Set(unmatched)] }),
+    );
+    return;
+  }
+
   let targets = crews;
   if (body.mode === "trade") {
     const wanted = (body.trade ?? "").trim().toLowerCase();
@@ -283,6 +367,62 @@ router.post("/jobs/:id/broadcast", async (req, res): Promise<void> => {
     return;
   }
 
+  const result = await sendBroadcasts(job, targets, body, () => null);
+  res.json(BroadcastJobResponse.parse(result));
+});
+
+/** Normalize a service/specialty name for matching: lowercase alphanumeric tokens. */
+function serviceTokens(s: string): string[] {
+  return s
+    .toLowerCase()
+    // Drop bedroom sizing so "Cabinet Paint — 2 BR" matches specialty "Cabinet Paint".
+    .replace(/\d\s*br\b/g, " ")
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length > 1);
+}
+
+/**
+ * Does this crew's specialty profile cover the service? A crew covers a
+ * service when one of their profile service names (or their trade) shares
+ * a containment relationship with the line item's service tokens.
+ */
+function crewCoversService(
+  crew: typeof crewsTable.$inferSelect,
+  service: string,
+): boolean {
+  const want = serviceTokens(service);
+  if (want.length === 0) return false;
+  const profiles: string[] = [];
+  if (Array.isArray(crew.services)) {
+    for (const s of crew.services as { name?: unknown }[]) {
+      if (typeof s?.name === "string") profiles.push(s.name);
+    }
+  }
+  if (crew.trade) profiles.push(crew.trade);
+  return profiles.some((p) => {
+    const have = serviceTokens(p);
+    if (have.length === 0) return false;
+    // Either direction: specialty "Cleaning" covers "Deep Cleaning" and
+    // specialty "Full Make Ready" covers item "Make Ready".
+    return (
+      want.every((t) => have.includes(t)) || have.every((t) => want.includes(t))
+    );
+  });
+}
+
+/**
+ * Shared broadcast writer: sets posting terms on the job, then creates or
+ * revives one offer row per (job, crew). `metaFor` supplies the specialty
+ * payload (forServices + startTime) for specialty-mode sends; other modes
+ * pass () => null and clear any prior specialty scoping on rebroadcast.
+ */
+async function sendBroadcasts(
+  job: typeof jobsTable.$inferSelect,
+  targets: (typeof crewsTable.$inferSelect)[],
+  body: { scheduleType?: string; flexDays?: number; crewsNeeded?: number },
+  metaFor: (crewId: string) => { services: string[]; startTime: string | null } | null,
+) {
+  const id = job.id;
   // Posting terms: schedule type, flex deadline, and crew slots — set at broadcast time.
   const scheduleType = body.scheduleType === "flex" ? "flex" : "scheduled";
   const crewsNeeded = Math.max(1, Math.round(body.crewsNeeded ?? job.crewsNeeded ?? 1));
@@ -326,6 +466,26 @@ router.post("/jobs/:id/broadcast", async (req, res): Promise<void> => {
       .map((b) => [b.crewId, b.id]),
   );
 
+  // Crews that already hold a live offer keep it, but its specialty scope and
+  // start time must reflect THIS broadcast — otherwise a rebroadcast in a
+  // different mode leaves stale forServices/startTime on the offer.
+  for (const b of existing) {
+    if (b.status !== "pending" && b.status !== "approved") continue;
+    const meta = metaFor(b.crewId);
+    const forServices = meta && meta.services.length > 0 ? meta.services : null;
+    const startTime = meta?.startTime ?? null;
+    const prevServices = Array.isArray(b.forServices) ? (b.forServices as string[]) : null;
+    if (
+      JSON.stringify(prevServices) !== JSON.stringify(forServices) ||
+      (b.startTime ?? null) !== startTime
+    ) {
+      await db
+        .update(jobBroadcastsTable)
+        .set({ forServices, startTime })
+        .where(eq(jobBroadcastsTable.id, b.id));
+    }
+  }
+
   for (const crew of toSend) {
     // Every recipient needs a live link — mint one if the crew doesn't have it yet.
     if (!crew.portalToken) {
@@ -335,18 +495,43 @@ router.post("/jobs/:id/broadcast", async (req, res): Promise<void> => {
         .set({ portalToken: token })
         .where(eq(crewsTable.id, crew.id));
     }
+    const meta = metaFor(crew.id);
+    const forServices = meta && meta.services.length > 0 ? meta.services : null;
+    const startTime = meta?.startTime ?? null;
     const priorId = resolvedExisting.get(crew.id);
     if (priorId) {
       await db
         .update(jobBroadcastsTable)
-        .set({ status: "pending", sentAt: new Date(), respondedAt: null })
+        .set({
+          status: "pending",
+          sentAt: new Date(),
+          respondedAt: null,
+          forServices,
+          startTime,
+        })
         .where(eq(jobBroadcastsTable.id, priorId));
     } else {
-      await db.insert(jobBroadcastsTable).values({
-        jobId: id,
-        crewId: crew.id,
-        status: "pending",
-      });
+      // Upsert against the (job, crew) unique index so concurrent broadcasts
+      // can't create duplicate offer rows.
+      await db
+        .insert(jobBroadcastsTable)
+        .values({
+          jobId: id,
+          crewId: crew.id,
+          status: "pending",
+          forServices,
+          startTime,
+        })
+        .onConflictDoUpdate({
+          target: [jobBroadcastsTable.jobId, jobBroadcastsTable.crewId],
+          set: {
+            status: "pending",
+            sentAt: new Date(),
+            respondedAt: null,
+            forServices,
+            startTime,
+          },
+        });
     }
     sentNames.push(crew.name);
   }
@@ -361,14 +546,12 @@ router.post("/jobs/:id/broadcast", async (req, res): Promise<void> => {
       .where(eq(jobsTable.id, id));
   }
 
-  res.json(
-    BroadcastJobResponse.parse({
-      sent: toSend.length,
-      alreadySent: targets.length - toSend.length,
-      crewNames: sentNames,
-    }),
-  );
-});
+  return {
+    sent: toSend.length,
+    alreadySent: targets.length - toSend.length,
+    crewNames: sentNames,
+  };
+}
 
 // Move a board card between rails: manual_check → Alerts, completed → Done.
 router.post("/jobs/:id/board-status", async (req, res): Promise<void> => {

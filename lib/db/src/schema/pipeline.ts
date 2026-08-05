@@ -5,6 +5,7 @@ import {
   doublePrecision,
   integer,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const leadsTable = pgTable("leads", {
@@ -39,7 +40,11 @@ export const bidsTable = pgTable("bids", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (t) => [
+  // Bid numbers are shared externally and used as client lookup keys —
+  // they must be unique even under concurrent creation.
+  uniqueIndex("bids_bid_no_uq").on(t.bidNo),
+]);
 
 export const bidLineItemsTable = pgTable("bid_line_items", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -22,7 +22,7 @@
 - [HALO in-app update prompts](halo-pwa-updates.md) — dashboard SW uses prompt mode + periodic/visibility update checks (needs workbox-window); desktop polls index.html hashes (no SW).
 - [HALO mobile PWA](halo-pwa.md) — mobile app is an installable PWA via vite-plugin-pwa; icons from wings emblem on paper bg; PWA inert in dev, only works on published URL.
 - [HALO guided training](halo-training-center.md) — in-app voice tour in Settings uses browser SpeechSynthesis (no server TTS); guard auto-advance with a generation nonce or interrupted utterances skip steps.
-- [HALO job board](halo-job-board.md) — one broadcast row per (job,crew), rebroadcast resets it; job fill must be guarded UPDATE + row-count (first-wins); photo URLs are /api/storage${storagePath}.
+- [HALO job board](halo-job-board.md) — one broadcast row per (job,crew) — DB-unique + upserted; specialty mode scopes offers by crew services w/ staggered start times; job fill must be guarded UPDATE + row-count (first-wins); photo URLs are /api/storage${storagePath}.
 - [HALO portal schedule feed](halo-portal-schedule.md) — portal schedule merges crew_schedules + crew-assigned calendar_events (deduped by jobId|date); new assignment sources must merge into this feed.
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.
 - [HALO Plaid credentials](halo-plaid-credentials.md) — PRODUCTION keys via secrets; multi-bank: plaid_items unique item_id + upsert exchange, all endpoints loop every item.
@@ -89,4 +89,7 @@
 - [HALO Wings Program profit share](halo-wings-program.md) — 12% pot explainer + live Wings calc in portal wings tab; exact-years eligibility; crews.role/hire_date must ride every crew read model; ?tab= deep links skip offers auto-pull.
 - [HALO desktop hub nav](halo-desktop-hub-nav.md) — 6-hub sidebar + HubShell tabs wrap pages at their REAL routes; only 6 nav-* tour ids remain; Job Board is rails + dialog.
 - [HALO job board pay pipeline](halo-jobboard-payflow.md) — invoice raise must attach module; crew-pay/clear are locked txns gated on invoice paid; green flash lives in 3 card renderers.
+- [HALO job work checklist](halo-job-checklist.md) — line items are a crew-assigned checklist; only the assigned crew can complete via portal; last item done → guarded auto-move to boardStatus completed.
 - [HALO member dispatch](halo-member-dispatch.md) — crews.leaderId teams + per-member day assignments; pending_move settles only via guarded conditional UPDATEs; members with foreman can't message office.
+- [HALO Clients hub dark-panel style](halo-clients-hub-restyle.md) — Properties/Pipeline/Accounts are dark navy panel islands w/ lime accents per user reference; office billing edit is sanitized last4-only.
+- [HALO bid → client request flow](halo-bid-flow.md) — B-xxxx is DB-unique + retried on 23505; client bid-lookup is property-scoped; wizard prefill is one-shot; ai-pricing is knowledge-based.

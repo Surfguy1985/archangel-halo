@@ -5,6 +5,8 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { ClientBillingContact } from './clientBillingContact';
+import type { ClientStoredPaymentMethod } from './clientStoredPaymentMethod';
 
 export interface ClientAccountRec {
   id: string;
@@ -33,4 +35,8 @@ export interface ClientAccountRec {
   onboardingStatus: string;
   /** @nullable */
   onboardingSentAt?: string | null;
+  /** Day of month the subscription charge pulls (1-28) */
+  billingDay?: number;
+  paymentMethod?: ClientStoredPaymentMethod | null;
+  billingContact?: ClientBillingContact | null;
 }

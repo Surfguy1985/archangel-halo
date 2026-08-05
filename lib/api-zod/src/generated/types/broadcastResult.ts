@@ -10,4 +10,6 @@ export interface BroadcastResult {
   sent: number;
   alreadySent: number;
   crewNames?: string[];
+  /** Specialty mode — services no active crew's specialty profile covers */
+  unmatchedServices?: string[];
 }

@@ -21,6 +21,7 @@ import {
   Loader2,
   ShieldCheck,
   Sparkles,
+  Plus,
   Trash2,
   Upload,
   Wand2,
@@ -301,6 +302,45 @@ function JobInvoiceBuilder({
             ))}
           </div>
 
+          {!created && priceItems.length > 0 && (
+            <div className="p-3 rounded-2xl bg-[var(--gold-tint)] border border-[var(--primary)]/40">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                Click to add from this property's price book
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {priceItems.map((pi) => (
+                  <button
+                    key={pi.id}
+                    type="button"
+                    onClick={() =>
+                      setItems((p) => {
+                        const existing = p.find(
+                          (l) => l.typeOfWork === pi.service && l.unitPrice === pi.rate,
+                        );
+                        if (existing) {
+                          return p.map((l) =>
+                            l === existing ? { ...l, qty: (l.qty ?? 1) + 1 } : l,
+                          );
+                        }
+                        return [...p, { typeOfWork: pi.service, qty: 1, unitPrice: pi.rate }];
+                      })
+                    }
+                    className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-white border border-border shadow-sm text-[12.5px] font-semibold hover:border-[var(--secondary)] active:scale-95 transition-all"
+                    data-testid={`button-wizard-pricebook-${pi.id}`}
+                  >
+                    {pi.service}
+                    <span className="text-xs font-bold text-[var(--secondary)] tabular-nums">
+                      {money(pi.rate)}
+                    </span>
+                    <span className="w-4 h-4 rounded-full bg-[var(--primary)] grid place-items-center">
+                      <Plus className="w-2.5 h-2.5 text-black" strokeWidth={3} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <datalist id="wizard-price-book-options">
             {priceItems.map((pi) => (
               <option key={pi.id} value={pi.service}>
@@ -425,7 +465,7 @@ function JobInvoiceBuilder({
               className="text-[12.5px] font-bold text-[var(--gold-dark,#5a7a00)] hover:underline"
               data-testid="button-line-add"
             >
-              + Add a line
+              + Add a custom line — anything not on the price list
             </button>
           )}
           <textarea

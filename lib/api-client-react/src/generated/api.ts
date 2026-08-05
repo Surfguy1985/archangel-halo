@@ -40,6 +40,8 @@ import type {
   BankTransaction,
   BankTxnCategorization,
   Bid,
+  BidAiPricingInput,
+  BidAiPricingResult,
   BidDetail,
   BidInput,
   BidSendInput,
@@ -80,6 +82,7 @@ import type {
   ClientAccountUpsert,
   ClientAiCardInput,
   ClientAiCardRec,
+  ClientBidLookup,
   ClientBillingUpdateInput,
   ClientBillingView,
   ClientBoardActionInput,
@@ -116,6 +119,7 @@ import type {
   ClientUserUpdate,
   CloseOutBlocked,
   CloseOutJobResult,
+  CompletePortalLineItem200,
   ConciergeChatInput,
   ConciergeConfirmInput,
   ConciergeConfirmResult,
@@ -282,6 +286,7 @@ import type {
   PortalEarnings,
   PortalEmergencyCommitResult,
   PortalJob,
+  PortalLineItemDoneInput,
   PortalMoveDecisionInput,
   PortalOfferRespondInput,
   PortalOfferRespondResult,
@@ -3597,6 +3602,77 @@ export const useSendBid = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getSendBidMutationOptions(options));
+    }
+
+export const getGetBidAiPricingUrl = () => {
+
+
+
+
+  return `/api/bids/ai-pricing`
+}
+
+/**
+ * @summary AI market-rate check for a service — suggested pricing with wholesale notes
+ */
+export const getBidAiPricing = async (bidAiPricingInput: BidAiPricingInput, options?: RequestInit): Promise<BidAiPricingResult> => {
+
+  return customFetch<BidAiPricingResult>(getGetBidAiPricingUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(bidAiPricingInput)
+  }
+);}
+
+
+
+
+
+export const getGetBidAiPricingMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getBidAiPricing>>, TError,{data: BodyType<BidAiPricingInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof getBidAiPricing>>, TError,{data: BodyType<BidAiPricingInput>}, TContext> => {
+
+const mutationKey = ['getBidAiPricing'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof getBidAiPricing>>, {data: BodyType<BidAiPricingInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  getBidAiPricing(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GetBidAiPricingMutationResult = NonNullable<Awaited<ReturnType<typeof getBidAiPricing>>>
+    export type GetBidAiPricingMutationBody = BodyType<BidAiPricingInput>
+    export type GetBidAiPricingMutationError = ErrorType<Error>
+
+    /**
+ * @summary AI market-rate check for a service — suggested pricing with wholesale notes
+ */
+export const useGetBidAiPricing = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getBidAiPricing>>, TError,{data: BodyType<BidAiPricingInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof getBidAiPricing>>,
+        TError,
+        {data: BodyType<BidAiPricingInput>},
+        TContext
+      > => {
+      return useMutation(getGetBidAiPricingMutationOptions(options));
     }
 
 export const getNudgeBidUrl = (id: string,) => {
@@ -15109,6 +15185,82 @@ export function useListPortalJobs<TData = Awaited<ReturnType<typeof listPortalJo
 
 
 
+export const getCompletePortalLineItemUrl = (token: string,
+    jobId: string,
+    lineItemId: string,) => {
+
+
+
+
+  return `/api/portal/${token}/jobs/${jobId}/line-items/${lineItemId}/complete`
+}
+
+/**
+ * @summary Crew marks one of their assigned line items done (or undoes it)
+ */
+export const completePortalLineItem = async (token: string,
+    jobId: string,
+    lineItemId: string,
+    portalLineItemDoneInput: PortalLineItemDoneInput, options?: RequestInit): Promise<CompletePortalLineItem200> => {
+
+  return customFetch<CompletePortalLineItem200>(getCompletePortalLineItemUrl(token,jobId,lineItemId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(portalLineItemDoneInput)
+  }
+);}
+
+
+
+
+
+export const getCompletePortalLineItemMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completePortalLineItem>>, TError,{token: string;jobId: string;lineItemId: string;data: BodyType<PortalLineItemDoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completePortalLineItem>>, TError,{token: string;jobId: string;lineItemId: string;data: BodyType<PortalLineItemDoneInput>}, TContext> => {
+
+const mutationKey = ['completePortalLineItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completePortalLineItem>>, {token: string;jobId: string;lineItemId: string;data: BodyType<PortalLineItemDoneInput>}> = (props) => {
+          const {token,jobId,lineItemId,data} = props ?? {};
+
+          return  completePortalLineItem(token,jobId,lineItemId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompletePortalLineItemMutationResult = NonNullable<Awaited<ReturnType<typeof completePortalLineItem>>>
+    export type CompletePortalLineItemMutationBody = BodyType<PortalLineItemDoneInput>
+    export type CompletePortalLineItemMutationError = ErrorType<Error>
+
+    /**
+ * @summary Crew marks one of their assigned line items done (or undoes it)
+ */
+export const useCompletePortalLineItem = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completePortalLineItem>>, TError,{token: string;jobId: string;lineItemId: string;data: BodyType<PortalLineItemDoneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completePortalLineItem>>,
+        TError,
+        {token: string;jobId: string;lineItemId: string;data: BodyType<PortalLineItemDoneInput>},
+        TContext
+      > => {
+      return useMutation(getCompletePortalLineItemMutationOptions(options));
+    }
+
 export const getListPortalPhotosUrl = (token: string,) => {
 
 
@@ -23240,6 +23392,88 @@ export function useGetClientRequestOptions<TData = Awaited<ReturnType<typeof get
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetClientRequestOptionsQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getLookupClientBidUrl = (token: string,
+    bidNo: string,) => {
+
+
+
+
+  return `/api/client/${token}/bid-lookup/${bidNo}`
+}
+
+/**
+ * @summary Look up an office bid number to prefill a work request
+ */
+export const lookupClientBid = async (token: string,
+    bidNo: string, options?: RequestInit): Promise<ClientBidLookup> => {
+
+  return customFetch<ClientBidLookup>(getLookupClientBidUrl(token,bidNo),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getLookupClientBidQueryKey = (token: string,
+    bidNo: string,) => {
+    return [
+    `/api/client/${token}/bid-lookup/${bidNo}`
+    ] as const;
+    }
+
+
+export const getLookupClientBidQueryOptions = <TData = Awaited<ReturnType<typeof lookupClientBid>>, TError = ErrorType<Error>>(token: string,
+    bidNo: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof lookupClientBid>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getLookupClientBidQueryKey(token,bidNo);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof lookupClientBid>>> = ({ signal }) => lookupClientBid(token,bidNo, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined && bidNo !== null && bidNo !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof lookupClientBid>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type LookupClientBidQueryResult = NonNullable<Awaited<ReturnType<typeof lookupClientBid>>>
+export type LookupClientBidQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Look up an office bid number to prefill a work request
+ */
+
+export function useLookupClientBid<TData = Awaited<ReturnType<typeof lookupClientBid>>, TError = ErrorType<Error>>(
+ token: string,
+    bidNo: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof lookupClientBid>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getLookupClientBidQueryOptions(token,bidNo,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

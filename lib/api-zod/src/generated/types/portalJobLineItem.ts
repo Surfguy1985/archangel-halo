@@ -6,26 +6,19 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface JobLineItem {
+export interface PortalJobLineItem {
   id: string;
-  jobId: string;
-  /** @nullable */
-  priceItemId?: string | null;
   service: string;
-  /** @nullable */
-  unit?: string | null;
-  rate: number;
-  qty: number;
-  amount: number;
-  /** @nullable */
-  assignedCrewId?: string | null;
   /** @nullable */
   assignedCrewName?: string | null;
   /**
-     * HH:MM staggered start for this service's crew
+     * HH:MM when this service's crew should start
      * @nullable
      */
   startTime?: string | null;
+  /** True when this item is assigned to the requesting crew */
+  mine: boolean;
+  completed: boolean;
   /** @nullable */
   completedAt?: string | null;
 }

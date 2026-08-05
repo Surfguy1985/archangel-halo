@@ -3,7 +3,6 @@ import { Link, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
-  ShieldCheck,
   Users,
   Send,
   KeyRound,
@@ -13,6 +12,7 @@ import {
   Trash2,
   Building,
   Check,
+  Plus,
 } from "lucide-react";
 import {
   useGetClientAccount,
@@ -37,32 +37,21 @@ const TIERS = [
   { value: "enterprise", label: "Enterprise" },
 ];
 
-function Section({
-  title,
-  children,
-  action,
-}: {
-  title: string;
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}) {
+const inputCls = "w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[var(--gold-light)] focus:ring-1 focus:ring-[var(--gold-light)] transition-all";
+const btnPrimary = "px-5 py-2.5 bg-[var(--gold-light)] text-black text-sm font-bold rounded-xl hover:bg-[#A1E44D] transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2";
+const btnGhost = "px-4 py-2.5 text-sm font-bold rounded-xl border border-white/10 text-white hover:bg-white/10 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2";
+
+function DarkSection({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="bg-card rounded-2xl p-6 shadow-sm space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-display font-bold">{title}</h2>
-        {action}
+    <div className="py-8 border-t border-white/10 first:border-0">
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <h2 className="text-lg font-display font-bold text-white tracking-tight">{title}</h2>
+        {action && <div>{action}</div>}
       </div>
       {children}
     </div>
   );
 }
-
-const inputCls =
-  "w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm font-medium outline-none focus:ring-2 focus:ring-[var(--primary)]";
-const btnPrimary =
-  "px-5 py-2.5 bg-[var(--gold-light,#B4FF44)] text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50";
-const btnGhost =
-  "px-4 py-2 text-sm font-bold rounded-xl border border-border hover:bg-muted transition-colors disabled:opacity-50";
 
 export default function AdminAccount() {
   const { propertyId } = useParams<{ propertyId: string }>();
@@ -84,6 +73,12 @@ export default function AdminAccount() {
     guestSeats: string;
     status: string;
     notes: string;
+    billingDay: string;
+    billingContactName: string;
+    billingContactEmail: string;
+    billingContactPhone: string;
+    paymentMethodType: string;
+    paymentLast4: string;
   } | null>(null);
   const [overviewDraft, setOverviewDraft] = useState<string | null>(null);
   const [newUser, setNewUser] = useState({ name: "", email: "", role: "member", sendEmail: true });
@@ -104,20 +99,26 @@ export default function AdminAccount() {
   if (isLoading || !data) {
     return (
       <div className="p-8 max-w-5xl mx-auto space-y-4">
-        <Skeleton className="h-10 w-64 rounded-xl" />
-        <Skeleton className="h-48 rounded-2xl" />
-        <Skeleton className="h-48 rounded-2xl" />
+        <Skeleton className="h-8 w-48 rounded-xl bg-[var(--secondary)]/20" />
+        <Skeleton className="h-64 rounded-[24px] bg-[var(--secondary)]/20" />
       </div>
     );
   }
 
   const { account, users, sends, property, contacts, services } = data;
+  
   const subState = sub ?? {
     tier: account.tier,
     userSeats: String(account.userSeats),
     guestSeats: String(account.guestSeats),
     status: account.status,
     notes: account.notes ?? "",
+    billingDay: String(account.billingDay ?? 1),
+    billingContactName: account.billingContact?.name ?? "",
+    billingContactEmail: account.billingContact?.email ?? "",
+    billingContactPhone: account.billingContact?.phone ?? "",
+    paymentMethodType: account.paymentMethod?.methodType ?? "card",
+    paymentLast4: account.paymentMethod?.last4 ?? "",
   };
 
   const saveSubscription = () =>
@@ -130,6 +131,17 @@ export default function AdminAccount() {
           guestSeats: Number(subState.guestSeats) || 0,
           status: subState.status,
           notes: subState.notes || null,
+          billingDay: Number(subState.billingDay) || 1,
+          billingContact: {
+            name: subState.billingContactName,
+            email: subState.billingContactEmail,
+            phone: subState.billingContactPhone,
+          },
+          paymentMethod: subState.paymentLast4 ? {
+            methodType: subState.paymentMethodType,
+            last4: subState.paymentLast4,
+            payerName: subState.billingContactName || "Client",
+          } : null,
         },
       },
       {
@@ -171,388 +183,336 @@ export default function AdminAccount() {
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
-      <Link href="/admin" className="flex items-center gap-2 text-muted-foreground text-sm font-semibold w-fit hover:text-foreground">
+    <div className="p-8 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
+      <Link href="/admin" className="inline-flex items-center gap-2 text-muted-foreground text-sm font-bold hover:text-foreground transition-colors">
         <ChevronLeft className="w-4 h-4" /> Back to Admin
       </Link>
 
-      {/* Header */}
-      <div className="bg-[var(--ink)] text-white rounded-2xl p-6 flex items-center gap-5">
-        {account.logoPath ? (
-          <img src={`/api/storage${account.logoPath}`} alt="" className="w-16 h-16 rounded-2xl object-cover bg-white/10" />
-        ) : (
-          <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center">
-            <Building className="w-8 h-8 text-white/50" />
+      <div className="bg-[var(--secondary)] rounded-[24px] p-6 lg:p-10 shadow-2xl border border-white/5">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center gap-6 mb-8 pb-8 border-b border-white/10">
+          <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden relative">
+            {account.logoPath ? (
+              <img src={`/api/storage${account.logoPath}`} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <Building className="w-8 h-8 text-white/20" />
+            )}
           </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-display font-bold truncate">{property.name}</h1>
-          <p className="text-white/60 text-sm font-medium truncate">
-            {[property.pmcName, property.address, property.city].filter(Boolean).join(" · ") || "—"}
-            {property.units ? ` · ${property.units} units` : ""}
-          </p>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-3xl font-display font-bold text-white truncate tracking-tight">{property.name}</h1>
+            <p className="text-white/50 text-sm mt-1 truncate">
+              {[property.pmcName, property.address, property.city].filter(Boolean).join(" · ") || "—"}
+              {property.units ? ` · ${property.units} units` : ""}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+             <button onClick={() => fileRef.current?.click()} disabled={uploading} className={btnGhost} data-testid="button-upload-logo">
+               <Upload className="w-4 h-4" /> {uploading ? "Uploading…" : "Logo"}
+             </button>
+             <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) uploadLogo(f);
+                  e.target.value = "";
+                }}
+              />
+             <a href={account.dashboardUrl ?? "#"} target="_blank" rel="noreferrer" className={btnGhost} data-testid="link-client-board">
+               Client board
+             </a>
+             <Link href={`/admin/${property.id}/board`} className={btnGhost} data-testid="link-office-board">
+               Office view
+             </Link>
+             <Link href={`/properties/${property.id}`} className={btnGhost}>
+               Property
+             </Link>
+          </div>
         </div>
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          className="px-4 py-2.5 bg-white/10 text-white text-sm font-bold rounded-xl hover:bg-white/20 transition-colors flex items-center gap-2 disabled:opacity-50"
-          data-testid="button-upload-logo"
-        >
-          <Upload className="w-4 h-4" /> {uploading ? "Uploading…" : account.logoPath ? "Replace logo" : "Upload logo"}
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) uploadLogo(f);
-            e.target.value = "";
-          }}
-        />
-        {/* Opens what the CLIENT sees (their live board), not the office mirror. */}
-        <a
-          href={account.dashboardUrl ?? "#"}
-          target="_blank"
-          rel="noreferrer"
-          className="px-4 py-2.5 bg-white/10 text-white text-sm font-bold rounded-xl hover:bg-white/20 transition-colors"
-          data-testid="link-client-board"
-        >
-          Client board
-        </a>
-        <Link
-          href={`/admin/${property.id}/board`}
-          className="px-4 py-2.5 text-white/70 hover:text-white text-sm font-bold rounded-xl transition-colors"
-          data-testid="link-office-board"
-        >
-          Office view
-        </Link>
-        <Link href={`/properties/${property.id}`} className="px-4 py-2.5 text-white/70 hover:text-white text-sm font-bold rounded-xl transition-colors">
-          Open property
-        </Link>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Subscription */}
-        <Section
-          title="Subscription"
+        {/* Sections */}
+        
+        <DarkSection 
+          title="Subscription & Billing" 
           action={
-            <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-3 py-1 ${account.status === "active" ? "bg-[var(--primary)]/15 text-[var(--gold,#4a7000)]" : "bg-muted text-muted-foreground"}`}>
+            <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-3 py-1 ${account.status === "active" ? "bg-[#B4FF44]/10 text-[#B4FF44] border border-[#B4FF44]/20" : "bg-white/10 text-white/60 border border-white/10"}`}>
               {account.status}
             </span>
           }
         >
-          <div className="grid grid-cols-2 gap-3">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground col-span-2">Tier</label>
-            <div className="col-span-2 flex gap-2">
-              {TIERS.map((t) => (
-                <button
-                  key={t.value}
-                  onClick={() => setSub({ ...subState, tier: t.value })}
-                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-bold border transition-colors ${subState.tier === t.value ? "bg-[var(--ink)] text-white border-transparent" : "border-border hover:bg-muted"}`}
-                  data-testid={`button-tier-${t.value}`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">User seats</label>
-              <input inputMode="numeric" value={subState.userSeats} onChange={(e) => setSub({ ...subState, userSeats: e.target.value })} className={inputCls} data-testid="input-user-seats" />
-            </div>
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Guest seats</label>
-              <input inputMode="numeric" value={subState.guestSeats} onChange={(e) => setSub({ ...subState, guestSeats: e.target.value })} className={inputCls} data-testid="input-guest-seats" />
-            </div>
-            <div className="col-span-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Status</label>
-              <div className="flex gap-2 mt-1">
-                {["active", "paused", "cancelled"].map((s) => (
-                  <button key={s} onClick={() => setSub({ ...subState, status: s })} className={`px-4 py-2 rounded-xl text-sm font-bold border capitalize transition-colors ${subState.status === s ? "bg-[var(--ink)] text-white border-transparent" : "border-border hover:bg-muted"}`}>
-                    {s}
-                  </button>
-                ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-white/80 border-b border-white/5 pb-2">Plan Details</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-white/40 mb-2 block">Tier</label>
+                  <div className="flex gap-2">
+                    {TIERS.map((t) => (
+                      <button
+                        key={t.value}
+                        onClick={() => setSub({ ...subState, tier: t.value })}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-bold border transition-colors ${subState.tier === t.value ? "bg-[var(--gold-light)] text-black border-transparent" : "border-white/10 text-white/60 hover:bg-white/5 hover:text-white"}`}
+                        data-testid={`button-tier-${t.value}`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-white/40 mb-2 block">User seats</label>
+                  <input inputMode="numeric" value={subState.userSeats} onChange={(e) => setSub({ ...subState, userSeats: e.target.value })} className={inputCls} data-testid="input-user-seats" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-white/40 mb-2 block">Guest seats</label>
+                  <input inputMode="numeric" value={subState.guestSeats} onChange={(e) => setSub({ ...subState, guestSeats: e.target.value })} className={inputCls} data-testid="input-guest-seats" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-white/40 mb-2 block">Status</label>
+                  <div className="flex gap-2">
+                    {["active", "paused", "cancelled"].map((s) => (
+                      <button key={s} onClick={() => setSub({ ...subState, status: s })} className={`flex-1 py-2.5 rounded-xl text-sm font-bold border capitalize transition-colors ${subState.status === s ? "bg-white text-black border-transparent" : "border-white/10 text-white/60 hover:bg-white/5 hover:text-white"}`}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-white/40 mb-2 block">Notes</label>
+                  <textarea value={subState.notes} onChange={(e) => setSub({ ...subState, notes: e.target.value })} rows={2} className={inputCls} placeholder="Renewal dates…" />
+                </div>
               </div>
             </div>
-            <div className="col-span-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Notes</label>
-              <textarea value={subState.notes} onChange={(e) => setSub({ ...subState, notes: e.target.value })} rows={2} className={inputCls} placeholder="Billing arrangements, renewal dates…" />
-            </div>
-          </div>
-          <button onClick={saveSubscription} disabled={upsert.isPending || !sub} className={btnPrimary} data-testid="button-save-subscription">
-            {upsert.isPending ? "Saving…" : "Save subscription"}
-          </button>
-          <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
-            <div className="min-w-0">
-              <p className="text-sm font-bold">New-card email pings</p>
-              <p className="text-xs text-muted-foreground">
-                Email their billing contact a batched digest (at most hourly) when new cards land on their board.
-              </p>
-            </div>
-            <button
-              role="switch"
-              aria-checked={account.notifyNewCards ?? true}
-              onClick={() =>
-                upsert.mutate(
-                  { propertyId, data: { notifyNewCards: !(account.notifyNewCards ?? true) } },
-                  {
-                    onSuccess: () => {
-                      refresh();
-                      toast({
-                        title: (account.notifyNewCards ?? true)
-                          ? "New-card pings turned off"
-                          : "New-card pings turned on",
-                      });
-                    },
-                    onError,
-                  },
-                )
-              }
-              disabled={upsert.isPending}
-              className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${(account.notifyNewCards ?? true) ? "bg-[var(--gold-light,#B4FF44)]" : "bg-muted-foreground/30"} disabled:opacity-50`}
-              data-testid="switch-notify-new-cards"
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${(account.notifyNewCards ?? true) ? "translate-x-5" : ""}`}
-              />
-            </button>
-          </div>
-        </Section>
 
-        {/* Onboarding */}
-        <Section title="Onboarding">
-          <div className="bg-muted rounded-xl p-4 space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Their dashboard link</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs bg-background rounded-lg px-3 py-2 truncate">{account.dashboardUrl}</code>
-              <button onClick={() => copy(account.dashboardUrl ?? "", "Link")} className={btnGhost} aria-label="Copy link" data-testid="button-copy-dashboard-link">
-                <Copy className="w-4 h-4" />
-              </button>
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-white/80 border-b border-white/5 pb-2">Billing & Payment</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 flex gap-4">
+                  <div className="flex-1">
+                    <label className="text-xs font-bold uppercase tracking-wider text-white/40 mb-2 block">Billing Contact</label>
+                    <input value={subState.billingContactName} onChange={(e) => setSub({...subState, billingContactName: e.target.value})} className={inputCls} placeholder="Name" />
+                  </div>
+                  <div className="w-24">
+                    <label className="text-xs font-bold uppercase tracking-wider text-white/40 mb-2 block">Bill Day</label>
+                    <input type="number" min="1" max="28" value={subState.billingDay} onChange={(e) => setSub({...subState, billingDay: e.target.value})} className={inputCls} placeholder="1-28" />
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <input value={subState.billingContactEmail} onChange={(e) => setSub({...subState, billingContactEmail: e.target.value})} className={inputCls} placeholder="Email" />
+                </div>
+                <div className="col-span-2">
+                  <input value={subState.billingContactPhone} onChange={(e) => setSub({...subState, billingContactPhone: e.target.value})} className={inputCls} placeholder="Phone" />
+                </div>
+                
+                <div className="col-span-2 mt-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-white/40 mb-2 block">Payment Method <span className="lowercase normal-case text-white/30 font-medium">(Display Only)</span></label>
+                  <div className="flex gap-2">
+                    <select value={subState.paymentMethodType} onChange={(e) => setSub({...subState, paymentMethodType: e.target.value})} className={`${inputCls} w-1/3 appearance-none`}>
+                      <option value="card" className="bg-[var(--ink)] text-white">Card</option>
+                      <option value="ach" className="bg-[var(--ink)] text-white">ACH</option>
+                    </select>
+                    <input value={subState.paymentLast4} onChange={(e) => setSub({...subState, paymentLast4: e.target.value})} className={`${inputCls} flex-1 font-mono`} placeholder="Last 4 digits" maxLength={4} />
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-2 font-medium">For offline record keeping. Never enter full card numbers.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border-t border-white/5 pt-8">
+            <div className="flex items-center gap-4">
               <button
-                onClick={() =>
-                  regenToken.mutate({ propertyId }, { onSuccess: () => { refresh(); toast({ title: "New link generated", description: "The old link no longer works." }); }, onError })
-                }
-                disabled={regenToken.isPending}
-                className={btnGhost}
-                aria-label="Regenerate link"
-                data-testid="button-regenerate-token"
+                role="switch"
+                aria-checked={account.notifyNewCards ?? true}
+                onClick={() => upsert.mutate({ propertyId, data: { notifyNewCards: !(account.notifyNewCards ?? true) } }, { onSuccess: refresh })}
+                className={`relative w-12 h-6 rounded-full transition-colors ${(account.notifyNewCards ?? true) ? "bg-[var(--gold-light)]" : "bg-white/20"} disabled:opacity-50`}
+                data-testid="switch-notify-new-cards"
               >
-                <RefreshCw className={`w-4 h-4 ${regenToken.isPending ? "animate-spin" : ""}`} />
+                <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${(account.notifyNewCards ?? true) ? "translate-x-6" : ""}`} />
               </button>
+              <div>
+                <p className="text-sm font-bold text-white">New-card email pings</p>
+                <p className="text-xs text-white/40 mt-0.5">Digest emails when new cards land.</p>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">The client dashboard app goes live in the next build — the link is stable and safe to send now.</p>
-          </div>
-          <div className="space-y-2">
-            <input value={sendTo} onChange={(e) => setSendTo(e.target.value)} className={inputCls} placeholder="client@property.com" data-testid="input-onboarding-to" />
-            <textarea value={sendNote} onChange={(e) => setSendNote(e.target.value)} rows={2} className={inputCls} placeholder="Personal note (optional)" />
-            <button
-              onClick={() =>
-                sendOnboarding.mutate(
-                  { propertyId, data: { channel: "email", to: sendTo, message: sendNote || null } },
-                  {
-                    onSuccess: () => { setSendTo(""); setSendNote(""); refresh(); toast({ title: "Onboarding email sent" }); },
-                    onError: (err) => { refresh(); onError(err); },
-                  },
-                )
-              }
-              disabled={sendOnboarding.isPending || !sendTo.trim()}
-              className={`${btnPrimary} w-full flex items-center justify-center gap-2`}
-              data-testid="button-send-onboarding"
-            >
-              <Send className="w-4 h-4" /> {sendOnboarding.isPending ? "Sending…" : "Send onboarding email"}
+            <button onClick={saveSubscription} disabled={upsert.isPending || !sub} className={btnPrimary} data-testid="button-save-subscription">
+              <Check className="w-4 h-4" /> {upsert.isPending ? "Saving…" : "Save subscription"}
             </button>
           </div>
-          {sends.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sent history</p>
-              {sends.slice(0, 5).map((s) => (
-                <div key={s.id} className="flex items-center gap-2 text-sm font-medium">
-                  <span className={`w-2 h-2 rounded-full ${s.status === "sent" ? "bg-[var(--gold-light,#B4FF44)]" : "bg-rose-500"}`} />
-                  <span className="truncate">{s.sentTo}</span>
-                  <span className="text-muted-foreground ml-auto shrink-0 text-xs">{new Date(s.createdAt).toLocaleDateString()}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </Section>
-      </div>
+        </DarkSection>
 
-      {/* Logins */}
-      <Section
-        title="Logins"
-        action={
-          <span className="text-sm font-bold text-muted-foreground flex items-center gap-1.5">
-            <Users className="w-4 h-4" />
-            {users.filter((u) => u.active && u.role !== "guest").length}/{account.userSeats} seats · {users.filter((u) => u.active && u.role === "guest").length}/{account.guestSeats} guests
-          </span>
-        }
-      >
-        {issued && (
-          <div className="bg-[var(--ink)] text-white rounded-xl p-4 flex items-center gap-3">
-            <KeyRound className="w-5 h-5 text-[var(--gold-light,#B4FF44)] shrink-0" />
-            <div className="flex-1 min-w-0 text-sm">
-              <b>{issued.email}</b> — temp password <code className="bg-white/10 rounded px-2 py-0.5">{issued.tempPassword}</code>
-              {issued.emailed ? " (emailed to them)" : " — copy it now, it won't be shown again"}
-            </div>
-            <button onClick={() => copy(issued.tempPassword, "Password")} className="px-3 py-1.5 bg-white/10 rounded-lg text-sm font-bold hover:bg-white/20">
-              <Copy className="w-4 h-4" />
-            </button>
-            <button onClick={() => setIssued(null)} className="px-3 py-1.5 text-white/60 hover:text-white text-sm font-bold">Done</button>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-          <input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} className={inputCls} placeholder="Name" data-testid="input-new-user-name" />
-          <input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} className={inputCls} placeholder="Email" data-testid="input-new-user-email" />
-          <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })} className={inputCls}>
-            <option value="admin">Admin</option>
-            <option value="member">Member</option>
-            <option value="guest">Guest</option>
-          </select>
-          <button
-            onClick={() =>
-              createUser.mutate(
-                { propertyId, data: { name: newUser.name, email: newUser.email, role: newUser.role, sendEmail: newUser.sendEmail } },
-                {
-                  onSuccess: (r) => {
-                    setIssued({ email: r.user.email, tempPassword: r.tempPassword, emailed: r.emailed });
-                    setNewUser({ name: "", email: "", role: "member", sendEmail: true });
-                    refresh();
-                  },
-                  onError,
-                },
-              )
-            }
-            disabled={createUser.isPending || !newUser.name.trim() || !newUser.email.trim()}
-            className={btnPrimary}
-            data-testid="button-create-user"
-          >
-            {createUser.isPending ? "Creating…" : "Create login"}
-          </button>
-        </div>
-        <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <input type="checkbox" checked={newUser.sendEmail} onChange={(e) => setNewUser({ ...newUser, sendEmail: e.target.checked })} className="accent-[var(--gold-light,#B4FF44)]" />
-          Email the login details to them
-        </label>
-
-        {users.length === 0 ? (
-          <p className="text-muted-foreground text-sm font-medium">No logins yet.</p>
-        ) : (
-          <div className="divide-y divide-border">
-            {users.map((u) => (
-              <div key={u.id} className="flex items-center gap-3 py-3" data-testid={`row-user-${u.id}`}>
-                <div className="flex-1 min-w-0">
-                  <p className={`font-bold text-sm truncate ${u.active ? "" : "line-through text-muted-foreground"}`}>{u.name}</p>
-                  <p className="text-muted-foreground text-xs truncate">{u.email}</p>
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 bg-muted text-muted-foreground capitalize">{u.role}</span>
-                <button
-                  onClick={() =>
-                    resetPassword.mutate(
-                      { id: u.id, data: { sendEmail: true } },
-                      { onSuccess: (r) => { setIssued({ email: r.user.email, tempPassword: r.tempPassword, emailed: r.emailed }); refresh(); }, onError },
-                    )
-                  }
-                  disabled={resetPassword.isPending}
-                  className={btnGhost}
-                  data-testid={`button-reset-password-${u.id}`}
-                >
-                  <KeyRound className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => updateUser.mutate({ id: u.id, data: { active: !u.active } }, { onSuccess: refresh, onError })}
-                  disabled={updateUser.isPending}
-                  className={`${btnGhost} ${u.active ? "" : "text-[var(--gold,#4a7000)]"}`}
-                  data-testid={`button-toggle-active-${u.id}`}
-                >
-                  {u.active ? "Deactivate" : "Activate"}
-                </button>
-                {confirmDeleteId === u.id ? (
-                  <button
-                    onClick={() => deleteUser.mutate({ id: u.id }, { onSuccess: () => { setConfirmDeleteId(null); refresh(); }, onError })}
-                    className="px-3 py-2 bg-rose-600 text-white rounded-xl text-sm font-bold"
-                  >
-                    Confirm
+        <DarkSection title="Onboarding & Logins">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-white/80 border-b border-white/5 pb-2">Client Dashboard Link</h3>
+              <div className="bg-white/5 rounded-xl p-5 border border-white/10 space-y-4">
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs bg-black/40 text-white rounded-lg px-3 py-2.5 truncate border border-white/5 font-mono">{account.dashboardUrl}</code>
+                  <button onClick={() => copy(account.dashboardUrl ?? "", "Link")} className={btnGhost} aria-label="Copy link" data-testid="button-copy-dashboard-link">
+                    <Copy className="w-4 h-4" />
                   </button>
-                ) : (
-                  <button onClick={() => setConfirmDeleteId(u.id)} className={`${btnGhost} text-rose-600`} aria-label="Delete login">
-                    <Trash2 className="w-4 h-4" />
+                  <button onClick={() => regenToken.mutate({propertyId}, {onSuccess: () => { refresh(); toast({ title: "New link generated", description: "The old link no longer works." }); }, onError})} disabled={regenToken.isPending} className={btnGhost} data-testid="button-regenerate-token">
+                    <RefreshCw className={`w-4 h-4 ${regenToken.isPending ? "animate-spin" : ""}`} />
                   </button>
+                </div>
+                <div className="space-y-3 pt-2">
+                  <input value={sendTo} onChange={(e) => setSendTo(e.target.value)} className={inputCls} placeholder="client@property.com" data-testid="input-onboarding-to" />
+                  <textarea value={sendNote} onChange={(e) => setSendNote(e.target.value)} rows={2} className={inputCls} placeholder="Personal note (optional)" />
+                  <button onClick={() => sendOnboarding.mutate({ propertyId, data: { channel: "email", to: sendTo, message: sendNote || null } }, { onSuccess: () => { setSendTo(""); setSendNote(""); refresh(); toast({ title: "Onboarding email sent" }); }, onError: (err) => { refresh(); onError(err); } })} disabled={sendOnboarding.isPending || !sendTo.trim()} className={`${btnPrimary} w-full`} data-testid="button-send-onboarding">
+                    <Send className="w-4 h-4" /> Send email
+                  </button>
+                </div>
+                {sends.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">Sent history</p>
+                    {sends.slice(0, 5).map((s) => (
+                      <div key={s.id} className="flex items-center gap-2 text-xs font-medium text-white/60">
+                        <span className={`w-2 h-2 rounded-full ${s.status === "sent" ? "bg-[var(--gold-light)]" : "bg-rose-500"}`} />
+                        <span className="truncate flex-1">{s.sentTo}</span>
+                        <span className="shrink-0 text-white/30">{new Date(s.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
-        )}
-      </Section>
+            </div>
 
-      {/* Overview & services */}
-      <Section
-        title="Property overview & services"
-        action={
-          <button
-            onClick={() =>
-              upsert.mutate(
-                { propertyId, data: { servicesOverview: overviewDraft ?? account.servicesOverview ?? "" } },
-                { onSuccess: () => { setOverviewDraft(null); refresh(); toast({ title: "Overview saved" }); }, onError },
-              )
-            }
-            disabled={upsert.isPending || overviewDraft == null}
-            className={btnGhost}
-            data-testid="button-save-overview"
-          >
-            <Check className="w-4 h-4" />
-          </button>
-        }
-      >
-        <textarea
-          value={overviewDraft ?? account.servicesOverview ?? ""}
-          onChange={(e) => setOverviewDraft(e.target.value)}
-          rows={3}
-          className={inputCls}
-          placeholder="What we do for this property — shows on their dashboard."
-          data-testid="input-services-overview"
-        />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Services on their price list</p>
-            {services.length === 0 ? (
-              <p className="text-sm text-muted-foreground font-medium">None yet — manage it on the property page.</p>
-            ) : (
-              <ul className="space-y-1.5 text-sm font-medium">
-                {services.map((s) => (
-                  <li key={String(s.id)} className="flex justify-between gap-3">
-                    <span className="truncate">{String(s.service)}</span>
-                    <span className="text-muted-foreground tabular-nums shrink-0">${Number(s.rate).toLocaleString()}{s.unit ? `/${String(s.unit)}` : ""}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Property contacts</p>
-            {contacts.length === 0 ? (
-              <p className="text-sm text-muted-foreground font-medium">No contacts on file.</p>
-            ) : (
-              <ul className="space-y-1.5 text-sm font-medium">
-                {contacts.map((c) => (
-                  <li key={String(c.id)} className="truncate">
-                    {String(c.name)}
-                    {c.role ? <span className="text-muted-foreground"> · {String(c.role)}</span> : null}
-                    {c.email ? <span className="text-muted-foreground"> · {String(c.email)}</span> : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="text-xs text-muted-foreground mt-2">Edit info & contacts from the <Link href={`/properties/${property.id}`} className="underline">property page</Link>.</p>
-          </div>
-        </div>
-      </Section>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <h3 className="text-sm font-bold text-white/80">Logins</h3>
+                <span className="text-xs font-bold text-white/40 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5" />
+                  {users.filter(u => u.active && u.role !== 'guest').length}/{account.userSeats} users · {users.filter(u => u.active && u.role === 'guest').length}/{account.guestSeats} guests
+                </span>
+              </div>
+              
+              <div className="flex flex-col gap-3 bg-white/5 rounded-xl p-4 border border-white/10">
+                <div className="flex gap-2">
+                  <input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} className={inputCls} placeholder="Name" data-testid="input-new-user-name" />
+                  <input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} className={inputCls} placeholder="Email" data-testid="input-new-user-email" />
+                </div>
+                <div className="flex gap-2">
+                  <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })} className={`${inputCls} flex-1 appearance-none`}>
+                    <option value="admin" className="bg-[var(--ink)] text-white">Admin</option>
+                    <option value="member" className="bg-[var(--ink)] text-white">Member</option>
+                    <option value="guest" className="bg-[var(--ink)] text-white">Guest</option>
+                  </select>
+                  <button onClick={() => createUser.mutate({ propertyId, data: { name: newUser.name, email: newUser.email, role: newUser.role, sendEmail: newUser.sendEmail } }, { onSuccess: (r) => { setIssued({ email: r.user.email, tempPassword: r.tempPassword, emailed: r.emailed }); setNewUser({ name: "", email: "", role: "member", sendEmail: true }); refresh(); }, onError })} disabled={createUser.isPending || !newUser.name.trim() || !newUser.email.trim()} className={`${btnPrimary} px-5`} data-testid="button-create-user">
+                    <Plus className="w-4 h-4" /> Add
+                  </button>
+                </div>
+                <label className="flex items-center gap-2 text-xs font-medium text-white/60 mt-1 cursor-pointer w-fit">
+                  <input type="checkbox" checked={newUser.sendEmail} onChange={(e) => setNewUser({ ...newUser, sendEmail: e.target.checked })} className="accent-[var(--gold-light)]" />
+                  Email login details
+                </label>
+              </div>
 
-      {/* Unit Status Map */}
+              {issued && (
+                <div className="bg-[var(--gold-light)]/10 border border-[var(--gold-light)]/20 text-[var(--gold-light)] rounded-xl p-4 flex items-center gap-4 shadow-[0_0_24px_rgba(180,255,68,0.1)]">
+                  <KeyRound className="w-6 h-6 shrink-0" />
+                  <div className="flex-1 min-w-0 text-xs">
+                    <b>{issued.email}</b><br/>Temp password: <code className="bg-black/30 rounded px-1.5 py-0.5 mt-1 inline-block text-white font-mono">{issued.tempPassword}</code>
+                  </div>
+                  <button onClick={() => copy(issued.tempPassword, "Password")} className="p-2 bg-[var(--gold-light)]/20 rounded-lg hover:bg-[var(--gold-light)]/30 transition-colors" aria-label="Copy">
+                    <Copy className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => setIssued(null)} className="px-3 py-2 text-[var(--gold-light)]/60 hover:text-[var(--gold-light)] text-xs font-bold transition-colors">Done</button>
+                </div>
+              )}
+
+              {users.length === 0 ? (
+                <p className="text-white/30 text-sm py-4">No logins yet.</p>
+              ) : (
+                <div className="space-y-1">
+                  {users.map(u => (
+                    <div key={u.id} className="flex items-center gap-3 py-3 border-b border-white/5 last:border-0 group" data-testid={`row-user-${u.id}`}>
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-bold text-sm text-white truncate transition-opacity ${!u.active && "opacity-40 line-through"}`}>{u.name}</p>
+                        <p className="text-white/40 text-xs truncate mt-0.5">{u.email}</p>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 bg-white/5 text-white/40 border border-white/10 shrink-0">{u.role}</span>
+                      
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => resetPassword.mutate({ id: u.id, data: { sendEmail: true } }, { onSuccess: (r) => { setIssued({ email: r.user.email, tempPassword: r.tempPassword, emailed: r.emailed }); refresh(); }, onError })} disabled={resetPassword.isPending} className="text-white/30 hover:text-white transition-colors p-1.5" title="Reset password" data-testid={`button-reset-password-${u.id}`}>
+                          <KeyRound className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => updateUser.mutate({ id: u.id, data: { active: !u.active } }, { onSuccess: refresh, onError })} disabled={updateUser.isPending} className="text-white/30 hover:text-[var(--gold-light)] transition-colors p-1.5" title={u.active ? "Deactivate" : "Activate"} data-testid={`button-toggle-active-${u.id}`}>
+                          <RefreshCw className="w-4 h-4" />
+                        </button>
+                        {confirmDeleteId === u.id ? (
+                          <button onClick={() => deleteUser.mutate({ id: u.id }, { onSuccess: () => { setConfirmDeleteId(null); refresh(); }, onError })} className="text-xs bg-[#EF4444] hover:bg-red-600 transition-colors text-white px-3 py-1.5 rounded-lg font-bold ml-1">Confirm</button>
+                        ) : (
+                          <button onClick={() => setConfirmDeleteId(u.id)} className="text-white/30 hover:text-[#EF4444] transition-colors p-1.5" aria-label="Delete login">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </DarkSection>
+
+        <DarkSection 
+          title="Overview & Services" 
+          action={
+            <button onClick={() => upsert.mutate({ propertyId, data: { servicesOverview: overviewDraft ?? account.servicesOverview ?? "" } }, { onSuccess: () => { setOverviewDraft(null); refresh(); toast({ title: "Overview saved" }); }, onError })} disabled={upsert.isPending || overviewDraft == null} className={btnGhost} data-testid="button-save-overview">
+              <Check className="w-4 h-4" /> Save
+            </button>
+          }
+        >
+          <textarea
+            value={overviewDraft ?? account.servicesOverview ?? ""}
+            onChange={(e) => setOverviewDraft(e.target.value)}
+            rows={3}
+            className={inputCls}
+            placeholder="What we do for this property — shows on their dashboard."
+            data-testid="input-services-overview"
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-white/40 mb-3 border-b border-white/5 pb-2">Services on their price list</p>
+              {services.length === 0 ? (
+                <p className="text-sm text-white/30">None yet — manage it on the property page.</p>
+              ) : (
+                <ul className="space-y-2 text-sm font-medium">
+                  {services.map((s) => (
+                    <li key={String(s.id)} className="flex items-center justify-between gap-3 text-white/80 bg-white/5 px-3 py-2 rounded-lg border border-white/5">
+                      <span className="truncate">{String(s.service)}</span>
+                      <span className="text-white/50 font-mono text-xs shrink-0">${Number(s.rate).toLocaleString()}{s.unit ? `/${String(s.unit)}` : ""}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-white/40 mb-3 border-b border-white/5 pb-2">Property contacts</p>
+              {contacts.length === 0 ? (
+                <p className="text-sm text-white/30">No contacts on file.</p>
+              ) : (
+                <ul className="space-y-2 text-sm font-medium">
+                  {contacts.map((c) => (
+                    <li key={String(c.id)} className="truncate text-white/80 bg-white/5 px-3 py-2 rounded-lg border border-white/5">
+                      {String(c.name)}
+                      {c.role ? <span className="text-white/40 font-normal"> · {String(c.role)}</span> : null}
+                      {c.email ? <span className="text-white/40 font-normal"> · {String(c.email)}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="text-xs text-white/30 mt-4 font-medium">Edit info & contacts from the <Link href={`/properties/${property.id}`} className="text-[var(--gold-light)] hover:underline">property page</Link>.</p>
+            </div>
+          </div>
+        </DarkSection>
+
+      </div>
+
+      {/* Light-themed components below the island */}
       <AdminUnitMap propertyId={propertyId} />
-
-      {/* Property Hub (client CMS) */}
       <AdminPropertyHub propertyId={propertyId} />
     </div>
   );

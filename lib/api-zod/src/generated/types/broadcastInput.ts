@@ -5,12 +5,15 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { BroadcastInputItemTimesItem } from './broadcastInputItemTimesItem';
 
 export interface BroadcastInput {
-  /** all | trade | crews */
+  /** all | trade | crews | specialties (match each line item's service to crew specialty profiles) */
   mode: string;
   trade?: string;
   crewIds?: string[];
+  /** Specialty mode — staggered start time per line item (HH:MM); persisted on the line items */
+  itemTimes?: BroadcastInputItemTimesItem[];
   /** scheduled | flex (defaults to scheduled) */
   scheduleType?: string;
   /** Flex timeframe in days from broadcast (default 7); sets flexDueBy */

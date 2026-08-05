@@ -8,6 +8,7 @@
 import type { Job } from './job';
 import type { JobBoardInvoiceInfo } from './jobBoardInvoiceInfo';
 import type { JobBroadcastInfo } from './jobBroadcastInfo';
+import type { JobLineItem } from './jobLineItem';
 import type { JobPhoto } from './jobPhoto';
 import type { PriceItem } from './priceItem';
 
@@ -15,6 +16,7 @@ export interface JobBoardCard {
   job: Job;
   invoice?: JobBoardInvoiceInfo | null;
   priceItems: PriceItem[];
+  lineItems?: JobLineItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];
 }

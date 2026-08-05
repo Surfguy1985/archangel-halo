@@ -58,6 +58,16 @@ export interface PortalOffer {
   /** @nullable */
   crewsFilled?: number | null;
   filledByOther?: boolean;
+  /**
+     * Specialty broadcast — only these services are offered to this crew
+     * @nullable
+     */
+  forServices?: string[] | null;
+  /**
+     * HH:MM when this crew should start (staggered arrivals)
+     * @nullable
+     */
+  startTime?: string | null;
   tasks?: string[];
   photos: JobPhoto[];
 }

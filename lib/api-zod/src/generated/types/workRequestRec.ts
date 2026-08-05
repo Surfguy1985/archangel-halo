@@ -47,6 +47,11 @@ export interface WorkRequestRec {
      * @nullable
      */
   listRate?: number | null;
+  /**
+     * Office bid number the client entered (B-xxxx)
+     * @nullable
+     */
+  bidNumber?: string | null;
   /** @nullable */
   decidedAt?: string | null;
   createdAt: string;

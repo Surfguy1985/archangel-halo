@@ -5,6 +5,8 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { ClientAccountUpsertPaymentMethod } from './clientAccountUpsertPaymentMethod';
+import type { ClientBillingContact } from './clientBillingContact';
 
 export interface ClientAccountUpsert {
   tier?: string;
@@ -18,4 +20,11 @@ export interface ClientAccountUpsert {
   /** @nullable */
   servicesOverview?: string | null;
   notifyNewCards?: boolean;
+  /**
+     * @minimum 1
+     * @maximum 28
+     */
+  billingDay?: number;
+  billingContact?: ClientBillingContact | null;
+  paymentMethod?: ClientAccountUpsertPaymentMethod;
 }

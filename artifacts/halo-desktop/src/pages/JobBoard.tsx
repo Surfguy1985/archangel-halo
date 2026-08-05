@@ -18,6 +18,7 @@ import {
   getListCrewsQueryKey,
   useReopenJobChangeOrder,
   useAddJobLineItem,
+  useUpdateJobLineItem,
   type JobBoardCard,
   type Crew,
   type CrewToday
@@ -392,7 +393,8 @@ function AssignedCrewPanel({ job, crews }: { job: JobBoardCard["job"]; crews: Cr
 }
 
 function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] }) {
-  const { job, priceItems, photos, broadcasts} = card;
+  const { job, priceItems, lineItems, photos, broadcasts} = card;
+  const updateLineItem = useUpdateJobLineItem();
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [reopenConfirmOpen, setReopenConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -570,17 +572,58 @@ function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] 
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {priceItems.length > 0 && (
+            {(lineItems?.length ?? 0) > 0 && (
               <div>
                 <h4 className="text-xs font-bold text-[var(--secondary)] mb-2 flex items-center gap-1">
-                  <ClipboardList className="w-3.5 h-3.5" /> Line Items
+                  <ClipboardList className="w-3.5 h-3.5" /> Work Checklist
                 </h4>
-                {/* Work list only — no prices here; money lives in the invoice. */}
+                {/* Work checklist — only the items on THIS job, no prices.
+                    Each item is assigned to a crew who checks it off from
+                    their live link; all checked → card moves to Done. */}
                 <div className="space-y-2">
-                  {priceItems.map(item => (
+                  {(lineItems ?? []).map(item => (
                     <div key={item.id} className="flex items-center gap-2 text-sm p-2 bg-[var(--background)] border border-border rounded-none" data-testid={`line-item-${item.id}`}>
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--primary)]" />
-                      <span className="font-medium text-[var(--secondary)] truncate">{item.service}</span>
+                      <button
+                        type="button"
+                        title={item.completedAt ? "Mark not done" : "Mark done (office override)"}
+                        disabled={updateLineItem.isPending}
+                        onClick={() =>
+                          updateLineItem.mutate(
+                            { id: item.id, data: { completed: !item.completedAt } },
+                            { onSuccess: () => queryClient.invalidateQueries() },
+                          )
+                        }
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                          item.completedAt
+                            ? "border-emerald-600 bg-emerald-600 text-white"
+                            : "border-muted-foreground/40 text-transparent hover:border-emerald-500"
+                        }`}
+                        data-testid={`line-item-check-${item.id}`}
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                      </button>
+                      <span className={`font-medium truncate flex-1 ${item.completedAt ? "text-muted-foreground line-through" : "text-[var(--secondary)]"}`}>
+                        {item.service}
+                      </span>
+                      <Select
+                        value={item.assignedCrewId ?? "none"}
+                        onValueChange={(v) =>
+                          updateLineItem.mutate(
+                            { id: item.id, data: { assignedCrewId: v === "none" ? null : v } },
+                            { onSuccess: () => queryClient.invalidateQueries() },
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-7 w-[130px] shrink-0 bg-white text-[11px]" data-testid={`line-item-crew-${item.id}`}>
+                          <SelectValue placeholder="Assign crew" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Unassigned</SelectItem>
+                          {crews.filter((c) => c.active !== false).map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   ))}
                 </div>

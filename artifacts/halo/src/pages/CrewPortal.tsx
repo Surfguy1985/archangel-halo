@@ -12,6 +12,8 @@ import {
   useListPortalPhotos,
   useUploadPortalPhoto,
   useListPortalJobs,
+  getListPortalJobsQueryKey,
+  useCompletePortalLineItem,
   getListPortalPhotosQueryKey,
   useGetPortalW9,
   useSubmitPortalW9,
@@ -156,6 +158,16 @@ function formatDay(iso?: string | null): string {
     month: "short",
     day: "numeric",
   });
+}
+
+/** "13:30" → "1:30 PM" for staggered start times. */
+function formatClock(hhmm?: string | null): string {
+  if (!hhmm) return "";
+  const [h, m] = hhmm.split(":").map((n) => parseInt(n, 10));
+  if (h == null || Number.isNaN(h)) return hhmm;
+  const am = h < 12;
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr}:${String(m ?? 0).padStart(2, "0")} ${am ? "AM" : "PM"}`;
 }
 
 function initialGuideLang(): GuideLang | null {
@@ -365,6 +377,7 @@ export default function CrewPortal() {
           <OfficeViewTab view={officeView} />
         )}
         {tab === "schedule" && <PortalDispatchSection token={token} />}
+        {tab === "schedule" && <WorkChecklistSection token={token} />}
         {tab === "schedule" && <ScheduleTab portal={portal} />}
         {tab === "invoice" && <InvoiceTab portal={portal} token={token} />}
         {tab === "packets" && <WelcomeKitTab token={token} />}
@@ -1237,6 +1250,23 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
                     <> {o.crewsFilled ?? 0} of {o.crewsNeeded} crew spots filled.</>
                   )}
                 </div>
+
+                {/* Specialty broadcast: this offer only covers the crew's services */}
+                {o.forServices && o.forServices.length > 0 && (
+                  <div
+                    className="rounded-[10px] px-[10px] py-[8px] border text-[12px] bg-sky-50 border-sky-200 text-sky-900"
+                    data-testid={`offer-services-${o.id}`}
+                  >
+                    <b>Your part of this job:</b>{" "}
+                    {o.forServices.join(", ")}
+                    {o.startTime && (
+                      <>
+                        {" "}— start at <b>{formatClock(o.startTime)}</b> (arrivals are
+                        staggered so crews aren't on site at once)
+                      </>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-[12px]">
                   <div className="flex items-start gap-[8px]">
                     <Calendar className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
@@ -1793,6 +1823,110 @@ function PortalDispatchSection({ token }: { token: string }) {
             ))}
         </>
       )}
+    </div>
+  );
+}
+
+/** Per-job work checklist: the crew sees every line item on their jobs but can
+ *  only check off the items assigned to them. Checking the last open item on a
+ *  job moves the whole card to Done on the office board. */
+function WorkChecklistSection({ token }: { token: string }) {
+  const queryClient = useQueryClient();
+  const { data: jobs } = useListPortalJobs(token, {
+    query: { queryKey: getListPortalJobsQueryKey(token) },
+  });
+  const completeItem = useCompletePortalLineItem();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const active = (jobs ?? []).filter(
+    (j) =>
+      (j.lineItems?.length ?? 0) > 0 &&
+      j.status !== "complete" &&
+      j.status !== "cancelled",
+  );
+  if (active.length === 0) return null;
+  const toggle = async (jobId: string, itemId: string, done: boolean) => {
+    setBusyId(itemId);
+    setNotice(null);
+    try {
+      const res = await completeItem.mutateAsync({
+        token,
+        jobId,
+        lineItemId: itemId,
+        data: { done },
+      });
+      if (res.jobCompleted) setNotice("All work checked off — job marked Done. Nice work!");
+      queryClient.invalidateQueries({ queryKey: getListPortalJobsQueryKey(token) });
+    } catch {
+      setNotice("Couldn't update that item — try again.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+  return (
+    <div className="mb-[14px]">
+      <div className="text-[13px] font-semibold mb-[8px]">Work checklist</div>
+      {notice && (
+        <div className="text-[12px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-[10px] py-[6px] mb-[8px]" data-testid="checklist-notice">
+          {notice}
+        </div>
+      )}
+      <div className="flex flex-col gap-[8px]">
+        {active.map((j) => (
+          <div key={j.id} className="bg-white border border-border rounded-2xl p-[12px]" data-testid={`checklist-job-${j.id}`}>
+            <div className="text-[13px] font-semibold">{j.label}</div>
+            <div className="mt-[8px] flex flex-col gap-[6px]">
+              {(j.lineItems ?? []).map((li) => {
+                const canTap = li.mine && busyId !== li.id;
+                return (
+                  <button
+                    key={li.id}
+                    type="button"
+                    disabled={!canTap}
+                    onClick={() => toggle(j.id, li.id, !li.completed)}
+                    className={`flex items-center gap-[8px] rounded-xl border px-[10px] py-[8px] text-left ${
+                      li.completed
+                        ? "border-emerald-200 bg-emerald-50"
+                        : li.mine
+                          ? "border-border bg-[var(--background,#f8f8f6)]"
+                          : "border-border bg-white opacity-60"
+                    }`}
+                    data-testid={`checklist-item-${li.id}`}
+                  >
+                    <span
+                      className={`flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full border-2 ${
+                        li.completed
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : "border-muted-foreground/40 text-transparent"
+                      }`}
+                    >
+                      <Check className="w-[12px] h-[12px]" />
+                    </span>
+                    <span className={`min-w-0 flex-1 text-[13px] font-medium ${li.completed ? "line-through text-muted-foreground" : ""}`}>
+                      {li.service}
+                      {li.startTime && !li.completed && (
+                        <span className="ml-[6px] text-[10.5px] font-bold text-[var(--gold-dark)]">
+                          {formatClock(li.startTime)}
+                        </span>
+                      )}
+                    </span>
+                    {!li.mine && (
+                      <span className="shrink-0 text-[10.5px] text-muted-foreground">
+                        {li.assignedCrewName ?? "Unassigned"}
+                      </span>
+                    )}
+                    {li.mine && !li.completed && (
+                      <span className="shrink-0 text-[10.5px] font-bold text-foreground bg-[var(--gold-light)]/40 rounded-full px-[7px] py-[2px]">
+                        Tap when done
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

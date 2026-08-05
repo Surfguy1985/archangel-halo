@@ -157,6 +157,9 @@ function serAccount(a: ClientAccount) {
     notifyNewCards: a.notifyNewCards,
     onboardingStatus: a.onboardingStatus,
     onboardingSentAt: a.onboardingSentAt ? a.onboardingSentAt.toISOString() : null,
+    billingDay: a.billingDay,
+    paymentMethod: a.paymentMethod ?? null,
+    billingContact: a.billingContact ?? null,
   };
 }
 
@@ -292,6 +295,14 @@ router.put("/admin/accounts/:propertyId", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Status must be active, paused, or cancelled" });
     return;
   }
+  if (
+    body.paymentMethod &&
+    body.paymentMethod.methodType !== "card" &&
+    body.paymentMethod.methodType !== "ach"
+  ) {
+    res.status(400).json({ error: "Payment method type must be card or ach" });
+    return;
+  }
   const account = await ensureAccount(propertyId);
   // Token rotation lives ONLY in /admin/accounts/:propertyId/token/regenerate —
   // an ordinary save must never invalidate the client's dashboard link.
@@ -312,6 +323,30 @@ router.put("/admin/accounts/:propertyId", async (req, res): Promise<void> => {
         ? { servicesOverview: body.servicesOverview }
         : {}),
       ...(body.notifyNewCards != null ? { notifyNewCards: body.notifyNewCards } : {}),
+      ...(body.billingDay != null
+        ? { billingDay: Math.min(28, Math.max(1, Math.round(body.billingDay))) }
+        : {}),
+      ...(body.billingContact !== undefined
+        ? { billingContact: body.billingContact }
+        : {}),
+      // Sanitized display fields only (last4 etc.) — full numbers are never
+      // accepted on the office side; keep any existing updatedAt semantics.
+      ...(body.paymentMethod !== undefined
+        ? {
+            paymentMethod: body.paymentMethod
+              ? {
+                  methodType: body.paymentMethod.methodType as "card" | "ach",
+                  last4: body.paymentMethod.last4.slice(-4),
+                  brand: body.paymentMethod.brand ?? null,
+                  bankName: body.paymentMethod.bankName ?? null,
+                  cardExp: body.paymentMethod.cardExp ?? null,
+                  payerName: body.paymentMethod.payerName,
+                  zip: body.paymentMethod.zip ?? null,
+                  updatedAt: new Date().toISOString(),
+                }
+              : null,
+          }
+        : {}),
       updatedAt: new Date(),
     })
     .where(eq(clientAccountsTable.id, account.id))

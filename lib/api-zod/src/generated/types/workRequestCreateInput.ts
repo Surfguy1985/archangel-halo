@@ -45,4 +45,9 @@ export interface WorkRequestCreateInput {
      * @nullable
      */
   budgetEstimate?: number | null;
+  /**
+     * Office bid number (B-xxxx) — prefills the request from that bid and links it
+     * @nullable
+     */
+  bidNumber?: string | null;
 }
