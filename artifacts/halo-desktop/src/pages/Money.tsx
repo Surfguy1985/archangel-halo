@@ -8,6 +8,8 @@ import {
   useListCrewPayments,
   useRemindInvoice,
   useUpdateCrewPayment,
+  useListJobs,
+  getListJobsQueryKey,
   usePayExpenseBill,
   useApproveExpense,
   useRejectExpense,
@@ -42,6 +44,9 @@ import {
   ThumbsDown,
   ScanLine,
   MoreHorizontal,
+  Search,
+  ChevronDown,
+  Pencil,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -221,6 +226,154 @@ function InvoiceStatusBadge({ inv}: { inv: Invoice}) {
   );
 }
 
+function InvoiceBrowser({ invoices }: { invoices: Invoice[] }) {
+  const [, navigate] = useLocation();
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const { data: jobs } = useListJobs(undefined, {
+    query: { enabled: open, queryKey: getListJobsQueryKey() },
+  });
+
+  const jobById = useMemo(() => {
+    const m = new Map<string, { unitNo: string | null; description: string | null; jobNo: string }>();
+    for (const j of jobs ?? []) m.set(j.id, { unitNo: j.unitNo ?? null, description: j.description ?? null, jobNo: j.jobNo });
+    return m;
+  }, [jobs]);
+
+  const grouped = useMemo(() => {
+    const props = new Map<string, { name: string; jobs: Map<string, Invoice[]> }>();
+    for (const inv of invoices) {
+      const pid = inv.propertyId || "unknown";
+      let p = props.get(pid);
+      if (!p) {
+        p = { name: inv.propertyName || "Unknown property", jobs: new Map() };
+        props.set(pid, p);
+      }
+      const jid = inv.jobId || "none";
+      const list = p.jobs.get(jid);
+      if (list) list.push(inv);
+      else p.jobs.set(jid, [inv]);
+    }
+    return [...props.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
+  }, [invoices]);
+
+  const q = search.trim().toLowerCase();
+  const visible = q ? grouped.filter(([, p]) => p.name.toLowerCase().includes(q)) : grouped;
+
+  return (
+    <div className="bg-white rounded-2xl border border-border overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        data-testid="button-invoice-browser-toggle"
+        className="w-full flex items-center justify-between gap-3 px-6 py-3.5 hover:bg-black/5 transition-colors"
+      >
+        <span className="flex items-center gap-2 font-bold text-sm text-foreground">
+          <Search className="w-4 h-4 text-muted-foreground" />
+          Find invoices by property
+        </span>
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          {invoices.length} invoice{invoices.length === 1 ? "" : "s"} across {grouped.length}{" "}
+          propert{grouped.length === 1 ? "y" : "ies"}
+          <ChevronDown className={`w-4 h-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        </span>
+      </button>
+
+      {open && (
+        <div className="border-t border-border">
+          <div className="px-6 py-3 border-b border-border bg-black/5">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search properties…"
+              data-testid="input-invoice-browser-search"
+              className="w-full max-w-md px-4 py-2 rounded-full border border-border bg-white text-sm outline-none focus:border-[var(--primary)]"
+            />
+          </div>
+
+          {visible.length === 0 ? (
+            <div className="px-6 py-8 text-center text-sm text-muted-foreground">
+              No properties match "{search}".
+            </div>
+          ) : (
+            <div className="divide-y divide-border max-h-[32rem] overflow-y-auto">
+              {visible.map(([pid, prop]) => {
+                const isOpen = expanded[pid] ?? !!q;
+                const invCount = [...prop.jobs.values()].reduce((n, l) => n + l.length, 0);
+                return (
+                  <div key={pid}>
+                    <button
+                      onClick={() => setExpanded((e) => ({ ...e, [pid]: !isOpen }))}
+                      data-testid={`button-browser-property-${pid}`}
+                      className="w-full flex items-center justify-between gap-3 px-6 py-3 hover:bg-black/5 transition-colors"
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span className="font-display font-bold text-base truncate">{prop.name}</span>
+                      </span>
+                      <span className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
+                        {invCount} invoice{invCount === 1 ? "" : "s"}
+                        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                      </span>
+                    </button>
+
+                    {isOpen && (
+                      <div className="pb-2">
+                        {[...prop.jobs.entries()].map(([jid, invs]) => {
+                          const job = jid !== "none" ? jobById.get(jid) : undefined;
+                          const header =
+                            jid === "none"
+                              ? "No job linked"
+                              : job
+                                ? `${job.jobNo}${job.unitNo ? ` · Unit ${job.unitNo}` : ""}${job.description ? ` — ${job.description}` : ""}`
+                                : "Job";
+                          return (
+                            <div key={jid} className="px-6">
+                              <div className="pl-6 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate">
+                                {header}
+                              </div>
+                              {invs.map((inv) => (
+                                <button
+                                  key={inv.id}
+                                  type="button"
+                                  onClick={() => navigate(`/invoices/${inv.id}`)}
+                                  data-testid={`row-browser-invoice-${inv.id}`}
+                                  className="group w-full flex items-center justify-between gap-3 pl-10 pr-2 py-2 rounded-lg cursor-pointer hover:bg-black/5 transition-colors text-left"
+                                >
+                                  <span className="flex items-center gap-2 min-w-0 text-sm">
+                                    <span className="font-mono text-xs text-muted-foreground">{inv.invoiceNo}</span>
+                                    <span className="font-bold tabular-nums">{money(inv.amount)}</span>
+                                    <span className="text-xs text-muted-foreground truncate">
+                                      {inv.dueAt ? `Due ${fmtDate(inv.dueAt)}` : inv.sentAt ? `Sent ${fmtDate(inv.sentAt)}` : "Not sent"}
+                                    </span>
+                                  </span>
+                                  <span className="flex items-center gap-2 shrink-0">
+                                    <InvoiceStatusBadge inv={inv} />
+                                    {inv.status === "draft" && (
+                                      <span className="flex items-center gap-1 text-xs font-semibold text-[var(--secondary)] opacity-70 group-hover:opacity-100">
+                                        <Pencil className="w-3 h-3" /> Edit &amp; send
+                                      </span>
+                                    )}
+                                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-[var(--primary)]" />
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Invoices() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
@@ -282,6 +435,7 @@ function Invoices() {
 
   return (
     <div className="space-y-4">
+      <InvoiceBrowser invoices={sorted} />
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           {invoiceFilters.map((f) => (
