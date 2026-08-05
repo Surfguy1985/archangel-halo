@@ -189,5 +189,5 @@ description = "One-pager for clients/PMs — reading the board, card messaging, 
 id = "bBQE1f8db55cbOjN8pT24"
 uri = "file://screenshots/vendor-crm/HALO-vendor-CRM-walkthrough.pdf"
 type = "pdf"
-title = "HALO Vendor-Side CRM — Full UX/UI Walkthrough"
-description = "All 20 office screens captured live: Today, Dispatch, Calendar, Job Board, Properties, Jobs, Pipeline, Crews, Wings, Money, Payments, Invoices, Catalog, Supply, Vendors, AI Import, Client Accounts, and the vendor board."
+title = "HALO Vendor-Side CRM — Full UX/UI Walkthrough (PDF)"
+description = "Click this card to open or download the 21-page walkthrough of every vendor-side office screen."
