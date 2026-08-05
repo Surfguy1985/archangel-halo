@@ -50,6 +50,7 @@ import type {
   BoardCardCommentList,
   BoardNotificationList,
   BoardSettingsInput,
+  BoardStatusChangeInput,
   Brief,
   BroadcastInput,
   BroadcastResult,
@@ -310,6 +311,7 @@ import type {
   PullCrewResult,
   PurchaseOrder,
   PurchaseOrderInput,
+  QualityCheckResult,
   Queue,
   QuickJobInput,
   RebuildLedgerEntries200,
@@ -6798,6 +6800,149 @@ export const useBroadcastJob = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getBroadcastJobMutationOptions(options));
+    }
+
+export const getQualityCheckJobUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/quality-check`
+}
+
+/**
+ * @summary Run an AI pass/fail quality check on a job's before/after photos
+ */
+export const qualityCheckJob = async (id: string, options?: RequestInit): Promise<QualityCheckResult> => {
+
+  return customFetch<QualityCheckResult>(getQualityCheckJobUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getQualityCheckJobMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof qualityCheckJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof qualityCheckJob>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['qualityCheckJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof qualityCheckJob>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  qualityCheckJob(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type QualityCheckJobMutationResult = NonNullable<Awaited<ReturnType<typeof qualityCheckJob>>>
+
+    export type QualityCheckJobMutationError = ErrorType<Error>
+
+    /**
+ * @summary Run an AI pass/fail quality check on a job's before/after photos
+ */
+export const useQualityCheckJob = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof qualityCheckJob>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof qualityCheckJob>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getQualityCheckJobMutationOptions(options));
+    }
+
+export const getSetJobBoardStatusUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/board-status`
+}
+
+/**
+ * @summary Move a board card between rails (manual_check flags it for Alerts; completed sends it to Done)
+ */
+export const setJobBoardStatus = async (id: string,
+    boardStatusChangeInput: BoardStatusChangeInput, options?: RequestInit): Promise<Job> => {
+
+  return customFetch<Job>(getSetJobBoardStatusUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(boardStatusChangeInput)
+  }
+);}
+
+
+
+
+
+export const getSetJobBoardStatusMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setJobBoardStatus>>, TError,{id: string;data: BodyType<BoardStatusChangeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setJobBoardStatus>>, TError,{id: string;data: BodyType<BoardStatusChangeInput>}, TContext> => {
+
+const mutationKey = ['setJobBoardStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setJobBoardStatus>>, {id: string;data: BodyType<BoardStatusChangeInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setJobBoardStatus(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetJobBoardStatusMutationResult = NonNullable<Awaited<ReturnType<typeof setJobBoardStatus>>>
+    export type SetJobBoardStatusMutationBody = BodyType<BoardStatusChangeInput>
+    export type SetJobBoardStatusMutationError = ErrorType<Error>
+
+    /**
+ * @summary Move a board card between rails (manual_check flags it for Alerts; completed sends it to Done)
+ */
+export const useSetJobBoardStatus = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setJobBoardStatus>>, TError,{id: string;data: BodyType<BoardStatusChangeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setJobBoardStatus>>,
+        TError,
+        {id: string;data: BodyType<BoardStatusChangeInput>},
+        TContext
+      > => {
+      return useMutation(getSetJobBoardStatusMutationOptions(options));
     }
 
 export const getUpdateBoardSettingsUrl = (id: string,) => {

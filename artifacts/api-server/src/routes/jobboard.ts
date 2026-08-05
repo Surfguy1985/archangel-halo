@@ -25,8 +25,109 @@ import {
   UpdateBoardSettingsResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
+import { completeJsonWithImages } from "../lib/ai";
+import { ObjectStorageService } from "../lib/objectStorage";
+import { rateLimit } from "../lib/rateLimit";
 
 const router: IRouter = Router();
+
+// ---------------------------------------------------------------------------
+// AI quality check — compares a job's before/after photos, verdict pass|fail.
+// ---------------------------------------------------------------------------
+const IMAGE_TYPES: Record<string, "image/jpeg" | "image/png" | "image/webp" | "image/gif"> = {
+  "image/jpeg": "image/jpeg",
+  "image/jpg": "image/jpeg",
+  "image/png": "image/png",
+  "image/webp": "image/webp",
+  "image/gif": "image/gif",
+};
+
+// Expensive AI endpoint — cap per job+IP so rapid clicks can't fan out spend.
+const qualityCheckLimit = rateLimit({
+  limit: 4,
+  windowMs: 60_000,
+  key: (req) => `quality-check:${req.params.id}:${(req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? "unknown"}`,
+});
+
+router.post("/jobs/:id/quality-check", qualityCheckLimit, async (req, res): Promise<void> => {
+  try {
+    const [job] = await db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, String(req.params.id)));
+    if (!job) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+    const acts = await db
+      .select()
+      .from(activitiesTable)
+      .where(
+        and(
+          eq(activitiesTable.entityType, "job"),
+          eq(activitiesTable.entityId, job.id),
+        ),
+      )
+      .orderBy(desc(activitiesTable.createdAt));
+    const befores = acts.filter((a) => a.kind === "photo_before" && a.storagePath);
+    const afters = acts.filter((a) => a.kind === "photo_after" && a.storagePath);
+    if (afters.length === 0) {
+      res.status(400).json({
+        error: "No after photos on this job yet — the crew hasn't uploaded finished-work photos.",
+      });
+      return;
+    }
+
+    // Cap the photo set so requests stay small: up to 4 of each phase.
+    const storage = new ObjectStorageService();
+    const picks = [
+      ...befores.slice(0, 4).map((a, i) => ({ a, label: `BEFORE photo ${i + 1}` })),
+      ...afters.slice(0, 4).map((a, i) => ({ a, label: `AFTER photo ${i + 1}` })),
+    ];
+    const images: { label: string; base64: string; mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif" }[] = [];
+    for (const { a, label } of picks) {
+      try {
+        const file = await storage.getObjectEntityFile(a.storagePath!);
+        const [meta] = await file.getMetadata();
+        // Skip unsupported types instead of mislabeling them — mislabeled
+        // payloads make the model error and burn retries.
+        const mediaType = IMAGE_TYPES[String(meta.contentType || "").toLowerCase()];
+        if (!mediaType) continue;
+        // Skip anything over ~8MB — base64 inflation would blow the request.
+        if (Number(meta.size ?? 0) > 8 * 1024 * 1024) continue;
+        const [buf] = await file.download();
+        images.push({ label, base64: buf.toString("base64"), mediaType });
+      } catch {
+        // Skip photos that can't be read; the check runs on what loads.
+      }
+    }
+    if (!images.some((i) => i.label.startsWith("AFTER"))) {
+      res.status(400).json({ error: "Could not load the after photos for this job." });
+      return;
+    }
+
+    const result = await completeJsonWithImages<{ verdict: string; summary: string }>(
+      "You are a strict but fair quality inspector for a property maintenance company. " +
+        "You are shown BEFORE photos (state when the crew arrived, may be absent) and AFTER photos (finished work). " +
+        "Verdict rules: PASS only if the after photos show the work completed to a professional standard — clean, finished, no visible damage, debris, or obviously incomplete areas. " +
+        "FAIL if work looks unfinished, sloppy, dirty, damaged, or the after photos are too unclear to judge.",
+      `Job: ${job.jobNo}${job.category ? ` (${job.category})` : ""}${job.unitNo ? `, unit ${job.unitNo}` : ""}. ` +
+        `Scope of work: ${job.description || "not specified"}. ` +
+        `Return JSON: {"verdict": "pass" | "fail", "summary": "<1-2 sentences explaining the verdict in plain language>"}`,
+      images,
+    );
+    const verdict = result.verdict === "pass" ? "pass" : "fail";
+    res.json({
+      verdict,
+      summary: result.summary || (verdict === "pass" ? "Work looks complete." : "Work needs a manual look."),
+      beforeCount: befores.length,
+      afterCount: afters.length,
+    });
+  } catch (err) {
+    console.error("quality-check failed", err);
+    res.status(500).json({ error: "Quality check failed — try again in a moment." });
+  }
+});
 
 router.get("/job-board", async (_req, res): Promise<void> => {
   const [jobs, props, priceItems, broadcasts, crews, photoActs] =
@@ -224,6 +325,27 @@ router.post("/jobs/:id/broadcast", async (req, res): Promise<void> => {
       crewNames: sentNames,
     }),
   );
+});
+
+// Move a board card between rails: manual_check → Alerts, completed → Done.
+router.post("/jobs/:id/board-status", async (req, res): Promise<void> => {
+  const id = String(req.params.id);
+  const boardStatus = String(req.body?.boardStatus ?? "");
+  if (boardStatus !== "manual_check" && boardStatus !== "completed") {
+    res.status(400).json({ error: "boardStatus must be manual_check or completed" });
+    return;
+  }
+  const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  const [updated] = await db
+    .update(jobsTable)
+    .set({ boardStatus })
+    .where(eq(jobsTable.id, id))
+    .returning();
+  res.json(ser(updated));
 });
 
 router.post("/jobs/:id/board-settings", async (req, res): Promise<void> => {

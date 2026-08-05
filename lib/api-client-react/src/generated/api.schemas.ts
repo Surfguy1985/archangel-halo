@@ -2612,6 +2612,20 @@ export interface BoardSettingsInput {
   crewsNeeded?: number;
 }
 
+export interface BoardStatusChangeInput {
+  /** manual_check | completed */
+  boardStatus: string;
+}
+
+export interface QualityCheckResult {
+  /** pass | fail */
+  verdict: string;
+  /** One or two sentence explanation of the verdict */
+  summary: string;
+  beforeCount: number;
+  afterCount: number;
+}
+
 export interface BroadcastResult {
   sent: number;
   alreadySent: number;

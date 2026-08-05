@@ -84,6 +84,44 @@ export async function completeComplexJson<T = unknown>(
 
 type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "application/pdf";
 
+/** Multi-image variant — labels each image so prompts can reference them (e.g. before/after sets). */
+export async function completeJsonWithImages<T = unknown>(
+  system: string,
+  user: string,
+  images: { label: string; base64: string; mediaType: Exclude<ImageMediaType, "application/pdf"> }[],
+  maxTokens = 8192,
+  model: string = MODEL,
+): Promise<T> {
+  const content: Array<
+    | { type: "text"; text: string }
+    | { type: "image"; source: { type: "base64"; media_type: Exclude<ImageMediaType, "application/pdf">; data: string } }
+  > = [];
+  for (const img of images) {
+    content.push({ type: "text", text: img.label });
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type: img.mediaType, data: img.base64 },
+    });
+  }
+  content.push({ type: "text", text: user });
+  const run = async (): Promise<T> => {
+    const message = await withRetries(() =>
+      anthropic.messages.create({
+        model,
+        max_tokens: maxTokens,
+        system: `${system}\n\nRespond with ONLY valid JSON. No prose, no markdown fences.`,
+        messages: [{ role: "user", content }],
+      }),
+    );
+    return extractJson(textOf(message as never)) as T;
+  };
+  try {
+    return await run();
+  } catch {
+    return await run();
+  }
+}
+
 export async function completeJsonWithImage<T = unknown>(
   system: string,
   user: string,

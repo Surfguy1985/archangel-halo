@@ -2998,6 +2998,86 @@ export const BroadcastJobResponse = zod.object({
 
 
 /**
+ * @summary Run an AI pass/fail quality check on a job's before/after photos
+ */
+export const QualityCheckJobParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const QualityCheckJobResponse = zod.object({
+  "verdict": zod.string().describe('pass | fail'),
+  "summary": zod.string().describe('One or two sentence explanation of the verdict'),
+  "beforeCount": zod.number(),
+  "afterCount": zod.number()
+})
+
+
+/**
+ * @summary Move a board card between rails (manual_check flags it for Alerts; completed sends it to Done)
+ */
+export const SetJobBoardStatusParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SetJobBoardStatusBody = zod.object({
+  "boardStatus": zod.string().describe('manual_check | completed')
+})
+
+export const SetJobBoardStatusResponse = zod.object({
+  "id": zod.string(),
+  "jobNo": zod.string(),
+  "woNo": zod.string().nullish(),
+  "propertyId": zod.string().optional(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "crewLeaderId": zod.string().nullish(),
+  "crewLeaderName": zod.string().nullish(),
+  "bidId": zod.string().nullish(),
+  "contactId": zod.string().nullish(),
+  "inspectionRequired": zod.boolean().nullish(),
+  "inspectionPassedAt": zod.string().nullish(),
+  "completedAt": zod.string().nullish(),
+  "clearedAt": zod.string().nullish(),
+  "recapSentAt": zod.string().nullish(),
+  "warrantyUntil": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish(),
+  "scheduledTime": zod.string().nullish().describe('HH:MM start time for fixed-schedule jobs'),
+  "grossProfit": zod.number().nullish(),
+  "marginPct": zod.number().nullish(),
+  "crewRate": zod.number().nullish().describe('Payout rate the crew must accept for this job'),
+  "invoicedTotal": zod.number().nullish().describe('Sum of non-draft invoices attached to this job (property detail only)'),
+  "paidTotal": zod.number().nullish().describe('Sum of paid invoices attached to this job (property detail only)'),
+  "expensesTotal": zod.number().nullish().describe('Sum of expenses attached to this job (property detail only)'),
+  "boardStatus": zod.string().nullish().describe('active | filled | reopened | completed'),
+  "scheduleType": zod.string().nullish().describe('scheduled (crew commits to set days\/hours) | flex (crew works on own time before flexDueBy)'),
+  "flexDueBy": zod.string().nullish().describe('YYYY-MM-DD deadline for flex jobs, set at broadcast time'),
+  "crewsNeeded": zod.number().nullish().describe('Crew slots for this broadcasted job'),
+  "crewsFilled": zod.number().nullish().describe('Approved crew count so far'),
+  "nextVisitOn": zod.string().nullish().describe('Next scheduled visit date (YYYY-MM-DD, property detail only)'),
+  "crewPaymentStatus": zod.string().nullish().describe('paid | pending | null when no crew payment recorded (property detail only)'),
+  "crewPaidAt": zod.string().nullish().describe('When the crew payment was completed (property detail only)'),
+  "isRecurring": zod.boolean().nullish(),
+  "recurrence": zod.string().nullish().describe('daily | weekly | biweekly | monthly | quarterly'),
+  "clientBudget": zod.number().nullish().describe('Client\'s stated budget carried from the accepted work request; invoice editors warn when the total exceeds it'),
+  "createdAt": zod.string().nullish(),
+  "lineItems": zod.array(zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number()
+})).optional(),
+  "lineTotal": zod.number().nullish()
+})
+
+
+/**
  * @summary Edit posting terms on an existing board job (schedule type, flex days, crew slots)
  */
 export const UpdateBoardSettingsParams = zod.object({

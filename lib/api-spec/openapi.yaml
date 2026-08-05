@@ -2060,6 +2060,72 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /jobs/{id}/quality-check:
+    post:
+      operationId: qualityCheckJob
+      tags: [jobs]
+      summary: Run an AI pass/fail quality check on a job's before/after photos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Quality check verdict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QualityCheckResult"
+        "400":
+          description: Not enough photos to check
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /jobs/{id}/board-status:
+    post:
+      operationId: setJobBoardStatus
+      tags: [jobs]
+      summary: Move a board card between rails (manual_check flags it for Alerts; completed sends it to Done)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BoardStatusChangeInput"
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          description: Invalid status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /jobs/{id}/board-settings:
     post:
       operationId: updateBoardSettings
@@ -11170,6 +11236,19 @@ components:
         scheduleType: { type: string, description: "scheduled | flex" }
         flexDays: { type: number, description: "Flex timeframe in days from now; recomputes flexDueBy (flex only)" }
         crewsNeeded: { type: number, description: "Crew slots; cannot go below crews already filled" }
+    BoardStatusChangeInput:
+      type: object
+      required: [boardStatus]
+      properties:
+        boardStatus: { type: string, description: "manual_check | completed" }
+    QualityCheckResult:
+      type: object
+      required: [verdict, summary, beforeCount, afterCount]
+      properties:
+        verdict: { type: string, description: "pass | fail" }
+        summary: { type: string, description: "One or two sentence explanation of the verdict" }
+        beforeCount: { type: number }
+        afterCount: { type: number }
     BroadcastResult:
       type: object
       required: [sent, alreadySent]

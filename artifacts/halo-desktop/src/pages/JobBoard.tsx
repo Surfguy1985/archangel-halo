@@ -7,6 +7,8 @@ import {
   useUnlistJob,
   useUpdateJob,
   useUpdateBoardSettings,
+  useQualityCheckJob,
+  useSetJobBoardStatus,
   useListCrews,
   getListCrewsQueryKey,
   type JobBoardCard,
@@ -34,7 +36,11 @@ import {
   Image as ImageIcon,
   Clock,
   Pencil,
-  Trash2
+  Trash2,
+  ShieldCheck,
+  Loader2,
+  MessageSquare,
+  XCircle
 } from "lucide-react";
 import { Badge} from "@/components/ui/badge";
 import { Input} from "@/components/ui/input";
@@ -59,6 +65,7 @@ type JobTone = "lime" | "blue" | "emerald" | "stone" | "red";
 /** Same five rails as the client board: Requested → In progress → Done → Billing → Alerts (red, last). */
 function jobRail(card: JobBoardCard): JobRailKey {
   const board = card.job.boardStatus || "active";
+  if (board === "manual_check") return "alert"; // failed AI check — needs a manual look
   if (board === "reopened") return "alert"; // lost its crew — needs the office
   if (card.job.status === "complete" || card.job.status === "paid") return "billing";
   if (board === "completed") return "done";
@@ -82,7 +89,19 @@ export default function JobBoard() {
   const { data: allCrews } = useListCrews({ query: { queryKey: getListCrewsQueryKey() } });
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const cards = jobBoard ?? [];
+  // One card per unit on the board: the server lists jobs newest-first, so
+  // keep the first (newest) card per property+unit and drop older duplicates.
+  const cards = (() => {
+    const seen = new Set<string>();
+    const out: JobBoardCard[] = [];
+    for (const c of jobBoard ?? []) {
+      const key = c.job.unitNo ? `${c.job.propertyId}|${c.job.unitNo}` : c.job.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(c);
+    }
+    return out;
+  })();
   const openCard = cards.find((c) => c.job.id === openId) ?? null;
 
   return (
@@ -129,7 +148,7 @@ export default function JobBoard() {
                           key={card.job.id}
                           card={card}
                           tone={rail.tone}
-                          crews={rail.key === "in_progress" ? allCrews : undefined}
+                          crews={allCrews}
                           onOpen={() => setOpenId(card.job.id)}
                         />
                       ))
@@ -185,6 +204,7 @@ function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobT
   const pendingOffers = broadcasts.filter((b) => b.status === "sent" || b.status === "pending").length;
 
   return (
+    <div>
     <button
       type="button"
       onClick={onOpen}
@@ -197,19 +217,21 @@ function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobT
         ) : (
           <div className="absolute inset-0 bg-[var(--secondary)]" />
         )}
-        {/* Big uniform unit number, white, centered in the header */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          {job.unitNo ? (
-            <span
-              className="font-display font-bold text-4xl text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]"
-              data-testid={`job-unit-${job.id}`}
-            >
-              {job.unitNo}
-            </span>
-          ) : (
-            !artwork && <ClipboardList className="w-5 h-5 text-white/25" />
-          )}
-        </div>
+        {/* Big uniform unit number, white, top-left corner */}
+        {job.unitNo ? (
+          <span
+            className="absolute top-2 left-3 font-display font-bold text-4xl text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)] pointer-events-none"
+            data-testid={`job-unit-${job.id}`}
+          >
+            {job.unitNo}
+          </span>
+        ) : (
+          !artwork && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <ClipboardList className="w-5 h-5 text-white/25" />
+            </div>
+          )
+        )}
         <span className={`absolute bottom-2 left-2 max-w-[calc(100%-16px)] truncate rounded-full px-2.5 py-1 text-[11px] font-medium ${t.chip}`}>
           {job.category || job.boardStatus || "Job"}
         </span>
@@ -258,6 +280,8 @@ function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobT
         )}
       </div>
     </button>
+    {job.boardStatus === "manual_check" && <MarkCompleteButton jobId={job.id} small />}
+    </div>
   );
 }
 
@@ -268,6 +292,7 @@ function JobBoardItem({ card}: { card: JobBoardCard}) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [postingOpen, setPostingOpen] = useState(false);
+  const [checkWorkOpen, setCheckWorkOpen] = useState(false);
   
   const statusColors: Record<string, string> = {
     active: "bg-blue-100 text-blue-800",
@@ -440,9 +465,21 @@ function JobBoardItem({ card}: { card: JobBoardCard}) {
             </Button>
           )}
           {boardStatus === 'filled' && (
-            <Button variant="outline" onClick={() => setReopenConfirmOpen(true)} className="text-orange-600 border-orange-600 hover:bg-orange-600 hover:text-white rounded-full">
-              <RotateCcw className="w-4 h-4 mr-2" /> Reopen Job
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setReopenConfirmOpen(true)} className="text-orange-600 border-orange-600 hover:bg-orange-600 hover:text-white rounded-full">
+                <RotateCcw className="w-4 h-4 mr-2" /> Reopen Job
+              </Button>
+              <Button
+                onClick={() => setCheckWorkOpen(true)}
+                data-testid={`check-work-${job.id}`}
+                className="bg-[var(--gold-light)] hover:opacity-90 text-black rounded-full font-bold"
+              >
+                <ShieldCheck className="w-4 h-4 mr-2" /> Check Work
+              </Button>
+            </>
+          )}
+          {boardStatus === 'manual_check' && (
+            <MarkCompleteButton jobId={job.id} />
           )}
           {boardStatus === 'completed' && (
              <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium px-2">
@@ -452,12 +489,166 @@ function JobBoardItem({ card}: { card: JobBoardCard}) {
         </div>
       </CardContent>
 
+      <CheckWorkDialog open={checkWorkOpen} onOpenChange={setCheckWorkOpen} job={job} photos={photos} />
       <BroadcastDialog open={broadcastOpen} onOpenChange={setBroadcastOpen} job={job} />
       <ReopenConfirmDialog open={reopenConfirmOpen} onOpenChange={setReopenConfirmOpen} job={job} />
       <DeleteConfirmDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen} job={job} />
       <EditJobDialog open={editOpen} onOpenChange={setEditOpen} job={job} />
       <EditPostingDialog open={postingOpen} onOpenChange={setPostingOpen} job={job} />
     </Card>
+  );
+}
+
+/** Moves a manual-check card from Alerts to Done. */
+function MarkCompleteButton({ jobId, small }: { jobId: string; small?: boolean }) {
+  const setBoardStatus = useSetJobBoardStatus();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setBoardStatus.mutate(
+      { id: jobId, data: { boardStatus: "completed" } },
+      {
+        onSuccess: () => {
+          toast({ title: "Marked complete", description: "The card moved to Done." });
+          queryClient.invalidateQueries();
+        },
+        onError: (err) => {
+          toast({ title: "Couldn't mark complete", description: (err as any)?.data?.error ?? "Something went wrong", variant: "destructive" });
+        },
+      },
+    );
+  };
+  return (
+    <Button
+      onClick={handleClick}
+      disabled={setBoardStatus.isPending}
+      data-testid={`mark-complete-${jobId}`}
+      className={`bg-emerald-500 hover:bg-emerald-600 text-white rounded-full font-bold ${small ? "h-7 px-3 text-[11px] mt-2 w-full" : ""}`}
+    >
+      <CheckCircle2 className={small ? "w-3.5 h-3.5 mr-1.5" : "w-4 h-4 mr-2"} /> Mark Complete
+    </Button>
+  );
+}
+
+function CheckWorkDialog({ open, onOpenChange, job, photos }: { open: boolean; onOpenChange: (open: boolean) => void; job: JobBoardCard['job']; photos: JobBoardCard['photos'] }) {
+  const qualityCheck = useQualityCheckJob();
+  const [result, setResult] = useState<{ verdict: string; summary: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Run token — a late response from a previous open must not overwrite the
+  // current run's state.
+  const [runId, setRunId] = useState(0);
+
+  const befores = photos.filter((p) => p.kind === "photo_before");
+  const afters = photos.filter((p) => p.kind === "photo_after");
+
+  // Auto-run the AI check each time the dialog opens.
+  useEffect(() => {
+    if (!open) { setResult(null); setError(null); return; }
+    const myRun = runId + 1;
+    setRunId(myRun);
+    setResult(null);
+    setError(null);
+    let stale = false;
+    qualityCheck.mutate({ id: job.id }, {
+      onSuccess: (r) => { if (!stale) setResult({ verdict: r.verdict, summary: r.summary }); },
+      onError: (err) => { if (!stale) setError((err as any)?.data?.error ?? "Quality check failed — try again in a moment."); },
+    });
+    return () => { stale = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, job.id]);
+
+  const setBoardStatus = useSetJobBoardStatus();
+  const queryClient = useQueryClient();
+  const manualCheckHref = `sms:?&body=${encodeURIComponent(
+    `Manual check required - Property: ${job.propertyName || "Unknown"} Unit: ${job.unitNo || "—"}`
+  )}`;
+  // Sending a manual check moves the card to the Alerts rail.
+  const handleManualCheck = () => {
+    setBoardStatus.mutate(
+      { id: job.id, data: { boardStatus: "manual_check" } },
+      { onSuccess: () => queryClient.invalidateQueries() },
+    );
+  };
+
+  const PhotoStrip = ({ label, items }: { label: string; items: JobBoardCard['photos'] }) => (
+    <div>
+      <h4 className="text-xs font-bold text-[var(--secondary)] mb-2">{label} · {items.length}</h4>
+      {items.length === 0 ? (
+        <p className="text-xs text-muted-foreground">None uploaded</p>
+      ) : (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {items.map((p) => (
+            <img
+              key={p.storagePath}
+              src={`/api/storage${p.storagePath}`}
+              alt={label}
+              className="w-24 h-24 rounded-lg object-cover border border-border shrink-0 bg-muted"
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle>Check Work — {job.propertyName}{job.unitNo ? ` #${job.unitNo}` : ""}</DialogTitle>
+          <DialogDescription>
+            AI compares the crew's before and after photos and gives a simple pass or fail.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <PhotoStrip label="Before" items={befores} />
+          <PhotoStrip label="After" items={afters} />
+
+          {qualityCheck.isPending && (
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-[var(--background)] p-4 text-sm">
+              <Loader2 className="w-5 h-5 animate-spin text-[var(--gold)]" />
+              Running AI quality check…
+            </div>
+          )}
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" data-testid="check-work-error">
+              {error}
+            </div>
+          )}
+          {result && (
+            <div
+              data-testid="check-work-result"
+              className={`rounded-xl border p-4 ${result.verdict === "pass" ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}
+            >
+              <div className="flex items-center gap-2 font-display font-bold text-lg">
+                {result.verdict === "pass" ? (
+                  <><CheckCircle2 className="w-5 h-5 text-emerald-600" /> <span className="text-emerald-700">PASS</span></>
+                ) : (
+                  <><XCircle className="w-5 h-5 text-red-600" /> <span className="text-red-700">FAIL</span></>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-foreground">{result.summary}</p>
+              {result.verdict !== "pass" && (
+                <Button
+                  asChild
+                  className="mt-3 bg-[var(--secondary)] hover:opacity-90 text-white rounded-full font-bold"
+                  data-testid="manual-check-btn"
+                >
+                  <a href={manualCheckHref} onClick={handleManualCheck}>
+                    <MessageSquare className="w-4 h-4 mr-2" /> Manual Check
+                  </a>
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
