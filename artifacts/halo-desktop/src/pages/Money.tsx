@@ -810,16 +810,67 @@ function CrewPay() {
   type Payment = NonNullable<typeof payments>[number];
   const [zellePayment, setZellePayment] = useState<Payment | null>(null);
 
-  const groups = useMemo(() => {
-    const map = new Map<string, { name: string; items: Payment[]}>();
+  const { data: jobs } = useListJobs(undefined, {
+    query: { queryKey: getListJobsQueryKey() },
+  });
+  const jobById = useMemo(() => {
+    const m = new Map<
+      string,
+      { jobNo: string; propertyId: string; propertyName: string; unitNo: string | null; service: string }
+    >();
+    for (const j of jobs ?? [])
+      m.set(j.id, {
+        jobNo: j.jobNo,
+        propertyId: j.propertyId ?? "unknown",
+        propertyName: j.propertyName || "Unknown property",
+        unitNo: j.unitNo ?? null,
+        service: j.category || j.description || "General work",
+      });
+    return m;
+  }, [jobs]);
+
+  // Ledger: property → job (unit / service) → crew payment rows.
+  const ledger = useMemo(() => {
+    type JobGroup = {
+      label: string;
+      unitNo: string | null;
+      service: string;
+      items: Payment[];
+    };
+    const props = new Map<string, { name: string; jobs: Map<string, JobGroup> }>();
     for (const p of payments ?? []) {
-      const key = p.crewId ?? p.crewName ?? "unknown";
-      const name = p.crewName || "Unassigned crew";
-      if (!map.has(key)) map.set(key, { name, items: []});
-      map.get(key)!.items.push(p);
-   }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
- }, [payments]);
+      const job = p.jobId ? jobById.get(p.jobId) : undefined;
+      const pid = job?.propertyId ?? "none";
+      const pname = job?.propertyName ?? "Not tied to a job";
+      let prop = props.get(pid);
+      if (!prop) {
+        prop = { name: pname, jobs: new Map() };
+        props.set(pid, prop);
+      }
+      const jid = p.jobId && job ? p.jobId : "none";
+      let jg = prop.jobs.get(jid);
+      if (!jg) {
+        jg = {
+          label: job ? job.jobNo : "General payments",
+          unitNo: job?.unitNo ?? null,
+          service: job?.service ?? "",
+          items: [],
+        };
+        prop.jobs.set(jid, jg);
+      }
+      jg.items.push(p);
+    }
+    const arr = Array.from(props.entries()).sort((a, b) => {
+      if (a[0] === "none") return 1;
+      if (b[0] === "none") return -1;
+      return a[1].name.localeCompare(b[1].name);
+    });
+    // crew rows inside each job sorted by crew name
+    for (const [, prop] of arr)
+      for (const jg of prop.jobs.values())
+        jg.items.sort((a, b) => (a.crewName || "").localeCompare(b.crewName || ""));
+    return arr;
+  }, [payments, jobById]);
 
   return (
     <div className="space-y-4">
@@ -836,85 +887,113 @@ function CrewPay() {
           No crew payments yet.
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {groups.map((g) => {
-            const pendingTotal = g.items
+        <div className="space-y-4">
+          {ledger.map(([pid, prop]) => {
+            const allItems = [...prop.jobs.values()].flatMap((jg) => jg.items);
+            const pendingTotal = allItems
               .filter((p) => p.status !== "completed")
               .reduce((s, p) => s + p.amount, 0);
+            const paidTotal = allItems
+              .filter((p) => p.status === "completed")
+              .reduce((s, p) => s + p.amount, 0);
             return (
-              <div key={g.name} className="bg-card rounded-xl border border-border shadow-sm p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-display font-bold text-[var(--ink)] truncate">{g.name}</span>
-                  {pendingTotal > 0 && (
-                    <span className="font-display font-bold text-sm tabular-nums text-destructive shrink-0">
-                      {money(pendingTotal)} due
-                    </span>
-                  )}
+              <div key={pid} className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between gap-3 px-5 py-3 bg-[var(--secondary)] text-white">
+                  <span className="flex items-center gap-2 font-display font-bold truncate">
+                    <Building2 className="w-4 h-4 shrink-0 opacity-70" />
+                    {prop.name}
+                  </span>
+                  <span className="flex items-center gap-4 text-xs font-bold tabular-nums shrink-0">
+                    {pendingTotal > 0 && <span className="text-rose-300">{money(pendingTotal)} owed</span>}
+                    <span className="opacity-70">{money(paidTotal)} paid</span>
+                  </span>
                 </div>
-                <div className="divide-y divide-border">
-                  {g.items.map((p) => {
-                    const isDone = p.status === "completed";
-                    const dateStr = p.paidAt
-                      ? fmtDate(p.paidAt)
-                      : p.dueOn
-                        ?`Due ${fmtDate(p.dueOn)}`
-                        : null;
-                    return (
-                      <div key={p.id} className="flex items-center gap-3 py-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-display font-bold tabular-nums text-[var(--ink)]">
-                              {money(p.amount)}
-                            </span>
-                            <Badge
-                              variant={isDone ? "secondary" : "destructive"}
-                              className="text-[10px]"
-                            >
-                              {isDone ? "Completed" : "Pending"}
-                            </Badge>
+                <div className="hidden md:grid grid-cols-[1fr_160px_110px_100px_220px] gap-2 px-5 py-2 border-b border-border text-[10px] font-bold uppercase tracking-wide text-muted-foreground bg-black/5">
+                  <span>Job · Unit / Service</span>
+                  <span>Crew</span>
+                  <span className="text-right">Amount</span>
+                  <span>Status</span>
+                  <span />
+                </div>
+                {[...prop.jobs.entries()].map(([jid, jg]) => (
+                  <div key={jid} className="border-b border-border last:border-b-0">
+                    {jg.items.map((p, i) => {
+                      const isDone = p.status === "completed";
+                      const dateStr = p.paidAt
+                        ? `Paid ${fmtDate(p.paidAt)}`
+                        : p.dueOn
+                          ? `Due ${fmtDate(p.dueOn)}`
+                          : null;
+                      return (
+                        <div
+                          key={p.id}
+                          className="grid grid-cols-1 md:grid-cols-[1fr_160px_110px_100px_220px] gap-2 items-center px-5 py-3"
+                        >
+                          <div className="min-w-0">
+                            {i === 0 ? (
+                              <>
+                                <div className="font-semibold text-sm truncate">
+                                  {jg.label}
+                                  {jg.unitNo ? ` · Unit ${jg.unitNo}` : ""}
+                                </div>
+                                {jg.service && (
+                                  <div className="text-xs text-muted-foreground truncate">{jg.service}</div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="text-xs text-muted-foreground pl-3">〃</div>
+                            )}
                           </div>
-                          <div className="text-xs text-muted-foreground truncate mt-0.5">
-                            {[p.method || "No method", dateStr, p.note].filter(Boolean).join(" · ")}
+                          <div className="text-sm font-semibold truncate">{p.crewName || "Unassigned crew"}</div>
+                          <div className="font-display font-bold tabular-nums text-right text-[var(--ink)]">
+                            {money(p.amount)}
+                          </div>
+                          <div>
+                            <Badge variant={isDone ? "secondary" : "destructive"} className="text-[10px]">
+                              {isDone ? "Paid" : "Pending"}
+                            </Badge>
+                            <div className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                              {[p.method, dateStr, p.note].filter(Boolean).join(" · ")}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-end gap-2">
+                            {!isDone && (
+                              <Button size="sm" onClick={() => setZellePayment(p)}>
+                                <Smartphone className="w-4 h-4 mr-1.5" /> Pay via Zelle
+                              </Button>
+                            )}
+                            {!isDone && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  markPaid.mutate(
+                                    {
+                                      id: p.id,
+                                      data: {
+                                        status: "completed",
+                                        paidAt: todayLocal(),
+                                     },
+                                   },
+                                    {
+                                      onSuccess: () => {
+                                        invalidate();
+                                        toast({ title: "Marked paid"});
+                                     },
+                                   },
+                                  )
+                               }
+                                disabled={markPaid.isPending}
+                              >
+                                <Check className="w-4 h-4 mr-1.5" /> Mark paid
+                              </Button>
+                            )}
                           </div>
                         </div>
-                        {!isDone && (
-                          <Button
-                            size="sm"
-                            onClick={() => setZellePayment(p)}
-                          >
-                            <Smartphone className="w-4 h-4 mr-1.5" /> Pay via Zelle
-                          </Button>
-                        )}
-                        {!isDone && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              markPaid.mutate(
-                                {
-                                  id: p.id,
-                                  data: {
-                                    status: "completed",
-                                    paidAt: todayLocal(),
-                                 },
-                               },
-                                {
-                                  onSuccess: () => {
-                                    invalidate();
-                                    toast({ title: "Marked paid"});
-                                 },
-                               },
-                              )
-                           }
-                            disabled={markPaid.isPending}
-                          >
-                            <Check className="w-4 h-4 mr-1.5" /> Mark paid
-                          </Button>
-                        )}
-                      </div>
-                    );
-                 })}
-                </div>
+                      );
+                   })}
+                  </div>
+                ))}
               </div>
             );
          })}
