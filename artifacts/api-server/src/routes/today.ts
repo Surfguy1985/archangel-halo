@@ -59,48 +59,28 @@ async function visibleQueues() {
 // The morning brief pulls ONLY from the alert categories the owner asked
 // for: new job requests, invoices the client hasn't marked paid for 7+ days,
 // unfilled jobs, and jobs waiting on a manual verification check.
+// The brief is derived from the SAME visible feed as the Needs attention
+// section below it — same items, dismissals respected — so the two always
+// agree. Categories: new job requests (wreq-), invoices unpaid by the client
+// for 7+ days (inv-stale-), uncrewed jobs (unfilled-/vacated-), and jobs
+// waiting on a manual verification check (mcheck-).
 async function briefContext() {
   const { feed, queues } = await visibleQueues();
   const needsYou = feed.filter((f) => f.tier === "now" || f.tier === "today").length;
 
-  const [invoices, jobs, requests] = await Promise.all([
-    db.select().from(invoicesTable),
-    db.select().from(jobsTable),
-    db.select().from(workRequestsTable),
-  ]);
+  const byPrefix = (...prefixes: string[]) =>
+    feed.filter((f) => prefixes.some((p) => f.id.startsWith(p)));
 
-  const newRequests = requests.filter((r) => r.status === "pending").length;
-
-  const now = Date.now();
-  const staleInvoices = invoices.filter((i) => {
-    if (i.status !== "sent" && i.status !== "overdue") return false;
-    if (i.clientPaidReportedAt || i.paidAt) return false;
-    const sent = i.sentAt ?? i.createdAt;
-    return sent && now - new Date(sent).getTime() > 7 * 24 * 60 * 60 * 1000;
-  });
-  const staleInvoiceTotal = staleInvoices.reduce((s, i) => s + i.amount, 0);
-
-  const liveJobs = jobs.filter(
-    (j) =>
-      !["complete", "paid", "cancelled"].includes(j.status) &&
-      !j.clearedAt,
-  );
-  const unfilledJobs = liveJobs.filter(
-    (j) =>
-      !j.crewLeaderId &&
-      (j.boardStatus === "active" || j.boardStatus === "reopened"),
-  ).length;
-  const manualChecks = liveJobs.filter((j) => j.boardStatus === "manual_check").length;
-
+  const staleItems = byPrefix("inv-stale-");
   return {
     feed,
     queues,
     needsYou,
-    newRequests,
-    staleInvoiceCount: staleInvoices.length,
-    staleInvoiceTotal,
-    unfilledJobs,
-    manualChecks,
+    newRequests: byPrefix("wreq-").length,
+    staleInvoiceCount: staleItems.length,
+    staleInvoiceTotal: staleItems.reduce((s, f) => s + (f.amount ?? 0), 0),
+    unfilledJobs: byPrefix("unfilled-", "vacated-").length,
+    manualChecks: byPrefix("mcheck-").length,
   };
 }
 

@@ -89,6 +89,36 @@ export async function computeQueues(): Promise<{
     });
   }
 
+  // Money at risk — invoices the client hasn't marked paid for over 7 days
+  // (since send), even if not past due yet. Mirrors the morning brief.
+  const staleUnpaid = invoices.filter(
+    (i) =>
+      (i.status === "sent" || i.status === "overdue") &&
+      !i.paidAt &&
+      !i.clientPaidReportedAt &&
+      (i.sentAt ?? i.createdAt) &&
+      Date.now() - new Date(i.sentAt ?? i.createdAt).getTime() > 7 * DAY &&
+      !overdue.some((o) => o.id === i.id),
+  );
+  for (const i of staleUnpaid) {
+    const days = Math.floor(
+      (Date.now() - new Date(i.sentAt ?? i.createdAt).getTime()) / DAY,
+    );
+    feed.push({
+      id: `inv-stale-${i.id}`,
+      queue: "money",
+      tier: "today",
+      title: `${propName.get(i.propertyId) ?? "Invoice"} — unpaid ${days} days after send`,
+      sub: `Invoice ${i.invoiceNo}`,
+      entityType: "invoice",
+      entityId: i.id,
+      propertyId: i.propertyId,
+      amount: i.amount,
+      meta: [{ label: `${days}d unpaid`, warn: true }],
+      actions: [{ label: "Send reminder", action: "remindInvoice", kind: "gold" }],
+    });
+  }
+
   // Client requests awaiting a decision — approve/decline inline from Today.
   // Emergencies (≤24h notice) are tier "now"; everything else is "today".
   const pendingRequests = workRequests.filter((r) => r.status === "pending");
@@ -202,6 +232,53 @@ export async function computeQueues(): Promise<{
       propertyId: job.propertyId,
       meta: [{ label: "No takers", warn: true }],
       actions: [{ label: "Open job", action: "openJob", kind: "gold" }],
+    });
+  }
+
+  // Jobs on the board with no crew at all (never staffed) — distinct from
+  // "lost its crew" above, which covers crews pulled off mid-flight.
+  const unfilled = jobs.filter(
+    (j) =>
+      !j.crewLeaderId &&
+      !j.crewVacatedAt &&
+      (j.boardStatus === "active" || j.boardStatus === "reopened") &&
+      !j.clearedAt &&
+      !["complete", "paid", "cancelled"].includes(j.status),
+  );
+  for (const j of unfilled) {
+    feed.push({
+      id: `unfilled-${j.id}`,
+      queue: "schedule",
+      tier: "today",
+      title: `Job ${j.jobNo} has no crew yet`,
+      sub: `${propName.get(j.propertyId) ?? ""} — ${j.description ?? "waiting to be staffed"}`.trim(),
+      entityType: "job",
+      entityId: j.id,
+      propertyId: j.propertyId,
+      meta: [{ label: "Uncrewed", warn: true }],
+      actions: [{ label: "Staff job", action: "openJob", kind: "gold" }],
+    });
+  }
+
+  // Jobs waiting on the office's manual verification check.
+  const manualChecks = jobs.filter(
+    (j) =>
+      j.boardStatus === "manual_check" &&
+      !j.clearedAt &&
+      !["complete", "paid", "cancelled"].includes(j.status),
+  );
+  for (const j of manualChecks) {
+    feed.push({
+      id: `mcheck-${j.id}`,
+      queue: "schedule",
+      tier: "now",
+      title: `Verify work: ${j.description ?? j.jobNo}`,
+      sub: `${propName.get(j.propertyId) ?? ""} ${j.unitNo ?? ""}`.trim(),
+      entityType: "job",
+      entityId: j.id,
+      propertyId: j.propertyId,
+      meta: [{ label: "Manual check", warn: true }],
+      actions: [{ label: "Check work", action: "openJob", kind: "gold" }],
     });
   }
 
