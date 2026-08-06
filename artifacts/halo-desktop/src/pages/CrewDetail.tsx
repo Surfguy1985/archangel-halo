@@ -32,9 +32,15 @@ import {
   useCreateCrewPayment,
   useGetCrewMapPins,
   getGetCrewMapPinsQueryKey,
+  useListWingsMembers,
+  getListWingsMembersQueryKey,
+  useDecideWingsMembership,
+  useUpdateWingsMember,
+  useRecalculateWingsScore,
   type CrewPhoto,
   type CrewInvoice,
   type CrewAvailability,
+  type CrewDetail,
 } from "@workspace/api-client-react";
 import { MapContainer, TileLayer, CircleMarker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -66,6 +72,12 @@ import {
   CalendarClock,
   Gift,
   ClipboardList,
+  Feather,
+  RefreshCw,
+  ShieldCheck,
+  ShieldOff,
+  TrendingUp,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -585,8 +597,10 @@ function CrewLocationThumb({ crewId, crewName, onExpand }: { crewId: string; cre
       </div>
       {hasPos ? (
         <button type="button" onClick={onExpand} className="block w-full" aria-label={`Open live map for ${crewName}`} data-testid="crew-map-thumb">
-          <div className="h-44 w-full pointer-events-none">
+          {/* isolation:isolate scopes Leaflet's z-index so it can't overlay dialogs/popups */}
+          <div className="h-44 w-full pointer-events-none" style={{ isolation: "isolate" }}>
             <MapContainer
+              key={`crew-map-${pin.lat}-${pin.lng}`}
               center={[pin.lat as number, pin.lng as number]}
               zoom={14}
               zoomControl={false}
@@ -595,6 +609,7 @@ function CrewLocationThumb({ crewId, crewName, onExpand }: { crewId: string; cre
               doubleClickZoom={false}
               attributionControl={false}
               className="h-full w-full"
+              style={{ zIndex: 0 }}
             >
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <CircleMarker
@@ -1322,8 +1337,244 @@ export default function CrewDetail() {
             )}
           </div>
 
+          {/* Wings Program enrollment & scoring */}
+          <WingsCard crewId={id} crewWingsExcluded={!!crew.wingsExcluded} crewDetailQueryKey={getGetCrewDetailQueryKey(id)} />
+
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Wings Program Card ───────────────────────────────────────────────────────
+
+const TIER_CHIP: Record<string, string> = {
+  GROUNDED:  "bg-gray-100 text-gray-600",
+  TRAINING:  "bg-blue-100 text-blue-700",
+  SILVER:    "bg-slate-200 text-slate-700",
+  GOLD:      "bg-amber-100 text-amber-700",
+  PLATINUM:  "bg-purple-100 text-purple-700",
+};
+const STATUS_CHIP: Record<string, string> = {
+  ACTIVE:           "bg-emerald-100 text-emerald-800",
+  SUSPENDED:        "bg-red-100 text-red-700",
+  PENDING_APPROVAL: "bg-amber-100 text-amber-700",
+  AUTO_IMPORT:      "bg-sky-100 text-sky-700",
+};
+const FOUNDER_OPTIONS = [
+  { value: "NONE",         label: "None" },
+  { value: "CANDIDATE",   label: "Candidate" },
+  { value: "FOUNDING_50",  label: "Founding 50" },
+  { value: "FOUNDING_100", label: "Founding 100" },
+];
+
+function WingsCard({
+  crewId,
+  crewWingsExcluded,
+  crewDetailQueryKey,
+}: {
+  crewId: string;
+  crewWingsExcluded: boolean;
+  crewDetailQueryKey: readonly unknown[];
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const { data: allMembers, isLoading } = useListWingsMembers({
+    query: { queryKey: getListWingsMembersQueryKey(), refetchInterval: 30000 },
+  });
+  const member = allMembers?.find((m) => m.crewId === crewId);
+
+  const updateCrew      = useUpdateCrew();
+  const decideMember    = useDecideWingsMembership();
+  const updateMember    = useUpdateWingsMember();
+  const recalculate     = useRecalculateWingsScore();
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: getListWingsMembersQueryKey() });
+    queryClient.invalidateQueries({ queryKey: crewDetailQueryKey });
+  };
+
+  const toggleExclusion = () => {
+    updateCrew.mutate(
+      { id: crewId, data: { wingsExcluded: !crewWingsExcluded } },
+      {
+        onSuccess: () => { invalidate(); toast({ title: crewWingsExcluded ? "Crew enrolled in Wings" : "Crew excluded from Wings" }); },
+        onError:   () => toast({ title: "Couldn't update enrollment", variant: "destructive" }),
+      },
+    );
+  };
+
+  const decide = (approve: boolean) => {
+    decideMember.mutate(
+      { crewId, data: { approve } },
+      {
+        onSuccess: () => { invalidate(); toast({ title: approve ? "Membership approved" : "Membership suspended" }); },
+        onError:   () => toast({ title: "Couldn't update status", variant: "destructive" }),
+      },
+    );
+  };
+
+  const setFounder = (founderStatus: string) => {
+    updateMember.mutate(
+      { crewId, data: { founderStatus } },
+      { onSuccess: () => { invalidate(); toast({ title: "Founder status updated" }); } },
+    );
+  };
+
+  const handleRecalculate = () => {
+    recalculate.mutate(
+      { crewId },
+      {
+        onSuccess: (m) => { invalidate(); toast({ title: `Score updated: ${m.haloScore}/100 · ${m.tier}` }); },
+        onError:   () => toast({ title: "Recalculate failed — crew may not be enrolled yet", variant: "destructive" }),
+      },
+    );
+  };
+
+  const card = "bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6";
+  const sectionTitle = "text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground flex items-center gap-1.5 mb-4";
+
+  return (
+    <div className={card}>
+      {/* Header + enrollment toggle */}
+      <div className="flex items-center justify-between mb-4">
+        <div className={sectionTitle} style={{ marginBottom: 0 }}>
+          <Feather className="w-3.5 h-3.5 text-[var(--gold-dark)]" /> Wings Program
+        </div>
+        <button
+          type="button"
+          title={crewWingsExcluded ? "Click to enroll in Wings" : "Click to exclude from Wings"}
+          disabled={updateCrew.isPending}
+          onClick={toggleExclusion}
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+            crewWingsExcluded ? "bg-muted" : "bg-[var(--gold-light)]"
+          }`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            crewWingsExcluded ? "translate-x-1" : "translate-x-6"
+          }`} />
+        </button>
+      </div>
+
+      <div className="text-[11px] text-muted-foreground mb-4">
+        {crewWingsExcluded
+          ? "Excluded — this crew won't be auto-imported into the profit-share program."
+          : "Enrolled — crew is eligible for Wings profit-share payouts."}
+      </div>
+
+      {crewWingsExcluded ? null : isLoading ? (
+        <div className="flex justify-center py-6">
+          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+        </div>
+      ) : !member ? (
+        <div className="text-center py-4 text-sm text-muted-foreground bg-black/5 rounded-xl">
+          Not yet initialized — run Wings automation to create a member record.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Tier + status chips */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${TIER_CHIP[member.tier] ?? "bg-gray-100 text-gray-600"}`}>
+              {member.tier}
+            </span>
+            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${STATUS_CHIP[member.membershipStatus ?? ""] ?? "bg-gray-100 text-gray-600"}`}>
+              {(member.membershipStatus ?? "UNKNOWN").replace(/_/g, " ")}
+            </span>
+            {member.founderStatus !== "NONE" && (
+              <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-[var(--gold-tint,#fdf6e3)] text-[var(--gold-dark)]">
+                {member.founderStatus.replace(/_/g, " ")}
+              </span>
+            )}
+          </div>
+
+          {/* Halo score bar */}
+          <div>
+            <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground mb-1.5">
+              <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Halo Score</span>
+              <span className="text-[var(--ink)] tabular-nums">{member.haloScore}<span className="font-normal text-muted-foreground">/100</span></span>
+            </div>
+            <div className="h-2 bg-black/10 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  member.haloScore >= 90 ? "bg-emerald-500" :
+                  member.haloScore >= 75 ? "bg-[var(--gold-light)]" :
+                  member.haloScore >= 60 ? "bg-amber-400" : "bg-red-400"
+                }`}
+                style={{ width: `${member.haloScore}%` }}
+              />
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-1">
+              Confidence {Math.round(member.scoreConfidence * 100)}%
+              {member.scoreUpdatedAt ? ` · updated ${formatWhen(member.scoreUpdatedAt)}` : ""}
+            </div>
+          </div>
+
+          {/* Score reason bullets */}
+          {member.scoreReasons && member.scoreReasons.length > 0 && (
+            <div className="bg-black/[0.03] rounded-xl px-3 py-2.5 space-y-1">
+              {member.scoreReasons.map((r, i) => (
+                <div key={i} className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+                  <span className="shrink-0 mt-0.5">·</span><span>{r}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Founder status */}
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Founder Level</div>
+            <select
+              value={member.founderStatus}
+              onChange={(e) => setFounder(e.target.value)}
+              disabled={updateMember.isPending}
+              className="w-full text-sm rounded-lg border border-[var(--hairline)] bg-card px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[var(--ink)] text-[var(--ink)] font-medium"
+            >
+              {FOUNDER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+
+          {/* Approve / Suspend */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => decide(true)}
+              disabled={decideMember.isPending || member.membershipStatus === "ACTIVE"}
+              className="flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors disabled:opacity-40"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" /> Approve
+            </button>
+            <button
+              type="button"
+              onClick={() => decide(false)}
+              disabled={decideMember.isPending || member.membershipStatus === "SUSPENDED"}
+              className="flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-40"
+            >
+              <ShieldOff className="w-3.5 h-3.5" /> Suspend
+            </button>
+          </div>
+
+          {/* Recalculate */}
+          <button
+            type="button"
+            onClick={handleRecalculate}
+            disabled={recalculate.isPending}
+            className="w-full flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold bg-card border border-[var(--hairline)] hover:border-[var(--ink)] transition-colors text-[var(--ink)]"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${recalculate.isPending ? "animate-spin" : ""}`} />
+            {recalculate.isPending ? "Recalculating…" : "Recalculate score now"}
+          </button>
+
+          {/* AI note */}
+          <div className="flex items-start gap-1.5 text-[10px] text-muted-foreground bg-black/[0.03] px-3 py-2.5 rounded-xl leading-relaxed">
+            <Feather className="w-3 h-3 mt-0.5 shrink-0 text-[var(--gold-dark)]" />
+            <span>
+              AI reviews quality evidence daily and feeds the Halo Score engine — quality 35%, reliability 25%, professionalism 15%, safety 15%, team 10%.
+              Payout = base role × tenure multiplier × score band. Score ≥ 95 pays 1.3×; 80–89 pays 1.0×; below 60 pays zero.
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
