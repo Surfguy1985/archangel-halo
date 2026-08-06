@@ -97,14 +97,26 @@ export function OfficeGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-6">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-full bg-foreground text-background">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-6">
+      {/* Ambient brand light — soft lime from above, navy from below. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(640px 380px at 50% -8%, rgba(180,255,68,0.16), transparent 65%), radial-gradient(720px 420px at 50% 112%, rgba(10,25,48,0.10), transparent 62%)",
+        }}
+      />
+      <form
+        onSubmit={submit}
+        className="relative w-full max-w-sm rounded-3xl border border-[var(--hairline)] bg-card p-7 shadow-[var(--shadow-lift)]"
+      >
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-[var(--secondary)] text-[var(--primary)] shadow-[0_4px_16px_-2px_rgba(10,25,48,0.35)]">
             <Lock className="h-4 w-4" />
           </div>
           <div>
-            <div className="text-lg font-bold tracking-tight">HALO Office</div>
+            <div className="font-display text-lg font-bold tracking-tight">HALO Office</div>
             <div className="text-xs text-muted-foreground">
               {state === "setup" ? "Create your office passcode" : "Enter your office passcode"}
             </div>
@@ -123,7 +135,7 @@ export function OfficeGate({ children }: { children: ReactNode }) {
           value={passcode}
           onChange={(e) => setPasscode(e.target.value)}
           placeholder="Passcode"
-          className="mt-4 w-full rounded-xl border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#B4FF44]"
+          className="mt-5 w-full rounded-xl border border-[var(--hairline)] bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow focus:border-[#9DB40F] focus:shadow-[0_0_0_4px_rgba(180,255,68,0.25)]"
           data-testid="input-office-passcode"
         />
         {state === "setup" && (
@@ -132,7 +144,7 @@ export function OfficeGate({ children }: { children: ReactNode }) {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             placeholder="Confirm passcode"
-            className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#B4FF44]"
+            className="mt-2 w-full rounded-xl border border-[var(--hairline)] bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow focus:border-[#9DB40F] focus:shadow-[0_0_0_4px_rgba(180,255,68,0.25)]"
             data-testid="input-office-passcode-confirm"
           />
         )}
@@ -144,7 +156,7 @@ export function OfficeGate({ children }: { children: ReactNode }) {
         <button
           type="submit"
           disabled={busy}
-          className="mt-4 w-full rounded-xl bg-[#B4FF44] py-2.5 text-sm font-bold text-black disabled:opacity-60"
+          className="mt-5 w-full rounded-xl bg-[#B4FF44] py-2.5 font-display text-sm font-bold text-black transition-all duration-200 hover:-translate-y-px hover:bg-[#A3E63D] hover:shadow-[0_6px_20px_-4px_rgba(180,255,68,0.6)] disabled:opacity-60"
           data-testid="button-office-gate-submit"
         >
           {busy ? "One moment…" : state === "setup" ? "Set passcode & enter" : "Sign in"}
