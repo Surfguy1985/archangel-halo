@@ -1,8 +1,8 @@
 import React from 'react';
 import { useRoute, useLocation } from 'wouter';
-import { useGetWalk, useCompleteWalk, useGetProperty, WalkCapture, getGetWalkQueryKey, getGetPropertyQueryKey } from '@workspace/api-client-react';
+import { useGetWalk, useCompleteWalk, useApproveWalk, useGetProperty, WalkCapture, getGetWalkQueryKey, getGetPropertyQueryKey } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
-import { Loader2, ArrowLeft, CheckCircle2, Building2, MapPin, Receipt, Check } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle2, Building2, MapPin, Receipt, Check, Send } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -18,6 +18,9 @@ export default function ReviewScreen() {
   });
 
   const completeWalk = useCompleteWalk({
+    request: { credentials: 'include' }
+  });
+  const approveWalk = useApproveWalk({
     request: { credentials: 'include' }
   });
 
@@ -134,10 +137,56 @@ export default function ReviewScreen() {
           </div>
         </div>
 
-        <div className="shrink-0 pt-4 pb-2 w-full max-w-sm mx-auto">
-          <Button 
-            className="w-full h-14 text-lg font-extrabold rounded-full shadow-float active:scale-95 transition-all" 
+        <div className="shrink-0 pt-4 pb-2 w-full max-w-sm mx-auto space-y-2.5">
+          {/* Approve → the photos + job cards land on the client board. */}
+          <Button
+            className="w-full h-14 text-lg font-extrabold rounded-full shadow-float active:scale-95 transition-all"
+            variant={approveWalk.isSuccess ? 'secondary' : 'default'}
+            disabled={approveWalk.isPending || approveWalk.isSuccess}
+            onClick={() =>
+              approveWalk.mutate(
+                { id: walkId },
+                {
+                  onSuccess: (r: any) => {
+                    toast({
+                      title: 'Sent to client board',
+                      description: `${r?.cards ?? 0} card${(r?.cards ?? 0) === 1 ? '' : 's'} shared with the client.`,
+                    });
+                  },
+                  onError: (err: any) => {
+                    toast({
+                      title: 'Could not send',
+                      description: err?.data?.error || err?.message || 'Please try again.',
+                      variant: 'destructive',
+                    });
+                  },
+                },
+              )
+            }
+            data-testid="button-approve-walk"
+          >
+            {approveWalk.isPending ? (
+              <div className="flex items-center justify-center w-full">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                SENDING
+              </div>
+            ) : approveWalk.isSuccess ? (
+              <div className="flex items-center justify-center w-full">
+                <Check className="w-5 h-5 mr-2 stroke-[3]" />
+                ON CLIENT BOARD
+              </div>
+            ) : (
+              <div className="flex items-center justify-center w-full">
+                <Send className="w-5 h-5 mr-2" />
+                APPROVE — SEND TO CLIENT BOARD
+              </div>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full h-12 text-base font-extrabold rounded-full active:scale-95 transition-all"
             onClick={() => setLocation('/')}
+            data-testid="button-finish-walk"
           >
             FINISH
           </Button>

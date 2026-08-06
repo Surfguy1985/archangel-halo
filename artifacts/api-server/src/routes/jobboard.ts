@@ -14,6 +14,7 @@ import {
   expensesTable,
   jobLineItemsTable,
   clientCardCommentsTable,
+  clientDashboardCardsTable,
   crewMessagesTable,
 } from "@workspace/db";
 import { threadKeysFor, notifyClientBoard } from "./clientBoard";
@@ -132,6 +133,7 @@ router.post("/jobs/:id/quality-check", qualityCheckLimit, async (req, res): Prom
         .update(jobsTable)
         .set({ boardStatus: "completed" })
         .where(eq(jobsTable.id, job.id));
+      emitBoardEvent(job.propertyId);
     }
     res.json({
       verdict,
@@ -161,6 +163,22 @@ router.get("/job-board", async (_req, res): Promise<void> => {
         .where(eq(activitiesTable.entityType, "job"))
         .orderBy(desc(activitiesTable.createdAt)),
     ]);
+
+  // Client board placements: where the property moved each job's card on
+  // their board. Surfaced on the vendor board so office sees client intent.
+  const laneOverrides = await db
+    .select({
+      propertyId: clientDashboardCardsTable.propertyId,
+      cardKey: clientDashboardCardsTable.cardKey,
+      lane: clientDashboardCardsTable.lane,
+    })
+    .from(clientDashboardCardsTable)
+    .where(eq(clientDashboardCardsTable.kind, "override"));
+  const clientLaneByJob = new Map<string, string>();
+  for (const o of laneOverrides) {
+    if (o.lane && o.cardKey.startsWith("job:"))
+      clientLaneByJob.set(o.cardKey.slice("job:".length), o.lane);
+  }
 
   const propsById = new Map(props.map((p) => [p.id, p]));
   const crewsById = new Map(crews.map((c) => [c.id, c]));
@@ -220,6 +238,7 @@ router.get("/job-board", async (_req, res): Promise<void> => {
           : null,
         services: servicesByJob.get(j.id) ?? null,
       },
+      clientLane: clientLaneByJob.get(j.id) ?? null,
       invoice: (() => {
         const inv = invoiceByJob.get(j.id);
         if (!inv) return null;
@@ -614,6 +633,7 @@ async function sendBroadcasts(
       .update(jobsTable)
       .set({ boardStatus: "active" })
       .where(eq(jobsTable.id, id));
+    emitBoardEvent(job.propertyId);
   }
 
   return {
@@ -641,6 +661,7 @@ router.post("/jobs/:id/board-status", async (req, res): Promise<void> => {
     .set({ boardStatus })
     .where(eq(jobsTable.id, id))
     .returning();
+  emitBoardEvent(job.propertyId);
   res.json(ser(updated));
 });
 
@@ -762,6 +783,7 @@ router.post("/jobs/:id/crew-pay", async (req, res): Promise<void> => {
     // retry hits, both are idempotent rebuild-style syncs.
     await syncExpenseLedger(result.expenseId);
     await recomputeJobFinancials(id);
+    emitBoardEvent(result.updated.propertyId);
     // Let the crew know on their live portal link — payment is on its way.
     // Never fail the payout over the courtesy message.
     try {
@@ -852,6 +874,7 @@ router.post("/jobs/:id/crew-pay/clear", async (req, res): Promise<void> => {
       res.status(result.status).json({ error: result.error });
       return;
     }
+    emitBoardEvent(result.updated.propertyId);
     res.json(ser(result.updated));
   } catch (e) {
     res.status(500).json({ error: (e as Error).message || "Clear failed" });
@@ -931,6 +954,7 @@ router.post("/jobs/:id/board-settings", async (req, res): Promise<void> => {
     res.status(result.status).json({ error: result.error });
     return;
   }
+  emitBoardEvent(result.job.propertyId);
   const [props, crews] = await Promise.all([
     db.select().from(propertiesTable),
     db.select().from(crewsTable),
@@ -993,13 +1017,14 @@ router.post("/jobs/:id/unlist", async (req, res): Promise<void> => {
           hadApproved && job.status === "scheduled" ? "open" : job.status,
       })
       .where(eq(jobsTable.id, id));
-    return { status: 200 as const };
+    return { status: 200 as const, propertyId: job.propertyId };
   });
 
   if (result.status !== 200) {
     res.status(result.status).json({ error: result.error });
     return;
   }
+  emitBoardEvent(result.propertyId);
   res.json(UnlistJobResponse.parse({ ok: true }));
 });
 
@@ -1053,6 +1078,7 @@ router.post("/jobs/:id/reopen", async (req, res): Promise<void> => {
     res.status(result.status).json({ error: result.error });
     return;
   }
+  emitBoardEvent(result.job.propertyId);
   const [props, crews] = await Promise.all([
     db.select().from(propertiesTable),
     db.select().from(crewsTable),

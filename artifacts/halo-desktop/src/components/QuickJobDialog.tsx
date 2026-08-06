@@ -179,6 +179,39 @@ export function QuickJobDialog({
     }
     return groups.sort((a, b) => a.base.localeCompare(b.base));
   }, [priceItems]);
+  // Size-first view of the same price book: every sized option lands under a
+  // "1 Bedroom" / "2 Bedroom" / "3 Bedroom" heading (option label = the
+  // service name); anything without a bedroom size goes under Other services.
+  const sizeGroups = useMemo(() => {
+    const strip = (s: string) => s.replace(/\s*[—–-]\s*\d\s*BR\s*$/i, "").trim();
+    const sizeOf = (pi: (typeof priceItems)[number]): number | null => {
+      const m = /(\d)\s*BR\s*$/i.exec(pi.service) ?? /^(\d)\s*BR$/i.exec(pi.unit ?? "");
+      return m ? Number(m[1]) : null;
+    };
+    const bySize = new Map<number, typeof priceItems>();
+    const other: typeof priceItems = [];
+    for (const pi of priceItems) {
+      const n = sizeOf(pi);
+      if (n == null) other.push(pi);
+      else bySize.set(n, [...(bySize.get(n) ?? []), pi]);
+    }
+    const groups = [...bySize.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([n, items]) => ({
+        label: `${n} Bedroom`,
+        items: items
+          .map((pi) => ({ pi, name: strip(pi.service) }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+    if (other.length > 0)
+      groups.push({
+        label: "Other services",
+        items: other
+          .map((pi) => ({ pi, name: pi.service }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      });
+    return groups;
+  }, [priceItems]);
   const pillCount = useMemo(() => {
     const m = new Map<string, number>();
     for (const id of pillIds) m.set(id, (m.get(id) ?? 0) + 1);
@@ -408,9 +441,10 @@ export function QuickJobDialog({
                   <span className={`${labelCls} flex items-center gap-1`}>
                     <Zap className="w-3 h-3" /> Add services — price book
                   </span>
-                  {/* Organized picker: sized services (1/2/3 BR) group under one
-                      heading; no prices in the list — the rate comes straight
-                      from the price book when a service is picked. */}
+                  {/* Organized picker: options grouped by bedroom size
+                      (1/2/3 Bedroom), unsized work under Other services; no
+                      prices in the list — the rate comes straight from the
+                      price book when a service is picked. */}
                   <select
                     className={fieldCls}
                     value=""
@@ -420,23 +454,15 @@ export function QuickJobDialog({
                     data-testid="select-quickjob-service"
                   >
                     <option value="">Add a service…</option>
-                    {serviceGroups.map((g) =>
-                      g.sized ? (
-                        <optgroup key={g.base} label={g.base}>
-                          {g.items.map((pi) => (
-                            <option key={pi.id} value={pi.id}>
-                              {pi.unit || pi.service}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ) : (
-                        g.items.map((pi) => (
+                    {sizeGroups.map((g) => (
+                      <optgroup key={g.label} label={g.label}>
+                        {g.items.map(({ pi, name }) => (
                           <option key={pi.id} value={pi.id}>
-                            {g.base}
+                            {name}
                           </option>
-                        ))
-                      ),
-                    )}
+                        ))}
+                      </optgroup>
+                    ))}
                   </select>
                   {pillIds.length > 0 && (
                     <div className="flex flex-col gap-1">

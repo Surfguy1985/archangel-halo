@@ -17,4 +17,9 @@ export interface PriceItem {
   rate: number;
   /** @nullable */
   marginFloor?: number | null;
+  /**
+     * Master-list category (Paint, Cleaning, HVAC…) — groups the agreed-rates list
+     * @nullable
+     */
+  category?: string | null;
 }

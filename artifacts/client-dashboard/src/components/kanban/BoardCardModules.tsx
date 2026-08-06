@@ -567,6 +567,32 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly, onReadO
   }
 
   if (module.type === 'photos') {
+    // Walk-findings cards carry canApprove — the PM can approve the found
+    // work right from the board, which moves the card to In progress.
+    if (module.canApprove && !module.clientApprovedAt) {
+      return (
+        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0" data-testid={`module-photos-decision-${module.jobId}`}>
+          <button
+            type="button"
+            data-testid={`walk-approve-${module.jobId}`}
+            disabled={isPending}
+            onClick={(e) => handleAction(e, 'approve_walk')}
+            className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] transition-colors shadow-sm disabled:opacity-60"
+          >
+            {isPending ? 'APPROVING…' : 'APPROVE WORK'}
+          </button>
+        </div>
+      );
+    }
+    if (module.clientApprovedAt) {
+      return (
+        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0" data-testid={`module-photos-decision-${module.jobId}`}>
+          <div className="flex-1 h-full rounded-[8px] bg-[#5c7a28]/10 text-[#5c7a28] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center pointer-events-none border border-[#5c7a28]/20">
+            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> APPROVED — IN PROGRESS
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0" data-testid={`module-photos-decision-${module.jobId}`}>
          <div className="flex-1 h-full rounded-[8px] bg-black/5 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-50 pointer-events-none">

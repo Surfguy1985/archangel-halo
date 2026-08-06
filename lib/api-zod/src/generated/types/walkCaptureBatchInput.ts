@@ -5,27 +5,22 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { WalkCaptureBatchInputLinesItem } from './walkCaptureBatchInputLinesItem';
 
-export interface WalkCaptureInput {
+export interface WalkCaptureBatchInput {
   /** @nullable */
   unitNo?: string | null;
-  /** @nullable */
-  storagePath?: string | null;
   /**
-     * All photo storage paths for this capture (multi-photo)
+     * Photos for this item — attached to the first line's capture row
      * @nullable
      */
   photos?: string[] | null;
-  /** @nullable */
-  service?: string | null;
-  /** @nullable */
-  qty?: number | null;
-  /** @nullable */
-  unitPrice?: number | null;
   /** @nullable */
   note?: string | null;
   /** @nullable */
   lat?: number | null;
   /** @nullable */
   lng?: number | null;
+  /** @minItems 1 */
+  lines: WalkCaptureBatchInputLinesItem[];
 }

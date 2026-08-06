@@ -13,6 +13,11 @@ export interface Job {
   jobNo: string;
   /** @nullable */
   woNo?: string | null;
+  /**
+     * Client PO — required before the job can move to Billing
+     * @nullable
+     */
+  poNumber?: string | null;
   propertyId?: string;
   /** @nullable */
   propertyName?: string | null;

@@ -271,6 +271,11 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
           messages.push(`Skipped — unknown job "${f.jobNo}"`);
           continue;
         }
+        // Same Done→Billing gate as the REST complete route: no PO, no billing.
+        if (!job.poNumber?.trim()) {
+          messages.push(`Skipped ${job.jobNo} — a client PO number is required before billing`);
+          continue;
+        }
         await db
           .update(jobsTable)
           .set({ status: "complete", completedAt: new Date() })

@@ -626,6 +626,25 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly, onReadO
   }
 
   if (module.type === 'photos') {
+    // Office mirror is read-only for walk approvals — show state, no button.
+    if (module.clientApprovedAt) {
+      return (
+        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0" data-testid={`module-photos-decision-${module.jobId}`}>
+          <div className="flex-1 h-full rounded-[8px] bg-[#5c7a28]/10 text-[#5c7a28] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center pointer-events-none border border-[#5c7a28]/20">
+            APPROVED — IN PROGRESS
+          </div>
+        </div>
+      );
+    }
+    if (module.canApprove) {
+      return (
+        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0" data-testid={`module-photos-decision-${module.jobId}`}>
+          <div className="flex-1 h-full rounded-[8px] bg-black/5 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-60 pointer-events-none">
+            AWAITING CLIENT APPROVAL
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0" data-testid={`module-photos-decision-${module.jobId}`}>
          <div className="flex-1 h-full rounded-[8px] bg-black/5 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-50 pointer-events-none">

@@ -1064,6 +1064,46 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
     }
     const module = { ...(card.module ?? {}) } as Record<string, unknown>;
 
+    if (body.action === "approve_walk") {
+      // Walk-findings card: the PM approves the found work — the card moves
+      // to In progress on their board and the approval is stamped once.
+      if (card.sourceType !== "walk_job" || module.type !== "photos") {
+        status = 400;
+        payload = { error: "Only walk-findings cards can be approved this way" };
+        return;
+      }
+      if (!module.clientApprovedAt) {
+        module.clientApprovedAt = nowIso;
+        module.clientApprovedBy = actorName;
+        await tx
+          .update(clientBoardCardsTable)
+          .set({ module, column: "in_progress" })
+          .where(eq(clientBoardCardsTable.id, card.id));
+        await tx.insert(activitiesTable).values({
+          entityType: "property",
+          entityId: account.propertyId,
+          kind: "note",
+          body: `Walk findings${card.title ? ` (${card.title})` : ""} approved from the client board by ${propName}${actorName ? ` (${actorName})` : ""}.`,
+        });
+        await tx.insert(notificationsTable).values({
+          kind: "client_board",
+          priority: "high",
+          entityType: "property",
+          entityId: account.propertyId,
+          title: `Walk findings approved by ${propName}`,
+          body: `${card.title || "Walk findings"} — approved on their board; work is a go.`,
+        });
+      } else {
+        // Idempotent: a double-tap still lands the card in In progress.
+        await tx
+          .update(clientBoardCardsTable)
+          .set({ column: "in_progress" })
+          .where(eq(clientBoardCardsTable.id, card.id));
+      }
+      payload = { ok: true };
+      return;
+    }
+
     if (body.action === "approve") {
       if (module.type !== "invoice") {
         status = 400;

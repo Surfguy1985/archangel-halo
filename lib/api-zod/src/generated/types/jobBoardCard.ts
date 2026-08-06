@@ -14,6 +14,11 @@ import type { PriceItem } from './priceItem';
 
 export interface JobBoardCard {
   job: Job;
+  /**
+     * Where the client placed this job's card on their board (override lane), if they moved it
+     * @nullable
+     */
+  clientLane?: string | null;
   invoice?: JobBoardInvoiceInfo | null;
   priceItems: PriceItem[];
   lineItems?: JobLineItem[];

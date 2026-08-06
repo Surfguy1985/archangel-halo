@@ -60,6 +60,8 @@ import {
   Upload,
   Camera,
   BellRing,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { PushCardDialog } from "@/components/PushCardDialog";
 import { ScanCheckDialog } from "@/components/ScanCheckDialog";
@@ -123,6 +125,16 @@ export default function JobBoard() {
   // Crew roster so in-progress tiles can show the assigned team.
   const { data: allCrews } = useListCrews({ query: { queryKey: getListCrewsQueryKey() } });
   const [openId, setOpenId] = useState<string | null>(null);
+  // Property decks: cards stack by property inside each rail; a deck stays
+  // collapsed until the property is selected. Keyed by rail|propertyId.
+  const [expandedDecks, setExpandedDecks] = useState<Set<string>>(new Set());
+  const toggleDeck = (key: string, open: boolean) =>
+    setExpandedDecks((prev) => {
+      const next = new Set(prev);
+      if (open) next.add(key);
+      else next.delete(key);
+      return next;
+    });
 
   // One card per unit on the board: the server lists jobs newest-first, so
   // keep the first (newest) card per property+unit and drop older duplicates.
@@ -172,21 +184,78 @@ export default function JobBoard() {
                     <h2 className="font-display font-bold text-sm tracking-tight text-[var(--ink)]">{rail.label}</h2>
                     <span className="text-xs font-mono text-muted-foreground">{railCards.length}</span>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {railCards.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-[var(--hairline)] px-4 py-6 text-center text-xs text-muted-foreground bg-card/50">
                         {rail.empty}
                       </div>
                     ) : (
-                      railCards.map((card) => (
-                        <JobTile
-                          key={card.job.id}
-                          card={card}
-                          tone={rail.tone}
-                          crews={allCrews}
-                          onOpen={() => setOpenId(card.job.id)}
-                        />
-                      ))
+                      groupByProperty(railCards).map(([propId, deck]) => {
+                        const deckKey = `${rail.key}|${propId}`;
+                        const expanded = expandedDecks.has(deckKey);
+                        const propName = deck[0].job.propertyName || "Unknown Property";
+                        if (!expanded) {
+                          // Collapsed deck: a stacked pile — select the
+                          // property to fan its cards out.
+                          return (
+                            <button
+                              key={deckKey}
+                              type="button"
+                              onClick={() => toggleDeck(deckKey, true)}
+                              className="relative block w-full text-left group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9DB40F] rounded-2xl"
+                              data-testid={`deck-${rail.key}-${propId}`}
+                            >
+                              {deck.length > 2 && (
+                                <span className="absolute inset-x-3 -bottom-2 h-full rounded-2xl border border-[var(--hairline)] bg-white shadow-sm" aria-hidden />
+                              )}
+                              {deck.length > 1 && (
+                                <span className="absolute inset-x-1.5 -bottom-1 h-full rounded-2xl border border-[var(--hairline)] bg-white shadow-sm" aria-hidden />
+                              )}
+                              <span className="relative block rounded-2xl border border-[var(--hairline)] bg-white px-3.5 py-3 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+                                <span className="flex items-center justify-between gap-2">
+                                  <span className="min-w-0">
+                                    <span className="block truncate font-display font-bold text-sm text-[var(--ink)]">{propName}</span>
+                                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                                      {deck.length} job{deck.length === 1 ? "" : "s"}
+                                      {deck.some((c) => c.job.unitNo) && (
+                                        <> · {deck.filter((c) => c.job.unitNo).slice(0, 4).map((c) => `#${c.job.unitNo}`).join(" ")}{deck.filter((c) => c.job.unitNo).length > 4 ? "…" : ""}</>
+                                      )}
+                                    </span>
+                                  </span>
+                                  <span className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${JOB_TONES[rail.tone].chip}`}>
+                                    {deck.length}
+                                    <ChevronDown className="w-3 h-3" />
+                                  </span>
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        }
+                        return (
+                          <div key={deckKey} className="space-y-2.5" data-testid={`deck-open-${rail.key}-${propId}`}>
+                            <div className="flex items-center justify-between gap-2 px-1">
+                              <span className="min-w-0 truncate text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{propName}</span>
+                              <button
+                                type="button"
+                                onClick={() => toggleDeck(deckKey, false)}
+                                className="flex shrink-0 items-center gap-1 rounded-full border border-[var(--hairline)] bg-white px-2 py-0.5 text-[10px] font-bold text-[var(--ink)] hover:bg-[var(--muted)]"
+                                data-testid={`deck-minimize-${rail.key}-${propId}`}
+                              >
+                                <ChevronUp className="w-3 h-3" /> Minimize
+                              </button>
+                            </div>
+                            {deck.map((card) => (
+                              <JobTile
+                                key={card.job.id}
+                                card={card}
+                                tone={rail.tone}
+                                crews={allCrews}
+                                onOpen={() => setOpenId(card.job.id)}
+                              />
+                            ))}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </section>
@@ -225,6 +294,19 @@ function CrewFace({ name, selfiePath, size = 5 }: { name: string; selfiePath?: s
   );
 }
 
+/** Deck grouping: one pile per property inside a rail, preserving the
+ *  rail's card order (newest-first from the server). */
+function groupByProperty(railCards: JobBoardCard[]): [string, JobBoardCard[]][] {
+  const byProp = new Map<string, JobBoardCard[]>();
+  for (const c of railCards) {
+    const key = c.job.propertyId ?? "unknown";
+    const list = byProp.get(key) ?? [];
+    list.push(c);
+    byProp.set(key, list);
+  }
+  return [...byProp.entries()];
+}
+
 /** "Cabinet Paint — 2 BR" → "Cabinet Paint": strip the size suffix so the
  *  pill reads as the service, while the size stays in the line items. */
 function serviceBase(s: string) {
@@ -251,8 +333,19 @@ const TONE_OVERLAY_TEXT: Record<JobTone, string> = {
 };
 const OVERLAY_TEXT = "text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]";
 
+// Client board lane labels — shown when the property moved this job's card
+// on their own board, so office sees the client's placement at a glance.
+const CLIENT_LANE_LABELS: Record<string, string> = {
+  requested: "Requested",
+  scheduled: "Scheduled",
+  in_progress: "In Progress",
+  billing: "Billing",
+  done: "Done",
+};
+
 function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobTone; crews?: Crew[]; onOpen: () => void }) {
   const { job, photos, broadcasts } = card;
+  const clientLaneLabel = card.clientLane ? CLIENT_LANE_LABELS[card.clientLane] ?? null : null;
   const services = job.services ?? [];
   const t = JOB_TONES[tone];
   // Assigned crew (in-progress rail only): leader first with a badge, then teammates.
@@ -308,6 +401,24 @@ function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobT
         {pendingOffers > 0 && (
           <span className="absolute top-2 right-2 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold text-[var(--ink)]">
             {pendingOffers} offer{pendingOffers > 1 ? "s" : ""} out
+          </span>
+        )}
+        {clientLaneLabel && (
+          <span
+            className={`absolute right-2 rounded-full bg-[var(--gold-light)] px-2 py-0.5 text-[10px] font-bold text-black ${pendingOffers > 0 ? "top-8" : "top-2"}`}
+            title="Where the client placed this card on their board"
+            data-testid={`job-client-lane-${job.id}`}
+          >
+            Client: {clientLaneLabel}
+          </span>
+        )}
+        {TONE_RAIL[tone] === "done" && (
+          <span
+            className={`absolute bottom-2 right-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${job.poNumber ? "bg-emerald-100 text-emerald-800" : "bg-red-500 text-white"}`}
+            title={job.poNumber ? `PO ${job.poNumber}` : "A client PO is required before this job can move to Billing"}
+            data-testid={`job-po-${job.id}`}
+          >
+            {job.poNumber ? `PO ${job.poNumber}` : "PO needed"}
           </span>
         )}
         {job.changeOrderStatus === "requested" && (
@@ -432,6 +543,24 @@ function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] 
   const { toast } = useToast();
   const reopenChangeOrder = useReopenJobChangeOrder();
   const addLineItem = useAddJobLineItem();
+  const updateJob = useUpdateJob();
+  const [poDraft, setPoDraft] = useState(job.poNumber ?? "");
+  useEffect(() => setPoDraft(job.poNumber ?? ""), [job.poNumber]);
+  const savePo = () => {
+    const poNumber = poDraft.trim();
+    if (!poNumber || poNumber === (job.poNumber ?? "")) return;
+    updateJob.mutate(
+      { id: job.id, data: { poNumber } },
+      {
+        onSuccess: () => {
+          toast({ title: "PO saved", description: `PO ${poNumber} attached to ${job.jobNo}. The card can move to Billing.` });
+          queryClient.invalidateQueries({ queryKey: getListJobBoardQueryKey() });
+        },
+        onError: (err) =>
+          toast({ title: "Couldn't save PO", description: (err as any)?.data?.error ?? (err as Error).message, variant: "destructive" }),
+      },
+    );
+  };
   const pendingCO = job.changeOrderStatus === "requested";
   
   const statusColors: Record<string, string> = {
@@ -702,6 +831,30 @@ function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] 
           )}
         </div>
 
+        {(rail === 'done' || boardStatus === 'manual_check') && (
+          /* Done→Billing gate: the card can't move to Billing without a client PO. */
+          <div className="px-4 pt-3 bg-[var(--background)] border-t border-border flex items-center gap-2">
+            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full shrink-0 ${job.poNumber ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'}`}>
+              {job.poNumber ? 'PO on file' : 'PO required'}
+            </span>
+            <Input
+              value={poDraft}
+              onChange={(e) => setPoDraft(e.target.value)}
+              placeholder="Client PO number — required to bill"
+              className="h-9 rounded-full bg-white"
+              data-testid={`po-input-${job.id}`}
+              onKeyDown={(e) => { if (e.key === 'Enter') savePo(); }}
+            />
+            <Button
+              onClick={savePo}
+              disabled={updateJob.isPending || !poDraft.trim() || poDraft.trim() === (job.poNumber ?? "")}
+              data-testid={`po-save-${job.id}`}
+              className="bg-[var(--gold-light)] hover:opacity-90 text-black rounded-full font-bold shrink-0"
+            >
+              {updateJob.isPending ? 'Saving…' : 'Save PO'}
+            </Button>
+          </div>
+        )}
         <div className="p-4 bg-[var(--background)] border-t border-border flex justify-end gap-3 shrink-0">
           <Button
             variant="outline"
@@ -718,9 +871,42 @@ function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] 
             <Trash2 className="w-4 h-4 mr-2" /> Delete
           </Button>
           {(boardStatus === 'active' || boardStatus === 'reopened') && (
-            <Button onClick={() => setBroadcastOpen(true)} className="bg-[var(--primary)] hover:opacity-90 text-black rounded-full font-bold">
-              <Send className="w-4 h-4 mr-2" /> Broadcast Job
-            </Button>
+            <>
+              {/* Manual assignment — skip the broadcast-and-wait loop. The
+                  server PATCH atomically marks the job filled (In progress)
+                  and withdraws any pending offers. */}
+              <select
+                value=""
+                disabled={updateJob.isPending}
+                data-testid={`assign-crew-${job.id}`}
+                onChange={(e) => {
+                  const crewLeaderId = e.target.value;
+                  if (!crewLeaderId) return;
+                  updateJob.mutate(
+                    { id: job.id, data: { crewLeaderId } },
+                    {
+                      onSuccess: () => {
+                        queryClient.invalidateQueries({ queryKey: getListJobBoardQueryKey() });
+                        toast({ title: "Crew assigned", description: "Job moved to In progress." });
+                      },
+                      onError: (err) =>
+                        toast({ title: "Couldn't assign crew", description: err.message, variant: "destructive" }),
+                    },
+                  );
+                }}
+                className="h-10 rounded-full border border-border bg-white px-4 text-sm font-bold text-[var(--ink)] focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 disabled:opacity-50"
+              >
+                <option value="">{updateJob.isPending ? "Assigning…" : "Assign crew…"}</option>
+                {crews
+                  .filter((c) => !c.leaderId && c.active !== false)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+              </select>
+              <Button onClick={() => setBroadcastOpen(true)} className="bg-[var(--primary)] hover:opacity-90 text-black rounded-full font-bold">
+                <Send className="w-4 h-4 mr-2" /> Broadcast Job
+              </Button>
+            </>
           )}
           {boardStatus === 'filled' && (
             <>
@@ -1773,6 +1959,7 @@ function EditJobDialog({ open, onOpenChange, job}: { open: boolean, onOpenChange
   const [description, setDescription] = useState(job.description ?? "");
   const [unitNo, setUnitNo] = useState(job.unitNo ?? "");
   const [woNo, setWoNo] = useState(job.woNo ?? "");
+  const [poNumber, setPoNumber] = useState(job.poNumber ?? "");
   const [status, setStatus] = useState(job.status);
 
   useEffect(() => {
@@ -1781,6 +1968,7 @@ function EditJobDialog({ open, onOpenChange, job}: { open: boolean, onOpenChange
       setDescription(job.description ?? "");
       setUnitNo(job.unitNo ?? "");
       setWoNo(job.woNo ?? "");
+      setPoNumber(job.poNumber ?? "");
       setStatus(job.status);
    }
  }, [open, job]);
@@ -1793,6 +1981,7 @@ function EditJobDialog({ open, onOpenChange, job}: { open: boolean, onOpenChange
         description: description.trim() || undefined,
         unitNo: unitNo.trim() || undefined,
         woNo: woNo.trim() || undefined,
+        poNumber: poNumber.trim() || undefined,
         status,
      }
    }, {
@@ -1826,6 +2015,10 @@ function EditJobDialog({ open, onOpenChange, job}: { open: boolean, onOpenChange
             <div className="space-y-1.5">
               <Label htmlFor="ej-category">Category</Label>
               <Input id="ej-category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Cleaning" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ej-po">Client PO # (required to bill)</Label>
+              <Input id="ej-po" value={poNumber} onChange={(e) => setPoNumber(e.target.value)} placeholder="e.g. PO-4482" data-testid="edit-job-po" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="ej-status">Status</Label>

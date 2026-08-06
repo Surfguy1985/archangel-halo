@@ -69,6 +69,9 @@ export const priceItemsTable = pgTable(
     unit: text("unit"),
     rate: doublePrecision("rate").notNull(),
     marginFloor: doublePrecision("margin_floor"),
+    // Master-list category (Paint, Cleaning, HVAC…) — copied from the
+    // catalog on import so the agreed-rates list can group in containers.
+    category: text("category"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

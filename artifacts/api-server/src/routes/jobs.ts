@@ -114,6 +114,7 @@ import { recomputeJobFinancials } from "../lib/jobFinance";
 import { syncJobLaborLedger, removeEntriesForRef } from "../lib/ledger";
 import { EMERGENCY_PAY_NOTE_PREFIX } from "../lib/emergencySettlement";
 import { raiseClientCard } from "../lib/clientBoard";
+import { emitBoardEvent } from "../lib/boardEvents";
 import { localToday } from "../lib/localDate";
 
 const router: IRouter = Router();
@@ -504,6 +505,10 @@ router.post("/jobs/:id/pull-crew", async (req, res): Promise<void> => {
     res.status(result.status).json({ error: result.error });
     return;
   }
+  // Live sync: both properties' client boards mirror the vendor board move.
+  emitBoardEvent(result.job.propertyId);
+  if (result.vacatedJob.propertyId !== result.job.propertyId)
+    emitBoardEvent(result.vacatedJob.propertyId);
   const { propName, crewName } = await lookups();
   res.json(
     PullCrewToJobResponse.parse({
@@ -554,6 +559,24 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
     return;
   }
   if (body.isRecurring === false) body.recurrence = null;
+  // Same Done→Billing gate as /jobs/:id/complete: setting status "complete"
+  // via PATCH must not bypass the required client PO.
+  if (body.status === "complete") {
+    const [existing] = await db.select().from(jobsTable).where(eq(jobsTable.id, id));
+    if (!existing) {
+      res.status(404).json({ error: "Job not found" });
+      return;
+    }
+    const po = (typeof body.poNumber === "string" ? body.poNumber : existing.poNumber) ?? "";
+    if (!po.trim()) {
+      res.status(409).json({
+        error: "This job doesn't look finished yet.",
+        missing: ["A client PO number is required before this job can move to Billing."],
+        missingCodes: ["po"],
+      });
+      return;
+    }
+  }
   const row = await db.transaction(async (tx) => {
     const [updated] = await tx
       .update(jobsTable)
@@ -632,6 +655,9 @@ router.patch("/jobs/:id", async (req, res): Promise<void> => {
     if (reloaded) fresh = reloaded;
   }
   if ("crewRate" in body || "status" in body) await syncJobLaborLedger(id);
+  // Live sync: schedule/crew/status edits move the card on the client board.
+  if ("crewLeaderId" in body || "scheduledOn" in body || "status" in body || "boardStatus" in body)
+    emitBoardEvent(fresh.propertyId);
   const { propName, crewName } = await lookups();
   res.json(UpdateJobResponse.parse(decorateJob(fresh, propName, crewName)));
 });
@@ -1010,6 +1036,16 @@ router.post("/jobs/:id/complete", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Job not found" });
     return;
   }
+  // Hard gate (no force override): a client PO is required before the card
+  // may leave Done for Billing — no PO, no billing.
+  if (!job.poNumber?.trim()) {
+    res.status(409).json({
+      error: "This job doesn't look finished yet.",
+      missing: ["A client PO number is required before this job can move to Billing."],
+      missingCodes: ["po"],
+    });
+    return;
+  }
   // Guard: completing work is a real state claim — require a crew and a
   // finished checklist unless the office explicitly overrides with force.
   if (!force) {
@@ -1050,6 +1086,7 @@ router.post("/jobs/:id/complete", async (req, res): Promise<void> => {
   });
   await syncJobLaborLedger(id);
   await autoSendLiveLink(id, "completed");
+  emitBoardEvent(row.propertyId);
   const { propName, crewName } = await lookups();
   res.json(CompleteJobResponse.parse(decorateJob(row, propName, crewName)));
 });
@@ -1349,6 +1386,7 @@ router.post("/jobs/:id/restart", async (req, res): Promise<void> => {
     body: "Job restarted",
   });
   await syncJobLaborLedger(id);
+  emitBoardEvent(row.propertyId);
   const { propName, crewName } = await lookups();
   res.json(RestartJobResponse.parse(decorateJob(row, propName, crewName)));
 });

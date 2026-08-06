@@ -29,7 +29,10 @@ export const walkCapturesTable = pgTable("walk_captures", {
   // Set when the walk is completed and this capture's unit became a job.
   jobId: uuid("job_id"),
   unitNo: text("unit_no"),
+  // First photo (legacy scalar) — kept in sync with photos[0] for old readers.
   storagePath: text("storage_path"),
+  // All photo storage paths for this capture (multi-photo support).
+  photos: jsonb("photos").$type<string[] | null>(),
   service: text("service"),
   qty: doublePrecision("qty"),
   unitPrice: doublePrecision("unit_price"),

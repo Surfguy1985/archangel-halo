@@ -310,7 +310,11 @@ const CREW_PIPELINE = ["Dispatched", "En Route", "On Site", "Wrapping", "Signed 
 
 function jobLane(job: Job): { lane: string } {
   if (job.status === "complete" || job.completedAt || job.clearedAt) return { lane: "done" };
-  if (job.status === "scheduled" || job.scheduledOn) return { lane: "scheduled" };
+  // Mirror the live vendor board: completed board cards are done; a filled
+  // card (crew locked in) reads as scheduled even before a date is set.
+  if (job.boardStatus === "completed") return { lane: "done" };
+  if (job.status === "scheduled" || job.scheduledOn || job.boardStatus === "filled")
+    return { lane: "scheduled" };
   return { lane: "requested" };
 }
 
@@ -511,6 +515,7 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
         status: job.status,
         unitNo: job.unitNo ?? null,
         category: job.category ?? null,
+        poNumber: job.poNumber ?? null,
         amount: null,
         priority: null,
         dueOn: job.flexDueBy ?? null,
@@ -535,6 +540,9 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       });
     // A pending change order wins over any manual lane override.
     if (pendingChangeOrder) jobCardRow.lane = "requested";
+    // Vendor-board completion also wins — once HALO marks the work done, a
+    // stale client placement can't hold the card in an active lane.
+    else if (jobLane(job).lane === "done") jobCardRow.lane = "done";
     cards.push(jobCardRow);
 
     // Vendor crew card for assigned, unfinished jobs

@@ -23,6 +23,7 @@ import type {
   AccountLedger,
   Activity,
   ActivityInput,
+  AddWalkCaptureBatch201,
   ApplyBankAnalysisParams,
   ArrivalCheckInput,
   ArrivalCheckResult,
@@ -372,7 +373,9 @@ import type {
   W9Data,
   W9Response,
   Walk,
+  WalkApproveResult,
   WalkCapture,
+  WalkCaptureBatchInput,
   WalkCaptureInput,
   WalkCompleteResult,
   WalkCompletion,
@@ -6602,6 +6605,78 @@ export const useAddWalkCapture = <TError = ErrorType<Error>,
       return useMutation(getAddWalkCaptureMutationOptions(options));
     }
 
+export const getAddWalkCaptureBatchUrl = (id: string,) => {
+
+
+
+
+  return `/api/walks/${id}/captures/batch`
+}
+
+/**
+ * @summary Add several service lines for one item atomically — shared unit/note/photos, one capture row per service, all-or-nothing
+ */
+export const addWalkCaptureBatch = async (id: string,
+    walkCaptureBatchInput: WalkCaptureBatchInput, options?: RequestInit): Promise<AddWalkCaptureBatch201> => {
+
+  return customFetch<AddWalkCaptureBatch201>(getAddWalkCaptureBatchUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(walkCaptureBatchInput)
+  }
+);}
+
+
+
+
+
+export const getAddWalkCaptureBatchMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addWalkCaptureBatch>>, TError,{id: string;data: BodyType<WalkCaptureBatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addWalkCaptureBatch>>, TError,{id: string;data: BodyType<WalkCaptureBatchInput>}, TContext> => {
+
+const mutationKey = ['addWalkCaptureBatch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addWalkCaptureBatch>>, {id: string;data: BodyType<WalkCaptureBatchInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addWalkCaptureBatch(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddWalkCaptureBatchMutationResult = NonNullable<Awaited<ReturnType<typeof addWalkCaptureBatch>>>
+    export type AddWalkCaptureBatchMutationBody = BodyType<WalkCaptureBatchInput>
+    export type AddWalkCaptureBatchMutationError = ErrorType<Error>
+
+    /**
+ * @summary Add several service lines for one item atomically — shared unit/note/photos, one capture row per service, all-or-nothing
+ */
+export const useAddWalkCaptureBatch = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addWalkCaptureBatch>>, TError,{id: string;data: BodyType<WalkCaptureBatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addWalkCaptureBatch>>,
+        TError,
+        {id: string;data: BodyType<WalkCaptureBatchInput>},
+        TContext
+      > => {
+      return useMutation(getAddWalkCaptureBatchMutationOptions(options));
+    }
+
 export const getDeleteWalkCaptureUrl = (id: string,) => {
 
 
@@ -6743,6 +6818,77 @@ export const useCompleteWalk = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getCompleteWalkMutationOptions(options));
+    }
+
+export const getApproveWalkUrl = (id: string,) => {
+
+
+
+
+  return `/api/walks/${id}/approve`
+}
+
+/**
+ * @summary Approve a completed walk — pushes each created job (with its photos) to the client board
+ */
+export const approveWalk = async (id: string, options?: RequestInit): Promise<WalkApproveResult> => {
+
+  return customFetch<WalkApproveResult>(getApproveWalkUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApproveWalkMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveWalk>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveWalk>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['approveWalk'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveWalk>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  approveWalk(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveWalkMutationResult = NonNullable<Awaited<ReturnType<typeof approveWalk>>>
+
+    export type ApproveWalkMutationError = ErrorType<Error>
+
+    /**
+ * @summary Approve a completed walk — pushes each created job (with its photos) to the client board
+ */
+export const useApproveWalk = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveWalk>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveWalk>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getApproveWalkMutationOptions(options));
     }
 
 export const getParseWalkVoiceUrl = (id: string,) => {

@@ -207,6 +207,17 @@ export default function PropertyDetail() {
     const fmtDay = (d?: string | null) =>
       d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null;
 
+    // Date-only strings (YYYY-MM-DD) must be built from LOCAL parts — new
+    // Date("Y-M-D") parses as UTC and shifts the day.
+    const fmtDueDay = (d: string) => {
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+      if (!m) return d;
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+    };
+
     const renderPrimaryAction = () => {
       if (assignJobId === job.id) {
         return (
@@ -335,7 +346,6 @@ export default function PropertyDetail() {
                 <Pencil className="w-3 h-3" />
               </button>
             </h3>
-            <p className="text-white/70 text-sm font-medium">{job.description}</p>
           </Link>
           
           {/* Status is told once, by the timeline below — only closed jobs
@@ -350,6 +360,11 @@ export default function PropertyDetail() {
         {/* Info Grid */}
         <div className="flex items-center flex-wrap gap-x-5 gap-y-2 text-sm text-white/70 font-medium">
           <span className="font-mono text-white/50">{job.jobNo}</span>
+          {(job.flexDueBy || job.scheduledOn) && (
+            <span className="flex items-center gap-1.5" data-testid={`job-due-${job.id}`}>
+              <CalendarDays className="w-4 h-4" /> Due {fmtDueDay(job.flexDueBy ?? job.scheduledOn ?? "")}
+            </span>
+          )}
           {job.crewLeaderName && (
             <span className="flex items-center gap-1.5">
               <Users className="w-4 h-4" /> {job.crewLeaderName}
@@ -443,6 +458,13 @@ export default function PropertyDetail() {
             );
           })}
         </div>
+
+        {/* Scope — moved to the bottom of the card so the header stays scannable */}
+        {job.description && (
+          <p className="text-white/70 text-sm font-medium" data-testid={`job-description-${job.id}`}>
+            {job.description}
+          </p>
+        )}
 
         {/* Bottom Actions */}
         <div className="flex items-center gap-3 pt-3 border-t border-white/10">
@@ -965,26 +987,45 @@ export default function PropertyDetail() {
                   </button>
                 </div>
               </div>
-              <div className="divide-y divide-border -mx-1">
-                {priceItems.map(item => (
-                  <div key={item.id} className="flex items-center gap-3 px-1 py-2.5">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold truncate">{item.service}</div>
-                      {item.detail && <div className="text-xs text-muted-foreground truncate">{item.detail}</div>}
+              <div className="-mx-1">
+                {/* Agreed rates organized into master-list category containers;
+                    every price stays editable per property via the pencil. */}
+                {(() => {
+                  const byCat = new Map<string, typeof priceItems>();
+                  for (const item of priceItems) {
+                    const cat = item.category?.trim() || "Other";
+                    byCat.set(cat, [...(byCat.get(cat) ?? []), item]);
+                  }
+                  return [...byCat.entries()].map(([cat, list]) => (
+                    <div key={cat} className="mb-3 last:mb-0 rounded-xl border border-border overflow-hidden">
+                      <div className="bg-[var(--muted)] px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                        {cat}
+                      </div>
+                      <div className="divide-y divide-border px-2">
+                        {list.map(item => (
+                          <div key={item.id} className="flex items-center gap-3 px-1 py-2.5">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-semibold truncate">{item.service}</div>
+                              {item.detail && <div className="text-xs text-muted-foreground truncate">{item.detail}</div>}
+                            </div>
+                            <div className="text-right shrink-0 font-mono font-bold text-sm tabular-nums">
+                              ${item.rate}
+                              {item.unit && <span className="text-xs text-muted-foreground font-normal">/{item.unit}</span>}
+                            </div>
+                            <button
+                              aria-label="Edit price item"
+                              onClick={() => setEditPriceId(item.id)}
+                              className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
+                              data-testid={`edit-price-${item.id}`}
+                            >
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="text-right shrink-0 font-mono font-bold text-sm tabular-nums">
-                      ${item.rate}
-                      {item.unit && <span className="text-xs text-muted-foreground font-normal">/{item.unit}</span>}
-                    </div>
-                    <button
-                      aria-label="Edit price item"
-                      onClick={() => setEditPriceId(item.id)}
-                      className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
+                  ));
+                })()}
                 {!priceItems.length && (
                   <div className="py-4 text-center text-sm text-muted-foreground">No agreed rates yet.</div>
                 )}

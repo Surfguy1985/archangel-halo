@@ -228,12 +228,14 @@ export const GetPropertyResponse = zod.object({
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish(),
   "rate": zod.number(),
-  "marginFloor": zod.number().nullish()
+  "marginFloor": zod.number().nullish(),
+  "category": zod.string().nullish().describe('Master-list category (Paint, Cleaning, HVAC…) — groups the agreed-rates list')
 })),
   "jobs": zod.array(zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -689,7 +691,8 @@ export const ImportPriceItemsResponse = zod.object({
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish(),
   "rate": zod.number(),
-  "marginFloor": zod.number().nullish()
+  "marginFloor": zod.number().nullish(),
+  "category": zod.string().nullish().describe('Master-list category (Paint, Cleaning, HVAC…) — groups the agreed-rates list')
 })),
   "skipped": zod.number()
 })
@@ -752,7 +755,8 @@ export const SavePriceSheetItemsResponse = zod.object({
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish(),
   "rate": zod.number(),
-  "marginFloor": zod.number().nullish()
+  "marginFloor": zod.number().nullish(),
+  "category": zod.string().nullish().describe('Master-list category (Paint, Cleaning, HVAC…) — groups the agreed-rates list')
 })),
   "updated": zod.array(zod.object({
   "id": zod.string(),
@@ -761,7 +765,8 @@ export const SavePriceSheetItemsResponse = zod.object({
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish(),
   "rate": zod.number(),
-  "marginFloor": zod.number().nullish()
+  "marginFloor": zod.number().nullish(),
+  "category": zod.string().nullish().describe('Master-list category (Paint, Cleaning, HVAC…) — groups the agreed-rates list')
 }))
 })
 
@@ -788,7 +793,8 @@ export const CreatePriceItemResponse = zod.object({
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish(),
   "rate": zod.number(),
-  "marginFloor": zod.number().nullish()
+  "marginFloor": zod.number().nullish(),
+  "category": zod.string().nullish().describe('Master-list category (Paint, Cleaning, HVAC…) — groups the agreed-rates list')
 })
 
 
@@ -872,7 +878,8 @@ export const UpdatePriceItemResponse = zod.object({
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish(),
   "rate": zod.number(),
-  "marginFloor": zod.number().nullish()
+  "marginFloor": zod.number().nullish(),
+  "category": zod.string().nullish().describe('Master-list category (Paint, Cleaning, HVAC…) — groups the agreed-rates list')
 })
 
 
@@ -1362,6 +1369,7 @@ export const QuickCreateJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -1447,6 +1455,7 @@ export const PullCrewToJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -1517,6 +1526,7 @@ export const PullCrewToJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -1595,6 +1605,7 @@ export const ListJobsResponseItem = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -1689,6 +1700,7 @@ export const CreateJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -1766,6 +1778,7 @@ export const GetJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -1894,6 +1907,7 @@ export const updateJobBodyCrewRateMin = 0;
 
 export const UpdateJobBody = zod.object({
   "woNo": zod.string().optional(),
+  "poNumber": zod.string().nullish(),
   "unitNo": zod.string().optional(),
   "category": zod.string().optional(),
   "description": zod.string().optional(),
@@ -1910,6 +1924,7 @@ export const UpdateJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2005,6 +2020,7 @@ export const CompleteJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2084,6 +2100,7 @@ export const ClearJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2163,6 +2180,7 @@ export const RestartJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2248,6 +2266,7 @@ export const ScheduleJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2333,6 +2352,7 @@ export const DispatchJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2580,6 +2600,7 @@ export const ReopenJobChangeOrderResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -2756,6 +2777,7 @@ export const SendJobRecapResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -3152,7 +3174,8 @@ export const GetWalkResponse = zod.object({
   "id": zod.string(),
   "walkId": zod.string(),
   "unitNo": zod.string().nullish(),
-  "storagePath": zod.string().nullish().describe('Object storage path of the photo; serve via \/api\/storage\/objects'),
+  "storagePath": zod.string().nullish().describe('Object storage path of the first photo; serve via \/api\/storage\/objects'),
+  "photos": zod.array(zod.string()).nullish().describe('All photo storage paths for this capture (multi-photo)'),
   "service": zod.string().nullish().describe('Scope \/ price-book service name'),
   "qty": zod.number().nullish(),
   "unitPrice": zod.number().nullish(),
@@ -3189,6 +3212,7 @@ export const AddWalkCaptureParams = zod.object({
 export const AddWalkCaptureBody = zod.object({
   "unitNo": zod.string().nullish(),
   "storagePath": zod.string().nullish(),
+  "photos": zod.array(zod.string()).nullish().describe('All photo storage paths for this capture (multi-photo)'),
   "service": zod.string().nullish(),
   "qty": zod.number().nullish(),
   "unitPrice": zod.number().nullish(),
@@ -3201,7 +3225,8 @@ export const AddWalkCaptureResponse = zod.object({
   "id": zod.string(),
   "walkId": zod.string(),
   "unitNo": zod.string().nullish(),
-  "storagePath": zod.string().nullish().describe('Object storage path of the photo; serve via \/api\/storage\/objects'),
+  "storagePath": zod.string().nullish().describe('Object storage path of the first photo; serve via \/api\/storage\/objects'),
+  "photos": zod.array(zod.string()).nullish().describe('All photo storage paths for this capture (multi-photo)'),
   "service": zod.string().nullish().describe('Scope \/ price-book service name'),
   "qty": zod.number().nullish(),
   "unitPrice": zod.number().nullish(),
@@ -3209,6 +3234,47 @@ export const AddWalkCaptureResponse = zod.object({
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "createdAt": zod.string().describe('ISO timestamp')
+})
+
+
+/**
+ * @summary Add several service lines for one item atomically — shared unit/note/photos, one capture row per service, all-or-nothing
+ */
+export const AddWalkCaptureBatchParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const AddWalkCaptureBatchBody = zod.object({
+  "unitNo": zod.string().nullish(),
+  "photos": zod.array(zod.string()).nullish().describe('Photos for this item — attached to the first line\'s capture row'),
+  "note": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "lines": zod.array(zod.object({
+  "service": zod.string(),
+  "qty": zod.number().nullish(),
+  "unitPrice": zod.number().nullish()
+})).min(1)
+})
+
+export const AddWalkCaptureBatchResponse = zod.object({
+  "captures": zod.array(zod.object({
+  "id": zod.string(),
+  "walkId": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "storagePath": zod.string().nullish().describe('Object storage path of the first photo; serve via \/api\/storage\/objects'),
+  "photos": zod.array(zod.string()).nullish().describe('All photo storage paths for this capture (multi-photo)'),
+  "service": zod.string().nullish().describe('Scope \/ price-book service name'),
+  "qty": zod.number().nullish(),
+  "unitPrice": zod.number().nullish(),
+  "note": zod.string().nullish(),
+  "lat": zod.number().nullish(),
+  "lng": zod.number().nullish(),
+  "createdAt": zod.string().describe('ISO timestamp')
+}))
 })
 
 
@@ -3255,6 +3321,18 @@ export const CompleteWalkResponse = zod.object({
 
 
 /**
+ * @summary Approve a completed walk — pushes each created job (with its photos) to the client board
+ */
+export const ApproveWalkParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ApproveWalkResponse = zod.object({
+  "cards": zod.number().describe('How many client-board cards were created or refreshed')
+})
+
+
+/**
  * @summary Transcribe a hold-to-talk clip and parse it into prefilled capture drafts (nothing is saved)
  */
 export const ParseWalkVoiceParams = zod.object({
@@ -3285,6 +3363,7 @@ export const ListJobBoardResponseItem = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -3351,6 +3430,7 @@ export const ListJobBoardResponseItem = zod.object({
 })).optional(),
   "lineTotal": zod.number().nullish()
 }),
+  "clientLane": zod.string().nullish().describe('Where the client placed this job\'s card on their board (override lane), if they moved it'),
   "invoice": zod.union([zod.object({
   "id": zod.string(),
   "invoiceNo": zod.string(),
@@ -3368,7 +3448,8 @@ export const ListJobBoardResponseItem = zod.object({
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish(),
   "rate": zod.number(),
-  "marginFloor": zod.number().nullish()
+  "marginFloor": zod.number().nullish(),
+  "category": zod.string().nullish().describe('Master-list category (Paint, Cleaning, HVAC…) — groups the agreed-rates list')
 })),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
@@ -3473,6 +3554,7 @@ export const PayJobCrewMemberResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -3556,6 +3638,7 @@ export const ClearJobCrewPayResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -3651,6 +3734,7 @@ export const SetJobBoardStatusResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -3736,6 +3820,7 @@ export const UpdateBoardSettingsResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -3815,6 +3900,7 @@ export const ReopenJobResponse = zod.object({
   "id": zod.string(),
   "jobNo": zod.string(),
   "woNo": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO — required before the job can move to Billing'),
   "propertyId": zod.string().optional(),
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
@@ -9761,7 +9847,8 @@ export const GetClientAccountResponse = zod.object({
   "detail": zod.string().nullish(),
   "unit": zod.string().nullish(),
   "rate": zod.number(),
-  "marginFloor": zod.number().nullish()
+  "marginFloor": zod.number().nullish(),
+  "category": zod.string().nullish().describe('Master-list category (Paint, Cleaning, HVAC…) — groups the agreed-rates list')
 }))
 })
 
@@ -11631,6 +11718,9 @@ export const ClientBoardCardActionBody = zod.union([zod.object({
   "name": zod.string().nullish().describe('Approver name if collected'),
   "note": zod.string().nullish()
 }),zod.object({
+  "action": zod.enum(['approve_walk']),
+  "name": zod.string().nullish().describe('Approver name if collected')
+}),zod.object({
   "action": zod.enum(['pay_method']),
   "method": zod.enum(['ach', 'check'])
 }),zod.object({
@@ -11929,6 +12019,7 @@ export const GetClientBoardResponse = zod.object({
   "changeOrder": zod.boolean().nullish().describe('True while a client change order on this job awaits office review (banner on the card)'),
   "unitNo": zod.string().nullish(),
   "category": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO on the underlying job — shown on the card'),
   "amount": zod.number().nullish(),
   "priority": zod.string().nullish(),
   "dueOn": zod.string().nullish(),
@@ -12039,6 +12130,7 @@ export const GetClientPmBoardResponse = zod.object({
   "changeOrder": zod.boolean().nullish().describe('True while a client change order on this job awaits office review (banner on the card)'),
   "unitNo": zod.string().nullish(),
   "category": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO on the underlying job — shown on the card'),
   "amount": zod.number().nullish(),
   "priority": zod.string().nullish(),
   "dueOn": zod.string().nullish(),
@@ -12152,6 +12244,7 @@ export const GetOfficeBoardFullResponse = zod.object({
   "changeOrder": zod.boolean().nullish().describe('True while a client change order on this job awaits office review (banner on the card)'),
   "unitNo": zod.string().nullish(),
   "category": zod.string().nullish(),
+  "poNumber": zod.string().nullish().describe('Client PO on the underlying job — shown on the card'),
   "amount": zod.number().nullish(),
   "priority": zod.string().nullish(),
   "dueOn": zod.string().nullish(),

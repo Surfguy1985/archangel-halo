@@ -747,6 +747,7 @@ router.post(
             detail: c.detail,
             unit: c.unit,
             rate: c.rate ?? 0,
+            category: c.category,
           })),
         )
         .onConflictDoNothing()

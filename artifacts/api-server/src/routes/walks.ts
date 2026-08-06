@@ -20,6 +20,9 @@ import {
   DeleteWalkParams,
   AddWalkCaptureParams,
   AddWalkCaptureBody,
+  AddWalkCaptureBatchParams,
+  AddWalkCaptureBatchBody,
+  AddWalkCaptureBatchResponse,
   AddWalkCaptureResponse,
   DeleteWalkCaptureParams,
   CompleteWalkParams,
@@ -28,7 +31,10 @@ import {
   ParseWalkVoiceParams,
   ParseWalkVoiceBody,
   ParseWalkVoiceResponse,
+  ApproveWalkParams,
+  ApproveWalkResponse,
 } from "@workspace/api-zod";
+import { raiseClientCard } from "../lib/clientBoard";
 import { openai, toFile } from "@workspace/integrations-openai-ai-server";
 import { limits } from "../lib/rateLimit";
 import { ensurePropertiesGeocoded } from "../lib/geocode";
@@ -64,6 +70,7 @@ function captureDto(c: CaptureRow) {
     walkId: c.walkId,
     unitNo: c.unitNo,
     storagePath: c.storagePath,
+    photos: c.photos ?? (c.storagePath ? [c.storagePath] : null),
     service: c.service,
     qty: c.qty,
     unitPrice: c.unitPrice,
@@ -282,7 +289,15 @@ router.post("/walks/:id/captures", limits.walkWrite, async (req, res): Promise<v
       .values({
         walkId: id,
         unitNo: body.unitNo?.trim() || null,
-        storagePath: body.storagePath ?? null,
+        // Multi-photo: photos[] is the source of truth; storagePath mirrors
+        // the first photo so older readers keep working.
+        storagePath: body.storagePath ?? body.photos?.[0] ?? null,
+        photos:
+          body.photos && body.photos.length > 0
+            ? body.photos
+            : body.storagePath
+              ? [body.storagePath]
+              : null,
         service: body.service?.trim() || null,
         qty: body.qty ?? null,
         unitPrice: body.unitPrice ?? null,
@@ -302,6 +317,58 @@ router.post("/walks/:id/captures", limits.walkWrite, async (req, res): Promise<v
     return;
   }
   res.status(201).json(AddWalkCaptureResponse.parse(captureDto(outcome.row)));
+});
+
+// Several service lines for ONE walk item, committed atomically — either
+// every line lands or none do, so a mid-save failure can't leave a partial
+// service set. Photos ride on the first line's row.
+router.post("/walks/:id/captures/batch", limits.walkWrite, async (req, res): Promise<void> => {
+  const { id } = AddWalkCaptureBatchParams.parse(req.params);
+  const parsedBody = AddWalkCaptureBatchBody.safeParse(req.body);
+  if (!parsedBody.success) {
+    res.status(400).json({ error: "At least one service line is required" });
+    return;
+  }
+  const body = parsedBody.data;
+  const outcome = await db.transaction(async (tx) => {
+    const [locked] = await tx
+      .select()
+      .from(walksTable)
+      .where(eq(walksTable.id, id))
+      .for("update");
+    if (!locked) return { status: 404 as const };
+    if (locked.status === "completed") return { status: 409 as const };
+    const photos = body.photos && body.photos.length > 0 ? body.photos : null;
+    const rows = await tx
+      .insert(walkCapturesTable)
+      .values(
+        body.lines.map((line, i) => ({
+          walkId: id,
+          unitNo: body.unitNo?.trim() || null,
+          storagePath: i === 0 ? (photos?.[0] ?? null) : null,
+          photos: i === 0 ? photos : null,
+          service: line.service.trim() || null,
+          qty: line.qty ?? null,
+          unitPrice: line.unitPrice ?? null,
+          note: body.note?.trim() || null,
+          lat: body.lat ?? null,
+          lng: body.lng ?? null,
+        })),
+      )
+      .returning();
+    return { status: 201 as const, rows };
+  });
+  if (outcome.status === 404) {
+    res.status(404).json({ error: "Walk not found" });
+    return;
+  }
+  if (outcome.status === 409) {
+    res.status(409).json({ error: "Walk already completed" });
+    return;
+  }
+  res
+    .status(201)
+    .json(AddWalkCaptureBatchResponse.parse({ captures: outcome.rows.map(captureDto) }));
 });
 
 // Hold-to-talk: transcribe a short clip and parse it into capture DRAFTS.
@@ -528,7 +595,10 @@ router.post("/walks/:id/complete", limits.walkWrite, async (req, res): Promise<v
       const noteOnly = unitCaptures
         .filter((c) => !c.service && c.note)
         .map((c) => `• ${c.note}`);
-      const photoCount = unitCaptures.filter((c) => c.storagePath).length;
+      const photoCount = unitCaptures.reduce(
+        (n, c) => n + (c.photos?.length ?? (c.storagePath ? 1 : 0)),
+        0,
+      );
       const description = [
         `${kindLabel} findings${unitKey ? ` — Unit ${unitKey}` : ""}`,
         ...scopeLines,
@@ -627,6 +697,81 @@ router.post("/walks/:id/complete", limits.walkWrite, async (req, res): Promise<v
       jobs: createdJobs,
     }),
   );
+});
+
+// Approve a completed walk: push one photos card per created job to the
+// client board. Idempotent — sourceType/sourceId dedupe means re-approving
+// refreshes the same cards instead of duplicating them.
+router.post("/walks/:id/approve", async (req, res): Promise<void> => {
+  const { id } = ApproveWalkParams.parse(req.params);
+  const [walk] = await db.select().from(walksTable).where(eq(walksTable.id, id));
+  if (!walk) {
+    res.status(404).json({ error: "Walk not found" });
+    return;
+  }
+  if (walk.status !== "completed") {
+    res.status(409).json({ error: "Finish the walk first — approve sends the created jobs to the client board." });
+    return;
+  }
+  const created = (walk.createdJobs ?? []) as { id: string; jobNo?: string; unitNo?: string | null }[];
+  if (created.length === 0) {
+    res.status(409).json({ error: "This walk created no jobs to share." });
+    return;
+  }
+  let cards = 0;
+  for (const cj of created) {
+    const [job] = await db.select().from(jobsTable).where(eq(jobsTable.id, cj.id));
+    if (!job || job.propertyId !== walk.propertyId) continue;
+    // Walk photos live on walk_captures (not crew photos) — build the photo
+    // strip straight from this job's captures.
+    const caps = await db
+      .select()
+      .from(walkCapturesTable)
+      .where(eq(walkCapturesTable.jobId, job.id));
+    const allPhotos = caps.flatMap((c) =>
+      c.photos?.length ? c.photos : c.storagePath ? [c.storagePath] : [],
+    );
+    const services = [...new Set(caps.map((c) => c.service).filter(Boolean))] as string[];
+    const module =
+      allPhotos.length > 0
+        ? {
+            type: "photos",
+            jobId: job.id,
+            jobNo: job.jobNo,
+            unitNo: job.unitNo ?? null,
+            totalCount: allPhotos.length,
+            photoUrls: allPhotos.slice(0, 6).map((p) => `/api/storage${p}`),
+            phases: [],
+            // Client-side Approve: the PM can approve these walk findings
+            // from their board, which moves the card to In progress.
+            canApprove: true,
+          }
+        : null;
+    const title = job.unitNo ? `Walk findings — Unit ${job.unitNo}` : "Walk findings";
+    const bodyText = [
+      services.length > 0 ? `Scope: ${services.slice(0, 6).join(", ")}${services.length > 6 ? "…" : ""}` : null,
+      allPhotos.length > 0 ? `${allPhotos.length} photo${allPhotos.length === 1 ? "" : "s"} from the walk` : null,
+      `Job ${job.jobNo} has been opened for this work.`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const card = await raiseClientCard({
+      propertyId: walk.propertyId,
+      kind: "photos",
+      module,
+      title,
+      body: bodyText,
+      actionLabel: null,
+      amount: null,
+      dueDate: null,
+      links: [],
+      sourceType: "walk_job",
+      sourceId: job.id,
+      jobId: job.id,
+    });
+    if (card) cards += 1;
+  }
+  res.json(ApproveWalkResponse.parse({ cards }));
 });
 
 export default router;

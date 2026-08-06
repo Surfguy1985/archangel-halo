@@ -42,6 +42,28 @@ export function ImportFromCatalogDialog({
       (i.category ?? "").toLowerCase().includes(q),
   );
 
+  // Organize the master list into category containers (Paint, Cleaning, …).
+  const groups = (() => {
+    const byCat = new Map<string, typeof filtered>();
+    for (const i of filtered) {
+      const cat = i.category?.trim() || "Other";
+      byCat.set(cat, [...(byCat.get(cat) ?? []), i]);
+    }
+    return [...byCat.entries()].map(([label, list]) => ({ label, list }));
+  })();
+
+  // Everything visible and not already on the property.
+  const selectable = filtered.filter((i) => !existing.has(i.service.trim().toLowerCase()));
+  const allChecked = selectable.length > 0 && selectable.every((i) => selected.has(i.id));
+  const toggleAll = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allChecked) selectable.forEach((i) => next.delete(i.id));
+      else selectable.forEach((i) => next.add(i.id));
+      return next;
+    });
+  };
+
   const toggle = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -89,7 +111,19 @@ export function ImportFromCatalogDialog({
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="max-h-[320px] overflow-y-auto border border-border rounded-lg divide-y divide-border">
+        {selectable.length > 0 && (
+          <button
+            onClick={toggleAll}
+            data-testid="catalog-check-all"
+            className="self-start flex items-center gap-2 text-sm font-semibold text-[var(--ink)] hover:opacity-80 transition-opacity"
+          >
+            <span className={`w-5 h-5 rounded border grid place-items-center transition-colors ${allChecked ? "bg-[var(--gold-light)] border-[var(--gold)]" : "border-border bg-background"}`}>
+              {allChecked && <Check className="w-3.5 h-3.5 text-black" />}
+            </span>
+            {allChecked ? "Uncheck all" : `Check all${q ? " matching" : ""} (${selectable.length})`}
+          </button>
+        )}
+        <div className="max-h-[320px] overflow-y-auto border border-border rounded-lg">
           {isLoading && <div className="p-4 text-sm text-muted-foreground">Loading…</div>}
           {!isLoading && filtered.length === 0 && (
             <div className="p-6 text-center text-sm text-muted-foreground">
@@ -106,7 +140,13 @@ export function ImportFromCatalogDialog({
               )}
             </div>
           )}
-          {filtered.map((item) => {
+          {groups.map((g) => (
+            <div key={g.label}>
+              <div className="sticky top-0 z-10 bg-[var(--muted)] px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground border-y border-border first:border-t-0">
+                {g.label}
+              </div>
+              <div className="divide-y divide-border">
+          {g.list.map((item) => {
             const already = existing.has(item.service.trim().toLowerCase());
             const checked = selected.has(item.id);
             return (
@@ -133,7 +173,10 @@ export function ImportFromCatalogDialog({
                 </div>
               </button>
             );
-         })}
+          })}
+              </div>
+            </div>
+          ))}
         </div>
         {importMut.isError && (
           <div className="text-xs text-destructive">Couldn't add those services. Try again.</div>

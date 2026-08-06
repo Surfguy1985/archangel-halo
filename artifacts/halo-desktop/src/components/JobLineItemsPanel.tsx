@@ -1,4 +1,4 @@
-import { useState} from "react";
+import { useMemo, useState} from "react";
 import { useQueryClient} from "@tanstack/react-query";
 import { Minus, Plus, X} from "lucide-react";
 import {
@@ -51,6 +51,40 @@ export function JobLineItemsPanel({
 
   const total = lineItems.reduce((s, li) => s + li.amount, 0);
   const busy = add.isPending || update.isPending || del.isPending;
+
+  // Master price list organized into containers — same grouping as Quick Job:
+  // "1/2/3 Bedroom" submenus (service names stripped of their BR suffix) plus
+  // an "Other services" group, each sorted alphabetically.
+  const serviceGroups = useMemo(() => {
+    const strip = (s: string) => s.replace(/\s*[—–-]\s*\d\s*BR\s*$/i, "").trim();
+    const sizeOf = (pi: PriceItemOption): number | null => {
+      const m = /(\d)\s*BR\s*$/i.exec(pi.service) ?? /^(\d)\s*BR$/i.exec(pi.unit ?? "");
+      return m ? Number(m[1]) : null;
+    };
+    const bySize = new Map<number, PriceItemOption[]>();
+    const other: PriceItemOption[] = [];
+    for (const pi of priceItems) {
+      const n = sizeOf(pi);
+      if (n == null) other.push(pi);
+      else bySize.set(n, [...(bySize.get(n) ?? []), pi]);
+    }
+    const groups = [...bySize.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([n, items]) => ({
+        label: `${n} Bedroom`,
+        items: items
+          .map((pi) => ({ pi, name: strip(pi.service) }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+    if (other.length > 0)
+      groups.push({
+        label: "Other services",
+        items: other
+          .map((pi) => ({ pi, name: pi.service }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      });
+    return groups;
+  }, [priceItems]);
 
   return (
     <div className="mt-2 rounded-lg bg-black/[0.03] px-3 py-2.5">
@@ -111,10 +145,14 @@ export function JobLineItemsPanel({
             className="flex-1 min-w-0 bg-white border border-border rounded-[11px] py-1.5 px-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40"
           >
             <option value="">Add from price list…</option>
-            {priceItems.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.service} — ${p.rate.toLocaleString()}{p.unit ?`/${p.unit}` : ""}
-              </option>
+            {serviceGroups.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.items.map(({ pi, name }) => (
+                  <option key={pi.id} value={pi.id}>
+                    {name} — ${pi.rate.toLocaleString()}{pi.unit ? `/${pi.unit}` : ""}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <button

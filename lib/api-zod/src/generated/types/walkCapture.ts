@@ -12,10 +12,15 @@ export interface WalkCapture {
   /** @nullable */
   unitNo?: string | null;
   /**
-     * Object storage path of the photo; serve via /api/storage/objects
+     * Object storage path of the first photo; serve via /api/storage/objects
      * @nullable
      */
   storagePath?: string | null;
+  /**
+     * All photo storage paths for this capture (multi-photo)
+     * @nullable
+     */
+  photos?: string[] | null;
   /**
      * Scope / price-book service name
      * @nullable

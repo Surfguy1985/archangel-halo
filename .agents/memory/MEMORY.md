@@ -42,6 +42,7 @@
 - [HALO check scan](halo-check-scan.md) — check-photo OCR payments anchor to a picked invoice via recordPayment; server allows photo-less manual check payments by design; past_due is virtual (query "sent").
 - [HALO live job tracker](halo-live-tracker.md) — stable per-job trackerToken (atomic first-wins), public /track page lives in mobile app at root, photo phases pair by index, SHA-256 computed server-side.
 - [HALO portal guide](halo-portal-guide.md) — bilingual Guide tab; ?guide=en|es deep link must be respected by any portal auto-navigation (offer auto-switch skips it).
+- [HALO job PO gate](halo-job-po-gate.md) — client PO required before any path sets job status complete (Done→Billing); force never overrides; PO shows on client card + done tile.
 - [HALO job funnel close-out](halo-job-funnel.md) — /jobs/:id/close-out enforces crew+complete+paid invoice+crew paid (409 missing[]); /clear now enforces the same checklist (loophole sealed).
 - [HALO Founding Wings](halo-founding-wings.md) — deterministic engines decide money/eligibility, AI only reviews photos (crew_photos, phase before/after) + writes brief; reserve settlement uses guarded HELD claim.
 - [HALO crew invoice review](halo-crew-invoice-review.md) — crew invoice status transitions are server-guarded (409 on invalid); no global error middleware, never throw in async routes.
@@ -85,6 +86,8 @@
 - [HALO change orders](halo-change-orders.md) — pending CO is a flag, never a boardStatus change; three rail derivations must stay in sync; CO only valid for the unit's current live job.
 - [HALO crew office access](halo-crew-office-access.md) — portal links never carry permissions: office-view grants re-checked server-side per read, scoped, and must never expose money/client data.
 - [HALO Walk voice capture](halo-walk-voice.md) — OpenAI proxy: no TTS, no whisper-1; transcribe with gpt-4o-mini-transcribe; voice endpoint returns drafts only, captures can be photo-less.
+- [HALO Walk multi-service capture](halo-walk-multiservice.md) — multi-photo/multi-service items save via atomic batch endpoint; photo counts union photos[]+storagePath; client approve_walk moves card to in_progress.
+- [HALO Walk approve](halo-walk-approve.md) — walk review Approve pushes per-job photos cards to client board; walk passcode is the intended trust level (jobs already reach client board).
 - [HALO Walk app](halo-walk-app.md) — walk→jobs completion is lock-guarded + transactional; line-item rates resolved server-side from the price book; 401s route to the app's own lock screen.
 - [HALO legacy board redirects](halo-legacy-board-redirects.md) — legacy /dashboard & /client links replace() to /board; must carry search+hash or deep links (?present=1) silently break on live.
 - [HALO Wings Program profit share](halo-wings-program.md) — 12% pot explainer + live Wings calc in portal wings tab; exact-years eligibility; crews.role/hire_date must ride every crew read model; ?tab= deep links skip offers auto-pull.

@@ -320,6 +320,15 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
           <span className="truncate text-[11px] font-[500] text-[#6E6C63] whitespace-nowrap">
             {card.subtitle || spec.categoryLabel}
           </span>
+          {card.poNumber && (
+            <span
+              className="shrink-0 rounded-[4px] px-1.5 py-[2px] text-[10px] font-[700] font-mono text-[#101c33]"
+              style={{ background: tint.chip }}
+              data-testid={`card-po-${card.cardKey}`}
+            >
+              PO {card.poNumber}
+            </span>
+          )}
         </div>
 
         {/* 5. Metric triad - 70px */}

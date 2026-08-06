@@ -34,6 +34,11 @@ export interface ClientBoardCardView {
   unitNo?: string | null;
   /** @nullable */
   category?: string | null;
+  /**
+     * Client PO on the underlying job — shown on the card
+     * @nullable
+     */
+  poNumber?: string | null;
   /** @nullable */
   amount?: number | null;
   /** @nullable */

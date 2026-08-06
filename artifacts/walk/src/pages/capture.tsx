@@ -3,7 +3,7 @@ import { useRoute, useLocation } from 'wouter';
 import { 
   useGetWalk, 
   useGetProperty,
-  useAddWalkCapture,
+  useAddWalkCaptureBatch,
   useDeleteWalkCapture,
   useDeleteWalk,
   useParseWalkVoice,
@@ -69,15 +69,36 @@ export default function CaptureScreen() {
   
   // Tagging Drawer State
   const [isTagging, setIsTagging] = useState(false);
-  const [currentPhotoPath, setCurrentPhotoPath] = useState<string>('');
-  
-  // Tag Form State
+  const [currentPhotoPaths, setCurrentPhotoPaths] = useState<string[]>([]);
+
+  // Tag Form State — multiple services can be picked per item; each carries
+  // its own qty and the price-book rate so the drawer can total them up.
   const [lastUnit, setLastUnit] = useState<string>('');
   const [formUnit, setFormUnit] = useState<string>('');
-  const [formService, setFormService] = useState<string>('');
-  const [formUnitPrice, setFormUnitPrice] = useState<number | undefined>(undefined);
-  const [formQty, setFormQty] = useState<number>(1);
+  const [selectedServices, setSelectedServices] = useState<{ service: string; rate?: number; qty: number }[]>([]);
+  const [customService, setCustomService] = useState<string>('');
+  const [customPrice, setCustomPrice] = useState<number | undefined>(undefined);
   const [formNote, setFormNote] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const toggleService = (service: string, rate?: number) => {
+    setSelectedServices(prev =>
+      prev.some(s => s.service === service)
+        ? prev.filter(s => s.service !== service)
+        : [...prev, { service, rate, qty: 1 }]
+    );
+  };
+  const bumpQty = (service: string, delta: number) => {
+    setSelectedServices(prev =>
+      prev.map(s => (s.service === service ? { ...s, qty: Math.max(1, s.qty + delta) } : s))
+    );
+  };
+  // Everything going onto this item: picked services plus the custom one.
+  const pendingLines = [
+    ...selectedServices,
+    ...(customService.trim() ? [{ service: customService.trim(), rate: customPrice, qty: 1 }] : []),
+  ];
+  const pendingTotal = pendingLines.reduce((sum, s) => sum + (s.rate ?? 0) * s.qty, 0);
 
   // Delete Action Sheet State
   const [deleteDrawerOpen, setDeleteDrawerOpen] = useState(false);
@@ -96,7 +117,7 @@ export default function CaptureScreen() {
   const parseVoice = useParseWalkVoice({ request: { credentials: 'include' } });
 
   // Mutations
-  const addCapture = useAddWalkCapture({ request: { credentials: 'include' } });
+  const addCaptureBatch = useAddWalkCaptureBatch({ request: { credentials: 'include' } });
   const deleteCapture = useDeleteWalkCapture({ request: { credentials: 'include' } });
   const deleteWalk = useDeleteWalk({ request: { credentials: 'include' } });
 
@@ -128,11 +149,18 @@ export default function CaptureScreen() {
     const bookMatch = property?.priceItems?.find(
       p => p.service.trim().toLowerCase() === svc.trim().toLowerCase()
     );
-    setCurrentPhotoPath('');
+    setCurrentPhotoPaths([]);
     setFormUnit(item.unitNo ?? lastUnit);
-    setFormService(bookMatch ? bookMatch.service : svc);
-    setFormUnitPrice(bookMatch?.rate || undefined);
-    setFormQty(item.qty && item.qty > 0 ? item.qty : 1);
+    const qty = item.qty && item.qty > 0 ? item.qty : 1;
+    if (bookMatch) {
+      setSelectedServices([{ service: bookMatch.service, rate: bookMatch.rate || undefined, qty }]);
+      setCustomService('');
+      setCustomPrice(undefined);
+    } else {
+      setSelectedServices([]);
+      setCustomService(svc);
+      setCustomPrice(undefined);
+    }
     setFormNote(item.note ?? '');
     setIsTagging(true);
   };
@@ -247,40 +275,47 @@ export default function CaptureScreen() {
     }
   };
 
-  // Handle Photo Capture
+  // Upload one file and return its storage path.
+  const uploadPhoto = async (file: File): Promise<string> => {
+    const reqRes = await fetch('/api/storage/uploads/request-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+    });
+    if (!reqRes.ok) throw new Error('Failed to request upload URL');
+    const { uploadURL, objectPath } = await reqRes.json();
+    const uploadRes = await fetch(uploadURL, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    });
+    if (!uploadRes.ok) throw new Error('Failed to upload photo');
+    return objectPath as string;
+  };
+
+  // Handle Photo Capture — supports picking several photos at once.
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    const addingToOpenItem = isTagging; // "Add photo" from inside the drawer
 
     setIsUploading(true);
     try {
-      // 1. Request URL
-      const reqRes = await fetch('/api/storage/uploads/request-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-      });
-      if (!reqRes.ok) throw new Error('Failed to request upload URL');
-      const { uploadURL, objectPath } = await reqRes.json();
+      const paths: string[] = [];
+      for (const file of files) paths.push(await uploadPhoto(file));
 
-      // 2. Upload file
-      const uploadRes = await fetch(uploadURL, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
-      if (!uploadRes.ok) throw new Error('Failed to upload photo');
-
-      // 3. Open tag drawer
-      setCurrentPhotoPath(objectPath);
-      setFormUnit(lastUnit);
-      setFormService('');
-      setFormUnitPrice(undefined);
-      setFormQty(1);
-      setFormNote('');
-      setIsTagging(true);
-      
+      if (addingToOpenItem) {
+        setCurrentPhotoPaths(prev => [...prev, ...paths]);
+      } else {
+        setCurrentPhotoPaths(paths);
+        setFormUnit(lastUnit);
+        setSelectedServices([]);
+        setCustomService('');
+        setCustomPrice(undefined);
+        setFormNote('');
+        setIsTagging(true);
+      }
     } catch (err: any) {
       toast({ title: 'Upload failed', description: err?.data?.error || err?.message, variant: 'destructive' });
     } finally {
@@ -289,49 +324,51 @@ export default function CaptureScreen() {
     }
   };
 
-  // Handle Tag Submit
-  const handleSaveCapture = () => {
-    if (!formService) {
-      toast({ title: 'Missing scope', description: 'Please select a service or enter Other', variant: 'destructive' });
+  // Handle Tag Submit — one capture row per selected service. The photos ride
+  // on the first row so counts stay right when several services share a shot.
+  const handleSaveCapture = async () => {
+    if (pendingLines.length === 0) {
+      toast({ title: 'Missing scope', description: 'Please select at least one service or enter Other', variant: 'destructive' });
       return;
     }
-
-    addCapture.mutate(
-      { 
+    setIsSaving(true);
+    try {
+      // One atomic call — every service line lands or none do, so a failed
+      // save can't leave a partial item behind.
+      await addCaptureBatch.mutateAsync({
         id: walkId,
         data: {
           unitNo: formUnit || 'Common Area',
-          storagePath: currentPhotoPath || undefined,
-          service: formService,
-          qty: formQty,
-          unitPrice: formUnitPrice,
+          photos: currentPhotoPaths.length > 0 ? currentPhotoPaths : undefined,
           note: formNote,
           lat: location?.lat,
-          lng: location?.lng
-        }
-      },
-      {
-        onSuccess: () => {
-          setLastUnit(formUnit); // Remember for next time
-          setIsTagging(false);
-          advanceVoiceQueue(); // next prefilled voice draft, if any
-          refetchWalk(); // refresh list
-          toast({ 
-            title: (
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                  <Check className="w-3 h-3 text-primary-foreground stroke-[3]" />
-                </div>
-                <span>Item captured</span>
-              </div>
-            ) as any
-          });
+          lng: location?.lng,
+          lines: pendingLines.map(line => ({
+            service: line.service,
+            qty: line.qty,
+            unitPrice: line.rate,
+          })),
         },
-        onError: (err: any) => {
-          toast({ title: 'Failed to save', description: err?.data?.error || err?.message, variant: 'destructive' });
-        }
-      }
-    );
+      });
+      setLastUnit(formUnit); // Remember for next time
+      setIsTagging(false);
+      advanceVoiceQueue(); // next prefilled voice draft, if any
+      refetchWalk(); // refresh list
+      toast({
+        title: (
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+              <Check className="w-3 h-3 text-primary-foreground stroke-[3]" />
+            </div>
+            <span>{pendingLines.length === 1 ? 'Item captured' : `${pendingLines.length} items captured`}</span>
+          </div>
+        ) as any,
+      });
+    } catch (err: any) {
+      toast({ title: 'Failed to save', description: err?.data?.error || err?.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const openDeleteOptions = (id: string) => {
@@ -430,12 +467,19 @@ export default function CaptureScreen() {
                   >
                     <div className="w-16 h-16 shrink-0 bg-muted rounded-xl overflow-hidden relative shadow-inner">
                       {cap.storagePath ? (
-                        <img 
-                          src={`/api/storage/objects${cap.storagePath}`} 
-                          alt="capture" 
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
+                        <>
+                          <img 
+                            src={`/api/storage/objects${cap.storagePath}`} 
+                            alt="capture" 
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          {(cap.photos?.length ?? 0) > 1 && (
+                            <span className="absolute bottom-1 right-1 text-[10px] font-black bg-black/70 text-white px-1.5 py-0.5 rounded-md" data-testid={`photo-count-${cap.id}`}>
+                              +{(cap.photos!.length) - 1}
+                            </span>
+                          )}
+                        </>
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                           <Mic className="w-6 h-6" />
@@ -473,7 +517,7 @@ export default function CaptureScreen() {
         <input 
           type="file" 
           accept="image/*" 
-          capture="environment" 
+          multiple
           ref={fileInputRef}
           className="hidden"
           onChange={handleFileSelect}
@@ -568,12 +612,36 @@ export default function CaptureScreen() {
           </DrawerHeader>
           
           <div className="p-5 overflow-y-auto flex-1 space-y-6 scroll-smooth">
-            {currentPhotoPath && (
-              <div className="w-full h-40 rounded-3xl overflow-hidden bg-card border border-black/[0.05] shadow-inner relative group shrink-0">
-                <img src={`/api/storage/objects${currentPhotoPath}`} className="w-full h-full object-cover" alt="Current capture" />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/0 to-black/20" />
-              </div>
-            )}
+            {/* Photo strip — supports multiple photos per item */}
+            <div className="space-y-2">
+              {currentPhotoPaths.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" data-testid="photo-strip">
+                  {currentPhotoPaths.map((p, i) => (
+                    <div key={p} className="relative w-28 h-28 rounded-2xl overflow-hidden bg-card border border-black/[0.05] shadow-inner shrink-0">
+                      <img src={`/api/storage/objects${p}`} className="w-full h-full object-cover" alt={`Photo ${i + 1}`} />
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPhotoPaths(prev => prev.filter(x => x !== p))}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center"
+                        data-testid={`remove-photo-${i}`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="w-full h-11 rounded-xl border border-dashed border-black/15 bg-muted/50 text-sm font-bold text-muted-foreground flex items-center justify-center gap-2"
+                data-testid="add-photos"
+              >
+                {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                {currentPhotoPaths.length > 0 ? 'Add more photos' : 'Add photos'}
+              </button>
+            </div>
 
             <div className="space-y-5">
               {/* Unit Input */}
@@ -588,78 +656,110 @@ export default function CaptureScreen() {
                 />
               </div>
 
-              {/* Scope Picker */}
+              {/* Scope Picker — multi-select with per-service qty */}
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1">What needs work?</label>
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1">What needs work? (pick all that apply)</label>
                 <div className="grid grid-cols-1 gap-2 max-h-[30vh] overflow-y-auto pr-1 pb-1 -mr-1">
                   {property?.priceItems?.map(item => {
-                    const isSelected = formService === item.service;
+                    const sel = selectedServices.find(s => s.service === item.service);
                     return (
-                      <button
+                      <div
                         key={item.id}
-                        onClick={() => { setFormService(item.service); setFormUnitPrice(item.rate || undefined); }}
-                        className={`p-3 rounded-xl border text-left flex justify-between items-center transition-all ${
-                          isSelected 
-                            ? 'border-transparent bg-foreground text-background ring-[3px] ring-primary/20 shadow-md' 
+                        className={`p-3 rounded-xl border transition-all ${
+                          sel
+                            ? 'border-transparent bg-foreground text-background ring-[3px] ring-primary/20 shadow-md'
                             : 'border-black/[0.05] bg-card text-foreground hover:border-black/10'
                         }`}
                       >
-                        <span className="font-bold text-sm">{item.service}</span>
-                        {item.rate ? (
-                          <span className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded ${isSelected ? 'bg-background/20 text-background' : 'bg-muted text-muted-foreground'}`}>
-                            ${item.rate}
+                        <button
+                          type="button"
+                          onClick={() => toggleService(item.service, item.rate || undefined)}
+                          className="w-full text-left flex justify-between items-center"
+                          data-testid={`service-toggle-${item.id}`}
+                        >
+                          <span className="font-bold text-sm flex items-center gap-2">
+                            {sel && <Check className="w-4 h-4 stroke-[3]" />}
+                            {item.service}
                           </span>
-                        ) : null}
-                      </button>
+                          {item.rate ? (
+                            <span className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded ${sel ? 'bg-background/20 text-background' : 'bg-muted text-muted-foreground'}`}>
+                              ${item.rate}
+                            </span>
+                          ) : null}
+                        </button>
+                        {sel && (
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-background/20">
+                            <div className="flex items-center gap-3">
+                              <button type="button" onClick={() => bumpQty(item.service, -1)} className="w-8 h-8 rounded-lg bg-background/20 font-black text-lg flex items-center justify-center" data-testid={`qty-minus-${item.id}`}>−</button>
+                              <span className="font-black text-base w-6 text-center" data-testid={`qty-${item.id}`}>{sel.qty}</span>
+                              <button type="button" onClick={() => bumpQty(item.service, 1)} className="w-8 h-8 rounded-lg bg-background/20 font-black text-lg flex items-center justify-center" data-testid={`qty-plus-${item.id}`}>+</button>
+                            </div>
+                            <span className="font-mono text-xs font-bold opacity-80">
+                              {sel.rate ? `$${(sel.rate * sel.qty).toLocaleString()}` : 'BID'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     )
                   })}
-                  
+
                   {/* Custom Scope */}
                   <div className="pt-2 mt-1 space-y-2 border-t border-black/[0.05]">
-                    <Input 
-                      value={!property?.priceItems?.find(p => p.service === formService) ? formService : ''}
-                      onChange={e => { setFormService(e.target.value); setFormUnitPrice(undefined); }}
-                      placeholder="Type custom service..."
-                      className="h-12 rounded-xl border-0 bg-card shadow-sm focus-visible:ring-2 focus-visible:ring-primary px-4 font-bold text-sm"
-                    />
+                    <div className="grid grid-cols-3 gap-2">
+                      <Input
+                        value={customService}
+                        onChange={e => setCustomService(e.target.value)}
+                        placeholder="Type custom service..."
+                        className="col-span-2 h-12 rounded-xl border-0 bg-card shadow-sm focus-visible:ring-2 focus-visible:ring-primary px-4 font-bold text-sm"
+                        data-testid="input-custom-service"
+                      />
+                      <Input
+                        type="number"
+                        min="0"
+                        value={customPrice ?? ''}
+                        onChange={e => setCustomPrice(e.target.value === '' ? undefined : Number(e.target.value))}
+                        placeholder="$ price"
+                        className="h-12 rounded-xl border-0 bg-card shadow-sm focus-visible:ring-2 focus-visible:ring-primary px-3 font-bold text-sm"
+                        data-testid="input-custom-price"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Qty & Note inline */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-1 space-y-2">
-                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Qty</label>
-                  <Input 
-                    type="number" 
-                    min="1" 
-                    value={formQty} 
-                    onChange={e => setFormQty(Number(e.target.value))}
-                    className="h-12 text-lg font-black text-center rounded-xl border-0 bg-muted focus-visible:ring-2 focus-visible:ring-primary"
-                  />
-                </div>
-                <div className="col-span-2 space-y-2">
-                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Note</label>
-                  <Input 
-                    value={formNote} 
-                    onChange={e => setFormNote(e.target.value)}
-                    placeholder="Optional detail"
-                    className="h-12 rounded-xl border-0 bg-muted focus-visible:ring-2 focus-visible:ring-primary px-4 placeholder:text-muted-foreground/60 text-sm"
-                  />
-                </div>
+              {/* Note */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Note</label>
+                <Input 
+                  value={formNote} 
+                  onChange={e => setFormNote(e.target.value)}
+                  placeholder="Optional detail"
+                  className="h-12 rounded-xl border-0 bg-muted focus-visible:ring-2 focus-visible:ring-primary px-4 placeholder:text-muted-foreground/60 text-sm"
+                />
               </div>
 
             </div>
           </div>
 
           <DrawerFooter className="border-t border-black/[0.05] p-5 shrink-0 bg-background">
+            {pendingLines.length > 0 && (
+              <div className="flex justify-between items-center px-1 pb-1" data-testid="drawer-total">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                  {pendingLines.length} service{pendingLines.length === 1 ? '' : 's'}
+                </span>
+                <span className="font-mono text-lg font-black">
+                  ${pendingTotal.toLocaleString()}{pendingLines.some(l => !l.rate) ? ' + BID' : ''}
+                </span>
+              </div>
+            )}
             <Button 
               size="lg" 
               className="h-14 text-lg font-extrabold w-full rounded-2xl shadow-float"
               onClick={handleSaveCapture}
-              disabled={addCapture.isPending}
+              disabled={isSaving || isUploading}
+              data-testid="save-item"
             >
-              {addCapture.isPending ? <Loader2 className="w-6 h-6 animate-spin" /> : 'SAVE ITEM'}
+              {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : pendingTotal > 0 ? `SAVE — $${pendingTotal.toLocaleString()}` : 'SAVE ITEM'}
             </Button>
           </DrawerFooter>
         </DrawerContent>

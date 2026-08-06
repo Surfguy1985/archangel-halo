@@ -355,6 +355,11 @@ export interface PriceItem {
   rate: number;
   /** @nullable */
   marginFloor?: number | null;
+  /**
+     * Master-list category (Paint, Cleaning, HVAC…) — groups the agreed-rates list
+     * @nullable
+     */
+  category?: string | null;
 }
 
 export interface ClientAccountDetail {
@@ -912,6 +917,22 @@ export interface CardApproveAction {
   note?: string | null;
 }
 
+export type CardApproveWalkActionAction = typeof CardApproveWalkActionAction[keyof typeof CardApproveWalkActionAction];
+
+
+export const CardApproveWalkActionAction = {
+  approve_walk: 'approve_walk',
+} as const;
+
+export interface CardApproveWalkAction {
+  action: CardApproveWalkActionAction;
+  /**
+     * Approver name if collected
+     * @nullable
+     */
+  name?: string | null;
+}
+
 export type CardPayMethodActionAction = typeof CardPayMethodActionAction[keyof typeof CardPayMethodActionAction];
 
 
@@ -1017,7 +1038,7 @@ export interface CardMarkPaidAction {
 /**
  * Module action. Wire format is unchanged from the legacy flat shape — the union only narrows which fields are valid per action.
  */
-export type ClientCardActionInput = CardApproveAction | CardPayMethodAction | CardScheduleAction | CardReferAction | CardAcknowledgeAction | CardDisputeAction | CardMarkPaidAction;
+export type ClientCardActionInput = CardApproveAction | CardApproveWalkAction | CardPayMethodAction | CardScheduleAction | CardReferAction | CardAcknowledgeAction | CardDisputeAction | CardMarkPaidAction;
 
 export interface ClientBoardFeedView {
   propertyName: string;
@@ -1798,6 +1819,11 @@ export interface Job {
   jobNo: string;
   /** @nullable */
   woNo?: string | null;
+  /**
+     * Client PO — required before the job can move to Billing
+     * @nullable
+     */
+  poNumber?: string | null;
   propertyId?: string;
   /** @nullable */
   propertyName?: string | null;
@@ -2696,6 +2722,8 @@ export const JobUpdateRecurrence = {
 
 export interface JobUpdate {
   woNo?: string;
+  /** @nullable */
+  poNumber?: string | null;
   unitNo?: string;
   category?: string;
   description?: string;
@@ -2764,6 +2792,11 @@ export interface JobBoardInvoiceInfo {
 
 export interface JobBoardCard {
   job: Job;
+  /**
+     * Where the client placed this job's card on their board (override lane), if they moved it
+     * @nullable
+     */
+  clientLane?: string | null;
   invoice?: JobBoardInvoiceInfo | null;
   priceItems: PriceItem[];
   lineItems?: JobLineItem[];
@@ -6744,6 +6777,11 @@ export interface ClientBoardCardView {
   unitNo?: string | null;
   /** @nullable */
   category?: string | null;
+  /**
+     * Client PO on the underlying job — shown on the card
+     * @nullable
+     */
+  poNumber?: string | null;
   /** @nullable */
   amount?: number | null;
   /** @nullable */
@@ -7452,10 +7490,15 @@ export interface WalkCapture {
   /** @nullable */
   unitNo?: string | null;
   /**
-     * Object storage path of the photo; serve via /api/storage/objects
+     * Object storage path of the first photo; serve via /api/storage/objects
      * @nullable
      */
   storagePath?: string | null;
+  /**
+     * All photo storage paths for this capture (multi-photo)
+     * @nullable
+     */
+  photos?: string[] | null;
   /**
      * Scope / price-book service name
      * @nullable
@@ -7480,6 +7523,11 @@ export interface WalkCaptureInput {
   unitNo?: string | null;
   /** @nullable */
   storagePath?: string | null;
+  /**
+     * All photo storage paths for this capture (multi-photo)
+     * @nullable
+     */
+  photos?: string[] | null;
   /** @nullable */
   service?: string | null;
   /** @nullable */
@@ -7492,6 +7540,32 @@ export interface WalkCaptureInput {
   lat?: number | null;
   /** @nullable */
   lng?: number | null;
+}
+
+export type WalkCaptureBatchInputLinesItem = {
+  service: string;
+  /** @nullable */
+  qty?: number | null;
+  /** @nullable */
+  unitPrice?: number | null;
+};
+
+export interface WalkCaptureBatchInput {
+  /** @nullable */
+  unitNo?: string | null;
+  /**
+     * Photos for this item — attached to the first line's capture row
+     * @nullable
+     */
+  photos?: string[] | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  lat?: number | null;
+  /** @nullable */
+  lng?: number | null;
+  /** @minItems 1 */
+  lines: WalkCaptureBatchInputLinesItem[];
 }
 
 export interface WalkVoiceInput {
@@ -7535,6 +7609,11 @@ export interface WalkCompletion {
   notes?: string | null;
 }
 
+export interface WalkApproveResult {
+  /** How many client-board cards were created or refreshed */
+  cards: number;
+}
+
 export type WalkCompleteResultJobsItem = {
   id: string;
   jobNo: string;
@@ -7568,6 +7647,10 @@ lng?: number;
 
 export type ListWalksParams = {
 propertyId?: string;
+};
+
+export type AddWalkCaptureBatch201 = {
+  captures: WalkCapture[];
 };
 
 export type SendCheckFollowup200 = {

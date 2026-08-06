@@ -9,6 +9,8 @@ import type { JobUpdateRecurrence } from './jobUpdateRecurrence';
 
 export interface JobUpdate {
   woNo?: string;
+  /** @nullable */
+  poNumber?: string | null;
   unitNo?: string;
   category?: string;
   description?: string;
