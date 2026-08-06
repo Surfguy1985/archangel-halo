@@ -11262,6 +11262,7 @@ components:
         unit: { type: string }
         rate: { type: number }
         marginFloor: { type: number }
+        category: { type: string, description: "Master-list category — keeps catalog-sourced services in their organized group" }
     PriceItemUpdate:
       type: object
       properties:

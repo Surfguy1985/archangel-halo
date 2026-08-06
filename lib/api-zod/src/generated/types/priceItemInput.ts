@@ -13,4 +13,6 @@ export interface PriceItemInput {
   unit?: string;
   rate: number;
   marginFloor?: number;
+  /** Master-list category — keeps catalog-sourced services in their organized group */
+  category?: string;
 }

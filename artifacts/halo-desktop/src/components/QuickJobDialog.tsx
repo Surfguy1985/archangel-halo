@@ -10,6 +10,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useListProperties,
   useGetProperty,
+  useListCatalogItems,
+  getListCatalogItemsQueryKey,
+  useCreatePriceItem,
+  type CatalogItem,
   useQuickCreateJob,
   useUpdateJob,
   useUpdateJobLineItem,
@@ -45,7 +49,7 @@ function crewCoversService(crew: StaffingCrew, service: string): boolean {
     return want.every((t) => have.includes(t)) || have.every((t) => want.includes(t));
   });
 }
-import { MapPin, Zap, Plus, Radio, UserCheck, UserMinus, Check } from "lucide-react";
+import { MapPin, Zap, Plus, Radio, UserCheck, UserMinus, Check, ChevronDown } from "lucide-react";
 
 const fieldCls =
   "w-full bg-white border border-border rounded-[11px] py-2.5 px-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40";
@@ -212,23 +216,82 @@ export function QuickJobDialog({
       });
     return groups;
   }, [priceItems]);
-  // Category view of the price book — same organized containers as the
-  // property price list (Make-Ready pinned first, then the remaining
-  // categories), so Quick Job picks from the full organized service list.
-  const categoryGroups = useMemo(() => {
-    const byCat = new Map<string, typeof priceItems>();
-    for (const pi of priceItems) {
-      const cat = pi.category?.trim() || "Other";
-      byCat.set(cat, [...(byCat.get(cat) ?? []), pi]);
+  // Master service list, condensed: grouped by category (Make-Ready first),
+  // and bedroom-sized variants of one service collapse into a single entry
+  // with a 1/2/3 BR size submenu. Quick Job picks from EVERYTHING we offer —
+  // services not yet on this property's price list are added to it on pick.
+  const { data: catalog } = useListCatalogItems({
+    query: { queryKey: getListCatalogItemsQueryKey(), enabled: open },
+  });
+  const catalogGroups = useMemo(() => {
+    const items = catalog ?? [];
+    const strip = (s: string) => s.replace(/\s*[—–-]\s*\d\s*BR\s*$/i, "").trim();
+    const sizeOf = (ci: CatalogItem): number | null => {
+      const m = /(\d)\s*BR\s*$/i.exec(ci.service) ?? /^(\d)\s*BR$/i.exec(ci.unit ?? "");
+      return m ? Number(m[1]) : null;
+    };
+    type Entry = { base: string; variants: { size: number; item: CatalogItem }[]; single: CatalogItem | null };
+    const byCat = new Map<string, Map<string, Entry>>();
+    for (const ci of items) {
+      const cat = ci.category?.trim() || "Other";
+      const byBase = byCat.get(cat) ?? new Map<string, Entry>();
+      byCat.set(cat, byBase);
+      const size = sizeOf(ci);
+      const base = strip(ci.service);
+      const entry = byBase.get(base) ?? { base, variants: [], single: null };
+      if (size == null) entry.single = ci;
+      else entry.variants.push({ size, item: ci });
+      byBase.set(base, entry);
     }
     const isMR = (s: string) => /make[\s-]?ready/i.test(s);
     return [...byCat.entries()]
-      .sort(([a], [b]) => Number(isMR(b)) - Number(isMR(a)))
-      .map(([label, items]) => ({
+      .sort(([a], [b]) => Number(isMR(b)) - Number(isMR(a)) || a.localeCompare(b))
+      .map(([label, byBase]) => ({
         label,
-        items: [...items].sort((a, b) => a.service.localeCompare(b.service)),
+        entries: [...byBase.values()]
+          .map((e) => ({ ...e, variants: [...e.variants].sort((a, b) => a.size - b.size) }))
+          .sort((a, b) => a.base.localeCompare(b.base)),
       }));
-  }, [priceItems]);
+  }, [catalog]);
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const createPriceItem = useCreatePriceItem();
+  /** Pick a master-list service: reuse the property's agreed rate when one
+   *  exists (matched by service name), otherwise add the catalog item to the
+   *  property price list first, then attach it. */
+  const addCatalogService = (ci: CatalogItem) => {
+    const norm = (s: string) => s.toLowerCase().replace(/[—–]/g, "-").replace(/\s+/g, " ").trim();
+    const existing = priceItems.find((p) => norm(p.service) === norm(ci.service));
+    if (existing) {
+      setPillIds((ids) => [...ids, existing.id]);
+      return;
+    }
+    setAddingId(ci.id);
+    createPriceItem.mutate(
+      {
+        id: selectedProp,
+        data: {
+          service: ci.service,
+          detail: ci.detail ?? undefined,
+          unit: ci.unit ?? undefined,
+          rate: ci.rate ?? 0,
+          category: ci.category ?? undefined,
+        },
+      },
+      {
+        onSuccess: (pi) => {
+          setAddingId(null);
+          setPillIds((ids) => [...ids, pi.id]);
+          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(selectedProp) });
+        },
+        onError: () => {
+          setAddingId(null);
+          setErrorMsg("Couldn't add that service. Try again.");
+        },
+      },
+    );
+  };
   const pillCount = useMemo(() => {
     const m = new Map<string, number>();
     for (const id of pillIds) m.set(id, (m.get(id) ?? 0) + 1);
@@ -453,36 +516,102 @@ export function QuickJobDialog({
                 />
               </label>
 
-              {selectedProp && priceItems.length > 0 && (
+              {selectedProp && (
                 <div className="flex flex-col gap-1.5">
                   <span className={`${labelCls} flex items-center gap-1`}>
-                    <Zap className="w-3 h-3" /> Add services — price book
+                    <Zap className="w-3 h-3" /> Add services — master list
                   </span>
-                  {/* Organized picker: every service grouped by its price-list
-                      category (Make-Ready first), sized variants listed with
-                      their BR suffix. Picking keeps the menu open for more —
-                      add as many services as needed; each pick appends below.
-                      No prices in the list — the rate comes straight from the
-                      price book when a service is picked. */}
-                  <select
-                    className={fieldCls}
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value) setPillIds((ids) => [...ids, e.target.value]);
-                    }}
-                    data-testid="select-quickjob-service"
-                  >
-                    <option value="">Add services… (pick again for more)</option>
-                    {categoryGroups.map((g) => (
-                      <optgroup key={g.label} label={g.label}>
-                        {g.items.map((pi) => (
-                          <option key={pi.id} value={pi.id}>
-                            {pi.service}
-                          </option>
+                  {/* Condensed master-list picker: every service we offer,
+                      grouped by category (Make-Ready first). Sized services
+                      collapse to ONE row with a 1/2/3 BR size submenu. The
+                      panel stays open so multiple services stack in one go. */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setPickerOpen((o) => !o)}
+                      className={`${fieldCls} flex items-center justify-between text-left`}
+                      data-testid="button-quickjob-service-picker"
+                    >
+                      <span className="text-muted-foreground">
+                        {pickerOpen ? "Tap services to add — tap again for more" : "Add services…"}
+                      </span>
+                      <ChevronDown
+                        className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform ${pickerOpen ? "rotate-180" : ""}`}
+                      />
+                    </button>
+                    {pickerOpen && (
+                      <div className="mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-border bg-white shadow-[var(--shadow-lift)]">
+                        {catalogGroups.map((g) => (
+                          <div key={g.label}>
+                            <div className="sticky top-0 z-10 bg-[var(--muted)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                              {g.label}
+                            </div>
+                            <div className="divide-y divide-border">
+                              {g.entries.map((e) => (
+                                <div key={e.base} className="px-3 py-1.5">
+                                  {e.variants.length > 0 ? (
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-sm font-semibold truncate">{e.base}</span>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        {e.variants.map(({ size, item }) => (
+                                          <button
+                                            key={item.id}
+                                            type="button"
+                                            disabled={addingId != null}
+                                            onClick={() => addCatalogService(item)}
+                                            className="rounded-full border border-border px-2 py-0.5 text-[11px] font-bold hover:bg-[var(--gold-light)] hover:border-transparent transition-colors disabled:opacity-50"
+                                            data-testid={`pick-service-${item.id}`}
+                                          >
+                                            {addingId === item.id ? "…" : `${size} BR`}
+                                          </button>
+                                        ))}
+                                        {e.single && (
+                                          <button
+                                            type="button"
+                                            disabled={addingId != null}
+                                            onClick={() => addCatalogService(e.single!)}
+                                            className="rounded-full border border-border px-2 py-0.5 text-[11px] font-bold hover:bg-[var(--gold-light)] hover:border-transparent transition-colors disabled:opacity-50"
+                                            data-testid={`pick-service-${e.single.id}`}
+                                          >
+                                            {addingId === e.single.id ? "…" : "Add"}
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled={addingId != null}
+                                      onClick={() => e.single && addCatalogService(e.single)}
+                                      className="w-full flex items-center justify-between gap-2 text-left group disabled:opacity-50"
+                                      data-testid={`pick-service-${e.single?.id}`}
+                                    >
+                                      <span className="text-sm font-semibold truncate">{e.base}</span>
+                                      <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] font-bold group-hover:bg-[var(--gold-light)] group-hover:border-transparent transition-colors">
+                                        {addingId === e.single?.id ? "…" : "Add"}
+                                      </span>
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         ))}
-                      </optgroup>
-                    ))}
-                  </select>
+                        {catalogGroups.length === 0 && (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            No services in the master list yet — add them in Admin.
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setPickerOpen(false)}
+                          className="sticky bottom-0 w-full bg-white border-t border-border px-3 py-2 text-xs font-bold text-[var(--gold-dark)]"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   {pillIds.length > 0 && (
                     <div className="flex flex-col gap-1">
                       {[...pillCount.entries()].map(([id, qty]) => {

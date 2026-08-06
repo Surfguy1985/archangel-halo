@@ -783,7 +783,8 @@ export const CreatePriceItemBody = zod.object({
   "detail": zod.string().optional(),
   "unit": zod.string().optional(),
   "rate": zod.number(),
-  "marginFloor": zod.number().optional()
+  "marginFloor": zod.number().optional(),
+  "category": zod.string().optional().describe('Master-list category — keeps catalog-sourced services in their organized group')
 })
 
 export const CreatePriceItemResponse = zod.object({
