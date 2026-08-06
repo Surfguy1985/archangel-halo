@@ -43,3 +43,23 @@ _Populate as you build — explicit user instructions worth remembering across s
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+
+## Design, Experience & Architecture Standards
+
+Always follow the skill at `.agents/skills/premium-ui-ux-fixer/` for any UI, UX, layout, aesthetic, experience, flow, or frontend architecture work.
+
+Target aesthetic: Premium fintech / high-end product design (Klarna, Stripe, Linear, Apple level), adapted to the existing HALO/Falkon brand palette (light theme, dark-lime `--gold` text accents, `#B4FF44` `--gold-light` buttons with black text).
+
+Key principles:
+- Soft, professional brand-colored glows (never tacky neon)
+- Strong visual hierarchy and 8px spacing grid
+- Distinctive typography (avoid Inter / generic system fonts)
+- Atmosphere and depth instead of flat AI-slop
+- Consistent component language across the entire app
+- Accessibility first (contrast, focus, reduced motion)
+
+Experience & Architecture:
+- Improve full user journeys by learning from the best products in the category
+- When needed, pull proven patterns from high-quality open-source design system repos and architectural reference repos, then adapt them cleanly to this project's stack and brand
+
+When the user asks to fix/improve/polish the UI, elevate the experience, improve flows, or leverage external design/architectural repos, fully activate the premium-ui-ux-fixer skill and execute its complete process.
