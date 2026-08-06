@@ -33,12 +33,16 @@ import "./index.css";
   const isDesktop =
     window.innerWidth >= 1024 && window.matchMedia("(pointer: fine)").matches;
   if (!isDesktop) return;
-  const path = window.location.pathname;
-  if (path.startsWith("/desktop")) return;
+  const rawPath = window.location.pathname;
+  if (rawPath.startsWith("/desktop")) return;
+  // Strip the app's base path (e.g. "/halo") so route checks below work on
+  // the app-relative path — otherwise "/halo/portal/TOKEN" never matches "^/portal/".
+  const base = import.meta.env.BASE_URL.replace(/\/$/, ""); // e.g. "/halo"
+  const path = base && rawPath.startsWith(base) ? rawPath.slice(base.length) || "/" : rawPath;
   // board + devportal belong to sibling artifacts: if we're rendering there, a
   // stale service worker hijacked the URL and the self-heal above is reloading —
   // never bounce those to /desktop.
-  if (/^\/(pay|portal|track|photos|recap|summary|client|dashboard|board|devportal)\//.test(path)) return;
+  if (/^\/(pay|portal|track|photos|recap|summary|client|dashboard|board|devportal)(\/|$)/.test(path)) return;
   // Only redirect paths that exist in the desktop app; everything else lands on its home.
   const known =
     /^\/(properties|jobs|invoices|money|calendar|crews|wings|pipeline|catalog|supply|vendors|import|jobboard)(\/|$)|^\/$/;
