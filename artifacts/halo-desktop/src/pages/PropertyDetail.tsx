@@ -10,13 +10,14 @@ import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton} from "@/components/ui/skeleton";
 
-import { useState} from "react";
+import { useState, useEffect} from "react";
 import { useToast} from "@/hooks/use-toast";
 import { JobLineItemsPanel} from "@/components/JobLineItemsPanel";
 import { JobSummaryDialog} from "@/components/JobSummaryDialog";
 import { ImportFromCatalogDialog} from "@/components/ImportFromCatalogDialog";
 import { ImportPriceSheetDialog} from "@/components/ImportPriceSheetDialog";
 import { QuickJobDialog} from "@/components/QuickJobDialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   EditPropertyDialog,
   AddPriceItemDialog,
@@ -38,6 +39,16 @@ export default function PropertyDetail() {
   const [contactOpen, setContactOpen] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
   const [quickJobOpen, setQuickJobOpen] = useState(false);
+  // The card just created from the New-job form — it flashes green at the top
+  // of the list so you can see your info landed on it.
+  const [newJobId, setNewJobId] = useState<string | null>(null);
+  // Site-map view: tapping a unit box opens the full job card in a dialog.
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!newJobId) return;
+    const t = setTimeout(() => setNewJobId(null), 8000);
+    return () => clearTimeout(t);
+  }, [newJobId]);
   const [editJobId, setEditJobId] = useState<string | null>(null);
   const [editContactId, setEditContactId] = useState<string | null>(null);
   const [editPriceId, setEditPriceId] = useState<string | null>(null);
@@ -72,8 +83,12 @@ export default function PropertyDetail() {
   if (!data) return <div className="p-8 text-center text-muted-foreground">Property not found</div>;
 
   const { property, stats, jobs, priceItems, contacts, expenses, invoices, upcomingVisits, crewPhotos } = data;
-  const activeJobs = jobs.filter((j) => !j.clearedAt);
-  const historyJobs = jobs.filter((j) => !!j.clearedAt);
+  // Newest first — the card you just made is always at the top, never lost
+  // somewhere down an endless page.
+  const byNewest = (a: Job, b: Job) =>
+    new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+  const activeJobs = jobs.filter((j) => !j.clearedAt).sort(byNewest);
+  const historyJobs = jobs.filter((j) => !!j.clearedAt).sort(byNewest);
   const invoiceStatusRank: Record<string, number> = { paid: 0, past_due: 1, sent: 2, draft: 3 };
   const invoiceForJob = (jobId: string) => {
     const matches = invoices.filter((inv) => inv.jobId === jobId);
@@ -238,18 +253,41 @@ export default function PropertyDetail() {
         );
       }
 
-      let label = "";
-      let action = () => {};
+      const { label, action } = nextStep;
+      if (!label) return null;
+      return (
+        <button
+          onClick={action}
+          className="px-5 py-2.5 bg-white text-black text-sm font-bold rounded-xl hover:bg-white/90 transition-colors"
+        >
+          {label}
+        </button>
+      );
+    };
 
-      if (job.clearedAt) {
-        label = "Reopen";
-        action = () => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists });
-      } else if (!job.crewLeaderId) {
-        label = "Assign crew";
-        action = () => setAssignJobId(job.id);
-      } else if (!isComplete) {
-        label = "Complete work";
-        action = () => {
+    // ONE resolver decides both the big white button AND the plain-language
+    // guidance strip, so they can never tell the user two different things.
+    const nextStep: { step: string | null; text: string; label: string; action: () => void } = (() => {
+      if (job.clearedAt)
+        return {
+          step: null,
+          text: "",
+          label: "Reopen",
+          action: () => restartJob.mutate({ id: job.id }, { onSuccess: invalidateJobLists }),
+        };
+      if (!job.crewLeaderId)
+        return {
+          step: "1 of 5",
+          text: "Get a crew on it — tap Assign crew, or Broadcast job and let a crew claim it.",
+          label: "Assign crew",
+          action: () => setAssignJobId(job.id),
+        };
+      if (!isComplete)
+        return {
+          step: "2 of 5",
+          text: "Crew is on it — when the work is finished, tap Complete work.",
+          label: "Complete work",
+          action: () => {
           const doComplete = (force: boolean) =>
             completeJob.mutate(
               { id: job.id, data: force ? { force: true } : {} },
@@ -267,77 +305,106 @@ export default function PropertyDetail() {
                 },
               },
             );
-          doComplete(false);
+            doComplete(false);
+          },
         };
-      } else if (!invoice) {
-        label = "Create invoice";
-        action = () =>
-          createInvoice.mutate(
-            { data: { propertyId: id, jobId: job.id, amount: job.lineTotal || 0 } },
-            {
-              onSuccess: () => invalidateMoney(job.id),
-              onError: (err) =>
-                toast({
-                  title: "Invoice already exists",
-                  description: (err as any)?.data?.error ?? err.message,
-                  variant: "destructive",
-                }),
-            },
-          );
-      } else if (invoice.status === "draft") {
-        label = "Send invoice";
-        action = () =>
-          setStatus.mutate(
-            { id: invoice.id, data: { status: "sent" } },
-            {
-              onSuccess: () => invalidateMoney(job.id),
-              onError: (err) =>
-                toast({
-                  title: "Couldn't send invoice",
-                  description: (err as any)?.data?.error ?? err.message,
-                  variant: "destructive",
-                }),
-            },
-          );
-      } else if (invoice.status === "sent" || invoice.status === "past_due") {
-        label = "Mark paid";
-        action = () =>
-          setStatus.mutate(
-            { id: invoice.id, data: { status: "paid" } },
-            {
-              onSuccess: () => invalidateMoney(job.id),
-              onError: (err) =>
-                toast({ title: "Couldn't mark paid", description: err.message, variant: "destructive" }),
-            },
-          );
-      } else if (invoice.status === "paid" && job.crewPaymentStatus !== "paid") {
+      if (!invoice)
+        return {
+          step: "3 of 5",
+          text: "Work's done — tap Create invoice to bill the client.",
+          label: "Create invoice",
+          action: () =>
+            createInvoice.mutate(
+              { data: { propertyId: id, jobId: job.id, amount: job.lineTotal || 0 } },
+              {
+                onSuccess: () => invalidateMoney(job.id),
+                onError: (err) =>
+                  toast({
+                    title: "Invoice already exists",
+                    description: (err as any)?.data?.error ?? err.message,
+                    variant: "destructive",
+                  }),
+              },
+            ),
+        };
+      if (invoice.status === "draft")
+        return {
+          step: "3 of 5",
+          text: "Invoice is drafted — tap Send invoice so the client gets it.",
+          label: "Send invoice",
+          action: () =>
+            setStatus.mutate(
+              { id: invoice.id, data: { status: "sent" } },
+              {
+                onSuccess: () => invalidateMoney(job.id),
+                onError: (err) =>
+                  toast({
+                    title: "Couldn't send invoice",
+                    description: (err as any)?.data?.error ?? err.message,
+                    variant: "destructive",
+                  }),
+              },
+            ),
+        };
+      if (invoice.status === "sent" || invoice.status === "past_due")
+        return {
+          step: "4 of 5",
+          text: "Waiting on the client — tap Mark paid the moment money lands.",
+          label: "Mark paid",
+          action: () =>
+            setStatus.mutate(
+              { id: invoice.id, data: { status: "paid" } },
+              {
+                onSuccess: () => invalidateMoney(job.id),
+                onError: (err) =>
+                  toast({ title: "Couldn't mark paid", description: err.message, variant: "destructive" }),
+              },
+            ),
+        };
+      if (invoice.status === "paid" && job.crewPaymentStatus !== "paid")
         // Client money is in but the crew hasn't been paid — the pay flow
         // (per-member amounts) lives on the Job Board billing card.
-        label = "Pay crew";
-        action = () => navigate("/jobboard");
-      } else if (invoice.status === "paid") {
-        label = "Close out";
+        return {
+          step: "4 of 5",
+          text: "Client paid — now pay the crew from the Job Board.",
+          label: "Pay crew",
+          action: () => navigate("/jobboard"),
+        };
+      if (invoice.status === "paid")
         // Close-out first opens the job summary form (prefilled recap for the PM).
-        action = () => setSummaryJobId(job.id);
-      }
+        return {
+          step: "5 of 5",
+          text: "All money settled — tap Close out and this card moves to History.",
+          label: "Close out",
+          action: () => setSummaryJobId(job.id),
+        };
+      // Safe fallback: an invoice in a cancelled/legacy/unknown status. Never
+      // show a blank button or point at an action that doesn't exist.
+      return {
+        step: null,
+        text: `This job's invoice is marked "${invoice.status}" — open it to sort things out.`,
+        label: "Open invoice",
+        action: () => navigate(`/invoices/${invoice.id}`),
+      };
+    })();
 
-      return (
-        <button
-          onClick={action}
-          className="px-5 py-2.5 bg-white text-black text-sm font-bold rounded-xl hover:bg-white/90 transition-colors"
-        >
-          {label}
-        </button>
-      );
-    };
-
+    const isNew = job.id === newJobId;
     return (
-      <div key={job.id} className="bg-[var(--ink)] text-white rounded-2xl p-6 shadow-sm flex flex-col gap-5 relative z-10">
+      <div
+        key={job.id}
+        className={`bg-[var(--ink)] text-white rounded-2xl p-6 shadow-sm flex flex-col gap-5 relative z-10 ${isNew ? "card-move-flash" : ""}`}
+        data-testid={`job-card-${job.id}`}
+      >
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <Link href={`/jobs/${job.id}`} className="block hover:opacity-80 transition-opacity">
             <h3 className="text-xl font-display font-bold text-white mb-1 flex items-center gap-2">
               {job.category || 'General'} · {job.unitNo || 'Common'}
+              {isNew && (
+                <span className="text-[10px] font-bold uppercase tracking-widest rounded-full px-2 py-0.5 bg-[var(--gold-light)] text-black">
+                  Just created
+                </span>
+              )}
               <button
                 aria-label="Edit job"
                 onClick={(e) => { e.preventDefault(); setEditJobId(job.id); }}
@@ -357,9 +424,10 @@ export default function PropertyDetail() {
           )}
         </div>
 
-        {/* Info Grid */}
+        {/* Info Grid — everything typed into the New-job form shows here */}
         <div className="flex items-center flex-wrap gap-x-5 gap-y-2 text-sm text-white/70 font-medium">
           <span className="font-mono text-white/50">{job.jobNo}</span>
+          {job.woNo && <span className="font-mono text-white/50">WO {job.woNo}</span>}
           {(job.flexDueBy || job.scheduledOn) && (
             <span className="flex items-center gap-1.5" data-testid={`job-due-${job.id}`}>
               <CalendarDays className="w-4 h-4" /> Due {fmtDueDay(job.flexDueBy ?? job.scheduledOn ?? "")}
@@ -464,6 +532,19 @@ export default function PropertyDetail() {
           <p className="text-white/70 text-sm font-medium" data-testid={`job-description-${job.id}`}>
             {job.description}
           </p>
+        )}
+
+        {/* One plain-language next step — tells a first-time user exactly what
+            to do now, matching whatever the big white button says. */}
+        {!job.clearedAt && nextStep.text && (
+          <div className="flex items-start gap-2.5 rounded-xl bg-[var(--gold-light)]/10 border border-[var(--gold-light)]/25 px-3.5 py-2.5" data-testid={`job-next-step-${job.id}`}>
+            {nextStep.step && (
+              <span className="shrink-0 rounded-full bg-[var(--gold-light)] text-black text-[10px] font-bold px-2 py-0.5 mt-px">
+                Step {nextStep.step}
+              </span>
+            )}
+            <span className="text-[13px] text-white/85 font-medium leading-snug">{nextStep.text}</span>
+          </div>
         )}
 
         {/* Bottom Actions */}
@@ -673,8 +754,8 @@ export default function PropertyDetail() {
       <ImportFromCatalogDialog open={importOpen} onOpenChange={setImportOpen} propertyId={id} existingServices={priceItems.map((p) => p.service)} />
       <ImportPriceSheetDialog open={priceSheetOpen} onOpenChange={setPriceSheetOpen} propertyId={id} />
       <AddContactDialog open={contactOpen} onOpenChange={setContactOpen} propertyId={id} />
-      <AddJobDialog open={jobOpen} onOpenChange={setJobOpen} propertyId={id} priceItems={priceItems} />
-      <QuickJobDialog open={quickJobOpen} onOpenChange={setQuickJobOpen} propertyId={id} />
+      <AddJobDialog open={jobOpen} onOpenChange={setJobOpen} propertyId={id} priceItems={priceItems} onCreated={setNewJobId} />
+      <QuickJobDialog open={quickJobOpen} onOpenChange={setQuickJobOpen} propertyId={id} onCreated={setNewJobId} />
       {expenseJobId && (
         <AddExpenseDialog
           key={expenseJobId}
@@ -775,17 +856,84 @@ export default function PropertyDetail() {
               ))}
             </div>
             {jobTab !== "history" && (
-            <div className="space-y-4">
-              {activeJobs.map(job => renderJobCard(job, invoiceForJob(job.id)))}
+            /* Site map: one small box per job (unit number + stage line),
+               like the client board's unit grid. Tap a box for the full card. */
+            <div data-testid="jobs-sitemap">
+              {activeJobs.length > 0 && (
+                <p className="text-xs font-semibold text-muted-foreground px-1 mb-3">
+                  {activeJobs.length} active job{activeJobs.length === 1 ? "" : "s"} — tap a box to open the full card. The green line fills as the job moves Crew → Work → Invoice → $ → Close.
+                </p>
+              )}
+              <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-3">
+                {activeJobs.map((job) => {
+                  const invoice = invoiceForJob(job.id);
+                  // Mirrors the card's 5-stage timeline exactly (same fields).
+                  const paymentReceived = invoice?.status === "paid";
+                  const crewPaid = job.crewPaymentStatus === "paid";
+                  const workStarted =
+                    !!job.workStartedAt ||
+                    ["in_progress", "complete", "paid"].includes(job.status) ||
+                    ["completed", "billing", "pay_alert"].includes(job.boardStatus ?? "");
+                  const stages = [
+                    !!job.crewLeaderId,
+                    workStarted,
+                    !!invoice && invoice.status !== "draft",
+                    paymentReceived && crewPaid,
+                    !!job.clearedAt,
+                  ];
+                  const doneCount = stages.filter(Boolean).length;
+                  const isNew = job.id === newJobId;
+                  return (
+                    <button
+                      key={job.id}
+                      type="button"
+                      onClick={() => setExpandedJobId(job.id)}
+                      className={`bg-[var(--ink)] text-white rounded-xl p-3 text-left hover:opacity-90 transition-all active:scale-[0.97] ${isNew ? "card-move-flash" : ""}`}
+                      data-testid={`job-box-${job.id}`}
+                    >
+                      <div className="font-display font-bold text-lg leading-tight truncate">
+                        {job.unitNo || "Common"}
+                      </div>
+                      <div className="text-[10.5px] text-white/50 truncate">
+                        {job.category || "General"}
+                        {isNew && (
+                          <span className="ml-1 text-[9px] font-bold uppercase tracking-wide text-[var(--gold-light)]">New</span>
+                        )}
+                      </div>
+                      <div className="mt-2 flex gap-[3px]">
+                        {stages.map((done, i) => (
+                          <span
+                            key={i}
+                            className={`h-[4px] flex-1 rounded-full ${done ? "bg-[var(--gold-light)]" : "bg-white/15"}`}
+                          />
+                        ))}
+                      </div>
+                      <div className="mt-1 text-[9.5px] font-bold uppercase tracking-wide text-white/45">
+                        {doneCount >= 5 ? "Closed" : ["Needs crew", "Work", "Invoice", "Get paid", "Close out"][doneCount]}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
               {!activeJobs.length && (
                 <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6 text-center text-sm text-muted-foreground">
-                  No active jobs — closed-out jobs live in History.
+                  No active jobs yet — tap <b>Add</b> above, fill in the details, and your first box appears right here.
                 </div>
               )}
             </div>
             )}
+            {/* Tapping a box expands the full job card with its guided steps. */}
+            <Dialog open={!!expandedJobId} onOpenChange={(o) => { if (!o) setExpandedJobId(null); }}>
+              <DialogContent className="max-w-2xl max-h-[88dvh] overflow-y-auto custom-scrollbar p-4 sm:p-6">
+                <DialogTitle className="sr-only">Job card</DialogTitle>
+                {(() => {
+                  const job = [...activeJobs, ...historyJobs].find((j) => j.id === expandedJobId);
+                  return job ? renderJobCard(job, invoiceForJob(job.id)) : null;
+                })()}
+              </DialogContent>
+            </Dialog>
             {jobTab === "history" && (
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[72dvh] overflow-y-auto pr-1 custom-scrollbar">
                 {historyJobs.map((job) => renderJobCard(job, invoiceForJob(job.id)))}
                 {!historyJobs.length && (
                   <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6 text-center text-sm text-muted-foreground">

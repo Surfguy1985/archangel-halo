@@ -17,5 +17,9 @@ export interface PortalJob {
   unitNo?: string | null;
   /** @nullable */
   status?: string | null;
+  /** True when this crew's latest check-in for this job is newer than any checkout (currently on site) */
+  checkedIn?: boolean;
+  /** True when this crew has checked out of this job (a checkout exists at/after the latest check-in) */
+  checkedOut?: boolean;
   lineItems?: PortalJobLineItem[];
 }

@@ -78,11 +78,14 @@ export function QuickJobDialog({
   open,
   onOpenChange,
   propertyId,
+  onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Preselect this property (property detail entry point) — skips GPS pick. */
   propertyId?: string;
+  /** Called with the new job's id so the page can flash/highlight its card. */
+  onCreated?: (jobId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const { data: properties } = useListProperties();
@@ -365,6 +368,7 @@ export function QuickJobDialog({
           setCreatedJob(job);
           setItems((job.lineItems ?? []).filter((li) => li.service !== "Quoted price"));
           invalidateAll(selectedProp);
+          if (job?.id) onCreated?.(job.id);
         },
         onError: () => setErrorMsg("Couldn't create the job. Try again."),
       },

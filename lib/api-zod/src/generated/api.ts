@@ -6992,6 +6992,8 @@ export const ListPortalJobsResponseItem = zod.object({
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "status": zod.string().nullish(),
+  "checkedIn": zod.boolean().optional().describe('True when this crew\'s latest check-in for this job is newer than any checkout (currently on site)'),
+  "checkedOut": zod.boolean().optional().describe('True when this crew has checked out of this job (a checkout exists at\/after the latest check-in)'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "service": zod.string(),

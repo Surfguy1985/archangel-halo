@@ -912,183 +912,229 @@ function CrewPay() {
     return m;
   }, [jobs]);
 
-  // Ledger: property → job (unit / service) → crew payment rows.
-  const ledger = useMemo(() => {
-    type JobGroup = {
-      label: string;
-      unitNo: string | null;
-      service: string;
-      items: Payment[];
+  // Same organization as the Invoices tab: filter pills, one collapsible
+  // group per CREW (newest activity first), and a glowing lime ring around
+  // any crew who is still owed money.
+  const [filter, setFilter] = useState<"all" | "unpaid" | "paid">("all");
+
+  const filtered = useMemo(() => {
+    const list = payments ?? [];
+    if (filter === "unpaid") return list.filter((p) => p.status !== "completed");
+    if (filter === "paid") return list.filter((p) => p.status === "completed");
+    return list;
+  }, [payments, filter]);
+
+  const counts = useMemo(() => {
+    const list = payments ?? [];
+    return {
+      all: list.length,
+      unpaid: list.filter((p) => p.status !== "completed").length,
+      paid: list.filter((p) => p.status === "completed").length,
     };
-    const props = new Map<string, { name: string; jobs: Map<string, JobGroup> }>();
-    for (const p of payments ?? []) {
-      const job = p.jobId ? jobById.get(p.jobId) : undefined;
-      const pid = job?.propertyId ?? "none";
-      const pname = job?.propertyName ?? "Not tied to a job";
-      let prop = props.get(pid);
-      if (!prop) {
-        prop = { name: pname, jobs: new Map() };
-        props.set(pid, prop);
-      }
-      const jid = p.jobId && job ? p.jobId : "none";
-      let jg = prop.jobs.get(jid);
-      if (!jg) {
-        jg = {
-          label: job ? job.jobNo : "General payments",
-          unitNo: job?.unitNo ?? null,
-          service: job?.service ?? "",
-          items: [],
-        };
-        prop.jobs.set(jid, jg);
-      }
-      jg.items.push(p);
+  }, [payments]);
+
+  const stamp = (p: Payment) => new Date(p.paidAt ?? p.dueOn ?? p.createdAt ?? 0).getTime();
+
+  const groups = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; items: Payment[] }>();
+    for (const p of filtered) {
+      const key = p.crewId ?? p.crewName ?? "none";
+      const g = map.get(key) ?? { key, label: p.crewName || "Unassigned crew", items: [] };
+      g.items.push(p);
+      map.set(key, g);
     }
-    const arr = Array.from(props.entries()).sort((a, b) => {
-      if (a[0] === "none") return 1;
-      if (b[0] === "none") return -1;
-      return a[1].name.localeCompare(b[1].name);
+    for (const g of map.values()) g.items.sort((a, b) => stamp(b) - stamp(a));
+    // Crews who are owed money float to the top, then newest activity.
+    const owed = (g: { items: Payment[] }) =>
+      g.items.reduce((s, p) => s + (p.status !== "completed" ? p.amount : 0), 0);
+    return [...map.values()].sort(
+      (a, b) =>
+        (owed(b) > 0 ? 1 : 0) - (owed(a) > 0 ? 1 : 0) ||
+        Math.max(...b.items.map(stamp)) - Math.max(...a.items.map(stamp)),
+    );
+  }, [filtered]);
+
+  // Automatic: groups with money owed start open; user clicks win after that.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean> | null>(null);
+  useEffect(() => setOpenGroups(null), [filter]);
+  const groupOwed = (g: { items: Payment[] }) =>
+    g.items.reduce((s, p) => s + (p.status !== "completed" ? p.amount : 0), 0);
+  const isGroupOpen = (key: string) => {
+    if (openGroups && key in openGroups) return !!openGroups[key];
+    const g = groups.find((x) => x.key === key);
+    return !!g && groupOwed(g) > 0;
+  };
+  const toggleGroup = (key: string) =>
+    setOpenGroups((cur) => {
+      const base = cur ?? Object.fromEntries(groups.map((g) => [g.key, isGroupOpen(g.key)]));
+      return { ...base, [key]: !base[key] };
     });
-    // crew rows inside each job sorted by crew name
-    for (const [, prop] of arr)
-      for (const jg of prop.jobs.values())
-        jg.items.sort((a, b) => (a.crewName || "").localeCompare(b.crewName || ""));
-    return arr;
-  }, [payments, jobById]);
+
+  const jobLine = (p: Payment) => {
+    const job = p.jobId ? jobById.get(p.jobId) : undefined;
+    if (!job) return "General payment";
+    return [job.propertyName, job.unitNo ? `Unit ${job.unitNo}` : null, job.service]
+      .filter(Boolean)
+      .join(" · ");
+  };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <Button size="sm" onClick={() => setAddOpen(true)}>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {(
+            [
+              { key: "all", label: "All" },
+              { key: "unpaid", label: "Unpaid" },
+              { key: "paid", label: "Paid" },
+            ] as const
+          ).map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`px-5 py-2 rounded-full text-sm font-bold transition-colors ${
+                filter === f.key
+                  ? "bg-[var(--primary)] text-black shadow-sm"
+                  : "bg-[var(--secondary)] text-white hover:opacity-90"
+              }`}
+              data-testid={`crewpay-filter-${f.key}`}
+            >
+              {f.label}
+              <span className="ml-1.5 opacity-60 tabular-nums">{counts[f.key]}</span>
+            </button>
+          ))}
+        </div>
+        <Button size="sm" onClick={() => setAddOpen(true)} className="bg-[var(--primary)] hover:opacity-90 text-black rounded-full px-4 font-bold">
           <Plus className="w-4 h-4 mr-1.5" /> Record crew payment
         </Button>
       </div>
 
       {isLoading ? (
-        <Skeleton className="h-64 w-full" />
-      ) : !payments || payments.length === 0 ? (
-        <div className="p-12 text-center border border-dashed border-border rounded-xl text-muted-foreground">
-          No crew payments yet.
+        <Skeleton className="h-64 w-full rounded-2xl" />
+      ) : filtered.length === 0 ? (
+        <div className="p-12 text-center border border-dashed border-border text-muted-foreground bg-white rounded-2xl">
+          No crew payments in this view.
         </div>
       ) : (
-        <div className="space-y-4">
-          {ledger.map(([pid, prop]) => {
-            const allItems = [...prop.jobs.values()].flatMap((jg) => jg.items);
-            const pendingTotal = allItems
-              .filter((p) => p.status !== "completed")
-              .reduce((s, p) => s + p.amount, 0);
-            const paidTotal = allItems
-              .filter((p) => p.status === "completed")
-              .reduce((s, p) => s + p.amount, 0);
+        <div className="flex flex-col gap-3">
+          {groups.map((g) => {
+            const open = isGroupOpen(g.key);
+            const owedTotal = groupOwed(g);
+            const paidTotal = g.items.reduce(
+              (s, p) => s + (p.status === "completed" ? p.amount : 0),
+              0,
+            );
+            const hasUnpaid = owedTotal > 0;
             return (
-              <div key={pid} className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between gap-3 px-5 py-3 bg-[var(--secondary)] text-white">
-                  <span className="flex items-center gap-2 font-display font-bold truncate">
-                    <Building2 className="w-4 h-4 shrink-0 opacity-70" />
-                    {prop.name}
-                  </span>
-                  <span className="flex items-center gap-4 text-xs font-bold tabular-nums shrink-0">
-                    {pendingTotal > 0 && <span className="text-rose-300">{money(pendingTotal)} owed</span>}
-                    <span className="opacity-70">{money(paidTotal)} paid</span>
-                  </span>
-                </div>
-                <div className="hidden md:grid grid-cols-[1fr_70px_150px_100px_100px_100px_220px] gap-2 px-5 py-2 border-b border-border text-[10px] font-bold uppercase tracking-wide text-muted-foreground bg-black/5">
-                  <span>Job / Service</span>
-                  <span>Unit</span>
-                  <span>Crew</span>
-                  <span>Date</span>
-                  <span className="text-right">Amount</span>
-                  <span>Status</span>
-                  <span />
-                </div>
-                {[...prop.jobs.entries()].map(([jid, jg]) => (
-                  <div key={jid} className="border-b border-border last:border-b-0">
-                    {jg.items.map((p, i) => {
+              <div
+                key={g.key}
+                className={`bg-white rounded-2xl border overflow-hidden ${
+                  hasUnpaid
+                    ? "card-move-flash border-2 border-[var(--gold-light)]"
+                    : "border-border"
+                }`}
+                data-testid={`crewpay-group-${g.key}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(g.key)}
+                  className="w-full grid grid-cols-[1fr_auto_auto] items-center gap-4 px-6 py-4 text-left hover:bg-black/5 transition-colors"
+                  data-testid={`crewpay-group-toggle-${g.key}`}
+                >
+                  <div className="min-w-0 flex items-center gap-2.5">
+                    <ChevronRight className={`w-5 h-5 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-display font-bold text-xl text-foreground truncate">{g.label}</span>
+                        {hasUnpaid && (
+                          <span className="shrink-0 rounded-full bg-[var(--gold-light)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">
+                            Owed {money(owedTotal)}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {g.items.length} payment{g.items.length === 1 ? "" : "s"}
+                        {hasUnpaid ? ` · ${g.items.filter((p) => p.status !== "completed").length} unpaid` : " · all paid"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-32 text-right">
+                    <span className="font-display font-bold text-xl tabular-nums text-foreground">
+                      {money(owedTotal + paidTotal)}
+                    </span>
+                  </div>
+                  <div className="w-40 pl-4 text-right text-xs font-bold text-muted-foreground">
+                    {open ? "Hide" : "Show"}
+                  </div>
+                </button>
+
+                {open && (
+                  <div className="flex flex-col divide-y divide-border border-t border-border">
+                    {g.items.map((p) => {
                       const isDone = p.status === "completed";
-                      const dateStr = p.paidAt
-                        ? `Paid ${fmtDate(p.paidAt)}`
-                        : p.dueOn
-                          ? `Due ${fmtDate(p.dueOn)}`
-                          : null;
                       return (
                         <div
                           key={p.id}
-                          className="grid grid-cols-1 md:grid-cols-[1fr_70px_150px_100px_100px_100px_220px] gap-2 items-center px-5 py-3"
+                          className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-6 py-4"
+                          data-testid={`crewpay-row-${p.id}`}
                         >
-                          <div className="min-w-0">
-                            {i === 0 ? (
-                              <>
-                                <div className="font-semibold text-sm truncate">{jg.label}</div>
-                                {jg.service && (
-                                  <div className="text-xs text-muted-foreground truncate">{jg.service}</div>
-                                )}
-                              </>
+                          <div className="min-w-0 pl-7">
+                            <div className="text-sm font-bold text-foreground truncate">{jobLine(p)}</div>
+                            <span className="block mt-1 text-xs text-muted-foreground truncate">
+                              {[
+                                p.paidAt ? `Paid ${fmtDate(p.paidAt)}` : p.dueOn ? `Due ${fmtDate(p.dueOn)}` : `Added ${fmtDate(p.createdAt)}`,
+                                p.method,
+                                p.note,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>
+                          </div>
+
+                          <div className="w-32 text-right">
+                            <span className="font-display font-bold text-xl tabular-nums text-foreground">
+                              {money(p.amount)}
+                            </span>
+                          </div>
+
+                          <div className="w-64 pl-4 flex items-center justify-end gap-2">
+                            {isDone ? (
+                              <Badge className="bg-[var(--primary)] text-black text-[10px]">Paid</Badge>
                             ) : (
-                              <div className="text-xs text-muted-foreground pl-3">〃</div>
-                            )}
-                          </div>
-                          <div className="text-sm font-semibold tabular-nums">
-                            {jg.unitNo || <span className="text-muted-foreground">—</span>}
-                          </div>
-                          <div className="text-sm font-semibold truncate">{p.crewName || "Unassigned crew"}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {p.paidAt
-                              ? fmtDate(p.paidAt)
-                              : p.dueOn
-                                ? `Due ${fmtDate(p.dueOn)}`
-                                : fmtDate(p.createdAt)}
-                          </div>
-                          <div className="font-display font-bold tabular-nums text-right text-[var(--ink)]">
-                            {money(p.amount)}
-                          </div>
-                          <div>
-                            <Badge variant={isDone ? "secondary" : "destructive"} className="text-[10px]">
-                              {isDone ? "Paid" : "Pending"}
-                            </Badge>
-                            <div className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                              {[p.method, dateStr, p.note].filter(Boolean).join(" · ")}
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-end gap-2">
-                            {!isDone && (
-                              <Button size="sm" onClick={() => setZellePayment(p)}>
-                                <Smartphone className="w-4 h-4 mr-1.5" /> Pay via Zelle
-                              </Button>
-                            )}
-                            {!isDone && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  markPaid.mutate(
-                                    {
-                                      id: p.id,
-                                      data: {
-                                        status: "completed",
-                                        paidAt: todayLocal(),
-                                     },
-                                   },
-                                    {
-                                      onSuccess: () => {
-                                        invalidate();
-                                        toast({ title: "Marked paid"});
-                                     },
-                                   },
-                                  )
-                               }
-                                disabled={markPaid.isPending}
-                              >
-                                <Check className="w-4 h-4 mr-1.5" /> Mark paid
-                              </Button>
+                              <>
+                                <Badge variant="destructive" className="text-[10px]">Unpaid</Badge>
+                                <Button size="sm" onClick={() => setZellePayment(p)}>
+                                  <Smartphone className="w-4 h-4 mr-1.5" /> Pay via Zelle
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    markPaid.mutate(
+                                      { id: p.id, data: { status: "completed", paidAt: todayLocal() } },
+                                      {
+                                        onSuccess: () => {
+                                          invalidate();
+                                          toast({ title: "Marked paid" });
+                                        },
+                                      },
+                                    )
+                                  }
+                                  disabled={markPaid.isPending}
+                                >
+                                  <Check className="w-4 h-4 mr-1.5" /> Mark paid
+                                </Button>
+                              </>
                             )}
                           </div>
                         </div>
                       );
-                   })}
+                    })}
                   </div>
-                ))}
+                )}
               </div>
             );
-         })}
+          })}
         </div>
       )}
 

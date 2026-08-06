@@ -1320,15 +1320,50 @@ router.get("/portal/:token/jobs", async (req, res): Promise<void> => {
     list.push(li);
     itemsByJob.set(li.jobId, list);
   }
+  // On-site state per job from persisted check-ins, so the guided My Jobs
+  // flow survives reloads and tab switches (session state alone is not
+  // enough — checkout must come from server evidence).
+  const checkins = sortedIds.length
+    ? await db
+        .select({
+          jobId: crewCheckinsTable.jobId,
+          kind: crewCheckinsTable.kind,
+          createdAt: crewCheckinsTable.createdAt,
+        })
+        .from(crewCheckinsTable)
+        .where(
+          and(
+            eq(crewCheckinsTable.crewId, crew.id),
+            inArray(crewCheckinsTable.jobId, sortedIds),
+          ),
+        )
+    : [];
+  const punch = new Map<string, { in: Date | null; out: Date | null }>();
+  for (const c of checkins) {
+    if (!c.jobId || !c.createdAt) continue;
+    const p = punch.get(c.jobId) ?? { in: null, out: null };
+    if (c.kind === "checkin") {
+      if (!p.in || c.createdAt > p.in) p.in = c.createdAt;
+    } else if (c.kind === "checkout") {
+      if (!p.out || c.createdAt > p.out) p.out = c.createdAt;
+    }
+    punch.set(c.jobId, p);
+  }
   res.json(
     ListPortalJobsResponse.parse(
-      sorted.map((j) => ({
+      sorted.map((j) => {
+        const p = punch.get(j.id);
+        const checkedIn = !!p?.in && (!p.out || p.in > p.out);
+        const checkedOut = !!p?.out && (!p.in || p.out >= p.in);
+        return {
         id: j.id,
         jobNo: j.jobNo,
         label: buildJobLabel(j.jobNo, propName.get(j.propertyId), j.unitNo),
         propertyName: propName.get(j.propertyId) ?? null,
         unitNo: j.unitNo ?? null,
         status: j.status ?? null,
+        checkedIn,
+        checkedOut,
         lineItems: (itemsByJob.get(j.id) ?? []).map((li) => ({
           id: li.id,
           service: li.service,
@@ -1340,7 +1375,8 @@ router.get("/portal/:token/jobs", async (req, res): Promise<void> => {
           completed: !!li.completedAt,
           completedAt: li.completedAt ? li.completedAt.toISOString() : null,
         })),
-      })),
+        };
+      }),
     ),
   );
 });

@@ -13802,6 +13802,12 @@ components:
         propertyName: { type: ["string", "null"] }
         unitNo: { type: ["string", "null"] }
         status: { type: ["string", "null"] }
+        checkedIn:
+          type: boolean
+          description: True when this crew's latest check-in for this job is newer than any checkout (currently on site)
+        checkedOut:
+          type: boolean
+          description: True when this crew has checked out of this job (a checkout exists at/after the latest check-in)
         lineItems:
           type: array
           items:

@@ -110,6 +110,7 @@ import {
 } from "@/components/ui/sheet";
 
 type Tab =
+  | "jobs"
   | "offers"
   | "office"
   | "schedule"
@@ -182,6 +183,7 @@ export default function CrewPortal() {
     if (initialGuideLang()) return "guide";
     const t = new URLSearchParams(window.location.search).get("tab");
     const valid: Tab[] = [
+      "jobs",
       "offers",
       "office",
       "schedule",
@@ -196,8 +198,11 @@ export default function CrewPortal() {
       "wings",
       "guide",
     ];
-    return valid.includes(t as Tab) ? (t as Tab) : "schedule";
+    return valid.includes(t as Tab) ? (t as Tab) : "jobs";
   });
+  // Tapping "Send invoice" on a My Jobs card lands on the Invoice tab with
+  // that job already selected.
+  const [invoiceJobId, setInvoiceJobId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: portal, isLoading, isError } = useGetPortal(token);
@@ -274,6 +279,7 @@ export default function CrewPortal() {
   const u = portal.unseen;
   const officeView = officeViewData;
   const tabs: { key: Tab; label: string; icon: any; badge?: number; alert?: number }[] = [
+    { key: "jobs", label: "My Jobs", icon: ClipboardCheck },
     { key: "offers", label: "Offers", icon: Briefcase, badge: pendingOffersCount, alert: (u?.offers ?? 0) + (u?.emergency ?? 0) },
     { key: "schedule", label: "Schedule", icon: Calendar, alert: (u?.schedule ?? 0) + (u?.approvals ?? 0) },
     ...(officeView?.enabled
@@ -371,7 +377,16 @@ export default function CrewPortal() {
         </aside>
 
         <div className="min-w-0 lg:max-w-[720px]">
-        {tab === "schedule" && <SaveLinkCard />}
+        {(tab === "jobs" || tab === "schedule") && <SaveLinkCard />}
+        {tab === "jobs" && (
+          <MyJobsTab
+            token={token}
+            onInvoice={(jobId) => {
+              setInvoiceJobId(jobId);
+              setTab("invoice");
+            }}
+          />
+        )}
         {tab === "offers" && <OffersTab portal={portal} token={token} />}
         {tab === "office" && officeView?.enabled && (
           <OfficeViewTab view={officeView} />
@@ -379,7 +394,7 @@ export default function CrewPortal() {
         {tab === "schedule" && <PortalDispatchSection token={token} />}
         {tab === "schedule" && <WorkChecklistSection token={token} />}
         {tab === "schedule" && <ScheduleTab portal={portal} />}
-        {tab === "invoice" && <InvoiceTab portal={portal} token={token} />}
+        {tab === "invoice" && <InvoiceTab portal={portal} token={token} initialJobId={invoiceJobId} />}
         {tab === "packets" && <WelcomeKitTab token={token} />}
         {tab === "messages" &&
           (portal.crew.leaderId ? (
@@ -2368,15 +2383,23 @@ function readTrackState(token: string): TrackState | null {
   }
 }
 
-function CheckinTab({ token }: { token: string }) {
-  const queryClient = useQueryClient();
-  const checkin = useCreatePortalCheckin();
-  const { data: jobs } = useListPortalJobs(token);
-  const [selectedJobId, setSelectedJobId] = useState<string>("");
-  const [note, setNote] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"checkin" | "checkout" | null>(null);
+/**
+ * Shared GPS live-trail state. Only one tab is mounted at a time, so a single
+ * ping loop runs regardless of whether check-in happened from My Jobs or the
+ * Job Tracker tab — both read/write the same localStorage key.
+ */
+function useGpsTrail(token: string) {
   const [tracking, setTracking] = useState<TrackState | null>(() => readTrackState(token));
+
+  const stopTrail = () => {
+    try { localStorage.removeItem(`halo_gps_trail_${token}`); } catch {}
+    setTracking(null);
+  };
+  const startTrail = (jobId: string | null) => {
+    const next: TrackState = { day: localDay(), jobId };
+    try { localStorage.setItem(`halo_gps_trail_${token}`, JSON.stringify(next)); } catch {}
+    setTracking(next);
+  };
 
   // While checked in, breadcrumb the crew's GPS every 30 seconds so the office
   // and client maps can draw the live trail. Stops on checkout, at midnight,
@@ -2411,6 +2434,443 @@ function CheckinTab({ token }: { token: string }) {
     return () => { cancelled = true; window.clearInterval(iv); };
   }, [token, tracking]);
 
+  return { tracking, startTrail, stopTrail };
+}
+
+/**
+ * My Jobs — the guided, one-button-at-a-time home. Every job gets a card that
+ * walks the crew through the exact same actions the other tabs offer
+ * (check-in, before photos, checklist, after photos, check-out, invoice), via
+ * the exact same endpoints — so the office Job Board, property timeline and
+ * client board stay perfectly in sync no matter which tab the crew uses.
+ */
+function MyJobsTab({
+  token,
+  onInvoice,
+}: {
+  token: string;
+  onInvoice: (jobId: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const { data: jobs } = useListPortalJobs(token, {
+    query: { queryKey: getListPortalJobsQueryKey(token) },
+  });
+  const { data: photos } = useListPortalPhotos(token, {
+    query: { queryKey: getListPortalPhotosQueryKey(token) },
+  });
+  const { tracking, startTrail, stopTrail } = useGpsTrail(token);
+  const checkin = useCreatePortalCheckin();
+  const completeItem = useCompletePortalLineItem();
+  const sendPhoto = useUploadPortalPhoto();
+  const [err, setErr] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  // Jobs checked out this session (checkout doesn't change job.status).
+  const [checkedOut, setCheckedOut] = useState<Record<string, boolean>>({});
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const pendingUpload = useRef<{ jobId: string; phase: "before" | "after" } | null>(null);
+  const { uploadFile } = useUpload({
+    onError: () => setErr("Photo upload failed. Check your connection and try again."),
+  });
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: getListPortalJobsQueryKey(token) });
+    queryClient.invalidateQueries({ queryKey: getListPortalPhotosQueryKey(token) });
+    queryClient.invalidateQueries({ queryKey: getGetPortalQueryKey(token) });
+  };
+
+  const doCheck = async (jobId: string, kind: "checkin" | "checkout") => {
+    setErr(null);
+    setNotice(null);
+    setBusy(`${jobId}:${kind}`);
+    const pos = await getPosition();
+    if (!pos) {
+      setBusy(null);
+      setErr("We couldn't get your location. Turn on location access and try again.");
+      return;
+    }
+    checkin.mutate(
+      {
+        token,
+        data: {
+          jobId,
+          kind,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          note: kind === "checkout" ? (notes[jobId] ?? "").trim() || null : null,
+        },
+      },
+      {
+        onSuccess: () => {
+          setBusy(null);
+          if (kind === "checkin") {
+            startTrail(jobId);
+            setNotice("Checked in! Keep this page open — your live trail is on until you check out.");
+          } else {
+            stopTrail();
+            setCheckedOut((m) => ({ ...m, [jobId]: true }));
+            setNotice("Checked out! Time and work note recorded. Last step: send your invoice.");
+          }
+          refresh();
+        },
+        onError: (e) => {
+          setBusy(null);
+          const data = (e as { data?: { code?: string; error?: string } | null })?.data;
+          setErr(
+            data?.code === "after_photos_required"
+              ? "Add at least one AFTER photo (step 4) before checking out."
+              : data?.error ?? "Couldn't save. Check your connection and try again.",
+          );
+        },
+      },
+    );
+  };
+
+  const pickPhotos = (jobId: string, phase: "before" | "after") => {
+    setErr(null);
+    pendingUpload.current = { jobId, phase };
+    fileRef.current?.click();
+  };
+
+  const onFilesPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    const target = pendingUpload.current;
+    if (files.length === 0 || !target) return;
+    setBusy(`${target.jobId}:${target.phase}`);
+    const pos = await getPosition();
+    try {
+      for (const file of files) {
+        const res = await uploadFile(file);
+        if (!res) return;
+        await sendPhoto.mutateAsync({
+          token,
+          data: {
+            storagePath: res.objectPath,
+            takenOn: localToday(),
+            jobId: target.jobId,
+            phase: target.phase,
+            lat: pos?.coords.latitude ?? null,
+            lng: pos?.coords.longitude ?? null,
+            accuracy: pos?.coords.accuracy ?? null,
+            capturedAt: new Date().toISOString(),
+          },
+        });
+      }
+      setNotice(target.phase === "before" ? "Before photos saved!" : "After photos saved!");
+      refresh();
+    } catch {
+      setErr("Your photo uploaded but we couldn't save it. Please try again.");
+    } finally {
+      setBusy(null);
+      pendingUpload.current = null;
+    }
+  };
+
+  const toggleItem = async (jobId: string, itemId: string, done: boolean) => {
+    setErr(null);
+    setBusy(`item:${itemId}`);
+    try {
+      const res = await completeItem.mutateAsync({
+        token,
+        jobId,
+        lineItemId: itemId,
+        data: { done },
+      });
+      if (res.jobCompleted) setNotice("All work checked off — job marked Done. Nice work!");
+      refresh();
+    } catch {
+      setErr("Couldn't update that item — try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const activeJobs = (jobs ?? []).filter((j) => j.status !== "cancelled");
+
+  const stepCircle = (state: "done" | "current" | "todo", n: number) => (
+    <span
+      className={`flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-2 text-[12.5px] font-display font-bold ${
+        state === "done"
+          ? "border-emerald-600 bg-emerald-600 text-white"
+          : state === "current"
+            ? "border-[var(--gold)] bg-[var(--gold-light)] text-[var(--ink)]"
+            : "border-border bg-card text-muted-foreground"
+      }`}
+    >
+      {state === "done" ? <Check className="w-[14px] h-[14px]" /> : n}
+    </span>
+  );
+
+  return (
+    <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        multiple
+        className="hidden"
+        onChange={onFilesPicked}
+      />
+      <div className={card}>
+        <div className="font-display font-bold text-[17px]">My jobs</div>
+        <p className="text-[12.5px] text-muted-foreground mt-[2px]">
+          One card per job. Follow the steps top to bottom — the big button is
+          always your next move. Everything you do here goes straight to the
+          office and the client's board.
+        </p>
+      </div>
+      {notice && (
+        <div className="text-[12.5px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-[12px] py-[8px]" data-testid="myjobs-notice">
+          {notice}
+        </div>
+      )}
+      {err && (
+        <div className="text-[12.5px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl px-[12px] py-[8px]" data-testid="myjobs-error">
+          {err}
+        </div>
+      )}
+      {activeJobs.length === 0 && (
+        <div className={`${card} text-center text-[13px] text-muted-foreground`}>
+          No jobs assigned right now. New offers show up in the Offers tab —
+          you'll get an alert here the moment a job is yours.
+        </div>
+      )}
+      {activeJobs.map((job) => {
+        const beforeCount = (photos ?? []).filter((p) => p.jobId === job.id && p.phase === "before").length;
+        const afterCount = (photos ?? []).filter((p) => p.jobId === job.id && p.phase === "after").length;
+        const myItems = (job.lineItems ?? []).filter((li) => li.mine);
+        const othersItems = (job.lineItems ?? []).filter((li) => !li.mine);
+        const myAllDone = myItems.length > 0 && myItems.every((li) => li.completed);
+        // On-site / checked-out state comes from the SERVER (persisted
+        // check-ins), so the flow survives reloads and tab switches. The
+        // local trail + session map only add instant feedback.
+        const checkedIn = job.checkedIn || tracking?.jobId === job.id;
+        const wasCheckedOut = !!job.checkedOut || !!checkedOut[job.id];
+        const jobComplete = job.status === "complete";
+        // Later evidence marks earlier steps done even after reloads.
+        const laterEvidence = beforeCount > 0 || myItems.some((li) => li.completed) || afterCount > 0 || wasCheckedOut || jobComplete;
+        const s1 = checkedIn || laterEvidence; // arrived
+        const s2 = beforeCount > 0;
+        const s3 = myItems.length === 0 ? s2 : myAllDone;
+        const s4 = afterCount > 0;
+        const s5 = wasCheckedOut || jobComplete;
+        const doneFlags = [s1, s2, s3, s4, s5];
+        const currentIdx = doneFlags.findIndex((d) => !d);
+        const stateOf = (i: number): "done" | "current" | "todo" =>
+          doneFlags[i] ? "done" : i === currentIdx ? "current" : "todo";
+        const allDone = currentIdx === -1;
+        const btnCls =
+          "w-full mt-[8px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-[var(--ink)] bg-[var(--gold-light)] disabled:opacity-60 transition-transform active:scale-[0.98]";
+        return (
+          <div key={job.id} className={card} data-testid={`myjob-${job.id}`}>
+            <div className="flex items-start justify-between gap-[8px]">
+              <div className="min-w-0">
+                <div className="font-display font-bold text-[16px] leading-tight">
+                  {job.propertyName ?? "Job"}
+                  {job.unitNo ? ` · Unit ${job.unitNo}` : ""}
+                </div>
+                <div className="text-[12.5px] text-muted-foreground mt-[2px]">
+                  <span className="font-mono">{job.jobNo}</span> · {job.label}
+                </div>
+              </div>
+              {checkedIn && (
+                <span className="shrink-0 flex items-center gap-[5px] text-[11px] font-bold text-[#3f7d20]">
+                  <span className="w-[7px] h-[7px] rounded-full bg-[#4ade80] animate-pulse" /> On site
+                </span>
+              )}
+            </div>
+
+            <div className="mt-[12px] flex flex-col gap-[10px]">
+              {/* Step 1 — arrive & check in */}
+              <div className="flex gap-[10px]">
+                {stepCircle(stateOf(0), 1)}
+                <div className="min-w-0 flex-1">
+                  <div className={`text-[13.5px] font-semibold ${stateOf(0) === "todo" ? "text-muted-foreground" : ""}`}>
+                    Arrive &amp; check in
+                  </div>
+                  {stateOf(0) === "current" && (
+                    <button onClick={() => doCheck(job.id, "checkin")} disabled={busy !== null} className={btnCls} data-testid={`myjob-checkin-${job.id}`}>
+                      {busy === `${job.id}:checkin` ? (
+                        <><Loader2 className="w-[18px] h-[18px] animate-spin" /> Getting location…</>
+                      ) : (
+                        <><LogIn className="w-[18px] h-[18px]" /> Check in — I've arrived</>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Step 2 — before photos */}
+              <div className="flex gap-[10px]">
+                {stepCircle(stateOf(1), 2)}
+                <div className="min-w-0 flex-1">
+                  <div className={`text-[13.5px] font-semibold ${stateOf(1) === "todo" ? "text-muted-foreground" : ""}`}>
+                    Before photos{beforeCount > 0 ? ` · ${beforeCount} saved` : ""}
+                  </div>
+                  {(stateOf(1) === "current" || (stateOf(1) === "done" && currentIdx === 1)) && (
+                    <button onClick={() => pickPhotos(job.id, "before")} disabled={busy !== null} className={btnCls} data-testid={`myjob-before-${job.id}`}>
+                      {busy === `${job.id}:before` ? (
+                        <><Loader2 className="w-[18px] h-[18px] animate-spin" /> Uploading…</>
+                      ) : (
+                        <><Camera className="w-[18px] h-[18px]" /> Take before photos</>
+                      )}
+                    </button>
+                  )}
+                  {stateOf(1) === "done" && (
+                    <button onClick={() => pickPhotos(job.id, "before")} disabled={busy !== null} className="text-[12px] font-semibold text-[var(--gold-dark)] mt-[2px]">
+                      + Add more before photos
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Step 3 — do the work (checklist) */}
+              <div className="flex gap-[10px]">
+                {stepCircle(stateOf(2), 3)}
+                <div className="min-w-0 flex-1">
+                  <div className={`text-[13.5px] font-semibold ${stateOf(2) === "todo" ? "text-muted-foreground" : ""}`}>
+                    Do the work
+                  </div>
+                  {myItems.length === 0 ? (
+                    <div className="text-[12px] text-muted-foreground mt-[2px]">
+                      No task list on this job — just do the work described above.
+                    </div>
+                  ) : (
+                    <div className="mt-[6px] flex flex-col gap-[6px]">
+                      {myItems.map((li) => (
+                        <button
+                          key={li.id}
+                          type="button"
+                          disabled={busy === `item:${li.id}` || stateOf(2) === "todo"}
+                          onClick={() => toggleItem(job.id, li.id, !li.completed)}
+                          className={`flex items-center gap-[8px] rounded-xl border px-[10px] py-[9px] text-left ${
+                            li.completed ? "border-emerald-200 bg-emerald-50" : "border-border bg-background"
+                          } ${stateOf(2) === "todo" ? "opacity-60" : ""}`}
+                          data-testid={`myjob-item-${li.id}`}
+                        >
+                          <span className={`flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full border-2 ${li.completed ? "border-emerald-600 bg-emerald-600 text-white" : "border-muted-foreground/40 text-transparent"}`}>
+                            <Check className="w-[12px] h-[12px]" />
+                          </span>
+                          <span className={`min-w-0 flex-1 text-[13px] font-medium ${li.completed ? "line-through text-muted-foreground" : ""}`}>
+                            {li.service}
+                            {li.startTime && !li.completed && (
+                              <span className="ml-[6px] text-[10.5px] font-bold text-[var(--gold-dark)]">{formatClock(li.startTime)}</span>
+                            )}
+                          </span>
+                          {!li.completed && (
+                            <span className="shrink-0 text-[10.5px] font-bold bg-[var(--gold-light)]/40 rounded-full px-[7px] py-[2px]">Tap when done</span>
+                          )}
+                        </button>
+                      ))}
+                      {othersItems.length > 0 && (
+                        <div className="text-[11px] text-muted-foreground">
+                          {othersItems.length} more task{othersItems.length > 1 ? "s" : ""} on this job belong{othersItems.length > 1 ? "" : "s"} to other crews.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Step 4 — after photos */}
+              <div className="flex gap-[10px]">
+                {stepCircle(stateOf(3), 4)}
+                <div className="min-w-0 flex-1">
+                  <div className={`text-[13.5px] font-semibold ${stateOf(3) === "todo" ? "text-muted-foreground" : ""}`}>
+                    After photos{afterCount > 0 ? ` · ${afterCount} saved` : ""}
+                    <span className="ml-[6px] text-[10.5px] font-bold text-red-600">Required to check out</span>
+                  </div>
+                  {stateOf(3) === "current" && (
+                    <button onClick={() => pickPhotos(job.id, "after")} disabled={busy !== null} className={btnCls} data-testid={`myjob-after-${job.id}`}>
+                      {busy === `${job.id}:after` ? (
+                        <><Loader2 className="w-[18px] h-[18px] animate-spin" /> Uploading…</>
+                      ) : (
+                        <><Camera className="w-[18px] h-[18px]" /> Take after photos</>
+                      )}
+                    </button>
+                  )}
+                  {stateOf(3) === "done" && (
+                    <button onClick={() => pickPhotos(job.id, "after")} disabled={busy !== null} className="text-[12px] font-semibold text-[var(--gold-dark)] mt-[2px]">
+                      + Add more after photos
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Step 5 — check out */}
+              <div className="flex gap-[10px]">
+                {stepCircle(stateOf(4), 5)}
+                <div className="min-w-0 flex-1">
+                  <div className={`text-[13.5px] font-semibold ${stateOf(4) === "todo" ? "text-muted-foreground" : ""}`}>
+                    Check out
+                  </div>
+                  {stateOf(4) === "current" && (
+                    <>
+                      <textarea
+                        value={notes[job.id] ?? ""}
+                        onChange={(e) => setNotes((m) => ({ ...m, [job.id]: e.target.value }))}
+                        rows={2}
+                        placeholder="What did you get done? (shown to the office & property manager)"
+                        className="w-full mt-[6px] rounded-[12px] border border-border bg-background px-[13px] py-[11px] text-[14px] focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40 resize-none"
+                      />
+                      <button onClick={() => doCheck(job.id, "checkout")} disabled={busy !== null} className="w-full mt-[8px] flex items-center justify-center gap-[8px] rounded-[13px] py-[13px] text-[15px] font-display font-bold text-white bg-[var(--ink)] disabled:opacity-60 transition-transform active:scale-[0.98]" data-testid={`myjob-checkout-${job.id}`}>
+                        {busy === `${job.id}:checkout` ? (
+                          <><Loader2 className="w-[18px] h-[18px] animate-spin" /> Getting location…</>
+                        ) : (
+                          <><LogOut className="w-[18px] h-[18px]" /> Check out — job done</>
+                        )}
+                      </button>
+                      <div className="text-[11px] text-muted-foreground mt-[4px]">
+                        Already checked out earlier? Skip ahead and send your invoice below.
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Step 6 — invoice */}
+              <div className="flex gap-[10px]">
+                {stepCircle(allDone ? "current" : "todo", 6)}
+                <div className="min-w-0 flex-1">
+                  <div className={`text-[13.5px] font-semibold ${allDone ? "" : "text-muted-foreground"}`}>
+                    Send your invoice
+                  </div>
+                  <button
+                    onClick={() => onInvoice(job.id)}
+                    disabled={busy !== null}
+                    className={allDone ? btnCls : "text-[12px] font-semibold text-[var(--gold-dark)] mt-[2px]"}
+                    data-testid={`myjob-invoice-${job.id}`}
+                  >
+                    {allDone ? (
+                      <><Receipt className="w-[18px] h-[18px]" /> Send invoice for this job</>
+                    ) : (
+                      "Invoice this job now →"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CheckinTab({ token }: { token: string }) {
+  const queryClient = useQueryClient();
+  const checkin = useCreatePortalCheckin();
+  const { data: jobs } = useListPortalJobs(token);
+  const [selectedJobId, setSelectedJobId] = useState<string>("");
+  const [note, setNote] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"checkin" | "checkout" | null>(null);
+  const { tracking, startTrail, stopTrail } = useGpsTrail(token);
+
   const doPunch = async (kind: "checkin" | "checkout") => {
     setStatus(null);
     setBusy(kind);
@@ -2437,12 +2897,9 @@ function CheckinTab({ token }: { token: string }) {
           setBusy(null);
           if (kind === "checkout") {
             setNote("");
-            try { localStorage.removeItem(`halo_gps_trail_${token}`); } catch {}
-            setTracking(null);
+            stopTrail();
           } else {
-            const next: TrackState = { day: localDay(), jobId: selectedJobId || null };
-            try { localStorage.setItem(`halo_gps_trail_${token}`, JSON.stringify(next)); } catch {}
-            setTracking(next);
+            startTrail(selectedJobId || null);
           }
           setStatus(
             kind === "checkout"
@@ -3803,7 +4260,16 @@ function emptyLine(): InvLine {
   return { dateOfWork: localToday(), unitNo: "", typeOfWork: "", qty: "1", unitPrice: "" };
 }
 
-function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) {
+function InvoiceTab({
+  portal,
+  token,
+  initialJobId,
+}: {
+  portal: PortalBundle;
+  token: string;
+  /** Preselect this job (set when arriving from a My Jobs card). */
+  initialJobId?: string | null;
+}) {
   const queryClient = useQueryClient();
   const { uploadFile } = useUpload();
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -3829,8 +4295,14 @@ function InvoiceTab({ portal, token }: { portal: PortalBundle; token: string }) 
   const [poNumber, setPoNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(localToday());
   const [terms, setTerms] = useState("Net 30");
-  const [jobId, setJobId] = useState("");
+  const [jobId, setJobId] = useState(initialJobId ?? "");
   const [propertyAddress, setPropertyAddress] = useState("");
+
+  // If the crew taps "Send invoice" on a different My Jobs card while this
+  // tab is already mounted, follow the new selection.
+  useEffect(() => {
+    if (initialJobId) setJobId(initialJobId);
+  }, [initialJobId]);
   const [lines, setLines] = useState<InvLine[]>([emptyLine()]);
   const [signatureName, setSignatureName] = useState("");
   const [err, setErr] = useState("");

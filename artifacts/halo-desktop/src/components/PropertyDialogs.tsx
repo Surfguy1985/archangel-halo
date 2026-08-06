@@ -697,10 +697,13 @@ export function AddJobDialog({
   onOpenChange,
   propertyId,
   priceItems,
+  onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   propertyId: string;
+  /** Called with the new job's id so the page can flash/highlight its card. */
+  onCreated?: (jobId: string) => void;
   priceItems?: {
     id: string;
     service: string;
@@ -772,10 +775,11 @@ export function AddJobDialog({
        },
      },
       {
-        onSuccess: () => {
+        onSuccess: (job) => {
           queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId)});
           queryClient.invalidateQueries({ queryKey: getListJobsQueryKey()});
           queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey()});
+          if (job?.id) onCreated?.(job.id);
           onOpenChange(false);
        },
         onError: (err: unknown) => {
