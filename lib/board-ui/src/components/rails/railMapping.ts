@@ -46,6 +46,9 @@ export interface RailTileModel {
   artworkUrl: string | null;
   accent: boolean;
   unread: number;
+  /** True when the card originated from a HALO Walk approval — shows
+   *  the "HALO Walk" source badge on the tile. */
+  walkBadge: boolean;
   card: any;
 }
 
@@ -150,6 +153,7 @@ export function tileFor(card: any): RailTileModel {
     artworkUrl: null,
     accent: rail === 'needs_you',
     unread: Number(card.unreadComments ?? 0),
+    walkBadge: card.sourceType === 'walk_job',
     card,
   };
 }

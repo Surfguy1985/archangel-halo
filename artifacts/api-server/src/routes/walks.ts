@@ -731,22 +731,38 @@ router.post("/walks/:id/approve", async (req, res): Promise<void> => {
     const allPhotos = caps.flatMap((c) =>
       c.photos?.length ? c.photos : c.storagePath ? [c.storagePath] : [],
     );
-    const services = [...new Set(caps.map((c) => c.service).filter(Boolean))] as string[];
-    const module =
-      allPhotos.length > 0
-        ? {
-            type: "photos",
-            jobId: job.id,
-            jobNo: job.jobNo,
-            unitNo: job.unitNo ?? null,
-            totalCount: allPhotos.length,
-            photoUrls: allPhotos.slice(0, 6).map((p) => `/api/storage${p}`),
-            phases: [],
-            // Client-side Approve: the PM can approve these walk findings
-            // from their board, which moves the card to In progress.
-            canApprove: true,
-          }
-        : null;
+    // Aggregate captures by service → line items the PM can review.
+    const serviceMap = new Map<string, { qty: number; rate: number | null }>();
+    for (const c of caps) {
+      const svc = (c.service ?? "General").trim();
+      const existing = serviceMap.get(svc);
+      serviceMap.set(svc, {
+        qty: (existing?.qty ?? 0) + (typeof (c as any).qty === "number" ? (c as any).qty : 1),
+        rate: existing?.rate ?? (typeof (c as any).unitPrice === "number" ? (c as any).unitPrice : null),
+      });
+    }
+    const lineItems = Array.from(serviceMap.entries()).map(([service, v]) => ({
+      service,
+      qty: v.qty,
+      rate: v.rate,
+    }));
+    // Flat service names for the card body summary.
+    const services = lineItems.map((li) => li.service);
+    const module = {
+      type: "photos",
+      jobId: job.id,
+      jobNo: job.jobNo,
+      unitNo: job.unitNo ?? null,
+      totalCount: allPhotos.length,
+      photoUrls: allPhotos.slice(0, 12).map((p) => `/api/storage${p}`),
+      phases: [],
+      // Line items let the PM review the scope of work per service.
+      lineItems,
+      walkNotes: (walk as any).notes ?? null,
+      // Client-side Approve: the PM taps Approve All from their board,
+      // which moves this job into the work queue with a gold glow.
+      canApprove: true,
+    };
     const title = job.unitNo ? `Walk findings — Unit ${job.unitNo}` : "Walk findings";
     const bodyText = [
       services.length > 0 ? `Scope: ${services.slice(0, 6).join(", ")}${services.length > 6 ? "…" : ""}` : null,

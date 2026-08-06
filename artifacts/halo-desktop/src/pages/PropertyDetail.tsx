@@ -5,7 +5,7 @@ import { MarginSection} from "@/components/MarginSection";
 import { CrewPhotosSection} from "@/components/CrewPhotosSection";
 import { useQueryClient} from "@tanstack/react-query";
 import { useParams, Link, useLocation} from "wouter";
-import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Radio, Repeat, BookOpen, FileUp, Receipt, Users, Wand2, Zap} from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Radio, Repeat, BookOpen, FileUp, Receipt, Users, Wand2, Zap} from "lucide-react";
 import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton} from "@/components/ui/skeleton";
@@ -47,6 +47,13 @@ export default function PropertyDetail() {
   // Inline PO# edit — shown when the card hits the invoice/$ stage and no PO yet.
   const [poJobId, setPoJobId] = useState<string | null>(null);
   const [poDraft, setPoDraft] = useState("");
+  // Inline complete-job blocker — replaces window.confirm; keyed by jobId.
+  const [completeBlocker, setCompleteBlocker] = useState<{
+    jobId: string;
+    text: string;
+    missing: string[];
+    codes: string[];
+  } | null>(null);
   useEffect(() => {
     if (!newJobId) return;
     const t = setTimeout(() => setNewJobId(null), 8000);
@@ -291,24 +298,34 @@ export default function PropertyDetail() {
           text: "Crew is on it — when the work is finished, tap Complete work.",
           label: "Complete work",
           action: () => {
-          const doComplete = (force: boolean) =>
+            // Clear any previous blocker for this job so the strip stays fresh.
+            setCompleteBlocker(null);
             completeJob.mutate(
-              { id: job.id, data: force ? { force: true } : {} },
+              { id: job.id, data: {} },
               {
                 onSuccess: invalidateJobLists,
                 onError: (err) => {
-                  const data = (err as any)?.data as { missing?: string[]; error?: string } | undefined;
-                  if (!force && data?.missing?.length) {
-                    if (window.confirm(`${data.error ?? "This job doesn't look finished yet."}\n\n• ${data.missing.join("\n• ")}\n\nComplete it anyway?`)) {
-                      doComplete(true);
-                    }
+                  const data = (err as any)?.data as
+                    | { missing?: string[]; missingCodes?: string[]; error?: string }
+                    | undefined;
+                  if (data?.missing?.length) {
+                    // Show the inline blocker strip instead of a browser dialog.
+                    setCompleteBlocker({
+                      jobId: job.id,
+                      text: data.error ?? "A few things need attention before this job can move forward.",
+                      missing: data.missing,
+                      codes: data.missingCodes ?? [],
+                    });
                   } else {
-                    toast({ title: "Couldn't complete the job", description: data?.error ?? err.message, variant: "destructive" });
+                    toast({
+                      title: "Couldn't complete the job",
+                      description: data?.error ?? err.message,
+                      variant: "destructive",
+                    });
                   }
                 },
               },
             );
-            doComplete(false);
           },
         };
       if (!invoice)
@@ -588,6 +605,71 @@ export default function PropertyDetail() {
           </div>
         )}
 
+        {/* Inline complete-work blockers — replaces the native browser confirm.
+            Each missing item shows its fix right here so nothing needs searching. */}
+        {completeBlocker?.jobId === job.id && (
+          <div className="rounded-xl border border-amber-400/40 bg-amber-900/30 p-4 space-y-3" data-testid={`complete-blocker-${job.id}`}>
+            <div className="flex items-center gap-2 text-sm font-bold text-amber-300">
+              <AlertTriangle className="w-4 h-4 shrink-0" /> {completeBlocker.text}
+            </div>
+            <div className="space-y-2">
+              {completeBlocker.missing.map((m, i) => {
+                const code = completeBlocker.codes[i] ?? "";
+                return (
+                  <div key={m} className="bg-white/5 rounded-lg px-3 py-2.5 flex items-start justify-between gap-3">
+                    <span className="text-sm text-white/80 leading-snug">{m}</span>
+                    <div className="shrink-0 flex items-center gap-2">
+                      {/* PO missing → open the PO inline input */}
+                      {code === "po" && (
+                        <button
+                          onClick={() => { setPoJobId(job.id); setPoDraft(job.woNo ?? ""); setCompleteBlocker(null); }}
+                          className="text-xs font-bold px-3 py-1.5 rounded-full bg-[var(--gold-light)] text-black hover:opacity-90 whitespace-nowrap"
+                        >
+                          Add PO#
+                        </button>
+                      )}
+                      {/* Checklist incomplete → override or view checklist */}
+                      {code === "checklist" && (
+                        <>
+                          <button
+                            onClick={() => setOpenLineItemsJobId(openLineItemsJobId === job.id ? null : job.id)}
+                            className="text-xs font-bold px-3 py-1.5 rounded-full bg-white/10 text-white hover:bg-white/20 whitespace-nowrap"
+                          >
+                            View checklist
+                          </button>
+                          <button
+                            onClick={() => {
+                              setCompleteBlocker(null);
+                              completeJob.mutate(
+                                { id: job.id, data: { force: true } },
+                                {
+                                  onSuccess: invalidateJobLists,
+                                  onError: (err) =>
+                                    toast({ title: "Couldn't complete", description: (err as Error).message, variant: "destructive" }),
+                                },
+                              );
+                            }}
+                            disabled={completeJob.isPending}
+                            className="text-xs font-bold px-3 py-1.5 rounded-full bg-amber-400 text-black hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
+                          >
+                            Complete anyway
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setCompleteBlocker(null)}
+              className="text-[11px] font-semibold text-amber-400/70 hover:text-amber-300 underline underline-offset-2"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Bottom Actions */}
         <div className="flex items-center gap-3 pt-3 border-t border-white/10">
           {renderPrimaryAction()}
@@ -855,60 +937,57 @@ export default function PropertyDetail() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-display font-bold text-[var(--ink)]">Jobs</h2>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setQuickJobOpen(true)}
-                  className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-                  data-testid="button-quick-job"
-                >
-                  <Zap className="w-4 h-4" /> Quick job
-                </button>
-                <button
-                  onClick={() => setJobOpen(true)}
-                  className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-                >
-                  <Plus className="w-4 h-4" /> Add
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 mb-3 w-fit">
-              {([
-                ["active", "Active", activeJobs.length],
-                ["history", "History", historyJobs.length],
-              ] as const).map(([key, label, count]) => (
-                <button
-                  key={key}
-                  onClick={() => setJobTab(key)}
-                  data-testid={`tab-jobs-${key}`}
-                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                    jobTab === key
-                      ? "bg-[var(--ink)] text-white"
-                      : "bg-card border border-[var(--hairline)] text-muted-foreground hover:text-[var(--ink)]"
-                  }`}
-                >
-                  {label}
-                  {count > 0 && <span className={`ml-1.5 text-xs font-normal ${jobTab === key ? "text-white/60" : "text-muted-foreground"}`}>{count}</span>}
-                </button>
-              ))}
-            </div>
-            {jobTab !== "history" && (
-            /* Site map: one small box per job (unit number + stage line),
-               like the client board's unit grid. Tap a box for the full card. */
+      <div className="space-y-8">
+
+        {/* ── SITE MAP (full-width) ──────────────────────────────────────────── */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-display font-bold text-[var(--ink)]">Jobs</h2>
+            <button
+              onClick={() => setQuickJobOpen(true)}
+              className="flex items-center gap-1.5 text-sm font-bold bg-[var(--gold-light,#B4FF44)] text-black px-4 py-1.5 rounded-full hover:opacity-90 transition-opacity"
+              data-testid="button-quick-job"
+            >
+              <Zap className="w-4 h-4" /> Quick job
+            </button>
+          </div>
+          <div className="flex items-center gap-2 mb-3 w-fit">
+            {([
+              ["active", "Active", activeJobs.length],
+              ["history", "History", historyJobs.length],
+            ] as const).map(([key, label, count]) => (
+              <button
+                key={key}
+                onClick={() => setJobTab(key)}
+                data-testid={`tab-jobs-${key}`}
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                  jobTab === key
+                    ? "bg-[var(--ink)] text-white"
+                    : "bg-card border border-[var(--hairline)] text-muted-foreground hover:text-[var(--ink)]"
+                }`}
+              >
+                {label}
+                {count > 0 && (
+                  <span className={`ml-1.5 text-xs font-normal ${jobTab === key ? "text-white/60" : "text-muted-foreground"}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {jobTab !== "history" && (
             <div data-testid="jobs-sitemap">
               {activeJobs.length > 0 && (
                 <p className="text-xs font-semibold text-muted-foreground px-1 mb-3">
-                  {activeJobs.length} active job{activeJobs.length === 1 ? "" : "s"} — tap a box to open the full card. The green line fills as the job moves Crew → Work → Invoice → $ → Close.
+                  {activeJobs.length} active job{activeJobs.length === 1 ? "" : "s"} — tap a box to open the full card · invoice strip links directly to the invoice.
                 </p>
               )}
-              <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-3">
+              {/* Grid: each job box = dark tile + attached invoice strip at bottom */}
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">
                 {activeJobs.map((job) => {
                   const invoice = invoiceForJob(job.id);
-                  // Mirrors the card's 5-stage timeline exactly (same fields).
+                  const allJobInvoices = invoices.filter((inv) => inv.jobId === job.id);
                   const paymentReceived = invoice?.status === "paid";
                   const crewPaid = job.crewPaymentStatus === "paid";
                   const workStarted =
@@ -924,35 +1003,81 @@ export default function PropertyDetail() {
                   ];
                   const doneCount = stages.filter(Boolean).length;
                   const isNew = job.id === newJobId;
+                  const invBadgeCls =
+                    invoice?.status === "paid"
+                      ? "bg-emerald-500/25 text-emerald-300"
+                      : invoice?.status === "past_due"
+                        ? "bg-red-500/25 text-red-300"
+                        : invoice?.status === "sent"
+                          ? "bg-sky-500/25 text-sky-300"
+                          : "bg-white/10 text-white/35";
                   return (
-                    <button
+                    <div
                       key={job.id}
-                      type="button"
-                      onClick={() => setExpandedJobId(job.id)}
-                      className={`bg-[var(--ink)] text-white rounded-xl p-3 text-left hover:opacity-90 transition-all active:scale-[0.97] ${isNew ? "card-move-flash" : ""}`}
+                      className={`rounded-xl overflow-hidden ${isNew ? "card-move-flash" : ""}`}
                       data-testid={`job-box-${job.id}`}
                     >
-                      <div className="font-display font-bold text-lg leading-tight truncate">
-                        {job.unitNo || "Common"}
+                      {/* Tap upper area → opens full job card */}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setExpandedJobId(job.id)}
+                        onKeyDown={(e) => e.key === "Enter" && setExpandedJobId(job.id)}
+                        className="bg-[var(--ink)] text-white p-3 cursor-pointer hover:opacity-90 transition-all active:scale-[0.97] text-left select-none"
+                      >
+                        <div className="font-display font-bold text-lg leading-tight truncate">
+                          {job.unitNo || "Common"}
+                        </div>
+                        <div className="text-[10.5px] text-white/50 truncate">
+                          {job.category || "General"}
+                          {isNew && (
+                            <span className="ml-1 text-[9px] font-bold uppercase tracking-wide text-[var(--gold-light)]">New</span>
+                          )}
+                        </div>
+                        <div className="mt-2 flex gap-[3px]">
+                          {stages.map((done, i) => (
+                            <span
+                              key={i}
+                              className={`h-[4px] flex-1 rounded-full ${done ? "bg-[var(--gold-light)]" : "bg-white/15"}`}
+                            />
+                          ))}
+                        </div>
+                        <div className="mt-1 text-[9.5px] font-bold uppercase tracking-wide text-white/45">
+                          {doneCount >= 5 ? "Closed" : ["Needs crew", "Work", "Invoice", "Get paid", "Close out"][doneCount]}
+                        </div>
                       </div>
-                      <div className="text-[10.5px] text-white/50 truncate">
-                        {job.category || "General"}
-                        {isNew && (
-                          <span className="ml-1 text-[9px] font-bold uppercase tracking-wide text-[var(--gold-light)]">New</span>
-                        )}
-                      </div>
-                      <div className="mt-2 flex gap-[3px]">
-                        {stages.map((done, i) => (
-                          <span
-                            key={i}
-                            className={`h-[4px] flex-1 rounded-full ${done ? "bg-[var(--gold-light)]" : "bg-white/15"}`}
-                          />
-                        ))}
-                      </div>
-                      <div className="mt-1 text-[9.5px] font-bold uppercase tracking-wide text-white/45">
-                        {doneCount >= 5 ? "Closed" : ["Needs crew", "Work", "Invoice", "Get paid", "Close out"][doneCount]}
-                      </div>
-                    </button>
+                      {/* Invoice strip — tap to open invoice (view, scan check, mark paid, etc.) */}
+                      {invoice ? (
+                        <Link
+                          href={`/invoices/${invoice.id}`}
+                          className="flex items-center gap-1.5 px-2.5 py-[7px] bg-[var(--ink)] border-t border-white/[0.09] hover:brightness-[1.15] transition-all group"
+                        >
+                          <Receipt className="w-3 h-3 text-white/28 shrink-0 group-hover:text-white/55 transition-colors" />
+                          <span className="text-[8.5px] font-mono text-white/44 flex-1 truncate min-w-0">
+                            {invoice.invoiceNo || "INV"}
+                            {allJobInvoices.length > 1 && (
+                              <span className="ml-0.5 text-white/28"> +{allJobInvoices.length - 1}</span>
+                            )}
+                          </span>
+                          <span className={`text-[7.5px] font-bold uppercase px-1 py-0.5 rounded-full shrink-0 ${invBadgeCls}`}>
+                            {invoice.status === "past_due" ? "Due" : invoice.status}
+                          </span>
+                          <span className="text-[8.5px] font-mono font-bold text-white/58 shrink-0 tabular-nums">
+                            ${invoice.amount.toLocaleString()}
+                          </span>
+                        </Link>
+                      ) : (
+                        <div
+                          role="button"
+                          tabIndex={-1}
+                          onClick={() => setExpandedJobId(job.id)}
+                          className="flex items-center gap-1.5 px-2.5 py-[7px] bg-[var(--ink)] border-t border-white/[0.09] cursor-pointer hover:brightness-[1.1] transition-all"
+                        >
+                          <Receipt className="w-3 h-3 text-white/18 shrink-0" />
+                          <span className="text-[8.5px] font-mono text-white/20">No invoice</span>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -962,267 +1087,144 @@ export default function PropertyDetail() {
                 </div>
               )}
             </div>
-            )}
-            {/* Tapping a box expands the full job card with its guided steps. */}
-            <Dialog open={!!expandedJobId} onOpenChange={(o) => { if (!o) setExpandedJobId(null); }}>
-              <DialogContent className="max-w-2xl max-h-[88dvh] overflow-y-auto custom-scrollbar p-4 sm:p-6">
-                <DialogTitle className="sr-only">Job card</DialogTitle>
-                {(() => {
-                  const job = [...activeJobs, ...historyJobs].find((j) => j.id === expandedJobId);
-                  return job ? renderJobCard(job, invoiceForJob(job.id)) : null;
-                })()}
-              </DialogContent>
-            </Dialog>
-            {jobTab === "history" && (
-              <div className="space-y-4 max-h-[72dvh] overflow-y-auto pr-1 custom-scrollbar">
-                {historyJobs.map((job) => renderJobCard(job, invoiceForJob(job.id)))}
-                {!historyJobs.length && (
-                  <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6 text-center text-sm text-muted-foreground">
-                    No cleared jobs yet — completed jobs you clear land here.
-                  </div>
-                )}
-              </div>
-            )}
-          </section>
+          )}
 
-          <CrewPhotosSection photos={crewPhotos ?? []} showJob />
+          {/* Full job card dialog — opens when a box is tapped */}
+          <Dialog open={!!expandedJobId} onOpenChange={(o) => { if (!o) setExpandedJobId(null); }}>
+            <DialogContent className="max-w-2xl max-h-[88dvh] overflow-y-auto custom-scrollbar p-4 sm:p-6">
+              <DialogTitle className="sr-only">Job card</DialogTitle>
+              {(() => {
+                const job = [...activeJobs, ...historyJobs].find((j) => j.id === expandedJobId);
+                return job ? renderJobCard(job, invoiceForJob(job.id)) : null;
+              })()}
+            </DialogContent>
+          </Dialog>
 
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-display font-bold text-[var(--ink)]">Contacts</h2>
-              <button
-                onClick={() => setContactOpen(true)}
-                className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Add
-              </button>
-            </div>
-            <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
-              {contacts.map(contact => (
-                <div key={contact.id} className="flex items-center gap-3 p-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold">{contact.name}</div>
-                    <div className="text-sm text-muted-foreground">{contact.role}</div>
-                  </div>
-                  <div className="text-right text-sm text-muted-foreground shrink-0">
-                    <div>{contact.phone}</div>
-                    <div>{contact.email}</div>
-                  </div>
-                  <button
-                    aria-label="Edit contact"
-                    onClick={() => setEditContactId(contact.id)}
-                    className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
+          {jobTab === "history" && (
+            <div className="space-y-4 max-h-[72dvh] overflow-y-auto pr-1 custom-scrollbar">
+              {historyJobs.map((job) => renderJobCard(job, invoiceForJob(job.id)))}
+              {!historyJobs.length && (
+                <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6 text-center text-sm text-muted-foreground">
+                  No cleared jobs yet — completed jobs you clear land here.
                 </div>
-              ))}
-              {!contacts.length && <div className="p-6 text-center text-sm text-muted-foreground">No contacts.</div>}
-            </div>
-          </section>
-        </div>
-
-        <div className="space-y-6">
-           {property.brief && (
-            <div className="bg-[var(--gold-tint)] border border-[var(--hairline)] rounded-[20px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-              <div className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--ink)] mb-2 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[var(--gold-light)]" /> Property Brief
-              </div>
-              <div className="text-sm text-[var(--ink2)] leading-relaxed whitespace-pre-line">{property.brief}</div>
+              )}
             </div>
           )}
 
-          <section>
-            <h2 className="text-xl font-display font-bold text-[var(--ink)] mb-4">Invoices</h2>
-            <div className="space-y-3">
-              {(() => {
-                const groups: { key: string; label: string; sub: string | null; items: Invoice[] }[] = [];
-                for (const job of jobs) {
-                  const items = invoices.filter((inv) => inv.jobId === job.id);
-                  if (items.length) {
-                    groups.push({
-                      key: job.id,
-                      label: `${job.category || "General"} · ${job.unitNo || "Common"}`,
-                      sub: job.description || null,
-                      items,
-                    });
-                  }
-                }
-                const unassigned = invoices.filter((inv) => !inv.jobId || !jobs.some((j) => j.id === inv.jobId));
-                if (unassigned.length) groups.push({ key: "unassigned", label: "Not tied to a job", sub: null, items: unassigned });
-                if (!groups.length) {
-                  return (
-                    <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6 text-center text-sm text-muted-foreground">
-                      No invoices for this property.
-                    </div>
-                  );
-                }
-                return groups.map((g) => {
-                  const open = expandedInvoiceGroup === g.key;
-                  const total = g.items.reduce((s, inv) => s + inv.amount, 0);
-                  const unpaid = g.items.filter((inv) => inv.status !== "paid").length;
-                  return (
-                    <div key={g.key} className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] overflow-hidden">
-                      <button
-                        onClick={() => setExpandedInvoiceGroup(open ? null : g.key)}
-                        data-testid={`invoice-group-${g.key}`}
-                        aria-expanded={open}
-                        className="w-full flex items-center gap-3 p-4 text-left hover:bg-black/[0.02] transition-colors"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold truncate">{g.label}</div>
-                          <div className="text-sm text-muted-foreground truncate">
-                            {g.items.length} invoice{g.items.length === 1 ? "" : "s"}
-                            {unpaid > 0 ? ` · ${unpaid} unpaid` : " · all paid"}
-                            {g.sub ? ` · ${g.sub}` : ""}
-                          </div>
+          {/* Unassigned invoices (not tied to any job) shown inline if they exist */}
+          {(() => {
+            const unassigned = invoices.filter((inv) => !inv.jobId || !jobs.some((j) => j.id === inv.jobId));
+            if (!unassigned.length) return null;
+            return (
+              <div className="mt-4">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Unassigned invoices</div>
+                <div className="bg-card rounded-[20px] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
+                  {unassigned.map((inv) => (
+                    <div key={inv.id} className="flex items-center gap-3 p-3">
+                      <Link href={`/invoices/${inv.id}`} className="flex-1 min-w-0 hover:opacity-70 transition-opacity">
+                        <div className="font-semibold text-sm">{inv.invoiceNo || "Invoice"}</div>
+                        <div className={`text-xs font-medium px-1.5 py-0.5 rounded-full inline-block mt-0.5 ${invoiceStatusCls[inv.status] ?? "text-muted-foreground"}`}>
+                          {inv.status === "past_due" ? `Past due${inv.daysLate ? ` · ${inv.daysLate}d late` : ""}` : invoiceStatusLabel[inv.status] ?? inv.status}
                         </div>
-                        <div className="font-mono font-bold shrink-0 tabular-nums">${total.toLocaleString()}</div>
-                        <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
-                      </button>
-                      <AnimatePresence initial={false}>
-                        {open && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-                          >
-                            <div className="divide-y divide-[var(--hairline)] border-t border-[var(--hairline)]">
-                              {g.items.map((inv) => (
-                                <div key={inv.id} className="flex items-center gap-3 p-4 pl-6">
-                                  <Link href={`/invoices/${inv.id}`} className="flex-1 min-w-0 hover:opacity-70 transition-opacity">
-                                    <div className="font-semibold">{inv.invoiceNo || "Invoice"}</div>
-                                    <div className={`text-sm font-medium ${invoiceStatusCls[inv.status] ?? "text-muted-foreground"}`}>
-                                      {inv.status === "past_due"
-                                        ? `Past due${inv.daysLate ? ` · ${inv.daysLate}d late` : ""}`
-                                        : invoiceStatusLabel[inv.status] ?? inv.status}
-                                    </div>
-                                  </Link>
-                                  <div className="font-mono font-bold shrink-0 tabular-nums">${inv.amount.toLocaleString()}</div>
-                                  {inv.status === "paid" ? (
-                                    <button
-                                      disabled={setStatus.isPending}
-                                      onClick={() => toggleInvoice(inv.id, "sent")}
-                                      className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full bg-black/[0.05] text-muted-foreground hover:bg-black/[0.08] transition-colors disabled:opacity-50"
-                                    >
-                                      Mark pending
-                                    </button>
-                                  ) : (
-                                    <button
-                                      disabled={setStatus.isPending}
-                                      onClick={() => toggleInvoice(inv.id, "paid")}
-                                      className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full text-[var(--ink)] bg-[var(--primary)] hover:brightness-105 transition-all disabled:opacity-50"
-                                    >
-                                      Mark paid
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                      </Link>
+                      <div className="font-mono font-bold shrink-0 tabular-nums text-sm">${inv.amount.toLocaleString()}</div>
+                      {inv.status === "paid" ? (
+                        <button disabled={setStatus.isPending} onClick={() => toggleInvoice(inv.id, "sent")} className="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full bg-black/[0.05] text-muted-foreground hover:bg-black/[0.08] transition-colors disabled:opacity-50">
+                          Mark pending
+                        </button>
+                      ) : (
+                        <button disabled={setStatus.isPending} onClick={() => toggleInvoice(inv.id, "paid")} className="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full text-[var(--ink)] bg-[var(--primary)] hover:brightness-105 transition-all disabled:opacity-50">
+                          Mark paid
+                        </button>
+                      )}
                     </div>
-                  );
-                });
-              })()}
-            </div>
-          </section>
-
-          <MarginSection
-            title="Margin & Price List"
-            currentPct={stats.marginPct ?? null}
-            minFrac={property.marginMin}
-            targetFrac={property.marginTarget}
-            saving={updateProperty.isPending}
-            onSave={({ minFrac, targetFrac }) =>
-              updateProperty.mutate(
-                { id, data: { marginMin: minFrac, marginTarget: targetFrac } },
-                {
-                  onSuccess: () => {
-                    queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
-                    queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
-                    queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
-                  },
-                },
-              )
-            }
-          >
-            <div className="mt-4 pt-4 border-t border-border">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Agreed rates{priceItems.length > 0 && <span className="font-normal"> · {priceItems.length}</span>}
-                </div>
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => setPriceSheetOpen(true)}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-                    data-testid="button-import-price-sheet"
-                  >
-                    <FileUp className="w-3.5 h-3.5" /> Import price list
-                  </button>
-                  <button
-                    onClick={() => setImportOpen(true)}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-                  >
-                    <BookOpen className="w-3.5 h-3.5" /> From Price Book
-                  </button>
-                  <button
-                    onClick={() => setPriceOpen(true)}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add
-                  </button>
+                  ))}
                 </div>
               </div>
-              <div className="-mx-1">
-                {/* Agreed rates organized into master-list category containers;
-                    every price stays editable per property via the pencil. */}
-                {(() => {
-                  const byCat = new Map<string, typeof priceItems>();
-                  for (const item of priceItems) {
-                    const cat = item.category?.trim() || "Other";
-                    byCat.set(cat, [...(byCat.get(cat) ?? []), item]);
+            );
+          })()}
+
+          <CrewPhotosSection photos={crewPhotos ?? []} showJob />
+        </section>
+
+        {/* ── MARGIN & PRICE LIST ───────────────────────────────────────────── */}
+        <MarginSection
+          title="Margin & Price List"
+          currentPct={stats.marginPct ?? null}
+          minFrac={property.marginMin}
+          targetFrac={property.marginTarget}
+          saving={updateProperty.isPending}
+          onSave={({ minFrac, targetFrac }) =>
+            updateProperty.mutate(
+              { id, data: { marginMin: minFrac, marginTarget: targetFrac } },
+              {
+                onSuccess: () => {
+                  queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(id) });
+                  queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
+                  queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+                },
+              },
+            )
+          }
+        >
+          <div className="mt-4 pt-4 border-t border-border">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Agreed rates{priceItems.length > 0 && <span className="font-normal"> · {priceItems.length}</span>}
+              </div>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setPriceSheetOpen(true)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+                  data-testid="button-import-price-sheet"
+                >
+                  <FileUp className="w-3.5 h-3.5" /> Import price list
+                </button>
+                <button
+                  onClick={() => setImportOpen(true)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+                >
+                  <BookOpen className="w-3.5 h-3.5" /> From Price Book
+                </button>
+                <button
+                  onClick={() => setPriceOpen(true)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </button>
+              </div>
+            </div>
+            <div className="-mx-1">
+              {(() => {
+                const byCat = new Map<string, typeof priceItems>();
+                for (const item of priceItems) {
+                  const cat = item.category?.trim() || "Other";
+                  byCat.set(cat, [...(byCat.get(cat) ?? []), item]);
+                }
+                const stripBr = (s: string) => s.replace(/\s*[—–-]\s*\d\s*BR\s*$/i, "").trim();
+                const sizeOf = (it: (typeof priceItems)[number]): number | null => {
+                  const m = /(\d)\s*BR\s*$/i.exec(it.service) ?? /^(\d)\s*BR$/i.exec(it.unit ?? "");
+                  return m ? Number(m[1]) : null;
+                };
+                const catEntries = [...byCat.entries()].sort(([a], [b]) => {
+                  const isMR = (s: string) => /make[\s-]?ready/i.test(s);
+                  return Number(isMR(b)) - Number(isMR(a));
+                });
+                return catEntries.map(([cat, list]) => {
+                  type Row =
+                    | { kind: "single"; item: (typeof priceItems)[number] }
+                    | { kind: "sized"; base: string; variants: { size: number; item: (typeof priceItems)[number] }[] };
+                  const byBase = new Map<string, { size: number; item: (typeof priceItems)[number] }[]>();
+                  const rows: Row[] = [];
+                  for (const item of list) {
+                    const size = sizeOf(item);
+                    if (size == null) { rows.push({ kind: "single", item }); continue; }
+                    const base = stripBr(item.service);
+                    const family = byBase.get(base);
+                    if (family) { family.push({ size, item }); }
+                    else { const fresh = [{ size, item }]; byBase.set(base, fresh); rows.push({ kind: "sized", base, variants: fresh }); }
                   }
-                  // Within a category, bedroom-size variants of the same service
-                  // collapse into ONE row with a price chip per size:
-                  //   Wall Prep & Paint   1 BR $230 · 2 BR $320 · 3 BR $380
-                  // Tapping a chip edits that size's price.
-                  const stripBr = (s: string) => s.replace(/\s*[—–-]\s*\d\s*BR\s*$/i, "").trim();
-                  const sizeOf = (it: (typeof priceItems)[number]): number | null => {
-                    const m = /(\d)\s*BR\s*$/i.exec(it.service) ?? /^(\d)\s*BR$/i.exec(it.unit ?? "");
-                    return m ? Number(m[1]) : null;
-                  };
-                  // Make-Ready pinned to the top of the price list (above Paint),
-                  // remaining categories keep their existing order.
-                  const catEntries = [...byCat.entries()].sort(([a], [b]) => {
-                    const isMR = (s: string) => /make[\s-]?ready/i.test(s);
-                    return Number(isMR(b)) - Number(isMR(a));
-                  });
-                  return catEntries.map(([cat, list]) => {
-                    type Row =
-                      | { kind: "single"; item: (typeof priceItems)[number] }
-                      | { kind: "sized"; base: string; variants: { size: number; item: (typeof priceItems)[number] }[] };
-                    const byBase = new Map<string, { size: number; item: (typeof priceItems)[number] }[]>();
-                    const rows: Row[] = [];
-                    for (const item of list) {
-                      const size = sizeOf(item);
-                      if (size == null) {
-                        rows.push({ kind: "single", item });
-                        continue;
-                      }
-                      const base = stripBr(item.service);
-                      const family = byBase.get(base);
-                      if (family) {
-                        family.push({ size, item });
-                      } else {
-                        const fresh = [{ size, item }];
-                        byBase.set(base, fresh);
-                        rows.push({ kind: "sized", base, variants: fresh });
-                      }
-                    }
-                    return (
+                  return (
                     <div key={cat} className="mb-3 last:mb-0 rounded-xl border border-border overflow-hidden">
                       <div className="bg-[var(--muted)] px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                         {cat}
@@ -1235,19 +1237,13 @@ export default function PropertyDetail() {
                               <div key={`sized-${row.base}`} className="flex items-center gap-3 px-1 py-2.5">
                                 <div className="flex-1 min-w-0">
                                   <div className="text-sm font-semibold truncate">{row.base}</div>
-                                  {variants[0].item.detail && (
-                                    <div className="text-xs text-muted-foreground truncate">{variants[0].item.detail}</div>
-                                  )}
+                                  {variants[0].item.detail && <div className="text-xs text-muted-foreground truncate">{variants[0].item.detail}</div>}
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   {variants.map(({ size, item }) => (
-                                    <button
-                                      key={item.id}
-                                      onClick={() => setEditPriceId(item.id)}
-                                      title={`Edit ${size} BR price`}
+                                    <button key={item.id} onClick={() => setEditPriceId(item.id)} title={`Edit ${size} BR price`}
                                       className="flex items-baseline gap-1 rounded-full border border-border bg-card px-2.5 py-1 hover:border-[var(--gold)] hover:shadow-[var(--shadow-card)] transition-all"
-                                      data-testid={`edit-price-${item.id}`}
-                                    >
+                                      data-testid={`edit-price-${item.id}`}>
                                       <span className="text-[10px] font-bold uppercase text-muted-foreground">{size} BR</span>
                                       <span className="font-mono font-bold text-sm tabular-nums">${item.rate}</span>
                                     </button>
@@ -1258,99 +1254,135 @@ export default function PropertyDetail() {
                           }
                           const item = row.kind === "sized" ? row.variants[0].item : row.item;
                           return (
-                          <div key={item.id} className="flex items-center gap-3 px-1 py-2.5">
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-semibold truncate">{item.service}</div>
-                              {item.detail && <div className="text-xs text-muted-foreground truncate">{item.detail}</div>}
+                            <div key={item.id} className="flex items-center gap-3 px-1 py-2.5">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-semibold truncate">{item.service}</div>
+                                {item.detail && <div className="text-xs text-muted-foreground truncate">{item.detail}</div>}
+                              </div>
+                              <div className="text-right shrink-0 font-mono font-bold text-sm tabular-nums">
+                                ${item.rate}{item.unit && <span className="text-xs text-muted-foreground font-normal">/{item.unit}</span>}
+                              </div>
+                              <button aria-label="Edit price item" onClick={() => setEditPriceId(item.id)}
+                                className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
+                                data-testid={`edit-price-${item.id}`}>
+                                <Pencil className="w-3 h-3" />
+                              </button>
                             </div>
-                            <div className="text-right shrink-0 font-mono font-bold text-sm tabular-nums">
-                              ${item.rate}
-                              {item.unit && <span className="text-xs text-muted-foreground font-normal">/{item.unit}</span>}
-                            </div>
-                            <button
-                              aria-label="Edit price item"
-                              onClick={() => setEditPriceId(item.id)}
-                              className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors"
-                              data-testid={`edit-price-${item.id}`}
-                            >
-                              <Pencil className="w-3 h-3" />
-                            </button>
-                          </div>
                           );
                         })}
                       </div>
                     </div>
-                    );
-                  });
-                })()}
-                {!priceItems.length && (
-                  <div className="py-4 text-center text-sm text-muted-foreground">No agreed rates yet.</div>
-                )}
-              </div>
+                  );
+                });
+              })()}
+              {!priceItems.length && (
+                <div className="py-4 text-center text-sm text-muted-foreground">No agreed rates yet.</div>
+              )}
             </div>
-          </MarginSection>
+          </div>
+        </MarginSection>
 
+        {/* ── SCHEDULE + CONTACTS (two compact columns) ─────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-display font-bold text-[var(--ink)]">Upcoming Visits</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-display font-bold text-[var(--ink)]">Upcoming Visits</h2>
               <Link href="/calendar" className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors">
                 <CalendarDays className="w-4 h-4" /> Schedule
               </Link>
             </div>
             <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
               {upcomingVisits.map((v) => (
-                <div key={v.id} className="flex items-center gap-3 p-4">
+                <div key={v.id} className="flex items-center gap-2 px-4 py-3">
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold">
+                    <div className="font-semibold text-sm leading-tight">
                       {new Date(`${v.scheduledOn}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
                       {v.windowStart ? ` · ${v.windowStart}` : ""}
                     </div>
-                    <div className="text-sm text-muted-foreground truncate">
+                    <div className="text-xs text-muted-foreground truncate mt-0.5">
                       {[v.jobDescription, v.unitNo ? `Unit ${v.unitNo}` : null].filter(Boolean).join(" · ") || "Scheduled visit"}
                     </div>
                   </div>
-                  {v.crewLeaderName && <div className="text-sm text-muted-foreground shrink-0">{v.crewLeaderName}</div>}
+                  {v.crewLeaderName && <div className="text-xs text-muted-foreground shrink-0">{v.crewLeaderName}</div>}
                 </div>
               ))}
-              {!upcomingVisits.length && <div className="p-6 text-center text-sm text-muted-foreground">No upcoming visits scheduled.</div>}
+              {!upcomingVisits.length && (
+                <div className="px-4 py-5 text-center text-sm text-muted-foreground">No upcoming visits.</div>
+              )}
             </div>
           </section>
 
           <section>
-            <h2 className="text-xl font-display font-bold text-[var(--ink)] mb-4">Expenses</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-display font-bold text-[var(--ink)]">Contacts</h2>
+              <button onClick={() => setContactOpen(true)}
+                className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gold-dark)] hover:text-[var(--gold)] transition-colors">
+                <Plus className="w-4 h-4" /> Add
+              </button>
+            </div>
             <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
-              {expenses.map((e) => (
-                <div key={e.id} className="flex items-center gap-3 p-4">
-                  {e.receiptPath && (
-                    <a
-                      href={`/api/storage${e.receiptPath}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="View receipt"
-                      className="shrink-0 block w-10 h-10 rounded-lg overflow-hidden border border-[var(--hairline)] bg-muted"
-                      data-testid={`expense-receipt-${e.id}`}
-                    >
-                      <img src={`/api/storage${e.receiptPath}`} alt="Receipt" loading="lazy" className="w-full h-full object-cover" />
-                    </a>
-                  )}
+              {contacts.map((contact) => (
+                <div key={contact.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold flex items-center gap-1.5">
-                      <span className="truncate">{e.vendor || e.category || "Expense"}</span>
-                      {e.unitNo && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--ink)]/8 shrink-0">Unit {e.unitNo}</span>
-                      )}
-                    </div>
-                    <div className="text-sm text-muted-foreground truncate">
-                      {[e.category, e.spentOn ? new Date(e.spentOn).toLocaleDateString() : null].filter(Boolean).join(" · ")}
-                    </div>
+                    <div className="font-semibold text-sm">{contact.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{contact.role}</div>
                   </div>
-                  <div className="font-mono font-bold shrink-0">${e.amount.toLocaleString()}</div>
+                  <div className="text-right text-xs text-muted-foreground shrink-0">
+                    {contact.phone && <div>{contact.phone}</div>}
+                    {contact.email && <div className="truncate max-w-[120px]">{contact.email}</div>}
+                  </div>
+                  <button aria-label="Edit contact" onClick={() => setEditContactId(contact.id)}
+                    className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-black/[0.05] transition-colors">
+                    <Pencil className="w-3 h-3" />
+                  </button>
                 </div>
               ))}
-              {!expenses.length && <div className="p-6 text-center text-sm text-muted-foreground">No expenses logged.</div>}
+              {!contacts.length && <div className="px-4 py-5 text-center text-sm text-muted-foreground">No contacts.</div>}
             </div>
           </section>
         </div>
+
+        {/* ── EXPENSES ──────────────────────────────────────────────────────── */}
+        <section>
+          <h2 className="text-base font-display font-bold text-[var(--ink)] mb-3">Expenses</h2>
+          <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] divide-y divide-[var(--hairline)]">
+            {expenses.map((e) => (
+              <div key={e.id} className="flex items-center gap-3 px-4 py-3">
+                {e.receiptPath && (
+                  <a href={`/api/storage${e.receiptPath}`} target="_blank" rel="noreferrer" title="View receipt"
+                    className="shrink-0 block w-9 h-9 rounded-lg overflow-hidden border border-[var(--hairline)] bg-muted"
+                    data-testid={`expense-receipt-${e.id}`}>
+                    <img src={`/api/storage${e.receiptPath}`} alt="Receipt" loading="lazy" className="w-full h-full object-cover" />
+                  </a>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm flex items-center gap-1.5">
+                    <span className="truncate">{e.vendor || e.category || "Expense"}</span>
+                    {e.unitNo && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--ink)]/8 shrink-0">Unit {e.unitNo}</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {[e.category, e.spentOn ? new Date(e.spentOn).toLocaleDateString() : null].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+                <div className="font-mono font-bold text-sm shrink-0 tabular-nums">${e.amount.toLocaleString()}</div>
+              </div>
+            ))}
+            {!expenses.length && <div className="px-4 py-5 text-center text-sm text-muted-foreground">No expenses logged.</div>}
+          </div>
+        </section>
+
+        {/* ── PROPERTY BRIEF ────────────────────────────────────────────────── */}
+        {property.brief && (
+          <div className="bg-[var(--gold-tint)] border border-[var(--hairline)] rounded-[20px] p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+            <div className="font-display font-bold text-[11px] tracking-[0.2em] uppercase text-[var(--ink)] mb-2 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[var(--gold-light)]" /> Property Brief
+            </div>
+            <div className="text-sm text-[var(--ink2)] leading-relaxed whitespace-pre-line">{property.brief}</div>
+          </div>
+        )}
+
       </div>
     </div>
   );

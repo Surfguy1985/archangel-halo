@@ -286,6 +286,7 @@ export const GetPropertyResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -1421,6 +1422,7 @@ export const QuickCreateJobResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -1507,6 +1509,7 @@ export const PullCrewToJobResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -1578,6 +1581,7 @@ export const PullCrewToJobResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -1657,6 +1661,7 @@ export const ListJobsResponseItem = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -1752,6 +1757,7 @@ export const CreateJobResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -1830,6 +1836,7 @@ export const GetJobResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -1976,6 +1983,7 @@ export const UpdateJobResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -2072,6 +2080,7 @@ export const CompleteJobResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -2152,6 +2161,7 @@ export const ClearJobResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -2232,6 +2242,7 @@ export const RestartJobResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -2318,6 +2329,7 @@ export const ScheduleJobResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -2404,6 +2416,7 @@ export const DispatchJobResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -2652,6 +2665,7 @@ export const ReopenJobChangeOrderResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -2937,6 +2951,7 @@ export const SendJobRecapResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -3523,6 +3538,7 @@ export const ListJobBoardResponseItem = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -3714,6 +3730,7 @@ export const PayJobCrewMemberResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -3798,6 +3815,7 @@ export const ClearJobCrewPayResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -3894,6 +3912,7 @@ export const SetJobBoardStatusResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -3980,6 +3999,7 @@ export const UpdateBoardSettingsResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),
@@ -4060,6 +4080,7 @@ export const ReopenJobResponse = zod.object({
 })),zod.null()]).optional().describe('Board pay-flow tracker — one row per crew member paid from the billing card'),
   "services": zod.union([zod.array(zod.string()),zod.null()]).optional().describe('Distinct service names from the job\'s line items (job board only)'),
   "createdAt": zod.string().nullish(),
+  "walkApprovedAt": zod.string().nullish().describe('Set when the property manager approves HALO Walk findings from the client board'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "jobId": zod.string(),

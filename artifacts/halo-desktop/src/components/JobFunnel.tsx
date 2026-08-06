@@ -161,6 +161,7 @@ export function JobFunnel({
   const [scanNote, setScanNote] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [missing, setMissing] = useState<string[] | null>(null);
+  const [missingCodes, setMissingCodes] = useState<string[]>([]);
   const [closedOut, setClosedOut] = useState<{ emailSent: boolean} | null>(null);
   const [broadcasted, setBroadcasted] = useState(false);
   const [pickingCrew, setPickingCrew] = useState(false);
@@ -368,8 +369,9 @@ export function JobFunnel({
           invalidateAll();
        },
         onError: (err: unknown) => {
-          const data = (err as { data?: { missing?: string[]; error?: string}})?.data;
+          const data = (err as { data?: { missing?: string[]; missingCodes?: string[]; error?: string}})?.data;
           setMissing(data?.missing?.length ? data.missing : [data?.error ?? "Close-out failed — please try again."]);
+          setMissingCodes(data?.missingCodes ?? []);
           setClosing(false);
        },
      },
@@ -379,8 +381,16 @@ export function JobFunnel({
   const pillBtn =
     "flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors disabled:opacity-50";
 
+  // Gold walk-approved flash — persistent lime glow until staff assigns a crew.
+  const walkApproved = !!(job as any).walkApprovedAt && !job.crewLeaderId;
+
   return (
-    <div className="mt-3 rounded-xl border border-border bg-black/[0.015] p-3">
+    <div className={[
+      "mt-3 rounded-xl border p-3",
+      walkApproved
+        ? "border-[#B4FF44]/60 bg-[#B4FF44]/[0.04] ring-2 ring-[#B4FF44]/40 shadow-[0_0_18px_0_rgba(180,255,68,0.22)]"
+        : "border-border bg-black/[0.015]",
+    ].join(" ")}>
       {/* Stepper */}
       <div className="flex items-center">
         {STAGES.map((s, i) => {
@@ -780,21 +790,76 @@ export function JobFunnel({
         )}
       </div>
 
-      {/* Red safeguard warning */}
+      {/* Actionable close-out blockers — each item has a fix right here */}
       {missing && (
-        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-red-700">
-            <AlertTriangle className="w-3.5 h-3.5" /> Heads up
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+          <div className="flex items-center gap-1.5 text-sm font-bold text-amber-800">
+            <AlertTriangle className="w-4 h-4 shrink-0" /> Fix these before closing out:
           </div>
-          <ul className="mt-1.5 space-y-1">
-            {missing.map((m) => (
-              <li key={m} className="text-sm text-red-700 flex items-start gap-1.5">
-                <span className="mt-[7px] w-1 h-1 rounded-full bg-red-500 shrink-0" />
-                {m}
-              </li>
-            ))}
-          </ul>
-          <button onClick={() => setMissing(null)} className="mt-2 text-[11px] font-semibold text-red-600 hover:text-red-800 underline underline-offset-2">
+          <div className="space-y-2.5">
+            {missing.map((m, i) => {
+              const code = missingCodes[i] ?? "";
+              return (
+                <div key={m} className="flex items-start justify-between gap-3 p-2.5 bg-white rounded-lg border border-amber-100">
+                  <span className="text-sm text-amber-900 leading-snug">{m}</span>
+                  <div className="shrink-0">
+                    {/* invoice missing → create one from line total */}
+                    {code === "invoice" && (
+                      <button
+                        onClick={() =>
+                          createInvoice.mutate(
+                            { data: { propertyId, jobId: job.id, amount: defaultAmount } },
+                            { onSuccess: () => { setMissing(null); setMissingCodes([]); invalidateAll(); } },
+                          )
+                        }
+                        disabled={createInvoice.isPending}
+                        className="text-xs font-bold px-3 py-1.5 rounded-full bg-[var(--primary)] text-black hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {createInvoice.isPending ? "Creating…" : "Create invoice"}
+                      </button>
+                    )}
+                    {/* invoice not paid → mark paid */}
+                    {code === "invoice_paid" && invoice && (
+                      <button
+                        onClick={() =>
+                          setStatus.mutate(
+                            { id: invoice.id, data: { status: "paid" } },
+                            { onSuccess: () => { setMissing(null); setMissingCodes([]); invalidateAll(); } },
+                          )
+                        }
+                        disabled={setStatus.isPending}
+                        className="text-xs font-bold px-3 py-1.5 rounded-full bg-[var(--primary)] text-black hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {setStatus.isPending ? "Saving…" : "Mark invoice paid"}
+                      </button>
+                    )}
+                    {/* no crew → open crew picker */}
+                    {code === "crew" && (
+                      <button
+                        onClick={() => { setPickingCrew(true); setMissing(null); setMissingCodes([]); }}
+                        className="text-xs font-bold px-3 py-1.5 rounded-full bg-[var(--primary)] text-black hover:opacity-90 whitespace-nowrap"
+                      >
+                        Assign crew
+                      </button>
+                    )}
+                    {/* work or crew_pay → go to job board */}
+                    {(code === "work" || code === "crew_pay") && (
+                      <Link
+                        href="/jobboard"
+                        className="text-xs font-bold px-3 py-1.5 rounded-full bg-[var(--secondary)] text-white hover:opacity-90 whitespace-nowrap inline-block"
+                      >
+                        Go to Job Board →
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <button
+            onClick={() => { setMissing(null); setMissingCodes([]); }}
+            className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 underline underline-offset-2"
+          >
             Dismiss
           </button>
         </div>

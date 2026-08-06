@@ -1964,6 +1964,11 @@ export interface Job {
   services?: string[] | null;
   /** @nullable */
   createdAt?: string | null;
+  /**
+     * Set when the property manager approves HALO Walk findings from the client board
+     * @nullable
+     */
+  walkApprovedAt?: string | null;
   lineItems?: JobLineItem[];
   /** @nullable */
   lineTotal?: number | null;

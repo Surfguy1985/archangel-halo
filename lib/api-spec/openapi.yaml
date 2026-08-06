@@ -11699,6 +11699,7 @@ components:
             - type: "null"
           description: "Distinct service names from the job's line items (job board only)"
         createdAt: { type: ["string", "null"] }
+        walkApprovedAt: { type: ["string", "null"], description: "Set when the property manager approves HALO Walk findings from the client board" }
         lineItems:
           type: array
           items:

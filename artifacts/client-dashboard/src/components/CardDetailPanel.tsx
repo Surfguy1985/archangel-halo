@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Tag, Calendar, Flag, CheckSquare, MessageSquare, Send, Loader2, ImagePlus, Paperclip } from 'lucide-react';
+import { X, Tag, Calendar, Flag, CheckSquare, MessageSquare, Send, Loader2, ImagePlus, Paperclip, Check, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +15,7 @@ import {
   useListClientCardComments,
   useAddClientCardComment,
   useMarkClientCardCommentsSeen,
+  useClientBoardCardAction,
   getListClientCardCommentsQueryKey,
   getGetClientBoardQueryKey,
   getGetClientPmBoardQueryKey
@@ -23,6 +24,77 @@ import { uploadFile } from '@/lib/upload';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import type { ClientBoardCardView } from '@workspace/api-client-react';
+
+/** Compact 3-col photo grid with a full-screen lightbox for walk review. */
+function WalkPhotoGrid({ photos }: { photos: string[] }) {
+  const [lightbox, setLightbox] = useState<number | null>(null);
+  if (!photos.length) return null;
+  return (
+    <div>
+      <div className="grid grid-cols-3 gap-1.5">
+        {photos.map((url, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => setLightbox(i)}
+            className="relative aspect-square rounded-xl overflow-hidden border border-border group"
+          >
+            <img
+              src={url}
+              alt={`Walk photo ${i + 1}`}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+              loading="lazy"
+            />
+          </button>
+        ))}
+      </div>
+      {lightbox !== null && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/95 flex flex-col items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            type="button"
+            className="absolute top-4 right-4 text-white/70 hover:text-white p-2"
+            onClick={() => setLightbox(null)}
+          >
+            <X className="w-7 h-7" />
+          </button>
+          <img
+            src={photos[lightbox]}
+            alt=""
+            className="max-h-[80vh] max-w-full rounded-2xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div
+            className="mt-4 flex items-center gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              disabled={lightbox === 0}
+              onClick={() => setLightbox(lightbox - 1)}
+              className="px-4 py-2 rounded-xl bg-white/10 text-white text-sm font-bold disabled:opacity-30"
+            >
+              Prev
+            </button>
+            <span className="text-white/60 text-sm font-medium">
+              {lightbox + 1} / {photos.length}
+            </span>
+            <button
+              type="button"
+              disabled={lightbox === photos.length - 1}
+              onClick={() => setLightbox(lightbox + 1)}
+              className="px-4 py-2 rounded-xl bg-white/10 text-white text-sm font-bold disabled:opacity-30"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface CardDetailPanelProps {
   card: ClientBoardCardView;
@@ -214,11 +286,42 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
     ? Math.round((checklist.filter(c => c.done).length / checklist.length) * 100)
     : 0;
 
+  // Walk-job approval mutation — fires the walk.approve board action.
+  const actionMut = useClientBoardCardAction();
+  const isWalkCard = (card as any).sourceType === 'walk_job';
+  const walkModule = isWalkCard ? (card.module as any) : null;
+  const walkApproved = !!walkModule?.approvedAt;
+
+  const handleApproveWalk = () => {
+    if (!walkModule?.jobId || walkApproved || readOnly) return;
+    actionMut.mutate(
+      { token, cardId: card.cardKey, data: { action: 'walk.approve', cardKey: card.cardKey, jobId: walkModule.jobId } as any },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+          queryClient.invalidateQueries({ queryKey: getGetClientPmBoardQueryKey(token) });
+        },
+      },
+    );
+  };
+
   return (
     <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] bg-background border-l border-border shadow-2xl z-50 flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <h2 className="text-lg font-semibold text-foreground">Card Details</h2>
+      {/* Header — walk cards get a lime accent stripe */}
+      <div className={[
+        "flex items-center justify-between px-6 py-4 border-b border-border",
+        isWalkCard ? "bg-[#B4FF44]/10" : "",
+      ].join(" ")}>
+        <div className="flex items-center gap-2.5 min-w-0">
+          {isWalkCard && (
+            <span className="shrink-0 flex items-center gap-1 rounded-full bg-[#B4FF44] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-widest text-black">
+              HALO Walk
+            </span>
+          )}
+          <h2 className="text-lg font-semibold text-foreground truncate">
+            {isWalkCard ? (walkModule?.unitNo ? `Unit ${walkModule.unitNo}` : 'Walk Findings') : 'Card Details'}
+          </h2>
+        </div>
         <Button
           variant="ghost"
           size="icon"
@@ -231,37 +334,156 @@ export function CardDetailPanel({ card, token, readOnly, onClose }: CardDetailPa
 
       <ScrollArea className="flex-1 px-6 py-4">
         <div className="space-y-6">
-          {/* Title */}
-          <div>
-            <h3 className="text-xl font-bold text-foreground mb-1">{card.title}</h3>
-            {card.subtitle && (
-              <p className="text-sm text-muted-foreground">{card.subtitle}</p>
-            )}
-            {card.description && (
-              <p className="text-sm text-muted-foreground mt-1">{card.description}</p>
-            )}
-          </div>
 
-          {/* Meta info */}
-          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-            {card.dueOn && (
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-4 h-4" />
-                <span>Due {card.dueOn}</span>
+          {/* ── WALK REQUEST DETAIL ─────────────────────────────────────────── */}
+          {isWalkCard && walkModule && (
+            <div className="space-y-5">
+              {/* Unit + job reference */}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-bold text-foreground">
+                    {walkModule.unitNo ? `Unit ${walkModule.unitNo}` : 'Walk Findings'}
+                  </h3>
+                  {walkModule.jobNo && (
+                    <p className="text-xs text-muted-foreground mt-0.5">Job {walkModule.jobNo}</p>
+                  )}
+                </div>
+                {walkApproved && (
+                  <span className="shrink-0 flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                    <Check className="w-3.5 h-3.5" /> Approved
+                  </span>
+                )}
               </div>
-            )}
-            {card.priority && (
-              <div className="flex items-center gap-1.5">
-                <Flag className="w-4 h-4" />
-                <span className="capitalize">{card.priority}</span>
-              </div>
-            )}
-          </div>
 
-          {card.module && (
+              {/* Walk photos */}
+              {walkModule.photoUrls?.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                    Photos ({walkModule.photoUrls.length})
+                  </p>
+                  <WalkPhotoGrid photos={walkModule.photoUrls} />
+                </div>
+              )}
+
+              {/* Line items */}
+              {walkModule.lineItems?.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <ClipboardList className="w-3.5 h-3.5" /> Work Requested
+                  </p>
+                  <div className="rounded-xl border border-border divide-y divide-border overflow-hidden">
+                    {walkModule.lineItems.map((item: { service: string; qty: number | null; rate: number | null }, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between px-4 py-3 bg-background hover:bg-accent/30 transition-colors">
+                        <span className="text-sm font-medium text-foreground">{item.service}</span>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          {item.qty != null && item.qty !== 1 && (
+                            <span>× {item.qty}</span>
+                          )}
+                          {item.rate != null && (
+                            <span className="font-semibold text-foreground">
+                              ${(item.rate * (item.qty ?? 1)).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Walk notes (read-only) */}
+              {walkModule.walkNotes && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-widest text-amber-700 mb-1">Walk Notes</p>
+                  <p className="text-sm text-amber-900 whitespace-pre-wrap leading-relaxed">{walkModule.walkNotes}</p>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* PM Notes — standard card notes textarea */}
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Your Notes</Label>
+                <Textarea
+                  placeholder="Add your review notes here…"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  onBlur={handleNotesBlur}
+                  rows={3}
+                  disabled={readOnly}
+                  className="resize-none text-sm"
+                  data-testid="textarea-notes"
+                />
+              </div>
+
+              <Separator />
+
+              {/* Approve All — big CTA */}
+              {!walkApproved ? (
+                <button
+                  type="button"
+                  disabled={readOnly || actionMut.isPending}
+                  onClick={handleApproveWalk}
+                  data-testid="button-approve-walk"
+                  className={[
+                    "w-full flex items-center justify-center gap-2.5 rounded-2xl py-4 text-base font-extrabold tracking-wide transition-all",
+                    "bg-[#B4FF44] text-black hover:brightness-105 active:scale-[0.98]",
+                    "shadow-[0_4px_24px_0_rgba(180,255,68,0.4)]",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                  ].join(" ")}
+                >
+                  {actionMut.isPending ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Check className="w-5 h-5" />
+                  )}
+                  {actionMut.isPending ? 'Approving…' : 'Approve All — Send to Work Queue'}
+                </button>
+              ) : (
+                <div className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-emerald-300 bg-emerald-50 py-4 text-base font-bold text-emerald-700">
+                  <Check className="w-5 h-5" />
+                  Approved — In the work queue
+                </div>
+              )}
+            </div>
+          )}
+          {/* ── END WALK REQUEST DETAIL ─────────────────────────────────────── */}
+
+          {!isWalkCard && (
             <>
-              <Separator className="my-6" />
-              <CardModuleDetail module={card.module} token={token} />
+              {/* Title */}
+              <div>
+                <h3 className="text-xl font-bold text-foreground mb-1">{card.title}</h3>
+                {card.subtitle && (
+                  <p className="text-sm text-muted-foreground">{card.subtitle}</p>
+                )}
+                {card.description && (
+                  <p className="text-sm text-muted-foreground mt-1">{card.description}</p>
+                )}
+              </div>
+
+              {/* Meta info */}
+              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+                {card.dueOn && (
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4" />
+                    <span>Due {card.dueOn}</span>
+                  </div>
+                )}
+                {card.priority && (
+                  <div className="flex items-center gap-1.5">
+                    <Flag className="w-4 h-4" />
+                    <span className="capitalize">{card.priority}</span>
+                  </div>
+                )}
+              </div>
+
+              {card.module && (
+                <>
+                  <Separator className="my-6" />
+                  <CardModuleDetail module={card.module} token={token} />
+                </>
+              )}
             </>
           )}
 

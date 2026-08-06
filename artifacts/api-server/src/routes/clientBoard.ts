@@ -1785,6 +1785,74 @@ const ACTIONS: Record<
     },
   },
 
+  // PM approves HALO Walk findings from the client board → moves the
+  // card to In Progress and marks the underlying job as PM-approved so
+  // the office job board can show a gold flash.
+  "walk.approve": {
+    requiresWrite: true,
+    run: async (ctx) => {
+      if (!ctx.cardKey?.startsWith("push:"))
+        return { ok: false, blocked: false, reason: "Not a walk findings card" };
+      const cardId = ctx.cardKey.slice("push:".length);
+      const jobId = typeof ctx.payload.jobId === "string" ? ctx.payload.jobId : null;
+      if (!jobId) return { ok: false, blocked: false, reason: "jobId required" };
+      // Verify the job belongs to this property.
+      const [job] = await db
+        .select()
+        .from(jobsTable)
+        .where(
+          and(eq(jobsTable.id, jobId), eq(jobsTable.propertyId, ctx.account.propertyId)),
+        )
+        .limit(1);
+      if (!job) return { ok: false, blocked: true, reason: "Job not found" };
+      // Mark the job PM-approved (idempotent).
+      // Cast: walkApprovedAt was added in a schema migration; the compiled
+      // project-reference declarations lag until the next clean lib/db build,
+      // but the column exists in the DB and the runtime behaviour is correct.
+      if (!(job as any).walkApprovedAt) {
+        await db
+          .update(jobsTable)
+          .set({ walkApprovedAt: new Date() } as any)
+          .where(eq(jobsTable.id, jobId));
+      }
+      // Move the push card to in_progress and stamp approvedAt on the module
+      // so the card knows it is approved on next read.
+      const [card] = await db
+        .select()
+        .from(clientBoardCardsTable)
+        .where(
+          and(
+            eq(clientBoardCardsTable.id, cardId),
+            eq(clientBoardCardsTable.propertyId, ctx.account.propertyId),
+          ),
+        )
+        .limit(1);
+      if (card) {
+        const updatedModule = {
+          ...(card.module ?? {}),
+          approvedAt: new Date().toISOString(),
+          approvedBy: ctx.viewer.name ?? "Property Manager",
+          canApprove: false,
+        };
+        await db
+          .update(clientBoardCardsTable)
+          .set({ column: "in_progress", module: updatedModule, updatedAt: new Date() })
+          .where(eq(clientBoardCardsTable.id, cardId));
+      }
+      await db.insert(activitiesTable).values({
+        entityType: "job",
+        entityId: jobId,
+        kind: "note",
+        body: `${ctx.viewer.name ?? "Property Manager"} approved HALO Walk findings — job is now in the work queue`,
+      });
+      return {
+        ok: true,
+        blocked: false,
+        message: "Walk findings approved — this job is now in your work queue.",
+      };
+    },
+  },
+
   // Real HALO action: cancel a pending work request.
   "request.cancel": {
     requiresWrite: true,

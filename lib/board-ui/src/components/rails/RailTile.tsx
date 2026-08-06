@@ -179,7 +179,21 @@ export const RailTile = memo(function RailTile({
           ) : (
             <StageArtPanel rail={tile.rail} />
           )}
-          {tile.card?.changeOrder && (
+          {/* Walk badge takes precedence over change-order banner — only one
+              can show at a time; walk cards never have a change order. */}
+          {tile.walkBadge && (
+            <span
+              className="absolute top-0 left-0 right-0 flex items-center justify-center gap-1 bg-[#B4FF44] px-2 py-[3px] text-[9px] font-extrabold uppercase tracking-[0.12em] text-black"
+              data-testid={`rail-tile-walk-badge-${tile.cardKey}`}
+            >
+              {/* Footprints icon inline */}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M7.5 6.5C7.5 8.43 6.5 10 5 10s-2.5-1.57-2.5-3.5S3.5 3 5 3s2.5 1.57 2.5 3.5zm9 0C16.5 8.43 15.5 10 14 10s-2.5-1.57-2.5-3.5S12.5 3 14 3s2.5 1.57 2.5 3.5zM5 11c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm9 0c-.29 0-.62.02-.97.05C14.19 11.89 15 13.1 15 14.5V17h6v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+              HALO Walk
+            </span>
+          )}
+          {!tile.walkBadge && tile.card?.changeOrder && (
             <span
               className="absolute top-0 left-0 right-0 bg-amber-400 px-2.5 py-0.5 text-center text-[10px] font-bold uppercase tracking-widest text-black"
               data-testid={`rail-tile-change-order-${tile.cardKey}`}
