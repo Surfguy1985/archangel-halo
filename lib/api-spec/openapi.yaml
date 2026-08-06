@@ -1594,6 +1594,56 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /photo-library:
+    get:
+      operationId: getPhotoLibrary
+      tags: [jobs]
+      summary: Every photo received from crews — job before/afters plus portal photo-vault shots — labeled with property and crew for the office photo browser
+      responses:
+        "200":
+          description: All crew photos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PhotoLibraryEntry"
+
+  /jobs/{id}/photos/assign:
+    post:
+      operationId: assignPhotosToJob
+      tags: [jobs]
+      summary: Attach photos from the library to a job card (copies them onto the job as before/after photos)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignPhotosInput"
+      responses:
+        "200":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, added]
+                properties:
+                  ok: { type: boolean }
+                  added: { type: number }
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /jobs/{id}/recap:
     post:
       operationId: draftJobRecap
@@ -11675,6 +11725,31 @@ components:
       properties:
         priceItemId: { type: string }
         qty: { type: number, minimum: 0 }
+    PhotoLibraryEntry:
+      type: object
+      required: [storagePath, kind]
+      properties:
+        storagePath: { type: string }
+        kind: { type: string, description: "photo_before | photo_after | other" }
+        jobId: { type: ["string", "null"] }
+        propertyId: { type: ["string", "null"] }
+        propertyName: { type: ["string", "null"], description: "Column label — null means the photo isn't tied to a property yet" }
+        crewName: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"] }
+        takenOn: { type: ["string", "null"], description: "YYYY-MM-DD when known" }
+    AssignPhotosInput:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [storagePath, kind]
+            properties:
+              storagePath: { type: string }
+              kind: { type: string, enum: [photo_before, photo_after] }
     JobLineItemSwapInput:
       type: object
       required: [priceItemId]

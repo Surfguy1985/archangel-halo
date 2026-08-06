@@ -2776,6 +2776,45 @@ export const SwapJobLineItemResponse = zod.object({
 
 
 /**
+ * @summary Every photo received from crews — job before/afters plus portal photo-vault shots — labeled with property and crew for the office photo browser
+ */
+export const GetPhotoLibraryResponseItem = zod.object({
+  "storagePath": zod.string(),
+  "kind": zod.string().describe('photo_before | photo_after | other'),
+  "jobId": zod.string().nullish(),
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string().nullish().describe('Column label — null means the photo isn\'t tied to a property yet'),
+  "crewName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "takenOn": zod.string().nullish().describe('YYYY-MM-DD when known')
+})
+export const GetPhotoLibraryResponse = zod.array(GetPhotoLibraryResponseItem)
+
+
+/**
+ * @summary Attach photos from the library to a job card (copies them onto the job as before/after photos)
+ */
+export const AssignPhotosToJobParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const AssignPhotosToJobBody = zod.object({
+  "items": zod.array(zod.object({
+  "storagePath": zod.string(),
+  "kind": zod.enum(['photo_before', 'photo_after'])
+})).min(1)
+})
+
+export const AssignPhotosToJobResponse = zod.object({
+  "ok": zod.boolean(),
+  "added": zod.number()
+})
+
+
+/**
  * @summary AI-draft a client-ready work recap from the job's notes and photos
  */
 export const DraftJobRecapParams = zod.object({

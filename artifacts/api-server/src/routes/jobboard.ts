@@ -16,6 +16,7 @@ import {
   clientCardCommentsTable,
   clientDashboardCardsTable,
   crewMessagesTable,
+  crewPhotosTable,
 } from "@workspace/db";
 import { threadKeysFor, notifyClientBoard } from "./clientBoard";
 import { emitBoardEvent } from "../lib/boardEvents";
@@ -33,6 +34,10 @@ import {
   UpdateBoardSettingsParams,
   UpdateBoardSettingsBody,
   UpdateBoardSettingsResponse,
+  GetPhotoLibraryResponse,
+  AssignPhotosToJobParams,
+  AssignPhotosToJobBody,
+  AssignPhotosToJobResponse,
 } from "@workspace/api-zod";
 import { ser } from "../lib/serialize";
 import { completeJsonWithImages } from "../lib/ai";
@@ -1093,6 +1098,142 @@ router.post("/jobs/:id/reopen", async (req, res): Promise<void> => {
         : null,
     }),
   );
+});
+
+// ---------------------------------------------------------------------------
+// Photo library — every photo received from crews, labeled with property and
+// crew, so the office can browse by property and attach shots to a job card.
+router.get("/photo-library", async (_req, res): Promise<void> => {
+  const [acts, vault, jobs, props, crews] = await Promise.all([
+    db
+      .select()
+      .from(activitiesTable)
+      .where(
+        and(
+          eq(activitiesTable.entityType, "job"),
+          inArray(activitiesTable.kind, ["photo_before", "photo_after"]),
+        ),
+      )
+      .orderBy(desc(activitiesTable.createdAt)),
+    db.select().from(crewPhotosTable).orderBy(desc(crewPhotosTable.createdAt)),
+    db.select({ id: jobsTable.id, propertyId: jobsTable.propertyId, unitNo: jobsTable.unitNo }).from(jobsTable),
+    db.select({ id: propertiesTable.id, name: propertiesTable.name }).from(propertiesTable),
+    db.select({ id: crewsTable.id, name: crewsTable.name }).from(crewsTable),
+  ]);
+  const jobsById = new Map(jobs.map((j) => [j.id, j]));
+  const propsById = new Map(props.map((p) => [p.id, p]));
+  const crewsById = new Map(crews.map((c) => [c.id, c]));
+  const seen = new Set<string>();
+  const entries: unknown[] = [];
+  const push = (e: {
+    storagePath: string;
+    kind: string;
+    jobId: string | null;
+    crewName: string | null;
+    takenOn: string | null;
+  }) => {
+    if (!e.storagePath || seen.has(e.storagePath)) return;
+    seen.add(e.storagePath);
+    const job = e.jobId ? jobsById.get(e.jobId) : undefined;
+    const prop = job?.propertyId ? propsById.get(job.propertyId) : undefined;
+    entries.push({
+      storagePath: e.storagePath,
+      kind: e.kind,
+      jobId: e.jobId,
+      propertyId: prop?.id ?? null,
+      propertyName: prop?.name ?? null,
+      unitNo: job?.unitNo ?? null,
+      crewName: e.crewName,
+      takenOn: e.takenOn,
+    });
+  };
+  for (const a of acts) {
+    if (!a.storagePath) continue;
+    push({
+      storagePath: a.storagePath,
+      kind: a.kind ?? "other",
+      jobId: a.entityId,
+      crewName: null,
+      takenOn: a.createdAt ? a.createdAt.toISOString().slice(0, 10) : null,
+    });
+  }
+  for (const p of vault) {
+    push({
+      storagePath: p.storagePath,
+      kind: p.phase === "before" ? "photo_before" : p.phase === "after" ? "photo_after" : "other",
+      jobId: p.jobId,
+      crewName: crewsById.get(p.crewId)?.name ?? null,
+      takenOn: p.takenOn ?? null,
+    });
+  }
+  res.json(GetPhotoLibraryResponse.parse(entries));
+});
+
+// Attach library photos to a job card — copies them onto the job as
+// before/after photo activities (source photos stay where they are).
+router.post("/jobs/:id/photos/assign", async (req, res): Promise<void> => {
+  const { id } = AssignPhotosToJobParams.parse(req.params);
+  const body = AssignPhotosToJobBody.parse(req.body);
+  const [job] = await db
+    .select({ id: jobsTable.id, propertyId: jobsTable.propertyId })
+    .from(jobsTable)
+    .where(eq(jobsTable.id, id));
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  // Only paths that actually exist in the photo library (crew vault shots or
+  // job before/after photo activities) may be attached — the client's
+  // selection is not an authorization boundary, so an arbitrary storage path
+  // must never be laundered onto a card here.
+  const requested = body.items.map((it) => it.storagePath);
+  const [vaultRows, actRows, existing] = await Promise.all([
+    db
+      .select({ storagePath: crewPhotosTable.storagePath })
+      .from(crewPhotosTable)
+      .where(inArray(crewPhotosTable.storagePath, requested)),
+    db
+      .select({ storagePath: activitiesTable.storagePath })
+      .from(activitiesTable)
+      .where(
+        and(
+          eq(activitiesTable.entityType, "job"),
+          inArray(activitiesTable.kind, ["photo_before", "photo_after"]),
+          inArray(activitiesTable.storagePath, requested),
+        ),
+      ),
+    // Skip photos the job already carries — assigning twice is a no-op.
+    db
+      .select({ storagePath: activitiesTable.storagePath })
+      .from(activitiesTable)
+      .where(
+        and(eq(activitiesTable.entityType, "job"), eq(activitiesTable.entityId, id)),
+      ),
+  ]);
+  const allowed = new Set([
+    ...vaultRows.map((r) => r.storagePath),
+    ...actRows.map((r) => r.storagePath).filter((p): p is string => !!p),
+  ]);
+  const unknown = body.items.filter((it) => !allowed.has(it.storagePath));
+  if (unknown.length > 0) {
+    res.status(400).json({ error: "One or more photos aren't in the photo library" });
+    return;
+  }
+  const have = new Set(existing.map((e) => e.storagePath).filter(Boolean));
+  const fresh = body.items.filter((it) => !have.has(it.storagePath));
+  if (fresh.length > 0) {
+    await db.insert(activitiesTable).values(
+      fresh.map((it) => ({
+        entityType: "job",
+        entityId: id,
+        kind: it.kind,
+        storagePath: it.storagePath,
+        body: "Photo attached from the photo library",
+      })),
+    );
+    emitBoardEvent(job.propertyId);
+  }
+  res.json(AssignPhotosToJobResponse.parse({ ok: true, added: fresh.length }));
 });
 
 export default router;

@@ -2562,6 +2562,48 @@ export interface JobLineItemInput {
   qty?: number;
 }
 
+export interface PhotoLibraryEntry {
+  storagePath: string;
+  /** photo_before | photo_after | other */
+  kind: string;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  propertyId?: string | null;
+  /**
+     * Column label — null means the photo isn't tied to a property yet
+     * @nullable
+     */
+  propertyName?: string | null;
+  /** @nullable */
+  crewName?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  /**
+     * YYYY-MM-DD when known
+     * @nullable
+     */
+  takenOn?: string | null;
+}
+
+export type AssignPhotosInputItemsItemKind = typeof AssignPhotosInputItemsItemKind[keyof typeof AssignPhotosInputItemsItemKind];
+
+
+export const AssignPhotosInputItemsItemKind = {
+  photo_before: 'photo_before',
+  photo_after: 'photo_after',
+} as const;
+
+export type AssignPhotosInputItemsItem = {
+  storagePath: string;
+  kind: AssignPhotosInputItemsItemKind;
+};
+
+export interface AssignPhotosInput {
+  /** @minItems 1 */
+  items: AssignPhotosInputItemsItem[];
+}
+
 export interface JobLineItemSwapInput {
   /** Target price-list item (must belong to the job's property) */
   priceItemId: string;
@@ -7645,6 +7687,11 @@ status?: string;
 export type ListJobsParams = {
 status?: string;
 propertyId?: string;
+};
+
+export type AssignPhotosToJob200 = {
+  ok: boolean;
+  added: number;
 };
 
 export type GetWalkTargetParams = {

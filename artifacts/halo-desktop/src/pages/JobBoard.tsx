@@ -20,6 +20,10 @@ import {
   useReopenJobChangeOrder,
   useAddJobLineItem,
   useUpdateJobLineItem,
+  useGetPhotoLibrary,
+  getGetPhotoLibraryQueryKey,
+  useAssignPhotosToJob,
+  type PhotoLibraryEntry,
   type JobBoardCard,
   type Crew,
   type CrewToday,
@@ -63,6 +67,11 @@ import {
   BellRing,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
+  ArrowRight,
+  HelpCircle,
+  X,
+  FolderOpen,
 } from "lucide-react";
 import { PushCardDialog } from "@/components/PushCardDialog";
 import { ScanCheckDialog } from "@/components/ScanCheckDialog";
@@ -76,13 +85,31 @@ import { Textarea} from "@/components/ui/textarea";
  * compact tiles, detail + actions in a sheet. Cards move themselves as
  * status changes — no drag between rails.
  */
-const JOB_RAILS: { key: JobRailKey; label: string; tone: JobTone; empty: string }[] = [
-  { key: "requested", label: "Requested", tone: "lime", empty: "No open requests" },
-  { key: "in_progress", label: "In progress", tone: "blue", empty: "Nothing in motion right now" },
-  { key: "done", label: "Done", tone: "emerald", empty: "Nothing finished yet" },
-  { key: "billing", label: "Billing", tone: "stone", empty: "No billing activity yet" },
-  { key: "alert", label: "Alerts", tone: "red", empty: "No alerts — all covered" },
+const JOB_RAILS: { key: JobRailKey; label: string; tone: JobTone; hint: string; empty: string }[] = [
+  { key: "requested", label: "Requested", tone: "lime", hint: "New work waiting for a crew", empty: "No open requests — new jobs land here from a client ask or Quick Job." },
+  { key: "in_progress", label: "In progress", tone: "blue", hint: "A crew is on it", empty: "Nothing in motion — assign or broadcast a Requested job to start." },
+  { key: "done", label: "Done", tone: "emerald", hint: "Work finished — needs PO, then billing", empty: "Nothing finished yet — jobs move here when the crew checks off the work." },
+  { key: "billing", label: "Billing", tone: "stone", hint: "Invoice out, waiting on payment", empty: "No billing yet — Done jobs with a PO move here to get paid." },
+  { key: "alert", label: "Alerts", tone: "red", hint: "Needs your attention now", empty: "No alerts — all covered." },
 ];
+
+/** Card's ONE next step — teaches new users what to do by following the buttons. */
+function nextAction(card: JobBoardCard, rail: JobRailKey): string | null {
+  switch (rail) {
+    case "requested":
+      return "Assign or broadcast a crew";
+    case "in_progress":
+      return "Check work when the crew finishes";
+    case "done":
+      return card.job.poNumber ? "Move to Billing" : "Get the client PO";
+    case "billing":
+      return card.invoice ? "Collect payment" : "Send the invoice";
+    case "alert":
+      return "Open to fix";
+    default:
+      return null;
+  }
+}
 
 type JobRailKey = "requested" | "in_progress" | "done" | "billing" | "alert";
 type JobTone = "lime" | "blue" | "emerald" | "stone" | "red";
@@ -126,6 +153,15 @@ export default function JobBoard() {
   // Crew roster so in-progress tiles can show the assigned team.
   const { data: allCrews } = useListCrews({ query: { queryKey: getListCrewsQueryKey() } });
   const [openId, setOpenId] = useState<string | null>(null);
+  // First-time teaching aids: a dismissible intro banner + an always-available legend.
+  const [showIntro, setShowIntro] = useState(() => {
+    try { return localStorage.getItem("jobboard-intro-dismissed") !== "1"; } catch { return false; }
+  });
+  const dismissIntro = () => {
+    setShowIntro(false);
+    try { localStorage.setItem("jobboard-intro-dismissed", "1"); } catch { /* private mode */ }
+  };
+  const [legendOpen, setLegendOpen] = useState(false);
   // Property decks: cards stack by property inside each rail; a deck stays
   // collapsed until the property is selected. Keyed by rail|propertyId.
   const [expandedDecks, setExpandedDecks] = useState<Set<string>>(new Set());
@@ -199,7 +235,62 @@ export default function JobBoard() {
           <h1 className="font-display font-bold text-[32px] tracking-[-0.02em] text-[var(--ink)]">Job Board</h1>
           <p className="text-muted-foreground mt-1 text-sm">Open work, offers out to crews, and what's been claimed</p>
         </div>
+        <button
+          type="button"
+          onClick={() => setLegendOpen(true)}
+          className="flex items-center gap-1.5 rounded-full border border-[var(--hairline)] bg-white px-3 py-1.5 text-xs font-bold text-[var(--secondary)] hover:bg-[var(--muted)] transition-colors"
+          data-testid="button-board-legend"
+        >
+          <HelpCircle className="w-3.5 h-3.5" /> How the board works
+        </button>
       </header>
+
+      {showIntro && (
+        <div
+          className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--gold-light)] bg-[var(--gold-light)]/20 px-4 py-3 shrink-0"
+          data-testid="board-intro-banner"
+        >
+          <p className="text-sm text-[var(--ink)]">
+            <span className="font-bold">Jobs move left to right</span> — Requested → In progress → Done → Billing.
+            The red column means it needs your attention right now. Open any card and follow the highlighted button.
+          </p>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={dismissIntro}
+            className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-black/[0.06] hover:text-foreground"
+            data-testid="dismiss-board-intro"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      <Dialog open={legendOpen} onOpenChange={setLegendOpen}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="font-display">How the board works</DialogTitle>
+            <DialogDescription>Jobs travel left to right as work gets done.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2.5 py-1">
+            {JOB_RAILS.map((r) => (
+              <div key={r.key} className="flex items-start gap-2.5">
+                <span className={`mt-1.5 w-2 h-2 shrink-0 rounded-full ${JOB_TONES[r.tone].dot}`} />
+                <div>
+                  <span className="text-sm font-bold text-[var(--ink)]">{r.label}</span>
+                  <span className="text-sm text-muted-foreground"> — {r.hint}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-2 border-t border-border pt-3 text-sm text-muted-foreground">
+            <p><span className="font-bold text-[var(--ink)]">Piles</span> — cards stack by property; tap a pile to fan it out.</p>
+            <p><span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">PO 123</span> / <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">PO needed</span> — a client PO is required before a Done job can move to Billing.</p>
+            <p><span className="font-bold text-[var(--ink)]">Glowing card</span> — it just moved rails (lasts 15 seconds).</p>
+            <p><span className="font-bold text-[var(--ink)]">"Next" line on a card</span> — the one thing to do next; open the card and follow it.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex-1 pb-12">
         {isLoading ? (
@@ -220,10 +311,17 @@ export default function JobBoard() {
               const railCards = cards.filter((c) => jobRail(c) === rail.key);
               return (
                 <section key={rail.key} className="min-w-0" data-testid={`jobrail-${rail.key}`}>
-                  <div className="flex items-center gap-2 mb-3 px-1">
-                    <span className={`w-2 h-2 rounded-full ${JOB_TONES[rail.tone].dot}`} />
-                    <h2 className="font-display font-bold text-sm tracking-tight text-[var(--ink)]">{rail.label}</h2>
-                    <span className="text-xs font-mono text-muted-foreground">{railCards.length}</span>
+                  <div className="mb-3 px-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${JOB_TONES[rail.tone].dot}`} />
+                      <h2 className="font-display font-bold text-sm tracking-tight text-[var(--ink)]">{rail.label}</h2>
+                      <span className="text-xs font-mono text-muted-foreground">{railCards.length}</span>
+                      {/* Pipeline arrows: the board reads left → right */}
+                      {rail.key !== "alert" && rail.key !== "billing" && (
+                        <ChevronRight className="ml-auto w-3.5 h-3.5 text-muted-foreground/50" aria-hidden />
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">{rail.hint}</p>
                   </div>
                   <div className="space-y-4">
                     {railCards.length === 0 ? (
@@ -489,6 +587,14 @@ function JobTile({ card, tone, crews, flash, onOpen }: { card: JobBoardCard; ton
             {filledCount}/{job.crewsNeeded ?? 1} crews
           </span>
         </p>
+        {(() => {
+          const action = nextAction(card, jobRail(card));
+          return action ? (
+            <p className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-[var(--gold-dark)]" data-testid={`job-next-${job.id}`}>
+              Next: {action} <ArrowRight className="w-3 h-3" />
+            </p>
+          ) : null;
+        })()}
         {(leader || (crews && job.crewLeaderName)) && (
           <div className="mt-2 flex items-center gap-2 min-w-0" data-testid={`job-crew-${job.id}`}>
             {/* Overlapping circle photos: leader first (lime ring), then teammates */}
@@ -1661,6 +1767,7 @@ function CheckWorkDialog({ open, onOpenChange, job, photos }: { open: boolean; o
 
   const setBoardStatus = useSetJobBoardStatus();
   const queryClient = useQueryClient();
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const manualCheckHref = `sms:?&body=${encodeURIComponent(
     `Manual check required - Property: ${job.propertyName || "Unknown"} Unit: ${job.unitNo || "—"}`
   )}`;
@@ -1706,6 +1813,23 @@ function CheckWorkDialog({ open, onOpenChange, job, photos }: { open: boolean; o
           <PhotoStrip label="Before" items={befores} />
           <PhotoStrip label="After" items={afters} />
 
+          {befores.length === 0 && afters.length === 0 && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--gold-light)] bg-[var(--gold-light)]/15 p-4" data-testid="no-photos-box">
+              <p className="text-sm text-[var(--ink)]">
+                <span className="font-bold">No photos on this card yet.</span>{" "}
+                Browse everything the crews have sent and attach the right shots.
+              </p>
+              <Button
+                type="button"
+                onClick={() => setLibraryOpen(true)}
+                className="shrink-0 rounded-full bg-[var(--gold-light)] font-bold text-black hover:bg-[var(--gold-dark)]"
+                data-testid="button-check-all-photos"
+              >
+                <FolderOpen className="w-4 h-4 mr-2" /> Check all photos
+              </Button>
+            </div>
+          )}
+
           {qualityCheck.isPending && (
             <div className="flex items-center gap-3 rounded-xl border border-border bg-[var(--background)] p-4 text-sm">
               <Loader2 className="w-5 h-5 animate-spin text-[var(--gold)]" />
@@ -1747,6 +1871,170 @@ function CheckWorkDialog({ open, onOpenChange, job, photos }: { open: boolean; o
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+
+      <PhotoLibraryDialog
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+        jobId={job.id}
+        onAssigned={() => {
+          setLibraryOpen(false);
+          queryClient.invalidateQueries({ queryKey: getListJobBoardQueryKey() });
+        }}
+      />
+    </Dialog>
+  );
+}
+
+/** Organized photo folder — every photo received from crews, one labeled
+ *  column per property. Select shots and assign them to the open card. */
+function PhotoLibraryDialog({ open, onOpenChange, jobId, onAssigned }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  jobId: string;
+  onAssigned: () => void;
+}) {
+  const { data: library, isLoading } = useGetPhotoLibrary({
+    query: { queryKey: getGetPhotoLibraryQueryKey(), enabled: open },
+  });
+  const assign = useAssignPhotosToJob();
+  const { toast } = useToast();
+  const [selected, setSelected] = useState<Map<string, PhotoLibraryEntry>>(new Map());
+  const [assignAs, setAssignAs] = useState<"photo_before" | "photo_after">("photo_after");
+
+  useEffect(() => {
+    if (!open) setSelected(new Map());
+  }, [open]);
+
+  // One labeled column per property; photos with no property go last.
+  const columns = (() => {
+    const byProp = new Map<string, { label: string; items: PhotoLibraryEntry[] }>();
+    for (const p of library ?? []) {
+      const key = p.propertyId ?? "__none__";
+      const col = byProp.get(key) ?? { label: p.propertyName ?? "Not tied to a property", items: [] };
+      col.items.push(p);
+      byProp.set(key, col);
+    }
+    return [...byProp.entries()].sort(([a], [b]) => {
+      if (a === "__none__") return 1;
+      if (b === "__none__") return -1;
+      return byProp.get(a)!.label.localeCompare(byProp.get(b)!.label);
+    });
+  })();
+
+  const toggle = (p: PhotoLibraryEntry) => {
+    setSelected((cur) => {
+      const next = new Map(cur);
+      if (next.has(p.storagePath)) next.delete(p.storagePath);
+      else next.set(p.storagePath, p);
+      return next;
+    });
+  };
+
+  const doAssign = () => {
+    assign.mutate(
+      {
+        id: jobId,
+        data: { items: [...selected.values()].map((p) => ({ storagePath: p.storagePath, kind: assignAs })) },
+      },
+      {
+        onSuccess: (r) => {
+          toast({ title: r.added > 0 ? `${r.added} photo${r.added === 1 ? "" : "s"} attached to the card` : "Those photos were already on the card" });
+          onAssigned();
+        },
+        onError: () => toast({ title: "Couldn't attach the photos", description: "Try again.", variant: "destructive" }),
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[860px] max-h-[85dvh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="font-display">All crew photos</DialogTitle>
+          <DialogDescription>
+            Every photo received from crews, organized by property. Tap to select, then assign to this card.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 min-h-0 overflow-x-auto">
+          {isLoading ? (
+            <div className="flex items-center gap-3 p-6 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" /> Loading photos…
+            </div>
+          ) : columns.length === 0 ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">
+              No crew photos yet — shots crews send from their portal will show up here.
+            </div>
+          ) : (
+            <div className="flex gap-4 pb-2 h-full">
+              {columns.map(([key, col]) => (
+                <div key={key} className="w-56 shrink-0 flex flex-col min-h-0" data-testid={`photo-col-${key}`}>
+                  <div className="sticky top-0 rounded-t-xl bg-[var(--muted)] px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                    {col.label} · {col.items.length}
+                  </div>
+                  <div className="flex-1 min-h-0 space-y-2 overflow-y-auto rounded-b-xl border border-t-0 border-border p-2 max-h-[48dvh]">
+                    {col.items.map((p) => {
+                      const isSel = selected.has(p.storagePath);
+                      return (
+                        <button
+                          key={p.storagePath}
+                          type="button"
+                          onClick={() => toggle(p)}
+                          className={`relative block w-full overflow-hidden rounded-lg border-2 transition-all ${isSel ? "border-[var(--gold)] shadow-[var(--glow-lime)]" : "border-transparent hover:border-border"}`}
+                          data-testid={`photo-pick-${p.storagePath}`}
+                        >
+                          <img
+                            src={`/api/storage${p.storagePath}`}
+                            alt={col.label}
+                            loading="lazy"
+                            className="aspect-[4/3] w-full object-cover bg-muted"
+                          />
+                          {isSel && (
+                            <span className="absolute top-1.5 right-1.5 grid h-5 w-5 place-items-center rounded-full bg-[var(--gold-light)]">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-black" />
+                            </span>
+                          )}
+                          <span className="absolute bottom-0 inset-x-0 bg-black/55 px-1.5 py-0.5 text-left text-[10px] font-semibold text-white truncate">
+                            {[p.kind === "photo_before" ? "Before" : p.kind === "photo_after" ? "After" : null, p.unitNo ? `#${p.unitNo}` : null, p.crewName, p.takenOn]
+                              .filter(Boolean)
+                              .join(" · ") || "Photo"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="items-center gap-3 border-t border-border pt-3 sm:justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-muted-foreground">Attach as</span>
+            {(["photo_before", "photo_after"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setAssignAs(k)}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${assignAs === k ? "bg-[var(--gold-light)] text-black" : "border border-border text-muted-foreground hover:text-foreground"}`}
+                data-testid={`assign-as-${k}`}
+              >
+                {k === "photo_before" ? "Before" : "After"}
+              </button>
+            ))}
+          </div>
+          <Button
+            type="button"
+            disabled={selected.size === 0 || assign.isPending}
+            onClick={doAssign}
+            className="rounded-full bg-[var(--gold-light)] font-bold text-black hover:bg-[var(--gold-dark)]"
+            data-testid="button-assign-photos"
+          >
+            {assign.isPending ? "Attaching…" : `Assign ${selected.size || ""} to this card`}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -409,6 +409,51 @@ function Invoices() {
 
   const filtered = filter === "all" ? sorted : sorted.filter((i) => i.status === filter);
 
+  // Organized view: one clickable dropdown per property, newest activity first.
+  // The single most-recent invoice flashes lime so new arrivals are unmissable.
+  const newestId = useMemo(() => {
+    let best: Invoice | null = null;
+    for (const inv of filtered) {
+      const t = new Date(inv.sentAt ?? inv.dueAt ?? inv.paidAt ?? 0).getTime();
+      const bt = best ? new Date(best.sentAt ?? best.dueAt ?? best.paidAt ?? 0).getTime() : -1;
+      if (t > bt) best = inv;
+    }
+    return best?.id ?? null;
+  }, [filtered]);
+
+  const groups = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; items: Invoice[] }>();
+    for (const inv of filtered) {
+      const key = inv.propertyId ?? inv.propertyName ?? "none";
+      const g = map.get(key) ?? { key, label: inv.propertyName || "No property", items: [] };
+      g.items.push(inv);
+      map.set(key, g);
+    }
+    // Groups ordered by their newest invoice, so fresh activity floats up.
+    const stamp = (i: Invoice) => new Date(i.sentAt ?? i.dueAt ?? i.paidAt ?? 0).getTime();
+    return [...map.values()].sort(
+      (a, b) => Math.max(...b.items.map(stamp)) - Math.max(...a.items.map(stamp)),
+    );
+  }, [filtered]);
+
+  // null = automatic (only the group holding the newest invoice starts open);
+  // once the user clicks, their choices win — but a filter switch changes the
+  // whole grouping, so it resets back to automatic or groups can all vanish.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean> | null>(null);
+  useEffect(() => setOpenGroups(null), [filter]);
+  const newestGroupKey = groups.find((g) => g.items.some((i) => i.id === newestId))?.key;
+  const isGroupOpen = (key: string) =>
+    // Groups the user hasn't touched (including ones that appear later from a
+    // refetch) keep the automatic rule, so the newest invoice stays visible.
+    openGroups && key in openGroups ? !!openGroups[key] : newestGroupKey === key;
+  const toggleGroup = (key: string) =>
+    setOpenGroups((cur) => {
+      const base =
+        cur ??
+        Object.fromEntries(groups.map((g) => [g.key, isGroupOpen(g.key)]));
+      return { ...base, [key]: !base[key] };
+    });
+
   const onExport = () => {
     exportCsv(
      `invoices-${new Date().toISOString().slice(0, 10)}.csv`,
@@ -499,52 +544,90 @@ function Invoices() {
           No invoices in this view.
         </div>
       ) : (
-        <div className="flex flex-col bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-6 py-3 border-b border-border text-sm font-semibold text-muted-foreground bg-black/5">
-            <div>Property</div>
-            <div className="w-32 text-right">Amount</div>
-            <div className="w-40 pl-4">Status</div>
-          </div>
-          
-          <div className="flex flex-col divide-y divide-border">
-            {filtered.map((inv) => (
-              <div
-                key={inv.id}
-                onClick={() => navigate(`/invoices/${inv.id}`)}
-                className="group grid grid-cols-[1fr_auto_auto] items-center gap-4 px-6 py-4 cursor-pointer hover:bg-black/5 transition-colors"
-              >
-                <div className="min-w-0">
-                  <div className="font-display font-bold text-xl text-foreground truncate">
-                    {inv.propertyName || "—"}
+        <div className="flex flex-col gap-3">
+          {groups.map((g) => {
+            const open = isGroupOpen(g.key);
+            const unpaid = g.items.filter((i) => i.status !== "paid" && i.status !== "cancelled").length;
+            return (
+              <div key={g.key} className="bg-white rounded-2xl border border-border overflow-hidden" data-testid={`invoice-group-${g.key}`}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(g.key)}
+                  className="w-full grid grid-cols-[1fr_auto_auto] items-center gap-4 px-6 py-4 text-left hover:bg-black/5 transition-colors"
+                  data-testid={`invoice-group-toggle-${g.key}`}
+                >
+                  <div className="min-w-0 flex items-center gap-2.5">
+                    <ChevronRight className={`w-5 h-5 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-display font-bold text-xl text-foreground truncate">{g.label}</span>
+                        {g.items.some((i) => i.id === newestId) && (
+                          <span className="shrink-0 rounded-full bg-[var(--gold-light)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">New</span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {g.items.length} invoice{g.items.length === 1 ? "" : "s"}
+                        {unpaid > 0 ? ` · ${unpaid} open` : " · all settled"}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="font-mono text-xs text-muted-foreground">{inv.invoiceNo}</span>
-                    <span className="text-muted-foreground text-xs">•</span>
-                    <span className="text-xs text-muted-foreground">
-                      {[
-                        inv.sentAt ? `Sent ${fmtDate(inv.sentAt)}` : null,
-                        inv.dueAt ? `Due ${fmtDate(inv.dueAt)}` : null,
-                        inv.paidAt ? `Paid ${fmtDate(inv.paidAt)}` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "Not sent yet"}
+                  <div className="w-32 text-right">
+                    <span className="font-display font-bold text-xl tabular-nums text-foreground">
+                      {money(g.items.reduce((s, i) => s + (i.amount ?? 0), 0))}
                     </span>
                   </div>
-                </div>
-                
-                <div className="w-32 text-right">
-                  <span className="font-display font-bold text-xl tabular-nums text-foreground">
-                    {money(inv.amount)}
-                  </span>
-                </div>
+                  <div className="w-40 pl-4 text-right text-xs font-bold text-muted-foreground">
+                    {open ? "Hide" : "Show"}
+                  </div>
+                </button>
 
-                <div className="w-40 pl-4 flex items-center justify-between">
-                  <InvoiceStatusBadge inv={inv} />
-                  <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-[var(--primary)] transition-colors" />
-                </div>
+                {open && (
+                  <div className="flex flex-col divide-y divide-border border-t border-border">
+                    {g.items.map((inv) => {
+                      const isNew = inv.id === newestId;
+                      return (
+                        <div
+                          key={inv.id}
+                          onClick={() => navigate(`/invoices/${inv.id}`)}
+                          className={`group grid grid-cols-[1fr_auto_auto] items-center gap-4 px-6 py-4 cursor-pointer hover:bg-black/5 transition-colors ${isNew ? "card-move-flash m-2 rounded-2xl border-2 border-[var(--gold-light)] bg-[var(--gold-light)]/10" : ""}`}
+                          data-testid={`invoice-row-${inv.id}`}
+                        >
+                          <div className="min-w-0 pl-7">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-bold text-foreground">{inv.invoiceNo}</span>
+                              {isNew && (
+                                <span className="rounded-full bg-[var(--gold-light)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black">Newest</span>
+                              )}
+                            </div>
+                            <span className="block mt-1 text-xs text-muted-foreground">
+                              {[
+                                inv.sentAt ? `Sent ${fmtDate(inv.sentAt)}` : null,
+                                inv.dueAt ? `Due ${fmtDate(inv.dueAt)}` : null,
+                                inv.paidAt ? `Paid ${fmtDate(inv.paidAt)}` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ") || "Not sent yet"}
+                            </span>
+                          </div>
+
+                          <div className="w-32 text-right">
+                            <span className="font-display font-bold text-xl tabular-nums text-foreground">
+                              {money(inv.amount)}
+                            </span>
+                          </div>
+
+                          <div className="w-40 pl-4 flex items-center justify-between">
+                            <InvoiceStatusBadge inv={inv} />
+                            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-[var(--primary)] transition-colors" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       )}
 

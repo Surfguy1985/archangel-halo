@@ -29,6 +29,8 @@ import type {
   ArrivalCheckResult,
   AskAnswer,
   AskInput,
+  AssignPhotosInput,
+  AssignPhotosToJob200,
   AutopilotAction,
   AutopilotRunResult,
   BalanceSheetReport,
@@ -276,6 +278,7 @@ import type {
   PayoutBatchInput,
   PayoutDistribution,
   PayoutQueueCrew,
+  PhotoLibraryEntry,
   PhotoShare,
   PhotoShareInput,
   PhotoShareNotesInput,
@@ -5403,6 +5406,155 @@ export const useSwapJobLineItem = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getSwapJobLineItemMutationOptions(options));
+    }
+
+export const getGetPhotoLibraryUrl = () => {
+
+
+
+
+  return `/api/photo-library`
+}
+
+/**
+ * @summary Every photo received from crews — job before/afters plus portal photo-vault shots — labeled with property and crew for the office photo browser
+ */
+export const getPhotoLibrary = async ( options?: RequestInit): Promise<PhotoLibraryEntry[]> => {
+
+  return customFetch<PhotoLibraryEntry[]>(getGetPhotoLibraryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPhotoLibraryQueryKey = () => {
+    return [
+    `/api/photo-library`
+    ] as const;
+    }
+
+
+export const getGetPhotoLibraryQueryOptions = <TData = Awaited<ReturnType<typeof getPhotoLibrary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPhotoLibrary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPhotoLibraryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPhotoLibrary>>> = ({ signal }) => getPhotoLibrary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPhotoLibrary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPhotoLibraryQueryResult = NonNullable<Awaited<ReturnType<typeof getPhotoLibrary>>>
+export type GetPhotoLibraryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Every photo received from crews — job before/afters plus portal photo-vault shots — labeled with property and crew for the office photo browser
+ */
+
+export function useGetPhotoLibrary<TData = Awaited<ReturnType<typeof getPhotoLibrary>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPhotoLibrary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPhotoLibraryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAssignPhotosToJobUrl = (id: string,) => {
+
+
+
+
+  return `/api/jobs/${id}/photos/assign`
+}
+
+/**
+ * @summary Attach photos from the library to a job card (copies them onto the job as before/after photos)
+ */
+export const assignPhotosToJob = async (id: string,
+    assignPhotosInput: AssignPhotosInput, options?: RequestInit): Promise<AssignPhotosToJob200> => {
+
+  return customFetch<AssignPhotosToJob200>(getAssignPhotosToJobUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(assignPhotosInput)
+  }
+);}
+
+
+
+
+
+export const getAssignPhotosToJobMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignPhotosToJob>>, TError,{id: string;data: BodyType<AssignPhotosInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assignPhotosToJob>>, TError,{id: string;data: BodyType<AssignPhotosInput>}, TContext> => {
+
+const mutationKey = ['assignPhotosToJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assignPhotosToJob>>, {id: string;data: BodyType<AssignPhotosInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  assignPhotosToJob(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssignPhotosToJobMutationResult = NonNullable<Awaited<ReturnType<typeof assignPhotosToJob>>>
+    export type AssignPhotosToJobMutationBody = BodyType<AssignPhotosInput>
+    export type AssignPhotosToJobMutationError = ErrorType<Error>
+
+    /**
+ * @summary Attach photos from the library to a job card (copies them onto the job as before/after photos)
+ */
+export const useAssignPhotosToJob = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignPhotosToJob>>, TError,{id: string;data: BodyType<AssignPhotosInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assignPhotosToJob>>,
+        TError,
+        {id: string;data: BodyType<AssignPhotosInput>},
+        TContext
+      > => {
+      return useMutation(getAssignPhotosToJobMutationOptions(options));
     }
 
 export const getDraftJobRecapUrl = (id: string,) => {
