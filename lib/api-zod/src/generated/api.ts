@@ -7171,6 +7171,7 @@ export const GetJobTrackerResponse = zod.object({
   "accuracy": zod.number().nullish(),
   "label": zod.string().nullish(),
   "note": zod.string().nullish(),
+  "movingToUnit": zod.string().nullish().describe('Set on checkout when crew is moving to next unit; cleared on next check-in.'),
   "createdAt": zod.string().nullish()
 })),
   "photos": zod.array(zod.object({

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { limits } from "../lib/rateLimit";
 import { Router, type IRouter } from "express";
 import { and, count, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, notInArray, sql } from "drizzle-orm";
@@ -1120,6 +1121,23 @@ router.post("/portal/:token/checkins", async (req, res): Promise<void> => {
       note: body.note ?? null,
     })
     .returning();
+  // A new check-in clears the "moving to unit X" bubble that was set when the
+  // crew clocked out of their previous job — but only on the single latest
+  // checkout, so historical tracker records are not affected.
+  if (kind === "checkin") {
+    const [latestOut] = await db
+      .select({ id: crewCheckinsTable.id })
+      .from(crewCheckinsTable)
+      .where(and(eq(crewCheckinsTable.crewId, crew.id), eq(crewCheckinsTable.kind, "checkout")))
+      .orderBy(desc(crewCheckinsTable.createdAt))
+      .limit(1);
+    if (latestOut) {
+      await db
+        .update(crewCheckinsTable)
+        .set({ movingToUnit: null })
+        .where(eq(crewCheckinsTable.id, latestOut.id));
+    }
+  }
   const jobLabel = body.jobId
     ? ((await jobLabelMap([body.jobId])).get(body.jobId) ?? null)
     : null;
@@ -1138,6 +1156,34 @@ router.post("/portal/:token/checkins", async (req, res): Promise<void> => {
       (body.lat != null ? `${body.lat}, ${body.lng}` : null),
   });
   res.status(201).json(CreatePortalCheckinResponse.parse(ser(row)));
+});
+
+// PATCH /portal/:token/moving-to — sets "moving to unit X" on the crew's most
+// recent checkout so the office map can show a speech bubble. Cleared
+// automatically when the crew posts their next check-in.
+// Scoped to the single latest checkout so historical tracker data is unchanged.
+router.patch("/portal/:token/moving-to", async (req, res): Promise<void> => {
+  const token = req.params.token;
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const { unit } = z.object({ unit: z.string().nullable() }).parse(req.body);
+  // Find the single most recent checkout for this crew, then update only it.
+  const [latest] = await db
+    .select({ id: crewCheckinsTable.id })
+    .from(crewCheckinsTable)
+    .where(and(eq(crewCheckinsTable.crewId, crew.id), eq(crewCheckinsTable.kind, "checkout")))
+    .orderBy(desc(crewCheckinsTable.createdAt))
+    .limit(1);
+  if (latest) {
+    await db
+      .update(crewCheckinsTable)
+      .set({ movingToUnit: unit ?? null })
+      .where(eq(crewCheckinsTable.id, latest.id));
+  }
+  res.json({ ok: true });
 });
 
 // LOCAL date parts, never UTC — see replit.md date handling rules.
@@ -1715,6 +1761,7 @@ router.get("/track/:token", async (req, res): Promise<void> => {
         accuracy: c.accuracy,
         label: c.label,
         note: c.note,
+        movingToUnit: c.movingToUnit ?? null,
         createdAt: c.createdAt ? c.createdAt.toISOString() : null,
       })),
       photos: photos.map((p) => ({

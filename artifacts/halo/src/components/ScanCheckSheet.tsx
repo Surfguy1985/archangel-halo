@@ -170,11 +170,12 @@ export function ScanCheckSheet({
         });
         applied.push(inv.id);
       }
-    } catch {
+    } catch (err) {
+      const apiMsg = (err as { data?: { error?: string } })?.data?.error;
       setError(
         applied.length > 0
           ? `Applied ${applied.length} of ${selectedInvoices.length} payments — one failed. Check the Money tab and try the rest again.`
-          : "Couldn't apply the payment. Try again.",
+          : apiMsg ?? "Couldn't apply the payment. Try again.",
       );
     } finally {
       queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
@@ -367,7 +368,7 @@ export function ScanCheckSheet({
           <button
             className="w-full mt-[18px] rounded-full py-[13px] font-display font-bold text-[15px] text-[var(--ink)] bg-[var(--primary)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] disabled:opacity-50 transition-transform active:scale-[0.98]"
             onClick={submit}
-            disabled={!checkFile || !scan || !amount.trim() || !propertyId || invoiceIds.length === 0 || saving || record.isPending}
+            disabled={!checkFile || scanCheck.isPending || !amount.trim() || !propertyId || invoiceIds.length === 0 || saving || record.isPending}
             data-testid="button-apply-check"
           >
             {saving || record.isPending

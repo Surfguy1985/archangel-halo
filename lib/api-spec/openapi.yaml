@@ -14251,6 +14251,7 @@ components:
         accuracy: { type: ["number", "null"] }
         label: { type: ["string", "null"] }
         note: { type: ["string", "null"] }
+        movingToUnit: { type: ["string", "null"], description: "Set on checkout when crew is moving to next unit; cleared on next check-in." }
         createdAt: { type: ["string", "null"] }
     TrackerPhoto:
       type: object

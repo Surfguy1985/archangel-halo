@@ -22,6 +22,11 @@ export interface TrackerCheckin {
   label?: string | null;
   /** @nullable */
   note?: string | null;
+  /**
+     * Set on checkout when crew is moving to next unit; cleared on next check-in.
+     * @nullable
+     */
+  movingToUnit?: string | null;
   /** @nullable */
   createdAt?: string | null;
 }

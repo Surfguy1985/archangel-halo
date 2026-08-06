@@ -31,6 +31,8 @@ export const crewCheckinsTable = pgTable("crew_checkins", {
   accuracy: doublePrecision("accuracy"),
   label: text("label"),
   note: text("note"),
+  // Set on checkout when the crew is moving to a next job; cleared on next check-in.
+  movingToUnit: text("moving_to_unit"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

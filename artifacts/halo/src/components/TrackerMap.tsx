@@ -11,6 +11,8 @@ export type TrackerPin = {
   label: string;
   sublabel?: string;
   kind: "checkin" | "checkout";
+  /** Set on checkout when crew is en-route to a next job; cleared on next check-in. */
+  movingToUnit?: string | null;
 };
 
 // Brand-colored pin: lime for check-ins, dark for check-outs.
@@ -71,6 +73,11 @@ export function TrackerMap({ pins, trail = [] }: { pins: TrackerPin[]; trail?: T
               <Popup>
                 <div style={{ fontWeight: 700 }}>{p.label}</div>
                 {p.sublabel && <div style={{ fontSize: 12 }}>{p.sublabel}</div>}
+                {p.movingToUnit && (
+                  <div style={{ fontSize: 12, marginTop: 4, padding: "3px 7px", background: "#fef3c7", borderRadius: 8, fontWeight: 600, color: "#92400e" }}>
+                    🚶 Moving to {p.movingToUnit}
+                  </div>
+                )}
               </Popup>
             </Marker>
             {p.accuracy != null && p.accuracy > 0 && p.accuracy < 500 && (

@@ -98,6 +98,8 @@ import {
 } from "@/lib/invoicePdf";
 import WelcomeKitTab from "./WelcomeKitTab";
 import { FalkonBadge } from "@/components/FalkonBadge";
+import CrewPortalFlow from "./CrewPortalFlow";
+import { useGpsTrail, getPosition } from "@/hooks/useGpsTrail";
 import { OfficePropertyMap } from "@/components/OfficePropertyMap";
 import { portalGuide, type GuideLang } from "@/lib/portalGuideContent";
 import { WingsGuide, TierBadge, type WingsGuideLang } from "@/components/WingsGuide";
@@ -203,6 +205,8 @@ export default function CrewPortal() {
   // Tapping "Send invoice" on a My Jobs card lands on the Invoice tab with
   // that job already selected.
   const [invoiceJobId, setInvoiceJobId] = useState<string | null>(null);
+  // Controls the "More" bottom sheet that exposes all non-card tabs.
+  const [moreOpen, setMoreOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: portal, isLoading, isError } = useGetPortal(token);
@@ -298,119 +302,86 @@ export default function CrewPortal() {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="bg-card border-b border-border px-[18px] pt-[20px] pb-[16px] lg:px-0 lg:pt-[26px] lg:pb-[20px]">
-        <div className="lg:max-w-[1160px] lg:mx-auto lg:px-[24px]">
-          <div className="text-[11px] font-display font-bold tracking-[0.18em] uppercase text-[var(--gold-dark)] lg:text-[12px]">
-            ArchAngel · HALO
-          </div>
-          <div className="font-display font-bold text-[22px] tracking-[-0.01em] mt-[3px] text-foreground lg:text-[28px]">
-            {portal.crew.name}
-          </div>
-          <div className="text-[12.5px] text-muted-foreground lg:text-[14px]">
-            {portal.crew.trade || "Crew portal"}
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen flex flex-col">
+      {/* ── Card-flow portal (full screen) ────────────────────────── */}
+      <CrewPortalFlow
+        token={token}
+        portal={portal}
+        onOpenMore={(openTab, jobId) => {
+          if (jobId) setInvoiceJobId(jobId);
+          if (openTab) setTab(openTab as Tab);
+          setMoreOpen(true);
+        }}
+        onInvoice={(jobId) => {
+          setInvoiceJobId(jobId);
+          setTab("invoice");
+          setMoreOpen(true);
+        }}
+      />
 
-      <div className="sticky top-0 z-10 bg-card px-[12px] pt-[10px] pb-[8px] border-b border-border shadow-sm lg:hidden">
-        <div className="flex gap-[4px] overflow-x-auto no-scrollbar pb-[2px]">
-          {tabs.map((t) => {
-            const Icon = t.icon;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`flex items-center gap-[5px] whitespace-nowrap rounded-[10px] px-[12px] py-[8px] text-[12.5px] font-display font-bold transition-all ${
-                  tab === t.key
-                    ? "bg-[var(--gold-light)] text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                }`}
-              >
-                <Icon className="w-[14px] h-[14px]" /> {t.label}
-                {t.alert ? (
-                  <span className="ml-[2px] bg-red-500 text-white px-[5px] py-[1px] rounded-full text-[10px] font-bold min-w-[16px] text-center">
-                    {t.alert}
-                  </span>
-                ) : t.badge ? (
-                  <span className="ml-[2px] bg-background text-foreground px-[5px] py-[1px] rounded-full text-[10px] font-bold border border-border">
-                    {t.badge}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* ── More sheet — all non-card tabs ────────────────────────── */}
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent
+          side="bottom"
+          className="h-[90vh] flex flex-col rounded-t-[20px] bg-card border-t border-border p-0"
+        >
+          {/* Tab selector bar */}
+          <div className="px-[14px] pt-[14px] pb-0 border-b border-border shrink-0">
+            <div className="flex gap-[4px] overflow-x-auto no-scrollbar pb-[10px]">
+              {tabs
+                .filter((t) => t.key !== "jobs")
+                .map((t) => {
+                  const Icon = t.icon;
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => setTab(t.key)}
+                      className={`flex items-center gap-[5px] whitespace-nowrap rounded-[10px] px-[12px] py-[8px] text-[12.5px] font-display font-bold transition-all ${
+                        tab === t.key
+                          ? "bg-[var(--gold-light)] text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      <Icon className="w-[14px] h-[14px]" /> {t.label}
+                      {t.alert ? (
+                        <span className="ml-[2px] bg-red-500 text-white px-[5px] py-[1px] rounded-full text-[10px] font-bold min-w-[16px] text-center">
+                          {t.alert}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
 
-      <main className="px-[14px] py-[16px] pb-[40px] max-w-[560px] mx-auto w-full flex-1 lg:max-w-[1160px] lg:px-[24px] lg:py-[28px] lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-[32px] lg:items-start">
-        <aside className="hidden lg:block lg:sticky lg:top-[24px]">
-          <nav className="flex flex-col gap-[4px]">
-            {tabs.map((t) => {
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setTab(t.key)}
-                  className={`flex items-center gap-[10px] rounded-[12px] px-[14px] py-[11px] text-[14px] font-display font-bold text-left transition-all ${
-                    tab === t.key
-                      ? "bg-[var(--gold-light)] text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                  data-testid={`sidebar-tab-${t.key}`}
-                >
-                  <Icon className="w-[16px] h-[16px] shrink-0" />
-                  <span className="flex-1">{t.label}</span>
-                  {t.alert ? (
-                    <span className="bg-red-500 text-white px-[6px] py-[1px] rounded-full text-[10px] font-bold min-w-[18px] text-center">
-                      {t.alert}
-                    </span>
-                  ) : t.badge ? (
-                    <span className="bg-background text-foreground px-[6px] py-[1px] rounded-full text-[10px] font-bold border border-border">
-                      {t.badge}
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
-        <div className="min-w-0 lg:max-w-[720px]">
-        {(tab === "jobs" || tab === "schedule") && <SaveLinkCard />}
-        {tab === "jobs" && (
-          <MyJobsTab
-            token={token}
-            onInvoice={(jobId) => {
-              setInvoiceJobId(jobId);
-              setTab("invoice");
-            }}
-          />
-        )}
-        {tab === "offers" && <OffersTab portal={portal} token={token} />}
-        {tab === "office" && officeView?.enabled && (
-          <OfficeViewTab view={officeView} />
-        )}
-        {tab === "schedule" && <PortalDispatchSection token={token} />}
-        {tab === "schedule" && <WorkChecklistSection token={token} />}
-        {tab === "schedule" && <ScheduleTab portal={portal} />}
-        {tab === "invoice" && <InvoiceTab portal={portal} token={token} initialJobId={invoiceJobId} />}
-        {tab === "packets" && <WelcomeKitTab token={token} />}
-        {tab === "messages" &&
-          (portal.crew.leaderId ? (
-            <ForemanRoutedNotice leaderName={portal.crew.leaderName ?? null} />
-          ) : (
-            <MessagesTab token={token} />
-          ))}
-        {tab === "checkin" && <CheckinTab token={token} />}
-        {tab === "photos" && <PhotosTab token={token} />}
-        {tab === "documents" && <DocumentsTab token={token} />}
-        {tab === "pay" && <PaymentTab token={token} />}
-        {tab === "w9" && <W9Tab token={token} />}
-        {tab === "wings" && <WingsTab token={token} />}
-        {tab === "guide" && <GuideTab lang={guideLang} onLangChange={setGuideLang} />}
-        </div>
-      </main>
+          {/* Tab content */}
+          <div className="flex-1 overflow-y-auto px-[14px] py-[16px] pb-[40px]">
+            {tab === "schedule" && <SaveLinkCard />}
+            {tab === "offers" && <OffersTab portal={portal} token={token} />}
+            {tab === "office" && officeView?.enabled && <OfficeViewTab view={officeView} />}
+            {tab === "schedule" && <PortalDispatchSection token={token} />}
+            {tab === "schedule" && <WorkChecklistSection token={token} />}
+            {tab === "schedule" && <ScheduleTab portal={portal} />}
+            {tab === "invoice" && (
+              <InvoiceTab portal={portal} token={token} initialJobId={invoiceJobId} />
+            )}
+            {tab === "packets" && <WelcomeKitTab token={token} />}
+            {tab === "messages" &&
+              (portal.crew.leaderId ? (
+                <ForemanRoutedNotice leaderName={portal.crew.leaderName ?? null} />
+              ) : (
+                <MessagesTab token={token} />
+              ))}
+            {tab === "checkin" && <CheckinTab token={token} />}
+            {tab === "photos" && <PhotosTab token={token} />}
+            {tab === "documents" && <DocumentsTab token={token} />}
+            {tab === "pay" && <PaymentTab token={token} />}
+            {tab === "w9" && <W9Tab token={token} />}
+            {tab === "wings" && <WingsTab token={token} />}
+            {tab === "guide" && <GuideTab lang={guideLang} onLangChange={setGuideLang} />}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {!portal.crew.agreementAcceptedAt && (
         <AgreementModal token={token} crewName={portal.crew.name} />
@@ -418,10 +389,6 @@ export default function CrewPortal() {
       {portal.crew.agreementAcceptedAt && !portal.crew.selfiePath && (
         <SelfieModal token={token} crewName={portal.crew.name} />
       )}
-      
-      <div className="pb-8 pt-4">
-        <FalkonBadge />
-      </div>
     </div>
   );
 }
@@ -2350,92 +2317,11 @@ function MessagesTab({ token }: { token: string }) {
   );
 }
 
-function getPosition(): Promise<GeolocationPosition | null> {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      resolve(null);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(pos),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 15000 },
-    );
-  });
-}
-
-// Local YYYY-MM-DD (never UTC) so the trail resets at the crew's midnight.
-function localDay(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-type TrackState = { day: string; jobId: string | null };
-
-function readTrackState(token: string): TrackState | null {
-  try {
-    const raw = localStorage.getItem(`halo_gps_trail_${token}`);
-    if (!raw) return null;
-    const s = JSON.parse(raw) as TrackState;
-    return s.day === localDay() ? s : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Shared GPS live-trail state. Only one tab is mounted at a time, so a single
- * ping loop runs regardless of whether check-in happened from My Jobs or the
- * Job Tracker tab — both read/write the same localStorage key.
- */
-function useGpsTrail(token: string) {
-  const [tracking, setTracking] = useState<TrackState | null>(() => readTrackState(token));
-
-  const stopTrail = () => {
-    try { localStorage.removeItem(`halo_gps_trail_${token}`); } catch {}
-    setTracking(null);
-  };
-  const startTrail = (jobId: string | null) => {
-    const next: TrackState = { day: localDay(), jobId };
-    try { localStorage.setItem(`halo_gps_trail_${token}`, JSON.stringify(next)); } catch {}
-    setTracking(next);
-  };
-
-  // While checked in, breadcrumb the crew's GPS every 30 seconds so the office
-  // and client maps can draw the live trail. Stops on checkout, at midnight,
-  // or when the server says we're no longer checked in (409).
-  useEffect(() => {
-    if (!tracking) return;
-    let cancelled = false;
-    const stop = () => {
-      try { localStorage.removeItem(`halo_gps_trail_${token}`); } catch {}
-      setTracking(null);
-    };
-    const ping = async () => {
-      if (cancelled) return;
-      if (tracking.day !== localDay()) { stop(); return; }
-      const pos = await getPosition();
-      if (cancelled || !pos) return;
-      try {
-        await createPortalTrackPoint(token, {
-          jobId: tracking.jobId,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-        });
-      } catch (err) {
-        const status = (err as { status?: number } | null)?.status;
-        if (status === 409 || status === 404) stop();
-        // other errors (offline, flaky signal): keep trying
-      }
-    };
-    void ping();
-    const iv = window.setInterval(() => void ping(), 30_000);
-    return () => { cancelled = true; window.clearInterval(iv); };
-  }, [token, tracking]);
-
-  return { tracking, startTrail, stopTrail };
-}
+// GPS trail logic lives in @/hooks/useGpsTrail — imported below.
+// This placeholder keeps the file's section structure intact for search.
+// All GPS functions (getPosition, localDay, TrackState, readTrackState,
+// useGpsTrail) are re-exported from that shared hook so both MyJobsTab
+// and CheckinTab use a single implementation with the same localStorage key.
 
 /**
  * My Jobs — the guided, one-button-at-a-time home. Every job gets a card that

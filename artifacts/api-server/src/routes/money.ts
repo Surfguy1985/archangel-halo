@@ -1121,38 +1121,49 @@ Return STRICT JSON: {"found": boolean, "amount": number|null, "payerName": strin
 });
 
 router.post("/payments", async (req, res): Promise<void> => {
-  const body = RecordPaymentBody.parse(req.body);
-  const [row] = await db.insert(paymentsTable).values(body).returning();
-  // Only a scanned check on file can flip the invoice to paid: the payment is
-  // always recorded, but "paid" waits until check images cover the amount.
-  let [inv] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, body.invoiceId));
-  let verified = false;
-  if (inv && inv.status !== "paid") {
-    const covered = await checkCoverage(body.invoiceId);
-    if (covered + 0.01 >= inv.amount) {
-      verified = true;
-      [inv] = await db
-        .update(invoicesTable)
-        .set({ status: "paid", paidAt: new Date() })
-        .where(eq(invoicesTable.id, body.invoiceId))
-        .returning();
+  let body: ReturnType<typeof RecordPaymentBody.parse>;
+  try {
+    body = RecordPaymentBody.parse(req.body);
+  } catch {
+    res.status(400).json({ error: "Invalid payment data — check amount and invoice." });
+    return;
+  }
+  try {
+    const [row] = await db.insert(paymentsTable).values(body).returning();
+    // Only a scanned check on file can flip the invoice to paid: the payment is
+    // always recorded, but "paid" waits until check images cover the amount.
+    let [inv] = await db.select().from(invoicesTable).where(eq(invoicesTable.id, body.invoiceId));
+    let verified = false;
+    if (inv && inv.status !== "paid") {
+      const covered = await checkCoverage(body.invoiceId);
+      if (covered + 0.01 >= inv.amount) {
+        verified = true;
+        [inv] = await db
+          .update(invoicesTable)
+          .set({ status: "paid", paidAt: new Date() })
+          .where(eq(invoicesTable.id, body.invoiceId))
+          .returning();
+      }
     }
+    if (inv?.jobId) await recomputeJobFinancials(inv.jobId);
+    if (inv) await syncInvoiceLedger(inv.id);
+    // The board mirrors reality: a paid invoice's card completes itself.
+    if (inv && (verified || inv.status === "paid")) await completeClientCard("invoice", inv.id, "Paid — thank you");
+    if (inv && (body.checkNumber || body.checkImagePath)) {
+      const names = await propertyNames();
+      await db.insert(activitiesTable).values({
+        kind: "payment",
+        body: `Check payment recorded — $${body.amount.toFixed(2)} for ${inv.invoiceNo}${inv.propertyId ? ` (${names.get(inv.propertyId) ?? "property"})` : ""}${body.checkNumber ? `, check #${body.checkNumber}` : ""}`,
+        entityType: "invoice",
+        entityId: inv.id,
+        storagePath: body.checkImagePath ?? undefined,
+      });
+    }
+    res.status(201).json(RecordPaymentResponse.parse(ser(row)));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to record payment";
+    res.status(500).json({ error: msg });
   }
-  if (inv?.jobId) await recomputeJobFinancials(inv.jobId);
-  if (inv) await syncInvoiceLedger(inv.id);
-  // The board mirrors reality: a paid invoice's card completes itself.
-  if (inv && (verified || inv.status === "paid")) await completeClientCard("invoice", inv.id, "Paid — thank you");
-  if (inv && (body.checkNumber || body.checkImagePath)) {
-    const names = await propertyNames();
-    await db.insert(activitiesTable).values({
-      kind: "payment",
-      body: `Check payment recorded — $${body.amount.toFixed(2)} for ${inv.invoiceNo}${inv.propertyId ? ` (${names.get(inv.propertyId) ?? "property"})` : ""}${body.checkNumber ? `, check #${body.checkNumber}` : ""}`,
-      entityType: "invoice",
-      entityId: inv.id,
-      storagePath: body.checkImagePath ?? undefined,
-    });
-  }
-  res.status(201).json(RecordPaymentResponse.parse(ser(row)));
 });
 
 router.get("/expenses", async (req, res): Promise<void> => {

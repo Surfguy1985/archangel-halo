@@ -18,7 +18,8 @@ import {
   ChevronRight,
   Activity
 } from "lucide-react";
-import { BriefCard, FeedCard } from "@/components/FeedCard";
+import { FeedCard } from "@/components/FeedCard";
+import { Footprints } from "lucide-react";
 import { AutopilotActions } from "@/components/AutopilotActions";
 import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { QuickJobSheet } from "@/components/QuickJobSheet";
@@ -93,7 +94,38 @@ export default function Today() {
         </button>
       </div>
       
-      <BriefCard brief={today.brief} />
+      {/* HALO Walk launcher — mobile only (desktop has its own hub) */}
+      <button
+        onClick={() => window.open("/walk", "_blank", "noopener")}
+        className="relative overflow-hidden w-full text-left bg-[linear-gradient(145deg,#1C1C1E,#000000)] rounded-[28px] p-[22px] mb-[20px] border border-[rgba(255,255,255,0.1)] text-white active:scale-[0.98] transition-transform shadow-[0_20px_40px_rgba(0,0,0,0.15)]"
+      >
+        {/* glow blob */}
+        <div className="absolute top-[-20%] right-[-10%] opacity-30 pointer-events-none">
+          <div className="w-[180px] h-[180px] rounded-full bg-[var(--gold-light)] blur-[60px]" />
+        </div>
+
+        <div className="relative z-10 flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-[10px]">
+            <div className="flex items-center gap-[8px]">
+              <div className="w-[36px] h-[36px] rounded-[12px] bg-[var(--gold-light)] grid place-items-center shadow-[0_4px_14px_rgba(180,255,68,0.4)]">
+                <Footprints className="w-[20px] h-[20px] text-[#07101E]" strokeWidth={2.5} />
+              </div>
+              <div>
+                <div className="font-display font-bold text-[15px] text-white leading-none">HALO Walk</div>
+                <div className="text-[11px] text-white/40 mt-[3px] font-medium tracking-wide uppercase">Property inspection</div>
+              </div>
+            </div>
+            <p className="text-[13.5px] text-white/60 leading-[1.45] max-w-[230px]">
+              Walk a property, capture work items with photos, and push jobs straight to the board.
+            </p>
+          </div>
+          <div className="shrink-0 mt-[2px]">
+            <div className="flex items-center gap-[4px] bg-[var(--gold-light)] text-[#07101E] rounded-full px-[14px] py-[8px] font-display font-bold text-[13px] shadow-[0_4px_12px_rgba(180,255,68,0.35)] whitespace-nowrap">
+              Start walk
+            </div>
+          </div>
+        </div>
+      </button>
 
       {/* Cockpit HUD Numbers */}
       <div className="grid grid-cols-2 gap-3 mb-8">
