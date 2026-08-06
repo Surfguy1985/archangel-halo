@@ -25,6 +25,8 @@ import {
   activitiesTable,
   notificationsTable,
   businessSettingsTable,
+  walksTable,
+  walkCapturesTable,
   type ClientUser,
   type Job,
 } from "@workspace/db";
@@ -65,6 +67,7 @@ import {
 } from "../lib/cardModules";
 import { bidsTable } from "@workspace/db";
 import { computeUnitStatuses, normUnit } from "./clientCms";
+import { acceptWorkRequest } from "./workRequests";
 import { emitBoardEvent } from "../lib/boardEvents";
 import { deriveLaneWaybill, waybillCodeFor } from "../lib/waybill";
 
@@ -406,7 +409,7 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
     ...new Set(activeJobs.map((j) => j.crewLeaderId).filter((x): x is string => !!x)),
   ];
   const jobIds = activeJobs.map((j) => j.id);
-  const [crews, photos, checkins] = await Promise.all([
+  const [crews, photos, checkins, walkCaps] = await Promise.all([
     crewIds.length
       ? db.select().from(crewsTable).where(inArray(crewsTable.id, crewIds))
       : Promise.resolve([]),
@@ -424,6 +427,20 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
           .where(inArray(crewCheckinsTable.jobId, jobIds))
           .orderBy(desc(crewCheckinsTable.createdAt))
       : Promise.resolve([]),
+    // Walk captures for the property (joined through the walk session).
+    // Used to enrich pending work-request cards with any pre-existing
+    // inspection photos for the same unit (HALO Walk / Walk app).
+    db
+      .select({
+        unitNo: walkCapturesTable.unitNo,
+        photos: walkCapturesTable.photos,
+        storagePath: walkCapturesTable.storagePath,
+      })
+      .from(walkCapturesTable)
+      .innerJoin(walksTable, eq(walksTable.id, walkCapturesTable.walkId))
+      .where(eq(walksTable.propertyId, propertyId))
+      .orderBy(desc(walkCapturesTable.createdAt))
+      .limit(60),
   ]);
   const crewById = new Map(crews.map((c) => [c.id, c]));
   const photosByJob = new Map<string, typeof photos>();
@@ -436,6 +453,33 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
   const lastCheckinByJob = new Map<string, (typeof checkins)[number]>();
   for (const c of checkins) {
     if (c.jobId && !lastCheckinByJob.has(c.jobId)) lastCheckinByJob.set(c.jobId, c);
+  }
+
+  // Per-unit photo maps for enriching pending work-request cards.
+  // Walk captures → keyed by normalised unit, most-recent first, cap 4/unit.
+  const walkPhotosByUnit = new Map<string, string[]>();
+  for (const wc of walkCaps) {
+    if (!wc.unitNo) continue;
+    const key = normUnit(wc.unitNo);
+    const existing = walkPhotosByUnit.get(key) ?? [];
+    if (existing.length >= 4) continue;
+    const paths: string[] = Array.isArray(wc.photos)
+      ? (wc.photos as string[])
+      : wc.storagePath
+        ? [wc.storagePath]
+        : [];
+    walkPhotosByUnit.set(key, [...existing, ...paths.map(storageUrl)].slice(0, 4));
+  }
+  // Crew photos → keyed by unit of the job, cap 4/unit.
+  const crewPhotosByUnit = new Map<string, string[]>();
+  for (const p of photos) {
+    if (!p.jobId) continue;
+    const job = activeJobs.find((j) => j.id === p.jobId);
+    if (!job?.unitNo) continue;
+    const key = normUnit(job.unitNo);
+    const existing = crewPhotosByUnit.get(key) ?? [];
+    if (existing.length >= 4) continue;
+    crewPhotosByUnit.set(key, [...existing, storageUrl(p.storagePath)].slice(0, 4));
   }
 
   type CardRow = Record<string, unknown> & { cardKey: string; lane: string; position: number };
@@ -740,6 +784,19 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
       units.length > 1 ? `Units ${units.join(", ")}` : null,
       wr.requesterName ? `Requested by ${wr.requesterName}` : null,
     ].filter(Boolean);
+
+    // Combine client-uploaded request photos + any walk/crew photos for the
+    // same unit so the PM sees all existing evidence in one place.
+    const requestPhotoUrls = photoPaths.map(storageUrl);
+    const normU = wr.unitNo ? normUnit(wr.unitNo) : null;
+    const walkPhotos = normU ? (walkPhotosByUnit.get(normU) ?? []) : [];
+    const crewPhotos = normU ? (crewPhotosByUnit.get(normU) ?? []) : [];
+    const allRequestPhotoUrls = [
+      ...requestPhotoUrls,
+      ...walkPhotos.filter((u) => !requestPhotoUrls.includes(u)),
+      ...crewPhotos.filter((u) => !requestPhotoUrls.includes(u)),
+    ].slice(0, 8);
+
     cards.push(
       applyOverride({
         cardKey: `request:${wr.id}`,
@@ -769,10 +826,30 @@ async function projectBoard(account: typeof clientAccountsTable.$inferSelect) {
         photos: photoPaths.map((p) => ({ url: storageUrl(p), phase: null, note: null })),
         actions:
           wr.status === "pending"
-            ? [{ key: "request.cancel", label: "Cancel Request", kind: "secondary", href: null }]
+            ? [
+                { key: "request.approve", label: "Approve Request", kind: "primary", href: null },
+                { key: "request.cancel", label: "Cancel Request", kind: "secondary", href: null },
+              ]
             : [],
         editable: false,
         updatedAt: (wr.decidedAt ?? wr.createdAt).toISOString(),
+        // Rich module: powers the photo strip + approve button in BoardCardModules.
+        module: {
+          type: "request",
+          requestId: wr.id,
+          serviceLabel: wr.serviceLabel,
+          unitNo: wr.unitNo ?? null,
+          neededBy: wr.neededBy ?? null,
+          notes: wr.notes ?? null,
+          emergency: wr.emergency ?? false,
+          photoUrls: allRequestPhotoUrls,
+          // canApprove drives the green Approve button in ModuleDecision.
+          canApprove: wr.status === "pending",
+          // Stamp approvedAt when the request has been accepted so the card
+          // shows "IN PROGRESS" instead of the approve button.
+          approvedAt:
+            wr.status === "accepted" && wr.decidedAt ? wr.decidedAt.toISOString() : null,
+        },
       }),
     );
   }
@@ -1849,6 +1926,82 @@ const ACTIONS: Record<
         ok: true,
         blocked: false,
         message: "Walk findings approved — this job is now in your work queue.",
+      };
+    },
+  },
+
+  // Real HALO action: client approves a pending work request from their board.
+  // Calls the same acceptWorkRequest() path the office uses, creates a job,
+  // then sets an in_progress lane override so the card surfaces in the correct
+  // column on both the client board and the office mirror immediately.
+  "request.approve": {
+    requiresWrite: true,
+    run: async (ctx) => {
+      if (!ctx.cardKey?.startsWith("request:"))
+        return { ok: false, blocked: false, reason: "Not a request card" };
+      const id = ctx.cardKey.slice("request:".length);
+      // Confirm the request belongs to this property before accepting.
+      const [wr] = await db
+        .select()
+        .from(workRequestsTable)
+        .where(
+          and(
+            eq(workRequestsTable.id, id),
+            eq(workRequestsTable.propertyId, ctx.account.propertyId),
+          ),
+        )
+        .limit(1);
+      if (!wr) return { ok: false, blocked: false, reason: "Request not found" };
+      if (wr.status !== "pending")
+        return {
+          ok: false,
+          blocked: true,
+          reason: `This request was already ${wr.status}`,
+        };
+
+      let jobId: string;
+      let jobNo: string;
+      try {
+        ({ jobId, jobNo } = await acceptWorkRequest(id, {}));
+      } catch (e) {
+        if (e instanceof Error && e.message === "ALREADY_DECIDED")
+          return { ok: false, blocked: true, reason: "Request was already decided" };
+        throw e;
+      }
+
+      // Place the new job card immediately in the In Progress column so both
+      // the client and the office see it there without waiting for a crew
+      // check-in (an override record is cheaply overwritten if the office moves
+      // it later).
+      await db
+        .insert(clientDashboardCardsTable)
+        .values({
+          propertyId: ctx.account.propertyId,
+          cardKey: `job:${jobId}`,
+          kind: "override",
+          board: "vendor",
+          lane: "in_progress",
+          position: 0,
+        })
+        .onConflictDoUpdate({
+          target: [clientDashboardCardsTable.propertyId, clientDashboardCardsTable.cardKey],
+          set: { lane: "in_progress", updatedAt: new Date() },
+        });
+
+      // Notify the office that the client approved the work.
+      await db.insert(notificationsTable).values({
+        kind: "client_dashboard",
+        title: `Client approved work request — Job ${jobNo} created`,
+        body: `${ctx.viewer.name ?? "Property Manager"} approved "${wr.serviceLabel}"${wr.unitNo ? ` on unit ${wr.unitNo}` : ""} from the client dashboard. Job ${jobNo} is now in the work queue.`,
+        entityType: "job",
+        entityId: jobId,
+      });
+
+      // emitBoardEvent already fired inside acceptWorkRequest; no second call needed.
+      return {
+        ok: true,
+        blocked: false,
+        message: `Approved — Job ${jobNo} is now in your work queue. Our team will be in touch soon.`,
       };
     },
   },

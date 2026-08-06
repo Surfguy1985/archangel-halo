@@ -1,7 +1,7 @@
 import { useLocation, useParams } from 'wouter';
 import { useGetClientBoard, useMarkClientBoardTourSeen, useDispatchClientBoardAction, useCreateClientBoardCard, useGetClientPmBoard, getGetClientPmBoardQueryKey, useClearClientBoardCard, getGetClientBoardHistoryQueryKey } from '@workspace/api-client-react';
 import { HistoryTab } from '@/components/HistoryTab';
-import { FeaturedWalkCard } from '@/components/FeaturedWalkCard';
+import { BannerRotator } from '@/components/BannerRotator';
 import { LoginDialog } from '@/components/LoginDialog';
 import { useSessionExchange } from '@/hooks/useSessionExchange';
 import { useToast } from '@/hooks/use-toast';
@@ -494,7 +494,9 @@ function Board() {
         </div>
       </div>
 
-      {activeTab !== 'history' && <FeaturedWalkCard />}
+      {activeTab !== 'history' && (
+        <BannerRotator onStartTraining={() => setTourOpen(true)} />
+      )}
 
       {activeTab === 'history' ? (
         <HistoryTab token={token} canRestore={viewerAuthenticated && !viewer.readOnly} />

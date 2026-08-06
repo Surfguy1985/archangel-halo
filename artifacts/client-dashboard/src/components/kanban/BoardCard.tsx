@@ -109,6 +109,7 @@ function ModuleAppTile({ type }: { type: string }) {
     case 'photos': color = '#ec4899'; Icon = Camera; break;
     case 'flags': color = '#ef4444'; Icon = AlertTriangle; break;
     case 'referral': color = '#14b8a6'; Icon = Gift; break;
+    case 'request': color = '#6366f1'; Icon = FileText; break;
     case 'link': color = '#64748b'; Icon = ExternalLink; break;
     case 'manual': default: color = '#64748b'; Icon = CheckSquare; break;
   }
@@ -142,6 +143,7 @@ export function BoardCard({ card, token, readOnly, onDragStart, onDragEnd }: Boa
       case 'photos': accent = '#ec4899'; break;
       case 'flags': accent = '#ef4444'; break;
       case 'referral': accent = '#14b8a6'; break;
+      case 'request': accent = '#6366f1'; break;
       case 'link':
       case 'manual': 
       default: accent = '#64748b'; break;

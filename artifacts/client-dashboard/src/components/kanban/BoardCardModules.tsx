@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { TONES } from './templateSpec';
-import { CheckCircle2, ArrowUpRight, ExternalLink, Calendar, MapPin, FileText, Check, AlertTriangle, Camera, Receipt, Gift, CreditCard, Map as MapIcon, Users } from 'lucide-react';
-import { useClientBoardCardAction, getGetClientBoardQueryKey } from '@workspace/api-client-react';
+import { CheckCircle2, ArrowUpRight, ExternalLink, Calendar, MapPin, FileText, Check, AlertTriangle, Camera, Receipt, Gift, CreditCard, Map as MapIcon, Users, ClipboardList } from 'lucide-react';
+import { useClientBoardCardAction, useDispatchClientBoardAction, getGetClientBoardQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
@@ -333,6 +333,42 @@ export function ModuleEvidence({ module, tint }: { module: any; tint: any }) {
       </div>
     );
   }
+  if (module.type === 'request') {
+    const urls = (module.photoUrls || []).slice(0, 4);
+    const hasPhotos = urls.length > 0;
+    return (
+      <div className="bg-[#FBFAF7] rounded-[9px] mt-[8px] overflow-hidden flex flex-col" style={{ border: `1px solid #6366f1/20` }}>
+        {/* Service info row */}
+        <div className="flex items-center gap-2 px-[10px] py-[8px] border-b border-black/5 bg-white">
+          <ClipboardList className="h-3.5 w-3.5 text-[#6366f1] shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="text-[11px] font-[700] text-[#101C33] truncate block">{module.serviceLabel}</span>
+            {(module.unitNo || module.neededBy) && (
+              <div className="flex gap-2 mt-0.5">
+                {module.unitNo && <span className="text-[9px] font-[600] text-[#96948B]">Unit {module.unitNo}</span>}
+                {module.neededBy && <span className="text-[9px] font-[600] text-[#96948B]">Needed by {module.neededBy}</span>}
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Photo strip */}
+        <div className="h-[88px] p-[6px]">
+          {hasPhotos ? (
+            <div className={`grid gap-1.5 h-full ${urls.length === 1 ? 'grid-cols-1' : urls.length === 2 ? 'grid-cols-2' : urls.length === 3 ? 'grid-cols-3' : 'grid-cols-2 grid-rows-2'}`}>
+              {urls.map((url: string, i: number) => (
+                <img key={i} src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover rounded-lg border border-black/10 shadow-sm" />
+              ))}
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center opacity-40 h-full">
+              <Camera className="h-5 w-5 text-[#6366f1] mb-1" />
+              <span className="text-[9px] font-[700] uppercase text-[#6366f1]">No photos submitted</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
   if (module.type === 'link') {
     return (
       <div className="bg-white rounded-[9px] mt-[8px] h-[130px] overflow-hidden flex flex-col items-center justify-center p-4 text-center" style={{ border: `1px solid ${tint.bd}` }}>
@@ -393,6 +429,9 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly, onReadO
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const actionMut = useClientBoardCardAction();
+  // Projected cards (request:, etc.) have no clientBoardCardsTable row and
+  // cannot use the card-action endpoint — use the board dispatch endpoint instead.
+  const dispatchMut = useDispatchClientBoardAction();
   const [formOpen, setFormOpen] = useState(false);
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
@@ -402,7 +441,7 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly, onReadO
   const [birdseyeOpen, setBirdseyeOpen] = useState(false);
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
 
-  const isPending = actionMut.isPending;
+  const isPending = actionMut.isPending || dispatchMut.isPending;
 
   const handleAction = (e: React.MouseEvent, action: string, data: any = {}, openUrl?: string | null) => {
     e.stopPropagation();
@@ -562,6 +601,62 @@ export function ModuleDecision({ module, tint, cardKey, token, readOnly, onReadO
          <a href={module.summaryUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] transition-colors shadow-sm">
             View full recap <ArrowUpRight className="w-3.5 h-3.5 ml-1" />
          </a>
+      </div>
+    );
+  }
+
+  if (module.type === 'request') {
+    // Client approved their own request from the board → job is in progress.
+    if (module.approvedAt) {
+      return (
+        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+          <div className="flex-1 h-full rounded-[8px] bg-[#5c7a28]/10 text-[#5c7a28] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center pointer-events-none border border-[#5c7a28]/20">
+            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> APPROVED — IN PROGRESS
+          </div>
+        </div>
+      );
+    }
+    if (module.canApprove) {
+      // Request cards are projected (no clientBoardCardsTable row), so the
+      // approve button must use the board dispatch endpoint, not the card
+      // action endpoint.  The cardKey is "request:<workRequestId>".
+      const handleApprove = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (readOnly) { onReadOnlyClick?.(); return; }
+        dispatchMut.mutate(
+          { token, data: { action: 'request.approve', cardKey, payload: {} } },
+          {
+            onSuccess: (outcome: any) => {
+              if (!outcome?.ok) {
+                toast({ title: 'Could not approve', description: outcome?.reason || 'Please try again', variant: 'destructive' });
+              } else {
+                toast({ title: 'Request approved!', description: outcome?.message || 'Job created — our team will follow up shortly.' });
+                queryClient.invalidateQueries({ queryKey: getGetClientBoardQueryKey(token) });
+              }
+            },
+            onError: () => toast({ title: 'Error', description: 'Network error — please try again', variant: 'destructive' }),
+          }
+        );
+      };
+      return (
+        <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+          <button
+            type="button"
+            disabled={dispatchMut.isPending}
+            onClick={handleApprove}
+            className="flex-1 h-full rounded-[8px] bg-[#B4FF44] text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center hover:bg-[#9EE622] transition-colors shadow-sm disabled:opacity-60"
+          >
+            {dispatchMut.isPending ? 'APPROVING…' : 'APPROVE REQUEST'}
+          </button>
+        </div>
+      );
+    }
+    // Declined or otherwise non-approvable request.
+    return (
+      <div className="flex items-center h-[36px] gap-2 mt-[4px] shrink-0">
+        <div className="flex-1 h-full rounded-[8px] bg-black/5 text-[#101C33] text-[11px] font-[800] uppercase tracking-wider flex items-center justify-center opacity-50 pointer-events-none">
+          REQUEST LOGGED
+        </div>
       </div>
     );
   }
