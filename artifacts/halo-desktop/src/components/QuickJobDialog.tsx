@@ -255,6 +255,8 @@ export function QuickJobDialog({
   }, [catalog]);
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [serviceQuery, setServiceQuery] = useState("");
+  const [openCat, setOpenCat] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
   const createPriceItem = useCreatePriceItem();
   /** Pick a master-list service: reuse the property's agreed rate when one
@@ -540,12 +542,47 @@ export function QuickJobDialog({
                       />
                     </button>
                     {pickerOpen && (
-                      <div className="mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-border bg-white shadow-[var(--shadow-lift)]">
-                        {catalogGroups.map((g) => (
+                      <div className="mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-border bg-white shadow-[var(--shadow-lift)]">
+                        {/* Search first — typing filters across every category;
+                            otherwise categories stay collapsed (tap to open). */}
+                        <div className="sticky top-0 z-20 bg-white border-b border-border p-2">
+                          <input
+                            className={`${fieldCls} py-1.5`}
+                            placeholder="Search services…"
+                            value={serviceQuery}
+                            onChange={(e) => setServiceQuery(e.target.value)}
+                            data-testid="input-quickjob-service-search"
+                          />
+                        </div>
+                        {catalogGroups
+                          .map((g) => {
+                            const q = serviceQuery.trim().toLowerCase();
+                            const entries = q
+                              ? g.entries.filter((e) => e.base.toLowerCase().includes(q) || g.label.toLowerCase().includes(q))
+                              : g.entries;
+                            return { ...g, entries };
+                          })
+                          .filter((g) => g.entries.length > 0)
+                          .map((g) => {
+                          const searching = serviceQuery.trim().length > 0;
+                          const expanded = searching || openCat === g.label;
+                          return (
                           <div key={g.label}>
-                            <div className="sticky top-0 z-10 bg-[var(--muted)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                              {g.label}
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => !searching && setOpenCat((c) => (c === g.label ? null : g.label))}
+                              className="sticky top-[49px] z-10 w-full flex items-center justify-between bg-[var(--muted)] px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+                              data-testid={`toggle-cat-${g.label}`}
+                            >
+                              <span>{g.label}</span>
+                              <span className="flex items-center gap-1.5 normal-case tracking-normal">
+                                <span className="font-semibold">{g.entries.length}</span>
+                                {!searching && (
+                                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
+                                )}
+                              </span>
+                            </button>
+                            {expanded && (
                             <div className="divide-y divide-border">
                               {g.entries.map((e) => (
                                 <div key={e.base} className="px-3 py-1.5">
@@ -595,8 +632,10 @@ export function QuickJobDialog({
                                 </div>
                               ))}
                             </div>
+                            )}
                           </div>
-                        ))}
+                          );
+                        })}
                         {catalogGroups.length === 0 && (
                           <div className="p-4 text-center text-sm text-muted-foreground">
                             No services in the master list yet — add them in Admin.
