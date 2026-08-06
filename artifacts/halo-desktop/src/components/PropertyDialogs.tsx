@@ -867,10 +867,10 @@ export function AddJobDialog({
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Work order # (optional)">
+            <Field label="PO # (optional — you can add it later at the invoice stage)">
               <input
                 className={fieldCls}
-                placeholder="WO-1234"
+                placeholder="e.g. PO-1234"
                 value={woNo}
                 onChange={(e) => setWoNo(e.target.value)}
               />
@@ -1425,8 +1425,8 @@ export function EditJobDialog({
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Work order # (optional)">
-                <input className={fieldCls} placeholder="WO-1234" value={woNo} onChange={(e) => setWoNo(e.target.value)} />
+              <Field label="PO # (optional)">
+                <input className={fieldCls} placeholder="e.g. PO-1234" value={woNo} onChange={(e) => setWoNo(e.target.value)} />
               </Field>
               <Field label="Crew leader (optional)">
                 <select className={fieldCls} value={crewLeaderId} onChange={(e) => setCrewLeaderId(e.target.value)}>

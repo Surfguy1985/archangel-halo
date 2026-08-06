@@ -44,6 +44,9 @@ export default function PropertyDetail() {
   const [newJobId, setNewJobId] = useState<string | null>(null);
   // Site-map view: tapping a unit box opens the full job card in a dialog.
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  // Inline PO# edit — shown when the card hits the invoice/$ stage and no PO yet.
+  const [poJobId, setPoJobId] = useState<string | null>(null);
+  const [poDraft, setPoDraft] = useState("");
   useEffect(() => {
     if (!newJobId) return;
     const t = setTimeout(() => setNewJobId(null), 8000);
@@ -427,7 +430,45 @@ export default function PropertyDetail() {
         {/* Info Grid — everything typed into the New-job form shows here */}
         <div className="flex items-center flex-wrap gap-x-5 gap-y-2 text-sm text-white/70 font-medium">
           <span className="font-mono text-white/50">{job.jobNo}</span>
-          {job.woNo && <span className="font-mono text-white/50">WO {job.woNo}</span>}
+          {job.woNo ? (
+            <button
+              onClick={() => { setPoJobId(job.id); setPoDraft(job.woNo ?? ""); }}
+              className="inline-flex items-center gap-1 font-mono text-white/50 hover:text-white/80 transition-colors"
+              title="Edit PO #"
+            >
+              PO# {job.woNo} <Pencil className="w-3 h-3 opacity-40" />
+            </button>
+          ) : (invoice && !job.clearedAt) ? (
+            poJobId === job.id ? (
+              <span className="inline-flex items-center gap-1.5">
+                <input
+                  autoFocus
+                  value={poDraft}
+                  onChange={(e) => setPoDraft(e.target.value)}
+                  placeholder="PO-1234"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      updateJob.mutate({ id: job.id, data: { woNo: poDraft.trim() || undefined } }, { onSuccess: () => { setPoJobId(null); invalidateJobLists(); } });
+                    }
+                    if (e.key === "Escape") setPoJobId(null);
+                  }}
+                  className="w-24 px-2 py-1 rounded-lg border-none bg-white text-black text-sm tabular-nums outline-none"
+                />
+                <button
+                  onClick={() => updateJob.mutate({ id: job.id, data: { woNo: poDraft.trim() || undefined } }, { onSuccess: () => { setPoJobId(null); invalidateJobLists(); } })}
+                  className="font-bold text-white hover:text-white/80"
+                >Save</button>
+                <button onClick={() => setPoJobId(null)} className="text-white/40 hover:text-white/70">✕</button>
+              </span>
+            ) : (
+              <button
+                onClick={() => { setPoJobId(job.id); setPoDraft(""); }}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--gold-light)] hover:opacity-80 transition-opacity"
+              >
+                + Add PO#
+              </button>
+            )
+          ) : null}
           {(job.flexDueBy || job.scheduledOn) && (
             <span className="flex items-center gap-1.5" data-testid={`job-due-${job.id}`}>
               <CalendarDays className="w-4 h-4" /> Due {fmtDueDay(job.flexDueBy ?? job.scheduledOn ?? "")}
