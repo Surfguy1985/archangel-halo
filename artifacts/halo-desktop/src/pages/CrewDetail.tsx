@@ -26,9 +26,20 @@ import {
   useListCrewInvoices,
   getListCrewInvoicesQueryKey,
   useReviewCrewInvoice,
+  useGetCrewWorkHistory,
+  getGetCrewWorkHistoryQueryKey,
+  useUpdateCrew,
+  useCreateCrewPayment,
+  useGetCrewMapPins,
+  getGetCrewMapPinsQueryKey,
   type CrewPhoto,
   type CrewInvoice,
+  type CrewAvailability,
 } from "@workspace/api-client-react";
+import { MapContainer, TileLayer, CircleMarker } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { useUpload } from "@workspace/object-storage-web";
 import {
   ChevronLeft,
@@ -52,6 +63,9 @@ import {
   Share2,
   Receipt,
   Navigation,
+  CalendarClock,
+  Gift,
+  ClipboardList,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -534,6 +548,329 @@ function DailyActivitySection({
   );
 }
 
+const DAYS: { key: string; label: string }[] = [
+  { key: "mon", label: "Mon" },
+  { key: "tue", label: "Tue" },
+  { key: "wed", label: "Wed" },
+  { key: "thu", label: "Thu" },
+  { key: "fri", label: "Fri" },
+  { key: "sat", label: "Sat" },
+  { key: "sun", label: "Sun" },
+];
+
+function availabilitySummary(avail?: CrewAvailability | null): string {
+  if (!avail) return "Not set";
+  const on = DAYS.filter((d) => avail[d.key]?.on);
+  if (on.length === 0) return "None";
+  if (on.length === 7) return "Every day";
+  return on.map((d) => d.label).join(" ");
+}
+
+/** Small live map of where this crew last was — click to open the full Command Center. */
+function CrewLocationThumb({ crewId, crewName, onExpand }: { crewId: string; crewName: string; onExpand: () => void }) {
+  const { data: pins } = useGetCrewMapPins({
+    query: { queryKey: getGetCrewMapPinsQueryKey(), refetchInterval: 30000 },
+  });
+  const pin = pins?.find((p) => p.id === crewId);
+  const hasPos = pin && pin.lat != null && pin.lng != null;
+  return (
+    <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] overflow-hidden">
+      <div className="px-6 pt-5 pb-3 flex items-center justify-between">
+        <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground flex items-center gap-1.5">
+          <MapPin className="w-3.5 h-3.5" /> Current location
+        </div>
+        <button type="button" onClick={onExpand} className="text-xs font-bold text-[var(--gold-dark)] hover:underline" data-testid="expand-map">
+          Open live map
+        </button>
+      </div>
+      {hasPos ? (
+        <button type="button" onClick={onExpand} className="block w-full" aria-label={`Open live map for ${crewName}`} data-testid="crew-map-thumb">
+          <div className="h-44 w-full pointer-events-none">
+            <MapContainer
+              center={[pin.lat as number, pin.lng as number]}
+              zoom={14}
+              zoomControl={false}
+              dragging={false}
+              scrollWheelZoom={false}
+              doubleClickZoom={false}
+              attributionControl={false}
+              className="h-full w-full"
+            >
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <CircleMarker
+                center={[pin.lat as number, pin.lng as number]}
+                radius={10}
+                pathOptions={{ color: "#111827", fillColor: "#B4FF44", fillOpacity: 1, weight: 3 }}
+              />
+            </MapContainer>
+          </div>
+          <div className="px-6 py-3 text-left text-xs text-muted-foreground border-t border-[var(--hairline)]">
+            {pin.lastCheckinLabel ? `${pin.lastCheckinLabel} · ` : ""}
+            {pin.lastCheckinAt ? `last seen ${formatWhen(pin.lastCheckinAt)}` : "live position"}
+          </div>
+        </button>
+      ) : (
+        <div className="h-44 grid place-items-center text-sm text-muted-foreground bg-black/[0.03] mx-6 mb-6 rounded-xl">
+          No location yet — appears after their first GPS check-in.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Weekly availability the office keeps current — days + times this crew can work. */
+function AvailabilityCard({ crewId, availability }: { crewId: string; availability: CrewAvailability | null }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const updateCrew = useUpdateCrew();
+  const [draft, setDraft] = useState<CrewAvailability | null>(null);
+  const value = draft ?? availability ?? {};
+
+  const setDay = (key: string, patch: Partial<{ on: boolean; from: string; to: string }>) => {
+    const cur = value[key] ?? { on: false, from: "8:00 AM", to: "5:00 PM" };
+    setDraft({ ...value, [key]: { ...cur, ...patch } });
+  };
+
+  const save = () =>
+    updateCrew.mutate(
+      { id: crewId, data: { availability: draft ?? {} } },
+      {
+        onSuccess: () => {
+          setDraft(null);
+          queryClient.invalidateQueries({ queryKey: getGetCrewDetailQueryKey(crewId) });
+          toast({ title: "Availability saved" });
+        },
+        onError: () => toast({ title: "Couldn't save availability", variant: "destructive" }),
+      },
+    );
+
+  return (
+    <div className="bg-card rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] p-6">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground flex items-center gap-1.5">
+          <CalendarClock className="w-3.5 h-3.5" /> Availability — days &amp; times
+        </div>
+        {draft && (
+          <Button size="sm" onClick={save} disabled={updateCrew.isPending} className="rounded-full bg-[var(--gold-light)] text-black font-bold hover:bg-[var(--gold-dark)] h-7 px-4" data-testid="save-availability">
+            {updateCrew.isPending ? "Saving…" : "Save"}
+          </Button>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        {DAYS.map((d) => {
+          const day = value[d.key];
+          const on = !!day?.on;
+          return (
+            <div key={d.key} className="flex items-center gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() => setDay(d.key, { on: !on })}
+                className={`w-14 shrink-0 rounded-full px-2 py-1 text-xs font-bold transition-colors ${on ? "bg-[var(--gold-light)] text-black" : "bg-black/[0.05] text-muted-foreground"}`}
+                data-testid={`avail-day-${d.key}`}
+              >
+                {d.label}
+              </button>
+              {on ? (
+                <>
+                  <input
+                    value={day?.from ?? ""}
+                    onChange={(e) => setDay(d.key, { from: e.target.value })}
+                    placeholder="8:00 AM"
+                    className="w-24 rounded-lg border border-[var(--hairline)] px-2 py-1 text-xs bg-white"
+                  />
+                  <span className="text-muted-foreground text-xs">to</span>
+                  <input
+                    value={day?.to ?? ""}
+                    onChange={(e) => setDay(d.key, { to: e.target.value })}
+                    placeholder="5:00 PM"
+                    className="w-24 rounded-lg border border-[var(--hairline)] px-2 py-1 text-xs bg-white"
+                  />
+                </>
+              ) : (
+                <span className="text-xs text-muted-foreground">Off</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Everything this crew has done: completed jobs, invoices by property, bonuses & gift cards. */
+function WorkHistoryDialog({ open, onOpenChange, crewId, crewName }: { open: boolean; onOpenChange: (o: boolean) => void; crewId: string; crewName: string }) {
+  const { data, isLoading } = useGetCrewWorkHistory(crewId, {
+    query: { queryKey: getGetCrewWorkHistoryQueryKey(crewId), enabled: open },
+  });
+  const createPayment = useCreateCrewPayment();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [extraKind, setExtraKind] = useState<"bonus" | "gift_card">("bonus");
+  const [extraAmount, setExtraAmount] = useState("");
+  const [extraNote, setExtraNote] = useState("");
+
+  const statusChip = (status: string) => {
+    const paid = status === "paid";
+    const bad = status === "rejected";
+    return (
+      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${paid ? "bg-emerald-100 text-emerald-800" : bad ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>
+        {paid ? "Paid" : bad ? "Rejected" : "Pending"}
+      </span>
+    );
+  };
+
+  const invoiceGroups = (() => {
+    const map = new Map<string, NonNullable<typeof data>["invoices"]>();
+    for (const inv of data?.invoices ?? []) {
+      const list = map.get(inv.propertyName) ?? [];
+      list.push(inv);
+      map.set(inv.propertyName, list);
+    }
+    return [...map.entries()];
+  })();
+
+  const addExtra = () => {
+    const amount = parseFloat(extraAmount);
+    if (!amount || amount <= 0) return;
+    createPayment.mutate(
+      { data: { crewId, amount, kind: extraKind, status: "completed", note: extraNote.trim() || null } },
+      {
+        onSuccess: () => {
+          setExtraAmount("");
+          setExtraNote("");
+          queryClient.invalidateQueries({ queryKey: getGetCrewWorkHistoryQueryKey(crewId) });
+          queryClient.invalidateQueries({ queryKey: getGetCrewDetailQueryKey(crewId) });
+          toast({ title: extraKind === "bonus" ? "Bonus recorded" : "Gift card recorded" });
+        },
+        onError: () => toast({ title: "Couldn't record it", variant: "destructive" }),
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[720px] max-h-[85dvh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-display">{crewName} — work history</DialogTitle>
+          <DialogDescription>Completed jobs, invoices by property, and any bonuses or gift cards.</DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <Skeleton className="h-48 w-full" />
+        ) : (
+          <div className="space-y-6 py-1">
+            <section>
+              <h4 className="text-xs font-bold text-[var(--secondary)] mb-2 flex items-center gap-1.5">
+                <ClipboardList className="w-3.5 h-3.5" /> Completed jobs · {data?.jobs.length ?? 0}
+              </h4>
+              {(data?.jobs.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground">No completed jobs yet.</p>
+              ) : (
+                <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
+                  {data!.jobs.map((j) => (
+                    <div key={j.jobId} className="grid grid-cols-[90px_1fr] gap-3 px-4 py-2.5 text-sm" data-testid={`wh-job-${j.jobId}`}>
+                      <span className="text-xs text-muted-foreground pt-0.5">{j.completedOn ?? "—"}</span>
+                      <div className="min-w-0">
+                        <span className="font-semibold text-foreground">{j.services.length > 0 ? j.services.join(" · ") : "Job"}</span>
+                        <span className="block text-xs text-muted-foreground truncate">
+                          {j.propertyName}{j.unitNo ? ` · #${j.unitNo}` : ""}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section>
+              <h4 className="text-xs font-bold text-[var(--secondary)] mb-2 flex items-center gap-1.5">
+                <Receipt className="w-3.5 h-3.5" /> Invoices by property · {data?.invoices.length ?? 0}
+              </h4>
+              {invoiceGroups.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No invoices submitted yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {invoiceGroups.map(([prop, list]) => (
+                    <div key={prop} className="rounded-xl border border-border overflow-hidden">
+                      <div className="bg-black/[0.04] px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{prop}</div>
+                      <div className="divide-y divide-border">
+                        {list.map((inv) => (
+                          <div key={inv.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm" data-testid={`wh-inv-${inv.id}`}>
+                            <span className="min-w-0 truncate">
+                              <span className="font-mono text-xs font-bold">{inv.invoiceNo || "Invoice"}</span>
+                              {inv.invoiceDate && <span className="text-xs text-muted-foreground"> · {inv.invoiceDate}</span>}
+                            </span>
+                            <span className="flex items-center gap-2 shrink-0">
+                              <span className="font-display font-bold tabular-nums">${inv.amount.toLocaleString()}</span>
+                              {statusChip(inv.status)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section>
+              <h4 className="text-xs font-bold text-[var(--secondary)] mb-2 flex items-center gap-1.5">
+                <Gift className="w-3.5 h-3.5" /> Bonuses &amp; gift cards · {data?.extras.length ?? 0}
+              </h4>
+              {(data?.extras.length ?? 0) > 0 && (
+                <div className="divide-y divide-border rounded-xl border border-border overflow-hidden mb-3">
+                  {data!.extras.map((p) => (
+                    <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm" data-testid={`wh-extra-${p.id}`}>
+                      <span className="min-w-0 truncate">
+                        <span className="font-semibold">{p.kind === "gift_card" ? "Gift card" : "Bonus"}</span>
+                        {p.note && <span className="text-xs text-muted-foreground"> · {p.note}</span>}
+                        {p.createdAt && <span className="text-xs text-muted-foreground"> · {formatWhen(p.createdAt)}</span>}
+                      </span>
+                      <span className="font-display font-bold tabular-nums shrink-0">${p.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={extraKind}
+                  onChange={(e) => setExtraKind(e.target.value as "bonus" | "gift_card")}
+                  className="rounded-lg border border-border px-2 py-1.5 text-xs bg-white"
+                  data-testid="extra-kind"
+                >
+                  <option value="bonus">Bonus</option>
+                  <option value="gift_card">Gift card</option>
+                </select>
+                <input
+                  value={extraAmount}
+                  onChange={(e) => setExtraAmount(e.target.value)}
+                  placeholder="Amount"
+                  inputMode="decimal"
+                  className="w-24 rounded-lg border border-border px-2 py-1.5 text-xs bg-white"
+                  data-testid="extra-amount"
+                />
+                <input
+                  value={extraNote}
+                  onChange={(e) => setExtraNote(e.target.value)}
+                  placeholder="Note (optional)"
+                  className="flex-1 min-w-[140px] rounded-lg border border-border px-2 py-1.5 text-xs bg-white"
+                />
+                <Button size="sm" onClick={addExtra} disabled={createPayment.isPending || !parseFloat(extraAmount)} className="rounded-full bg-[var(--gold-light)] text-black font-bold hover:bg-[var(--gold-dark)] h-8 px-4" data-testid="add-extra">
+                  {createPayment.isPending ? "Saving…" : "Record"}
+                </Button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function CrewDetail() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -567,6 +904,7 @@ export default function CrewDetail() {
   const [copiedGuide, setCopiedGuide] = useState<"en" | "es" | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [, navigate] = useLocation();
   const [templateKey, setTemplateKey] = useState("");
 
@@ -735,19 +1073,35 @@ export default function CrewDetail() {
         onDeleted={() => navigate("/crews")}
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        {[
-          ["Paid", `$${(crew.paidTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0 })}`],
-          ["Outstanding", `$${(crew.outstandingTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0 })}`],
-          ["Invoices", String(crewInvoices?.length || 0)],
-          ["Check-ins today", String(checkins?.filter(c => c.createdAt && new Date(c.createdAt).toDateString() === new Date().toDateString()).length || 0)],
-        ].map(([label, value]) => (
-          <div key={label} className="bg-[var(--ink)] rounded-[20px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {([
+          ["Paid", `$${(crew.paidTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0 })}`, null],
+          ["Outstanding", `$${(crew.outstandingTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0 })}`, null],
+          ["Invoices · view all work", String(crewInvoices?.length || 0), () => setHistoryOpen(true)],
+          ["Available days", availabilitySummary(crew.availability), null],
+        ] as [string, string, (() => void) | null][]).map(([label, value, onClick]) => (
+          <div
+            key={label}
+            role={onClick ? "button" : undefined}
+            tabIndex={onClick ? 0 : undefined}
+            onClick={onClick ?? undefined}
+            onKeyDown={onClick ? (e) => { if (e.key === "Enter") onClick(); } : undefined}
+            className={`bg-[var(--ink)] rounded-[20px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] ${onClick ? "cursor-pointer hover:ring-2 hover:ring-[var(--gold-light)] transition-all" : ""}`}
+            data-testid={onClick ? "kpi-invoices" : undefined}
+          >
             <div className="text-white/60 uppercase text-[11px] font-bold tracking-[0.1em] mb-1">{label}</div>
             <div className="font-display font-bold text-[28px] text-white tabular-nums">{value}</div>
           </div>
         ))}
       </div>
+
+      {/* Where they are + when they work — the two things dispatch needs first. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <CrewLocationThumb crewId={id} crewName={crew.name} onExpand={() => setMapOpen(true)} />
+        <AvailabilityCard crewId={id} availability={crew.availability ?? null} />
+      </div>
+
+      <WorkHistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} crewId={id} crewName={crew.name} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         

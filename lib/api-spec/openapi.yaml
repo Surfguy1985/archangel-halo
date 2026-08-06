@@ -1594,6 +1594,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /crews/{id}/work-history:
+    get:
+      operationId: getCrewWorkHistory
+      tags: [crew-portal]
+      summary: Everything a crew has done — completed jobs by date/service/property, their invoices grouped by property, and any bonuses or gift cards
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Work history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewWorkHistory"
+        "404":
+          description: Crew not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /photo-library:
     get:
       operationId: getPhotoLibrary
@@ -11725,6 +11750,44 @@ components:
       properties:
         priceItemId: { type: string }
         qty: { type: number, minimum: 0 }
+    CrewWorkHistory:
+      type: object
+      required: [jobs, invoices, extras]
+      properties:
+        jobs:
+          type: array
+          description: Completed jobs, newest first
+          items:
+            type: object
+            required: [jobId, propertyName, services]
+            properties:
+              jobId: { type: string }
+              completedOn: { type: ["string", "null"] }
+              propertyId: { type: ["string", "null"] }
+              propertyName: { type: string }
+              unitNo: { type: ["string", "null"] }
+              services:
+                type: array
+                items: { type: string }
+        invoices:
+          type: array
+          description: Crew-submitted invoices, newest first
+          items:
+            type: object
+            required: [id, amount, status, propertyName]
+            properties:
+              id: { type: string }
+              invoiceNo: { type: ["string", "null"] }
+              propertyId: { type: ["string", "null"] }
+              propertyName: { type: string }
+              amount: { type: number }
+              status: { type: string, description: "submitted | approved | paid | rejected | ..." }
+              invoiceDate: { type: ["string", "null"] }
+        extras:
+          type: array
+          description: Bonuses and gift cards given to this crew
+          items:
+            $ref: "#/components/schemas/CrewPayment"
     PhotoLibraryEntry:
       type: object
       required: [storagePath, kind]
@@ -12277,6 +12340,10 @@ components:
         active: { type: ["boolean", "null"] }
         paymentTerms: { type: ["string", "null"], description: "due_on_receipt | net15 | net30 | net45" }
         selfiePath: { type: ["string", "null"] }
+        availability:
+          oneOf:
+            - $ref: "#/components/schemas/CrewAvailability"
+            - type: "null"
         access:
           oneOf:
             - $ref: "#/components/schemas/CrewAccess"
@@ -12573,10 +12640,24 @@ components:
         role: { type: ["string", "null"], enum: [crew, lead, foreman, superintendent, null], description: "Wings Program role tier" }
         hireDate: { type: ["string", "null"], description: "YYYY-MM-DD start date for Wings tenure" }
         paymentTerms: { type: ["string", "null"] }
+        availability:
+          oneOf:
+            - $ref: "#/components/schemas/CrewAvailability"
+            - type: "null"
         services:
           type: array
           items:
             $ref: "#/components/schemas/CrewService"
+    CrewAvailability:
+      type: object
+      description: "Weekly availability keyed by day (mon..sun) — free-text times"
+      additionalProperties:
+        type: object
+        required: [on]
+        properties:
+          on: { type: boolean }
+          from: { type: ["string", "null"] }
+          to: { type: ["string", "null"] }
     CrewUpdate:
       type: object
       properties:
@@ -12591,6 +12672,10 @@ components:
         wingsExcluded: { type: ["boolean", "null"], description: "Excluded crews are never auto-imported into the Wings Program" }
         active: { type: boolean }
         paymentTerms: { type: ["string", "null"] }
+        availability:
+          oneOf:
+            - $ref: "#/components/schemas/CrewAvailability"
+            - type: "null"
         services:
           type: ["array", "null"]
           items:
@@ -13536,6 +13621,10 @@ components:
           items:
             $ref: "#/components/schemas/CrewService"
         selfiePath: { type: ["string", "null"] }
+        availability:
+          oneOf:
+            - $ref: "#/components/schemas/CrewAvailability"
+            - type: "null"
         paidTotal: { type: ["number", "null"] }
         outstandingTotal: { type: ["number", "null"] }
         w9Submitted: { type: boolean }
@@ -13811,6 +13900,7 @@ components:
         amount: { type: number }
         method: { type: ["string", "null"] }
         status: { type: ["string", "null"], description: "pending | completed" }
+        kind: { type: ["string", "null"], enum: [job_pay, bonus, gift_card, null], description: "null/job_pay = normal pay; bonus | gift_card show as extras" }
         note: { type: ["string", "null"] }
         jobId: { type: ["string", "null"] }
         dueOn: { type: ["string", "null"] }
@@ -13833,6 +13923,7 @@ components:
         amount: { type: number }
         method: { type: ["string", "null"] }
         status: { type: string, description: "pending | completed" }
+        kind: { type: ["string", "null"] }
         note: { type: ["string", "null"] }
         jobId: { type: ["string", "null"] }
         dueOn: { type: ["string", "null"] }

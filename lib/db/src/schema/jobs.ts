@@ -36,6 +36,9 @@ export const crewsTable = pgTable("crews", {
   preferredPaymentMethod: text("preferred_payment_method"),
   paymentDetails: text("payment_details"),
   paymentTerms: text("payment_terms"),
+  // Weekly availability the office keeps current so dispatch can plan ahead:
+  // { mon: { on: true, from: "8:00 AM", to: "5:00 PM" }, ... } — free text times.
+  availability: jsonb("availability"),
   services: jsonb("services"),
   w9: jsonb("w9"),
   w9SubmittedAt: timestamp("w9_submitted_at", { withTimezone: true }),

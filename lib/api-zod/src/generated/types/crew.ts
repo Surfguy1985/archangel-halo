@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CrewAccess } from './crewAccess';
+import type { CrewAvailability } from './crewAvailability';
 import type { CrewService } from './crewService';
 
 export interface Crew {
@@ -39,6 +40,7 @@ export interface Crew {
   paymentTerms?: string | null;
   /** @nullable */
   selfiePath?: string | null;
+  availability?: CrewAvailability | null;
   access?: CrewAccess | null;
   /** @nullable */
   services?: CrewService[] | null;

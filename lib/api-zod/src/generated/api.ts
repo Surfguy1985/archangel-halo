@@ -2776,6 +2776,48 @@ export const SwapJobLineItemResponse = zod.object({
 
 
 /**
+ * @summary Everything a crew has done — completed jobs by date/service/property, their invoices grouped by property, and any bonuses or gift cards
+ */
+export const GetCrewWorkHistoryParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const GetCrewWorkHistoryResponse = zod.object({
+  "jobs": zod.array(zod.object({
+  "jobId": zod.string(),
+  "completedOn": zod.string().nullish(),
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string(),
+  "unitNo": zod.string().nullish(),
+  "services": zod.array(zod.string())
+})).describe('Completed jobs, newest first'),
+  "invoices": zod.array(zod.object({
+  "id": zod.string(),
+  "invoiceNo": zod.string().nullish(),
+  "propertyId": zod.string().nullish(),
+  "propertyName": zod.string(),
+  "amount": zod.number(),
+  "status": zod.string().describe('submitted | approved | paid | rejected | ...'),
+  "invoiceDate": zod.string().nullish()
+})).describe('Crew-submitted invoices, newest first'),
+  "extras": zod.array(zod.object({
+  "id": zod.string(),
+  "crewId": zod.string(),
+  "crewName": zod.string().nullish(),
+  "amount": zod.number(),
+  "method": zod.string().nullish(),
+  "status": zod.string().describe('pending | completed'),
+  "kind": zod.string().nullish(),
+  "note": zod.string().nullish(),
+  "jobId": zod.string().nullish(),
+  "dueOn": zod.string().nullish(),
+  "paidAt": zod.string().nullish(),
+  "createdAt": zod.string().nullish()
+})).describe('Bonuses and gift cards given to this crew')
+})
+
+
+/**
  * @summary Every photo received from crews — job before/afters plus portal photo-vault shots — labeled with property and crew for the office photo browser
  */
 export const GetPhotoLibraryResponseItem = zod.object({
@@ -4218,6 +4260,11 @@ export const CreateCrewBody = zod.object({
   "role": zod.union([zod.literal('crew'),zod.literal('lead'),zod.literal('foreman'),zod.literal('superintendent'),zod.literal(null)]).nullish().describe('Wings Program role tier'),
   "hireDate": zod.string().nullish().describe('YYYY-MM-DD start date for Wings tenure'),
   "paymentTerms": zod.string().nullish(),
+  "availability": zod.union([zod.record(zod.string(), zod.object({
+  "on": zod.boolean(),
+  "from": zod.string().nullish(),
+  "to": zod.string().nullish()
+})).describe('Weekly availability keyed by day (mon..sun) — free-text times'),zod.null()]).optional(),
   "services": zod.array(zod.object({
   "name": zod.string().min(1),
   "rate": zod.number().nullish()
@@ -4241,6 +4288,11 @@ export const CreateCrewResponse = zod.object({
   "active": zod.boolean().nullish(),
   "paymentTerms": zod.string().nullish().describe('due_on_receipt | net15 | net30 | net45'),
   "selfiePath": zod.string().nullish(),
+  "availability": zod.union([zod.record(zod.string(), zod.object({
+  "on": zod.boolean(),
+  "from": zod.string().nullish(),
+  "to": zod.string().nullish()
+})).describe('Weekly availability keyed by day (mon..sun) — free-text times'),zod.null()]).optional(),
   "access": zod.union([zod.object({
   "features": zod.array(zod.enum(['schedule', 'dispatch', 'jobs', 'properties'])),
   "propertyScope": zod.enum(['all', 'selected']),
@@ -4364,6 +4416,11 @@ export const UpdateCrewBody = zod.object({
   "wingsExcluded": zod.boolean().nullish().describe('Excluded crews are never auto-imported into the Wings Program'),
   "active": zod.boolean().optional(),
   "paymentTerms": zod.string().nullish(),
+  "availability": zod.union([zod.record(zod.string(), zod.object({
+  "on": zod.boolean(),
+  "from": zod.string().nullish(),
+  "to": zod.string().nullish()
+})).describe('Weekly availability keyed by day (mon..sun) — free-text times'),zod.null()]).optional(),
   "services": zod.array(zod.object({
   "name": zod.string().min(1),
   "rate": zod.number().nullish()
@@ -4387,6 +4444,11 @@ export const UpdateCrewResponse = zod.object({
   "active": zod.boolean().nullish(),
   "paymentTerms": zod.string().nullish().describe('due_on_receipt | net15 | net30 | net45'),
   "selfiePath": zod.string().nullish(),
+  "availability": zod.union([zod.record(zod.string(), zod.object({
+  "on": zod.boolean(),
+  "from": zod.string().nullish(),
+  "to": zod.string().nullish()
+})).describe('Weekly availability keyed by day (mon..sun) — free-text times'),zod.null()]).optional(),
   "access": zod.union([zod.object({
   "features": zod.array(zod.enum(['schedule', 'dispatch', 'jobs', 'properties'])),
   "propertyScope": zod.enum(['all', 'selected']),
@@ -6038,6 +6100,11 @@ export const GetCrewDetailResponse = zod.object({
   "rate": zod.number().nullish()
 })).nullish(),
   "selfiePath": zod.string().nullish(),
+  "availability": zod.union([zod.record(zod.string(), zod.object({
+  "on": zod.boolean(),
+  "from": zod.string().nullish(),
+  "to": zod.string().nullish()
+})).describe('Weekly availability keyed by day (mon..sun) — free-text times'),zod.null()]).optional(),
   "paidTotal": zod.number().nullish(),
   "outstandingTotal": zod.number().nullish(),
   "w9Submitted": zod.boolean().optional(),
@@ -6342,6 +6409,11 @@ export const UpdateCrewPaymentMethodResponse = zod.object({
   "rate": zod.number().nullish()
 })).nullish(),
   "selfiePath": zod.string().nullish(),
+  "availability": zod.union([zod.record(zod.string(), zod.object({
+  "on": zod.boolean(),
+  "from": zod.string().nullish(),
+  "to": zod.string().nullish()
+})).describe('Weekly availability keyed by day (mon..sun) — free-text times'),zod.null()]).optional(),
   "paidTotal": zod.number().nullish(),
   "outstandingTotal": zod.number().nullish(),
   "w9Submitted": zod.boolean().optional(),
@@ -6379,6 +6451,7 @@ export const ListCrewPaymentsResponseItem = zod.object({
   "amount": zod.number(),
   "method": zod.string().nullish(),
   "status": zod.string().describe('pending | completed'),
+  "kind": zod.string().nullish(),
   "note": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "dueOn": zod.string().nullish(),
@@ -6393,6 +6466,7 @@ export const CreateCrewPaymentBody = zod.object({
   "amount": zod.number(),
   "method": zod.string().nullish(),
   "status": zod.string().nullish().describe('pending | completed'),
+  "kind": zod.union([zod.literal('job_pay'),zod.literal('bonus'),zod.literal('gift_card'),zod.literal(null)]).nullish().describe('null\/job_pay = normal pay; bonus | gift_card show as extras'),
   "note": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "dueOn": zod.string().nullish()
@@ -6405,6 +6479,7 @@ export const CreateCrewPaymentResponse = zod.object({
   "amount": zod.number(),
   "method": zod.string().nullish(),
   "status": zod.string().describe('pending | completed'),
+  "kind": zod.string().nullish(),
   "note": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "dueOn": zod.string().nullish(),
@@ -6436,6 +6511,7 @@ export const UpdateCrewPaymentResponse = zod.object({
   "amount": zod.number(),
   "method": zod.string().nullish(),
   "status": zod.string().describe('pending | completed'),
+  "kind": zod.string().nullish(),
   "note": zod.string().nullish(),
   "jobId": zod.string().nullish(),
   "dueOn": zod.string().nullish(),
@@ -6731,6 +6807,11 @@ export const UpdateCrewAccessResponse = zod.object({
   "active": zod.boolean().nullish(),
   "paymentTerms": zod.string().nullish().describe('due_on_receipt | net15 | net30 | net45'),
   "selfiePath": zod.string().nullish(),
+  "availability": zod.union([zod.record(zod.string(), zod.object({
+  "on": zod.boolean(),
+  "from": zod.string().nullish(),
+  "to": zod.string().nullish()
+})).describe('Weekly availability keyed by day (mon..sun) — free-text times'),zod.null()]).optional(),
   "access": zod.union([zod.object({
   "features": zod.array(zod.enum(['schedule', 'dispatch', 'jobs', 'properties'])),
   "propertyScope": zod.enum(['all', 'selected']),

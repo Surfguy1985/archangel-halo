@@ -2562,6 +2562,65 @@ export interface JobLineItemInput {
   qty?: number;
 }
 
+export type CrewWorkHistoryJobsItem = {
+  jobId: string;
+  /** @nullable */
+  completedOn?: string | null;
+  /** @nullable */
+  propertyId?: string | null;
+  propertyName: string;
+  /** @nullable */
+  unitNo?: string | null;
+  services: string[];
+};
+
+export type CrewWorkHistoryInvoicesItem = {
+  id: string;
+  /** @nullable */
+  invoiceNo?: string | null;
+  /** @nullable */
+  propertyId?: string | null;
+  propertyName: string;
+  amount: number;
+  /** submitted | approved | paid | rejected | ... */
+  status: string;
+  /** @nullable */
+  invoiceDate?: string | null;
+};
+
+export interface CrewPayment {
+  id: string;
+  crewId: string;
+  /** @nullable */
+  crewName?: string | null;
+  amount: number;
+  /** @nullable */
+  method?: string | null;
+  /** pending | completed */
+  status: string;
+  /** @nullable */
+  kind?: string | null;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  jobId?: string | null;
+  /** @nullable */
+  dueOn?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+  /** @nullable */
+  createdAt?: string | null;
+}
+
+export interface CrewWorkHistory {
+  /** Completed jobs, newest first */
+  jobs: CrewWorkHistoryJobsItem[];
+  /** Crew-submitted invoices, newest first */
+  invoices: CrewWorkHistoryInvoicesItem[];
+  /** Bonuses and gift cards given to this crew */
+  extras: CrewPayment[];
+}
+
 export interface PhotoLibraryEntry {
   storagePath: string;
   /** photo_before | photo_after | other */
@@ -3207,6 +3266,17 @@ export interface PortalOfficeView {
   dispatch: OfficeViewDispatchItem[];
 }
 
+/**
+ * Weekly availability keyed by day (mon..sun) — free-text times
+ */
+export interface CrewAvailability {[key: string]: {
+  on: boolean;
+  /** @nullable */
+  from?: string | null;
+  /** @nullable */
+  to?: string | null;
+}}
+
 export interface Crew {
   id: string;
   name: string;
@@ -3238,6 +3308,7 @@ export interface Crew {
   paymentTerms?: string | null;
   /** @nullable */
   selfiePath?: string | null;
+  availability?: CrewAvailability | null;
   access?: CrewAccess | null;
   /** @nullable */
   services?: CrewService[] | null;
@@ -3569,6 +3640,7 @@ export interface CrewInput {
   hireDate?: string | null;
   /** @nullable */
   paymentTerms?: string | null;
+  availability?: CrewAvailability | null;
   services?: CrewService[];
 }
 
@@ -3614,6 +3686,7 @@ export interface CrewUpdate {
   active?: boolean;
   /** @nullable */
   paymentTerms?: string | null;
+  availability?: CrewAvailability | null;
   /** @nullable */
   services?: CrewService[] | null;
 }
@@ -4573,6 +4646,7 @@ export interface CrewDetail {
   services?: CrewService[] | null;
   /** @nullable */
   selfiePath?: string | null;
+  availability?: CrewAvailability | null;
   /** @nullable */
   paidTotal?: number | null;
   /** @nullable */
@@ -4940,6 +5014,19 @@ export interface PhotoShareView {
   checkins: PhotoShareCheckin[];
 }
 
+/**
+ * null/job_pay = normal pay; bonus | gift_card show as extras
+ * @nullable
+ */
+export type CrewPaymentInputKind = typeof CrewPaymentInputKind[keyof typeof CrewPaymentInputKind] | null;
+
+
+export const CrewPaymentInputKind = {
+  job_pay: 'job_pay',
+  bonus: 'bonus',
+  gift_card: 'gift_card',
+} as const;
+
 export interface CrewPaymentInput {
   crewId: string;
   amount: number;
@@ -4950,6 +5037,11 @@ export interface CrewPaymentInput {
      * @nullable
      */
   status?: string | null;
+  /**
+     * null/job_pay = normal pay; bonus | gift_card show as extras
+     * @nullable
+     */
+  kind?: CrewPaymentInputKind;
   /** @nullable */
   note?: string | null;
   /** @nullable */
@@ -4971,28 +5063,6 @@ export interface CrewPaymentUpdate {
   dueOn?: string | null;
   /** @nullable */
   paidAt?: string | null;
-}
-
-export interface CrewPayment {
-  id: string;
-  crewId: string;
-  /** @nullable */
-  crewName?: string | null;
-  amount: number;
-  /** @nullable */
-  method?: string | null;
-  /** pending | completed */
-  status: string;
-  /** @nullable */
-  note?: string | null;
-  /** @nullable */
-  jobId?: string | null;
-  /** @nullable */
-  dueOn?: string | null;
-  /** @nullable */
-  paidAt?: string | null;
-  /** @nullable */
-  createdAt?: string | null;
 }
 
 export interface PaymentMethodInput {

@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { CrewPaymentInputKind } from './crewPaymentInputKind';
 
 export interface CrewPaymentInput {
   crewId: string;
@@ -16,6 +17,11 @@ export interface CrewPaymentInput {
      * @nullable
      */
   status?: string | null;
+  /**
+     * null/job_pay = normal pay; bonus | gift_card show as extras
+     * @nullable
+     */
+  kind?: CrewPaymentInputKind;
   /** @nullable */
   note?: string | null;
   /** @nullable */

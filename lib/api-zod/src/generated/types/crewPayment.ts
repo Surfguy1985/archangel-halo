@@ -17,6 +17,8 @@ export interface CrewPayment {
   /** pending | completed */
   status: string;
   /** @nullable */
+  kind?: string | null;
+  /** @nullable */
   note?: string | null;
   /** @nullable */
   jobId?: string | null;

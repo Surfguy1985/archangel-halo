@@ -5,6 +5,7 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { CrewAvailability } from './crewAvailability';
 import type { CrewInputRole } from './crewInputRole';
 import type { CrewService } from './crewService';
 
@@ -29,5 +30,6 @@ export interface CrewInput {
   hireDate?: string | null;
   /** @nullable */
   paymentTerms?: string | null;
+  availability?: CrewAvailability | null;
   services?: CrewService[];
 }

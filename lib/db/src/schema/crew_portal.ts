@@ -107,6 +107,9 @@ export const crewPaymentsTable = pgTable("crew_payments", {
   amount: doublePrecision("amount").notNull(),
   method: text("method"),
   status: text("status").notNull().default("pending"),
+  // null/job_pay = normal job payment; bonus | gift_card are extras shown in
+  // the crew work-history popup.
+  kind: text("kind"),
   note: text("note"),
   jobId: uuid("job_id"),
   dueOn: timestamp("due_on", { withTimezone: true }),

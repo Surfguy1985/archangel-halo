@@ -15,6 +15,7 @@ import {
   notificationsTable,
   schedulesTable,
   jobsTable,
+  jobLineItemsTable,
   propertiesTable,
   calendarEventsTable,
   crewRoutePlansTable,
@@ -59,6 +60,8 @@ import {
   UpdatePhotoShareNotesResponse,
   GetPhotoShareResponse,
   ListCrewInvoicesParams,
+  GetCrewWorkHistoryParams,
+  GetCrewWorkHistoryResponse,
   ListCrewInvoicesResponse,
   ReviewCrewInvoiceParams,
   ReviewCrewInvoiceBody,
@@ -97,6 +100,9 @@ function crewDetail(row: CrewRow) {
       (row.services as { name: string; rate?: number | null }[] | null) ??
       null,
     selfiePath: row.selfiePath ?? null,
+    availability:
+      (row.availability as Record<string, { on: boolean; from?: string | null; to?: string | null }> | null) ??
+      null,
     w9Submitted: row.w9SubmittedAt != null,
     w9SubmittedAt: row.w9SubmittedAt ? row.w9SubmittedAt.toISOString() : null,
     w9: (row.w9 as Record<string, unknown> | null) ?? null,
@@ -626,6 +632,92 @@ router.get("/crews/:id/documents", async (req, res): Promise<void> => {
   res.json(ListCrewDocumentsResponse.parse(rows.map((r) => ser(r))));
 });
 
+// Everything a crew has done, in one call: completed jobs (date, services,
+// property), their submitted invoices grouped by property client-side, and
+// any bonuses or gift cards recorded as crew payments.
+router.get("/crews/:id/work-history", async (req, res): Promise<void> => {
+  const { id } = GetCrewWorkHistoryParams.parse(req.params);
+  const [crew] = await db
+    .select({ id: crewsTable.id })
+    .from(crewsTable)
+    .where(eq(crewsTable.id, id));
+  if (!crew) {
+    res.status(404).json({ error: "Crew not found" });
+    return;
+  }
+  const [jobs, props, invoices, extras] = await Promise.all([
+    db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.crewLeaderId, id))
+      .orderBy(desc(jobsTable.createdAt)),
+    db.select({ id: propertiesTable.id, name: propertiesTable.name }).from(propertiesTable),
+    db
+      .select()
+      .from(crewInvoicesTable)
+      .where(eq(crewInvoicesTable.crewId, id))
+      .orderBy(desc(crewInvoicesTable.createdAt)),
+    db
+      .select()
+      .from(crewPaymentsTable)
+      .where(
+        and(
+          eq(crewPaymentsTable.crewId, id),
+          inArray(crewPaymentsTable.kind, ["bonus", "gift_card"]),
+        ),
+      )
+      .orderBy(desc(crewPaymentsTable.createdAt)),
+  ]);
+  const propsById = new Map(props.map((p) => [p.id, p.name]));
+  // Service names live on job line items, not the job row.
+  const jobIds = jobs.map((j) => j.id);
+  const lineItems =
+    jobIds.length > 0
+      ? await db
+          .select({ jobId: jobLineItemsTable.jobId, service: jobLineItemsTable.service })
+          .from(jobLineItemsTable)
+          .where(inArray(jobLineItemsTable.jobId, jobIds))
+      : [];
+  const servicesByJob = new Map<string, string[]>();
+  for (const li of lineItems) {
+    if (!li.service) continue;
+    const list = servicesByJob.get(li.jobId) ?? [];
+    if (!list.includes(li.service)) list.push(li.service);
+    servicesByJob.set(li.jobId, list);
+  }
+  const completed = jobs.filter(
+    (j) =>
+      j.status === "complete" ||
+      j.status === "paid" ||
+      j.clearedAt != null ||
+      ["completed", "billing", "pay_alert"].includes(j.boardStatus ?? ""),
+  );
+  res.json(
+    GetCrewWorkHistoryResponse.parse({
+      jobs: completed.map((j) => ({
+        jobId: j.id,
+        completedOn: (j.completedAt ?? j.clearedAt ?? j.createdAt)?.toISOString().slice(0, 10) ?? null,
+        propertyId: j.propertyId ?? null,
+        propertyName: (j.propertyId && propsById.get(j.propertyId)) || "Unknown property",
+        unitNo: j.unitNo ?? null,
+        services: servicesByJob.get(j.id) ?? [],
+      })),
+      invoices: invoices.map((inv) => ({
+        id: inv.id,
+        invoiceNo: inv.invoiceNo ?? null,
+        propertyId: inv.propertyId ?? null,
+        propertyName:
+          (inv.propertyId && propsById.get(inv.propertyId)) || inv.propertyAddress || "Unknown property",
+        amount: inv.total,
+        // A cleared invoice is paid regardless of its review status.
+        status: inv.clearedAt ? "paid" : inv.status,
+        invoiceDate: inv.invoiceDate ?? null,
+      })),
+      extras: extras.map((p) => ({ ...ser(p), crewName: null })),
+    }),
+  );
+});
+
 router.get("/crews/:id/invoices", async (req, res): Promise<void> => {
   const { id } = ListCrewInvoicesParams.parse(req.params);
   const [crew] = await db
@@ -868,6 +960,7 @@ router.post("/crew-payments", async (req, res): Promise<void> => {
       amount: body.amount,
       method: body.method ?? null,
       status,
+      kind: body.kind ?? null,
       note: body.note ?? null,
       jobId: body.jobId ?? null,
       dueOn: body.dueOn ? new Date(body.dueOn) : null,

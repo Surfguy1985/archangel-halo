@@ -97,5 +97,6 @@
 - [HALO member dispatch](halo-member-dispatch.md) — crews.leaderId teams + per-member day assignments; pending_move settles only via guarded conditional UPDATEs; members with foreman can't message office.
 - [HALO Clients hub dark-panel style](halo-clients-hub-restyle.md) — Properties/Pipeline/Accounts are dark navy panel islands w/ lime accents per user reference; office billing edit is sanitized last4-only.
 - [HALO bid → client request flow](halo-bid-flow.md) — B-xxxx is DB-unique + retried on 23505; client bid-lookup is property-scoped; wizard prefill is one-shot; ai-pricing is knowledge-based.
+- [HALO crew availability & history](halo-crew-availability.md) — availability jsonb via generic PATCH; work-history jobs by crewLeaderId only; extras kind=bonus/gift_card still count in pay aggregates.
 - [HALO photo library](halo-photo-library.md) — office photo browser merges crew_photos + job photo activities; assign-to-card must validate paths against the library set (never trust client paths).
 - [HALO property job timeline](halo-property-job-timeline.md) — property-page 5-stage job timeline must derive from the same server fields as the Job Board (crew-paid = crew_payments OR board crewPay/pay_alert).

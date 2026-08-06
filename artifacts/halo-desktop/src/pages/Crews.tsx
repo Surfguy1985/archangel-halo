@@ -1,7 +1,7 @@
 import { useListCrews} from "@workspace/api-client-react";
 import { Skeleton} from "@/components/ui/skeleton";
 import { Link} from "wouter";
-import { Users, Plus, Search, MapPin, CheckCircle, Clock, Pencil, Navigation, ShieldCheck} from "lucide-react";
+import { Users, Plus, Search, Pencil, Navigation, ShieldCheck, ChevronRight} from "lucide-react";
 import { useState} from "react";
 import { AddCrewDialog, EditCrewDialog, type EditableCrew} from "@/components/CrewDialogs";
 import { CrewCommandCenter } from "@/components/CrewCommandCenter";
@@ -81,48 +81,41 @@ export default function Crews() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-40 w-full" />
-          <Skeleton className="h-40 w-full" />
-          <Skeleton className="h-40 w-full" />
-        </div>
+        <Skeleton className="h-96 w-full max-w-2xl rounded-[20px]" />
       ) : (
-        <div className="space-y-8">
-          {teams.map((t) => (
-            <section key={t.leader.id} className="space-y-3">
-              <div className="flex items-center gap-2">
-                <h2 className="font-display font-bold text-lg text-[var(--ink)]">
-                  {t.leader.name}'s team
-                </h2>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)]">
-                  Foreman
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {t.visible.length} {t.visible.length === 1 ? "person" : "people"}
-                </span>
+        /* One organized directory list below the search — type to filter or
+           scroll; click a name to open their profile. */
+        <div className="max-w-2xl bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="px-5 py-3 border-b border-[var(--hairline)] bg-black/[0.03] text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+            {filtered.length} crew{filtered.length === 1 ? "" : "s"} — click a name to open their profile
+          </div>
+          <div className="max-h-[60dvh] overflow-y-auto divide-y divide-[var(--hairline)]" data-testid="crew-directory">
+            {teams.map((t) => (
+              <div key={t.leader.id}>
+                <div className="px-5 pt-3 pb-1 flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)]">
+                    {t.leader.name}'s team
+                  </span>
+                </div>
+                {t.visible.map((crew) => renderRow(crew))}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {t.visible.map((crew) => renderCard(crew))}
+            ))}
+            {independents.length > 0 && (
+              <div>
+                {teams.length > 0 && (
+                  <div className="px-5 pt-3 pb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-0.5 rounded-full bg-black/[0.05]">
+                      Independent
+                    </span>
+                  </div>
+                )}
+                {independents.map((crew) => renderRow(crew))}
               </div>
-            </section>
-          ))}
-          {independents.length > 0 && (
-            <section className="space-y-3">
-              {teams.length > 0 && (
-                <h2 className="font-display font-bold text-lg text-[var(--ink)]">
-                  Independent
-                </h2>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {independents.map((crew) => renderCard(crew))}
-              </div>
-            </section>
-          )}
-          {filtered.length === 0 && (
-            <div className="p-12 text-center border border-dashed border-[var(--hairline)] rounded-[20px] text-muted-foreground bg-card">
-              No crews found.
-            </div>
-          )}
+            )}
+            {filtered.length === 0 && (
+              <div className="p-12 text-center text-muted-foreground">No crews found.</div>
+            )}
+          </div>
         </div>
       )}
 
@@ -147,101 +140,61 @@ export default function Crews() {
     </div>
   );
 
-  function renderCard(crew: NonNullable<typeof crews>[number]) {
+  function renderRow(crew: NonNullable<typeof crews>[number]) {
     return (
-      <Link key={crew.id} href={`/crews/${crew.id}`} className="block">
-              <div className="bg-card rounded-[20px] border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-1 transition-all group h-full flex flex-col">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[var(--ink)] flex items-center justify-center text-[var(--gold-light)] group-hover:bg-[var(--gold-light)] group-hover:text-black transition-colors overflow-hidden">
-                      {crew.selfiePath ? (
-                        <img
-                          src={`/api/storage${crew.selfiePath}`}
-                          alt={crew.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <Users className="w-5 h-5" />
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-display font-bold text-[var(--ink)] text-lg leading-tight tracking-tight">{crew.name}</h3>
-                      <p className="text-muted-foreground text-sm">{crew.trade || 'General'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {crew.isLeader && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-2 py-0.5 rounded-full bg-[var(--gold-tint)]">
-                        Leader
-                      </span>
-                    )}
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setPlanCrew({ id: crew.id, name: crew.name });
-                      }}
-                      aria-label={`Plan ${crew.name}'s day`}
-                      title="Day route"
-                      className="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-black/5 hover:text-foreground transition-all"
-                    >
-                      <Route className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setAccessCrew(crew);
-                      }}
-                      aria-label={`Office access for ${crew.name}`}
-                      title="Office access"
-                      className={`p-1.5 rounded-md transition-all ${
-                        crew.access && crew.access.features.length > 0
-                          ? "text-[var(--gold-dark)] opacity-100"
-                          : "text-muted-foreground opacity-0 group-hover:opacity-100"
-                      } hover:bg-black/5 hover:text-foreground`}
-                    >
-                      <ShieldCheck className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setEditing(crew);
-                      }}
-                      aria-label={`Edit ${crew.name}`}
-                      className="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-black/5 hover:text-foreground transition-all"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-auto pt-4 border-t border-[var(--hairline)] flex items-center gap-2 text-sm">
-                  {crew.todayStatus === 'site' && (
-                    <>
-                      <MapPin className="w-4 h-4 text-[var(--gold)]" />
-                      <span className="text-[var(--ink)] font-medium truncate">At {crew.todayProperty}</span>
-                    </>
-                  )}
-                  {crew.todayStatus === 'route' && (
-                    <>
-                      <Clock className="w-4 h-4 text-[var(--orange)]" />
-                      <span className="text-[var(--ink)] font-medium truncate">En route to {crew.todayProperty}</span>
-                    </>
-                  )}
-                  {crew.todayStatus === 'done' && (
-                    <>
-                      <CheckCircle className="w-4 h-4 text-[var(--green)]" />
-                      <span className="text-muted-foreground">Finished for today</span>
-                    </>
-                  )}
-                  {(!crew.todayStatus || crew.todayStatus === 'idle') && (
-                    <span className="text-muted-foreground">Not dispatched today</span>
-                  )}
-                </div>
-              </div>
-            </Link>
+      <Link
+        key={crew.id}
+        href={`/crews/${crew.id}`}
+        className="group flex items-center gap-3 px-5 py-3 hover:bg-black/[0.04] transition-colors"
+        data-testid={`crew-row-${crew.id}`}
+      >
+        <div className="w-9 h-9 rounded-full bg-[var(--ink)] flex items-center justify-center text-[var(--gold-light)] overflow-hidden shrink-0">
+          {crew.selfiePath ? (
+            <img src={`/api/storage${crew.selfiePath}`} alt={crew.name} className="w-full h-full object-cover" />
+          ) : (
+            <Users className="w-4 h-4" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-display font-bold text-[var(--ink)] truncate">{crew.name}</span>
+            {crew.isLeader && (
+              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--gold-dark)] px-1.5 py-px rounded-full bg-[var(--gold-tint)]">Leader</span>
+            )}
+          </div>
+          <span className="block text-xs text-muted-foreground truncate">
+            {crew.trade || "General"}
+            {crew.todayStatus === "site" && ` · At ${crew.todayProperty}`}
+            {crew.todayStatus === "route" && ` · En route to ${crew.todayProperty}`}
+            {crew.todayStatus === "done" && " · Finished for today"}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPlanCrew({ id: crew.id, name: crew.name }); }}
+            aria-label={`Plan ${crew.name}'s day`} title="Day route"
+            className="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-black/5 hover:text-foreground transition-all"
+          >
+            <Route className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAccessCrew(crew); }}
+            aria-label={`Office access for ${crew.name}`} title="Office access"
+            className={`p-1.5 rounded-md transition-all ${crew.access && crew.access.features.length > 0 ? "text-[var(--gold-dark)] opacity-100" : "text-muted-foreground opacity-0 group-hover:opacity-100"} hover:bg-black/5 hover:text-foreground`}
+          >
+            <ShieldCheck className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditing(crew); }}
+            aria-label={`Edit ${crew.name}`}
+            className="p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-black/5 hover:text-foreground transition-all"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+          <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-[var(--gold-dark)]" />
+        </div>
+      </Link>
     );
   }
+
 }

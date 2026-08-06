@@ -1900,11 +1900,16 @@ function PhotoLibraryDialog({ open, onOpenChange, jobId, onAssigned }: {
   });
   const assign = useAssignPhotosToJob();
   const { toast } = useToast();
-  const [selected, setSelected] = useState<Map<string, PhotoLibraryEntry>>(new Map());
-  const [assignAs, setAssignAs] = useState<"photo_before" | "photo_after">("photo_after");
+  // Each picked photo carries its own Before/After tag — the big mode buttons
+  // above the grid decide which tag the next tap applies.
+  const [selected, setSelected] = useState<Map<string, { entry: PhotoLibraryEntry; kind: "photo_before" | "photo_after" }>>(new Map());
+  const [mode, setMode] = useState<"photo_before" | "photo_after">("photo_before");
 
   useEffect(() => {
-    if (!open) setSelected(new Map());
+    if (!open) {
+      setSelected(new Map());
+      setMode("photo_before");
+    }
   }, [open]);
 
   // One labeled column per property; photos with no property go last.
@@ -1926,17 +1931,21 @@ function PhotoLibraryDialog({ open, onOpenChange, jobId, onAssigned }: {
   const toggle = (p: PhotoLibraryEntry) => {
     setSelected((cur) => {
       const next = new Map(cur);
-      if (next.has(p.storagePath)) next.delete(p.storagePath);
-      else next.set(p.storagePath, p);
+      const existing = next.get(p.storagePath);
+      if (existing?.kind === mode) next.delete(p.storagePath); // tap again = unpick
+      else next.set(p.storagePath, { entry: p, kind: mode }); // new pick or re-tag to current mode
       return next;
     });
   };
+
+  const beforeCount = [...selected.values()].filter((s) => s.kind === "photo_before").length;
+  const afterCount = selected.size - beforeCount;
 
   const doAssign = () => {
     assign.mutate(
       {
         id: jobId,
-        data: { items: [...selected.values()].map((p) => ({ storagePath: p.storagePath, kind: assignAs })) },
+        data: { items: [...selected.values()].map((s) => ({ storagePath: s.entry.storagePath, kind: s.kind })) },
       },
       {
         onSuccess: (r) => {
@@ -1954,9 +1963,34 @@ function PhotoLibraryDialog({ open, onOpenChange, jobId, onAssigned }: {
         <DialogHeader>
           <DialogTitle className="font-display">All crew photos</DialogTitle>
           <DialogDescription>
-            Every photo received from crews, organized by property. Tap to select, then assign to this card.
+            Step 1 — with <span className="font-bold text-amber-600">Before</span> on, tap the photos taken before the work. Step 2 — switch to <span className="font-bold text-emerald-600">After</span> and tap the finished shots. Then attach.
           </DialogDescription>
         </DialogHeader>
+
+        {/* The two big mode buttons — the choice you're making is impossible to miss. */}
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            ["photo_before", "Before", "Pick photos from before the work", beforeCount, "border-amber-400 bg-amber-50 text-amber-900", "bg-amber-500"],
+            ["photo_after", "After", "Pick the finished shots", afterCount, "border-emerald-400 bg-emerald-50 text-emerald-900", "bg-emerald-500"],
+          ] as const).map(([k, label, hint, count, activeCls, dotCls]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setMode(k)}
+              className={`rounded-xl border-2 px-4 py-2.5 text-left transition-all ${mode === k ? `${activeCls} shadow-sm` : "border-border text-muted-foreground hover:border-foreground/30"}`}
+              data-testid={`assign-as-${k}`}
+            >
+              <span className="flex items-center gap-2 font-display font-bold text-sm">
+                <span className={`h-2.5 w-2.5 rounded-full ${dotCls}`} />
+                {mode === k ? `Picking ${label} photos` : label}
+                {count > 0 && (
+                  <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-bold text-white ${dotCls}`}>{count}</span>
+                )}
+              </span>
+              <span className="block text-[11px] mt-0.5 opacity-80">{hint}</span>
+            </button>
+          ))}
+        </div>
 
         <div className="flex-1 min-h-0 overflow-x-auto">
           {isLoading ? (
@@ -1976,13 +2010,14 @@ function PhotoLibraryDialog({ open, onOpenChange, jobId, onAssigned }: {
                   </div>
                   <div className="flex-1 min-h-0 space-y-2 overflow-y-auto rounded-b-xl border border-t-0 border-border p-2 max-h-[48dvh]">
                     {col.items.map((p) => {
-                      const isSel = selected.has(p.storagePath);
+                      const pick = selected.get(p.storagePath);
+                      const isBefore = pick?.kind === "photo_before";
                       return (
                         <button
                           key={p.storagePath}
                           type="button"
                           onClick={() => toggle(p)}
-                          className={`relative block w-full overflow-hidden rounded-lg border-2 transition-all ${isSel ? "border-[var(--gold)] shadow-[var(--glow-lime)]" : "border-transparent hover:border-border"}`}
+                          className={`relative block w-full overflow-hidden rounded-lg border-2 transition-all ${pick ? (isBefore ? "border-amber-400 shadow-sm" : "border-emerald-400 shadow-sm") : "border-transparent hover:border-border"}`}
                           data-testid={`photo-pick-${p.storagePath}`}
                         >
                           <img
@@ -1991,9 +2026,10 @@ function PhotoLibraryDialog({ open, onOpenChange, jobId, onAssigned }: {
                             loading="lazy"
                             className="aspect-[4/3] w-full object-cover bg-muted"
                           />
-                          {isSel && (
-                            <span className="absolute top-1.5 right-1.5 grid h-5 w-5 place-items-center rounded-full bg-[var(--gold-light)]">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-black" />
+                          {pick && (
+                            <span className={`absolute top-1.5 right-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold text-white ${isBefore ? "bg-amber-500" : "bg-emerald-500"}`}>
+                              <CheckCircle2 className="w-3 h-3" />
+                              {isBefore ? "BEFORE" : "AFTER"}
                             </span>
                           )}
                           <span className="absolute bottom-0 inset-x-0 bg-black/55 px-1.5 py-0.5 text-left text-[10px] font-semibold text-white truncate">
@@ -2012,20 +2048,17 @@ function PhotoLibraryDialog({ open, onOpenChange, jobId, onAssigned }: {
         </div>
 
         <DialogFooter className="items-center gap-3 border-t border-border pt-3 sm:justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-muted-foreground">Attach as</span>
-            {(["photo_before", "photo_after"] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setAssignAs(k)}
-                className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${assignAs === k ? "bg-[var(--gold-light)] text-black" : "border border-border text-muted-foreground hover:text-foreground"}`}
-                data-testid={`assign-as-${k}`}
-              >
-                {k === "photo_before" ? "Before" : "After"}
-              </button>
-            ))}
-          </div>
+          <span className="text-xs font-semibold text-muted-foreground" data-testid="pick-summary">
+            {selected.size === 0 ? (
+              "Nothing picked yet — tap photos above."
+            ) : (
+              <>
+                <span className="text-amber-600 font-bold">{beforeCount} before</span>
+                {" · "}
+                <span className="text-emerald-600 font-bold">{afterCount} after</span>
+              </>
+            )}
+          </span>
           <Button
             type="button"
             disabled={selected.size === 0 || assign.isPending}
@@ -2033,7 +2066,7 @@ function PhotoLibraryDialog({ open, onOpenChange, jobId, onAssigned }: {
             className="rounded-full bg-[var(--gold-light)] font-bold text-black hover:bg-[var(--gold-dark)]"
             data-testid="button-assign-photos"
           >
-            {assign.isPending ? "Attaching…" : `Assign ${selected.size || ""} to this card`}
+            {assign.isPending ? "Attaching…" : `Attach ${selected.size || ""} to this card`}
           </Button>
         </DialogFooter>
       </DialogContent>

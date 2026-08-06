@@ -161,6 +161,7 @@ import type {
   CrewPortalLink,
   CrewToday,
   CrewUpdate,
+  CrewWorkHistory,
   DeleteCalendarEvent200,
   DeleteVendor200,
   DisconnectBankParams,
@@ -5407,6 +5408,83 @@ export const useSwapJobLineItem = <TError = ErrorType<Error>,
       > => {
       return useMutation(getSwapJobLineItemMutationOptions(options));
     }
+
+export const getGetCrewWorkHistoryUrl = (id: string,) => {
+
+
+
+
+  return `/api/crews/${id}/work-history`
+}
+
+/**
+ * @summary Everything a crew has done — completed jobs by date/service/property, their invoices grouped by property, and any bonuses or gift cards
+ */
+export const getCrewWorkHistory = async (id: string, options?: RequestInit): Promise<CrewWorkHistory> => {
+
+  return customFetch<CrewWorkHistory>(getGetCrewWorkHistoryUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrewWorkHistoryQueryKey = (id: string,) => {
+    return [
+    `/api/crews/${id}/work-history`
+    ] as const;
+    }
+
+
+export const getGetCrewWorkHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getCrewWorkHistory>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewWorkHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrewWorkHistoryQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrewWorkHistory>>> = ({ signal }) => getCrewWorkHistory(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrewWorkHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCrewWorkHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getCrewWorkHistory>>>
+export type GetCrewWorkHistoryQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Everything a crew has done — completed jobs by date/service/property, their invoices grouped by property, and any bonuses or gift cards
+ */
+
+export function useGetCrewWorkHistory<TData = Awaited<ReturnType<typeof getCrewWorkHistory>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrewWorkHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCrewWorkHistoryQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetPhotoLibraryUrl = () => {
 
