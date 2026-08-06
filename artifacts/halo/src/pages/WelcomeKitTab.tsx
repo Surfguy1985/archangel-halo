@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import * as pdfjs from "pdfjs-dist";
+import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+// Set the worker once at module load (idempotent — safe even if extractText.ts also sets it).
+pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListPortalPackets,
@@ -494,6 +498,154 @@ function IntakeStep({
   );
 }
 
+// ─── Inline PDF viewer ────────────────────────────────────────────────────────
+
+/**
+ * Renders one page of an already-loaded PDFDocumentProxy into a <canvas>.
+ * The canvas is sized to fill the parent's width at the device pixel ratio.
+ */
+function PdfPage({
+  pdf,
+  pageNum,
+}: {
+  pdf: pdfjs.PDFDocumentProxy;
+  pageNum: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const page = await pdf.getPage(pageNum);
+        if (cancelled || !canvasRef.current) return;
+        const el = canvasRef.current;
+        const containerW = el.parentElement?.clientWidth ?? 360;
+        const baseVp = page.getViewport({ scale: 1 });
+        const dpr = Math.min(window.devicePixelRatio ?? 1, 2);
+        const scale = (containerW / baseVp.width) * dpr;
+        const vp = page.getViewport({ scale });
+        el.width = Math.round(vp.width);
+        el.height = Math.round(vp.height);
+        el.style.width = `${containerW}px`;
+        el.style.height = `${Math.round((containerW * baseVp.height) / baseVp.width)}px`;
+        const ctx = el.getContext("2d");
+        if (!ctx || cancelled) return;
+        await page.render({ canvasContext: ctx, canvas: el, viewport: vp }).promise;
+      } catch {
+        /* ignore per-page render errors */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pdf, pageNum]);
+
+  return <canvas ref={canvasRef} className="block w-full" />;
+}
+
+/**
+ * Fetches a PDF by URL and renders all its pages stacked in a scrollable
+ * dark container — like an embedded PDF reader, no new tab needed.
+ */
+function PdfViewer({ url, title }: { url: string; title: string }) {
+  const [pdf, setPdf] = useState<pdfjs.PDFDocumentProxy | null>(null);
+  const [numPages, setNumPages] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPdf(null);
+    setNumPages(0);
+    setLoading(true);
+    setError(false);
+
+    const task = pdfjs.getDocument({ url, withCredentials: true });
+    void task.promise.then(
+      (doc) => {
+        if (cancelled) return;
+        setPdf(doc);
+        setNumPages(doc.numPages);
+        setLoading(false);
+      },
+      () => {
+        if (cancelled) return;
+        setError(true);
+        setLoading(false);
+      },
+    );
+    return () => {
+      cancelled = true;
+      task.destroy();
+    };
+  }, [url]);
+
+  return (
+    <div className="rounded-[12px] border border-border overflow-hidden">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-[12px] py-[8px] bg-[rgba(23,24,28,0.05)] border-b border-border">
+        <span className="flex items-center gap-[6px] text-[11.5px] font-semibold text-muted-foreground truncate">
+          <FileText className="w-[14px] h-[14px] text-[var(--gold)] shrink-0" />
+          <span className="truncate">{title}</span>
+          {numPages > 0 && (
+            <span className="shrink-0 text-[10px] font-normal text-muted-foreground/70">
+              ({numPages} {numPages === 1 ? "page" : "pages"})
+            </span>
+          )}
+        </span>
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="shrink-0 ml-[8px] flex items-center gap-[4px] text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ExternalLink className="w-[13px] h-[13px]" /> Open
+        </a>
+      </div>
+
+      {/* Scrollable page stack */}
+      <div
+        className="overflow-y-auto bg-[#525659] flex flex-col gap-[3px] p-[3px]"
+        style={{ maxHeight: 500 }}
+      >
+        {loading && (
+          <div className="flex flex-col items-center justify-center gap-[8px] py-[48px]">
+            <Loader2 className="w-[20px] h-[20px] animate-spin text-white/70" />
+            <span className="text-[12px] text-white/60">Loading document…</span>
+          </div>
+        )}
+        {error && !loading && (
+          <div className="flex flex-col items-center justify-center gap-[10px] py-[48px] px-[16px] text-center">
+            <span className="text-[12px] text-white/60">
+              Couldn't load inline preview.
+            </span>
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[12.5px] font-semibold text-[#B4FF44]"
+            >
+              Open document in browser →
+            </a>
+          </div>
+        )}
+        {pdf &&
+          Array.from({ length: numPages }, (_, i) => (
+            <div
+              key={i + 1}
+              className="bg-white rounded-[2px] overflow-hidden shadow-sm"
+            >
+              <PdfPage pdf={pdf} pageNum={i + 1} />
+            </div>
+          ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Form step ────────────────────────────────────────────────────────────────
+
 function FormStep({
   token,
   templateKey,
@@ -538,18 +690,8 @@ function FormStep({
         )}
       </div>
 
-      {pdfUrl && (
-        <a
-          href={pdfUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-[8px] rounded-[12px] border border-border bg-background px-[12px] py-[11px] text-[13px] font-semibold transition-transform active:scale-[0.99]"
-        >
-          <FileText className="w-[16px] h-[16px] text-[var(--gold)]" />
-          <span className="flex-1">Read the full document (PDF)</span>
-          <ExternalLink className="w-[15px] h-[15px] text-muted-foreground" />
-        </a>
-      )}
+      {/* Inline PDF viewer — crews can read the document right here */}
+      {pdfUrl && <PdfViewer url={pdfUrl} title={form.title} />}
 
       {form.fields.length > 0 && (
         <div className="flex flex-col gap-[12px]">
