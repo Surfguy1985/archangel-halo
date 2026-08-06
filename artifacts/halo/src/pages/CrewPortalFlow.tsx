@@ -440,8 +440,11 @@ function deriveCard(
       const { open, minsToWindow } = parseWindow(schedItem?.windowStart, nowMs);
       return { kind: "scheduled", job, schedItem, windowOpen: open, minsToWindow };
     }
-    // Require payout-terms agreement before any work step.
-    if (!jobAgreed[job.id]) {
+    // Require payout-terms agreement before any work starts.
+    // Skip for jobs already in progress (before-photos taken or items completed)
+    // so existing in-progress jobs aren't retroactively blocked.
+    const hasProgress = before.length > 0 || myItems.some((li) => li.completed);
+    if (!jobAgreed[job.id] && !hasProgress) {
       return { kind: "job-agreement", job };
     }
     if (before.length === 0) {
