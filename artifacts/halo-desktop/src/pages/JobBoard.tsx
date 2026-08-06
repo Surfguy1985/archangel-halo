@@ -1,4 +1,4 @@
-import { useState, useEffect} from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   useListJobBoard, 
   getListJobBoardQueryKey, 
@@ -6,6 +6,7 @@ import {
   useReopenJob, 
   useUnlistJob,
   useUpdateJob,
+  useCompleteJob,
   useUpdateBoardSettings,
   useQualityCheckJob,
   useSetJobBoardStatus,
@@ -151,6 +152,46 @@ export default function JobBoard() {
   })();
   const openCard = cards.find((c) => c.job.id === openId) ?? null;
 
+  // Flash cards that just switched rails for 15s so the move is easy to spot.
+  // Rails are compared against the previous render's snapshot; first sight of
+  // a card (initial load) never flashes.
+  const prevRails = useRef<Map<string, JobRailKey> | null>(null);
+  const [flashing, setFlashing] = useState<Set<string>>(new Set());
+  const flashTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  useEffect(() => {
+    const prev = prevRails.current;
+    const next = new Map<string, JobRailKey>();
+    const moved: string[] = [];
+    for (const c of cards) {
+      const r = jobRail(c);
+      next.set(c.job.id, r);
+      const p = prev?.get(c.job.id);
+      if (p && p !== r) moved.push(c.job.id);
+    }
+    prevRails.current = next;
+    if (moved.length === 0) return;
+    setFlashing((s) => new Set([...s, ...moved]));
+    for (const id of moved) {
+      const old = flashTimers.current.get(id);
+      if (old) clearTimeout(old);
+      flashTimers.current.set(
+        id,
+        setTimeout(() => {
+          flashTimers.current.delete(id);
+          setFlashing((s) => {
+            const n = new Set(s);
+            n.delete(id);
+            return n;
+          });
+        }, 15000),
+      );
+    }
+  }, [cards]);
+  useEffect(() => {
+    const timers = flashTimers.current;
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
   return (
     <div className="p-8 max-w-[1400px] mx-auto space-y-8 min-h-[100dvh] flex flex-col bg-[var(--background)]">
       <header className="flex items-center justify-between shrink-0">
@@ -196,13 +237,15 @@ export default function JobBoard() {
                         const propName = deck[0].job.propertyName || "Unknown Property";
                         if (!expanded) {
                           // Collapsed deck: a stacked pile — select the
-                          // property to fan its cards out.
+                          // property to fan its cards out. If a card inside
+                          // just moved rails, the whole pile flashes.
+                          const deckFlash = deck.some((c) => flashing.has(c.job.id));
                           return (
                             <button
                               key={deckKey}
                               type="button"
                               onClick={() => toggleDeck(deckKey, true)}
-                              className="relative block w-full text-left group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9DB40F] rounded-2xl"
+                              className={`relative block w-full text-left group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9DB40F] rounded-2xl ${deckFlash ? "card-move-flash" : ""}`}
                               data-testid={`deck-${rail.key}-${propId}`}
                             >
                               {deck.length > 2 && (
@@ -250,6 +293,7 @@ export default function JobBoard() {
                                 card={card}
                                 tone={rail.tone}
                                 crews={allCrews}
+                                flash={flashing.has(card.job.id)}
                                 onOpen={() => setOpenId(card.job.id)}
                               />
                             ))}
@@ -343,7 +387,7 @@ const CLIENT_LANE_LABELS: Record<string, string> = {
   done: "Done",
 };
 
-function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobTone; crews?: Crew[]; onOpen: () => void }) {
+function JobTile({ card, tone, crews, flash, onOpen }: { card: JobBoardCard; tone: JobTone; crews?: Crew[]; flash?: boolean; onOpen: () => void }) {
   const { job, photos, broadcasts } = card;
   const clientLaneLabel = card.clientLane ? CLIENT_LANE_LABELS[card.clientLane] ?? null : null;
   const services = job.services ?? [];
@@ -364,7 +408,7 @@ function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobT
       type="button"
       onClick={onOpen}
       data-testid={`job-tile-${job.id}`}
-      className="block w-full min-w-0 text-left rounded-2xl overflow-hidden bg-white border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9DB40F]"
+      className={`block w-full min-w-0 text-left rounded-2xl overflow-hidden bg-white border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9DB40F] ${flash ? "card-move-flash" : ""}`}
     >
       <div className="relative aspect-[5/2] overflow-hidden bg-[var(--muted)]">
         {/* Always the solid stage panel — navy background on every card, the
@@ -562,6 +606,29 @@ function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] 
     );
   };
   const pendingCO = job.changeOrderStatus === "requested";
+  const completeJob = useCompleteJob();
+  // Done→Billing shortcut: only offered once the PO gate AND the work
+  // checklist are both satisfied — the server re-checks the same rules.
+  const checklistDone =
+    (lineItems?.length ?? 0) > 0 && (lineItems ?? []).every((li) => !!li.completedAt);
+  const readyForBilling = !!job.poNumber && checklistDone;
+  const moveToBilling = () => {
+    completeJob.mutate(
+      { id: job.id, data: {} },
+      {
+        onSuccess: () => {
+          toast({ title: "Moved to Billing", description: `${job.jobNo} is ready to invoice.` });
+          queryClient.invalidateQueries({ queryKey: getListJobBoardQueryKey() });
+        },
+        onError: (err) =>
+          toast({
+            title: "Couldn't move to Billing",
+            description: (err as any)?.data?.error ?? (err as Error).message,
+            variant: "destructive",
+          }),
+      },
+    );
+  };
   
   const statusColors: Record<string, string> = {
     active: "bg-blue-100 text-blue-800",
@@ -928,14 +995,27 @@ function JobBoardItem({ card, crews }: { card: JobBoardCard; crews: CrewToday[] 
           {/* Invoice actions live only on billing-rail cards; Done-rail cards
               wrap up the work itself (expenses) — no invoicing from Done. */}
           {rail === 'done' && (
-            <Button
-              variant="outline"
-              onClick={() => setExpensesOpen(true)}
-              data-testid={`log-expenses-${job.id}`}
-              className="rounded-full font-bold"
-            >
-              <Receipt className="w-4 h-4 mr-2" /> Log Expenses
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setExpensesOpen(true)}
+                data-testid={`log-expenses-${job.id}`}
+                className="rounded-full font-bold"
+              >
+                <Receipt className="w-4 h-4 mr-2" /> Log Expenses
+              </Button>
+              {readyForBilling && (
+                <Button
+                  onClick={moveToBilling}
+                  disabled={completeJob.isPending}
+                  data-testid={`move-to-billing-${job.id}`}
+                  className="bg-[var(--gold-light)] hover:opacity-90 text-black rounded-full font-bold"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  {completeJob.isPending ? "Moving…" : "Move to Billing"}
+                </Button>
+              )}
+            </>
           )}
           {rail === 'alert' && card.invoice?.clientPaidReportedAt && !card.invoice.paidAt && (
             <>
