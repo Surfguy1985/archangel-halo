@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListPortalPackets,
@@ -162,6 +162,10 @@ function PacketRunner({
 
   const tpl = packet ? getTemplate(packet.templateKey) : null;
 
+  const topRef = useRef<HTMLDivElement>(null);
+  const scrollTop = () =>
+    topRef.current?.scrollIntoView({ behavior: "instant", block: "start" });
+
   const [insured, setInsured] = useState<boolean | null>(null);
   const [ach, setAch] = useState<boolean | null>(null);
   const [formsData, setFormsData] = useState<FormsData>({});
@@ -236,7 +240,7 @@ function PacketRunner({
         return;
       }
       setStep(1);
-      window.scrollTo({ top: 0 });
+      scrollTop();
       return;
     }
     if (currentForm) {
@@ -252,7 +256,7 @@ function PacketRunner({
         return;
       }
       setStep((s) => s + 1);
-      window.scrollTo({ top: 0 });
+      scrollTop();
       return;
     }
   };
@@ -264,7 +268,7 @@ function PacketRunner({
       return;
     }
     setStep((s) => s - 1);
-    window.scrollTo({ top: 0 });
+    scrollTop();
   };
 
   const doSubmit = async () => {
@@ -294,7 +298,7 @@ function PacketRunner({
     queryClient.invalidateQueries({ queryKey: getListPortalPacketsQueryKey(token) });
     queryClient.invalidateQueries({ queryKey: getGetPortalPacketQueryKey(token, packetId) });
     setDone(true);
-    window.scrollTo({ top: 0 });
+    scrollTop();
   };
 
   if (done) {
@@ -322,6 +326,8 @@ function PacketRunner({
 
   return (
     <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
+      {/* scroll-to-top anchor — scrollIntoView works inside overflow containers where window.scrollTo doesn't */}
+      <div ref={topRef} style={{ scrollMarginTop: 0 }} />
       <div className="flex items-center gap-[8px]">
         <button
           onClick={goBack}
