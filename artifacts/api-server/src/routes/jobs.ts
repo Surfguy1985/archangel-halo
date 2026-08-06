@@ -2142,7 +2142,10 @@ router.get("/crews", async (_req, res): Promise<void> => {
 
 router.post("/crews", async (req, res): Promise<void> => {
   const body = CreateCrewBody.parse(req.body);
-  const [row] = await db.insert(crewsTable).values(body).returning();
+  // Mint the portal token at creation so the link is permanent from day one.
+  // It is never rotated — the same token serves the crew forever.
+  const portalToken = randomBytes(24).toString("base64url");
+  const [row] = await db.insert(crewsTable).values({ ...body, portalToken }).returning();
   res.status(201).json(CreateCrewResponse.parse(ser(row)));
 });
 

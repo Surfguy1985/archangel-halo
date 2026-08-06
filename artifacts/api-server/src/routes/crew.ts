@@ -135,6 +135,13 @@ router.get("/crews/:id/detail", async (req, res): Promise<void> => {
   );
 });
 
+// STABLE PORTAL LINK — tokens are permanent and must NEVER be rotated.
+// New crews get a token at creation (POST /crews). This endpoint is a
+// safe fallback for legacy rows that predate auto-minting. It is
+// intentionally idempotent: it returns the existing token unchanged and
+// only mints a fresh one when the column is still null. Do NOT add any
+// logic here that overwrites an existing token — doing so would silently
+// invalidate every SMS / saved bookmark the crew already has.
 router.post("/crews/:id/portal-link", async (req, res): Promise<void> => {
   const { id } = GenerateCrewPortalLinkParams.parse(req.params);
   const [row] = await db.select().from(crewsTable).where(eq(crewsTable.id, id));
@@ -144,6 +151,7 @@ router.post("/crews/:id/portal-link", async (req, res): Promise<void> => {
   }
   let token = row.portalToken;
   if (!token) {
+    // Legacy crew created before auto-minting — mint now and persist once.
     token = randomBytes(24).toString("base64url");
     await db
       .update(crewsTable)
