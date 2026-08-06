@@ -212,6 +212,23 @@ export function QuickJobDialog({
       });
     return groups;
   }, [priceItems]);
+  // Category view of the price book — same organized containers as the
+  // property price list (Make-Ready pinned first, then the remaining
+  // categories), so Quick Job picks from the full organized service list.
+  const categoryGroups = useMemo(() => {
+    const byCat = new Map<string, typeof priceItems>();
+    for (const pi of priceItems) {
+      const cat = pi.category?.trim() || "Other";
+      byCat.set(cat, [...(byCat.get(cat) ?? []), pi]);
+    }
+    const isMR = (s: string) => /make[\s-]?ready/i.test(s);
+    return [...byCat.entries()]
+      .sort(([a], [b]) => Number(isMR(b)) - Number(isMR(a)))
+      .map(([label, items]) => ({
+        label,
+        items: [...items].sort((a, b) => a.service.localeCompare(b.service)),
+      }));
+  }, [priceItems]);
   const pillCount = useMemo(() => {
     const m = new Map<string, number>();
     for (const id of pillIds) m.set(id, (m.get(id) ?? 0) + 1);
@@ -441,9 +458,11 @@ export function QuickJobDialog({
                   <span className={`${labelCls} flex items-center gap-1`}>
                     <Zap className="w-3 h-3" /> Add services — price book
                   </span>
-                  {/* Organized picker: options grouped by bedroom size
-                      (1/2/3 Bedroom), unsized work under Other services; no
-                      prices in the list — the rate comes straight from the
+                  {/* Organized picker: every service grouped by its price-list
+                      category (Make-Ready first), sized variants listed with
+                      their BR suffix. Picking keeps the menu open for more —
+                      add as many services as needed; each pick appends below.
+                      No prices in the list — the rate comes straight from the
                       price book when a service is picked. */}
                   <select
                     className={fieldCls}
@@ -453,12 +472,12 @@ export function QuickJobDialog({
                     }}
                     data-testid="select-quickjob-service"
                   >
-                    <option value="">Add a service…</option>
-                    {sizeGroups.map((g) => (
+                    <option value="">Add services… (pick again for more)</option>
+                    {categoryGroups.map((g) => (
                       <optgroup key={g.label} label={g.label}>
-                        {g.items.map(({ pi, name }) => (
+                        {g.items.map((pi) => (
                           <option key={pi.id} value={pi.id}>
-                            {name}
+                            {pi.service}
                           </option>
                         ))}
                       </optgroup>
