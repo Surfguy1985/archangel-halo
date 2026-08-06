@@ -247,6 +247,7 @@ router.get("/dispatch-board/:day", async (req, res): Promise<void> => {
         jobId: j.id,
         jobNo: j.jobNo,
         description: j.description ?? null,
+        category: j.category ?? null,
         unitNo: j.unitNo ?? null,
         status: j.status,
         scheduledTime: j.scheduledTime ?? null,

@@ -94,7 +94,7 @@ const T = {
   en: {
     trackerTitle: "How your score is built",
     trackerSub:
-      "100 points total, updated live from your real jobs. Hold 80+ and you keep a full share — that's the standard, not perfection.",
+      "100 points total, updated live from your real jobs: safety, on time, closing out your work, photos & logs, and customer feedback. Hold 80+ and you keep a full share — that's the standard, not perfection.",
     wingsTitle: "Your Wings right now",
     wingsSub: "Every quarter, 12% of company profit goes into one pot. It's split by Wings — here are yours today:",
     role: "Role",
@@ -113,13 +113,16 @@ const T = {
     under60: "Under 60 — no share that quarter",
     rulesTitle: "The rules, plain and short",
     rules: [
-      "One full year on the team before you share in the pot.",
-      "Willful safety violation = no share that quarter.",
-      "Paid about 45 days after the quarter closes, once books are final.",
-      "You must still be on the team on payout day.",
-      "The role you hold on the last day of the quarter counts. Promotions pay immediately.",
-      "14 days after quarter close to dispute your score — every point traces to a record.",
-      "This is a bonus program, not ownership.",
+      "One full year before you're eligible. No exceptions, no partial credit.",
+      "Score under 60 = no share that quarter. You'll have seen it coming in the app.",
+      "Willful safety violation = no share that quarter, whatever your score was.",
+      "Paid 45 days after the quarter closes, once the books are final.",
+      "You must still be employed on payout day. Quit or fired for cause, you forfeit that quarter.",
+      "Laid off or hurt on the job? You get a prorated share for the weeks you worked.",
+      "The role you hold on the last day of the quarter is the role that counts. Promotions pay immediately.",
+      "You have 14 days after quarter close to dispute your score. Every point is traceable to a record.",
+      "Wings totals are posted for everyone. Checks are private. You can always verify the math is fair.",
+      "This is a bonus program, not ownership. You are not buying or receiving equity in Archangel.",
     ],
     blockers: {
       under_one_year:
@@ -136,7 +139,7 @@ const T = {
   es: {
     trackerTitle: "Cómo se arma tu puntaje",
     trackerSub:
-      "100 puntos en total, actualizados en vivo con tus trabajos reales. Mantén 80+ y conservas tu parte completa — ese es el estándar, no la perfección.",
+      "100 puntos en total, actualizados en vivo con tus trabajos reales: seguridad, puntualidad, cerrar tu trabajo, fotos y registros, y retroalimentación del cliente. Mantén 80+ y conservas tu parte completa — ese es el estándar, no la perfección.",
     wingsTitle: "Tus Wings ahora mismo",
     wingsSub:
       "Cada trimestre, el 12% de la ganancia de la empresa va a un fondo. Se reparte por Wings — estas son las tuyas hoy:",
@@ -156,13 +159,16 @@ const T = {
     under60: "Menos de 60 — sin parte ese trimestre",
     rulesTitle: "Las reglas, claras y cortas",
     rules: [
-      "Un año completo en el equipo antes de participar en el fondo.",
-      "Violación intencional de seguridad = sin parte ese trimestre.",
-      "Se paga unos 45 días después del cierre del trimestre, con los libros finales.",
-      "Debes seguir en el equipo el día del pago.",
-      "Cuenta el rol que tienes el último día del trimestre. Los ascensos pagan de inmediato.",
-      "14 días después del cierre para disputar tu puntaje — cada punto tiene un registro.",
-      "Es un programa de bonos, no propiedad de la empresa.",
+      "Un año completo antes de ser elegible. Sin excepciones, sin crédito parcial.",
+      "Puntaje bajo 60 = sin parte ese trimestre. Lo verás venir en la app.",
+      "Violación intencional de seguridad = sin parte ese trimestre, sin importar tu puntaje.",
+      "Se paga 45 días después del cierre del trimestre, con los libros finales.",
+      "Debes seguir empleado el día del pago. Si renuncias o te despiden por causa, pierdes ese trimestre.",
+      "¿Despedido o lastimado en el trabajo? Recibes una parte proporcional por las semanas que trabajaste.",
+      "El rol que tienes el último día del trimestre es el que cuenta. Los ascensos pagan de inmediato.",
+      "Tienes 14 días después del cierre del trimestre para disputar tu puntaje. Cada punto tiene un registro.",
+      "Los totales de Wings se publican para todos. Los cheques son privados. Siempre puedes verificar las cuentas.",
+      "Este es un programa de bonos, no propiedad. No estás comprando ni recibiendo acciones de Archangel.",
     ],
     blockers: {
       under_one_year:

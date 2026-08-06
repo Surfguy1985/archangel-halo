@@ -2451,6 +2451,7 @@ export const GetDispatchBoardResponse = zod.object({
   "jobId": zod.string(),
   "jobNo": zod.string(),
   "description": zod.string().nullish(),
+  "category": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "status": zod.string(),
   "scheduledTime": zod.string().nullish(),
@@ -6561,7 +6562,8 @@ export const GetPortalResponse = zod.object({
   "selfiePath": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
   "leaderId": zod.string().nullish(),
-  "leaderName": zod.string().nullish()
+  "leaderName": zod.string().nullish(),
+  "paymentTerms": zod.string().nullish().describe('due_on_receipt | net15 | net30 | net45')
 }),
   "schedule": zod.array(zod.object({
   "id": zod.string(),
@@ -7016,6 +7018,7 @@ export const ListPortalJobsResponseItem = zod.object({
   "status": zod.string().nullish(),
   "checkedIn": zod.boolean().optional().describe('True when this crew\'s latest check-in for this job is newer than any checkout (currently on site)'),
   "checkedOut": zod.boolean().optional().describe('True when this crew has checked out of this job (a checkout exists at\/after the latest check-in)'),
+  "jobAgreedAt": zod.string().nullish().describe('ISO timestamp when this crew agreed to the payout terms for this job; null means not yet agreed'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "service": zod.string(),

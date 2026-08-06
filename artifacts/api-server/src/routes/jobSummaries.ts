@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 import {
   db,
   jobsTable,
@@ -9,11 +9,13 @@ import {
   contactsTable,
   crewsTable,
   crewPhotosTable,
+  cleaningChecklistsTable,
   type JobSummary,
   type SummaryChecklistSection,
   type SummaryFlag,
   type SummaryPhoto,
 } from "@workspace/db";
+import { CLEANING_CHECKLIST, isCleaningJob } from "../lib/cleaningChecklist";
 import {
   GetJobSummaryResponse,
   SaveJobSummaryBody,
@@ -484,6 +486,51 @@ router.get("/job-summaries/:token/pdf", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Invalid link" });
     return;
   }
+  // Fetch completed cleaning checklist if this is a cleaning job
+  let cleaningChecklistPdf: Parameters<typeof buildSummaryPdf>[0]["cleaningChecklist"] | undefined;
+  const [job] = await db
+    .select()
+    .from(jobsTable)
+    .where(eq(jobsTable.id, summary.jobId))
+    .limit(1);
+  if (job && isCleaningJob(job.category, job.description)) {
+    const cleanRows = await db
+      .select()
+      .from(cleaningChecklistsTable)
+      .where(eq(cleaningChecklistsTable.jobId, job.id));
+    if (cleanRows.length > 0) {
+      // Merge completions from all crew members (union of checked items)
+      const allCheckedIds = new Set<string>(
+        cleanRows.flatMap((r) =>
+          Array.isArray(r.checkedItems)
+            ? (r.checkedItems as { id: string }[]).map((ci) => ci.id)
+            : [],
+        ),
+      );
+      // Find the most recent sign-off
+      const signedOffRow = cleanRows
+        .filter((r) => r.signedOffAt)
+        .sort((a, b) => {
+          const at = a.signedOffAt ? a.signedOffAt.getTime() : 0;
+          const bt = b.signedOffAt ? b.signedOffAt.getTime() : 0;
+          return bt - at;
+        })[0];
+      cleaningChecklistPdf = {
+        sections: CLEANING_CHECKLIST.map((sec) => ({
+          sectionTitle: sec.title,
+          items: sec.items.map((item) => ({
+            label: item.label,
+            checked: allCheckedIds.has(item.id),
+          })),
+        })),
+        checkedCount: allCheckedIds.size,
+        totalItems: CLEANING_CHECKLIST.flatMap((s) => s.items).length,
+        signedOffBy: signedOffRow?.signedOffBy ?? null,
+        signedOffAt: signedOffRow?.signedOffAt?.toISOString() ?? null,
+      };
+    }
+  }
+
   const pdf = await buildSummaryPdf({
     title: full.title,
     unitNumber: full.unitNumber,
@@ -492,6 +539,7 @@ router.get("/job-summaries/:token/pdf", async (req, res): Promise<void> => {
     timeIn: full.timeIn,
     timeOut: full.timeOut,
     checklist: full.checklist,
+    cleaningChecklist: cleaningChecklistPdf,
     flags: summary.flags,
     observations: full.observations,
     touchUpNotes: full.touchUpNotes,

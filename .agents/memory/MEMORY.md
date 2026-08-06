@@ -88,9 +88,13 @@
 - [HALO Walk voice capture](halo-walk-voice.md) — OpenAI proxy: no TTS, no whisper-1; transcribe with gpt-4o-mini-transcribe; voice endpoint returns drafts only, captures can be photo-less.
 - [HALO Walk multi-service capture](halo-walk-multiservice.md) — multi-photo/multi-service items save via atomic batch endpoint; photo counts union photos[]+storagePath; client approve_walk moves card to in_progress.
 - [HALO Walk approve](halo-walk-approve.md) — walk review Approve pushes per-job photos cards to client board; walk passcode is the intended trust level (jobs already reach client board).
+- [HALO cleaning checklist](halo-cleaning-checklist.md) — 31-item turn checklist in crew portal flow; cleaning_checklists DB table; sign-off writes activity + notification; merges into summary PDF.
+- [HALO trade checklists](halo-trade-checklists.md) — carpet/make_ready/painting checklists in job_checklists table; agreement gate required before items unlock; detection priority carpet→painting→make_ready→cleaning; isCleaningJob excludes make-ready/carpet/paint.
+- [HALO job payout agreement](halo-job-payout-agreement.md) — per-job payout terms agreement in job_agreements table; crew sees NET terms + 2 release conditions before any work step; paymentTerms from crews.payment_terms snapshot; jobAgreedAt in ListPortalJobs feed.
 - [HALO Walk app](halo-walk-app.md) — walk→jobs completion is lock-guarded + transactional; line-item rates resolved server-side from the price book; 401s route to the app's own lock screen.
 - [HALO legacy board redirects](halo-legacy-board-redirects.md) — legacy /dashboard & /client links replace() to /board; must carry search+hash or deep links (?present=1) silently break on live.
 - [HALO Wings Program profit share](halo-wings-program.md) — 12% pot explainer + live Wings calc in portal wings tab; exact-years eligibility; crews.role/hire_date must ride every crew read model; ?tab= deep links skip offers auto-pull.
+- [HALO Wings guide content](halo-wings-guide-content.md) — guide components rewritten to match the PDF doc exactly (4 sections: formula/tables, 7-person example, Kev's road, 10 rules); override/reserve/sponsor UI removed from crew portal tab.
 - [HALO desktop hub nav](halo-desktop-hub-nav.md) — 6-hub sidebar + HubShell tabs wrap pages at their REAL routes; only 6 nav-* tour ids remain; Job Board is rails + dialog.
 - [HALO job board pay pipeline](halo-jobboard-payflow.md) — invoice raise must attach module; crew-pay/clear are locked txns gated on invoice paid; green flash lives in 3 card renderers.
 - [HALO job work checklist](halo-job-checklist.md) — line items are a crew-assigned checklist; only the assigned crew can complete via portal; last item done → guarded auto-move to boardStatus completed.

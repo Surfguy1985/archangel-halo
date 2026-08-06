@@ -516,6 +516,10 @@ function JobCard({
   compact?: boolean;
   showCrew?: boolean;
 }) {
+  // Primary label: "1601 — Make Ready" or just service if no unit.
+  const svcLabel = serviceLabel(job);
+  const headline = job.unitNo ? `${job.unitNo} — ${svcLabel}` : svcLabel;
+
   return (
     <div
       draggable={!pending}
@@ -529,32 +533,24 @@ function JobCard({
       data-testid={`card-dispatch-job-${job.id}`}
     >
       <div className="flex items-start gap-1">
-        <GripVertical className="w-3 h-3 mt-[3px] text-muted-foreground/50 shrink-0" />
+        <GripVertical className="w-3 h-3 mt-[2px] text-muted-foreground/50 shrink-0" />
         <div className="min-w-0 flex-1">
-          {/* Dispatch cards are deliberately minimal: unit # + service. */}
-          <div className="flex items-center gap-1.5">
-            <Link
-              href={`/jobs/${job.id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="text-[15px] font-display font-bold text-[var(--ink)] hover:underline shrink-0 leading-tight"
-              data-testid={`link-dispatch-job-${job.id}`}
-            >
-              {job.unitNo ? `#${job.unitNo}` : job.jobNo}
-            </Link>
-            {job.scheduledTime && (
-              <span className="text-[10px] text-muted-foreground shrink-0">
-                {fmtTimeShort(job.scheduledTime)}
-              </span>
-            )}
-          </div>
-          <div
-            className={`text-[11px] leading-tight text-foreground ${
-              compact ? "line-clamp-2" : "line-clamp-3"
+          {/* Unit + service on one line, time on the next */}
+          <Link
+            href={`/jobs/${job.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className={`block font-display font-bold text-[var(--ink)] hover:underline leading-tight ${
+              compact ? "text-[12px] line-clamp-2" : "text-[13px] line-clamp-3"
             }`}
-            data-testid={`text-dispatch-service-${job.id}`}
+            data-testid={`link-dispatch-job-${job.id}`}
           >
-            {serviceLabel(job)}
-          </div>
+            {headline}
+          </Link>
+          {job.scheduledTime && (
+            <div className="text-[10px] font-semibold text-[var(--gold-dark)] mt-[2px]">
+              {fmtTimeShort(job.scheduledTime)}
+            </div>
+          )}
           {!compact && job.propertyName && (
             <div className="text-[10px] text-muted-foreground truncate mt-0.5">
               {job.propertyName}

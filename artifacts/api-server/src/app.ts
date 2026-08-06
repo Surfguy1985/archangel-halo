@@ -52,6 +52,12 @@ app.use(
   express.static("public/rails", { maxAge: "7d", immutable: false }),
 );
 
+// Office-uploaded reference documents (cleaning checklist PDF, etc.)
+app.use(
+  "/api/docs",
+  express.static("public", { maxAge: "1d" }),
+);
+
 app.use("/api", (_req, res, next) => {
   res.setHeader("Cache-Control", "no-store");
   next();

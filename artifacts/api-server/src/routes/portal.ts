@@ -35,7 +35,25 @@ import {
   crewPaymentsTable,
   crewPayoutsTable,
   crewDispatchAssignmentsTable,
+  cleaningChecklistsTable,
+  jobChecklistsTable,
+  jobAgreementsTable,
 } from "@workspace/db";
+import {
+  CLEANING_CHECKLIST,
+  CLEANING_CHECKLIST_ITEMS_FLAT,
+  isCleaningJob,
+  PDF_PATH,
+} from "../lib/cleaningChecklist";
+import {
+  JOB_CHECKLISTS,
+  JOB_CHECKLIST_ITEMS_FLAT,
+  JOB_CHECKLIST_PDF,
+  JOB_CHECKLIST_LABEL,
+  CHECKLIST_AGREEMENT_TEXT,
+  getJobChecklistType,
+  type JobChecklistType,
+} from "../lib/jobChecklists";
 import { seedChecklist, jobShortLabel, isUniqueViolation } from "./dispatchBoard";
 import {
   GetPortalDispatchParams,
@@ -583,6 +601,7 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
         selfiePath: crew.selfiePath ?? null,
         isLeader: crew.isLeader ?? null,
         leaderId: crew.leaderId ?? null,
+        paymentTerms: crew.paymentTerms ?? null,
         leaderName: crew.leaderId
           ? ((await db.select().from(crewsTable).where(eq(crewsTable.id, crew.leaderId)))[0]
               ?.name ?? null)
@@ -1366,6 +1385,20 @@ router.get("/portal/:token/jobs", async (req, res): Promise<void> => {
     list.push(li);
     itemsByJob.set(li.jobId, list);
   }
+  // Per-job payout agreement status for this crew.
+  const agreements = sortedIds.length
+    ? await db
+        .select()
+        .from(jobAgreementsTable)
+        .where(
+          and(
+            eq(jobAgreementsTable.crewId, crew.id),
+            inArray(jobAgreementsTable.jobId, sortedIds),
+          ),
+        )
+    : [];
+  const agreementByJob = new Map(agreements.map((a) => [a.jobId, a]));
+
   // On-site state per job from persisted check-ins, so the guided My Jobs
   // flow survives reloads and tab switches (session state alone is not
   // enough — checkout must come from server evidence).
@@ -1410,6 +1443,7 @@ router.get("/portal/:token/jobs", async (req, res): Promise<void> => {
         status: j.status ?? null,
         checkedIn,
         checkedOut,
+        jobAgreedAt: agreementByJob.get(j.id)?.agreedAt?.toISOString() ?? null,
         lineItems: (itemsByJob.get(j.id) ?? []).map((li) => ({
           id: li.id,
           service: li.service,
@@ -2998,6 +3032,558 @@ router.post(
       });
     }
     res.json(RespondPortalDispatchMoveResponse.parse({ ok: true }));
+  },
+);
+
+// ─── Cleaning Checklist ───────────────────────────────────────────────────────
+//
+// Three endpoints:
+//   GET  /portal/:token/jobs/:jobId/cleaning-checklist         — fetch or create
+//   POST /portal/:token/jobs/:jobId/cleaning-checklist/toggle  — check/uncheck item
+//   POST /portal/:token/jobs/:jobId/cleaning-checklist/sign-off — crew sign-off
+
+type CheckedItem = { id: string; checkedAt: string; checkedBy: string };
+
+async function getOrCreateCleaningChecklist(jobId: string, crew: CrewRow) {
+  const rows = await db
+    .select()
+    .from(cleaningChecklistsTable)
+    .where(
+      and(
+        eq(cleaningChecklistsTable.jobId, jobId),
+        eq(cleaningChecklistsTable.crewId, crew.id),
+      ),
+    )
+    .limit(1);
+  if (rows[0]) return rows[0];
+  const [created] = await db
+    .insert(cleaningChecklistsTable)
+    .values({ jobId, crewId: crew.id })
+    .returning();
+  return created!;
+}
+
+router.get(
+  "/portal/:token/jobs/:jobId/cleaning-checklist",
+  async (req, res): Promise<void> => {
+    const crew = await crewByToken(String(req.params.token));
+    if (!crew) { res.status(404).json({ error: "Invalid portal link" }); return; }
+
+    const [job] = await db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, String(req.params.jobId)))
+      .limit(1);
+    if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+
+    if (!isCleaningJob(job.category, job.description)) {
+      res.status(400).json({ error: "Not a cleaning job" });
+      return;
+    }
+
+    const record = await getOrCreateCleaningChecklist(job.id, crew);
+    const checkedItems = Array.isArray(record.checkedItems)
+      ? (record.checkedItems as CheckedItem[])
+      : [];
+    const checkedIds = new Set(checkedItems.map((i) => i.id));
+
+    res.json({
+      jobId: job.id,
+      unitNo: job.unitNo ?? null,
+      pdfUrl: PDF_PATH,
+      sections: CLEANING_CHECKLIST.map((sec) => ({
+        id: sec.id,
+        title: sec.title,
+        items: sec.items.map((item) => ({
+          id: item.id,
+          label: item.label,
+          checked: checkedIds.has(item.id),
+          checkedAt: checkedItems.find((ci) => ci.id === item.id)?.checkedAt ?? null,
+        })),
+      })),
+      totalItems: CLEANING_CHECKLIST_ITEMS_FLAT.length,
+      checkedCount: checkedIds.size,
+      signedOffAt: record.signedOffAt ? record.signedOffAt.toISOString() : null,
+      signedOffBy: record.signedOffBy ?? null,
+    });
+  },
+);
+
+router.post(
+  "/portal/:token/jobs/:jobId/cleaning-checklist/toggle",
+  limits.walkWrite,
+  async (req, res): Promise<void> => {
+    const crew = await crewByToken(String(req.params.token));
+    if (!crew) { res.status(404).json({ error: "Invalid portal link" }); return; }
+
+    const { itemId, checked } = req.body as { itemId?: string; checked?: boolean };
+    if (!itemId) { res.status(400).json({ error: "itemId required" }); return; }
+
+    const templateItem = CLEANING_CHECKLIST_ITEMS_FLAT.find((i) => i.id === itemId);
+    if (!templateItem) { res.status(400).json({ error: "Unknown item id" }); return; }
+
+    const record = await getOrCreateCleaningChecklist(
+      String(req.params.jobId),
+      crew,
+    );
+
+    if (record.signedOffAt) {
+      res.status(409).json({ error: "Checklist already signed off" });
+      return;
+    }
+
+    const existing = Array.isArray(record.checkedItems)
+      ? (record.checkedItems as CheckedItem[])
+      : [];
+
+    let updated: CheckedItem[];
+    if (checked) {
+      if (existing.some((i) => i.id === itemId)) {
+        updated = existing;
+      } else {
+        updated = [
+          ...existing,
+          { id: itemId, checkedAt: new Date().toISOString(), checkedBy: crew.name },
+        ];
+      }
+    } else {
+      updated = existing.filter((i) => i.id !== itemId);
+    }
+
+    await db
+      .update(cleaningChecklistsTable)
+      .set({ checkedItems: updated, updatedAt: new Date() })
+      .where(eq(cleaningChecklistsTable.id, record.id));
+
+    res.json({ ok: true, checkedCount: updated.length });
+  },
+);
+
+router.post(
+  "/portal/:token/jobs/:jobId/cleaning-checklist/sign-off",
+  limits.walkWrite,
+  async (req, res): Promise<void> => {
+    const crew = await crewByToken(String(req.params.token));
+    if (!crew) { res.status(404).json({ error: "Invalid portal link" }); return; }
+
+    const jobId = String(req.params.jobId);
+    const record = await getOrCreateCleaningChecklist(jobId, crew);
+
+    if (record.signedOffAt) {
+      res.json({ ok: true, alreadySigned: true });
+      return;
+    }
+
+    const checkedItems = Array.isArray(record.checkedItems)
+      ? (record.checkedItems as CheckedItem[])
+      : [];
+    const now = new Date();
+
+    await db
+      .update(cleaningChecklistsTable)
+      .set({ signedOffAt: now, signedOffBy: crew.name, updatedAt: now })
+      .where(eq(cleaningChecklistsTable.id, record.id));
+
+    // Log activity + send office notification
+    const [job] = await db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, jobId))
+      .limit(1);
+
+    if (job) {
+      const unitLabel = job.unitNo ? `Unit ${job.unitNo}` : `Job ${job.jobNo}`;
+      await Promise.all([
+        db.insert(activitiesTable).values({
+          entityType: "job",
+          entityId: job.id,
+          kind: "note",
+          body: `Turn cleaning checklist signed off by ${crew.name} — ${checkedItems.length}/${CLEANING_CHECKLIST_ITEMS_FLAT.length} items checked`,
+        }),
+        db.insert(notificationsTable).values({
+          kind: "crew_portal",
+          priority: "normal",
+          title: `Cleaning checklist signed off — ${unitLabel}`,
+          body: `${crew.name} completed the turn cleaning checklist (${checkedItems.length}/${CLEANING_CHECKLIST_ITEMS_FLAT.length} items checked).`,
+          entityType: "job",
+          entityId: job.id,
+        }),
+      ]);
+    }
+
+    res.json({ ok: true });
+  },
+);
+
+// ─── Per-Job Payout Agreement ─────────────────────────────────────────────────
+//
+// Every contractor must acknowledge their payout schedule and the two release
+// conditions (property verification + Archangel receipt of payment) before
+// starting work on any job. Idempotent — repeat calls keep the original timestamp.
+//
+// Payment terms values mirror crews.payment_terms:
+//   due_on_receipt | net15 | net30 | net45
+
+function paymentTermsPhrase(terms: string | null | undefined): string {
+  switch (terms) {
+    case "due_on_receipt":
+      return "immediately upon receipt of payment from the property";
+    case "net15":
+      return "within 15 days of job completion";
+    case "net45":
+      return "within 45 days of job completion";
+    case "net30":
+    default:
+      return "within 30 days of job completion";
+  }
+}
+
+function paymentTermsDisplay(terms: string | null | undefined): string {
+  switch (terms) {
+    case "due_on_receipt": return "Due on Receipt";
+    case "net15":          return "Net 15";
+    case "net45":          return "Net 45";
+    case "net30":
+    default:               return "Net 30";
+  }
+}
+
+function buildJobAgreementText(terms: string | null | undefined): string {
+  const phrase = paymentTermsPhrase(terms);
+  return (
+    `Your payment for this job will be released ${phrase}, subject to the following conditions:\n\n` +
+    `1. The property has verified that the work was completed correctly and to their satisfaction.\n\n` +
+    `2. Archangel has received full payment from the property for this job.\n\n` +
+    `If either condition has not been met, your payout will be held until both are satisfied. ` +
+    `By agreeing you confirm you understand your full scope of work and accept these payment terms.`
+  );
+}
+
+router.post(
+  "/portal/:token/jobs/:jobId/agreement",
+  limits.walkWrite,
+  async (req, res): Promise<void> => {
+    const crew = await crewByToken(String(req.params.token));
+    if (!crew) { res.status(404).json({ error: "Invalid portal link" }); return; }
+
+    const jobId = String(req.params.jobId);
+    const [job] = await db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, jobId))
+      .limit(1);
+    if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+
+    // Check ownership — crew must be assigned to this job
+    if (job.crewLeaderId !== crew.id) {
+      const schedCount = await db
+        .select({ id: schedulesTable.id })
+        .from(schedulesTable)
+        .where(
+          and(eq(schedulesTable.jobId, jobId), eq(schedulesTable.crewLeaderId, crew.id)),
+        )
+        .limit(1);
+      if (schedCount.length === 0) {
+        res.status(403).json({ error: "Not assigned to this job" });
+        return;
+      }
+    }
+
+    const existing = await db
+      .select()
+      .from(jobAgreementsTable)
+      .where(
+        and(eq(jobAgreementsTable.jobId, jobId), eq(jobAgreementsTable.crewId, crew.id)),
+      )
+      .limit(1);
+
+    if (existing[0]) {
+      res.json({ ok: true, agreedAt: existing[0].agreedAt.toISOString(), alreadyAgreed: true });
+      return;
+    }
+
+    const paymentTerms = crew.paymentTerms ?? "net30";
+    const termsText = buildJobAgreementText(paymentTerms);
+    const now = new Date();
+
+    await db.insert(jobAgreementsTable).values({
+      jobId,
+      crewId: crew.id,
+      paymentTerms,
+      termsText,
+      agreedAt: now,
+      agreedBy: crew.name,
+    });
+
+    const unitLabel = job.unitNo ? `Unit ${job.unitNo}` : `Job #${job.jobNo}`;
+    await Promise.allSettled([
+      db.insert(activitiesTable).values({
+        entityType: "job",
+        entityId: job.id,
+        kind: "note",
+        body: `${crew.name} agreed to payout terms (${paymentTermsDisplay(paymentTerms)}) for ${unitLabel}`,
+      }),
+      db.insert(notificationsTable).values({
+        kind: "crew_portal",
+        priority: "normal",
+        entityType: "job",
+        entityId: job.id,
+        title: `${crew.name} agreed to job payout terms`,
+        body: `${unitLabel} — ${paymentTermsDisplay(paymentTerms)}: payout released after property verification and Archangel receipt of payment.`,
+      }),
+    ]);
+
+    res.json({ ok: true, agreedAt: now.toISOString(), alreadyAgreed: false });
+  },
+);
+
+// ─── Job-Specific Checklists (carpet | make_ready | painting) ─────────────────
+//
+// Four endpoints per type, all routed through :type param:
+//   GET  /portal/:token/jobs/:jobId/checklist/:type          — fetch or create row
+//   POST /portal/:token/jobs/:jobId/checklist/:type/agree    — record crew agreement
+//   POST /portal/:token/jobs/:jobId/checklist/:type/toggle   — check/uncheck item
+//   POST /portal/:token/jobs/:jobId/checklist/:type/sign-off — crew sign-off
+
+async function getOrCreateJobChecklist(
+  jobId: string,
+  crew: CrewRow,
+  checklistType: string,
+) {
+  const rows = await db
+    .select()
+    .from(jobChecklistsTable)
+    .where(
+      and(
+        eq(jobChecklistsTable.jobId, jobId),
+        eq(jobChecklistsTable.crewId, crew.id),
+        eq(jobChecklistsTable.checklistType, checklistType),
+      ),
+    )
+    .limit(1);
+  if (rows[0]) return rows[0];
+  const [created] = await db
+    .insert(jobChecklistsTable)
+    .values({ jobId, crewId: crew.id, checklistType })
+    .returning();
+  return created!;
+}
+
+function parseJobChecklist(
+  record: { checkedItems: unknown; agreedAt: Date | null; agreedBy: string | null; signedOffAt: Date | null; signedOffBy: string | null },
+  checklistType: JobChecklistType,
+) {
+  const template = JOB_CHECKLISTS[checklistType];
+  const itemsFlat = JOB_CHECKLIST_ITEMS_FLAT[checklistType];
+  const checkedItems = Array.isArray(record.checkedItems)
+    ? (record.checkedItems as CheckedItem[])
+    : [];
+  const checkedSet = new Set(checkedItems.map((ci) => ci.id));
+  return {
+    sections: template.map((sec) => ({
+      id: sec.id,
+      title: sec.title,
+      items: sec.items.map((item) => ({
+        id: item.id,
+        label: item.label,
+        checked: checkedSet.has(item.id),
+        checkedAt: checkedItems.find((ci) => ci.id === item.id)?.checkedAt ?? null,
+      })),
+    })),
+    checkedCount: checkedSet.size,
+    totalItems: itemsFlat.length,
+    agreedAt: record.agreedAt?.toISOString() ?? null,
+    agreedBy: record.agreedBy ?? null,
+    signedOffAt: record.signedOffAt?.toISOString() ?? null,
+    signedOffBy: record.signedOffBy ?? null,
+    pdfUrl: JOB_CHECKLIST_PDF[checklistType],
+    label: JOB_CHECKLIST_LABEL[checklistType],
+    agreementText: CHECKLIST_AGREEMENT_TEXT,
+  };
+}
+
+// GET — fetch or create
+router.get(
+  "/portal/:token/jobs/:jobId/checklist/:type",
+  async (req, res): Promise<void> => {
+    const crew = await crewByToken(String(req.params.token));
+    if (!crew) { res.status(404).json({ error: "Invalid portal link" }); return; }
+
+    const checklistType = req.params.type as JobChecklistType;
+    if (!JOB_CHECKLISTS[checklistType]) {
+      res.status(400).json({ error: "Unknown checklist type" });
+      return;
+    }
+
+    const [job] = await db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, String(req.params.jobId)))
+      .limit(1);
+    if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+
+    // Verify this job type matches the requested checklist
+    const detectedType = getJobChecklistType(job.category, job.description);
+    if (detectedType !== checklistType) {
+      res.status(400).json({ error: "Checklist type does not match job" });
+      return;
+    }
+
+    const record = await getOrCreateJobChecklist(job.id, crew, checklistType);
+    res.json(parseJobChecklist(record, checklistType));
+  },
+);
+
+// POST /agree — crew acknowledges the consequence agreement
+router.post(
+  "/portal/:token/jobs/:jobId/checklist/:type/agree",
+  limits.walkWrite,
+  async (req, res): Promise<void> => {
+    const crew = await crewByToken(String(req.params.token));
+    if (!crew) { res.status(404).json({ error: "Invalid portal link" }); return; }
+
+    const checklistType = req.params.type as JobChecklistType;
+    if (!JOB_CHECKLISTS[checklistType]) {
+      res.status(400).json({ error: "Unknown checklist type" });
+      return;
+    }
+
+    const [job] = await db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, String(req.params.jobId)))
+      .limit(1);
+    if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+
+    const record = await getOrCreateJobChecklist(job.id, crew, checklistType);
+    if (!record.agreedAt) {
+      await db
+        .update(jobChecklistsTable)
+        .set({ agreedAt: new Date(), agreedBy: crew.name, updatedAt: new Date() })
+        .where(eq(jobChecklistsTable.id, record.id));
+    }
+    res.json({ ok: true, agreedAt: record.agreedAt ?? new Date() });
+  },
+);
+
+// POST /toggle — check or uncheck an item
+router.post(
+  "/portal/:token/jobs/:jobId/checklist/:type/toggle",
+  limits.walkWrite,
+  async (req, res): Promise<void> => {
+    const crew = await crewByToken(String(req.params.token));
+    if (!crew) { res.status(404).json({ error: "Invalid portal link" }); return; }
+
+    const checklistType = req.params.type as JobChecklistType;
+    if (!JOB_CHECKLISTS[checklistType]) {
+      res.status(400).json({ error: "Unknown checklist type" });
+      return;
+    }
+
+    const itemId = String(req.body.itemId ?? "");
+    const checked = Boolean(req.body.checked);
+    const itemsFlat = JOB_CHECKLIST_ITEMS_FLAT[checklistType];
+    const templateItem = itemsFlat.find((i) => i.id === itemId);
+    if (!templateItem) { res.status(400).json({ error: "Unknown item" }); return; }
+
+    const [job] = await db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, String(req.params.jobId)))
+      .limit(1);
+    if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+
+    const record = await getOrCreateJobChecklist(job.id, crew, checklistType);
+    if (!record.agreedAt) {
+      res.status(400).json({ error: "Agreement required before checking items" });
+      return;
+    }
+    if (record.signedOffAt) {
+      res.status(400).json({ error: "Checklist already signed off" });
+      return;
+    }
+
+    const existing = Array.isArray(record.checkedItems)
+      ? (record.checkedItems as CheckedItem[])
+      : [];
+    let updated: CheckedItem[];
+    if (checked) {
+      const alreadyIn = existing.some((ci) => ci.id === itemId);
+      updated = alreadyIn
+        ? existing
+        : [...existing, { id: itemId, checkedAt: new Date().toISOString(), checkedBy: crew.name }];
+    } else {
+      updated = existing.filter((ci) => ci.id !== itemId);
+    }
+
+    await db
+      .update(jobChecklistsTable)
+      .set({ checkedItems: updated, updatedAt: new Date() })
+      .where(eq(jobChecklistsTable.id, record.id));
+
+    res.json({ ok: true, checkedCount: updated.length, totalItems: itemsFlat.length });
+  },
+);
+
+// POST /sign-off — crew locks the checklist and notifies office
+router.post(
+  "/portal/:token/jobs/:jobId/checklist/:type/sign-off",
+  limits.walkWrite,
+  async (req, res): Promise<void> => {
+    const crew = await crewByToken(String(req.params.token));
+    if (!crew) { res.status(404).json({ error: "Invalid portal link" }); return; }
+
+    const checklistType = req.params.type as JobChecklistType;
+    if (!JOB_CHECKLISTS[checklistType]) {
+      res.status(400).json({ error: "Unknown checklist type" });
+      return;
+    }
+
+    const [job] = await db
+      .select()
+      .from(jobsTable)
+      .where(eq(jobsTable.id, String(req.params.jobId)))
+      .limit(1);
+    if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+
+    const record = await getOrCreateJobChecklist(job.id, crew, checklistType);
+    if (!record.agreedAt) {
+      res.status(400).json({ error: "Agreement required before sign-off" });
+      return;
+    }
+    if (!record.signedOffAt) {
+      await db
+        .update(jobChecklistsTable)
+        .set({ signedOffAt: new Date(), signedOffBy: crew.name, updatedAt: new Date() })
+        .where(eq(jobChecklistsTable.id, record.id));
+    }
+
+    const checkedItems = Array.isArray(record.checkedItems)
+      ? (record.checkedItems as CheckedItem[])
+      : [];
+    const itemsFlat = JOB_CHECKLIST_ITEMS_FLAT[checklistType];
+    const label = JOB_CHECKLIST_LABEL[checklistType];
+
+    // Log activity + notify office
+    const unitLabel2 = job.unitNo ? `Unit ${job.unitNo}` : `Job ${job.jobNo}`;
+    await Promise.allSettled([
+      db.insert(activitiesTable).values({
+        entityType: "job",
+        entityId: job.id,
+        kind: "note",
+        body: `${label} signed off by ${crew.name} — ${checkedItems.length}/${itemsFlat.length} items checked`,
+      }),
+      db.insert(notificationsTable).values({
+        kind: "crew_portal",
+        priority: "normal",
+        title: `${label} signed off — ${unitLabel2}`,
+        body: `${crew.name} completed the ${label.toLowerCase()} (${checkedItems.length}/${itemsFlat.length} items checked).`,
+        entityType: "job",
+        entityId: job.id,
+      }),
+    ]);
+
+    res.json({ ok: true });
   },
 );
 

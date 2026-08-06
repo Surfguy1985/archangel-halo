@@ -27,6 +27,11 @@ const RED = rgb(0.725, 0.11, 0.11);
 const RED_BG = rgb(0.996, 0.949, 0.949);
 const RED_LINE = rgb(0.992, 0.792, 0.792);
 
+export interface CleaningChecklistPdfSection {
+  sectionTitle: string;
+  items: { label: string; checked: boolean }[];
+}
+
 export interface SummaryPdfData {
   title: string;
   unitNumber: string | null;
@@ -35,6 +40,14 @@ export interface SummaryPdfData {
   timeIn: string | null;
   timeOut: string | null;
   checklist: SummaryChecklistSection[];
+  /** Archangel Turn Cleaning checklist — included only for cleaning jobs. */
+  cleaningChecklist?: {
+    sections: CleaningChecklistPdfSection[];
+    signedOffBy: string | null;
+    signedOffAt: string | null;
+    checkedCount: number;
+    totalItems: number;
+  };
   flags: SummaryFlag[];
   observations: string | null;
   touchUpNotes: string | null;
@@ -267,6 +280,64 @@ export async function buildSummaryPdf(data: SummaryPdfData): Promise<Uint8Array>
       }
     });
     ctx.y = top - rowH;
+  }
+
+  // ---- Archangel Turn Cleaning Checklist ----
+  if (data.cleaningChecklist && data.cleaningChecklist.sections.length > 0) {
+    const cc = data.cleaningChecklist;
+    const GREEN = rgb(0.12, 0.55, 0.25);
+    const LIGHT_GREEN = rgb(0.9, 0.98, 0.91);
+    sectionTitle(ctx, `Turn Cleaning Checklist — ${cc.checkedCount}/${cc.totalItems} items completed`);
+    if (cc.signedOffBy) {
+      para(ctx, `Signed off by ${cc.signedOffBy}${cc.signedOffAt ? ` on ${new Date(cc.signedOffAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : ""}`, {
+        size: 9,
+        color: GREEN,
+        bold: true,
+      });
+      ctx.y -= 4;
+    }
+    for (const sec of cc.sections) {
+      const checkedCount = sec.items.filter((i) => i.checked).length;
+      ensure(ctx, 20);
+      ctx.y -= 4;
+      ctx.page.drawText(safe(`${sec.sectionTitle.toUpperCase()}  (${checkedCount}/${sec.items.length})`), {
+        x: MARGIN,
+        y: ctx.y,
+        size: 8.5,
+        font: bold,
+        color: SLATE,
+      });
+      ctx.y -= 12;
+      const nCols = 2;
+      const cW2 = (PAGE_W - MARGIN * 2 - 16) / nCols;
+      const secItems = sec.items;
+      for (let r = 0; r < secItems.length; r += nCols) {
+        const rowItems = secItems.slice(r, r + nCols);
+        const rowHeights = rowItems.map((it) => wrap(safe(it.label), font, 8, cW2 - 14).length * 10.5 + 2);
+        const rowH = Math.max(...rowHeights, 12);
+        ensure(ctx, rowH + 2);
+        const top = ctx.y;
+        rowItems.forEach((it, ci) => {
+          const x = MARGIN + ci * (cW2 + 16);
+          const lines = wrap(safe(it.label), font, 8, cW2 - 14);
+          if (it.checked) {
+            ctx.page.drawRectangle({ x: x - 1, y: top - rowH + 1, width: cW2, height: rowH + 2, color: LIGHT_GREEN });
+            ctx.page.drawLine({ start: { x: x + 1.5, y: top - 2 }, end: { x: x + 3.5, y: top - 4.5 }, thickness: 1, color: GREEN });
+            ctx.page.drawLine({ start: { x: x + 3.5, y: top - 4.5 }, end: { x: x + 7.5, y: top + 0.5 }, thickness: 1, color: GREEN });
+          } else {
+            ctx.page.drawRectangle({ x: x + 1, y: top - 5.5, width: 6, height: 6, borderColor: SLATE, borderWidth: 0.8 });
+          }
+          let y = top;
+          for (const line of lines) {
+            ctx.page.drawText(line, { x: x + 12, y, size: 8, font, color: it.checked ? GREEN : INK });
+            y -= 10.5;
+          }
+        });
+        ctx.y = top - rowH - 2;
+      }
+      ctx.y -= 6;
+    }
+    ctx.y -= 4;
   }
 
   // ---- Red flag box ----

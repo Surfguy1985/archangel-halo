@@ -221,7 +221,9 @@ export default function CrewPortal() {
   );
   const queryClient = useQueryClient();
 
-  const { data: portal, isLoading, isError } = useGetPortal(token);
+  const { data: portal, isLoading, isError } = useGetPortal(token, {
+    query: { queryKey: getGetPortalQueryKey(token), refetchInterval: 60_000 },
+  });
   const { data: officeViewData } = useGetPortalOfficeView(token, {
     query: {
       queryKey: getGetPortalOfficeViewQueryKey(token),
@@ -1031,87 +1033,6 @@ function WingsTab({ token }: { token: string }) {
         </div>
       )}
 
-      {wings.sponsorName && (
-        <div className={card}>
-          <div className="text-[12px] text-muted-foreground">Your sponsor</div>
-          <div className="font-display font-bold text-[15px] text-foreground mt-[2px]">
-            {wings.sponsorName}
-          </div>
-        </div>
-      )}
-
-      <div className={card}>
-        <div className="font-display font-bold text-[15px] mb-[8px]">Your recruits</div>
-        {wings.recruits.length === 0 ? (
-          <p className="text-[13px] text-muted-foreground">
-            No recruits yet. Sponsor a crew to start earning overrides.
-          </p>
-        ) : (
-          <div className="space-y-[8px]">
-            {wings.recruits.map((r, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <div className="text-[13.5px] font-semibold text-foreground">{r.crewName}</div>
-                <div className="flex items-center gap-[8px]">
-                  <TierBadge tier={r.tier} />
-                  <span className="font-display font-bold text-[15px] text-foreground">
-                    {Math.round(r.haloScore)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-[10px]">
-        <div className={`${card} text-center`}>
-          <div className="flex items-center justify-center gap-[5px] text-muted-foreground text-[11px] font-bold uppercase tracking-[0.06em]">
-            <ShieldCheckIcon className="w-[13px] h-[13px]" /> Held
-          </div>
-          <div className="font-display font-bold text-[20px] text-foreground mt-[4px]">
-            {money(wings.reserve.held)}
-          </div>
-        </div>
-        <div className={`${card} text-center`}>
-          <div className="flex items-center justify-center gap-[5px] text-muted-foreground text-[11px] font-bold uppercase tracking-[0.06em]">
-            <Check className="w-[13px] h-[13px]" /> Released
-          </div>
-          <div className="font-display font-bold text-[20px] text-foreground mt-[4px]">
-            {money(wings.reserve.released)}
-          </div>
-        </div>
-      </div>
-
-      <div className={card}>
-        <div className="font-display font-bold text-[15px] mb-[8px]">Your override earnings</div>
-        {wings.overrides.length === 0 ? (
-          <p className="text-[13px] text-muted-foreground">
-            No override earnings yet. When a crew you sponsor completes a job that passes review, you earn here.
-          </p>
-        ) : (
-          <div className="space-y-[10px]">
-            {wings.overrides.map((o) => (
-              <div key={o.id} className="border-b border-border last:border-0 pb-[10px] last:pb-0">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold text-[13.5px] text-foreground">{o.jobNo ?? "Job"}</div>
-                  <span className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted-foreground">
-                    {o.status?.replace(/_/g, " ")}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-[12.5px] mt-[4px]">
-                  <span className="text-muted-foreground">Immediate 80%</span>
-                  <span className="font-bold text-foreground">{money(o.immediateAmount)}</span>
-                </div>
-                <div className="flex items-center justify-between text-[12.5px]">
-                  <span className="text-muted-foreground">Reserve 20%</span>
-                  <span>{money(o.reserveAmount)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       <div className="pt-[6px]">
         <WingsGuide lang={lang} onLangChange={setLang} />
       </div>
@@ -1417,312 +1338,240 @@ function OffersTab({ portal, token }: { portal: PortalBundle; token: string }) {
   const queryClient = useQueryClient();
   const respond = useRespondPortalOffer();
   const [declineConfirmId, setDeclineConfirmId] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<{ [id: string]: string }>({});
-  const [errorMsg, setErrorMsg] = useState<{ [id: string]: string }>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const offers = portal.offers || [];
   const emergencyOffers = portal.emergencyOffers || [];
+  const pending = offers.filter((o) => o.status === "pending" && !o.filledByOther);
+  const resolved = offers.filter((o) => o.status !== "pending" || o.filledByOther);
 
   const handleRespond = (offerId: string, decision: "approved" | "declined") => {
-    setErrorMsg((prev) => ({ ...prev, [offerId]: "" }));
+    setErrors((prev) => ({ ...prev, [offerId]: "" }));
     respond.mutate(
       { token, offerId, data: { decision } },
       {
-        onSuccess: (res) => {
-          if (decision === "approved") {
-            setSuccessMsg((prev) => ({ ...prev, [offerId]: res.message ?? "You're on the schedule." }));
-          }
-          queryClient.invalidateQueries();
-        },
+        onSuccess: () => { queryClient.invalidateQueries(); },
         onError: (err: any) => {
-          setErrorMsg((prev) => ({
-            ...prev,
-            [offerId]: err?.data?.error ?? "Something went wrong",
-          }));
+          setErrors((prev) => ({ ...prev, [offerId]: err?.data?.error ?? "Something went wrong" }));
         },
       }
     );
   };
 
-  const emergencySection = emergencyOffers.length > 0 && (
-    <div className="flex flex-col gap-[12px]" data-testid="section-emergency-offers">
-      <div className="flex items-center gap-[6px] text-[13px] font-display font-bold text-red-600 uppercase tracking-wider">
-        <AlertCircle className="w-[16px] h-[16px]" /> Emergency
-      </div>
-      {emergencyOffers.map((eo) => (
-        <EmergencyOfferCard key={eo.id} offer={eo} token={token} />
-      ))}
-    </div>
-  );
-
-  if (offers.length === 0) {
-    return (
-      <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
-        {emergencySection}
-        <div className={`${card} text-center py-[40px]`}>
-          <Briefcase className="w-[32px] h-[32px] text-muted-foreground mx-auto mb-[12px]" />
-          <div className="font-display font-bold text-[17px]">No offers yet</div>
-          <p className="text-[13px] text-muted-foreground mt-[4px]">
-            When the office sends job offers, they'll appear here.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="animate-in fade-in duration-200 flex flex-col gap-[12px]">
-      {emergencySection}
-      <div className="text-[13px] text-muted-foreground mb-[4px]">
-        Job offers from the office
-      </div>
-      {offers.map((o) => {
-        const isPending = o.status === "pending" && !o.filledByOther;
-        const isFilled = o.status === "pending" && o.filledByOther;
-        const isResolved = o.status !== "pending";
+    <div className="animate-in fade-in duration-200 flex flex-col gap-[10px]">
+
+      {/* Emergency — stays prominent */}
+      {emergencyOffers.length > 0 && (
+        <div className="flex flex-col gap-[10px]" data-testid="section-emergency-offers">
+          <div className="text-[11px] font-bold tracking-wider uppercase text-red-600 flex items-center gap-[5px]">
+            <AlertCircle className="w-[13px] h-[13px]" /> Emergency
+          </div>
+          {emergencyOffers.map((eo) => (
+            <EmergencyOfferCard key={eo.id} offer={eo} token={token} />
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {pending.length === 0 && resolved.length === 0 && emergencyOffers.length === 0 && (
+        <div className={`${card} text-center py-[40px]`}>
+          <Briefcase className="w-[28px] h-[28px] text-muted-foreground mx-auto mb-[10px]" />
+          <div className="font-display font-bold text-[16px]">No offers yet</div>
+          <p className="text-[13px] text-muted-foreground mt-[3px]">Job offers will appear here.</p>
+        </div>
+      )}
+
+      {/* ── Pending offers — expanded card with action buttons ── */}
+      {pending.map((o) => {
+        const mapsQ = [o.propertyAddress, o.propertyCity].filter(Boolean).join(", ");
+        const dateLabel = o.scheduleType === "flex" && o.flexDueBy
+          ? `By ${formatDay(o.flexDueBy)}`
+          : o.scheduledOn ? formatDay(o.scheduledOn) : "TBD";
 
         return (
           <div
             key={o.id}
-            className={`bg-card rounded-[16px] shadow-[var(--shadow)] overflow-hidden border ${
-              isPending
-                ? "border-[var(--gold)]"
-                : "border-border opacity-80"
-            }`}
+            className="rounded-[16px] border-2 border-[var(--gold)] bg-card shadow-sm overflow-hidden"
           >
-            <div className={`px-[16px] py-[12px] flex items-start justify-between border-b ${
-              isPending ? "bg-[var(--gold-tint)] border-[var(--gold)]/20" : "bg-[var(--paper)] border-border"
-            }`}>
-              <div>
-                <div className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground flex items-center gap-[6px]">
-                  {isPending && <span className="w-[8px] h-[8px] rounded-full bg-[var(--gold-light)] animate-pulse" />}
-                  {o.jobNo} {o.category ? `· ${o.category}` : ""}
+            {/* Header */}
+            <div className="px-[14px] pt-[13px] pb-[11px] border-b border-[var(--gold)]/15 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-display font-bold text-[16px] leading-tight">
+                  {o.unitNo ? `Unit ${o.unitNo}` : o.propertyName || "Job"}
+                  {o.category ? ` · ${o.category}` : ""}
                 </div>
-                <div className="font-display font-bold text-[18px] mt-[2px] leading-tight">
-                  {o.propertyName || "Assignment"}
-                  {o.unitNo ? ` · Unit ${o.unitNo}` : ""}
-                </div>
-              </div>
-              <div className="text-right">
-                {isPending && (
-                  <div className="text-[11px] font-bold uppercase text-[var(--gold-dark)] bg-white px-[8px] py-[2px] rounded-full shadow-sm">
-                    Action Needed
-                  </div>
-                )}
-                {isFilled && (
-                  <div className="text-[11px] font-bold uppercase text-muted-foreground bg-black/5 px-[8px] py-[2px] rounded-full">
-                    Filled by another crew
-                  </div>
-                )}
-                {o.status === "approved" && (
-                  <div className="text-[11px] font-bold uppercase text-green-700 bg-green-50 px-[8px] py-[2px] rounded-full flex items-center gap-1">
-                    <Check className="w-3 h-3" /> Accepted
-                  </div>
-                )}
-                {o.status === "declined" && (
-                  <div className="text-[11px] font-bold uppercase text-red-700 bg-red-50 px-[8px] py-[2px] rounded-full">
-                    Declined
-                  </div>
-                )}
-                {o.status === "withdrawn" && (
-                  <div className="text-[11px] font-bold uppercase text-muted-foreground bg-black/5 px-[8px] py-[2px] rounded-full">
-                    Withdrawn
-                  </div>
+                {o.propertyName && o.unitNo && (
+                  <div className="text-[12px] text-muted-foreground mt-[1px] truncate">{o.propertyName}</div>
                 )}
               </div>
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide bg-[var(--gold-light)] text-black px-[8px] py-[3px] rounded-full mt-[2px]">
+                Action Needed
+              </span>
             </div>
 
-            <div className="p-[16px]">
-              <div className="flex flex-col gap-[12px]">
-                {/* Date & Location */}
-                <div className={`rounded-[10px] px-[10px] py-[8px] border text-[12px] ${
-                  o.scheduleType === "flex"
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                    : "bg-[var(--gold-tint)] border-[rgba(185,138,47,0.28)] text-[var(--gold-dark)]"
-                }`}>
-                  {o.scheduleType === "flex" ? (
-                    <><b>Flex job</b> — work on your own time{o.flexDueBy ? <>, finish by <b>{formatDay(o.flexDueBy)}</b></> : " within the set timeframe"}.</>
-                  ) : (
-                    <><b>Set schedule</b> — you commit to the days and hours set by the property.</>
-                  )}
-                  {(o.crewsNeeded ?? 1) > 1 && (
-                    <> {o.crewsFilled ?? 0} of {o.crewsNeeded} crew spots filled.</>
-                  )}
-                </div>
-
-                {/* Specialty broadcast: this offer only covers the crew's services */}
-                {o.forServices && o.forServices.length > 0 && (
-                  <div
-                    className="rounded-[10px] px-[10px] py-[8px] border text-[12px] bg-sky-50 border-sky-200 text-sky-900"
-                    data-testid={`offer-services-${o.id}`}
-                  >
-                    <b>Your part of this job:</b>{" "}
-                    {o.forServices.join(", ")}
-                    {o.startTime && (
-                      <>
-                        {" "}— start at <b>{formatClock(o.startTime)}</b> (arrivals are
-                        staggered so crews aren't on site at once)
-                      </>
-                    )}
-                  </div>
+            {/* Details */}
+            <div className="px-[14px] py-[11px] flex flex-col gap-[7px]">
+              {/* Date + spots */}
+              <div className="flex items-center gap-[12px] text-[13px]">
+                <span className="flex items-center gap-[5px] font-semibold">
+                  <Calendar className="w-[13px] h-[13px] text-muted-foreground" />
+                  {dateLabel}
+                  {o.startTime ? ` · ${formatClock(o.startTime)}` : ""}
+                </span>
+                {(o.crewsNeeded ?? 1) > 1 && (
+                  <span className="text-[12px] text-muted-foreground">
+                    {o.crewsFilled ?? 0}/{o.crewsNeeded} spots filled
+                  </span>
                 )}
-                <div className="grid grid-cols-2 gap-[12px]">
-                  <div className="flex items-start gap-[8px]">
-                    <Calendar className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
-                    <div>
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">When needed</div>
-                      <div className="text-[13px] font-semibold">{o.scheduleType === "flex" && o.flexDueBy ? `By ${formatDay(o.flexDueBy)}` : o.scheduledOn ? formatDay(o.scheduledOn) : "TBD"}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-[8px]">
-                    <MapPin className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
-                    <div>
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Location</div>
-                      <div className="text-[13px] font-semibold leading-tight">
-                        {[o.propertyAddress, o.propertyCity].filter(Boolean).join(", ") || "No address provided"}
-                      </div>
-                      {(o.propertyAddress || o.propertyCity) && (
-                        <a
-                          href={`https://maps.google.com/?q=${encodeURIComponent([o.propertyAddress, o.propertyCity].filter(Boolean).join(", "))}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[12px] font-semibold text-[var(--blue)]"
-                        >
-                          Open in Maps
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Units */}
-                <div className="flex items-start gap-[8px]">
-                  <Home className="w-[16px] h-[16px] text-muted-foreground shrink-0 mt-[2px]" />
-                  <div>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Unit(s) to work</div>
-                    <div className="text-[13px] font-semibold">{o.unitNo ? `Unit ${o.unitNo}` : "See scope of work — ask the site contact if unsure"}</div>
-                  </div>
-                </div>
-
-                {/* Scope */}
-                {(o.description || (o.tasks && o.tasks.length > 0)) && (
-                  <div className="mt-[4px] pt-[12px] border-t border-border">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[6px]">Scope of work</div>
-                    {o.description && <div className="text-[13.5px] leading-relaxed mb-[8px]">{o.description}</div>}
-                    {o.tasks && o.tasks.length > 0 && (
-                      <ul className="flex flex-col gap-[4px]">
-                        {o.tasks.map((t, i) => (
-                          <li key={i} className="flex items-start gap-[6px] text-[13px]">
-                            <span className="text-[var(--gold)] mt-[2px]">•</span>
-                            <span>{t}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-                {/* Photos */}
-                {o.photos && o.photos.length > 0 && (
-                  <div className="mt-[4px] pt-[12px] border-t border-border">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[6px]">Reference Photos</div>
-                    <div className="flex gap-[8px] overflow-x-auto pb-[4px]">
-                      {o.photos.map((p) => (
-                        <a
-                          key={p.storagePath}
-                          href={`/api/storage${p.storagePath}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="shrink-0 w-[80px] h-[80px] rounded-[8px] overflow-hidden bg-black/5 border border-border"
-                        >
-                          <img src={`/api/storage${p.storagePath}`} alt="" className="w-full h-full object-cover" />
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Contact */}
-                {(o.contactName || o.contactPhone || o.contactEmail) && (
-                  <div className="mt-[4px] pt-[12px] border-t border-border">
-                     <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-[2px]">Site Contact</div>
-                     <div className="text-[13px] font-semibold">
-                       {o.contactName || "Contact"}
-                       {o.contactRole ? <span className="text-muted-foreground font-normal"> ({o.contactRole})</span> : null}
-                     </div>
-                     {o.contactPhone && (
-                       <div className="text-[13px]">
-                         <a href={`tel:${o.contactPhone.replace(/[^\d+]/g, '')}`} className="text-[var(--blue)] font-semibold">{o.contactPhone}</a>
-                       </div>
-                     )}
-                     {o.contactEmail && (
-                       <div className="text-[13px]">
-                         <a href={`mailto:${o.contactEmail}`} className="text-[var(--blue)] font-semibold">{o.contactEmail}</a>
-                       </div>
-                     )}
-                  </div>
-                )}
-
               </div>
-            </div>
 
-            {/* Actions / Status footer */}
-            <div className={`p-[16px] pt-0 ${!isPending && !successMsg[o.id] && !errorMsg[o.id] ? "hidden" : ""}`}>
-              {errorMsg[o.id] && (
-                <div className="mb-[12px] bg-red-50 text-red-700 px-[12px] py-[8px] rounded-[8px] text-[13px] flex items-start gap-[8px]">
-                  <AlertCircle className="w-[16px] h-[16px] shrink-0 mt-[2px]" />
-                  <span>{errorMsg[o.id]}</span>
+              {/* Location */}
+              {mapsQ ? (
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(mapsQ)}`}
+                  target="_blank" rel="noreferrer"
+                  className="flex items-center gap-[5px] text-[12.5px] text-[var(--blue)] font-semibold"
+                >
+                  <MapPin className="w-[13px] h-[13px] shrink-0" />
+                  {mapsQ}
+                </a>
+              ) : null}
+
+              {/* Specialty scope */}
+              {o.forServices && o.forServices.length > 0 && (
+                <div
+                  className="text-[12px] bg-sky-50 border border-sky-200 text-sky-900 rounded-[8px] px-[10px] py-[6px]"
+                  data-testid={`offer-services-${o.id}`}
+                >
+                  <b>Your scope:</b> {o.forServices.join(", ")}
+                  {o.startTime && ` — start at ${formatClock(o.startTime)}`}
                 </div>
               )}
-              
-              {successMsg[o.id] ? (
-                 <div className="bg-green-50 border border-green-200 text-green-800 px-[14px] py-[12px] rounded-[12px] text-[13.5px] font-semibold flex items-start gap-[10px]">
-                   <CheckSquare className="w-[20px] h-[20px] shrink-0 mt-[1px] text-green-600" />
-                   <span>{successMsg[o.id]}</span>
-                 </div>
-              ) : isPending ? (
-                declineConfirmId === o.id ? (
-                  <div className="bg-[var(--paper)] rounded-[12px] p-[12px] flex flex-col gap-[10px]">
-                    <div className="text-[13px] font-semibold text-center">Are you sure you want to decline?</div>
-                    <div className="flex gap-[8px]">
-                      <button
-                        onClick={() => setDeclineConfirmId(null)}
-                        className="flex-1 py-[10px] rounded-[8px] text-[13px] font-bold border border-border bg-white text-muted-foreground"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => handleRespond(o.id, "declined")}
-                        disabled={respond.isPending}
-                        className="flex-1 py-[10px] rounded-[8px] text-[13px] font-bold bg-red-600 text-white disabled:opacity-50"
-                      >
-                        Yes, Decline
-                      </button>
+
+              {/* Description / tasks */}
+              {(o.description || (o.tasks && o.tasks.length > 0)) && (
+                <div className="text-[12px] bg-[var(--paper)] rounded-[8px] px-[10px] py-[8px] flex flex-col gap-[3px]">
+                  {o.description && <p className="mb-[3px] text-foreground">{o.description}</p>}
+                  {o.tasks && o.tasks.map((t, i) => (
+                    <div key={i} className="flex items-start gap-[5px] text-muted-foreground">
+                      <span className="text-[var(--gold)] leading-none mt-[2px]">•</span> {t}
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex gap-[12px]">
-                    <button
-                      onClick={() => setDeclineConfirmId(o.id)}
-                      className="w-1/3 py-[12px] rounded-[12px] font-display font-bold text-[14px] border-2 border-border text-muted-foreground active:scale-[0.98] transition-transform"
-                    >
-                      Decline
-                    </button>
-                    <button
-                      onClick={() => handleRespond(o.id, "approved")}
-                      disabled={respond.isPending}
-                      className="flex-1 py-[12px] rounded-[12px] font-display font-bold text-[15px] btn-gold active:scale-[0.98] transition-transform disabled:opacity-70 flex items-center justify-center gap-[8px]"
-                    >
-                      {respond.isPending ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : <Check className="w-[18px] h-[18px]" />}
-                      Accept Job
-                    </button>
-                  </div>
-                )
-              ) : null}
+                  ))}
+                </div>
+              )}
+
+              {/* Contact */}
+              {(o.contactPhone || o.contactEmail) && (
+                <div className="flex flex-wrap gap-x-[12px] gap-y-[3px]">
+                  {o.contactPhone && (
+                    <a href={`tel:${o.contactPhone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-[5px] text-[12.5px] text-[var(--blue)] font-semibold">
+                      <Phone className="w-[13px] h-[13px] shrink-0" />
+                      {o.contactPhone}{o.contactName ? ` · ${o.contactName}` : ""}
+                    </a>
+                  )}
+                  {o.contactEmail && !o.contactPhone && (
+                    <a href={`mailto:${o.contactEmail}`} className="text-[12.5px] text-[var(--blue)] font-semibold">{o.contactEmail}</a>
+                  )}
+                </div>
+              )}
+
+              {/* Reference photos */}
+              {o.photos && o.photos.length > 0 && (
+                <div className="flex gap-[6px] overflow-x-auto">
+                  {o.photos.map((p) => (
+                    <a key={p.storagePath} href={`/api/storage${p.storagePath}`} target="_blank" rel="noreferrer"
+                      className="shrink-0 w-[72px] h-[72px] rounded-[8px] overflow-hidden bg-black/5 border border-border">
+                      <img src={`/api/storage${p.storagePath}`} alt="" className="w-full h-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {/* Error */}
+              {errors[o.id] && (
+                <div className="text-[12px] text-red-700 bg-red-50 rounded-[8px] px-[10px] py-[6px] flex items-center gap-[6px]">
+                  <AlertCircle className="w-[13px] h-[13px] shrink-0" /> {errors[o.id]}
+                </div>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div className="px-[14px] pb-[14px]">
+              {declineConfirmId === o.id ? (
+                <div className="flex gap-[8px]">
+                  <button
+                    onClick={() => setDeclineConfirmId(null)}
+                    className="flex-1 py-[10px] rounded-[12px] text-[13px] font-bold border border-border text-muted-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => { handleRespond(o.id, "declined"); setDeclineConfirmId(null); }}
+                    disabled={respond.isPending}
+                    className="flex-1 py-[10px] rounded-[12px] text-[13px] font-bold bg-red-600 text-white disabled:opacity-50"
+                  >
+                    Yes, Decline
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-[10px]">
+                  <button
+                    onClick={() => setDeclineConfirmId(o.id)}
+                    className="w-[80px] py-[11px] rounded-[12px] text-[13px] font-bold border-2 border-border text-muted-foreground active:scale-[0.97] transition-transform"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    onClick={() => handleRespond(o.id, "approved")}
+                    disabled={respond.isPending}
+                    className="flex-1 py-[11px] rounded-[12px] font-display font-bold text-[14px] btn-gold flex items-center justify-center gap-[7px] active:scale-[0.98] transition-transform disabled:opacity-70"
+                  >
+                    {respond.isPending
+                      ? <Loader2 className="w-[16px] h-[16px] animate-spin" />
+                      : <Check className="w-[16px] h-[16px]" />}
+                    Accept Job
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );
       })}
+
+      {/* ── Resolved — collapsed single row per offer ── */}
+      {resolved.length > 0 && (
+        <div className="flex flex-col gap-[5px] mt-[2px]">
+          {pending.length > 0 && (
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground px-[2px] mt-[4px]">
+              Past offers
+            </div>
+          )}
+          {resolved.map((o) => {
+            const isFilled = o.status === "pending" && o.filledByOther;
+            const statusLabel = isFilled
+              ? "Filled"
+              : o.status === "approved" ? "Accepted"
+              : o.status === "declined" ? "Declined"
+              : "Withdrawn";
+            const statusCls = o.status === "approved"
+              ? "text-green-700 bg-green-50"
+              : "text-muted-foreground bg-black/5";
+            return (
+              <div key={o.id} className="flex items-center gap-[10px] bg-card border border-border rounded-[11px] px-[12px] py-[9px] opacity-65">
+                <div className="min-w-0 flex-1 text-[13px] font-semibold truncate">
+                  {o.unitNo ? `Unit ${o.unitNo} · ` : ""}
+                  {o.propertyName || o.jobNo}
+                  {o.category ? ` · ${o.category}` : ""}
+                </div>
+                <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-[7px] py-[2px] rounded-full ${statusCls}`}>
+                  {statusLabel}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -2231,74 +2080,19 @@ function WorkChecklistSection({ token }: { token: string }) {
 }
 
 function ScheduleTab({ portal }: { portal: PortalBundle }) {
-  const allItems = portal.schedule;
-  // Day / Week / Month views over the (month-spanning) schedule feed.
-  const [schedView, setSchedView] = useState<"day" | "week" | "month">("week");
-  const [anchor, setAnchor] = useState<string>(() => localToday());
-  const shiftAnchor = (dir: -1 | 1) => {
-    const [y, m, d] = anchor.split("-").map((n) => parseInt(n, 10));
-    const dt = new Date(y!, m! - 1, d!);
-    if (schedView === "day") dt.setDate(dt.getDate() + dir);
-    else if (schedView === "week") dt.setDate(dt.getDate() + dir * 7);
-    else dt.setMonth(dt.getMonth() + dir, 1);
-    setAnchor(
-      `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`,
-    );
-  };
-  const range = (() => {
-    const [y, m, d] = anchor.split("-").map((n) => parseInt(n, 10));
-    const fmt = (dt: Date) =>
-      `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
-    if (schedView === "day") return { from: anchor, to: anchor };
-    if (schedView === "week") {
-      const dt = new Date(y!, m! - 1, d!);
-      const diffToMon = (dt.getDay() + 6) % 7;
-      const mon = new Date(dt);
-      mon.setDate(dt.getDate() - diffToMon);
-      const sun = new Date(mon);
-      sun.setDate(mon.getDate() + 6);
-      return { from: fmt(mon), to: fmt(sun) };
-    }
-    return {
-      from: fmt(new Date(y!, m! - 1, 1)),
-      to: fmt(new Date(y!, m!, 0)),
-    };
-  })();
-  const items = allItems.filter(
-    (s) => s.scheduledOn && s.scheduledOn >= range.from && s.scheduledOn <= range.to,
-  );
-  const rangeLabel = (() => {
-    const [y, m, d] = anchor.split("-").map((n) => parseInt(n, 10));
-    const dt = new Date(y!, m! - 1, d!);
-    if (schedView === "day")
-      return dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-    if (schedView === "month")
-      return dt.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-    const [fy, fm, fd] = range.from.split("-").map((n) => parseInt(n, 10));
-    const [ty, tm, td] = range.to.split("-").map((n) => parseInt(n, 10));
-    const f = new Date(fy!, fm! - 1, fd!);
-    const t = new Date(ty!, tm! - 1, td!);
-    return `${f.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${t.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
-  })();
-  // Server returns items already in route order within each day; number the
-  // stops so crews can follow the plan (only shown for multi-stop days).
-  const dayCounts = new Map<string, number>();
-  for (const s of items) {
-    const d = s.scheduledOn ?? "";
-    dayCounts.set(d, (dayCounts.get(d) ?? 0) + 1);
-  }
-  const daySeen = new Map<string, number>();
-  const stopNo = (day: string | null) => {
-    const d = day ?? "";
-    const n = (daySeen.get(d) ?? 0) + 1;
-    daySeen.set(d, n);
-    return { n, of: dayCounts.get(d) ?? 1 };
-  };
-  // One-tap directions for the whole day: today's stops (in route order) as
-  // Google Maps waypoints. Address-based URL — no paid API. Stops without an
-  // address are skipped from the link but remain on the list.
+  // Flat chronological view — no day/week/month switcher, crews just need
+  // to see what's coming up. Upcoming first; past items hidden behind a toggle.
   const today = localToday();
-  const todayStops = items.filter((s) => s.scheduledOn === today);
+  const sorted = (portal.schedule ?? [])
+    .slice()
+    .sort((a, b) => (a.scheduledOn ?? "").localeCompare(b.scheduledOn ?? ""));
+  const upcoming = sorted.filter((s) => (s.scheduledOn ?? "") >= today);
+  const past = sorted.filter((s) => (s.scheduledOn ?? "") < today);
+  const [showPast, setShowPast] = useState(false);
+  const items = showPast ? sorted : upcoming;
+
+  // One-tap directions for today's multi-stop route.
+  const todayStops = upcoming.filter((s) => s.scheduledOn === today);
   const todayAddresses = todayStops
     .map((s) =>
       s.propertyAddress
@@ -2310,229 +2104,161 @@ function ScheduleTab({ portal }: { portal: PortalBundle }) {
     .filter((a): a is string => Boolean(a));
   const dayDirectionsUrl =
     todayStops.length >= 2 && todayAddresses.length >= 1
-      ? `https://www.google.com/maps/dir/${todayAddresses
-          .map((a) => encodeURIComponent(a))
-          .join("/")}`
+      ? `https://www.google.com/maps/dir/${todayAddresses.map((a) => encodeURIComponent(a)).join("/")}`
       : null;
-  // Month grid: which days in the anchor month have stops.
-  const monthDays = (() => {
-    if (schedView !== "month") return [];
-    const [y, m] = anchor.split("-").map((n) => parseInt(n, 10));
-    const daysIn = new Date(y!, m!, 0).getDate();
-    const firstDow = (new Date(y!, m! - 1, 1).getDay() + 6) % 7; // Mon=0
-    const counts = new Map<string, number>();
-    for (const s of items) {
-      if (s.scheduledOn) counts.set(s.scheduledOn, (counts.get(s.scheduledOn) ?? 0) + 1);
-    }
-    const cells: { key: string; day: number; count: number }[] = [];
-    for (let i = 0; i < firstDow; i++) cells.push({ key: `pad-${i}`, day: 0, count: 0 });
-    for (let d = 1; d <= daysIn; d++) {
-      const key = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      cells.push({ key, day: d, count: counts.get(key) ?? 0 });
-    }
-    return cells;
-  })();
+
+  // Group by date for headers.
+  const grouped: { date: string; stops: typeof items }[] = [];
+  for (const s of items) {
+    const d = s.scheduledOn ?? "TBD";
+    const last = grouped[grouped.length - 1];
+    if (last?.date === d) last.stops.push(s);
+    else grouped.push({ date: d, stops: [s] });
+  }
+
   return (
-    <div className="animate-in fade-in duration-200">
-      <div className="flex items-center gap-[8px] mb-[12px]">
-        <div className="flex rounded-full bg-[var(--ink)]/6 p-[3px]">
-          {(["day", "week", "month"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setSchedView(v)}
-              className={`px-[12px] py-[5px] rounded-full text-[12px] font-bold capitalize transition-colors ${
-                schedView === v ? "bg-[var(--ink)] text-white" : "text-muted-foreground"
-              }`}
-              data-testid={`button-sched-view-${v}`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-        <div className="ml-auto flex items-center gap-[4px]">
-          <button
-            onClick={() => shiftAnchor(-1)}
-            aria-label="Previous"
-            className="w-[28px] h-[28px] grid place-items-center rounded-full bg-[var(--ink)]/6 text-[14px] font-bold"
-            data-testid="button-sched-prev"
-          >
-            ‹
-          </button>
-          <button
-            onClick={() => setAnchor(localToday())}
-            className="px-[10px] h-[28px] rounded-full bg-[var(--ink)]/6 text-[11.5px] font-bold"
-            data-testid="button-sched-today"
-          >
-            Today
-          </button>
-          <button
-            onClick={() => shiftAnchor(1)}
-            aria-label="Next"
-            className="w-[28px] h-[28px] grid place-items-center rounded-full bg-[var(--ink)]/6 text-[14px] font-bold"
-            data-testid="button-sched-next"
-          >
-            ›
-          </button>
-        </div>
-      </div>
-      <div className="text-[13px] font-semibold mb-[10px]" data-testid="text-sched-range">
-        {rangeLabel}
-      </div>
-      {schedView === "month" && (
-        <div className={`${card} mb-[12px]`}>
-          <div className="grid grid-cols-7 gap-[2px] text-center">
-            {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-              <div key={i} className="text-[10px] font-bold text-muted-foreground py-[2px]">
-                {d}
-              </div>
-            ))}
-            {monthDays.map((c) =>
-              c.day === 0 ? (
-                <div key={c.key} />
-              ) : (
-                <button
-                  key={c.key}
-                  onClick={() => {
-                    if (c.count > 0) {
-                      setAnchor(c.key);
-                      setSchedView("day");
-                    }
-                  }}
-                  className={`relative py-[6px] rounded-[8px] text-[12px] font-semibold ${
-                    c.key === localToday() ? "bg-[var(--gold-light)]/25" : ""
-                  } ${c.count > 0 ? "text-[var(--ink)]" : "text-muted-foreground/50"}`}
-                  data-testid={`month-day-${c.key}`}
-                >
-                  {c.day}
-                  {c.count > 0 && (
-                    <span className="absolute left-1/2 -translate-x-1/2 bottom-[1px] w-[4px] h-[4px] rounded-full bg-[var(--gold)]" />
-                  )}
-                </button>
-              ),
-            )}
-          </div>
+    <div className="animate-in fade-in duration-200 flex flex-col gap-[10px]">
+
+      {/* Today's directions button */}
+      {dayDirectionsUrl && (
+        <a
+          href={dayDirectionsUrl}
+          target="_blank"
+          rel="noreferrer"
+          data-testid="link-directions-today"
+          className="flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] text-[14px] font-display font-bold text-black bg-[var(--gold-light)] active:scale-[0.98] transition-transform"
+        >
+          <MapPin className="w-[15px] h-[15px]" />
+          Today's directions · {todayAddresses.length} stop{todayAddresses.length === 1 ? "" : "s"}
+        </a>
+      )}
+
+      {/* Empty state */}
+      {items.length === 0 && (
+        <div className={`${card} text-center py-[36px]`}>
+          <Calendar className="w-[28px] h-[28px] text-muted-foreground mx-auto mb-[10px]" />
+          <div className="font-display font-bold text-[15px]">Nothing coming up</div>
+          <p className="text-[12.5px] text-muted-foreground mt-[3px]">
+            Your schedule appears here once the office assigns you to a job.
+          </p>
         </div>
       )}
-      {items.length === 0 ? (
-        <div className={`${card} text-center text-[13px] text-muted-foreground py-[30px]`}>
-          Nothing scheduled {schedView === "day" ? "this day" : schedView === "week" ? "this week" : "this month"}.
-        </div>
-      ) : (
-        <div className="flex flex-col gap-[10px]">
-          {dayDirectionsUrl && (
-            <a
-              href={dayDirectionsUrl}
-              target="_blank"
-              rel="noreferrer"
-              data-testid="link-directions-today"
-              className="flex items-center justify-center gap-[8px] rounded-[13px] py-[12px] text-[14px] font-display font-bold text-primary-foreground bg-[var(--gold-light)] hover:brightness-105 transition-all active:scale-[0.98]"
-            >
-              <MapPin className="w-[16px] h-[16px]" />
-              Directions for today · {todayAddresses.length} stop
-              {todayAddresses.length === 1 ? "" : "s"}
-            </a>
-          )}
-          {items.map((s) => {
-            const isToday = s.scheduledOn === localToday();
-            const { n: stopN, of: stopOf } = stopNo(s.scheduledOn ?? null);
-            const mapsQuery = s.propertyAddress
-              ? s.propertyAddress
-              : s.propertyName
-                ? `${s.propertyName}${s.propertyCity ? `, ${s.propertyCity}` : ""}`
-                : null;
-            return (
-              <div
-                key={s.id}
-                className={`${card} ${isToday ? "ring-1 ring-[var(--gold)]" : ""}`}
-              >
-                <div className="flex items-center gap-[8px] mb-[4px]">
-                  <Calendar className="w-[14px] h-[14px] text-[var(--gold)]" />
-                  <span className="text-[12.5px] font-semibold">
-                    {formatDay(s.scheduledOn)}
-                  </span>
-                  {s.windowStart && (
-                    <span className="text-[12px] text-muted-foreground">
-                      · {s.windowStart}
-                    </span>
-                  )}
-                  {stopOf > 1 && (
-                    <span className="text-[10.5px] font-bold uppercase tracking-wide px-[7px] py-[2px] rounded-full bg-[var(--ink)]/8 text-[var(--ink)]">
-                      Stop {stopN} of {stopOf}
-                    </span>
-                  )}
-                  {isToday && (
-                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wide px-[8px] py-[2px] rounded-full bg-[var(--gold-light)]/15 text-[var(--gold-dark,#8f6a1f)]">
-                      Today
-                    </span>
-                  )}
-                </div>
-                <div className="font-semibold text-[14.5px]">
-                  {s.propertyName || s.description || "Assignment"}
-                  {s.unitNo ? ` · Unit ${s.unitNo}` : ""}
-                </div>
-                {s.propertyName && s.description && (
-                  <div className="text-[12.5px] text-muted-foreground mt-[2px]">
-                    {s.description}
-                  </div>
-                )}
-                {mapsQuery && (
-                  <a
-                    href={`https://maps.google.com/?q=${encodeURIComponent(mapsQuery)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-start gap-[6px] mt-[8px] text-[12.5px] text-[var(--blue,#2b6cb0)] font-semibold"
+
+      {/* Stops grouped by date */}
+      {grouped.map(({ date, stops }) => {
+        const isToday = date === today;
+        const dtLabel = formatDay(date) || "TBD";
+        const multiStop = stops.length > 1;
+
+        return (
+          <div key={date}>
+            {/* Date header */}
+            <div className="flex items-center gap-[7px] mb-[6px] mt-[4px]">
+              <span className={`text-[12px] font-bold uppercase tracking-wider ${isToday ? "text-[var(--gold-dark)]" : "text-muted-foreground"}`}>
+                {dtLabel}
+              </span>
+              {isToday && (
+                <span className="text-[10px] font-bold uppercase tracking-wide px-[7px] py-[2px] rounded-full bg-[var(--gold-light)]/20 text-[var(--gold-dark)]">
+                  Today
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-[6px]">
+              {stops.map((s, idx) => {
+                const mapsQ = s.propertyAddress
+                  ? s.propertyAddress
+                  : s.propertyName
+                    ? `${s.propertyName}${s.propertyCity ? `, ${s.propertyCity}` : ""}`
+                    : null;
+
+                return (
+                  <div
+                    key={s.id}
+                    className={`${card} ${isToday ? "ring-1 ring-[var(--gold)]/40" : ""}`}
                   >
-                    <MapPin className="w-[13px] h-[13px] mt-[2px] shrink-0" />
-                    <span>
-                      {s.propertyAddress ||
-                        `${s.propertyName}${s.propertyCity ? `, ${s.propertyCity}` : ""}`}
-                    </span>
-                  </a>
-                )}
-                {s.contactPhone && (
-                  <a
-                    href={`tel:${s.contactPhone.replace(/[^+0-9]/g, "")}`}
-                    className="flex items-center gap-[6px] mt-[6px] text-[12.5px] text-[var(--blue,#2b6cb0)] font-semibold"
-                  >
-                    <Phone className="w-[13px] h-[13px] shrink-0" />
-                    <span>
-                      {s.contactPhone}
-                      {s.contactName ? (
-                        <span className="text-muted-foreground font-normal">
-                          {" "}
-                          · {s.contactName}
+                    <div className="flex items-start gap-[10px]">
+                      {/* Stop number bubble for multi-stop days */}
+                      {multiStop && (
+                        <span className="shrink-0 w-[22px] h-[22px] rounded-full bg-[var(--ink)]/8 grid place-items-center text-[11px] font-bold text-[var(--ink)] mt-[1px]">
+                          {idx + 1}
                         </span>
-                      ) : null}
-                    </span>
-                  </a>
-                )}
-                {s.tasks && s.tasks.length > 0 && (
-                  <div className="mt-[10px] bg-[var(--paper)] rounded-[11px] px-[12px] py-[10px]">
-                    <div className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-[6px]">
-                      {isToday ? "Today's tasks" : "Task list"}
+                      )}
+                      <div className="min-w-0 flex-1">
+                        {/* Property + unit */}
+                        <div className="font-semibold text-[14px] leading-snug">
+                          {s.propertyName || s.description || "Assignment"}
+                          {s.unitNo ? ` · Unit ${s.unitNo}` : ""}
+                        </div>
+                        {s.propertyName && s.description && (
+                          <div className="text-[12px] text-muted-foreground mt-[1px]">{s.description}</div>
+                        )}
+
+                        {/* Start time */}
+                        {s.windowStart && (
+                          <div className="text-[12px] font-semibold text-[var(--gold-dark)] mt-[4px]">
+                            {s.windowStart}
+                          </div>
+                        )}
+
+                        {/* Address + phone inline */}
+                        <div className="flex flex-wrap gap-x-[10px] gap-y-[3px] mt-[6px]">
+                          {mapsQ && (
+                            <a
+                              href={`https://maps.google.com/?q=${encodeURIComponent(mapsQ)}`}
+                              target="_blank" rel="noreferrer"
+                              className="flex items-center gap-[4px] text-[12px] text-[var(--blue)] font-semibold"
+                            >
+                              <MapPin className="w-[12px] h-[12px] shrink-0" />
+                              {s.propertyAddress || s.propertyCity || "Directions"}
+                            </a>
+                          )}
+                          {s.contactPhone && (
+                            <a
+                              href={`tel:${s.contactPhone.replace(/[^+0-9]/g, "")}`}
+                              className="flex items-center gap-[4px] text-[12px] text-[var(--blue)] font-semibold"
+                            >
+                              <Phone className="w-[12px] h-[12px] shrink-0" />
+                              {s.contactPhone}
+                              {s.contactName ? (
+                                <span className="text-muted-foreground font-normal"> · {s.contactName}</span>
+                              ) : null}
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Task list */}
+                        {s.tasks && s.tasks.length > 0 && (
+                          <ul className="mt-[8px] bg-[var(--paper)] rounded-[8px] px-[10px] py-[7px] flex flex-col gap-[3px]">
+                            {s.tasks.map((t, i) => (
+                              <li key={i} className="flex items-start gap-[5px] text-[12px]">
+                                <CheckSquare className="w-[12px] h-[12px] mt-[2px] shrink-0 text-[var(--gold)]" />
+                                {t}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     </div>
-                    <ul className="flex flex-col gap-[4px]">
-                      {s.tasks.map((t, i) => (
-                        <li
-                          key={i}
-                          className="flex items-start gap-[7px] text-[12.5px]"
-                        >
-                          <CheckSquare className="w-[13px] h-[13px] mt-[2px] shrink-0 text-[var(--gold)]" />
-                          <span>{t}</span>
-                        </li>
-                      ))}
-                    </ul>
                   </div>
-                )}
-                {s.jobNo && (
-                  <div className="text-[11.5px] text-muted-foreground mt-[6px] font-mono">
-                    {s.jobNo}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Past stops toggle */}
+      {past.length > 0 && (
+        <button
+          onClick={() => setShowPast((v) => !v)}
+          data-testid="button-sched-show-past"
+          className="text-[12px] text-muted-foreground font-semibold text-center py-[8px] border border-dashed border-border rounded-[10px] active:scale-[0.98] transition-transform"
+        >
+          {showPast
+            ? "Hide past stops"
+            : `Show ${past.length} past stop${past.length === 1 ? "" : "s"}`}
+        </button>
       )}
     </div>
   );

@@ -92,6 +92,7 @@ type ScheduleShape = {
 type ActiveCard =
   | { kind: "idle" }
   | { kind: "offer"; offer: PortalOffer }
+  | { kind: "job-agreement"; job: PortalJobShape }
   | {
       kind: "scheduled";
       job: PortalJobShape;
@@ -101,8 +102,97 @@ type ActiveCard =
     }
   | { kind: "before-photos"; job: PortalJobShape; areas: string[] }
   | { kind: "checklist"; job: PortalJobShape }
+  | { kind: "cleaning-checklist"; job: PortalJobShape }
+  | { kind: "job-checklist"; job: PortalJobShape; checklistType: string }
   | { kind: "after-photos"; job: PortalJobShape; areas: string[] }
   | { kind: "notes"; job: PortalJobShape; nextJob: PortalJobShape | null };
+
+// True for jobs that show the turn-cleaning checklist. Trade-specific jobs
+// (carpet, painting, make-ready/punch) have their own checklists and are excluded.
+function isCleaningJob(category?: string | null, description?: string | null): boolean {
+  const hay = `${category ?? ""} ${description ?? ""}`.toLowerCase();
+  if (hay.includes("carpet")) return false;
+  if (hay.includes("paint")) return false;
+  if (hay.includes("make ready") || hay.includes("make-ready") || hay.includes("make_ready") || hay.includes("punch")) return false;
+  return hay.includes("clean") || hay.includes("turn");
+}
+
+// Returns the trade-specific checklist type for carpet / painting / make-ready jobs.
+function getJobChecklistType(
+  category?: string | null,
+  description?: string | null,
+): "carpet" | "make_ready" | "painting" | null {
+  const hay = `${category ?? ""} ${description ?? ""}`.toLowerCase();
+  if (hay.includes("carpet")) return "carpet";
+  if (hay.includes("paint")) return "painting";
+  if (
+    hay.includes("make ready") ||
+    hay.includes("make-ready") ||
+    hay.includes("make_ready") ||
+    hay.includes("punch") ||
+    hay.includes("unit punch")
+  ) return "make_ready";
+  return null;
+}
+
+const JOB_CHECKLIST_LABEL: Record<string, string> = {
+  carpet: "Carpet Cleaning Checklist",
+  make_ready: "Make-Ready / Unit Punch Checklist",
+  painting: "Painting Checklist",
+};
+const JOB_CHECKLIST_PDF_URL: Record<string, string> = {
+  carpet: "/api/docs/archangel-carpet-cleaning-checklist.pdf",
+  make_ready: "/api/docs/archangel-make-ready-checklist.pdf",
+  painting: "/api/docs/archangel-painting-checklist.pdf",
+};
+const CHECKLIST_AGREEMENT_TEXT =
+  "By starting this checklist, you confirm that if Archangel later determines you did not complete some or all of the items, it could delay your pay until the agreed work is completed, or result in the loss of future work and removal from the platform. Payouts would be calculated pro-rata based on the actual work completed and the time and resource costs involved in completing the assigned work.";
+
+function jobPaymentTermsPhrase(terms: string | null | undefined): string {
+  switch (terms) {
+    case "due_on_receipt": return "immediately upon receipt of payment from the property";
+    case "net15":          return "within 15 days of job completion";
+    case "net45":          return "within 45 days of job completion";
+    case "net30":
+    default:               return "within 30 days of job completion";
+  }
+}
+
+function jobPaymentTermsLabel(terms: string | null | undefined): string {
+  switch (terms) {
+    case "due_on_receipt": return "Due on Receipt";
+    case "net15":          return "Net 15";
+    case "net45":          return "Net 45";
+    case "net30":
+    default:               return "Net 30";
+  }
+}
+
+// Shape returned by GET /portal/:token/jobs/:jobId/cleaning-checklist
+interface CleaningSection {
+  id: string;
+  title: string;
+  items: { id: string; label: string; checked: boolean; checkedAt: string | null }[];
+}
+interface CleaningChecklistState {
+  sections: CleaningSection[];
+  checkedCount: number;
+  totalItems: number;
+  signedOff: boolean;
+  signedOffAt: string | null;
+  signedOffBy: string | null;
+  pdfUrl: string;
+  loading: boolean;
+  error: string | null;
+}
+
+// State for trade-specific checklists (carpet / make_ready / painting).
+// Key in the state map is `${jobId}:${checklistType}`.
+interface JobChecklistState extends CleaningChecklistState {
+  checklistType: string;
+  agreed: boolean;
+  agreedAt: string | null;
+}
 
 // ─── Translations ─────────────────────────────────────────────────────────────
 
@@ -320,6 +410,9 @@ function deriveCard(
   tracking: { day: string; jobId: string | null } | null,
   localCheckedOut: Record<string, boolean>,
   nowMs: number,
+  cleanSignedOff: Record<string, boolean> = {},
+  jobChecklistSignedOff: Record<string, boolean> = {},
+  jobAgreed: Record<string, boolean> = {},
 ): ActiveCard {
   const today = localToday();
   const activeJobs = (jobs ?? []).filter((j) => j.status !== "cancelled");
@@ -347,11 +440,27 @@ function deriveCard(
       const { open, minsToWindow } = parseWindow(schedItem?.windowStart, nowMs);
       return { kind: "scheduled", job, schedItem, windowOpen: open, minsToWindow };
     }
+    // Require payout-terms agreement before any work step.
+    if (!jobAgreed[job.id]) {
+      return { kind: "job-agreement", job };
+    }
     if (before.length === 0) {
       const areas = myItems.map((li) => li.service ?? "").filter(Boolean);
       return { kind: "before-photos", job, areas: areas.length ? areas : ["the work area"] };
     }
     if (!allMyDone) return { kind: "checklist", job };
+
+    // After line items — check for trade-specific checklists first (carpet /
+    // painting / make_ready), then the turn-cleaning checklist for cleaning jobs.
+    const jAny = job as unknown as { category?: string; description?: string };
+    const checklistType = getJobChecklistType(jAny.category, jAny.description);
+    if (checklistType && !jobChecklistSignedOff[`${job.id}:${checklistType}`]) {
+      return { kind: "job-checklist", job, checklistType };
+    }
+    if (isCleaningJob(jAny.category, jAny.description) && !cleanSignedOff[job.id]) {
+      return { kind: "cleaning-checklist", job };
+    }
+
     if (after.length === 0) {
       const areas = myItems.map((li) => li.service ?? "").filter(Boolean);
       return { kind: "after-photos", job, areas: areas.length ? areas : ["the work area"] };
@@ -477,6 +586,11 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
   const [dismissedEmergency, setDismissedEmergency] = useState<Set<string>>(new Set());
   const [moreOpen, setMoreOpen] = useState(false);
   const [showHome, setShowHome] = useState(false);
+  const [cleanChecklists, setCleanChecklists] = useState<Record<string, CleaningChecklistState>>({});
+  // Key: `${jobId}:${checklistType}`
+  const [jobChecklists, setJobChecklists] = useState<Record<string, JobChecklistState>>({});
+  // Jobs the crew has agreed to payout terms for in this session (supplements server state).
+  const [locallyAgreedJobs, setLocallyAgreedJobs] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement | null>(null);
   const pendingPhoto = useRef<{ jobId: string; phase: "before" | "after" } | null>(null);
 
@@ -498,6 +612,125 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
     query: { queryKey: getListPortalPhotosQueryKey(token) },
   });
 
+  // Load cleaning checklist for any job that qualifies. Runs whenever the job
+  // list changes so the sign-off state is always current. `category` and
+  // `description` come from the server but aren't in the generated PortalJob
+  // type — access them via an unknown cast.
+  useEffect(() => {
+    if (!jobs) return;
+    for (const job of jobs) {
+      const j = job as unknown as { category?: string; description?: string };
+      if (!isCleaningJob(j.category, j.description)) continue;
+      if (cleanChecklists[job.id]?.loading === false) continue; // already loaded
+      if (cleanChecklists[job.id]?.loading === true) continue;  // in-flight
+      setCleanChecklists((prev) => ({
+        ...prev,
+        [job.id]: {
+          sections: [],
+          checkedCount: 0,
+          totalItems: 31,
+          signedOff: false,
+          signedOffAt: null,
+          signedOffBy: null,
+          pdfUrl: "/api/docs/archangel-turn-cleaning-checklist.pdf",
+          loading: true,
+          error: null,
+        },
+      }));
+      fetch(`/api/portal/${token}/jobs/${job.id}/cleaning-checklist`)
+        .then((r) => r.ok ? r.json() : Promise.reject(r.status))
+        .then((data) => {
+          setCleanChecklists((prev) => ({
+            ...prev,
+            [job.id]: {
+              sections: data.sections,
+              checkedCount: data.checkedCount,
+              totalItems: data.totalItems,
+              signedOff: !!data.signedOffAt,
+              signedOffAt: data.signedOffAt,
+              signedOffBy: data.signedOffBy,
+              pdfUrl: data.pdfUrl ?? "/api/docs/archangel-turn-cleaning-checklist.pdf",
+              loading: false,
+              error: null,
+            },
+          }));
+        })
+        .catch(() => {
+          setCleanChecklists((prev) => ({
+            ...prev,
+            [job.id]: {
+              ...(prev[job.id] ?? {} as CleaningChecklistState),
+              loading: false,
+              error: "Could not load checklist",
+            },
+          }));
+        });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs, token]);
+
+  // Load trade-specific checklists for carpet / painting / make-ready jobs.
+  useEffect(() => {
+    if (!jobs) return;
+    for (const job of jobs) {
+      const j = job as unknown as { category?: string; description?: string };
+      const ctype = getJobChecklistType(j.category, j.description);
+      if (!ctype) continue;
+      const key = `${job.id}:${ctype}`;
+      if (jobChecklists[key]?.loading === false) continue;
+      if (jobChecklists[key]?.loading === true) continue;
+      setJobChecklists((prev) => ({
+        ...prev,
+        [key]: {
+          sections: [],
+          checkedCount: 0,
+          totalItems: 0,
+          signedOff: false,
+          signedOffAt: null,
+          signedOffBy: null,
+          pdfUrl: JOB_CHECKLIST_PDF_URL[ctype] ?? "",
+          loading: true,
+          error: null,
+          checklistType: ctype,
+          agreed: false,
+          agreedAt: null,
+        },
+      }));
+      fetch(`/api/portal/${token}/jobs/${job.id}/checklist/${ctype}`)
+        .then((r) => r.ok ? r.json() : Promise.reject(r.status))
+        .then((data) => {
+          setJobChecklists((prev) => ({
+            ...prev,
+            [key]: {
+              sections: data.sections,
+              checkedCount: data.checkedCount,
+              totalItems: data.totalItems,
+              signedOff: !!data.signedOffAt,
+              signedOffAt: data.signedOffAt,
+              signedOffBy: data.signedOffBy,
+              pdfUrl: data.pdfUrl ?? JOB_CHECKLIST_PDF_URL[ctype] ?? "",
+              loading: false,
+              error: null,
+              checklistType: ctype,
+              agreed: !!data.agreedAt,
+              agreedAt: data.agreedAt ?? null,
+            },
+          }));
+        })
+        .catch(() => {
+          setJobChecklists((prev) => ({
+            ...prev,
+            [key]: {
+              ...(prev[key] ?? {} as JobChecklistState),
+              loading: false,
+              error: "Could not load checklist",
+            },
+          }));
+        });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs, token]);
+
   const checkinMut = useCreatePortalCheckin();
   const completeItem = useCompletePortalLineItem();
   const sendPhoto = useUploadPortalPhoto();
@@ -516,7 +749,19 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
     queryClient.invalidateQueries({ queryKey: getGetPortalQueryKey(token) });
   };
 
-  const card = deriveCard(portal, jobs, photos, tracking, localCheckedOut, nowMs);
+  const cleanSignedOff: Record<string, boolean> = Object.fromEntries(
+    Object.entries(cleanChecklists).map(([id, s]) => [id, s.signedOff]),
+  );
+  const jobChecklistSignedOff: Record<string, boolean> = Object.fromEntries(
+    Object.entries(jobChecklists).map(([key, s]) => [key, s.signedOff]),
+  );
+  // Merge server-side agreement timestamps (from jobs feed) with local session agreements.
+  const jobAgreed: Record<string, boolean> = {};
+  for (const job of jobs ?? []) {
+    const j = job as unknown as { jobAgreedAt?: string | null };
+    jobAgreed[job.id] = !!j.jobAgreedAt || locallyAgreedJobs.has(job.id);
+  }
+  const card = deriveCard(portal, jobs, photos, tracking, localCheckedOut, nowMs, cleanSignedOff, jobChecklistSignedOff, jobAgreed);
 
   // Emergency offers that haven't been dismissed
   const activeEmergency = (portal.emergencyOffers ?? []).find(
@@ -634,6 +879,170 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
       refresh();
     } catch {
       setErr("Couldn't update that item — try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const doToggleCleanItem = async (jobId: string, itemId: string, checked: boolean) => {
+    // Optimistically update UI first
+    setCleanChecklists((prev) => {
+      const state = prev[jobId];
+      if (!state) return prev;
+      const sections = state.sections.map((sec) => ({
+        ...sec,
+        items: sec.items.map((it) =>
+          it.id === itemId ? { ...it, checked, checkedAt: checked ? new Date().toISOString() : null } : it,
+        ),
+      }));
+      const checkedCount = sections.flatMap((s) => s.items).filter((i) => i.checked).length;
+      return { ...prev, [jobId]: { ...state, sections, checkedCount } };
+    });
+    setBusy(`cleanItem:${itemId}`);
+    try {
+      await fetch(`/api/portal/${token}/jobs/${jobId}/cleaning-checklist/toggle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId, checked }),
+      });
+    } catch {
+      // Revert on error by reloading
+      setCleanChecklists((prev) => {
+        const state = prev[jobId];
+        if (!state) return prev;
+        return { ...prev, [jobId]: { ...state, loading: false, error: null } };
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const doSignOffClean = async (jobId: string) => {
+    setBusy(`cleanSignOff:${jobId}`);
+    setErr(null);
+    try {
+      const r = await fetch(`/api/portal/${token}/jobs/${jobId}/cleaning-checklist/sign-off`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!r.ok) throw new Error("sign-off failed");
+      const now = new Date().toISOString();
+      setCleanChecklists((prev) => {
+        const state = prev[jobId];
+        if (!state) return prev;
+        return {
+          ...prev,
+          [jobId]: { ...state, signedOff: true, signedOffAt: now, loading: false },
+        };
+      });
+      setNotice("Cleaning checklist signed off ✓");
+      refresh();
+    } catch {
+      setErr("Couldn't sign off — try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // ── Per-job payout agreement handler ─────────────────────────────────────────
+
+  const doAgreeJob = async (jobId: string) => {
+    setBusy(`jobAgree:${jobId}`);
+    setErr(null);
+    try {
+      const r = await fetch(`/api/portal/${token}/jobs/${jobId}/agreement`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!r.ok) throw new Error("agreement failed");
+      setLocallyAgreedJobs((prev) => new Set([...prev, jobId]));
+    } catch {
+      setErr("Couldn't save your agreement — check your connection and try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // ── Job-specific checklist handlers ──────────────────────────────────────────
+
+  const doAgreeJobChecklist = async (jobId: string, checklistType: string) => {
+    setBusy(`jclAgree:${jobId}:${checklistType}`);
+    try {
+      const r = await fetch(`/api/portal/${token}/jobs/${jobId}/checklist/${checklistType}/agree`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!r.ok) throw new Error("agree failed");
+      const key = `${jobId}:${checklistType}`;
+      setJobChecklists((prev) => {
+        const state = prev[key];
+        if (!state) return prev;
+        return { ...prev, [key]: { ...state, agreed: true, agreedAt: new Date().toISOString() } };
+      });
+    } catch {
+      setErr("Couldn't record agreement — try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const doToggleJobItem = async (jobId: string, checklistType: string, itemId: string, checked: boolean) => {
+    const key = `${jobId}:${checklistType}`;
+    // Optimistic update
+    setJobChecklists((prev) => {
+      const state = prev[key];
+      if (!state) return prev;
+      const sections = state.sections.map((sec) => ({
+        ...sec,
+        items: sec.items.map((it) =>
+          it.id === itemId ? { ...it, checked, checkedAt: checked ? new Date().toISOString() : null } : it,
+        ),
+      }));
+      const checkedCount = sections.flatMap((s) => s.items).filter((i) => i.checked).length;
+      return { ...prev, [key]: { ...state, sections, checkedCount } };
+    });
+    setBusy(`jclItem:${itemId}`);
+    try {
+      await fetch(`/api/portal/${token}/jobs/${jobId}/checklist/${checklistType}/toggle`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId, checked }),
+      });
+    } catch {
+      // Revert on error
+      setJobChecklists((prev) => ({
+        ...prev,
+        [key]: { ...(prev[key] ?? {} as JobChecklistState), loading: false, error: null },
+      }));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const doSignOffJobChecklist = async (jobId: string, checklistType: string) => {
+    setBusy(`jclSignOff:${jobId}:${checklistType}`);
+    setErr(null);
+    try {
+      const r = await fetch(`/api/portal/${token}/jobs/${jobId}/checklist/${checklistType}/sign-off`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!r.ok) throw new Error("sign-off failed");
+      const now = new Date().toISOString();
+      const key = `${jobId}:${checklistType}`;
+      setJobChecklists((prev) => {
+        const state = prev[key];
+        if (!state) return prev;
+        return { ...prev, [key]: { ...state, signedOff: true, signedOffAt: now, loading: false } };
+      });
+      setNotice(`${JOB_CHECKLIST_LABEL[checklistType] ?? "Checklist"} signed off ✓`);
+      refresh();
+    } catch {
+      setErr("Couldn't sign off — try again.");
     } finally {
       setBusy(null);
     }
@@ -874,6 +1283,75 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
       );
     }
 
+    if (card.kind === "job-agreement") {
+      const { job } = card;
+      const portalCrew = portal.crew as unknown as { paymentTerms?: string | null };
+      const terms = portalCrew?.paymentTerms ?? null;
+      const termsLabel = jobPaymentTermsLabel(terms);
+      const termsPhrase = jobPaymentTermsPhrase(terms);
+      const isAgreeing = busy === `jobAgree:${job.id}`;
+      return (
+        <div className={cardBase}>
+          <JobHeader job={job} checkedIn={true} t={t} />
+          <div className="px-[22px] py-[14px] flex flex-col gap-[14px]">
+            {/* Payout terms badge */}
+            <div className="flex items-center gap-[9px]">
+              {tag("Payout Agreement", "#B4FF44")}
+              <span className="text-[12px] font-bold text-white/50">{termsLabel}</span>
+            </div>
+
+            {/* Agreement card */}
+            <div className="rounded-[16px] border border-white/[0.10] bg-white/[0.03] p-[16px] flex flex-col gap-[12px]">
+              {/* Payout schedule */}
+              <div className="flex flex-col gap-[4px]">
+                <div className="text-[10px] font-bold uppercase tracking-[0.10em] text-white/35">Your Payout Schedule</div>
+                <div className="text-[13.5px] font-semibold text-white/90 leading-snug capitalize">{termsPhrase}</div>
+              </div>
+
+              <div className="h-px bg-white/[0.07]" />
+
+              {/* Two release conditions */}
+              <div className="flex flex-col gap-[8px]">
+                <div className="text-[10px] font-bold uppercase tracking-[0.10em] text-white/35">Payout Release Conditions</div>
+                <div className="flex items-start gap-[9px]">
+                  <span className="mt-[1px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#B4FF44]/15 text-[#B4FF44] text-[11px] font-bold">1</span>
+                  <p className="text-[12.5px] text-white/70 leading-[1.55]">
+                    The property has verified that the work was completed correctly and to their satisfaction.
+                  </p>
+                </div>
+                <div className="flex items-start gap-[9px]">
+                  <span className="mt-[1px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#B4FF44]/15 text-[#B4FF44] text-[11px] font-bold">2</span>
+                  <p className="text-[12.5px] text-white/70 leading-[1.55]">
+                    Archangel has received full payment from the property for this job.
+                  </p>
+                </div>
+              </div>
+
+              <div className="h-px bg-white/[0.07]" />
+              <p className="text-[11px] text-white/40 leading-relaxed">
+                If either condition has not been met, your payout will be held until both are satisfied. Tapping "I Agree & Start Work" confirms you understand your full scope of work and accept these payment terms.
+              </p>
+            </div>
+
+            {/* CTA */}
+            <button
+              type="button"
+              disabled={isAgreeing}
+              onClick={() => doAgreeJob(job.id)}
+              className="flex items-center justify-center gap-[8px] rounded-[18px] bg-[#B4FF44] text-black font-bold text-[14px] py-[15px] px-[20px] active:scale-[0.97] transition-transform disabled:opacity-60 shadow-[0_4px_24px_rgba(180,255,68,0.25)]"
+            >
+              {isAgreeing ? (
+                <Loader2 className="w-[16px] h-[16px] animate-spin" />
+              ) : (
+                <Check className="w-[16px] h-[16px]" />
+              )}
+              I Agree &amp; Start Work
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     if (card.kind === "before-photos" || card.kind === "after-photos") {
       const isAfter = card.kind === "after-photos";
       const { job, areas } = card;
@@ -991,6 +1469,332 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
                 <span className="text-[13px] text-green-300 font-semibold">All tasks done — take your after photos.</span>
               </div>
             </div>
+          )}
+        </div>
+      );
+    }
+
+    if (card.kind === "cleaning-checklist") {
+      const { job } = card;
+      const state = cleanChecklists[job.id];
+      const sections = state?.sections ?? [];
+      const totalItems = state?.totalItems ?? 31;
+      const checkedCount = state?.checkedCount ?? 0;
+      const allDone = checkedCount === totalItems;
+      const alreadySigned = state?.signedOff ?? false;
+      const isSigningOff = busy === `cleanSignOff:${job.id}`;
+
+      return (
+        <div className={cardBase}>
+          <JobHeader job={job} checkedIn={true} t={t} onBack={() => setShowHome(true)} />
+          <div className="px-[22px] py-[14px] flex flex-col gap-[6px]">
+            {/* Header row */}
+            <div className="flex items-center justify-between">
+              {tag("Turn Cleaning Checklist", "#B4FF44")}
+              <span className="text-[12px] text-white/40 font-bold tabular-nums">
+                {checkedCount}/{totalItems}
+              </span>
+            </div>
+            <p className="text-[12px] text-white/40 leading-relaxed">
+              Check off each item as you go. Sign off when the unit is complete.
+            </p>
+            {/* Progress bar */}
+            <div className="w-full h-[4px] rounded-full bg-white/[0.08] overflow-hidden mt-[2px]">
+              <div
+                className="h-full rounded-full bg-[#B4FF44] transition-all"
+                style={{ width: totalItems > 0 ? `${(checkedCount / totalItems) * 100}%` : "0%" }}
+              />
+            </div>
+            {/* Reference PDF link */}
+            <a
+              href={state?.pdfUrl ?? "/api/docs/archangel-turn-cleaning-checklist.pdf"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-[6px] text-[11.5px] font-semibold text-[#B4FF44]/60 hover:text-[#B4FF44] transition-colors mt-[2px]"
+            >
+              <FileText className="w-[13px] h-[13px]" />
+              View full checklist PDF ↗
+            </a>
+          </div>
+
+          {/* Scrollable sections */}
+          <div className="px-[14px] pb-[4px] flex flex-col gap-[10px] max-h-[38vh] overflow-y-auto">
+            {state?.loading && sections.length === 0 && (
+              <div className="flex justify-center py-[20px]">
+                <Loader2 className="w-[18px] h-[18px] animate-spin text-white/30" />
+              </div>
+            )}
+            {sections.map((sec) => (
+              <div key={sec.id}>
+                <div className="text-[9.5px] font-bold tracking-[0.09em] uppercase text-white/30 mb-[5px] px-[2px]">
+                  {sec.title}
+                </div>
+                <div className="flex flex-col gap-[4px]">
+                  {sec.items.map((item) => {
+                    const itemBusy = busy === `cleanItem:${item.id}`;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        disabled={itemBusy || alreadySigned}
+                        onClick={() => doToggleCleanItem(job.id, item.id, !item.checked)}
+                        className={`flex items-start gap-[9px] rounded-[12px] px-[12px] py-[10px] text-left transition-all active:scale-[0.98] ${
+                          item.checked
+                            ? "bg-green-500/10 border border-green-500/20"
+                            : "bg-white/[0.03] border border-white/[0.06]"
+                        } ${alreadySigned ? "opacity-60" : ""}`}
+                      >
+                        <span
+                          className={`mt-[1px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                            item.checked
+                              ? "border-green-500 bg-green-500 text-black"
+                              : "border-white/20 bg-transparent"
+                          }`}
+                        >
+                          {itemBusy ? (
+                            <Loader2 className="w-[10px] h-[10px] animate-spin text-white/50" />
+                          ) : item.checked ? (
+                            <Check className="w-[11px] h-[11px]" />
+                          ) : null}
+                        </span>
+                        <span
+                          className={`flex-1 text-[12.5px] leading-snug font-medium ${
+                            item.checked ? "line-through text-white/25" : "text-white/75"
+                          }`}
+                        >
+                          {item.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom actions */}
+          <div className="px-[22px] py-[16px] flex flex-col gap-[8px]">
+            {alreadySigned ? (
+              <div className="flex items-center gap-[8px] rounded-[14px] bg-green-500/10 border border-green-500/20 px-[14px] py-[11px]">
+                <Check className="w-[15px] h-[15px] text-green-400" />
+                <span className="text-[13px] text-green-300 font-semibold">
+                  Checklist signed off — great work!
+                </span>
+              </div>
+            ) : (
+              <>
+                {allDone && (
+                  <div className="flex items-center gap-[6px] rounded-[12px] bg-[#B4FF44]/10 border border-[#B4FF44]/25 px-[12px] py-[9px]">
+                    <Check className="w-[13px] h-[13px] text-[#B4FF44]" />
+                    <span className="text-[12.5px] text-[#B4FF44] font-semibold">
+                      All {totalItems} items checked — ready to sign off.
+                    </span>
+                  </div>
+                )}
+                <PrimaryBtn
+                  onClick={() => doSignOffClean(job.id)}
+                  busy={isSigningOff}
+                  disabled={isSigningOff}
+                  icon={ClipboardCheck}
+                  label={allDone ? "Sign off & continue" : `Sign off (${checkedCount}/${totalItems} done)`}
+                />
+                <GhostBtn
+                  onClick={() => {
+                    // Mark as locally skipped so flow advances to after-photos
+                    setCleanChecklists((prev) => ({
+                      ...prev,
+                      [job.id]: {
+                        ...(prev[job.id] ?? {} as CleaningChecklistState),
+                        signedOff: true,
+                        loading: false,
+                      } as CleaningChecklistState,
+                    }));
+                  }}
+                  label="Skip for now →"
+                />
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (card.kind === "job-checklist") {
+      const { job, checklistType } = card;
+      const key = `${job.id}:${checklistType}`;
+      const state = jobChecklists[key];
+      const sections = state?.sections ?? [];
+      const totalItems = state?.totalItems ?? 0;
+      const checkedCount = state?.checkedCount ?? 0;
+      const allDone = totalItems > 0 && checkedCount === totalItems;
+      const alreadySigned = state?.signedOff ?? false;
+      const agreed = state?.agreed ?? false;
+      const isAgreeing = busy === `jclAgree:${job.id}:${checklistType}`;
+      const isSigningOff = busy === `jclSignOff:${job.id}:${checklistType}`;
+      const label = JOB_CHECKLIST_LABEL[checklistType] ?? "Checklist";
+      const pdfUrl = JOB_CHECKLIST_PDF_URL[checklistType] ?? "#";
+
+      return (
+        <div className={cardBase}>
+          <JobHeader job={job} checkedIn={true} t={t} onBack={() => setShowHome(true)} />
+
+          {/* Agreement gate — shown if crew hasn't tapped "I Agree" yet */}
+          {!agreed && !alreadySigned && (
+            <div className="px-[22px] py-[14px] flex flex-col gap-[14px]">
+              <div>{tag(label, "#B4FF44")}</div>
+              <div className="rounded-[16px] border border-amber-500/30 bg-amber-500/[0.07] p-[14px] flex flex-col gap-[10px]">
+                <div className="flex items-center gap-[7px]">
+                  <span className="text-amber-400 text-[18px]">⚠</span>
+                  <span className="text-[13px] font-bold text-amber-300">Before you begin</span>
+                </div>
+                <p className="text-[12px] text-white/65 leading-[1.6]">{CHECKLIST_AGREEMENT_TEXT}</p>
+              </div>
+              <button
+                type="button"
+                disabled={isAgreeing}
+                onClick={() => doAgreeJobChecklist(job.id, checklistType)}
+                className="flex items-center justify-center gap-[8px] rounded-[18px] bg-[#B4FF44] text-black font-bold text-[14px] py-[14px] px-[20px] active:scale-[0.97] transition-transform disabled:opacity-60"
+              >
+                {isAgreeing ? (
+                  <Loader2 className="w-[16px] h-[16px] animate-spin" />
+                ) : (
+                  <Check className="w-[16px] h-[16px]" />
+                )}
+                I Agree — Start Checklist
+              </button>
+            </div>
+          )}
+
+          {/* Checklist header + items (only after agreement) */}
+          {(agreed || alreadySigned) && (
+            <>
+              <div className="px-[22px] py-[14px] flex flex-col gap-[6px]">
+                <div className="flex items-center justify-between">
+                  {tag(label, "#B4FF44")}
+                  <span className="text-[12px] text-white/40 font-bold tabular-nums">
+                    {checkedCount}/{totalItems}
+                  </span>
+                </div>
+                <p className="text-[12px] text-white/40 leading-relaxed">
+                  Check off each item as you go. Sign off when done.
+                </p>
+                {/* Progress bar */}
+                <div className="w-full h-[4px] rounded-full bg-white/[0.08] overflow-hidden mt-[2px]">
+                  <div
+                    className="h-full rounded-full bg-[#B4FF44] transition-all"
+                    style={{ width: totalItems > 0 ? `${(checkedCount / totalItems) * 100}%` : "0%" }}
+                  />
+                </div>
+                <a
+                  href={pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-[6px] text-[11.5px] font-semibold text-[#B4FF44]/60 hover:text-[#B4FF44] transition-colors mt-[2px]"
+                >
+                  <FileText className="w-[13px] h-[13px]" />
+                  View full checklist PDF ↗
+                </a>
+              </div>
+
+              {/* Scrollable item list */}
+              <div className="px-[14px] pb-[4px] flex flex-col gap-[10px] max-h-[38vh] overflow-y-auto">
+                {state?.loading && sections.length === 0 && (
+                  <div className="flex justify-center py-[20px]">
+                    <Loader2 className="w-[18px] h-[18px] animate-spin text-white/30" />
+                  </div>
+                )}
+                {sections.map((sec) => (
+                  <div key={sec.id}>
+                    <div className="text-[9.5px] font-bold tracking-[0.09em] uppercase text-white/30 mb-[5px] px-[2px]">
+                      {sec.title}
+                    </div>
+                    <div className="flex flex-col gap-[4px]">
+                      {sec.items.map((item) => {
+                        const itemBusy = busy === `jclItem:${item.id}`;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            disabled={itemBusy || alreadySigned}
+                            onClick={() => doToggleJobItem(job.id, checklistType, item.id, !item.checked)}
+                            className={`flex items-start gap-[9px] rounded-[12px] px-[12px] py-[10px] text-left transition-all active:scale-[0.98] ${
+                              item.checked
+                                ? "bg-green-500/10 border border-green-500/20"
+                                : "bg-white/[0.03] border border-white/[0.06]"
+                            } ${alreadySigned ? "opacity-60" : ""}`}
+                          >
+                            <span
+                              className={`mt-[1px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                                item.checked
+                                  ? "border-green-500 bg-green-500 text-black"
+                                  : "border-white/20 bg-transparent"
+                              }`}
+                            >
+                              {itemBusy ? (
+                                <Loader2 className="w-[10px] h-[10px] animate-spin text-white/50" />
+                              ) : item.checked ? (
+                                <Check className="w-[11px] h-[11px]" />
+                              ) : null}
+                            </span>
+                            <span
+                              className={`flex-1 text-[12.5px] leading-snug font-medium ${
+                                item.checked ? "line-through text-white/25" : "text-white/75"
+                              }`}
+                            >
+                              {item.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Bottom actions */}
+              <div className="px-[22px] py-[16px] flex flex-col gap-[8px]">
+                {alreadySigned ? (
+                  <div className="flex items-center gap-[8px] rounded-[14px] bg-green-500/10 border border-green-500/20 px-[14px] py-[11px]">
+                    <Check className="w-[15px] h-[15px] text-green-400" />
+                    <span className="text-[13px] text-green-300 font-semibold">
+                      Checklist signed off — great work!
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    {allDone && (
+                      <div className="flex items-center gap-[6px] rounded-[12px] bg-[#B4FF44]/10 border border-[#B4FF44]/25 px-[12px] py-[9px]">
+                        <Check className="w-[13px] h-[13px] text-[#B4FF44]" />
+                        <span className="text-[12.5px] text-[#B4FF44] font-semibold">
+                          All {totalItems} items checked — ready to sign off.
+                        </span>
+                      </div>
+                    )}
+                    <PrimaryBtn
+                      onClick={() => doSignOffJobChecklist(job.id, checklistType)}
+                      busy={isSigningOff}
+                      disabled={isSigningOff}
+                      icon={ClipboardCheck}
+                      label={allDone ? "Sign off & continue" : `Sign off (${checkedCount}/${totalItems} done)`}
+                    />
+                    <GhostBtn
+                      onClick={() => {
+                        // Locally skip so flow advances — consequences already acknowledged.
+                        setJobChecklists((prev) => ({
+                          ...prev,
+                          [key]: {
+                            ...(prev[key] ?? {} as JobChecklistState),
+                            signedOff: true,
+                            loading: false,
+                          } as JobChecklistState,
+                        }));
+                      }}
+                      label="Skip for now →"
+                    />
+                  </>
+                )}
+              </div>
+            </>
           )}
         </div>
       );
@@ -1217,16 +2021,17 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
         </div>
 
         {/* Step indicator dots (only when working through a job, not when on home) */}
-        {!showHome && (card.kind === "scheduled" || card.kind === "before-photos" || card.kind === "checklist" || card.kind === "after-photos" || card.kind === "notes") && (
+        {!showHome && (card.kind === "job-agreement" || card.kind === "scheduled" || card.kind === "before-photos" || card.kind === "checklist" || card.kind === "cleaning-checklist" || card.kind === "job-checklist" || card.kind === "after-photos" || card.kind === "notes") && (
           <div className="flex justify-center gap-[6px] mt-[18px]">
-            {(["scheduled", "before-photos", "checklist", "after-photos", "notes"] as const).map((k) => (
+            {(["scheduled", "job-agreement", "before-photos", "checklist", "cleaning-checklist", "after-photos", "notes"] as const).map((k) => (
               <div
                 key={k}
                 className="rounded-full transition-all"
                 style={{
-                  width: card.kind === k ? 20 : 6,
+                  // job-checklist shares the cleaning-checklist dot position
+                  width: card.kind === k || (k === "cleaning-checklist" && card.kind === "job-checklist") ? 20 : 6,
                   height: 6,
-                  background: card.kind === k ? "#B4FF44" : "rgba(255,255,255,0.15)",
+                  background: card.kind === k || (k === "cleaning-checklist" && card.kind === "job-checklist") ? "#B4FF44" : "rgba(255,255,255,0.15)",
                 }}
               />
             ))}

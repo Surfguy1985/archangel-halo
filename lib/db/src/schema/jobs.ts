@@ -234,6 +234,98 @@ export const crewDispatchAssignmentsTable = pgTable(
 export type CrewDispatchAssignment =
   typeof crewDispatchAssignmentsTable.$inferSelect;
 
+/**
+ * Per-job, per-crew completion state for the Archangel Turn Cleaning checklist.
+ * The template (sections + items) lives in lib/cleaningChecklist.ts; this table
+ * only stores which item IDs have been checked and the sign-off timestamp.
+ * Unique on (job_id, crew_id) — one record per cleaning crew per job.
+ */
+export const cleaningChecklistsTable = pgTable(
+  "cleaning_checklists",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id").notNull(),
+    crewId: uuid("crew_id").notNull(),
+    unitNo: text("unit_no"),
+    // [{id, checkedAt, checkedBy}] — only checked items are stored.
+    checkedItems: jsonb("checked_items").notNull().default([]),
+    signedOffAt: timestamp("signed_off_at", { withTimezone: true }),
+    signedOffBy: text("signed_off_by"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("cleaning_checklists_job_crew_uq").on(t.jobId, t.crewId)],
+);
+
+export type CleaningChecklist = typeof cleaningChecklistsTable.$inferSelect;
+
+/**
+ * Per-job, per-crew, per-type completion state for trade-specific checklists:
+ * carpet, make_ready, painting. Uses the same shape as cleaning_checklists but
+ * adds checklist_type (the discriminator) and agreed_at/agreed_by (the crew's
+ * explicit acknowledgement that incomplete work may affect their pay).
+ * Unique on (job_id, crew_id, checklist_type).
+ */
+export const jobChecklistsTable = pgTable(
+  "job_checklists",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id").notNull(),
+    crewId: uuid("crew_id").notNull(),
+    // 'carpet' | 'make_ready' | 'painting'
+    checklistType: text("checklist_type").notNull(),
+    // [{id, checkedAt, checkedBy}] — only checked items stored.
+    checkedItems: jsonb("checked_items").notNull().default([]),
+    // Crew tapped "I Agree" to the consequence acknowledgement.
+    agreedAt: timestamp("agreed_at", { withTimezone: true }),
+    agreedBy: text("agreed_by"),
+    signedOffAt: timestamp("signed_off_at", { withTimezone: true }),
+    signedOffBy: text("signed_off_by"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("job_checklists_job_crew_type_uq").on(t.jobId, t.crewId, t.checklistType),
+  ],
+);
+
+export type JobChecklist = typeof jobChecklistsTable.$inferSelect;
+
+/**
+ * Per-job, per-crew agreement record. Every contractor must explicitly
+ * acknowledge their payout schedule and the two release conditions
+ * (property verification + Archangel receipt of payment) before starting
+ * work on any job. Unique on (job_id, crew_id) — idempotent on repeat calls.
+ *
+ * paymentTerms / termsText are snapshots of what the crew agreed to at the
+ * time so we have an audit trail even if the crew's profile terms change later.
+ */
+export const jobAgreementsTable = pgTable(
+  "job_agreements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobId: uuid("job_id").notNull(),
+    crewId: uuid("crew_id").notNull(),
+    // Snapshot of crew.payment_terms at time of agreement
+    paymentTerms: text("payment_terms").notNull(),
+    // Full agreement text snapshot
+    termsText: text("terms_text").notNull(),
+    agreedAt: timestamp("agreed_at", { withTimezone: true }).notNull().defaultNow(),
+    agreedBy: text("agreed_by").notNull(),
+  },
+  (t) => [uniqueIndex("job_agreements_job_crew_uq").on(t.jobId, t.crewId)],
+);
+
+export type JobAgreement = typeof jobAgreementsTable.$inferSelect;
+
 export type Crew = typeof crewsTable.$inferSelect;
 export type Job = typeof jobsTable.$inferSelect;
 export type Schedule = typeof schedulesTable.$inferSelect;

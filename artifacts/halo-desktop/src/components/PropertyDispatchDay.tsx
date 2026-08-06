@@ -398,6 +398,11 @@ function JobCard({
   onStartMove: (a: DispatchAssignment) => void;
   onChecklist: (a: DispatchAssignment) => void;
 }) {
+  // "1601 — Make Ready" format. Falls back to description then job number.
+  const j = job as DispatchBoardJob & { category?: string | null; propertyName?: string };
+  const svcLabel = j.category || j.description || job.jobNo;
+  const headline = job.unitNo ? `${job.unitNo} — ${svcLabel}` : svcLabel;
+
   return (
     <div
       className={`bg-card border rounded-[20px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all ${
@@ -407,32 +412,32 @@ function JobCard({
       } ${disabled ? "opacity-50" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-display font-bold text-[var(--ink)] flex items-center gap-2 flex-wrap">
-            {job.jobNo}
-            {job.unitNo && (
-              <span className="text-xs font-semibold text-muted-foreground">
-                Unit {job.unitNo}
-              </span>
-            )}
+        <div className="min-w-0 flex-1">
+          {/* Primary: "1601 — Make Ready" */}
+          <div className="font-display font-bold text-[var(--ink)] text-[15px] leading-snug truncate">
+            {headline}
+          </div>
+
+          {/* Second row: start time + status badge + job number */}
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             {job.scheduledTime && (
-              <span className="text-xs font-semibold text-muted-foreground inline-flex items-center gap-1">
-                <Clock className="w-3 h-3" /> {job.scheduledTime}
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--gold-dark)] bg-[color-mix(in_srgb,var(--gold-light)_15%,transparent)] px-2 py-0.5 rounded-full">
+                <Clock className="w-3 h-3" />
+                {job.scheduledTime}
               </span>
             )}
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/5 text-muted-foreground">
               {job.status.replace(/_/g, " ")}
             </span>
+            <span className="text-[10px] text-muted-foreground">{job.jobNo}</span>
           </div>
-          {job.description && (
-            <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">
-              {job.description}
-            </p>
-          )}
+
+          {/* Crew leader assigned on the main board */}
           {job.crewLeaderName && (
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Lead: {job.crewLeaderName}
-            </p>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Crew</span>
+              <span className="text-[11px] font-semibold text-[var(--ink)] truncate">{job.crewLeaderName}</span>
+            </div>
           )}
         </div>
         {pickLabel && !disabled && (
