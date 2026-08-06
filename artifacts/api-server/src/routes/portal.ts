@@ -1441,6 +1441,7 @@ router.get("/portal/:token/jobs", async (req, res): Promise<void> => {
         propertyName: propName.get(j.propertyId) ?? null,
         unitNo: j.unitNo ?? null,
         status: j.status ?? null,
+        scheduledOn: j.scheduledOn ?? null,
         checkedIn,
         checkedOut,
         jobAgreedAt: agreementByJob.get(j.id)?.agreedAt?.toISOString() ?? null,

@@ -424,12 +424,14 @@ function deriveCard(
 
     const isIn = !!job.checkedIn || tracking?.jobId === job.id;
 
-    // Only surface jobs that are either already on-site (isIn) or have a
-    // schedule entry for today. Future-dated jobs that appear in the feed
-    // but aren't scheduled today are skipped — they would otherwise be shown
-    // as immediately checkable, which is incorrect.
+    // Only surface jobs that are either already on-site (isIn), have a
+    // dispatch schedule entry for today, or were assigned directly on the job
+    // board for today (crewLeaderId set but no schedule row written).
+    // Future-dated jobs are still suppressed — crews shouldn't see them early.
     const schedItem = schedules.find((s) => s.jobNo === job.jobNo && s.scheduledOn === today) ?? null;
-    if (!isIn && !schedItem) continue;
+    const jobDay = (job as unknown as { scheduledOn?: string | null }).scheduledOn;
+    const isAssignedAndDue = !jobDay || jobDay <= today; // undated = immediate; today or past = due
+    if (!isIn && !schedItem && !isAssignedAndDue) continue;
 
     const before = (photos ?? []).filter((p) => p.jobId === job.id && p.phase === "before");
     const after = (photos ?? []).filter((p) => p.jobId === job.id && p.phase === "after");

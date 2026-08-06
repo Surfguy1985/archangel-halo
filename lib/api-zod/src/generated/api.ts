@@ -7016,6 +7016,7 @@ export const ListPortalJobsResponseItem = zod.object({
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "status": zod.string().nullish(),
+  "scheduledOn": zod.string().nullish().describe('YYYY-MM-DD date this job is scheduled; null for undated / open-ended work'),
   "checkedIn": zod.boolean().optional().describe('True when this crew\'s latest check-in for this job is newer than any checkout (currently on site)'),
   "checkedOut": zod.boolean().optional().describe('True when this crew has checked out of this job (a checkout exists at\/after the latest check-in)'),
   "jobAgreedAt": zod.string().nullish().describe('ISO timestamp when this crew agreed to the payout terms for this job; null means not yet agreed'),
