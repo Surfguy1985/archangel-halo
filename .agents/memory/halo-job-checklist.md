@@ -12,3 +12,5 @@ Job line items are a work checklist, not a price display: each item can be assig
 - Crew portal shows the checklist on the schedule tab (WorkChecklistSection): all items visible, only "mine" tappable.
 
 **Why:** office wanted the in-progress card to reflect actual job scope and flip to Done automatically as crews check off their own work.
+
+**Bedroom-size variants (Aug 2026):** price items sized "— N BR" collapse to one row with per-size price chips on the property price list, and job-card line items step bedroom size (not qty) via +/-. Size changes MUST go through the atomic `POST /job-line-items/:id/swap` endpoint (transactional retarget-or-merge with row locks) — never client-side add-then-delete, which can double-count on partial failure.

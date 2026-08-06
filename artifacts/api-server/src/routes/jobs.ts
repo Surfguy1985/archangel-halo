@@ -85,6 +85,9 @@ import {
   AddJobLineItemResponse,
   UpdateJobLineItemParams,
   UpdateJobLineItemBody,
+  SwapJobLineItemParams,
+  SwapJobLineItemBody,
+  SwapJobLineItemResponse,
   UpdateJobLineItemResponse,
   DeleteJobLineItemParams,
   DeleteJobLineItemResponse,
@@ -840,6 +843,69 @@ router.delete("/job-line-items/:id", async (req, res): Promise<void> => {
     return;
   }
   res.json(DeleteJobLineItemResponse.parse({ ok: true }));
+});
+
+router.post("/job-line-items/:id/swap", async (req, res): Promise<void> => {
+  const { id } = SwapJobLineItemParams.parse(req.params);
+  const body = SwapJobLineItemBody.parse(req.body);
+  // Atomic bedroom-size swap: retarget the row in place (or fold its qty into
+  // an existing row for the target price item) inside ONE transaction, so a
+  // partial failure can never leave both sizes on the job or inflate totals.
+  const result = await db.transaction(async (tx) => {
+    const [li] = await tx
+      .select()
+      .from(jobLineItemsTable)
+      .where(eq(jobLineItemsTable.id, id))
+      .for("update");
+    if (!li) return { status: 404 as const, error: "Line item not found" };
+    const [job] = await tx
+      .select({ propertyId: jobsTable.propertyId })
+      .from(jobsTable)
+      .where(eq(jobsTable.id, li.jobId));
+    const [priceItem] = await tx
+      .select()
+      .from(priceItemsTable)
+      .where(eq(priceItemsTable.id, body.priceItemId));
+    if (!priceItem) return { status: 404 as const, error: "Price item not found" };
+    if (!job || priceItem.propertyId !== job.propertyId)
+      return { status: 400 as const, error: "Price item belongs to a different property" };
+    const [sibling] = await tx
+      .select()
+      .from(jobLineItemsTable)
+      .where(
+        and(
+          eq(jobLineItemsTable.jobId, li.jobId),
+          eq(jobLineItemsTable.priceItemId, priceItem.id),
+          ne(jobLineItemsTable.id, li.id),
+        ),
+      )
+      .for("update");
+    if (sibling) {
+      const [merged] = await tx
+        .update(jobLineItemsTable)
+        .set({ qty: sibling.qty + li.qty })
+        .where(eq(jobLineItemsTable.id, sibling.id))
+        .returning();
+      await tx.delete(jobLineItemsTable).where(eq(jobLineItemsTable.id, li.id));
+      return { status: 200 as const, row: merged };
+    }
+    const [updated] = await tx
+      .update(jobLineItemsTable)
+      .set({
+        priceItemId: priceItem.id,
+        service: priceItem.service,
+        unit: priceItem.unit,
+        rate: priceItem.rate,
+      })
+      .where(eq(jobLineItemsTable.id, li.id))
+      .returning();
+    return { status: 200 as const, row: updated };
+  });
+  if (result.status !== 200) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+  res.json(SwapJobLineItemResponse.parse(await serLineItemWithCrew(result.row)));
 });
 
 router.post("/jobs/:id/schedule", async (req, res): Promise<void> => {

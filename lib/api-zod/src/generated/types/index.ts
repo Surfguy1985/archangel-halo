@@ -344,6 +344,7 @@ export * from './jobInputRecurrence';
 export * from './jobInputScheduleType';
 export * from './jobLineItem';
 export * from './jobLineItemInput';
+export * from './jobLineItemSwapInput';
 export * from './jobLineItemUpdate';
 export * from './jobPhoto';
 export * from './jobSummaryDoc';

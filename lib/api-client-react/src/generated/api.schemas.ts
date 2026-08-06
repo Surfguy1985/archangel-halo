@@ -2560,6 +2560,11 @@ export interface JobLineItemInput {
   qty?: number;
 }
 
+export interface JobLineItemSwapInput {
+  /** Target price-list item (must belong to the job's property) */
+  priceItemId: string;
+}
+
 export interface JobLineItemUpdate {
   /** @minimum 0 */
   qty?: number;

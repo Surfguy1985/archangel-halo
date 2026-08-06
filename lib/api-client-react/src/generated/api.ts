@@ -213,6 +213,7 @@ import type {
   JobInput,
   JobLineItem,
   JobLineItemInput,
+  JobLineItemSwapInput,
   JobLineItemUpdate,
   JobSummaryDoc,
   JobSummaryEditor,
@@ -5330,6 +5331,78 @@ export const useDeleteJobLineItem = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getDeleteJobLineItemMutationOptions(options));
+    }
+
+export const getSwapJobLineItemUrl = (id: string,) => {
+
+
+
+
+  return `/api/job-line-items/${id}/swap`
+}
+
+/**
+ * @summary Atomically swap a line item to another price-list item (e.g. bedroom-size change), merging quantities if the target is already on the job
+ */
+export const swapJobLineItem = async (id: string,
+    jobLineItemSwapInput: JobLineItemSwapInput, options?: RequestInit): Promise<JobLineItem> => {
+
+  return customFetch<JobLineItem>(getSwapJobLineItemUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(jobLineItemSwapInput)
+  }
+);}
+
+
+
+
+
+export const getSwapJobLineItemMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof swapJobLineItem>>, TError,{id: string;data: BodyType<JobLineItemSwapInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof swapJobLineItem>>, TError,{id: string;data: BodyType<JobLineItemSwapInput>}, TContext> => {
+
+const mutationKey = ['swapJobLineItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof swapJobLineItem>>, {id: string;data: BodyType<JobLineItemSwapInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  swapJobLineItem(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SwapJobLineItemMutationResult = NonNullable<Awaited<ReturnType<typeof swapJobLineItem>>>
+    export type SwapJobLineItemMutationBody = BodyType<JobLineItemSwapInput>
+    export type SwapJobLineItemMutationError = ErrorType<Error>
+
+    /**
+ * @summary Atomically swap a line item to another price-list item (e.g. bedroom-size change), merging quantities if the target is already on the job
+ */
+export const useSwapJobLineItem = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof swapJobLineItem>>, TError,{id: string;data: BodyType<JobLineItemSwapInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof swapJobLineItem>>,
+        TError,
+        {id: string;data: BodyType<JobLineItemSwapInput>},
+        TContext
+      > => {
+      return useMutation(getSwapJobLineItemMutationOptions(options));
     }
 
 export const getDraftJobRecapUrl = (id: string,) => {

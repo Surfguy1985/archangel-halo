@@ -996,13 +996,79 @@ export default function PropertyDetail() {
                     const cat = item.category?.trim() || "Other";
                     byCat.set(cat, [...(byCat.get(cat) ?? []), item]);
                   }
-                  return [...byCat.entries()].map(([cat, list]) => (
+                  // Within a category, bedroom-size variants of the same service
+                  // collapse into ONE row with a price chip per size:
+                  //   Wall Prep & Paint   1 BR $230 · 2 BR $320 · 3 BR $380
+                  // Tapping a chip edits that size's price.
+                  const stripBr = (s: string) => s.replace(/\s*[—–-]\s*\d\s*BR\s*$/i, "").trim();
+                  const sizeOf = (it: (typeof priceItems)[number]): number | null => {
+                    const m = /(\d)\s*BR\s*$/i.exec(it.service) ?? /^(\d)\s*BR$/i.exec(it.unit ?? "");
+                    return m ? Number(m[1]) : null;
+                  };
+                  // Make-Ready pinned to the top of the price list (above Paint),
+                  // remaining categories keep their existing order.
+                  const catEntries = [...byCat.entries()].sort(([a], [b]) => {
+                    const isMR = (s: string) => /make[\s-]?ready/i.test(s);
+                    return Number(isMR(b)) - Number(isMR(a));
+                  });
+                  return catEntries.map(([cat, list]) => {
+                    type Row =
+                      | { kind: "single"; item: (typeof priceItems)[number] }
+                      | { kind: "sized"; base: string; variants: { size: number; item: (typeof priceItems)[number] }[] };
+                    const byBase = new Map<string, { size: number; item: (typeof priceItems)[number] }[]>();
+                    const rows: Row[] = [];
+                    for (const item of list) {
+                      const size = sizeOf(item);
+                      if (size == null) {
+                        rows.push({ kind: "single", item });
+                        continue;
+                      }
+                      const base = stripBr(item.service);
+                      const family = byBase.get(base);
+                      if (family) {
+                        family.push({ size, item });
+                      } else {
+                        const fresh = [{ size, item }];
+                        byBase.set(base, fresh);
+                        rows.push({ kind: "sized", base, variants: fresh });
+                      }
+                    }
+                    return (
                     <div key={cat} className="mb-3 last:mb-0 rounded-xl border border-border overflow-hidden">
                       <div className="bg-[var(--muted)] px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                         {cat}
                       </div>
                       <div className="divide-y divide-border px-2">
-                        {list.map(item => (
+                        {rows.map((row) => {
+                          if (row.kind === "sized" && row.variants.length > 1) {
+                            const variants = [...row.variants].sort((a, b) => a.size - b.size);
+                            return (
+                              <div key={`sized-${row.base}`} className="flex items-center gap-3 px-1 py-2.5">
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-semibold truncate">{row.base}</div>
+                                  {variants[0].item.detail && (
+                                    <div className="text-xs text-muted-foreground truncate">{variants[0].item.detail}</div>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {variants.map(({ size, item }) => (
+                                    <button
+                                      key={item.id}
+                                      onClick={() => setEditPriceId(item.id)}
+                                      title={`Edit ${size} BR price`}
+                                      className="flex items-baseline gap-1 rounded-full border border-border bg-card px-2.5 py-1 hover:border-[var(--gold)] hover:shadow-[var(--shadow-card)] transition-all"
+                                      data-testid={`edit-price-${item.id}`}
+                                    >
+                                      <span className="text-[10px] font-bold uppercase text-muted-foreground">{size} BR</span>
+                                      <span className="font-mono font-bold text-sm tabular-nums">${item.rate}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+                          const item = row.kind === "sized" ? row.variants[0].item : row.item;
+                          return (
                           <div key={item.id} className="flex items-center gap-3 px-1 py-2.5">
                             <div className="flex-1 min-w-0">
                               <div className="text-sm font-semibold truncate">{item.service}</div>
@@ -1021,10 +1087,12 @@ export default function PropertyDetail() {
                               <Pencil className="w-3 h-3" />
                             </button>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
-                  ));
+                    );
+                  });
                 })()}
                 {!priceItems.length && (
                   <div className="py-4 text-center text-sm text-muted-foreground">No agreed rates yet.</div>

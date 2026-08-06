@@ -1557,6 +1557,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /job-line-items/{id}/swap:
+    post:
+      operationId: swapJobLineItem
+      tags: [jobs]
+      summary: Atomically swap a line item to another price-list item (e.g. bedroom-size change), merging quantities if the target is already on the job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobLineItemSwapInput"
+      responses:
+        "200":
+          description: Resulting line item (retargeted or merged)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobLineItem"
+        "400":
+          description: Price item belongs to a different property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /jobs/{id}/recap:
     post:
       operationId: draftJobRecap
@@ -11637,6 +11674,11 @@ components:
       properties:
         priceItemId: { type: string }
         qty: { type: number, minimum: 0 }
+    JobLineItemSwapInput:
+      type: object
+      required: [priceItemId]
+      properties:
+        priceItemId: { type: string, description: "Target price-list item (must belong to the job's property)" }
     JobLineItemUpdate:
       type: object
       properties:

@@ -2748,6 +2748,33 @@ export const DeleteJobLineItemResponse = zod.object({
 
 
 /**
+ * @summary Atomically swap a line item to another price-list item (e.g. bedroom-size change), merging quantities if the target is already on the job
+ */
+export const SwapJobLineItemParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SwapJobLineItemBody = zod.object({
+  "priceItemId": zod.string().describe('Target price-list item (must belong to the job\'s property)')
+})
+
+export const SwapJobLineItemResponse = zod.object({
+  "id": zod.string(),
+  "jobId": zod.string(),
+  "priceItemId": zod.string().nullish(),
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "qty": zod.number(),
+  "amount": zod.number(),
+  "assignedCrewId": zod.string().nullish(),
+  "assignedCrewName": zod.string().nullish(),
+  "startTime": zod.string().nullish().describe('HH:MM staggered start for this service\'s crew'),
+  "completedAt": zod.string().nullish()
+})
+
+
+/**
  * @summary AI-draft a client-ready work recap from the job's notes and photos
  */
 export const DraftJobRecapParams = zod.object({
