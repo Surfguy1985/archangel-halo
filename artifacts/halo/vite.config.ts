@@ -27,9 +27,30 @@ if (!basePath) {
   );
 }
 
+
+// Production (`vite preview`) cache rules: the HTML shell, service worker and
+// manifest must never be cached — every visit gets the newest build without a
+// hard refresh — while hashed /assets/ files are immutable and cache forever.
+const cacheHeaders = () => ({
+  name: "build-cache-headers",
+  configurePreviewServer(server: import("vite").PreviewServer) {
+    server.middlewares.use((req, res, next) => {
+      const url = (req.url || "").split("?")[0];
+      if (url.includes("/assets/")) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      } else {
+        // index.html, sw.js, manifest, icons, and any route path.
+        res.setHeader("Cache-Control", "no-store");
+      }
+      next();
+    });
+  },
+});
+
 export default defineConfig({
   base: basePath,
   plugins: [
+    cacheHeaders(),
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
