@@ -8,13 +8,11 @@ import StartScreen from '@/pages/start';
 import CaptureScreen from '@/pages/capture';
 import ReviewScreen from '@/pages/review';
 import WalkGate from '@/components/WalkGate';
+import { CheckCircle2 } from 'lucide-react';
 
 const is401 = (error: any) =>
   error?.status === 401 || error?.response?.status === 401 || error?.message?.includes('401');
 
-// Walk app has its own passcode (separate from the office one) — WalkGate
-// below blocks the UI until /walk-auth login succeeds. The server still
-// scopes every walk route to the single Thornbury target property.
 const queryClient = new QueryClient({
   queryCache: new QueryCache({}),
   mutationCache: new MutationCache({}),
@@ -44,18 +42,24 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-            <div className="min-h-[100dvh] w-full bg-background flex flex-col">
-              {/* Header */}
-              <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <div className="flex h-14 items-center px-4 max-w-md mx-auto w-full">
-                  <div className="font-bold text-xl tracking-tight text-foreground">
-                    HALO Walk
+            <div className="h-[100dvh] w-full bg-background flex flex-col font-sans overflow-hidden">
+              
+              {/* Header - Super clean, floaty */}
+              <header className="shrink-0 z-50 w-full bg-background/80 backdrop-blur-xl border-b border-black/[0.03]">
+                <div className="flex h-16 items-center justify-center px-4 max-w-md mx-auto w-full relative">
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                      <CheckCircle2 className="w-5 h-5 text-primary-foreground stroke-[3]" />
+                    </div>
+                    <div className="font-bold text-xl tracking-tight text-foreground">
+                      HALO Walk
+                    </div>
                   </div>
                 </div>
               </header>
               
-              {/* Main content - mobile constrained */}
-              <main className="flex-1 w-full max-w-md mx-auto bg-card shadow-sm border-x border-border/20 relative flex flex-col">
+              {/* Main content - mobile constrained, no side borders, relying on background color difference if needed */}
+              <main className="flex-1 w-full max-w-md mx-auto relative flex flex-col overflow-hidden">
                 <WalkGate>
                   <Router />
                 </WalkGate>

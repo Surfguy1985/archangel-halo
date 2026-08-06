@@ -1847,7 +1847,18 @@ paths:
     get:
       operationId: getWalkTarget
       tags: [walks]
-      summary: The single property the Walk app is locked to
+      summary: >-
+        The property to walk. When GPS coordinates are supplied, resolves to
+        the nearest active property; otherwise falls back to the default.
+      parameters:
+        - name: lat
+          in: query
+          required: false
+          schema: { type: number }
+        - name: lng
+          in: query
+          required: false
+          schema: { type: number }
       responses:
         "200":
           description: Walk target property
@@ -16108,6 +16119,10 @@ components:
       properties:
         propertyId: { type: string }
         name: { type: string }
+        # Set when the target was resolved from GPS coordinates.
+        located: { type: boolean }
+        # Straight-line distance in meters from the caller to the property.
+        distanceM: { type: number }
 
     Walk:
       type: object

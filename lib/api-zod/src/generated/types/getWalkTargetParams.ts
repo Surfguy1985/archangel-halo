@@ -6,9 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface WalkTarget {
-  propertyId: string;
-  name: string;
-  located?: boolean;
-  distanceM?: number;
-}
+export type GetWalkTargetParams = {
+lat?: number;
+lng?: number;
+};

@@ -7383,6 +7383,8 @@ export interface BoardEvent {
 export interface WalkTarget {
   propertyId: string;
   name: string;
+  located?: boolean;
+  distanceM?: number;
 }
 
 export type WalkKind = typeof WalkKind[keyof typeof WalkKind];
@@ -7534,6 +7536,11 @@ status?: string;
 export type ListJobsParams = {
 status?: string;
 propertyId?: string;
+};
+
+export type GetWalkTargetParams = {
+lat?: number;
+lng?: number;
 };
 
 export type ListWalksParams = {

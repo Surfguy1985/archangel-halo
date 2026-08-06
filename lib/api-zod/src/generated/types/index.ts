@@ -296,6 +296,7 @@ export * from './getCalendarParams';
 export * from './getCashFlowReportParams';
 export * from './getProfitAndLossParams';
 export * from './getTaxReportParams';
+export * from './getWalkTargetParams';
 export * from './healthStatus';
 export * from './hubItemInput';
 export * from './hubItemRec';

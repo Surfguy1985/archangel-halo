@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc, eq, ilike } from "drizzle-orm";
+import { and, desc, eq, ilike } from "drizzle-orm";
 import {
   db,
   walksTable,
@@ -27,6 +27,7 @@ import {
   CompleteWalkResponse,
 } from "@workspace/api-zod";
 import { limits } from "../lib/rateLimit";
+import { ensurePropertiesGeocoded } from "../lib/geocode";
 
 const router: IRouter = Router();
 
@@ -74,11 +75,12 @@ async function propertyNames(): Promise<Map<string, string>> {
   return new Map(rows.map((r) => [r.id, r.name]));
 }
 
-// The Walk app is gated by its own passcode (see /walk-auth in officeAuth.ts)
-// and locked to a single property (Thornbury).
-// Every walk route below is public (see officeAuth PUBLIC_PREFIXES), so each
-// one must scope itself to this target property — never loosen that without
-// putting the routes back behind the office gate.
+// The Walk app is gated by its own passcode (see /walk-auth in officeAuth.ts),
+// a single shared office field credential. Walks may target ANY active
+// property: the GPS locator on /walk-target picks the nearest one, and this
+// default (Thornbury) is only the fallback when no coordinates are available.
+// Every mutation below is rate-limited and validates that the walk's property
+// still exists.
 async function getWalkTargetProperty(): Promise<
   { id: string; name: string } | undefined
 > {
@@ -90,23 +92,64 @@ async function getWalkTargetProperty(): Promise<
   return row;
 }
 
-router.get("/walk-target", async (_req, res): Promise<void> => {
+// Straight-line meters between two lat/lng points (haversine).
+function distanceMeters(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+router.get("/walk-target", async (req, res): Promise<void> => {
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    // Kick lazy geocoding for properties still missing coordinates, but keep
+    // it OFF this request path (Nominatim is rate-limited to 1 req/sec).
+    void ensurePropertiesGeocoded().catch(() => undefined);
+    const props = await db
+      .select({
+        id: propertiesTable.id,
+        name: propertiesTable.name,
+        latitude: propertiesTable.latitude,
+        longitude: propertiesTable.longitude,
+      })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.status, "active"));
+    let best: { id: string; name: string; dist: number } | null = null;
+    for (const p of props) {
+      if (p.latitude == null || p.longitude == null) continue;
+      const dist = distanceMeters(lat, lng, p.latitude, p.longitude);
+      if (!best || dist < best.dist) best = { id: p.id, name: p.name, dist };
+    }
+    if (best) {
+      res.json({
+        propertyId: best.id,
+        name: best.name,
+        located: true,
+        distanceM: Math.round(best.dist),
+      });
+      return;
+    }
+  }
   const target = await getWalkTargetProperty();
   if (!target) {
     res.status(404).json({ error: "Walk target property not found" });
     return;
   }
-  res.json({ propertyId: target.id, name: target.name });
+  res.json({ propertyId: target.id, name: target.name, located: false });
 });
 
 router.get("/walks", async (req, res): Promise<void> => {
   const { propertyId } = ListWalksQueryParams.parse(req.query);
-  const target = await getWalkTargetProperty();
   let walks = await db
     .select()
     .from(walksTable)
     .orderBy(desc(walksTable.startedAt));
-  walks = walks.filter((w) => w.propertyId === target?.id);
   if (propertyId) walks = walks.filter((w) => w.propertyId === propertyId);
   const captures = await db
     .select({ walkId: walkCapturesTable.walkId })
@@ -125,13 +168,18 @@ router.get("/walks", async (req, res): Promise<void> => {
 
 router.post("/walks", limits.walkWrite, async (req, res): Promise<void> => {
   const body = CreateWalkBody.parse(req.body);
-  const property = await getWalkTargetProperty();
+  // GPS-picked target: any real, ACTIVE property is a valid walk target.
+  const [property] = await db
+    .select({ id: propertiesTable.id, name: propertiesTable.name })
+    .from(propertiesTable)
+    .where(
+      and(
+        eq(propertiesTable.id, body.propertyId),
+        eq(propertiesTable.status, "active"),
+      ),
+    );
   if (!property) {
-    res.status(400).json({ error: "Walk target property not found" });
-    return;
-  }
-  if (body.propertyId !== property.id) {
-    res.status(400).json({ error: "Walks are limited to the Thornbury property" });
+    res.status(400).json({ error: "That property is not available for walks" });
     return;
   }
   const [row] = await db
@@ -148,9 +196,13 @@ router.post("/walks", limits.walkWrite, async (req, res): Promise<void> => {
 async function loadWalk(id: string): Promise<WalkRow | undefined> {
   const [walk] = await db.select().from(walksTable).where(eq(walksTable.id, id));
   if (!walk) return undefined;
-  // Public surface: any walk outside the target property is invisible.
-  const target = await getWalkTargetProperty();
-  if (!target || walk.propertyId !== target.id) return undefined;
+  // A walk is only visible while its property still exists (walk-session
+  // cookie already gates every route; walks may target any property now).
+  const [prop] = await db
+    .select({ id: propertiesTable.id })
+    .from(propertiesTable)
+    .where(eq(propertiesTable.id, walk.propertyId));
+  if (!prop) return undefined;
   return walk;
 }
 
@@ -213,9 +265,11 @@ router.post("/walks/:id/captures", limits.walkWrite, async (req, res): Promise<v
       .where(eq(walksTable.id, id))
       .for("update");
     if (!locked) return { status: 404 as const };
-    const target = await getWalkTargetProperty();
-    if (!target || locked.propertyId !== target.id)
-      return { status: 404 as const };
+    const [prop] = await tx
+      .select({ id: propertiesTable.id })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, locked.propertyId));
+    if (!prop) return { status: 404 as const };
     if (locked.status === "completed") return { status: 409 as const };
     const [row] = await tx
       .insert(walkCapturesTable)
@@ -257,8 +311,13 @@ router.delete("/walk-captures/:id", limits.walkWrite, async (req, res): Promise<
       .from(walksTable)
       .where(eq(walksTable.id, capture.walkId))
       .for("update");
-    const target = await getWalkTargetProperty();
-    if (walk && (!target || walk.propertyId !== target.id)) return 404 as const;
+    if (walk) {
+      const [prop] = await tx
+        .select({ id: propertiesTable.id })
+        .from(propertiesTable)
+        .where(eq(propertiesTable.id, walk.propertyId));
+      if (!prop) return 404 as const;
+    }
     if (walk && walk.status === "completed") return 409 as const;
     await tx.delete(walkCapturesTable).where(eq(walkCapturesTable.id, id));
     return 204 as const;
@@ -302,9 +361,11 @@ router.post("/walks/:id/complete", limits.walkWrite, async (req, res): Promise<v
       .where(eq(walksTable.id, id))
       .for("update");
     if (!walk) return { status: 404 as const };
-    const walkTarget = await getWalkTargetProperty();
-    if (!walkTarget || walk.propertyId !== walkTarget.id)
-      return { status: 404 as const };
+    const [walkProp] = await tx
+      .select({ id: propertiesTable.id })
+      .from(propertiesTable)
+      .where(eq(propertiesTable.id, walk.propertyId));
+    if (!walkProp) return { status: 404 as const };
     if (walk.status === "completed")
       return { status: 409 as const, error: "Walk already completed" };
     const captures = await tx

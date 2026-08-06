@@ -184,6 +184,7 @@ import type {
   GetCashFlowReportParams,
   GetProfitAndLossParams,
   GetTaxReportParams,
+  GetWalkTargetParams,
   HealthStatus,
   HubItemInput,
   HubItemRec,
@@ -6140,20 +6141,27 @@ export const useCancelEmergencyPing = <TError = ErrorType<Error>,
       return useMutation(getCancelEmergencyPingMutationOptions(options));
     }
 
-export const getGetWalkTargetUrl = () => {
+export const getGetWalkTargetUrl = (params?: GetWalkTargetParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/walk-target`
+  return stringifiedParams.length > 0 ? `/api/walk-target?${stringifiedParams}` : `/api/walk-target`
 }
 
 /**
- * @summary The single property the Walk app is locked to
+ * @summary The property to walk. When GPS coordinates are supplied, resolves to the nearest active property; otherwise falls back to the default.
  */
-export const getWalkTarget = async ( options?: RequestInit): Promise<WalkTarget> => {
+export const getWalkTarget = async (params?: GetWalkTargetParams, options?: RequestInit): Promise<WalkTarget> => {
 
-  return customFetch<WalkTarget>(getGetWalkTargetUrl(),
+  return customFetch<WalkTarget>(getGetWalkTargetUrl(params),
   {
     ...options,
     method: 'GET'
@@ -6166,23 +6174,23 @@ export const getWalkTarget = async ( options?: RequestInit): Promise<WalkTarget>
 
 
 
-export const getGetWalkTargetQueryKey = () => {
+export const getGetWalkTargetQueryKey = (params?: GetWalkTargetParams,) => {
     return [
-    `/api/walk-target`
+    `/api/walk-target`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetWalkTargetQueryOptions = <TData = Awaited<ReturnType<typeof getWalkTarget>>, TError = ErrorType<Error>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalkTarget>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetWalkTargetQueryOptions = <TData = Awaited<ReturnType<typeof getWalkTarget>>, TError = ErrorType<Error>>(params?: GetWalkTargetParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalkTarget>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetWalkTargetQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetWalkTargetQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWalkTarget>>> = ({ signal }) => getWalkTarget({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWalkTarget>>> = ({ signal }) => getWalkTarget(params, { signal, ...requestOptions });
 
 
 
@@ -6196,15 +6204,15 @@ export type GetWalkTargetQueryError = ErrorType<Error>
 
 
 /**
- * @summary The single property the Walk app is locked to
+ * @summary The property to walk. When GPS coordinates are supplied, resolves to the nearest active property; otherwise falls back to the default.
  */
 
 export function useGetWalkTarget<TData = Awaited<ReturnType<typeof getWalkTarget>>, TError = ErrorType<Error>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalkTarget>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetWalkTargetParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalkTarget>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetWalkTargetQueryOptions(options)
+  const queryOptions = getGetWalkTargetQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

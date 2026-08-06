@@ -3071,11 +3071,18 @@ export const CancelEmergencyPingResponse = zod.object({
 
 
 /**
- * @summary The single property the Walk app is locked to
+ * @summary The property to walk. When GPS coordinates are supplied, resolves to the nearest active property; otherwise falls back to the default.
  */
+export const GetWalkTargetQueryParams = zod.object({
+  "lat": zod.coerce.number().optional(),
+  "lng": zod.coerce.number().optional()
+})
+
 export const GetWalkTargetResponse = zod.object({
   "propertyId": zod.string(),
-  "name": zod.string()
+  "name": zod.string(),
+  "located": zod.boolean().optional(),
+  "distanceM": zod.number().optional()
 })
 
 

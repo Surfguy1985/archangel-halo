@@ -165,9 +165,10 @@ const PUBLIC_PREFIXES = [
 
 // Walk app routes are gated by their OWN passcode (separate from the office
 // one) via the halo_walk_session cookie. Office sessions also pass, so a
-// signed-in office device can use Walk. The routes still self-scope to the
-// single Thornbury target property in routes/walks.ts and every mutation is
-// rate-limited there — keep both invariants. Boundary-anchored so a future
+// signed-in office device can use Walk. Walks may target any ACTIVE property
+// (GPS nearest-pick in routes/walks.ts — the shared walk passcode is an
+// office field credential, so cross-property access is intentional) and every
+// mutation is rate-limited there. Boundary-anchored so a future
 // "/walks-report" style route does NOT silently join this bucket.
 const WALK_RE = /^\/(walk-target$|walks(\/|$)|walk-captures\/)/;
 
