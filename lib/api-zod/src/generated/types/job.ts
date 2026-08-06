@@ -114,6 +114,16 @@ export interface Job {
      * @nullable
      */
   crewPaidAt?: string | null;
+  /**
+     * When the current crew was assigned/claimed, from the job activity log (property detail only)
+     * @nullable
+     */
+  crewAssignedAt?: string | null;
+  /**
+     * First crew check-in on this job (property detail only)
+     * @nullable
+     */
+  workStartedAt?: string | null;
   /** @nullable */
   isRecurring?: boolean | null;
   /**

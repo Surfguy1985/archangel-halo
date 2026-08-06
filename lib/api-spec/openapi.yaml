@@ -11428,6 +11428,8 @@ components:
         nextVisitOn: { type: ["string", "null"], description: "Next scheduled visit date (YYYY-MM-DD, property detail only)" }
         crewPaymentStatus: { type: ["string", "null"], description: "paid | pending | null when no crew payment recorded (property detail only)" }
         crewPaidAt: { type: ["string", "null"], description: "When the crew payment was completed (property detail only)" }
+        crewAssignedAt: { type: ["string", "null"], description: "When the current crew was assigned/claimed, from the job activity log (property detail only)" }
+        workStartedAt: { type: ["string", "null"], description: "First crew check-in on this job (property detail only)" }
         isRecurring: { type: ["boolean", "null"] }
         recurrence: { type: ["string", "null"], description: "daily | weekly | biweekly | monthly | quarterly" }
         clientBudget: { type: ["number", "null"], description: "Client's stated budget carried from the accepted work request; invoice editors warn when the total exceeds it" }

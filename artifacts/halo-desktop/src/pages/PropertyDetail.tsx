@@ -1,10 +1,10 @@
-import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, useCompleteJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey, getListExpensesQueryKey, useCreateInvoice, useListCrews, useBroadcastJob, useCreateCrewPayment} from "@workspace/api-client-react";
+import { useGetProperty, getGetPropertyQueryKey, useSetInvoiceStatus, useUpdateProperty, useUpdateJob, useClearJob, useRestartJob, useCompleteJob, getGetMoneySummaryQueryKey, getListInvoicesQueryKey, getGetTodayQueryKey, getListPropertiesQueryKey, getListJobsQueryKey, getGetCalendarQueryKey, getGetJobQueryKey, getListExpensesQueryKey, getListJobBoardQueryKey, useCreateInvoice, useListCrews, useBroadcastJob, useCreateCrewPayment} from "@workspace/api-client-react";
 import type { Job, Invoice } from "@workspace/api-client-react";
 import { AddExpenseDialog} from "@/components/MoneyDialogs";
 import { MarginSection} from "@/components/MarginSection";
 import { CrewPhotosSection} from "@/components/CrewPhotosSection";
 import { useQueryClient} from "@tanstack/react-query";
-import { useParams, Link} from "wouter";
+import { useParams, Link, useLocation} from "wouter";
 import { CalendarDays, Check, ChevronDown, ChevronLeft, Archive, RotateCcw, Pencil, Plus, Radio, Repeat, BookOpen, FileUp, Receipt, Users, Wand2, Zap} from "lucide-react";
 import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { motion, AnimatePresence } from "framer-motion";
@@ -52,6 +52,7 @@ export default function PropertyDetail() {
   const [broadcastJobId, setBroadcastJobId] = useState<string | null>(null);
   const [summaryJobId, setSummaryJobId] = useState<string | null>(null);
   const broadcast = useBroadcastJob();
+  const [, navigate] = useLocation();
   const [rateDraft, setRateDraft] = useState("");
   const updateJob = useUpdateJob();
   const setStatus = useSetInvoiceStatus();
@@ -99,6 +100,8 @@ export default function PropertyDetail() {
     queryClient.invalidateQueries({ queryKey: getListJobsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetCalendarQueryKey() });
+    // Keep the Job Board rails in lockstep with the property timeline.
+    queryClient.invalidateQueries({ queryKey: getListJobBoardQueryKey() });
   };
 
   const invalidateMoney = (jobId?: string) => {
@@ -107,6 +110,7 @@ export default function PropertyDetail() {
     queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListJobBoardQueryKey() });
     if (jobId) queryClient.invalidateQueries({ queryKey: getGetJobQueryKey(jobId) });
   };
 
@@ -152,13 +156,56 @@ export default function PropertyDetail() {
 
   const renderJobCard = (job: Job, invoice: Invoice | undefined) => {
     const isComplete = job.status === "complete";
-    const STAGES = [
-      { label: "Crew", done: !!job.crewLeaderId },
-      { label: "Work", done: isComplete },
-      { label: "Invoice", done: invoice?.status === "paid" },
-      { label: "Crew paid", done: job.crewPaymentStatus === "paid" },
-      { label: "Close", done: !!job.clearedAt }
+    const closed = !!job.clearedAt;
+    // 5-stage timeline driven by the exact same server fields the Job Board
+    // rails read (crewLeaderId, check-ins, invoice status, crewPay, clearedAt),
+    // so board actions and this timeline can never disagree.
+    const paymentReceived = invoice?.status === "paid";
+    const crewPaid = job.crewPaymentStatus === "paid";
+    const invoiceSent = !!invoice && invoice.status !== "draft";
+    const workStarted =
+      !!job.workStartedAt ||
+      ["in_progress", "complete", "paid"].includes(job.status) ||
+      ["completed", "billing", "pay_alert"].includes(job.boardStatus ?? "");
+    const moneyAt = [invoice?.paidAt, job.crewPaidAt].filter(Boolean).sort().at(-1) ?? null;
+    const STAGES: {
+      label: string;
+      done: boolean;
+      at?: string | null;
+      partial?: boolean;
+      hint?: string;
+    }[] = [
+      { label: "Crew", done: !!job.crewLeaderId || closed, at: job.crewAssignedAt },
+      { label: "Work", done: workStarted || closed, at: job.workStartedAt ?? job.completedAt },
+      { label: "Invoice", done: invoiceSent || closed, at: invoice?.sentAt },
+      {
+        label: "$",
+        done: (paymentReceived && crewPaid) || closed,
+        at: moneyAt,
+        partial: !closed && paymentReceived !== crewPaid,
+        hint:
+          paymentReceived && !crewPaid
+            ? "crew pay due"
+            : crewPaid && !paymentReceived
+              ? "awaiting client $"
+              : undefined,
+      },
+      { label: "Close", done: closed, at: job.clearedAt },
     ];
+    const activeIdx = STAGES.findIndex((s) => !s.done);
+    // How long the job has been sitting in the current stage — measured from
+    // the previous stage's timestamp (or job creation for the first stage).
+    const enteredAt =
+      activeIdx > 0
+        ? (STAGES[activeIdx - 1].at ?? job.createdAt)
+        : job.createdAt;
+    const daysHere =
+      activeIdx >= 0 && enteredAt
+        ? Math.floor((Date.now() - new Date(enteredAt).getTime()) / 86400000)
+        : null;
+    const stalled = daysHere != null && daysHere > 3;
+    const fmtDay = (d?: string | null) =>
+      d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null;
 
     const renderPrimaryAction = () => {
       if (assignJobId === job.id) {
@@ -252,6 +299,11 @@ export default function PropertyDetail() {
                 toast({ title: "Couldn't mark paid", description: err.message, variant: "destructive" }),
             },
           );
+      } else if (invoice.status === "paid" && job.crewPaymentStatus !== "paid") {
+        // Client money is in but the crew hasn't been paid — the pay flow
+        // (per-member amounts) lives on the Job Board billing card.
+        label = "Pay crew";
+        action = () => navigate("/jobboard");
       } else if (invoice.status === "paid") {
         label = "Close out";
         // Close-out first opens the job summary form (prefilled recap for the PM).
@@ -286,18 +338,12 @@ export default function PropertyDetail() {
             <p className="text-white/70 text-sm font-medium">{job.description}</p>
           </Link>
           
-          {job.clearedAt ? (
+          {/* Status is told once, by the timeline below — only closed jobs
+              keep a badge since they sit in the History tab. */}
+          {job.clearedAt && (
              <span className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 bg-white/10 text-white rounded-full">
                <Archive className="w-3.5 h-3.5" /> Closed
              </span>
-          ) : isComplete && invoice?.status === "paid" ? (
-            <span className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 bg-[var(--primary)] text-black rounded-full">
-              <Check className="w-3.5 h-3.5" /> Completed
-            </span>
-          ) : (
-            <span className="shrink-0 inline-flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 bg-white/10 text-white rounded-full">
-              In progress
-            </span>
           )}
         </div>
 
@@ -353,17 +399,46 @@ export default function PropertyDetail() {
           )}
         </div>
 
-        {/* Progress Track */}
-        <div className="flex items-center gap-2">
-          {STAGES.map((s, i, arr) => {
-            const isActive = i === 0 || arr[i - 1].done;
-            const highlight = isActive || s.done;
+        {/* Live 5-stage timeline — mirrors the Job Board rails */}
+        <div className="flex items-start gap-2" data-testid={`job-timeline-${job.id}`}>
+          {STAGES.map((s, i) => {
+            const isActive = i === activeIdx;
+            const isMoney = s.label === "$";
+            const barCls = s.done
+              ? isMoney
+                ? "bg-emerald-400"
+                : "bg-[var(--primary)]"
+              : s.partial
+                ? "bg-gradient-to-r from-emerald-400 from-50% to-white/10 to-50%"
+                : isActive
+                  ? stalled
+                    ? "bg-amber-400/60"
+                    : "bg-white/25"
+                  : "bg-white/10";
+            const labelCls = s.done
+              ? isMoney
+                ? "text-emerald-400"
+                : "text-[var(--primary)]"
+              : isActive
+                ? stalled
+                  ? "text-amber-300"
+                  : "text-white/80"
+                : "text-white/40";
             return (
-              <div key={s.label} className="flex-1 flex flex-col items-start gap-2">
-                <div className={`h-1.5 w-full rounded-full transition-colors ${highlight ? "bg-[var(--primary)]" : "bg-white/10"}`} />
-                <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${highlight ? "text-[var(--primary)]" : "text-white/40"}`}>
+              <div key={s.label} className="flex-1 flex flex-col items-start gap-2 min-w-0" data-testid={`job-stage-${job.id}-${i}`}>
+                <div className={`h-1.5 w-full rounded-full transition-colors ${barCls}`} />
+                <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${labelCls}`}>
                   {s.label}
                 </span>
+                {s.done && fmtDay(s.at) ? (
+                  <span className="text-[10px] text-white/40 tabular-nums -mt-1.5">{fmtDay(s.at)}</span>
+                ) : !s.done && s.partial && s.hint ? (
+                  <span className="text-[10px] text-amber-300/90 -mt-1.5">{s.hint}</span>
+                ) : isActive && daysHere != null ? (
+                  <span className={`text-[10px] tabular-nums -mt-1.5 ${stalled ? "text-amber-300 font-bold" : "text-white/50"}`}>
+                    {daysHere === 0 ? "today" : `${daysHere} day${daysHere === 1 ? "" : "s"} here`}
+                  </span>
+                ) : null}
               </div>
             );
           })}

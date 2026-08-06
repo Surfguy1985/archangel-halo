@@ -242,7 +242,13 @@ const TONE_RAIL: Record<JobTone, RailKey> = {
   red: "needs_you",
 };
 
-// All panels share the navy background, so overlay text is always white.
+const TONE_OVERLAY_TEXT: Record<JobTone, string> = {
+  lime: "text-black/80 [text-shadow:none]",
+  blue: "text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]",
+  emerald: "text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]",
+  stone: "text-[#40361F] [text-shadow:none]",
+  red: "text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]",
+};
 const OVERLAY_TEXT = "text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.45)]";
 
 function JobTile({ card, tone, crews, onOpen }: { card: JobBoardCard; tone: JobTone; crews?: Crew[]; onOpen: () => void }) {

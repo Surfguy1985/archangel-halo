@@ -15,6 +15,8 @@ import {
   jobLineItemsTable,
   schedulesTable,
   crewPaymentsTable,
+  crewCheckinsTable,
+  activitiesTable,
 } from "@workspace/db";
 import {
   ListPropertiesResponse,
@@ -339,13 +341,43 @@ router.get("/properties/:id", async (req, res): Promise<void> => {
 
   const crewPhotos = await crewPhotosForJobs(rawJobs);
 
-  const crewPayments =
+  const [crewPayments, checkins, assignActivities] =
     jobIds.length > 0
-      ? await db
-          .select()
-          .from(crewPaymentsTable)
-          .where(inArray(crewPaymentsTable.jobId, jobIds))
-      : [];
+      ? await Promise.all([
+          db
+            .select()
+            .from(crewPaymentsTable)
+            .where(inArray(crewPaymentsTable.jobId, jobIds)),
+          // First crew check-in per job = "work started" for the stage timeline.
+          db
+            .select()
+            .from(crewCheckinsTable)
+            .where(inArray(crewCheckinsTable.jobId, jobIds)),
+          // Assignment activity rows carry the only timestamp for "crew assigned".
+          db
+            .select()
+            .from(activitiesTable)
+            .where(
+              and(
+                eq(activitiesTable.entityType, "job"),
+                eq(activitiesTable.kind, "assigned"),
+                inArray(activitiesTable.entityId, jobIds),
+              ),
+            ),
+        ])
+      : [[], [], []];
+  const firstCheckinByJob = new Map<string, Date>();
+  for (const c of checkins) {
+    if (!c.jobId || c.kind === "checkout") continue;
+    const cur = firstCheckinByJob.get(c.jobId);
+    if (!cur || c.createdAt < cur) firstCheckinByJob.set(c.jobId, c.createdAt);
+  }
+  const lastAssignedByJob = new Map<string, Date>();
+  for (const a of assignActivities) {
+    if (!a.entityId || !a.createdAt) continue;
+    const cur = lastAssignedByJob.get(a.entityId);
+    if (!cur || a.createdAt > cur) lastAssignedByJob.set(a.entityId, a.createdAt);
+  }
   const jobsWithFunnel = jobsWithMoney.map((j) => {
     const nextVisit = schedules
       .filter(
@@ -357,17 +389,34 @@ router.get("/properties/:id", async (req, res): Promise<void> => {
       .sort((a, b) => a.scheduledOn.localeCompare(b.scheduledOn))[0];
     const payments = crewPayments.filter((p) => p.jobId === j.id);
     const completedPayment = payments.find((p) => p.status === "completed");
+    // Board pay-flow: the Job Board records crew pay as crewPay entries and
+    // flips boardStatus to pay_alert once the whole roster is paid — treat
+    // that as "crew paid" here so the two views can never disagree.
+    const raw = jobById.get(j.id);
+    const crewPayEntries = Array.isArray(raw?.crewPay)
+      ? (raw.crewPay as { paidAt?: string | null }[])
+      : [];
+    const boardPaidAt =
+      raw?.boardStatus === "pay_alert" ||
+      (crewPayEntries.length > 0 && crewPayEntries.every((e) => e.paidAt))
+        ? (crewPayEntries
+            .map((e) => e.paidAt)
+            .filter((d): d is string => !!d)
+            .sort()
+            .at(-1) ?? null)
+        : null;
+    const paidVia = completedPayment?.paidAt?.toISOString() ?? boardPaidAt;
     return {
       ...j,
       nextVisitOn: nextVisit?.scheduledOn ?? null,
-      crewPaymentStatus: completedPayment
+      crewPaymentStatus: paidVia
         ? "paid"
-        : payments.length > 0
+        : payments.length > 0 || crewPayEntries.length > 0
           ? "pending"
           : null,
-      crewPaidAt: completedPayment?.paidAt
-        ? completedPayment.paidAt.toISOString()
-        : null,
+      crewPaidAt: paidVia,
+      crewAssignedAt: lastAssignedByJob.get(j.id)?.toISOString() ?? null,
+      workStartedAt: firstCheckinByJob.get(j.id)?.toISOString() ?? null,
     };
   });
 
