@@ -1100,7 +1100,10 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
       />
 
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between px-[20px] pt-[20px] pb-[6px]">
+      <div
+        className="flex items-start justify-between px-[20px] pb-[6px]"
+        style={{ paddingTop: "max(28px, calc(env(safe-area-inset-top) + 16px))" }}
+      >
         <div>
           <div className="text-[10px] font-bold tracking-[0.22em] uppercase text-[#B4FF44]/80">
             {t.brand}

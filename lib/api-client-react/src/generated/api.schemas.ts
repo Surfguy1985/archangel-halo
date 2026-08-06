@@ -3356,6 +3356,8 @@ export interface CrewToday {
   todayJob?: string | null;
   /** @nullable */
   todayProperty?: string | null;
+  /** Count of sent/in-progress packets not yet submitted */
+  pendingPackets?: number;
 }
 
 export interface TrailPoint {

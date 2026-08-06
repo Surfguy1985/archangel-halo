@@ -2104,6 +2104,18 @@ router.get("/crews", async (_req, res): Promise<void> => {
   const props = await db.select().from(propertiesTable);
   const propName = new Map(props.map((p) => [p.id, p.name]));
   const jobById = new Map(jobs.map((j) => [j.id, j]));
+
+  // Count non-submitted packets per crew for the onboarding badge
+  const packetRows = await db
+    .select({ crewId: crewPacketsTable.crewId, status: crewPacketsTable.status })
+    .from(crewPacketsTable);
+  const pendingByCrewId = new Map<string, number>();
+  for (const p of packetRows) {
+    if (p.status !== "submitted") {
+      pendingByCrewId.set(p.crewId, (pendingByCrewId.get(p.crewId) ?? 0) + 1);
+    }
+  }
+
   res.json(
     ListCrewsResponse.parse(
       crews.map((c) => {
@@ -2121,6 +2133,7 @@ router.get("/crews", async (_req, res): Promise<void> => {
             : "idle",
           todayJob: job?.jobNo ?? null,
           todayProperty: job ? (propName.get(job.propertyId) ?? null) : null,
+          pendingPackets: pendingByCrewId.get(c.id) ?? 0,
         };
       }),
     ),

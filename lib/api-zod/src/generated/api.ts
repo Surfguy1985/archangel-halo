@@ -4262,7 +4262,8 @@ export const ListCrewsResponseItem = zod.object({
   "selfiePath": zod.string().nullish(),
   "todayStatus": zod.string().nullish().describe('route | site | done | idle'),
   "todayJob": zod.string().nullish(),
-  "todayProperty": zod.string().nullish()
+  "todayProperty": zod.string().nullish(),
+  "pendingPackets": zod.number().int().optional().describe('Count of sent/in-progress packets not yet submitted')
 })
 export const ListCrewsResponse = zod.array(ListCrewsResponseItem)
 

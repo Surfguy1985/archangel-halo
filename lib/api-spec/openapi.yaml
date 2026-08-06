@@ -12381,6 +12381,7 @@ components:
         todayStatus: { type: ["string", "null"], description: "route | site | done | idle" }
         todayJob: { type: ["string", "null"] }
         todayProperty: { type: ["string", "null"] }
+        pendingPackets: { type: integer, description: "Count of sent/in-progress packets not yet submitted" }
     CrewMapPin:
       type: object
       required: [id, name]

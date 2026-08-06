@@ -88,6 +88,10 @@ import {
   ShieldCheck as ShieldCheckIcon,
   CheckCircle2,
   Shield,
+  Play,
+  Volume2,
+  VolumeX,
+  ChevronRight,
 } from "lucide-react";
 import { downloadW9Pdf } from "@/lib/w9pdf";
 import {
@@ -207,6 +211,10 @@ export default function CrewPortal() {
   const [invoiceJobId, setInvoiceJobId] = useState<string | null>(null);
   // Controls the "More" bottom sheet that exposes all non-card tabs.
   const [moreOpen, setMoreOpen] = useState(false);
+  // Training intro: show before the agreement, once per session
+  const [trainingDone, setTrainingDone] = useState<boolean>(
+    () => sessionStorage.getItem(`trainingDone:${token}`) === "1",
+  );
   const queryClient = useQueryClient();
 
   const { data: portal, isLoading, isError } = useGetPortal(token);
@@ -383,12 +391,241 @@ export default function CrewPortal() {
         </SheetContent>
       </Sheet>
 
-      {!portal.crew.agreementAcceptedAt && (
+      {!portal.crew.agreementAcceptedAt && !trainingDone && (
+        <TrainingModal
+          token={token}
+          crewName={portal.crew.name}
+          onDone={() => {
+            sessionStorage.setItem(`trainingDone:${token}`, "1");
+            setTrainingDone(true);
+          }}
+        />
+      )}
+      {!portal.crew.agreementAcceptedAt && trainingDone && (
         <AgreementModal token={token} crewName={portal.crew.name} />
       )}
       {portal.crew.agreementAcceptedAt && !portal.crew.selfiePath && (
         <SelfieModal token={token} crewName={portal.crew.name} />
       )}
+    </div>
+  );
+}
+
+// ─── Training Module ──────────────────────────────────────────────────────────
+
+const TRAINING_SLIDES = [
+  {
+    icon: Play,
+    color: "#B4FF44",
+    title: "Welcome to ArchAngel HALO",
+    body: "Here's a quick 30-second walkthrough before you get started. Tap anywhere or wait to advance.",
+    speech: "Welcome to ArchAngel HALO. Here's a quick walkthrough before you get started.",
+  },
+  {
+    icon: MapPin,
+    color: "#60a5fa",
+    title: "Check in when you arrive",
+    body: "Tap Check In the moment you're on site. Your GPS location is recorded as tamper-proof proof you were there.",
+    speech: "Always tap Check In when you arrive on site. Your GPS location is recorded as proof you were there.",
+  },
+  {
+    icon: Camera,
+    color: "#34d399",
+    title: "Take before & after photos",
+    body: "Photograph the work area before you start and after you finish. Photos are sealed the instant they upload — they protect you.",
+    speech: "Photograph the work area before you start and after you finish. Photos are sealed the moment they upload and protect you from disputes.",
+  },
+  {
+    icon: CheckSquare,
+    color: "#f472b6",
+    title: "Complete your checklist",
+    body: "Check off each task as you work. When the last item is done, the job advances automatically.",
+    speech: "Check off each task on your list as you work. The last checkmark moves the job forward automatically.",
+  },
+  {
+    icon: LogOut,
+    color: "#fbbf24",
+    title: "Clock out & send your invoice",
+    body: "Clock out when the job is done, then send your invoice. Completed, documented jobs get paid faster.",
+    speech: "When the job is done, clock out and send your invoice. Documented jobs get paid faster.",
+  },
+] as const;
+
+function TrainingModal({
+  crewName,
+  onDone,
+}: {
+  token: string;
+  crewName: string;
+  onDone: () => void;
+}) {
+  const [slide, setSlide] = useState(0);
+  const [progress, setProgress] = useState(0); // 0–100 within current slide
+  const [muted, setMuted] = useState(false);
+  const genRef = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const total = TRAINING_SLIDES.length;
+  const SLIDE_MS = 5000;
+
+  const advance = () => {
+    setSlide((s) => {
+      if (s + 1 >= total) { onDone(); return s; }
+      return s + 1;
+    });
+    setProgress(0);
+  };
+
+  // SpeechSynthesis narration — guarded by genRef to avoid stale callbacks
+  useEffect(() => {
+    if (muted || typeof window === "undefined" || !window.speechSynthesis) return;
+    const gen = ++genRef.current;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(TRAINING_SLIDES[slide].speech);
+    utt.rate = 1.05;
+    utt.pitch = 1;
+    utt.onend = () => { if (genRef.current === gen) advance(); };
+    // Small delay so the UI renders first
+    const tid = setTimeout(() => {
+      if (genRef.current === gen) window.speechSynthesis.speak(utt);
+    }, 400);
+    return () => {
+      clearTimeout(tid);
+      window.speechSynthesis.cancel();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slide, muted]);
+
+  // Fallback timer progress bar (also drives auto-advance when muted)
+  useEffect(() => {
+    setProgress(0);
+    const tick = 50; // ms per tick
+    let elapsed = 0;
+    intervalRef.current = setInterval(() => {
+      elapsed += tick;
+      setProgress(Math.min((elapsed / SLIDE_MS) * 100, 100));
+      if (elapsed >= SLIDE_MS) {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        if (muted) advance();
+      }
+    }, tick);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slide, muted]);
+
+  const s = TRAINING_SLIDES[slide];
+  const SlideIcon = s.icon;
+  const isLast = slide === total - 1;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ background: "#080D1A" }}
+      onClick={advance}
+    >
+      {/* Progress segments */}
+      <div
+        className="flex gap-[4px] px-[20px] pb-[8px]"
+        style={{ paddingTop: "max(20px, calc(env(safe-area-inset-top) + 12px))" }}
+      >
+        {TRAINING_SLIDES.map((_, i) => (
+          <div
+            key={i}
+            className="flex-1 h-[3px] rounded-full overflow-hidden"
+            style={{ background: "rgba(255,255,255,0.12)" }}
+          >
+            <div
+              className="h-full rounded-full transition-none"
+              style={{
+                background: s.color,
+                width: i < slide ? "100%" : i === slide ? `${progress}%` : "0%",
+              }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Header row */}
+      <div className="flex items-center justify-between px-[20px] py-[8px]">
+        <div className="text-[10px] font-bold tracking-[0.22em] uppercase" style={{ color: "#B4FF44" }}>
+          ARCHANGEL · HALO
+        </div>
+        <div className="flex items-center gap-[10px]">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setMuted((m) => !m); }}
+            className="p-[6px] rounded-full text-white/40 hover:text-white/70 transition-colors"
+          >
+            {muted
+              ? <VolumeX className="w-[16px] h-[16px]" />
+              : <Volume2 className="w-[16px] h-[16px]" />}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDone(); }}
+            className="text-[12px] font-bold text-white/35 hover:text-white/70 px-[10px] py-[5px] rounded-full border border-white/10 transition-colors"
+          >
+            Skip
+          </button>
+        </div>
+      </div>
+
+      {/* Slide content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-[32px] text-center gap-[20px]">
+        <div
+          className="w-[88px] h-[88px] rounded-[28px] grid place-items-center shadow-2xl"
+          style={{
+            background: `${s.color}18`,
+            border: `1.5px solid ${s.color}40`,
+          }}
+        >
+          <SlideIcon
+            className="w-[40px] h-[40px]"
+            style={{ color: s.color }}
+          />
+        </div>
+
+        <div>
+          <div className="font-display font-bold text-[24px] text-white leading-tight mb-[10px]">
+            {slide === 0 ? (
+              <>Welcome, <span style={{ color: "#B4FF44" }}>{crewName}</span>!</>
+            ) : s.title}
+          </div>
+          <div className="text-[15px] text-white/55 leading-relaxed max-w-[320px] mx-auto">
+            {s.body}
+          </div>
+        </div>
+
+        {/* Step counter */}
+        <div className="flex gap-[6px] mt-[4px]">
+          {TRAINING_SLIDES.map((_, i) => (
+            <div
+              key={i}
+              className="rounded-full transition-all"
+              style={{
+                width: i === slide ? 20 : 6,
+                height: 6,
+                background: i === slide ? s.color : "rgba(255,255,255,0.15)",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Bottom CTA */}
+      <div className="px-[24px] pb-[40px] pt-[16px]" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={advance}
+          className="w-full flex items-center justify-center gap-[8px] rounded-[16px] py-[15px] text-[16px] font-display font-bold text-black transition-transform active:scale-[0.97]"
+          style={{ background: s.color }}
+        >
+          {isLast ? (
+            <><Check className="w-[18px] h-[18px]" /> Got it — open my portal</>
+          ) : (
+            <>Next <ChevronRight className="w-[18px] h-[18px]" /></>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

@@ -123,6 +123,13 @@ export default function Crews() {
                           <div className="w-[4px] h-[4px] bg-white rounded-full animate-pulse" />
                         </div>
                       )}
+                      {!isOnSite && (crew.pendingPackets ?? 0) > 0 && (
+                        <div className="absolute -top-[4px] -right-[4px] min-w-[16px] h-[16px] rounded-full bg-red-500 border-2 border-card flex items-center justify-center px-[3px]">
+                          <span className="text-[9px] font-bold text-white leading-none">
+                            {(crew.pendingPackets ?? 0) > 9 ? "9+" : crew.pendingPackets}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     
                     <div>
