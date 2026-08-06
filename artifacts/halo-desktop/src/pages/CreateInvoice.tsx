@@ -21,7 +21,18 @@ import {
   getGetTodayQueryKey,
   type InvoiceLineItemInput,
 } from "@workspace/api-client-react";
-import { AlertTriangle, ChevronLeft, Pencil, Plus, Save, Send, ShieldCheck, Trash2, Zap} from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, Pencil, Plus, Save, Send, ShieldCheck, Trash2, Zap} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast} from "@/hooks/use-toast";
 import { Button} from "@/components/ui/button";
 import { Input} from "@/components/ui/input";
@@ -176,6 +187,18 @@ export default function CreateInvoice() {
  });
   const priceItems = propertyDetail?.priceItems ?? [];
 
+  // Group price-book items by category for the dropdown submenu.
+  const priceGroups = useMemo(() => {
+    const map = new Map<string, typeof priceItems>();
+    for (const pi of priceItems) {
+      const cat = pi.category?.trim() || "General";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(pi);
+    }
+    return map;
+  }, [priceItems]);
+  const hasCategories = priceGroups.size > 1;
+
   const quickAdd = (service: string, rate: number) => {
     setItems((prev) => {
       const existing = prev.find(
@@ -264,20 +287,25 @@ export default function CreateInvoice() {
     onPickProperty(job.propertyId ?? initialPropertyId);
     setJobId(job.id);
     const lineItems = job.lineItems ?? [];
-    if (lineItems.length) {
+    // Prefer completed scope items (checked off by the crew) so the invoice
+    // reflects exactly what was done. Fall back to all items if none are marked
+    // complete yet (invoice created before the crew finishes).
+    const completedItems = lineItems.filter((li) => li.completedAt != null);
+    const itemsToUse = completedItems.length > 0 ? completedItems : lineItems;
+    if (itemsToUse.length) {
       setItems(
-        lineItems.map((li) => ({
-          dateOfWork: "",
+        itemsToUse.map((li) => ({
+          dateOfWork: li.completedAt ? li.completedAt.slice(0, 10) : "",
           unitNo: job.unitNo ?? "",
           typeOfWork: li.service,
           description: "",
           qty: String(li.qty),
           unitPrice: String(li.rate),
-       })),
+        })),
       );
-   } else {
+    } else {
       setItems([{ ...emptyItem(), unitNo: job.unitNo ?? "", typeOfWork: [job.category, job.description].filter(Boolean).join(" — ")}]);
-   }
+    }
  }, [initialJobId, initialPropertyId, initialJobDetail, properties]);
 
   const total = useMemo(
@@ -554,28 +582,66 @@ export default function CreateInvoice() {
           {/* Line items */}
           <div className="pt-4 border-t border-border">
             {propertyId && priceItems.length > 0 && (
-              <div className="mb-4 p-3 rounded-2xl bg-[var(--gold-tint)] border border-[var(--primary)]/40">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Zap className="w-3.5 h-3.5 text-[var(--secondary)]" />
-                  <span className={labelCls}>Click to add from this property's price book</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {priceItems.map((pi) => (
-                    <button
-                      key={pi.id}
-                      onClick={() => quickAdd(pi.service, pi.rate)}
-                      className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-white border border-border shadow-sm text-[13px] font-semibold hover:border-[var(--secondary)] active:scale-95 transition-all"
-                    >
-                      {pi.service}
-                      <span className="text-xs font-bold text-[var(--secondary)] tabular-nums">
-                        {money(pi.rate)}
-                      </span>
-                      <span className="w-4 h-4 rounded-full bg-[var(--primary)] grid place-items-center">
-                        <Plus className="w-2.5 h-2.5 text-black" strokeWidth={3} />
-                      </span>
+              <div className="mb-4 flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="inline-flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full bg-[var(--gold-tint)] border border-[var(--primary)]/60 text-[13px] font-semibold hover:bg-[var(--primary)]/20 active:scale-95 transition-all">
+                      <Zap className="w-3.5 h-3.5 text-[var(--secondary)]" />
+                      Add from price book
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground rotate-90" />
                     </button>
-                  ))}
-                </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-64 max-h-80 overflow-y-auto">
+                    {hasCategories
+                      ? Array.from(priceGroups.entries()).map(([cat, items]) => (
+                          <DropdownMenuSub key={cat}>
+                            <DropdownMenuSubTrigger className="font-semibold text-[13px]">
+                              {cat}
+                              <span className="ml-auto text-[11px] text-muted-foreground font-normal">
+                                {items.length}
+                              </span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-60 max-h-72 overflow-y-auto">
+                              {items.map((pi) => (
+                                <DropdownMenuItem
+                                  key={pi.id}
+                                  onClick={() => quickAdd(pi.service, pi.rate)}
+                                  className="flex justify-between text-[13px] cursor-pointer"
+                                >
+                                  <span className="truncate flex-1 mr-2">{pi.service}</span>
+                                  <span className="font-bold text-[var(--secondary)] tabular-nums shrink-0">
+                                    {money(pi.rate)}
+                                  </span>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                        ))
+                      : (
+                        <>
+                          <DropdownMenuLabel className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">
+                            Price book
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          {priceItems.map((pi) => (
+                            <DropdownMenuItem
+                              key={pi.id}
+                              onClick={() => quickAdd(pi.service, pi.rate)}
+                              className="flex justify-between text-[13px] cursor-pointer"
+                            >
+                              <span className="truncate flex-1 mr-2">{pi.service}</span>
+                              <span className="font-bold text-[var(--secondary)] tabular-nums shrink-0">
+                                {money(pi.rate)}
+                              </span>
+                            </DropdownMenuItem>
+                          ))}
+                        </>
+                      )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <span className="text-[12px] text-muted-foreground">
+                  {priceItems.length} item{priceItems.length !== 1 ? "s" : ""} in this property's price book
+                </span>
               </div>
             )}
             <div className="hidden md:grid grid-cols-[110px_70px_1fr_64px_96px_96px_32px] gap-2 px-1 pb-2">
