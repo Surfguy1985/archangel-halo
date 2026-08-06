@@ -3255,6 +3255,29 @@ export const CompleteWalkResponse = zod.object({
 
 
 /**
+ * @summary Transcribe a hold-to-talk clip and parse it into prefilled capture drafts (nothing is saved)
+ */
+export const ParseWalkVoiceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ParseWalkVoiceBody = zod.object({
+  "audioBase64": zod.string().describe('Base64-encoded audio clip (webm\/mp4\/wav), max ~60s'),
+  "mimeType": zod.string().describe('Audio MIME type, e.g. audio\/webm')
+})
+
+export const ParseWalkVoiceResponse = zod.object({
+  "transcript": zod.string(),
+  "items": zod.array(zod.object({
+  "unitNo": zod.string().nullish(),
+  "service": zod.string().nullish(),
+  "qty": zod.number().nullish(),
+  "note": zod.string().nullish()
+}))
+})
+
+
+/**
  * @summary Job board cards (job + property price list + photos + broadcast statuses)
  */
 export const ListJobBoardResponseItem = zod.object({

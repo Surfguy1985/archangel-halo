@@ -25,9 +25,15 @@ import {
   CompleteWalkParams,
   CompleteWalkBody,
   CompleteWalkResponse,
+  ParseWalkVoiceParams,
+  ParseWalkVoiceBody,
+  ParseWalkVoiceResponse,
 } from "@workspace/api-zod";
+import { openai, toFile } from "@workspace/integrations-openai-ai-server";
 import { limits } from "../lib/rateLimit";
 import { ensurePropertiesGeocoded } from "../lib/geocode";
+import { completeJson } from "../lib/ai";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -296,6 +302,99 @@ router.post("/walks/:id/captures", limits.walkWrite, async (req, res): Promise<v
     return;
   }
   res.status(201).json(AddWalkCaptureResponse.parse(captureDto(outcome.row)));
+});
+
+// Hold-to-talk: transcribe a short clip and parse it into capture DRAFTS.
+// Nothing is saved here — the walker confirms each prefilled item in the UI.
+router.post("/walks/:id/voice-capture", limits.walkWrite, async (req, res): Promise<void> => {
+  const { id } = ParseWalkVoiceParams.parse(req.params);
+  const body = ParseWalkVoiceBody.parse(req.body);
+  const walk = await loadWalk(id);
+  if (!walk) {
+    res.status(404).json({ error: "Walk not found" });
+    return;
+  }
+  if (walk.status === "completed") {
+    res.status(409).json({ error: "Walk already completed" });
+    return;
+  }
+  // ~60s of compressed audio is well under this; reject runaway payloads.
+  if (body.audioBase64.length > 8 * 1024 * 1024) {
+    res.status(422).json({ error: "Recording too long — keep it under a minute" });
+    return;
+  }
+  let audio: Buffer;
+  try {
+    audio = Buffer.from(body.audioBase64, "base64");
+  } catch {
+    res.status(422).json({ error: "Could not read the audio — try again" });
+    return;
+  }
+  if (audio.length < 1000) {
+    res.status(422).json({ error: "That was too short — hold the button while you talk" });
+    return;
+  }
+
+  const ext = body.mimeType.includes("mp4") || body.mimeType.includes("m4a")
+    ? "m4a"
+    : body.mimeType.includes("mpeg") || body.mimeType.includes("mp3")
+      ? "mp3"
+      : body.mimeType.includes("ogg")
+        ? "ogg"
+        : body.mimeType.includes("wav")
+          ? "wav"
+          : "webm";
+  let transcript = "";
+  try {
+    const result = await openai.audio.transcriptions.create({
+      file: await toFile(audio, `capture.${ext}`, { type: body.mimeType }),
+      model: "gpt-4o-mini-transcribe",
+    });
+    transcript = (result.text ?? "").trim();
+  } catch (err) {
+    logger.warn({ err }, "Walk voice transcription failed");
+    res.status(422).json({ error: "Couldn't hear that — try again" });
+    return;
+  }
+  if (!transcript) {
+    res.status(422).json({ error: "Couldn't hear anything — hold the button and speak" });
+    return;
+  }
+
+  // Parse into drafts, aligned to the property's price book where possible.
+  const priceRows = await db
+    .select({ service: priceItemsTable.service })
+    .from(priceItemsTable)
+    .where(eq(priceItemsTable.propertyId, walk.propertyId));
+  const services = priceRows.map((p) => p.service);
+  type Draft = { unitNo?: string | null; service?: string | null; qty?: number | null; note?: string | null };
+  let items: Draft[] = [];
+  try {
+    const parsed = await completeJson<{ items: Draft[] }>(
+      `You turn a contractor's spoken walk note into capture items. Each item: { "unitNo": string|null (unit number or area like "Gym", null if not said), "service": string|null (what work is needed), "qty": number|null (default 1), "note": string|null (extra detail) }.
+The property's price-book services are: ${services.join(", ") || "none"}. When the spoken work clearly matches one of them, use the price-book service name EXACTLY as listed. Otherwise use the speaker's own short phrase.
+One utterance can contain multiple items and multiple units ("unit 204 two blinds, unit 206 paint touch-up" = 2 items). Carry a spoken unit forward to following items until a new unit is named. Do not invent work that was not said. Return {"items": [...]}; return {"items": []} if nothing actionable.`,
+      transcript,
+      2048,
+    );
+    items = Array.isArray(parsed.items) ? parsed.items : [];
+  } catch (err) {
+    logger.warn({ err }, "Walk voice parse failed");
+    res.status(422).json({ error: "Heard you, but couldn't make out the items — try again" });
+    return;
+  }
+
+  res.json(
+    ParseWalkVoiceResponse.parse({
+      transcript,
+      items: items.slice(0, 20).map((i) => ({
+        unitNo: i.unitNo?.toString().trim() || null,
+        service: i.service?.toString().trim() || null,
+        qty: typeof i.qty === "number" && Number.isFinite(i.qty) && i.qty > 0 ? i.qty : null,
+        note: i.note?.toString().trim() || null,
+      })),
+    }),
+  );
 });
 
 router.delete("/walk-captures/:id", limits.walkWrite, async (req, res): Promise<void> => {

@@ -7494,6 +7494,29 @@ export interface WalkCaptureInput {
   lng?: number | null;
 }
 
+export interface WalkVoiceInput {
+  /** Base64-encoded audio clip (webm/mp4/wav), max ~60s */
+  audioBase64: string;
+  /** Audio MIME type, e.g. audio/webm */
+  mimeType: string;
+}
+
+export type WalkVoiceResultItemsItem = {
+  /** @nullable */
+  unitNo?: string | null;
+  /** @nullable */
+  service?: string | null;
+  /** @nullable */
+  qty?: number | null;
+  /** @nullable */
+  note?: string | null;
+};
+
+export interface WalkVoiceResult {
+  transcript: string;
+  items: WalkVoiceResultItemsItem[];
+}
+
 export type WalkDetailCreatedJobsItem = {
   id: string;
   jobNo: string;

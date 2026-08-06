@@ -2068,6 +2068,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /walks/{id}/voice-capture:
+    post:
+      operationId: parseWalkVoice
+      tags: [walks]
+      summary: Transcribe a hold-to-talk clip and parse it into prefilled capture drafts (nothing is saved)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalkVoiceInput"
+      responses:
+        "200":
+          description: Parsed capture drafts for confirmation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalkVoiceResult"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Walk already completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Could not understand the audio — retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /job-board:
     get:
       operationId: listJobBoard
@@ -16180,6 +16222,28 @@ components:
         note: { type: ["string", "null"] }
         lat: { type: ["number", "null"] }
         lng: { type: ["number", "null"] }
+
+    WalkVoiceInput:
+      type: object
+      required: [audioBase64, mimeType]
+      properties:
+        audioBase64: { type: string, description: "Base64-encoded audio clip (webm/mp4/wav), max ~60s" }
+        mimeType: { type: string, description: "Audio MIME type, e.g. audio/webm" }
+
+    WalkVoiceResult:
+      type: object
+      required: [transcript, items]
+      properties:
+        transcript: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              unitNo: { type: ["string", "null"] }
+              service: { type: ["string", "null"] }
+              qty: { type: ["number", "null"] }
+              note: { type: ["string", "null"] }
 
     WalkDetail:
       type: object

@@ -379,6 +379,8 @@ import type {
   WalkDetail,
   WalkInput,
   WalkTarget,
+  WalkVoiceInput,
+  WalkVoiceResult,
   WingsAuditEntry,
   WingsAutomationRun,
   WingsCandidate,
@@ -6741,6 +6743,78 @@ export const useCompleteWalk = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getCompleteWalkMutationOptions(options));
+    }
+
+export const getParseWalkVoiceUrl = (id: string,) => {
+
+
+
+
+  return `/api/walks/${id}/voice-capture`
+}
+
+/**
+ * @summary Transcribe a hold-to-talk clip and parse it into prefilled capture drafts (nothing is saved)
+ */
+export const parseWalkVoice = async (id: string,
+    walkVoiceInput: WalkVoiceInput, options?: RequestInit): Promise<WalkVoiceResult> => {
+
+  return customFetch<WalkVoiceResult>(getParseWalkVoiceUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(walkVoiceInput)
+  }
+);}
+
+
+
+
+
+export const getParseWalkVoiceMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseWalkVoice>>, TError,{id: string;data: BodyType<WalkVoiceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof parseWalkVoice>>, TError,{id: string;data: BodyType<WalkVoiceInput>}, TContext> => {
+
+const mutationKey = ['parseWalkVoice'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof parseWalkVoice>>, {id: string;data: BodyType<WalkVoiceInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  parseWalkVoice(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ParseWalkVoiceMutationResult = NonNullable<Awaited<ReturnType<typeof parseWalkVoice>>>
+    export type ParseWalkVoiceMutationBody = BodyType<WalkVoiceInput>
+    export type ParseWalkVoiceMutationError = ErrorType<Error>
+
+    /**
+ * @summary Transcribe a hold-to-talk clip and parse it into prefilled capture drafts (nothing is saved)
+ */
+export const useParseWalkVoice = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseWalkVoice>>, TError,{id: string;data: BodyType<WalkVoiceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof parseWalkVoice>>,
+        TError,
+        {id: string;data: BodyType<WalkVoiceInput>},
+        TContext
+      > => {
+      return useMutation(getParseWalkVoiceMutationOptions(options));
     }
 
 export const getListJobBoardUrl = () => {

@@ -84,6 +84,7 @@
 - [HALO dispatch board](halo-dispatch-board.md) — dispatch is board-neutral (never touches vendor board); crew-ownership guard lives in offer approve; portal feed spans the month.
 - [HALO change orders](halo-change-orders.md) — pending CO is a flag, never a boardStatus change; three rail derivations must stay in sync; CO only valid for the unit's current live job.
 - [HALO crew office access](halo-crew-office-access.md) — portal links never carry permissions: office-view grants re-checked server-side per read, scoped, and must never expose money/client data.
+- [HALO Walk voice capture](halo-walk-voice.md) — OpenAI proxy: no TTS, no whisper-1; transcribe with gpt-4o-mini-transcribe; voice endpoint returns drafts only, captures can be photo-less.
 - [HALO Walk app](halo-walk-app.md) — walk→jobs completion is lock-guarded + transactional; line-item rates resolved server-side from the price book; 401s route to the app's own lock screen.
 - [HALO legacy board redirects](halo-legacy-board-redirects.md) — legacy /dashboard & /client links replace() to /board; must carry search+hash or deep links (?present=1) silently break on live.
 - [HALO Wings Program profit share](halo-wings-program.md) — 12% pot explainer + live Wings calc in portal wings tab; exact-years eligibility; crews.role/hire_date must ride every crew read model; ?tab= deep links skip offers auto-pull.

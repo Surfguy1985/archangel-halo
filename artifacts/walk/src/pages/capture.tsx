@@ -6,7 +6,9 @@ import {
   useAddWalkCapture,
   useDeleteWalkCapture,
   useDeleteWalk,
+  useParseWalkVoice,
   WalkCapture,
+  WalkVoiceResultItemsItem,
   getGetWalkQueryKey,
   getGetPropertyQueryKey
 } from '@workspace/api-client-react';
@@ -24,7 +26,8 @@ import {
   Tag,
   CheckCircle2,
   MoreVertical,
-  Plus
+  Plus,
+  Mic
 } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter, DrawerDescription } from '@/components/ui/drawer';
 import { useToast } from '@/hooks/use-toast';
@@ -80,6 +83,18 @@ export default function CaptureScreen() {
   const [deleteDrawerOpen, setDeleteDrawerOpen] = useState(false);
   const [captureToDelete, setCaptureToDelete] = useState<string | null>(null);
 
+  // Hold-to-talk state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordSecs, setRecordSecs] = useState(0);
+  const [voiceQueue, setVoiceQueue] = useState<WalkVoiceResultItemsItem[]>([]);
+  const [voiceIndex, setVoiceIndex] = useState(0);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const holdActiveRef = useRef(false);
+  const parseVoice = useParseWalkVoice({ request: { credentials: 'include' } });
+
   // Mutations
   const addCapture = useAddWalkCapture({ request: { credentials: 'include' } });
   const deleteCapture = useDeleteWalkCapture({ request: { credentials: 'include' } });
@@ -103,6 +118,133 @@ export default function CaptureScreen() {
         },
       },
     );
+  };
+
+  // ----- Hold-to-talk -----
+  const openVoiceDraft = (items: WalkVoiceResultItemsItem[], index: number) => {
+    const item = items[index];
+    if (!item) return;
+    const svc = item.service ?? '';
+    const bookMatch = property?.priceItems?.find(
+      p => p.service.trim().toLowerCase() === svc.trim().toLowerCase()
+    );
+    setCurrentPhotoPath('');
+    setFormUnit(item.unitNo ?? lastUnit);
+    setFormService(bookMatch ? bookMatch.service : svc);
+    setFormUnitPrice(bookMatch?.rate || undefined);
+    setFormQty(item.qty && item.qty > 0 ? item.qty : 1);
+    setFormNote(item.note ?? '');
+    setIsTagging(true);
+  };
+
+  const stopTimer = () => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  };
+
+  const cleanupStream = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+  };
+
+  const startRecording = async () => {
+    if (isRecording || parseVoice.isPending) return;
+    holdActiveRef.current = true;
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      toast({ title: 'Voice not supported', description: 'This browser cannot record audio.', variant: 'destructive' });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // If the finger lifted while the permission prompt was up, bail out.
+      if (!holdActiveRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
+      streamRef.current = stream;
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+      const rec = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      rec.onstop = () => {
+        cleanupStream();
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+        chunksRef.current = [];
+        if (blob.size < 2000) return; // accidental tap — ignore quietly
+        void submitVoiceClip(blob);
+      };
+      recorderRef.current = rec;
+      rec.start();
+      setIsRecording(true);
+      setRecordSecs(0);
+      timerRef.current = setInterval(() => {
+        setRecordSecs(s => {
+          if (s + 1 >= 60) stopRecording(); // hard cap
+          return s + 1;
+        });
+      }, 1000);
+    } catch {
+      toast({
+        title: 'Microphone blocked',
+        description: 'Allow microphone access to talk your items in.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const stopRecording = () => {
+    holdActiveRef.current = false;
+    stopTimer();
+    setIsRecording(false);
+    const rec = recorderRef.current;
+    recorderRef.current = null;
+    if (rec && rec.state !== 'inactive') rec.stop();
+    else cleanupStream();
+  };
+
+  useEffect(() => () => { stopTimer(); cleanupStream(); }, []);
+
+  const submitVoiceClip = async (blob: Blob) => {
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+      reader.onerror = () => reject(new Error('Could not read recording'));
+      reader.readAsDataURL(blob);
+    });
+    parseVoice.mutate(
+      { id: walkId, data: { audioBase64: base64, mimeType: blob.type || 'audio/webm' } },
+      {
+        onSuccess: (result) => {
+          if (!result.items.length) {
+            toast({
+              title: 'No items caught',
+              description: `Heard: "${result.transcript}" — try naming the unit and the work.`,
+              variant: 'destructive',
+            });
+            return;
+          }
+          setVoiceQueue(result.items);
+          setVoiceIndex(0);
+          openVoiceDraft(result.items, 0);
+        },
+        onError: (err: any) => {
+          toast({
+            title: 'Try that again',
+            description: err?.data?.error || err?.message || 'Could not process the recording.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
+
+  const advanceVoiceQueue = () => {
+    if (voiceQueue.length === 0) return;
+    const next = voiceIndex + 1;
+    if (next < voiceQueue.length) {
+      setVoiceIndex(next);
+      openVoiceDraft(voiceQueue, next);
+    } else {
+      setVoiceQueue([]);
+      setVoiceIndex(0);
+    }
   };
 
   // Handle Photo Capture
@@ -159,7 +301,7 @@ export default function CaptureScreen() {
         id: walkId,
         data: {
           unitNo: formUnit || 'Common Area',
-          storagePath: currentPhotoPath,
+          storagePath: currentPhotoPath || undefined,
           service: formService,
           qty: formQty,
           unitPrice: formUnitPrice,
@@ -172,6 +314,7 @@ export default function CaptureScreen() {
         onSuccess: () => {
           setLastUnit(formUnit); // Remember for next time
           setIsTagging(false);
+          advanceVoiceQueue(); // next prefilled voice draft, if any
           refetchWalk(); // refresh list
           toast({ 
             title: (
@@ -286,12 +429,18 @@ export default function CaptureScreen() {
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
                     <div className="w-16 h-16 shrink-0 bg-muted rounded-xl overflow-hidden relative shadow-inner">
-                      <img 
-                        src={`/api/storage/objects${cap.storagePath}`} 
-                        alt="capture" 
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
+                      {cap.storagePath ? (
+                        <img 
+                          src={`/api/storage/objects${cap.storagePath}`} 
+                          alt="capture" 
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                          <Mic className="w-6 h-6" />
+                        </div>
+                      )}
                       <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-xl" />
                     </div>
                     <div className="flex-1 min-w-0 py-1">
@@ -320,7 +469,7 @@ export default function CaptureScreen() {
       </div>
 
       {/* Bottom Action Bar */}
-      <div className="shrink-0 bg-background/90 backdrop-blur-md border-t border-black/[0.03] p-4 pb-6 flex justify-center z-20">
+      <div className="shrink-0 bg-background/90 backdrop-blur-md border-t border-black/[0.03] p-4 pb-6 flex justify-center gap-3 z-20">
         <input 
           type="file" 
           accept="image/*" 
@@ -330,7 +479,7 @@ export default function CaptureScreen() {
           onChange={handleFileSelect}
         />
         <Button 
-          className="w-full max-w-sm h-14 rounded-full shadow-float text-lg font-extrabold active:scale-[0.98] transition-all"
+          className="flex-1 max-w-sm h-14 rounded-full shadow-float text-lg font-extrabold active:scale-[0.98] transition-all"
           size="lg"
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
@@ -345,7 +494,34 @@ export default function CaptureScreen() {
             </>
           )}
         </Button>
+        <button
+          className={`h-14 w-14 shrink-0 rounded-full flex items-center justify-center shadow-float transition-all select-none touch-none active:scale-95 ${
+            isRecording
+              ? 'bg-destructive text-destructive-foreground animate-pulse'
+              : parseVoice.isPending
+                ? 'bg-muted text-muted-foreground'
+                : 'bg-foreground text-background'
+          }`}
+          onPointerDown={(e) => { e.preventDefault(); void startRecording(); }}
+          onPointerUp={stopRecording}
+          onPointerLeave={() => { if (isRecording) stopRecording(); }}
+          onPointerCancel={stopRecording}
+          onContextMenu={(e) => e.preventDefault()}
+          disabled={parseVoice.isPending || isUploading}
+          aria-label="Hold to talk"
+          data-testid="button-hold-to-talk"
+        >
+          {parseVoice.isPending ? <Loader2 className="w-6 h-6 animate-spin" /> : <Mic className="w-6 h-6" />}
+        </button>
       </div>
+
+      {/* Recording overlay chip */}
+      {isRecording && (
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-30 bg-destructive text-destructive-foreground rounded-full px-5 py-2.5 shadow-float flex items-center gap-2 font-extrabold text-sm animate-in fade-in slide-in-from-bottom-2" data-testid="chip-recording">
+          <span className="w-2.5 h-2.5 rounded-full bg-destructive-foreground animate-pulse" />
+          Listening… {recordSecs}s — release when done
+        </div>
+      )}
 
       {/* Delete Options Drawer */}
       <Drawer open={deleteDrawerOpen} onOpenChange={setDeleteDrawerOpen}>
@@ -378,8 +554,15 @@ export default function CaptureScreen() {
       <Drawer open={isTagging} onOpenChange={setIsTagging} dismissible={false}>
         <DrawerContent className="max-h-[95dvh] flex flex-col bg-background border-0 rounded-t-3xl overflow-hidden">
           <DrawerHeader className="border-b border-black/[0.05] pb-4 shrink-0 bg-background z-10 px-6 pt-6 flex justify-between items-center">
-            <DrawerTitle className="text-2xl font-extrabold">Item Details</DrawerTitle>
-            <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80" onClick={() => setIsTagging(false)}>
+            <div className="flex items-center gap-2">
+              <DrawerTitle className="text-2xl font-extrabold">Item Details</DrawerTitle>
+              {voiceQueue.length > 0 && (
+                <span className="text-[11px] font-extrabold bg-primary text-primary-foreground rounded-full px-2.5 py-1 uppercase tracking-wide" data-testid="badge-voice-item">
+                  Voice {voiceIndex + 1}/{voiceQueue.length}
+                </span>
+              )}
+            </div>
+            <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80" onClick={() => { setIsTagging(false); advanceVoiceQueue(); }}>
               <X className="w-5 h-5" />
             </Button>
           </DrawerHeader>
