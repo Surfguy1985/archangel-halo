@@ -215,6 +215,10 @@ export default function CrewPortal() {
   const [trainingDone, setTrainingDone] = useState<boolean>(
     () => sessionStorage.getItem(`trainingDone:${token}`) === "1",
   );
+  // Welcome Kit popup: show after agreement, before selfie, once per session
+  const [kitDone, setKitDone] = useState<boolean>(
+    () => sessionStorage.getItem(`kitDone:${token}`) === "1",
+  );
   const queryClient = useQueryClient();
 
   const { data: portal, isLoading, isError } = useGetPortal(token);
@@ -404,7 +408,17 @@ export default function CrewPortal() {
       {!portal.crew.agreementAcceptedAt && trainingDone && (
         <AgreementModal token={token} crewName={portal.crew.name} />
       )}
-      {portal.crew.agreementAcceptedAt && !portal.crew.selfiePath && (
+      {portal.crew.agreementAcceptedAt && !portal.crew.selfiePath && !kitDone && (
+        <WelcomeKitModal
+          token={token}
+          crewName={portal.crew.name}
+          onDone={() => {
+            sessionStorage.setItem(`kitDone:${token}`, "1");
+            setKitDone(true);
+          }}
+        />
+      )}
+      {portal.crew.agreementAcceptedAt && !portal.crew.selfiePath && kitDone && (
         <SelfieModal token={token} crewName={portal.crew.name} />
       )}
     </div>
@@ -625,6 +639,72 @@ function TrainingModal({
             <>Next <ChevronRight className="w-[18px] h-[18px]" /></>
           )}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Welcome Kit Modal ────────────────────────────────────────────────────────
+
+function WelcomeKitModal({
+  token,
+  crewName,
+  onDone,
+}: {
+  token: string;
+  crewName: string;
+  onDone: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ background: "#080D1A" }}
+    >
+      {/* Header */}
+      <div
+        className="shrink-0 flex items-center justify-between px-[20px] pb-[14px] border-b"
+        style={{
+          paddingTop: "max(28px, calc(env(safe-area-inset-top) + 16px))",
+          borderColor: "rgba(255,255,255,0.07)",
+        }}
+      >
+        <div>
+          <div className="text-[10px] font-bold tracking-[0.22em] uppercase" style={{ color: "#B4FF44" }}>
+            ARCHANGEL · HALO
+          </div>
+          <div className="font-display font-bold text-[20px] text-white mt-[2px] flex items-center gap-[8px]">
+            <PackageCheck className="w-[18px] h-[18px]" style={{ color: "#B4FF44" }} />
+            Welcome Onboarding Kit
+          </div>
+          <div className="text-[12px] text-white/40 mt-[2px]">
+            Hi {crewName} — complete these before your first job
+          </div>
+        </div>
+      </div>
+
+      {/* Scrollable kit content */}
+      <div className="flex-1 overflow-y-auto px-[16px] py-[20px]">
+        {/* Render the full WelcomeKitTab — packet list + PacketRunner */}
+        <WelcomeKitTab token={token} />
+      </div>
+
+      {/* Sticky bottom CTA */}
+      <div
+        className="shrink-0 px-[20px] pt-[14px] pb-[32px] border-t"
+        style={{ borderColor: "rgba(255,255,255,0.07)", background: "#080D1A" }}
+      >
+        <button
+          type="button"
+          onClick={onDone}
+          className="w-full flex items-center justify-center gap-[8px] rounded-[16px] py-[15px] text-[16px] font-display font-bold text-black transition-transform active:scale-[0.97]"
+          style={{ background: "#B4FF44" }}
+        >
+          <ChevronRight className="w-[18px] h-[18px]" />
+          Continue to my portal
+        </button>
+        <p className="text-center text-[11px] text-white/30 mt-[10px]">
+          You can always come back to this kit under More → Onboarding Kit
+        </p>
       </div>
     </div>
   );
