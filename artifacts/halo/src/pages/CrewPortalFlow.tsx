@@ -58,7 +58,9 @@ import {
   PackageCheck,
   Zap,
   ChevronRight,
+  ChevronLeft,
   Clock,
+  PartyPopper,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useGpsTrail, getPosition, localDay } from "@/hooks/useGpsTrail";
@@ -134,13 +136,24 @@ const COPY = {
     afterBtn: "Take photo",
     afterMore: "Add more",
     afterCount: (n: number) => `${n} saved`,
-    notesTag: "Notes & clock-out",
+    notesTag: "Clock out",
     notesPlaceholder: "What did you complete? Any issues? (shown to office & client)",
     clockOut: "Clock out",
     moveOn: "Move on to next job →",
     nextLabel: (label: string) => `Up next: ${label}`,
+    clockoutTitle: "Job complete — ready to clock out",
+    clockoutTasks: (n: number) => `${n} task${n !== 1 ? "s" : ""} checked off`,
+    clockoutBeforePhotos: (n: number) => `${n} before photo${n !== 1 ? "s" : ""}`,
+    clockoutAfterPhotos: (n: number) => `${n} after photo${n !== 1 ? "s" : ""}`,
     idleTitle: "You're all caught up.",
     idleBody: "No jobs queued right now. New offers will appear here automatically.",
+    back: "Back",
+    homeTitle: "Today's jobs",
+    homeNoJobs: "No jobs scheduled today.",
+    statusWaiting: "Waiting",
+    statusOnSite: "On site",
+    statusDone: "Done",
+    resumeBtn: "Resume",
     emergencyTitle: "Emergency alert",
     emergencyAccept: "Accept",
     emergencyDismiss: "Dismiss",
@@ -194,13 +207,24 @@ const COPY = {
     afterBtn: "Tomar foto",
     afterMore: "Agregar más",
     afterCount: (n: number) => `${n} guardada${n !== 1 ? "s" : ""}`,
-    notesTag: "Notas y cierre",
+    notesTag: "Cerrar turno",
     notesPlaceholder: "¿Qué completaste? ¿Algún problema? (visible a la oficina y cliente)",
     clockOut: "Cerrar turno",
     moveOn: "Siguiente trabajo →",
     nextLabel: (label: string) => `Próximo: ${label}`,
+    clockoutTitle: "Trabajo completo — listo para cerrar",
+    clockoutTasks: (n: number) => `${n} tarea${n !== 1 ? "s" : ""} completada${n !== 1 ? "s" : ""}`,
+    clockoutBeforePhotos: (n: number) => `${n} foto${n !== 1 ? "s" : ""} antes`,
+    clockoutAfterPhotos: (n: number) => `${n} foto${n !== 1 ? "s" : ""} después`,
     idleTitle: "Todo listo por ahora.",
     idleBody: "No hay trabajos en cola. Las ofertas nuevas aparecerán aquí.",
+    back: "Atrás",
+    homeTitle: "Trabajos de hoy",
+    homeNoJobs: "Sin trabajos programados hoy.",
+    statusWaiting: "En espera",
+    statusOnSite: "En sitio",
+    statusDone: "Completado",
+    resumeBtn: "Continuar",
     emergencyTitle: "Alerta de emergencia",
     emergencyAccept: "Aceptar",
     emergencyDismiss: "Descartar",
@@ -394,10 +418,24 @@ function GhostBtn({
   );
 }
 
-function JobHeader({ job, checkedIn, t }: { job: PortalJobShape; checkedIn: boolean; t: typeof COPY.en }) {
+function JobHeader({
+  job, checkedIn, t, onBack,
+}: {
+  job: PortalJobShape; checkedIn: boolean; t: typeof COPY.en; onBack?: () => void;
+}) {
   return (
-    <div className="px-[22px] pt-[22px] pb-[16px] border-b border-white/[0.06]">
-      <div className="flex items-start justify-between gap-2">
+    <div className="px-[16px] pt-[16px] pb-[14px] border-b border-white/[0.06]">
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-[4px] text-[12px] font-bold text-white/35 hover:text-white/70 mb-[10px] transition-colors active:scale-[0.96]"
+        >
+          <ChevronLeft className="w-[14px] h-[14px]" />
+          {t.back}
+        </button>
+      )}
+      <div className="flex items-start justify-between gap-2 px-[6px]">
         <div className="min-w-0">
           <div className="font-display font-bold text-[20px] text-white leading-tight">
             {job.propertyName ?? "Job"}
@@ -438,6 +476,7 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
   const [localCheckedOut, setLocalCheckedOut] = useState<Record<string, boolean>>({});
   const [dismissedEmergency, setDismissedEmergency] = useState<Set<string>>(new Set());
   const [moreOpen, setMoreOpen] = useState(false);
+  const [showHome, setShowHome] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const pendingPhoto = useRef<{ jobId: string; phase: "before" | "after" } | null>(null);
 
@@ -649,6 +688,84 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
     { tab: "checkin", icon: MapPin, label: t.tracker },
   ];
 
+  // ── home / overview card ─────────────────────────────────────────────
+
+  const renderHome = () => {
+    const today = localToday();
+    const schedules = ((portal as unknown as { schedule?: ScheduleShape[] }).schedule) ?? [];
+    const activeJobs = (jobs ?? []).filter((j) => j.status !== "cancelled");
+    const todayJobs = activeJobs.filter((j) => {
+      const hasSchedule = schedules.some((s) => s.jobNo === j.jobNo && s.scheduledOn === today);
+      const isIn = !!j.checkedIn || tracking?.jobId === j.id;
+      return hasSchedule || isIn;
+    });
+
+    return (
+      <div className={cardBase}>
+        <div className="px-[22px] pt-[20px] pb-[6px] border-b border-white/[0.06]">
+          <div className="font-display font-bold text-[18px] text-white">{t.homeTitle}</div>
+        </div>
+        <div className="px-[16px] py-[14px] flex flex-col gap-[8px]">
+          {todayJobs.length === 0 && (
+            <div className="text-[13px] text-white/40 text-center py-[16px]">{t.homeNoJobs}</div>
+          )}
+          {todayJobs.map((j) => {
+            const isOut = !!localCheckedOut[j.id] || !!j.checkedOut;
+            const isIn = !!j.checkedIn || tracking?.jobId === j.id;
+            const myItems = (j.lineItems ?? []).filter((li) => li.mine);
+            const doneCount = myItems.filter((li) => li.completed).length;
+            const status = isOut ? "done" : isIn ? "active" : "waiting";
+            return (
+              <button
+                key={j.id}
+                type="button"
+                onClick={() => !isOut && setShowHome(false)}
+                disabled={isOut}
+                className={`flex items-center gap-[12px] rounded-[18px] px-[14px] py-[13px] text-left transition-all active:scale-[0.98] ${
+                  isOut
+                    ? "bg-white/[0.03] border border-white/[0.05] opacity-50"
+                    : "bg-white/[0.05] border border-white/[0.08] hover:border-[#B4FF44]/30"
+                }`}
+              >
+                <div className={`w-[10px] h-[10px] rounded-full shrink-0 ${
+                  status === "done" ? "bg-green-500" :
+                  status === "active" ? "bg-[#B4FF44] animate-pulse" :
+                  "bg-white/25"
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-[14px] text-white/85 truncate">
+                    {j.propertyName ?? j.jobNo}
+                    {j.unitNo ? ` · Unit ${j.unitNo}` : ""}
+                  </div>
+                  <div className="text-[12px] text-white/35 mt-[2px]">
+                    {status === "done" ? t.statusDone :
+                     status === "active" ? (myItems.length > 0 ? `${doneCount}/${myItems.length} tasks` : t.statusOnSite) :
+                     t.statusWaiting}
+                  </div>
+                </div>
+                {!isOut && (
+                  <ChevronRight className="w-[14px] h-[14px] text-white/25 shrink-0" />
+                )}
+                {isOut && (
+                  <Check className="w-[14px] h-[14px] text-green-400 shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div className="px-[16px] pb-[16px]">
+          <button
+            type="button"
+            onClick={() => setShowHome(false)}
+            className="w-full rounded-[14px] py-[12px] text-[14px] font-display font-bold text-white bg-white/[0.06] border border-white/[0.08] active:scale-[0.97] transition-transform"
+          >
+            {t.resumeBtn} →
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // ── render helpers ───────────────────────────────────────────────────
 
   const renderCard = () => {
@@ -715,7 +832,7 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
       const isBusy = busy === `ci:${job.id}`;
       return (
         <div className={cardBase}>
-          <JobHeader job={job} checkedIn={false} t={t} />
+          <JobHeader job={job} checkedIn={false} t={t} onBack={() => setShowHome(true)} />
           <div className="px-[22px] py-[18px] flex flex-col gap-[10px]">
             {tag(t.scheduledTag)}
             {schedItem?.windowStart && (
@@ -766,7 +883,7 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
       const photoBusy = busy === `photo:${job.id}:${isAfter ? "after" : "before"}`;
       return (
         <div className={cardBase}>
-          <JobHeader job={job} checkedIn={true} t={t} />
+          <JobHeader job={job} checkedIn={true} t={t} onBack={() => setShowHome(true)} />
           <div className="px-[22px] py-[18px] flex flex-col gap-[10px]">
             {tag(isAfter ? t.afterTag : t.beforeTag, isAfter ? "#818cf8" : "#34d399")}
             <div className="mt-[4px]">
@@ -813,7 +930,7 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
       const doneCount = myItems.filter((li) => li.completed).length;
       return (
         <div className={cardBase}>
-          <JobHeader job={job} checkedIn={true} t={t} />
+          <JobHeader job={job} checkedIn={true} t={t} onBack={() => setShowHome(true)} />
           <div className="px-[22px] py-[16px] flex flex-col gap-[8px]">
             <div className="flex items-center justify-between">
               {tag(t.checklistTag, "#60a5fa")}
@@ -1077,27 +1194,27 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
       {/* ── Card stack ────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col justify-center px-[20px] pb-[24px] pt-[16px]">
         <div className="w-full max-w-[440px] mx-auto relative">
-          {/* Peek cards behind the main card */}
-          {pendingCount > 1 && (
+          {/* Peek cards behind the main card — hidden when showing home overview */}
+          {!showHome && pendingCount > 1 && (
             <div
               className="absolute inset-x-[16px] top-[12px] h-[60px] rounded-[28px] bg-[#0F1929]/70 border border-white/[0.05]"
               style={{ zIndex: 0 }}
             />
           )}
-          {pendingCount > 2 && (
+          {!showHome && pendingCount > 2 && (
             <div
               className="absolute inset-x-[8px] top-[6px] h-[60px] rounded-[28px] bg-[#0F1929]/40 border border-white/[0.03]"
               style={{ zIndex: 0 }}
             />
           )}
-          {/* Main card */}
+          {/* Main card — or home overview when back is pressed */}
           <div className="relative" style={{ zIndex: 1 }}>
-            {renderCard()}
+            {showHome ? renderHome() : renderCard()}
           </div>
         </div>
 
-        {/* Step indicator dots (only when working through a job) */}
-        {(card.kind === "scheduled" || card.kind === "before-photos" || card.kind === "checklist" || card.kind === "after-photos" || card.kind === "notes") && (
+        {/* Step indicator dots (only when working through a job, not when on home) */}
+        {!showHome && (card.kind === "scheduled" || card.kind === "before-photos" || card.kind === "checklist" || card.kind === "after-photos" || card.kind === "notes") && (
           <div className="flex justify-center gap-[6px] mt-[18px]">
             {(["scheduled", "before-photos", "checklist", "after-photos", "notes"] as const).map((k) => (
               <div
