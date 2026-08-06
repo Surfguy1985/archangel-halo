@@ -9,15 +9,19 @@ import {
   usePullCrewToJob,
   useBroadcastJob,
   useGetStaffingContext,
+  useListCatalogItems,
+  useCreatePriceItem,
   getListJobsQueryKey,
   getGetPropertyQueryKey,
   getGetTodayQueryKey,
   getGetCalendarQueryKey,
   getListJobBoardQueryKey,
   getGetStaffingContextQueryKey,
+  getListCatalogItemsQueryKey,
   type Job,
+  type CatalogItem,
 } from "@workspace/api-client-react";
-import { MapPin, Zap, Plus, Radio, UserCheck, UserMinus, Check, Siren } from "lucide-react";
+import { MapPin, Zap, Plus, Radio, UserCheck, UserMinus, Check, Siren, ChevronDown, X } from "lucide-react";
 import { EmergencyPingSheet } from "@/components/EmergencyPingSheet";
 
 const fieldCls =
@@ -68,6 +72,10 @@ export function QuickJobSheet({
   const [broadcastCount, setBroadcastCount] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [emergencyOpen, setEmergencyOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [serviceQuery, setServiceQuery] = useState("");
+  const [openCat, setOpenCat] = useState<string | null>(null);
+  const [addingId, setAddingId] = useState<string | null>(null);
 
   const create = useQuickCreateJob();
   const assign = useUpdateJob();
@@ -118,6 +126,77 @@ export function QuickJobSheet({
   }, [open, propertyId]);
 
   const priceItems = propertyDetail?.priceItems ?? [];
+
+  // Catalog master list — same grouping as the desktop dialog.
+  const { data: catalog } = useListCatalogItems({
+    query: { queryKey: getListCatalogItemsQueryKey(), enabled: open },
+  });
+  const createPriceItem = useCreatePriceItem();
+
+  const catalogGroups = useMemo(() => {
+    const items = catalog ?? [];
+    const strip = (s: string) => s.replace(/\s*[—–-]\s*\d\s*BR\s*$/i, "").trim();
+    const sizeOf = (ci: CatalogItem): number | null => {
+      const m = /(\d)\s*BR\s*$/i.exec(ci.service) ?? /^(\d)\s*BR$/i.exec(ci.unit ?? "");
+      return m ? Number(m[1]) : null;
+    };
+    type Entry = { base: string; variants: { size: number; item: CatalogItem }[]; single: CatalogItem | null };
+    const byCat = new Map<string, Map<string, Entry>>();
+    for (const ci of items) {
+      const cat = ci.category?.trim() || "Other";
+      const byBase = byCat.get(cat) ?? new Map<string, Entry>();
+      byCat.set(cat, byBase);
+      const size = sizeOf(ci);
+      const base = strip(ci.service);
+      const entry = byBase.get(base) ?? { base, variants: [], single: null };
+      if (size == null) entry.single = ci;
+      else entry.variants.push({ size, item: ci });
+      byBase.set(base, entry);
+    }
+    const isMR = (s: string) => /make[\s-]?ready/i.test(s);
+    return [...byCat.entries()]
+      .sort(([a], [b]) => Number(isMR(b)) - Number(isMR(a)) || a.localeCompare(b))
+      .map(([label, byBase]) => ({
+        label,
+        entries: [...byBase.values()]
+          .map((e) => ({ ...e, variants: [...e.variants].sort((a, b) => a.size - b.size) }))
+          .sort((a, b) => a.base.localeCompare(b.base)),
+      }));
+  }, [catalog]);
+
+  const addCatalogService = (ci: CatalogItem) => {
+    const norm = (s: string) => s.toLowerCase().replace(/[—–]/g, "-").replace(/\s+/g, " ").trim();
+    const existing = priceItems.find((p) => norm(p.service) === norm(ci.service));
+    if (existing) {
+      setPillIds((ids) => [...ids, existing.id]);
+      return;
+    }
+    setAddingId(ci.id);
+    createPriceItem.mutate(
+      {
+        id: selectedProp,
+        data: {
+          service: ci.service,
+          detail: ci.detail ?? undefined,
+          unit: ci.unit ?? undefined,
+          rate: ci.rate ?? 0,
+          category: ci.category ?? undefined,
+        },
+      },
+      {
+        onSuccess: (pi) => {
+          setAddingId(null);
+          setPillIds((ids) => [...ids, pi.id]);
+          queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(selectedProp) });
+        },
+        onError: () => {
+          setAddingId(null);
+          setErrorMsg("Couldn't add that service. Try again.");
+        },
+      },
+    );
+  };
+
   const pillCount = useMemo(() => {
     const m = new Map<string, number>();
     for (const id of pillIds) m.set(id, (m.get(id) ?? 0) + 1);
@@ -142,6 +221,10 @@ export function QuickJobSheet({
     setBroadcastCount(0);
     setErrorMsg(null);
     setEmergencyOpen(false);
+    setPickerOpen(false);
+    setServiceQuery("");
+    setOpenCat(null);
+    setAddingId(null);
   };
 
   const close = (o: boolean) => {
@@ -315,52 +398,196 @@ export function QuickJobSheet({
                   onChange={(e) => setDescription(e.target.value)}
                   data-testid="input-quickjob-description"
                 />
-                {selectedProp && priceItems.length > 0 && (
-                  <div>
-                    <div className="text-[12px] font-display font-bold text-muted-foreground mb-[6px] ml-[2px]">
-                      <Zap className="w-[11px] h-[11px] inline mr-[3px] -mt-[1px]" />
-                      Tap to add — price book
+                {selectedProp && (
+                  <div className="flex flex-col gap-[8px]">
+                    <div className="text-[12px] font-display font-bold text-muted-foreground ml-[2px] flex items-center gap-[4px]">
+                      <Zap className="w-[11px] h-[11px]" /> Add services
                     </div>
-                    <div className="flex flex-wrap gap-[7px]">
-                      {priceItems.map((pi) => {
-                        const n = pillCount.get(pi.id) ?? 0;
-                        return (
-                          <button
-                            key={pi.id}
-                            type="button"
-                            onClick={() => setPillIds((ids) => [...ids, pi.id])}
-                            className={`inline-flex items-center gap-[6px] pl-[12px] pr-[10px] py-[8px] rounded-full border shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[13px] font-semibold active:scale-[0.94] transition-transform ${
-                              n > 0
-                                ? "bg-[var(--primary)] border-transparent text-[var(--ink)]"
-                                : "bg-card border-[var(--hairline)] text-[var(--ink)]"
-                            }`}
-                            data-testid={`pill-quickjob-${pi.id}`}
-                          >
-                            {pi.service}
-                            <span className="text-[12px] font-bold tabular-nums">
-                              {money(pi.rate)}
-                            </span>
-                            {n > 0 ? (
-                              <span className="text-[11px] font-bold">×{n}</span>
-                            ) : (
-                              <Plus className="w-[11px] h-[11px]" strokeWidth={3} />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {pillIds.length > 0 && (
-                      <div className="flex items-center justify-between mt-[8px] px-[4px]">
+
+                    {/* Catalog picker trigger */}
+                    <button
+                      type="button"
+                      onClick={() => setPickerOpen((o) => !o)}
+                      className={`${fieldCls} flex items-center justify-between text-left`}
+                      data-testid="button-quickjob-service-picker"
+                    >
+                      <span className="text-muted-foreground text-[14px]">
+                        {pickerOpen ? "Tap a service to add it…" : "Browse services…"}
+                      </span>
+                      <ChevronDown
+                        className={`w-[16px] h-[16px] shrink-0 text-muted-foreground transition-transform ${pickerOpen ? "rotate-180" : ""}`}
+                      />
+                    </button>
+
+                    {/* Grouped catalog dropdown */}
+                    {pickerOpen && (
+                      <div className="rounded-[16px] border border-border bg-card shadow-[0_4px_20px_rgba(0,0,0,0.10)] overflow-hidden max-h-[52vh] flex flex-col">
+                        {/* Search */}
+                        <div className="sticky top-0 z-20 bg-card border-b border-border p-[8px]">
+                          <input
+                            className={`${fieldCls} py-[10px] text-[13px]`}
+                            placeholder="Search services…"
+                            value={serviceQuery}
+                            onChange={(e) => setServiceQuery(e.target.value)}
+                            data-testid="input-quickjob-service-search"
+                          />
+                        </div>
+
+                        {/* Category groups */}
+                        <div className="overflow-y-auto flex-1">
+                          {catalogGroups
+                            .map((g) => {
+                              const q = serviceQuery.trim().toLowerCase();
+                              const entries = q
+                                ? g.entries.filter((e) => e.base.toLowerCase().includes(q) || g.label.toLowerCase().includes(q))
+                                : g.entries;
+                              return { ...g, entries };
+                            })
+                            .filter((g) => g.entries.length > 0)
+                            .map((g) => {
+                              const searching = serviceQuery.trim().length > 0;
+                              const expanded = searching || openCat === g.label;
+                              return (
+                                <div key={g.label}>
+                                  {/* Category header */}
+                                  <button
+                                    type="button"
+                                    onClick={() => !searching && setOpenCat((c) => (c === g.label ? null : g.label))}
+                                    className="sticky top-0 z-10 w-full flex items-center justify-between bg-[var(--paper)] px-[14px] py-[9px] text-[10px] font-bold uppercase tracking-widest text-muted-foreground"
+                                    data-testid={`toggle-cat-${g.label}`}
+                                  >
+                                    <span>{g.label}</span>
+                                    <span className="flex items-center gap-[5px] normal-case tracking-normal">
+                                      <span className="font-semibold">{g.entries.length}</span>
+                                      {!searching && (
+                                        <ChevronDown className={`w-[13px] h-[13px] transition-transform ${expanded ? "rotate-180" : ""}`} />
+                                      )}
+                                    </span>
+                                  </button>
+
+                                  {expanded && (
+                                    <div className="divide-y divide-border">
+                                      {g.entries.map((e) => (
+                                        <div key={e.base} className="px-[14px] py-[10px]">
+                                          {e.variants.length > 0 ? (
+                                            /* Bedroom-sized variants — collapse to one row */
+                                            <div className="flex items-center justify-between gap-[8px]">
+                                              <span className="text-[14px] font-semibold truncate">{e.base}</span>
+                                              <div className="flex items-center gap-[6px] shrink-0">
+                                                {e.variants.map(({ size, item }) => (
+                                                  <button
+                                                    key={item.id}
+                                                    type="button"
+                                                    disabled={addingId != null}
+                                                    onClick={() => addCatalogService(item)}
+                                                    className="rounded-full border border-border px-[10px] py-[4px] text-[12px] font-bold active:bg-[var(--gold-light)] transition-colors disabled:opacity-50"
+                                                    data-testid={`pick-service-${item.id}`}
+                                                  >
+                                                    {addingId === item.id ? "…" : `${size} BR`}
+                                                  </button>
+                                                ))}
+                                                {e.single && (
+                                                  <button
+                                                    type="button"
+                                                    disabled={addingId != null}
+                                                    onClick={() => addCatalogService(e.single!)}
+                                                    className="rounded-full border border-border px-[10px] py-[4px] text-[12px] font-bold active:bg-[var(--gold-light)] transition-colors disabled:opacity-50"
+                                                    data-testid={`pick-service-${e.single.id}`}
+                                                  >
+                                                    {addingId === e.single.id ? "…" : "Add"}
+                                                  </button>
+                                                )}
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            /* Single-rate service */
+                                            <button
+                                              type="button"
+                                              disabled={addingId != null}
+                                              onClick={() => e.single && addCatalogService(e.single)}
+                                              className="w-full flex items-center justify-between gap-[8px] text-left disabled:opacity-50"
+                                              data-testid={`pick-service-${e.single?.id}`}
+                                            >
+                                              <span className="text-[14px] font-semibold truncate">{e.base}</span>
+                                              <span className="shrink-0 rounded-full border border-border px-[10px] py-[4px] text-[12px] font-bold">
+                                                {addingId === e.single?.id ? "…" : "Add"}
+                                              </span>
+                                            </button>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                          {catalogGroups.length === 0 && (
+                            <div className="p-[20px] text-center text-[13px] text-muted-foreground">
+                              No services in the master list yet — add them in Admin.
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Done button */}
                         <button
                           type="button"
-                          className="text-[12px] font-semibold text-muted-foreground underline"
-                          onClick={() => setPillIds([])}
+                          onClick={() => { setPickerOpen(false); setServiceQuery(""); }}
+                          className="sticky bottom-0 bg-card border-t border-border px-[14px] py-[10px] text-[12px] font-bold text-[var(--gold-dark)]"
                         >
-                          Clear services
+                          Done
                         </button>
-                        <span className="text-[13px] font-display font-bold tabular-nums">
-                          {money(pillTotal)}
-                        </span>
+                      </div>
+                    )}
+
+                    {/* Selected services list */}
+                    {pillIds.length > 0 && (
+                      <div className="flex flex-col gap-[5px]">
+                        {[...pillCount.entries()].map(([id, qty]) => {
+                          const pi = priceItems.find((p) => p.id === id);
+                          if (!pi) return null;
+                          return (
+                            <div
+                              key={id}
+                              className="flex items-center justify-between rounded-[12px] border border-border bg-card px-[14px] py-[10px] text-[14px]"
+                              data-testid={`selected-service-${id}`}
+                            >
+                              <span className="truncate font-semibold">
+                                {pi.service}{qty > 1 ? ` ×${qty}` : ""}
+                              </span>
+                              <div className="flex items-center gap-[10px] ml-[8px] shrink-0">
+                                <span className="text-[13px] font-bold tabular-nums text-muted-foreground">
+                                  {money(pi.rate)}
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label={`Remove ${pi.service}`}
+                                  className="text-muted-foreground"
+                                  onClick={() =>
+                                    setPillIds((ids) => {
+                                      const idx = ids.lastIndexOf(id);
+                                      return idx === -1 ? ids : ids.filter((_, i) => i !== idx);
+                                    })
+                                  }
+                                >
+                                  <X className="w-[15px] h-[15px]" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div className="flex items-center justify-between px-[4px] mt-[2px]">
+                          <button
+                            type="button"
+                            className="text-[12px] font-semibold text-muted-foreground underline"
+                            onClick={() => setPillIds([])}
+                          >
+                            Clear services
+                          </button>
+                          <span className="text-[14px] font-display font-bold tabular-nums">
+                            {money(pillTotal)}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>
