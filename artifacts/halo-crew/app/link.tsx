@@ -37,6 +37,17 @@ function extractToken(input: string): string | null {
   return null;
 }
 
+const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN ?? '';
+
+async function validateToken(token: string): Promise<{ ok: boolean; status: number }> {
+  try {
+    const resp = await fetch(`https://${DOMAIN}/api/portal/${token}`);
+    return { ok: resp.ok, status: resp.status };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+}
+
 export default function LinkScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -57,11 +68,25 @@ export default function LinkScreen() {
 
     setLoading(true);
     try {
+      // Validate the token against the server BEFORE storing it
+      const { ok, status } = await validateToken(token);
+      if (!ok) {
+        const msg =
+          status === 404
+            ? "That link isn't valid. Ask your office to send a fresh crew link."
+            : status === 0
+            ? 'No connection — check your internet and try again.'
+            : 'Could not connect — check your link and try again.';
+        setError(msg);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        return;
+      }
+
       await setToken(token);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace('/(tabs)');
     } catch {
-      setError('Could not connect — check your link and try again.');
+      setError('Could not connect — check your connection and try again.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);

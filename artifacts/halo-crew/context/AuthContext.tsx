@@ -100,7 +100,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: portal, isLoading: portalLoading } = useGetPortal(token!, {
     query: {
       enabled: !!token && hydrated,
-      retry: 1,
+      // Never retry on 4xx — a 404 means invalid token, retrying just delays
+      // the error feedback and wastes a request.
+      retry: (failureCount, error: unknown) => {
+        const status = (error as { status?: number })?.status ?? 0;
+        if (status >= 400 && status < 500) return false;
+        return failureCount < 1;
+      },
       staleTime: 30_000,
       queryKey: getGetPortalQueryKey(token!),
     },

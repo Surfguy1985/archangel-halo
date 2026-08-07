@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,15 +8,26 @@ import { useAuth } from '@/context/AuthContext';
 
 function AuthGuard() {
   const { isLoading, isAuthenticated, portal } = useAuth();
+  // Track whether we've already sent this session to onboarding to prevent
+  // looping back when the portal hasn't refreshed yet after agreement acceptance.
+  const sentToOnboarding = useRef(false);
 
   useEffect(() => {
     if (isLoading) return;
+
     if (!isAuthenticated) {
+      // Reset the guard when the session ends so a new login goes through cleanly.
+      sentToOnboarding.current = false;
       router.replace('/link');
       return;
     }
-    // New crew: send to onboarding if they haven't accepted the agreement yet
-    if (portal && !portal.crew?.agreementAcceptedAt) {
+
+    // Only redirect to onboarding once per session. The onboarding flow calls
+    // invalidate() after accepting, but the portal refetch may not have
+    // settled by the time the user navigates back to tabs — the ref prevents
+    // a loop caused by stale portal data.
+    if (!sentToOnboarding.current && portal && !portal.crew?.agreementAcceptedAt) {
+      sentToOnboarding.current = true;
       router.replace('/onboarding');
     }
   }, [isLoading, isAuthenticated, portal]);
