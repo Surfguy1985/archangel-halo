@@ -1784,6 +1784,27 @@ router.post("/portal/:token/photos", async (req, res): Promise<void> => {
   res.status(201).json(UploadPortalPhotoResponse.parse(ser(row)));
 });
 
+router.delete("/portal/:token/photos/:photoId", async (req, res): Promise<void> => {
+  const token = String(req.params.token);
+  const photoId = String(req.params.photoId);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const [existing] = await db
+    .select({ id: crewPhotosTable.id })
+    .from(crewPhotosTable)
+    .where(and(eq(crewPhotosTable.id, photoId), eq(crewPhotosTable.crewId, crew.id)))
+    .limit(1);
+  if (!existing) {
+    res.status(404).json({ error: "Photo not found or not yours" });
+    return;
+  }
+  await db.delete(crewPhotosTable).where(eq(crewPhotosTable.id, photoId));
+  res.json({ ok: true });
+});
+
 router.get("/portal/:token/w9", async (req, res): Promise<void> => {
   const { token } = GetPortalW9Params.parse(req.params);
   const crew = await crewByToken(token);

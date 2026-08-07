@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Platform,
   Pressable,
@@ -9,6 +10,8 @@ import {
   Text,
   View,
 } from 'react-native';
+
+const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN ?? '';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 import { usePhotoUpload } from '@/hooks/usePhotoUpload';
@@ -41,7 +44,18 @@ export default function CameraScreen() {
   const { data: jobs } = useListPortalJobs(token!, {
     query: { enabled: !!token, staleTime: 20_000, queryKey: getListPortalJobsQueryKey(token!) },
   });
-  const job = jobs?.find((j) => j.status !== 'cleared') ?? null;
+  // Today's string for date filtering (local date parts, never UTC)
+  const todayStr = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+
+  const job =
+    jobs?.find(
+      (j) =>
+        j.status !== 'cleared' &&
+        (!j.scheduledOn || j.scheduledOn === todayStr),
+    ) ?? null;
   const checkedIn = job?.checkedIn ?? false;
 
   const { addPhoto, queue, retryFailed } = usePhotoUpload(token, job?.id ?? null);
@@ -49,7 +63,50 @@ export default function CameraScreen() {
   const { data: photos, refetch: refetchPhotos } = useListPortalPhotos(token!, {
     query: { enabled: !!token, staleTime: 10_000, queryKey: getListPortalPhotosQueryKey(token!) },
   });
-  const phasePhotos = (photos ?? []).filter((p) => p.phase === activePhase && p.jobId === job?.id);
+
+  // Local soft-delete state — optimistic hide before server confirms
+  const [localHidden, setLocalHidden] = useState<Set<string>>(new Set());
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const allPhasePhotos = (photos ?? []).filter((p) => p.phase === activePhase && p.jobId === job?.id);
+  const phasePhotos = allPhasePhotos.filter((p) => !localHidden.has(p.id));
+
+  const deletePhoto = useCallback(
+    (photoId: string) => {
+      if (!token) return;
+      Alert.alert('Delete photo?', 'This cannot be undone.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            // Optimistic hide
+            setLocalHidden((prev) => new Set(prev).add(photoId));
+            setDeletingId(photoId);
+            try {
+              await fetch(
+                `https://${DOMAIN}/api/portal/${token}/photos/${photoId}`,
+                { method: 'DELETE' },
+              );
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              refetchPhotos();
+            } catch {
+              // Revert if request failed
+              setLocalHidden((prev) => {
+                const next = new Set(prev);
+                next.delete(photoId);
+                return next;
+              });
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            } finally {
+              setDeletingId(null);
+            }
+          },
+        },
+      ]);
+    },
+    [token, refetchPhotos],
+  );
 
   const [picking, setPicking] = useState(false);
 
@@ -268,6 +325,18 @@ export default function CameraScreen() {
                         style={{ width: '100%', height: '100%' }}
                         resizeMode="cover"
                       />
+                      {/* Delete button */}
+                      <Pressable
+                        style={s.deleteBtn}
+                        onPress={() => deletePhoto(p.id)}
+                        hitSlop={6}
+                      >
+                        {deletingId === p.id ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Ionicons name="close" size={13} color="#FFFFFF" />
+                        )}
+                      </Pressable>
                     </View>
                   ))}
                 </View>
@@ -487,6 +556,19 @@ const s = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: '#1C3050',
+    position: 'relative',
+  },
+  deleteBtn: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
   emptyPhotos: {
     alignItems: 'center',

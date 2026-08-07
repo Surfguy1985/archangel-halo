@@ -347,6 +347,7 @@ function PhaseContent({
   afterCount,
   token,
   onRefresh,
+  crewName,
 }: {
   phase: Phase;
   job: PortalJob | null;
@@ -354,6 +355,7 @@ function PhaseContent({
   afterCount: number;
   token: string;
   onRefresh: () => void;
+  crewName?: string;
 }) {
   if (phase === 'idle') {
     return (
@@ -437,19 +439,56 @@ function PhaseContent({
         </View>
       );
 
-    case 'done':
+    case 'done': {
+      const myItems = (job.lineItems ?? []).filter((li) => li.mine);
+      const doneItems = myItems.filter((li) => li.completed);
       return (
-        <View style={phaseStyles.infoBox}>
-          <View style={[phaseStyles.iconCircle, { backgroundColor: 'rgba(34,197,94,0.15)' }]}>
-            <Ionicons name="checkmark-circle-outline" size={26} color="#22C55E" />
+        <View style={phaseStyles.doneCard}>
+          <View style={phaseStyles.doneCircle}>
+            <Ionicons name="checkmark-circle" size={52} color="#22C55E" />
           </View>
-          <Text style={phaseStyles.phaseTitle}>Day complete</Text>
-          <Text style={phaseStyles.phaseBody}>
-            You're checked out.{'\n'}
-            Great work today!
-          </Text>
+          <Text style={phaseStyles.doneTitle}>Job complete!</Text>
+          {crewName && (
+            <Text style={phaseStyles.doneSub}>
+              Great work, {crewName.split(' ')[0]}.
+            </Text>
+          )}
+
+          {/* Summary chips */}
+          <View style={phaseStyles.donePills}>
+            {job.propertyName ? (
+              <View style={phaseStyles.donePill}>
+                <Ionicons name="home-outline" size={12} color="#8CA0B9" />
+                <Text style={phaseStyles.donePillText}>
+                  {job.propertyName}
+                  {job.unitNo ? ` · Unit ${job.unitNo}` : ''}
+                </Text>
+              </View>
+            ) : null}
+            {job.scheduledOn ? (
+              <View style={phaseStyles.donePill}>
+                <Ionicons name="calendar-outline" size={12} color="#8CA0B9" />
+                <Text style={phaseStyles.donePillText}>{job.scheduledOn}</Text>
+              </View>
+            ) : null}
+            {myItems.length > 0 ? (
+              <View style={[phaseStyles.donePill, { borderColor: 'rgba(34,197,94,0.3)' }]}>
+                <Ionicons name="checkbox-outline" size={12} color="#22C55E" />
+                <Text style={[phaseStyles.donePillText, { color: '#22C55E' }]}>
+                  {doneItems.length}/{myItems.length} items done
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Office notified */}
+          <View style={phaseStyles.doneSentRow}>
+            <Ionicons name="paper-plane-outline" size={15} color="#22C55E" />
+            <Text style={phaseStyles.doneSentText}>Summary sent to office</Text>
+          </View>
         </View>
       );
+    }
 
     default:
       return null;
@@ -498,6 +537,74 @@ const phaseStyles = StyleSheet.create({
     color: '#8CA0B9',
     textAlign: 'center',
     lineHeight: 21,
+  },
+
+  // Done phase summary card
+  doneCard: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  doneCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(34,197,94,0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(34,197,94,0.30)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  doneTitle: {
+    fontSize: 22,
+    fontFamily: 'Inter_700Bold',
+    color: '#22C55E',
+  },
+  doneSub: {
+    fontSize: 15,
+    fontFamily: 'Inter_400Regular',
+    color: '#8CA0B9',
+  },
+  donePills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  donePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(140,160,185,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(140,160,185,0.18)',
+  },
+  donePillText: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+    color: '#8CA0B9',
+  },
+  doneSentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 20,
+    backgroundColor: 'rgba(34,197,94,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.20)',
+  },
+  doneSentText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#22C55E',
   },
 });
 
@@ -815,7 +922,13 @@ export default function TodayScreen() {
   // Get today's active job (first scheduled/in-progress)
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const job = jobs?.find((j) => j.status !== 'cleared' && j.status !== 'complete') ?? null;
+  const job =
+    jobs?.find(
+      (j) =>
+        j.status !== 'cleared' &&
+        j.status !== 'complete' &&
+        (!j.scheduledOn || j.scheduledOn === todayStr),
+    ) ?? null;
 
   const todayPhotos = (photos ?? []).filter(
     (p) => p.jobId === job?.id || !job?.id,
@@ -949,6 +1062,7 @@ export default function TodayScreen() {
                 afterCount={afterCount}
                 token={token!}
                 onRefresh={onRefresh}
+                crewName={crew?.name ?? undefined}
               />
             </View>
           </View>
@@ -975,6 +1089,7 @@ export default function TodayScreen() {
                 afterCount={0}
                 token={token!}
                 onRefresh={onRefresh}
+                crewName={crew?.name ?? undefined}
               />
               {(portal?.schedule ?? []).slice(0, 3).map((item) => (
                 <View key={item.id} style={todayStyles.schedRow}>
