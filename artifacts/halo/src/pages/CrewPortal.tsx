@@ -339,7 +339,8 @@ export default function CrewPortal() {
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         <SheetContent
           side="bottom"
-          className="h-[90dvh] flex flex-col rounded-t-[20px] bg-card border-t border-border p-0"
+          className="flex flex-col rounded-t-[20px] bg-card border-t border-border p-0"
+          style={{ height: "min(82dvh, 82vh)" }}
         >
           {/* Tab selector — 4-column icon grid so all tabs are visible on screen */}
           <div className="shrink-0 px-[12px] pt-[12px] pb-[12px] border-b border-border">
@@ -692,15 +693,19 @@ function WelcomeKitModal({
 
       {/* Scrollable kit content */}
       <div className="flex-1 overflow-y-auto px-[16px] py-[20px]">
-        {/* Render the full WelcomeKitTab — auto-open first packet so the crew
-            lands directly in the flow without an extra tap */}
-        <WelcomeKitTab token={token} autoOpen />
+        {/* Packet list — crew taps each packet to complete it; the
+            "Continue to my portal" button below is always visible */}
+        <WelcomeKitTab token={token} />
       </div>
 
-      {/* Sticky bottom CTA */}
+      {/* Sticky bottom CTA — safe-area padding so home bar never covers it */}
       <div
-        className="shrink-0 px-[20px] pt-[14px] pb-[32px] border-t"
-        style={{ borderColor: "rgba(255,255,255,0.07)", background: "#080D1A" }}
+        className="shrink-0 px-[20px] pt-[14px] border-t"
+        style={{
+          borderColor: "rgba(255,255,255,0.07)",
+          background: "#080D1A",
+          paddingBottom: "max(28px, env(safe-area-inset-bottom))",
+        }}
       >
         <button
           type="button"
