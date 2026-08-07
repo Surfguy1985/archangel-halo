@@ -15,6 +15,7 @@ import {
   workRequestsTable,
   paymentRequestsTable,
   invoicesTable,
+  jobsTable,
 } from "@workspace/db";
 import {
   GetClientAccessResponse,
@@ -1093,6 +1094,23 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
           title: `Walk findings approved by ${propName}`,
           body: `${card.title || "Walk findings"} — approved on their board; work is a go.`,
         });
+        // Notify the assigned crew so their portal approval badge increments.
+        const jobId = typeof (card.sourceId) === "string" ? card.sourceId : null;
+        if (jobId && card.sourceType === "walk_job") {
+          const [walkJob] = await tx
+            .select({ crewLeaderId: jobsTable.crewLeaderId, jobNo: jobsTable.jobNo })
+            .from(jobsTable)
+            .where(eq(jobsTable.id, jobId))
+            .limit(1);
+          if (walkJob?.crewLeaderId) {
+            await tx.insert(activitiesTable).values({
+              entityType: "crew",
+              entityId: walkJob.crewLeaderId,
+              kind: "walk_approved",
+              body: `Walk findings approved for job ${walkJob.jobNo ?? jobId} — work is a go`,
+            });
+          }
+        }
       } else {
         // Idempotent: a double-tap still lands the card in In progress.
         await tx

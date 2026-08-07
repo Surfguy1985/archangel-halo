@@ -176,7 +176,7 @@ async function computeUnseen(crew: CrewRow) {
   const since = (section: string) =>
     seen[section] ? new Date(seen[section]!) : new Date(0);
 
-  const [offers, sched, events, messages, packets, documents, emergency, approvals, invoices, payments, payouts] =
+  const [offers, sched, events, messages, packets, documents, emergency, approvals, invoices, payments, payouts, walkApprovals] =
     await Promise.all([
       db
         .select({ n: count() })
@@ -295,6 +295,18 @@ async function computeUnseen(crew: CrewRow) {
             gt(crewPayoutsTable.paidAt, since("pay")),
           ),
         ),
+      // Walk-approval events written when a client approves walk findings.
+      db
+        .select({ n: count() })
+        .from(activitiesTable)
+        .where(
+          and(
+            eq(activitiesTable.entityType, "crew"),
+            eq(activitiesTable.entityId, crew.id),
+            eq(activitiesTable.kind, "walk_approved"),
+            gt(activitiesTable.createdAt, since("approvals")),
+          ),
+        ),
     ]);
 
   return {
@@ -304,7 +316,7 @@ async function computeUnseen(crew: CrewRow) {
     packets: packets[0]?.n ?? 0,
     documents: documents[0]?.n ?? 0,
     emergency: emergency[0]?.n ?? 0,
-    approvals: approvals[0]?.n ?? 0,
+    approvals: (approvals[0]?.n ?? 0) + (walkApprovals[0]?.n ?? 0),
     invoices: invoices[0]?.n ?? 0,
     pay: (payments[0]?.n ?? 0) + (payouts[0]?.n ?? 0),
   };

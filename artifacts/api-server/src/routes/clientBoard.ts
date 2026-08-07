@@ -1922,6 +1922,15 @@ const ACTIONS: Record<
         kind: "note",
         body: `${ctx.viewer.name ?? "Property Manager"} approved HALO Walk findings — job is now in the work queue`,
       });
+      // Notify the assigned crew so their portal badge increments.
+      if (job.crewLeaderId) {
+        await db.insert(activitiesTable).values({
+          entityType: "crew",
+          entityId: job.crewLeaderId,
+          kind: "walk_approved",
+          body: `Walk findings approved for job ${job.jobNo ?? jobId} — work is a go`,
+        });
+      }
       return {
         ok: true,
         blocked: false,
