@@ -490,28 +490,37 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
     };
   };
 
-  const schedule = schedRows.map((s) => {
-    const job = jobsById.get(s.jobId);
-    return {
-      id: s.id,
-      kind: "job",
-      jobNo: job?.jobNo ?? null,
-      description: job?.description ?? null,
-      ...propFields(job?.propertyId),
-      unitNo: job?.unitNo ?? null,
-      scheduledOn: s.scheduledOn ?? null,
-      windowStart: s.windowStart ?? null,
-      status: (s.status ?? null) as string | null,
-      tasks: taskify(job?.description),
-    };
-  });
+  // Dedup schedRows by jobId (keep first occurrence) — handles the rare case
+  // where the same job has two schedule rows on different days.
+  const seenSchedJobIds = new Set<string>();
+  const schedule = schedRows
+    .filter((s) => {
+      if (seenSchedJobIds.has(s.jobId)) return false;
+      seenSchedJobIds.add(s.jobId);
+      return true;
+    })
+    .map((s) => {
+      const job = jobsById.get(s.jobId);
+      return {
+        id: s.id,
+        kind: "job",
+        jobNo: job?.jobNo ?? null,
+        description: job?.description ?? null,
+        ...propFields(job?.propertyId),
+        unitNo: job?.unitNo ?? null,
+        scheduledOn: s.scheduledOn ?? null,
+        windowStart: s.windowStart ?? null,
+        status: (s.status ?? null) as string | null,
+        tasks: taskify(job?.description),
+      };
+    });
 
   // Calendar events assigned to this crew also show up in their portal.
-  const scheduledJobDays = new Set(
-    schedRows.map((s) => `${s.jobId}|${s.scheduledOn}`),
-  );
+  // Dedup: if the event's jobId already appears in ANY schedule row (regardless
+  // of date), skip the event — the schedule row is the canonical entry.
+  const scheduledJobIds = new Set(schedRows.map((s) => s.jobId));
   for (const ev of eventRows) {
-    if (ev.jobId && scheduledJobDays.has(`${ev.jobId}|${ev.eventDate}`)) {
+    if (ev.jobId && scheduledJobIds.has(ev.jobId)) {
       continue; // already represented by the job schedule row
     }
     const job = ev.jobId ? jobsById.get(ev.jobId) : undefined;
