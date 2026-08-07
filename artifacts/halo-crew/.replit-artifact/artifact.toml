@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/halo-crew/"
+title = "HALO Crew — Field App"
+description = "Native Expo Go app for ArchAngel field crews. Provides background GPS tracking that continues when the screen is locked, a 10/10 photos hub with offline queuing and before/after pairing, and a single morphing action button that guides the crew through their entire day (check-in → before photos → checklist → after photos → check out → invoice) without them ever needing to navigate. Replaces the browser-based crew portal with a native-grade experience on iOS and Android."
+version = "1.0.0"
+id = "artifacts/halo-crew"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/halo-crew/" ]
+localPort = 18936
+
+[services.development]
+run = "pnpm --filter @workspace/halo-crew run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/halo-crew", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/halo-crew", "run", "serve" ]
+
+[services.env]
+PORT = "18936"
+BASE_PATH = "/halo-crew/"

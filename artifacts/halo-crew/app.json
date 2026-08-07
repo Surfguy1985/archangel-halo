@@ -1,0 +1,74 @@
+{
+  "expo": {
+    "name": "HALO Crew",
+    "slug": "halo-crew",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "halo-crew",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#07101E"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.archangel.halocrew",
+      "infoPlist": {
+        "NSCameraUsageDescription": "HALO Crew needs camera access to take before and after photos for your jobs.",
+        "NSPhotoLibraryUsageDescription": "HALO Crew needs photo library access to pick job photos from your gallery.",
+        "NSLocationWhenInUseUsageDescription": "HALO Crew uses your location while you're checked in to send GPS breadcrumbs to the office.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "HALO Crew tracks your location in the background while you're on a job so the office can see crew positions.",
+        "UIBackgroundModes": ["location", "fetch"]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#07101E"
+      },
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://replit.com/"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "HALO Crew tracks your location while you're on a job so the office can monitor crew positions.",
+          "locationWhenInUsePermission": "HALO Crew uses your location while you're checked in to a job.",
+          "isIosBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "HALO Crew accesses your photos to let you pick job documentation images.",
+          "cameraPermission": "HALO Crew uses your camera to take before and after photos for jobs."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
