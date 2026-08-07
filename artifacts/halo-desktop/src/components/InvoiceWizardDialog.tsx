@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetPropertySopRule,
@@ -12,11 +12,15 @@ import {
   useGetProperty,
   getGetPropertyQueryKey,
   getListInvoicesQueryKey,
+  useListCatalogItems,
+  getListCatalogItemsQueryKey,
   type SopRuleDetail,
   type InvoiceJobDraft,
+  type CatalogItem,
 } from "@workspace/api-client-react";
 import {
   CheckCircle2,
+  ChevronDown,
   FileText,
   Loader2,
   ShieldCheck,
@@ -26,6 +30,7 @@ import {
   Upload,
   Wand2,
   AlertTriangle,
+  Zap,
 } from "lucide-react";
 import {
   Dialog,
@@ -178,6 +183,49 @@ function JobInvoiceBuilder({
     query: { enabled: !!propertyId, queryKey: getGetPropertyQueryKey(propertyId) },
   });
   const priceItems = propertyDetail?.priceItems ?? [];
+
+  // Master catalog — all services across all properties.
+  const { data: catalogItems } = useListCatalogItems({
+    query: { queryKey: getListCatalogItemsQueryKey() },
+  });
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [showCatalog, setShowCatalog] = useState(false);
+
+  const catalogGroups = useMemo(() => {
+    if (!catalogItems) return [];
+    const q = catalogSearch.toLowerCase();
+    const filtered = q
+      ? catalogItems.filter(
+          (c: CatalogItem) =>
+            c.service.toLowerCase().includes(q) ||
+            (c.category ?? "").toLowerCase().includes(q),
+        )
+      : catalogItems;
+    const map = new Map<string, CatalogItem[]>();
+    for (const c of filtered as CatalogItem[]) {
+      const cat = c.category?.trim() || "General";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(c);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) =>
+      /make[\s-]?ready/i.test(a) ? -1 : /make[\s-]?ready/i.test(b) ? 1 : a.localeCompare(b),
+    );
+  }, [catalogItems, catalogSearch]);
+
+  const addFromCatalog = (item: CatalogItem) => {
+    setItems((p) => {
+      const existing = p.find(
+        (l) => l.typeOfWork === item.service && l.unitPrice === (item.rate ?? 0),
+      );
+      if (existing) {
+        return p.map((l) =>
+          l === existing ? { ...l, qty: (l.qty ?? 1) + 1 } : l,
+        );
+      }
+      return [...p, { typeOfWork: item.service, qty: 1, unitPrice: item.rate ?? 0 }];
+    });
+    setShowCatalog(false);
+  };
 
   const runBuild = () => {
     setDraft(null);
@@ -343,6 +391,67 @@ function JobInvoiceBuilder({
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Master catalog picker */}
+          {!created && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowCatalog((v) => !v)}
+                className="inline-flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full bg-secondary/10 border border-secondary/30 text-[12.5px] font-semibold text-[var(--secondary)] hover:bg-secondary/20 active:scale-95 transition-all w-full justify-center"
+                data-testid="button-toggle-master-catalog"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                {showCatalog ? "Close master service list" : "Add from master service list"}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showCatalog ? "rotate-180" : ""}`} />
+              </button>
+              {showCatalog && (
+                <div className="mt-2 rounded-xl border border-border overflow-hidden shadow-sm" data-testid="panel-master-catalog">
+                  <div className="px-3 pt-3 pb-2 border-b border-border bg-muted/30">
+                    <input
+                      type="text"
+                      placeholder="Search all services…"
+                      value={catalogSearch}
+                      onChange={(e) => setCatalogSearch(e.target.value)}
+                      className="w-full bg-white border border-border rounded-[8px] py-1.5 px-3 text-[12.5px] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--secondary)]/40"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-[260px] overflow-y-auto divide-y divide-border">
+                    {catalogGroups.length === 0 ? (
+                      <div className="px-4 py-5 text-center text-[12.5px] text-muted-foreground">
+                        {catalogSearch ? "No services match." : "Loading master list…"}
+                      </div>
+                    ) : (
+                      catalogGroups.map(([cat, catItems]) => (
+                        <div key={cat}>
+                          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground bg-muted/40 sticky top-0">
+                            {cat}
+                          </div>
+                          {catItems.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => addFromCatalog(item)}
+                              className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-secondary/5 active:bg-secondary/10 transition-colors"
+                              data-testid={`button-catalog-${item.id}`}
+                            >
+                              <span className="text-[12.5px] font-semibold text-foreground flex-1 mr-2 truncate">
+                                {item.service}
+                              </span>
+                              <span className="text-[12px] font-bold text-[var(--secondary)] tabular-nums shrink-0">
+                                {item.rate != null ? money(item.rate) : "—"}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
