@@ -245,7 +245,7 @@ function JobInvoiceBuilder({
   };
 
   const runCreate = () => {
-    if (!draft) return;
+    if (!jobId) return;
     const cleanItems = items
       .map((l) => ({ ...l, typeOfWork: l.typeOfWork.trim() }))
       .filter((l) => l.typeOfWork.length > 0);
@@ -253,13 +253,16 @@ function JobInvoiceBuilder({
       toast({ title: "Add at least one line item", variant: "destructive" });
       return;
     }
+    // Build a local YYYY-MM-DD date without UTC shift (per local date handling rules).
+    const now = new Date();
+    const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     create.mutate(
       {
         data: {
-          propertyId: draft.propertyId,
-          jobId: draft.jobId,
-          issuedOn: draft.issuedOn,
-          poNumber: draft.poNumber ?? undefined,
+          propertyId: draft?.propertyId ?? propertyId,
+          jobId: draft?.jobId ?? jobId,
+          issuedOn: draft?.issuedOn ?? localToday,
+          poNumber: draft?.poNumber ?? (po || undefined),
           notes: notes.trim() ? notes : undefined,
           lineItems: cleanItems,
         },
@@ -271,7 +274,7 @@ function JobInvoiceBuilder({
             queryClient.invalidateQueries({ queryKey: getGetPropertyQueryKey(propertyId) });
           toast({
             title: `Invoice ${inv.invoiceNo} created`,
-            description: `${money(inv.amount)} · draft, SOP-compliant — ready to review and send.`,
+            description: `${money(inv.amount)} · draft${draft ? ", SOP-compliant" : ""} — ready to review and send.`,
           });
           setCreated({ id: inv.id, invoiceNo: inv.invoiceNo, amount: inv.amount });
         },
@@ -290,6 +293,9 @@ function JobInvoiceBuilder({
       <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
     );
 
+  // Whether the line-items editor + create button should be visible.
+  const showEditor = jobId && (draft != null || items.length > 0);
+
   return (
     <div className="rounded-2xl border border-border bg-white p-5 space-y-4">
       <div className="flex items-center gap-2">
@@ -297,14 +303,13 @@ function JobInvoiceBuilder({
         <div className="font-bold text-[15px]">Create an invoice from a job</div>
       </div>
       <p className="text-[12.5px] text-muted-foreground -mt-2">
-        Pick a job — the wizard breaks it out exactly the way this property's
-        SOP demands, then audits its own work against the rule before anything
-        is created.
+        Pick a job, then add services from the master price list or let the
+        wizard auto-build from the property's SOP rule.
       </p>
       <div className="flex flex-wrap gap-2">
         <select
           value={jobId}
-          onChange={(e) => { setJobId(e.target.value); setDraft(null); }}
+          onChange={(e) => { setJobId(e.target.value); setDraft(null); setItems([]); }}
           className="flex-1 min-w-[220px] border border-border rounded-[10px] px-3 py-2 text-[13.5px] bg-white"
           data-testid="select-invoice-job"
         >
@@ -333,7 +338,7 @@ function JobInvoiceBuilder({
           data-testid="button-build-invoice"
         >
           {build.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
-          {build.isPending ? "Measuring twice…" : "Build invoice"}
+          {build.isPending ? "Measuring twice…" : "Auto-build from SOP"}
         </Button>
       </div>
 
@@ -341,21 +346,25 @@ function JobInvoiceBuilder({
         <div className="text-[12.5px] text-muted-foreground">No active jobs on this property yet.</div>
       )}
 
+      {/* Compliance badges — only after AI build */}
       {draft && (
-        <div className="space-y-4" data-testid="panel-invoice-draft">
-          <div className="space-y-1.5 rounded-xl bg-[var(--paper)] p-3">
-            {draft.compliance.map((c, i) => (
-              <div key={i} className="flex items-start gap-2">
-                {statusIcon(c.status)}
-                <div>
-                  <span className="text-[12.5px] font-bold">{c.stage}.</span>{" "}
-                  <span className="text-[12.5px] text-muted-foreground">{c.detail}</span>
-                </div>
+        <div className="space-y-1.5 rounded-xl bg-[var(--paper)] p-3" data-testid="panel-invoice-draft">
+          {draft.compliance.map((c, i) => (
+            <div key={i} className="flex items-start gap-2">
+              {statusIcon(c.status)}
+              <div>
+                <span className="text-[12.5px] font-bold">{c.stage}.</span>{" "}
+                <span className="text-[12.5px] text-muted-foreground">{c.detail}</span>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-          {!created && priceItems.length > 0 && (
+      {/* Price book pills + master catalog — visible as soon as a job is selected */}
+      {jobId && !created && (
+        <>
+          {priceItems.length > 0 && (
             <div className="p-3 rounded-2xl bg-[var(--gold-tint)] border border-[var(--primary)]/40">
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
                 Click to add from this property's price book
@@ -395,66 +404,69 @@ function JobInvoiceBuilder({
           )}
 
           {/* Master catalog picker */}
-          {!created && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowCatalog((v) => !v)}
-                className="inline-flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full bg-secondary/10 border border-secondary/30 text-[12.5px] font-semibold text-[var(--secondary)] hover:bg-secondary/20 active:scale-95 transition-all w-full justify-center"
-                data-testid="button-toggle-master-catalog"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                {showCatalog ? "Close master service list" : "Add from master service list"}
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showCatalog ? "rotate-180" : ""}`} />
-              </button>
-              {showCatalog && (
-                <div className="mt-2 rounded-xl border border-border overflow-hidden shadow-sm" data-testid="panel-master-catalog">
-                  <div className="px-3 pt-3 pb-2 border-b border-border bg-muted/30">
-                    <input
-                      type="text"
-                      placeholder="Search all services…"
-                      value={catalogSearch}
-                      onChange={(e) => setCatalogSearch(e.target.value)}
-                      className="w-full bg-white border border-border rounded-[8px] py-1.5 px-3 text-[12.5px] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--secondary)]/40"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-[260px] overflow-y-auto divide-y divide-border">
-                    {catalogGroups.length === 0 ? (
-                      <div className="px-4 py-5 text-center text-[12.5px] text-muted-foreground">
-                        {catalogSearch ? "No services match." : "Loading master list…"}
-                      </div>
-                    ) : (
-                      catalogGroups.map(([cat, catItems]) => (
-                        <div key={cat}>
-                          <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground bg-muted/40 sticky top-0">
-                            {cat}
-                          </div>
-                          {catItems.map((item) => (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => addFromCatalog(item)}
-                              className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-secondary/5 active:bg-secondary/10 transition-colors"
-                              data-testid={`button-catalog-${item.id}`}
-                            >
-                              <span className="text-[12.5px] font-semibold text-foreground flex-1 mr-2 truncate">
-                                {item.service}
-                              </span>
-                              <span className="text-[12px] font-bold text-[var(--secondary)] tabular-nums shrink-0">
-                                {item.rate != null ? money(item.rate) : "—"}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      ))
-                    )}
-                  </div>
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowCatalog((v) => !v)}
+              className="inline-flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full bg-secondary/10 border border-secondary/30 text-[12.5px] font-semibold text-[var(--secondary)] hover:bg-secondary/20 active:scale-95 transition-all w-full justify-center"
+              data-testid="button-toggle-master-catalog"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              {showCatalog ? "Close master service list" : "Add from master price list"}
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showCatalog ? "rotate-180" : ""}`} />
+            </button>
+            {showCatalog && (
+              <div className="mt-2 rounded-xl border border-border overflow-hidden shadow-sm" data-testid="panel-master-catalog">
+                <div className="px-3 pt-3 pb-2 border-b border-border bg-muted/30">
+                  <input
+                    type="text"
+                    placeholder="Search all services…"
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    className="w-full bg-white border border-border rounded-[8px] py-1.5 px-3 text-[12.5px] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--secondary)]/40"
+                    autoFocus
+                  />
                 </div>
-              )}
-            </div>
-          )}
+                <div className="max-h-[260px] overflow-y-auto divide-y divide-border">
+                  {catalogGroups.length === 0 ? (
+                    <div className="px-4 py-5 text-center text-[12.5px] text-muted-foreground">
+                      {catalogSearch ? "No services match." : "Loading master list…"}
+                    </div>
+                  ) : (
+                    catalogGroups.map(([cat, catItems]) => (
+                      <div key={cat}>
+                        <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground bg-muted/40 sticky top-0">
+                          {cat}
+                        </div>
+                        {catItems.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => addFromCatalog(item)}
+                            className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-secondary/5 active:bg-secondary/10 transition-colors"
+                            data-testid={`button-catalog-${item.id}`}
+                          >
+                            <span className="text-[12.5px] font-semibold text-foreground flex-1 mr-2 truncate">
+                              {item.service}
+                            </span>
+                            <span className="text-[12px] font-bold text-[var(--secondary)] tabular-nums shrink-0">
+                              {item.rate != null ? money(item.rate) : "—"}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
+      {/* Line items editor + create — visible once items exist or draft is built */}
+      {showEditor && (
+        <div className="space-y-3">
           <datalist id="wizard-price-book-options">
             {priceItems.map((pi) => (
               <option key={pi.id} value={pi.service}>
@@ -465,11 +477,11 @@ function JobInvoiceBuilder({
           <div className="rounded-xl border border-border overflow-hidden">
             <div className="px-3 py-2 bg-[var(--ink)] text-white flex items-center justify-between">
               <div className="text-[12.5px] font-bold">
-                {draft.invoiceNoPreview ? `Invoice ${draft.invoiceNoPreview}` : "Invoice (number assigned on create)"}
+                {draft?.invoiceNoPreview ? `Invoice ${draft.invoiceNoPreview}` : "Invoice (number assigned on create)"}
               </div>
               <div className="text-[12px] text-white/70">
-                {draft.billToName ? `Bill to ${draft.billToName}` : ""}
-                {draft.dueOnPreview ? ` · due ${draft.dueOnPreview}` : ""}
+                {draft?.billToName ? `Bill to ${draft.billToName}` : ""}
+                {draft?.dueOnPreview ? ` · due ${draft.dueOnPreview}` : ""}
               </div>
             </div>
             <table className="w-full text-[12.5px]">
@@ -558,7 +570,7 @@ function JobInvoiceBuilder({
                 ))}
                 <tr className="border-t-2 border-[var(--ink)]">
                   <td className="px-3 py-2 font-bold" colSpan={3}>
-                    Total{draft.taxPreview != null ? ` (tax recalculated per SOP on create)` : ""}
+                    Total{draft?.taxPreview != null ? ` (tax recalculated per SOP on create)` : ""}
                   </td>
                   <td className="px-3 py-2 text-right font-display font-bold">
                     {money(items.reduce((s, l) => s + (l.qty ?? 1) * (l.unitPrice ?? 0), 0))}
@@ -591,7 +603,7 @@ function JobInvoiceBuilder({
             className="w-full text-[12px] border border-border rounded-[10px] px-3 py-2 bg-white outline-none"
             data-testid="input-invoice-notes"
           />
-          {(() => {
+          {draft && (() => {
             // Client's stated budget carried from the work request onto the
             // job: warn (don't block) when the draft total exceeds it.
             const job = (jobs ?? []).find((j) => j.id === draft.jobId);
@@ -618,7 +630,7 @@ function JobInvoiceBuilder({
           {!created ? (
             <Button
               onClick={runCreate}
-              disabled={create.isPending}
+              disabled={create.isPending || items.length === 0}
               className="w-full rounded-full bg-[var(--gold-light,#B4FF44)] text-black font-bold hover:opacity-90"
               data-testid="button-create-sop-invoice"
             >
@@ -632,7 +644,7 @@ function JobInvoiceBuilder({
                 <div>
                   <div className="font-bold">Invoice {created.invoiceNo} created — {money(created.amount)}</div>
                   <div className="text-sm text-white/70 mt-0.5">
-                    Saved as a draft, SOP-compliant. Grab it as a PDF or a CSV formatted to the property's SOP, or open it to keep editing.
+                    Saved as a draft. Grab it as a PDF or CSV, or open it to keep editing.
                   </div>
                 </div>
               </div>
