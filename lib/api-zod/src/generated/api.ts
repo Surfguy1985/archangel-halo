@@ -2451,7 +2451,6 @@ export const GetDispatchBoardResponse = zod.object({
   "jobId": zod.string(),
   "jobNo": zod.string(),
   "description": zod.string().nullish(),
-  "category": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "status": zod.string(),
   "scheduledTime": zod.string().nullish(),
@@ -4264,7 +4263,7 @@ export const ListCrewsResponseItem = zod.object({
   "todayStatus": zod.string().nullish().describe('route | site | done | idle'),
   "todayJob": zod.string().nullish(),
   "todayProperty": zod.string().nullish(),
-  "pendingPackets": zod.number().int().optional().describe('Count of sent/in-progress packets not yet submitted')
+  "pendingPackets": zod.number().optional().describe('Count of sent\/in-progress packets not yet submitted')
 })
 export const ListCrewsResponse = zod.array(ListCrewsResponseItem)
 
@@ -6562,8 +6561,7 @@ export const GetPortalResponse = zod.object({
   "selfiePath": zod.string().nullish(),
   "isLeader": zod.boolean().nullish(),
   "leaderId": zod.string().nullish(),
-  "leaderName": zod.string().nullish(),
-  "paymentTerms": zod.string().nullish().describe('due_on_receipt | net15 | net30 | net45')
+  "leaderName": zod.string().nullish()
 }),
   "schedule": zod.array(zod.object({
   "id": zod.string(),
@@ -7018,10 +7016,8 @@ export const ListPortalJobsResponseItem = zod.object({
   "propertyName": zod.string().nullish(),
   "unitNo": zod.string().nullish(),
   "status": zod.string().nullish(),
-  "scheduledOn": zod.string().nullish().describe('YYYY-MM-DD date this job is scheduled; null for undated / open-ended work'),
   "checkedIn": zod.boolean().optional().describe('True when this crew\'s latest check-in for this job is newer than any checkout (currently on site)'),
   "checkedOut": zod.boolean().optional().describe('True when this crew has checked out of this job (a checkout exists at\/after the latest check-in)'),
-  "jobAgreedAt": zod.string().nullish().describe('ISO timestamp when this crew agreed to the payout terms for this job; null means not yet agreed'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "service": zod.string(),
