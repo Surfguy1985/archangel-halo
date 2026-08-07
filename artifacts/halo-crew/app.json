@@ -21,7 +21,10 @@
         "NSPhotoLibraryUsageDescription": "HALO Crew needs photo library access to pick job photos from your gallery.",
         "NSLocationWhenInUseUsageDescription": "HALO Crew uses your location while you're checked in to send GPS breadcrumbs to the office.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "HALO Crew tracks your location in the background while you're on a job so the office can see crew positions.",
-        "UIBackgroundModes": ["location", "fetch"]
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
       }
     },
     "android": {
@@ -39,7 +42,8 @@
       ]
     },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/icon.png",
+      "backgroundColor": "#07101E"
     },
     "plugins": [
       [
@@ -69,6 +73,7 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "backgroundColor": "#07101E"
   }
 }

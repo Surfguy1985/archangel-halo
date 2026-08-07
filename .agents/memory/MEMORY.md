@@ -23,6 +23,7 @@
 - [HALO mobile PWA](halo-pwa.md) — mobile app is an installable PWA via vite-plugin-pwa; icons from wings emblem on paper bg; PWA inert in dev, only works on published URL.
 - [HALO guided training](halo-training-center.md) — in-app voice tour in Settings uses browser SpeechSynthesis (no server TTS); guard auto-advance with a generation nonce or interrupted utterances skip steps.
 - [HALO job board](halo-job-board.md) — one broadcast row per (job,crew) — DB-unique + upserted; specialty mode scopes offers by crew services w/ staggered start times; job fill must be guarded UPDATE + row-count (first-wins); photo URLs are /api/storage${storagePath}.
+- [HALO Crew GPS sentinel](halo-crew-gps-sentinel.md) — AsyncStorage 'halo_gps_active' sentinel prevents ghost location pings after checkout/force-quit; clear before stop, set before start, check first in BG task.
 - [HALO portal schedule feed](halo-portal-schedule.md) — portal schedule merges crew_schedules + crew-assigned calendar_events (deduped by jobId|date); new assignment sources must merge into this feed.
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.
 - [HALO Plaid credentials](halo-plaid-credentials.md) — PRODUCTION keys via secrets; multi-bank: plaid_items unique item_id + upsert exchange, all endpoints loop every item.

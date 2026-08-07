@@ -441,7 +441,13 @@ const s = StyleSheet.create({
     color: '#F97316',
     lineHeight: 18,
   },
-  form: { padding: 16, gap: 6 },
+  form: {
+    padding: 16,
+    gap: 6,
+    maxWidth: Platform.OS === 'web' ? 600 : undefined,
+    width: '100%',
+    alignSelf: 'center' as const,
+  },
   formLabel: {
     fontSize: 13,
     fontFamily: 'Inter_600SemiBold',

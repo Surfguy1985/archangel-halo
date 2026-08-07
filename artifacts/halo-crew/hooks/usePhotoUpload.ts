@@ -166,11 +166,14 @@ export function usePhotoUpload(
           const next = prev.map((i) =>
             i.id === item.id ? { ...i, status: 'done' as const } : i,
           );
-          // Remove done items from local queue after a short delay
-          const filtered = next.filter((i) => i.status !== 'done');
-          saveQueue(filtered);
+          // Persist without the done item, but keep it visible for 1.5s
+          saveQueue(next.filter((i) => i.status !== 'done'));
           return next;
         });
+        // Remove the done item from UI after a brief success flash
+        setTimeout(() => {
+          setQueue((prev) => prev.filter((i) => i.id !== item.id));
+        }, 1500);
 
         // Refresh photos in the query cache
         queryClient.invalidateQueries({

@@ -16,6 +16,9 @@ import { Platform } from 'react-native';
 
 const BUFFER_KEY = 'halo_gps_buffer';
 const TOKEN_KEY = 'halo_crew_token'; // same key used by AuthContext
+// Sentinel: '1' while tracking is active. Background task checks this before
+// sending so ghost pings cannot fire after checkout / force-quit / restart.
+const ACTIVE_KEY = 'halo_gps_active';
 const SEND_INTERVAL_MS = 30_000;
 const MAX_BUFFER = 200;
 export const BG_LOCATION_TASK = 'halo-crew-bg-location';
@@ -38,6 +41,11 @@ if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(BG_LOCATION_TASK)) {
       const lng = loc.coords.longitude;
 
       try {
+        // Respect the active sentinel — if tracking was stopped (checkout /
+        // force-quit restart) don't send stale location data.
+        const active = await AsyncStorage.getItem(ACTIVE_KEY);
+        if (active !== '1') return;
+
         const token = await AsyncStorage.getItem(TOKEN_KEY);
         if (!token) return;
 
@@ -161,9 +169,11 @@ export function useGpsTracker(token: string | null, tracking: boolean): GpsState
     return true;
   }, []);
 
-  // Helper: unconditionally stop the background task if it is registered.
-  // Safe to call regardless of which instance or restart cycle started it.
+  // Helper: clear the active sentinel and stop the background task.
+  // Unconditional — works regardless of which instance or restart cycle started it.
   function stopBgTask() {
+    // Clear sentinel first so any in-flight background callback skips the send.
+    AsyncStorage.removeItem(ACTIVE_KEY).catch(() => {});
     if (Platform.OS === 'web') return;
     TaskManager.isTaskRegisteredAsync(BG_LOCATION_TASK)
       .then((registered) => {
@@ -222,6 +232,9 @@ export function useGpsTracker(token: string | null, tracking: boolean): GpsState
       if (token) flushBuffer(token);
 
       // ── Background task (standalone builds only) ───────────────────────
+      // Write the active sentinel before starting so the task can verify it.
+      await AsyncStorage.setItem(ACTIVE_KEY, '1').catch(() => {});
+
       // startLocationUpdatesAsync is idempotent if already registered.
       if (Platform.OS !== 'web' && hasBackgroundPermission) {
         try {
