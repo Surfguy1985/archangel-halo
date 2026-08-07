@@ -176,7 +176,7 @@ async function computeUnseen(crew: CrewRow) {
   const since = (section: string) =>
     seen[section] ? new Date(seen[section]!) : new Date(0);
 
-  const [offers, sched, events, messages, packets, documents, emergency, approvals] =
+  const [offers, sched, events, messages, packets, documents, emergency, approvals, invoices, payments, payouts] =
     await Promise.all([
       db
         .select({ n: count() })
@@ -262,6 +262,39 @@ async function computeUnseen(crew: CrewRow) {
             ),
           ),
         ),
+      // Invoices the office sent back for correction since the crew last viewed
+      // the Invoice tab. Using decidedAt (when the office acted) so the badge
+      // clears when the crew taps the tab regardless of invoice status changes.
+      db
+        .select({ n: count() })
+        .from(crewInvoicesTable)
+        .where(
+          and(
+            eq(crewInvoicesTable.crewId, crew.id),
+            eq(crewInvoicesTable.status, "needs_corrections"),
+            gt(crewInvoicesTable.decidedAt, since("invoices")),
+          ),
+        ),
+      // Crew payments created since the crew last viewed the Pay tab.
+      db
+        .select({ n: count() })
+        .from(crewPaymentsTable)
+        .where(
+          and(
+            eq(crewPaymentsTable.crewId, crew.id),
+            gt(crewPaymentsTable.createdAt, since("pay")),
+          ),
+        ),
+      // Crew payouts created since the crew last viewed the Pay tab.
+      db
+        .select({ n: count() })
+        .from(crewPayoutsTable)
+        .where(
+          and(
+            eq(crewPayoutsTable.crewId, crew.id),
+            gt(crewPayoutsTable.paidAt, since("pay")),
+          ),
+        ),
     ]);
 
   return {
@@ -272,6 +305,8 @@ async function computeUnseen(crew: CrewRow) {
     documents: documents[0]?.n ?? 0,
     emergency: emergency[0]?.n ?? 0,
     approvals: approvals[0]?.n ?? 0,
+    invoices: invoices[0]?.n ?? 0,
+    pay: (payments[0]?.n ?? 0) + (payouts[0]?.n ?? 0),
   };
 }
 

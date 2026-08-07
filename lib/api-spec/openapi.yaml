@@ -14061,7 +14061,7 @@ components:
           $ref: "#/components/schemas/PortalUnseen"
     PortalUnseen:
       type: object
-      required: [offers, schedule, messages, packets, documents, emergency, approvals]
+      required: [offers, schedule, messages, packets, documents, emergency, approvals, invoices, pay]
       properties:
         offers: { type: number }
         schedule: { type: number }
@@ -14073,6 +14073,16 @@ components:
           {
             type: number,
             description: "Pending member-move approvals waiting on this foreman",
+          }
+        invoices:
+          {
+            type: number,
+            description: "Invoices sent back by the office with needs_corrections status",
+          }
+        pay:
+          {
+            type: number,
+            description: "Crew payments or payouts created since the crew last viewed the Pay tab",
           }
     PortalEmergencyOffer:
       type: object
@@ -14312,7 +14322,7 @@ components:
         section:
           {
             type: string,
-            enum: [offers, schedule, messages, packets, documents, emergency, approvals],
+            enum: [offers, schedule, messages, packets, documents, emergency, approvals, invoices, pay],
           }
     CrewInvoiceItemInput:
       type: object

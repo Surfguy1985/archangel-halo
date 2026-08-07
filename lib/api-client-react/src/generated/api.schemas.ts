@@ -5278,6 +5278,10 @@ export interface PortalUnseen {
   emergency: number;
   /** Pending member-move approvals waiting on this foreman */
   approvals: number;
+  /** Invoices sent back by the office with needs_corrections status */
+  invoices: number;
+  /** Crew payments or payouts created since the crew last viewed the Pay tab */
+  pay: number;
 }
 
 export interface PortalBundle {
@@ -5538,6 +5542,8 @@ export const PortalSeenInputSection = {
   documents: 'documents',
   emergency: 'emergency',
   approvals: 'approvals',
+  invoices: 'invoices',
+  pay: 'pay',
 } as const;
 
 export interface PortalSeenInput {

@@ -137,6 +137,8 @@ const SEEN_SECTIONS: Partial<Record<Tab, PortalSeenInputSection>> = {
   messages: "messages",
   packets: "packets",
   documents: "documents",
+  invoice: "invoices",
+  pay: "pay",
 };
 
 function localToday(): string {
@@ -303,13 +305,13 @@ export default function CrewPortal() {
     ...(officeView?.enabled
       ? [{ key: "office" as Tab, label: "Office", icon: Home }]
       : []),
-    { key: "invoice", label: "Invoice", icon: Receipt },
+    { key: "invoice", label: "Invoice", icon: Receipt, alert: u?.invoices },
     { key: "packets", label: "Welcome Kit", icon: PackageCheck, alert: u?.packets },
     { key: "messages", label: "Messages", icon: MessageSquare, alert: u?.messages },
     { key: "checkin", label: "Job Tracker", icon: MapPin },
     { key: "photos", label: "Photos", icon: Camera },
     { key: "documents", label: "Docs", icon: FileText, alert: u?.documents },
-    { key: "pay", label: "Pay", icon: Wallet },
+    { key: "pay", label: "Pay", icon: Wallet, alert: u?.pay },
     { key: "w9", label: "W-9", icon: ClipboardCheck },
     { key: "wings", label: "Wings", icon: Feather },
     { key: "guide", label: guideLang === "es" ? "Guía" : "Guide", icon: BookOpen },

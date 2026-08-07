@@ -6644,7 +6644,9 @@ export const GetPortalResponse = zod.object({
   "packets": zod.number(),
   "documents": zod.number(),
   "emergency": zod.number(),
-  "approvals": zod.number().describe('Pending member-move approvals waiting on this foreman')
+  "approvals": zod.number().describe('Pending member-move approvals waiting on this foreman'),
+  "invoices": zod.number().describe('Invoices sent back by the office with needs_corrections status'),
+  "pay": zod.number().describe('Crew payments or payouts created since the crew last viewed the Pay tab')
 })
 })
 
@@ -7695,7 +7697,7 @@ export const MarkPortalSeenParams = zod.object({
 })
 
 export const MarkPortalSeenBody = zod.object({
-  "section": zod.enum(['offers', 'schedule', 'messages', 'packets', 'documents', 'emergency', 'approvals'])
+  "section": zod.enum(['offers', 'schedule', 'messages', 'packets', 'documents', 'emergency', 'approvals', 'invoices', 'pay'])
 })
 
 export const MarkPortalSeenResponse = zod.object({
@@ -7705,7 +7707,9 @@ export const MarkPortalSeenResponse = zod.object({
   "packets": zod.number(),
   "documents": zod.number(),
   "emergency": zod.number(),
-  "approvals": zod.number().describe('Pending member-move approvals waiting on this foreman')
+  "approvals": zod.number().describe('Pending member-move approvals waiting on this foreman'),
+  "invoices": zod.number().describe('Invoices sent back by the office with needs_corrections status'),
+  "pay": zod.number().describe('Crew payments or payouts created since the crew last viewed the Pay tab')
 })
 
 

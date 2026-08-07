@@ -1141,10 +1141,10 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
   // ── "more" quick links ───────────────────────────────────────────────
 
   const moreLinks: { tab: string; icon: React.FC<{ className?: string }>; label: string; badge?: number }[] = [
-    { tab: "invoice", icon: Receipt, label: t.invoice },
+    { tab: "invoice", icon: Receipt, label: t.invoice, badge: (portal.unseen as unknown as Record<string, number> | undefined)?.invoices },
     { tab: "messages", icon: MessageSquare, label: t.messages, badge: (portal.unseen as unknown as Record<string, number> | undefined)?.messages },
     { tab: "schedule", icon: Calendar, label: t.schedule, badge: ((portal.unseen as unknown as Record<string, number> | undefined)?.schedule ?? 0) + ((portal.unseen as unknown as Record<string, number> | undefined)?.approvals ?? 0) },
-    { tab: "pay", icon: Wallet, label: t.pay },
+    { tab: "pay", icon: Wallet, label: t.pay, badge: (portal.unseen as unknown as Record<string, number> | undefined)?.pay },
     { tab: "w9", icon: ClipboardCheck, label: t.w9 },
     { tab: "wings", icon: Feather, label: t.wings },
     { tab: "photos", icon: Camera, label: t.photos },

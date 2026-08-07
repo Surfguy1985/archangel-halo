@@ -17,4 +17,6 @@ export const PortalSeenInputSection = {
   documents: 'documents',
   emergency: 'emergency',
   approvals: 'approvals',
+  invoices: 'invoices',
+  pay: 'pay',
 } as const;
