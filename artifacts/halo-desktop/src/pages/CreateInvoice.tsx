@@ -721,7 +721,7 @@ export default function CreateInvoice() {
                           >
                             <span className="font-medium flex-1 mr-3">{item.service}</span>
                             <span className="font-bold text-[var(--secondary)] tabular-nums shrink-0 text-[13px]">
-                              {item.defaultRate != null ? money(item.defaultRate) : "—"}
+                              {item.rate != null ? money(item.rate) : "—"}
                             </span>
                           </button>
                         ))}

@@ -589,7 +589,7 @@ export function InvoiceEditor({
                                     {item.service}
                                   </span>
                                   <span className="text-[12px] font-bold text-[var(--gold-dark)] tabular-nums shrink-0">
-                                    {item.defaultRate != null ? money(item.defaultRate) : "—"}
+                                    {item.rate != null ? money(item.rate) : "—"}
                                   </span>
                                 </button>
                               ))}
