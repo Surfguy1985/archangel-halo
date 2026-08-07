@@ -1,7 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   Linking,
   Platform,
   Pressable,
@@ -28,6 +30,87 @@ import {
   getListPortalPhotosQueryKey,
 } from '@workspace/api-client-react';
 import type { PortalJob, PortalJobLineItem } from '@workspace/api-client-react';
+
+// ─── Moving-to ping ───────────────────────────────────────────────────────────
+
+const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN ?? '';
+
+async function patchMovingTo(token: string, unit: string | null): Promise<void> {
+  await fetch(`https://${DOMAIN}/api/portal/${token}/moving-to`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ unit }),
+  });
+}
+
+// ─── En-route trail indicator ─────────────────────────────────────────────────
+
+function EnRouteTrail() {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ]),
+    ).start();
+  }, [anim]);
+
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] });
+
+  return (
+    <View style={erStyles.row}>
+      {/* Trail dots */}
+      {[0, 1, 2].map((i) => (
+        <Animated.View
+          key={i}
+          style={[
+            erStyles.dot,
+            {
+              opacity: anim.interpolate({
+                inputRange: [0, 0.33 * (i + 1), 1],
+                outputRange: [0.2, 1, 0.2],
+                extrapolate: 'clamp',
+              }),
+              transform: [{ scale: anim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.7, 1.1, 0.7], extrapolate: 'clamp' }) }],
+            },
+          ]}
+        />
+      ))}
+      <Animated.Text style={[erStyles.label, { opacity }]}>En route</Animated.Text>
+      <Ionicons name="navigate" size={14} color="#22C55E" />
+    </View>
+  );
+}
+
+const erStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(34,197,94,0.10)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.25)',
+    alignSelf: 'center',
+    marginTop: 12,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22C55E',
+  },
+  label: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#22C55E',
+    letterSpacing: 0.3,
+  },
+});
 
 // ─── Phase derivation ────────────────────────────────────────────────────────
 
@@ -426,12 +509,16 @@ function ActionButton({
   token,
   coords,
   onRefresh,
+  enRoute,
+  setEnRoute,
 }: {
   phase: Phase;
   job: PortalJob | null;
   token: string;
   coords: { lat: number; lng: number } | null;
   onRefresh: () => void;
+  enRoute: boolean;
+  setEnRoute: (v: boolean) => void;
 }) {
   const { mutateAsync: createCheckin } = useCreatePortalCheckin();
   const [loading, setLoading] = useState(false);
@@ -548,6 +635,17 @@ function ActionButton({
   }
 
   if (phase === 'pre_checkin') {
+    const handleEnRoute = async () => {
+      if (!job || enRoute) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setEnRoute(true);
+      try {
+        await patchMovingTo(token, job.unitNo ?? job.propertyName ?? null);
+      } catch {
+        // non-fatal — trail still shows locally
+      }
+    };
+
     return (
       <View style={actionStyles.stack}>
         <Pressable
@@ -557,6 +655,24 @@ function ActionButton({
           <Ionicons name={config.icon as any} size={20} color="#07101E" />
           <Text style={actionStyles.btnText}>{config.label}</Text>
         </Pressable>
+        {/* En-route ping button */}
+        {!enRoute ? (
+          <Pressable
+            style={({ pressed }) => [
+              actionStyles.btn2,
+              { borderColor: 'rgba(34,197,94,0.30)', backgroundColor: 'rgba(34,197,94,0.08)' },
+              pressed && { opacity: 0.7 },
+            ]}
+            onPress={handleEnRoute}
+          >
+            <Ionicons name="navigate-outline" size={20} color="#22C55E" />
+            <Text style={[actionStyles.btn2Text, { color: '#22C55E' }]}>
+              I'm heading there
+            </Text>
+          </Pressable>
+        ) : (
+          <EnRouteTrail />
+        )}
         <Pressable
           style={({ pressed }) => [
             actionStyles.btn2,
@@ -713,6 +829,18 @@ export default function TodayScreen() {
   const gps = useGpsTracker(token, phase !== 'idle' && phase !== 'pre_checkin' && phase !== 'loading' && phase !== 'done');
 
   const [refreshing, setRefreshing] = useState(false);
+  const [enRoute, setEnRoute] = useState(false);
+
+  // Reset en-route when job changes or crew checks in
+  const prevJobId = useRef<string | null>(null);
+  React.useEffect(() => {
+    if (job?.id !== prevJobId.current) {
+      prevJobId.current = job?.id ?? null;
+      setEnRoute(false);
+    }
+    if (phase !== 'pre_checkin') setEnRoute(false);
+  }, [job?.id, phase]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([refetchJobs(), refetchPhotos()]);
@@ -874,6 +1002,8 @@ export default function TodayScreen() {
               token={token!}
               coords={gps.coords}
               onRefresh={onRefresh}
+              enRoute={enRoute}
+              setEnRoute={setEnRoute}
             />
             {!gps.hasPermission && phase !== 'idle' && phase !== 'done' && (
               <Pressable

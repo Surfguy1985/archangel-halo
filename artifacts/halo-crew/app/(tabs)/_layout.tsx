@@ -7,13 +7,19 @@ import { Tabs, router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 
 function AuthGuard() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, portal } = useAuth();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (isLoading) return;
+    if (!isAuthenticated) {
       router.replace('/link');
+      return;
     }
-  }, [isLoading, isAuthenticated]);
+    // New crew: send to onboarding if they haven't accepted the agreement yet
+    if (portal && !portal.crew?.agreementAcceptedAt) {
+      router.replace('/onboarding');
+    }
+  }, [isLoading, isAuthenticated, portal]);
 
   return null;
 }
