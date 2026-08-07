@@ -191,3 +191,10 @@ uri = "file://screenshots/vendor-crm/HALO-vendor-CRM-walkthrough.pdf"
 type = "pdf"
 title = "HALO Vendor-Side CRM — Full UX/UI Walkthrough (PDF)"
 description = "Click this card to open or download the 21-page walkthrough of every vendor-side office screen."
+
+[[outputs]]
+id = "Kw5yZHfMn9YsnrouJOzH_"
+uri = "file://crew-portal-code.zip"
+type = "unspecified"
+title = "Crew Portal Code"
+description = "CrewPortal.tsx · CrewPortalFlow.tsx · portal.ts — 3 files, 10,482 lines"
