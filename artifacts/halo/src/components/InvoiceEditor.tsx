@@ -1,5 +1,5 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, Minus, ChevronDown, Check, Building2, Zap, AlertTriangle } from "lucide-react";
 import {
@@ -10,13 +10,16 @@ import {
   useListJobs,
   useGetJob,
   useGetProperty,
+  useListCatalogItems,
   getGetJobQueryKey,
   getGetPropertyQueryKey,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
   getGetTodayQueryKey,
   getGetInvoiceQueryKey,
+  getListCatalogItemsQueryKey,
   type InvoiceDetail,
+  type CatalogItem,
 } from "@workspace/api-client-react";
 
 const fieldCls =
@@ -214,6 +217,38 @@ export function InvoiceEditor({
   }, [open, invoice, initialJobId, initialJobDetail]);
 
   const priceItems = propertyDetail?.priceItems ?? [];
+
+  // Master catalog — all services across all properties, grouped by category.
+  const { data: catalogItems } = useListCatalogItems({
+    query: { enabled: open, queryKey: getListCatalogItemsQueryKey() },
+  });
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [showCatalog, setShowCatalog] = useState(false);
+
+  const catalogGroups = useMemo(() => {
+    if (!catalogItems) return [];
+    const q = catalogSearch.toLowerCase();
+    const filtered = q
+      ? catalogItems.filter(
+          (c) =>
+            c.service.toLowerCase().includes(q) ||
+            (c.category ?? "").toLowerCase().includes(q),
+        )
+      : catalogItems;
+    const map = new Map<string, CatalogItem[]>();
+    for (const c of filtered) {
+      const cat = c.category?.trim() || "General";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(c);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) =>
+      /make[\s-]?ready/i.test(a) ? -1 : /make[\s-]?ready/i.test(b) ? 1 : a.localeCompare(b),
+    );
+  }, [catalogItems, catalogSearch]);
+
+  const addCatalogService = (item: CatalogItem) => {
+    quickAdd(item.service, item.rate ?? 0);
+  };
 
   const setRow = (key: string, patch: Partial<LineRow>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -479,30 +514,91 @@ export function InvoiceEditor({
                 </div>
               )}
 
-              {/* STEP 2 — One-tap services from the price book */}
-              {!isEdit && priceItems.length > 0 && (
+              {/* STEP 2 — Services: property price book + master catalog */}
+              {!isEdit && propertyId && (
                 <div className="mb-[16px]">
-                  <span className={labelCls}>
-                    <Zap className="w-[11px] h-[11px] inline mr-[3px] -mt-[1px]" />
-                    Tap to add — {selectedProperty?.name ?? "property"} price book
-                  </span>
-                  <div className="flex flex-wrap gap-[7px]">
-                    {priceItems.map((pi) => (
-                      <button
-                        key={pi.id}
-                        onClick={() => quickAdd(pi.service, pi.rate)}
-                        className="inline-flex items-center gap-[6px] pl-[12px] pr-[10px] py-[8px] rounded-full bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[13px] font-semibold text-[var(--ink)] active:scale-[0.94] transition-transform"
-                      >
-                        {pi.service}
-                        <span className="text-[12px] font-bold text-[var(--gold-dark)] tabular-nums">
-                          {money(pi.rate)}
-                        </span>
-                        <span className="w-[18px] h-[18px] rounded-full bg-[rgba(185,138,47,0.14)] grid place-items-center">
-                          <Plus className="w-[11px] h-[11px] text-[var(--gold-dark)]" strokeWidth={3} />
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                  {/* Property price book quick-pills */}
+                  {priceItems.length > 0 && (
+                    <>
+                      <span className={labelCls}>
+                        <Zap className="w-[11px] h-[11px] inline mr-[3px] -mt-[1px]" />
+                        {selectedProperty?.name ?? "Property"} price book
+                      </span>
+                      <div className="flex flex-wrap gap-[7px] mb-[10px]">
+                        {priceItems.map((pi) => (
+                          <button
+                            key={pi.id}
+                            onClick={() => quickAdd(pi.service, pi.rate)}
+                            className="inline-flex items-center gap-[6px] pl-[12px] pr-[10px] py-[8px] rounded-full bg-card border border-[var(--hairline)] shadow-[0_2px_8px_rgba(0,0,0,0.04)] text-[13px] font-semibold text-[var(--ink)] active:scale-[0.94] transition-transform"
+                          >
+                            {pi.service}
+                            <span className="text-[12px] font-bold text-[var(--gold-dark)] tabular-nums">
+                              {money(pi.rate)}
+                            </span>
+                            <span className="w-[18px] h-[18px] rounded-full bg-[rgba(185,138,47,0.14)] grid place-items-center">
+                              <Plus className="w-[11px] h-[11px] text-[var(--gold-dark)]" strokeWidth={3} />
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Master catalog picker */}
+                  <button
+                    onClick={() => setShowCatalog((v) => !v)}
+                    className="inline-flex items-center gap-[7px] px-[14px] py-[9px] rounded-[12px] bg-[rgba(185,138,47,0.10)] border border-[var(--gold)]/30 text-[13px] font-semibold text-[var(--gold-dark)] active:scale-[0.96] transition-transform w-full justify-center"
+                  >
+                    <Zap className="w-[14px] h-[14px]" />
+                    {showCatalog ? "Close" : "Add from master service list"}
+                    <ChevronDown
+                      className={`w-[14px] h-[14px] transition-transform ${showCatalog ? "rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {showCatalog && (
+                    <div className="mt-[10px] rounded-[16px] border border-[var(--hairline)] bg-card overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+                      <div className="px-[12px] pt-[12px] pb-[8px] border-b border-[var(--hairline)]">
+                        <input
+                          type="text"
+                          placeholder="Search services…"
+                          value={catalogSearch}
+                          onChange={(e) => setCatalogSearch(e.target.value)}
+                          className="w-full bg-[var(--paper)] border border-[var(--hairline)] rounded-[10px] py-[8px] px-[12px] text-[13px] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[var(--gold)]/40"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="max-h-[300px] overflow-y-auto divide-y divide-[var(--hairline)]">
+                        {catalogGroups.length === 0 ? (
+                          <div className="px-[14px] py-[20px] text-center text-[13px] text-muted-foreground">
+                            {catalogSearch ? "No services match." : "Loading master list…"}
+                          </div>
+                        ) : (
+                          catalogGroups.map(([cat, items]) => (
+                            <div key={cat}>
+                              <div className="px-[12px] py-[6px] text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground bg-[var(--paper)]/60 sticky top-0">
+                                {cat}
+                              </div>
+                              {items.map((item) => (
+                                <button
+                                  key={item.id}
+                                  onClick={() => { void addCatalogService(item); setShowCatalog(false); }}
+                                  className="w-full flex items-center justify-between px-[14px] py-[11px] text-left hover:bg-[var(--gold)]/5 active:bg-[var(--gold)]/10 transition-colors"
+                                >
+                                  <span className="text-[13px] font-semibold text-[var(--ink)] flex-1 mr-[8px]">
+                                    {item.service}
+                                  </span>
+                                  <span className="text-[12px] font-bold text-[var(--gold-dark)] tabular-nums shrink-0">
+                                    {item.defaultRate != null ? money(item.defaultRate) : "—"}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

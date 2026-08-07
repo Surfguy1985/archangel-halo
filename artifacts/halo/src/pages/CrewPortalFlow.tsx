@@ -462,7 +462,9 @@ function deriveCard(
     if (checklistType && !jobChecklistSignedOff[`${job.id}:${checklistType}`]) {
       return { kind: "job-checklist", job, checklistType };
     }
-    if (isCleaningJob(jAny.category, jAny.description) && !cleanSignedOff[job.id]) {
+    // Show the cleaning checklist for ALL jobs that don't have a trade-specific
+    // checklist — it's the universal quality gate before after-photos.
+    if (!cleanSignedOff[job.id]) {
       return { kind: "cleaning-checklist", job };
     }
 
@@ -625,7 +627,8 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
     if (!jobs) return;
     for (const job of jobs) {
       const j = job as unknown as { category?: string; description?: string };
-      if (!isCleaningJob(j.category, j.description)) continue;
+      // Load cleaning checklist for every non-trade job (it's now the universal gate).
+      if (getJobChecklistType(j.category, j.description)) continue; // trade checklist handles this job
       if (cleanChecklists[job.id]?.loading === false) continue; // already loaded
       if (cleanChecklists[job.id]?.loading === true) continue;  // in-flight
       setCleanChecklists((prev) => ({
@@ -1360,46 +1363,82 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
     if (card.kind === "before-photos" || card.kind === "after-photos") {
       const isAfter = card.kind === "after-photos";
       const { job, areas } = card;
-      const photoCount = (photos ?? []).filter(
-        (p) => p.jobId === job.id && p.phase === (isAfter ? "after" : "before"),
-      ).length;
-      const photoBusy = busy === `photo:${job.id}:${isAfter ? "after" : "before"}`;
+      const phase = isAfter ? "after" : "before";
+      const phasePhotos = (photos ?? []).filter(
+        (p) => p.jobId === job.id && p.phase === phase,
+      );
+      const photoCount = phasePhotos.length;
+      const photoBusy = busy === `photo:${job.id}:${phase}`;
+      const accentColor = isAfter ? "#818cf8" : "#34d399";
+      const accentBg = isAfter ? "rgba(129,140,248,0.12)" : "rgba(52,211,153,0.12)";
+      const accentBorder = isAfter ? "rgba(129,140,248,0.25)" : "rgba(52,211,153,0.25)";
       return (
         <div className={cardBase}>
           <JobHeader job={job} checkedIn={true} t={t} onBack={() => setShowHome(true)} />
-          <div className="px-[22px] py-[18px] flex flex-col gap-[10px]">
-            {tag(isAfter ? t.afterTag : t.beforeTag, isAfter ? "#818cf8" : "#34d399")}
-            <div className="mt-[4px]">
+          <div className="px-[22px] pt-[16px] pb-[10px] flex flex-col gap-[12px]">
+            {/* Phase pill + instruction */}
+            <div className="flex items-center gap-[8px]">
+              {tag(isAfter ? t.afterTag : t.beforeTag, accentColor)}
+              {photoCount > 0 && (
+                <span
+                  className="text-[11px] font-bold px-[8px] py-[3px] rounded-full"
+                  style={{ background: accentBg, color: accentColor, border: `1px solid ${accentBorder}` }}
+                >
+                  {photoCount} saved
+                </span>
+              )}
+            </div>
+            <div>
               {areas.map((area, i) => (
-                <div key={i} className="text-[14px] font-semibold text-white/80 leading-snug mt-[4px] first:mt-0">
+                <div key={i} className="text-[14px] font-semibold text-white/80 leading-snug mt-[3px] first:mt-0">
                   {isAfter ? t.afterInstr(area) : t.beforeInstr(area)}
                 </div>
               ))}
             </div>
+
+            {/* Photo thumbnail strip */}
             {photoCount > 0 && (
-              <div className="flex items-center gap-[6px] rounded-[10px] bg-green-500/10 border border-green-500/20 px-[10px] py-[8px]">
-                <Check className="w-[13px] h-[13px] text-green-400 shrink-0" />
-                <span className="text-[12.5px] text-green-300 font-semibold">
-                  {isAfter ? t.afterCount(photoCount) : t.beforeCount(photoCount)}
-                </span>
+              <div className="overflow-x-auto -mx-[4px] px-[4px]">
+                <div className="flex gap-[8px] pb-[4px]">
+                  {phasePhotos.map((p, i) => (
+                    <a
+                      key={i}
+                      href={`/api/storage${p.storagePath}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 w-[72px] h-[72px] rounded-[12px] overflow-hidden border-2 bg-white/5"
+                      style={{ borderColor: accentBorder }}
+                    >
+                      <img
+                        src={`/api/storage${p.storagePath}`}
+                        alt={`${phase} photo ${i + 1}`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
           </div>
+
           <div className="px-[22px] pb-[22px] flex flex-col gap-[10px]">
             <PrimaryBtn
-              onClick={() => doPhoto(job.id, isAfter ? "after" : "before")}
+              onClick={() => doPhoto(job.id, phase)}
               busy={photoBusy}
               icon={Camera}
-              label={isAfter ? t.afterBtn : t.beforeBtn}
+              label={photoCount > 0 ? (isAfter ? t.afterMore : t.beforeMore) : (isAfter ? t.afterBtn : t.beforeBtn)}
             />
             {photoCount > 0 && (
-              <button
-                type="button"
-                onClick={() => doPhoto(job.id, isAfter ? "after" : "before")}
-                className="text-[13px] font-semibold text-white/40 text-center"
+              <div
+                className="flex items-center justify-center gap-[6px] rounded-[10px] px-[10px] py-[8px]"
+                style={{ background: accentBg, border: `1px solid ${accentBorder}` }}
               >
-                {isAfter ? t.afterMore : t.beforeMore}
-              </button>
+                <Check className="w-[13px] h-[13px] shrink-0" style={{ color: accentColor }} />
+                <span className="text-[12.5px] font-semibold" style={{ color: accentColor }}>
+                  {isAfter ? t.afterCount(photoCount) : t.beforeCount(photoCount)} — tap to add more
+                </span>
+              </div>
             )}
           </div>
         </div>

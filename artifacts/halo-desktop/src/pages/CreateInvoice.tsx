@@ -13,13 +13,16 @@ import {
   getListJobsQueryKey,
   useGetProperty,
   useGetPropertySopRule,
+  useListCatalogItems,
   getGetPropertySopRuleQueryKey,
   getGetJobQueryKey,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
   getGetPropertyQueryKey,
   getGetTodayQueryKey,
+  getListCatalogItemsQueryKey,
   type InvoiceLineItemInput,
+  type CatalogItem,
 } from "@workspace/api-client-react";
 import { AlertTriangle, ChevronLeft, ChevronRight, Pencil, Plus, Save, Send, ShieldCheck, Trash2, Zap} from "lucide-react";
 import {
@@ -198,6 +201,38 @@ export default function CreateInvoice() {
     return map;
   }, [priceItems]);
   const hasCategories = priceGroups.size > 1;
+
+  // Master catalog — all services across all properties.
+  const { data: catalogItems } = useListCatalogItems({
+    query: { enabled: true, queryKey: getListCatalogItemsQueryKey() },
+  });
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [showCatalog, setShowCatalog] = useState(false);
+
+  const catalogGroups = useMemo(() => {
+    if (!catalogItems) return [];
+    const q = catalogSearch.toLowerCase();
+    const filtered = (q
+      ? catalogItems.filter(
+          (c: CatalogItem) =>
+            c.service.toLowerCase().includes(q) ||
+            (c.category ?? "").toLowerCase().includes(q),
+        )
+      : catalogItems) as CatalogItem[];
+    const map = new Map<string, CatalogItem[]>();
+    for (const c of filtered) {
+      const cat = c.category?.trim() || "General";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(c);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) =>
+      /make[\s-]?ready/i.test(a) ? -1 : /make[\s-]?ready/i.test(b) ? 1 : a.localeCompare(b),
+    );
+  }, [catalogItems, catalogSearch]);
+
+  const addCatalogService = (item: CatalogItem) => {
+    quickAdd(item.service, item.rate ?? 0);
+  };
 
   const quickAdd = (service: string, rate: number) => {
     setItems((prev) => {
@@ -581,67 +616,119 @@ export default function CreateInvoice() {
 
           {/* Line items */}
           <div className="pt-4 border-t border-border">
-            {propertyId && priceItems.length > 0 && (
-              <div className="mb-4 flex items-center gap-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="inline-flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full bg-[var(--gold-tint)] border border-[var(--primary)]/60 text-[13px] font-semibold hover:bg-[var(--primary)]/20 active:scale-95 transition-all">
-                      <Zap className="w-3.5 h-3.5 text-[var(--secondary)]" />
-                      Add from price book
-                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground rotate-90" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-64 max-h-80 overflow-y-auto">
-                    {hasCategories
-                      ? Array.from(priceGroups.entries()).map(([cat, items]) => (
-                          <DropdownMenuSub key={cat}>
-                            <DropdownMenuSubTrigger className="font-semibold text-[13px]">
-                              {cat}
-                              <span className="ml-auto text-[11px] text-muted-foreground font-normal">
-                                {items.length}
-                              </span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-60 max-h-72 overflow-y-auto">
-                              {items.map((pi) => (
-                                <DropdownMenuItem
-                                  key={pi.id}
-                                  onClick={() => quickAdd(pi.service, pi.rate)}
-                                  className="flex justify-between text-[13px] cursor-pointer"
-                                >
-                                  <span className="truncate flex-1 mr-2">{pi.service}</span>
-                                  <span className="font-bold text-[var(--secondary)] tabular-nums shrink-0">
-                                    {money(pi.rate)}
-                                  </span>
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        ))
-                      : (
-                        <>
-                          <DropdownMenuLabel className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">
-                            Price book
-                          </DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          {priceItems.map((pi) => (
-                            <DropdownMenuItem
-                              key={pi.id}
-                              onClick={() => quickAdd(pi.service, pi.rate)}
-                              className="flex justify-between text-[13px] cursor-pointer"
-                            >
-                              <span className="truncate flex-1 mr-2">{pi.service}</span>
-                              <span className="font-bold text-[var(--secondary)] tabular-nums shrink-0">
-                                {money(pi.rate)}
-                              </span>
-                            </DropdownMenuItem>
-                          ))}
-                        </>
-                      )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <span className="text-[12px] text-muted-foreground">
-                  {priceItems.length} item{priceItems.length !== 1 ? "s" : ""} in this property's price book
-                </span>
+            {propertyId && (
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                {priceItems.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="inline-flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full bg-[var(--gold-tint)] border border-[var(--primary)]/60 text-[13px] font-semibold hover:bg-[var(--primary)]/20 active:scale-95 transition-all">
+                        <Zap className="w-3.5 h-3.5 text-[var(--secondary)]" />
+                        Price book
+                        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground rotate-90" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-64 max-h-80 overflow-y-auto">
+                      {hasCategories
+                        ? Array.from(priceGroups.entries()).map(([cat, items]) => (
+                            <DropdownMenuSub key={cat}>
+                              <DropdownMenuSubTrigger className="font-semibold text-[13px]">
+                                {cat}
+                                <span className="ml-auto text-[11px] text-muted-foreground font-normal">
+                                  {items.length}
+                                </span>
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-60 max-h-72 overflow-y-auto">
+                                {items.map((pi) => (
+                                  <DropdownMenuItem
+                                    key={pi.id}
+                                    onClick={() => quickAdd(pi.service, pi.rate)}
+                                    className="flex justify-between text-[13px] cursor-pointer"
+                                  >
+                                    <span className="truncate flex-1 mr-2">{pi.service}</span>
+                                    <span className="font-bold text-[var(--secondary)] tabular-nums shrink-0">
+                                      {money(pi.rate)}
+                                    </span>
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          ))
+                        : (
+                          <>
+                            <DropdownMenuLabel className="text-[11px] text-muted-foreground font-bold uppercase tracking-wide">
+                              Price book
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {priceItems.map((pi) => (
+                              <DropdownMenuItem
+                                key={pi.id}
+                                onClick={() => quickAdd(pi.service, pi.rate)}
+                                className="flex justify-between text-[13px] cursor-pointer"
+                              >
+                                <span className="truncate flex-1 mr-2">{pi.service}</span>
+                                <span className="font-bold text-[var(--secondary)] tabular-nums shrink-0">
+                                  {money(pi.rate)}
+                                </span>
+                              </DropdownMenuItem>
+                            ))}
+                          </>
+                        )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+
+                {/* Master catalog button + inline picker */}
+                <button
+                  onClick={() => setShowCatalog((v) => !v)}
+                  className="inline-flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-full bg-secondary/10 border border-secondary/30 text-[13px] font-semibold text-[var(--secondary)] hover:bg-secondary/20 active:scale-95 transition-all"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  Master service list
+                  <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${showCatalog ? "rotate-90" : ""}`} />
+                </button>
+              </div>
+            )}
+
+            {/* Inline master catalog picker (shown below the toolbar) */}
+            {propertyId && showCatalog && (
+              <div className="mb-4 rounded-2xl border border-border overflow-hidden shadow-sm">
+                <div className="px-4 pt-3 pb-2 border-b border-border bg-muted/30">
+                  <input
+                    type="text"
+                    placeholder="Search master service list…"
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    className="w-full bg-background border border-input rounded-lg py-2 px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-64 overflow-y-auto divide-y divide-border">
+                  {catalogGroups.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                      {catalogSearch ? "No services match." : "Loading…"}
+                    </div>
+                  ) : (
+                    catalogGroups.map(([cat, items]) => (
+                      <div key={cat}>
+                        <div className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/40 sticky top-0">
+                          {cat}
+                        </div>
+                        {items.map((item: CatalogItem) => (
+                          <button
+                            key={item.id}
+                            onClick={() => { void addCatalogService(item); setShowCatalog(false); }}
+                            className="w-full flex items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-accent transition-colors"
+                          >
+                            <span className="font-medium flex-1 mr-3">{item.service}</span>
+                            <span className="font-bold text-[var(--secondary)] tabular-nums shrink-0 text-[13px]">
+                              {item.defaultRate != null ? money(item.defaultRate) : "—"}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
             <div className="hidden md:grid grid-cols-[110px_70px_1fr_64px_96px_96px_32px] gap-2 px-1 pb-2">
