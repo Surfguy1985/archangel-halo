@@ -309,43 +309,119 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
   const schedStart = fmtDate(new Date(now.getFullYear(), now.getMonth(), 1));
   const schedEnd = fmtDate(new Date(now.getFullYear(), now.getMonth() + 2, 0));
 
-  const [schedRows, eventRows, jobs, props, contacts] = await Promise.all([
-    db
-      .select()
-      .from(schedulesTable)
-      .where(
-        and(
+  // ── Phase A: crew-scoped only. Six queries, no job dependency. ──
+  const [schedRows, eventRows, offerRows, emergencyTargetRows, planRows, leaderRows] =
+    await Promise.all([
+      db.select().from(schedulesTable)
+        .where(and(
           eq(schedulesTable.crewLeaderId, crew.id),
           gte(schedulesTable.scheduledOn, schedStart),
           lte(schedulesTable.scheduledOn, schedEnd),
-        ),
-      )
-      .orderBy(schedulesTable.scheduledOn),
-    db
-      .select()
-      .from(calendarEventsTable)
-      .where(
-        and(
+        ))
+        .orderBy(schedulesTable.scheduledOn),
+
+      db.select().from(calendarEventsTable)
+        .where(and(
           eq(calendarEventsTable.crewId, crew.id),
           gte(calendarEventsTable.eventDate, schedStart),
           lte(calendarEventsTable.eventDate, schedEnd),
-        ),
-      )
-      .orderBy(calendarEventsTable.eventDate),
-    db.select().from(jobsTable),
-    db.select().from(propertiesTable),
-    db.select().from(contactsTable),
-  ]);
+        ))
+        .orderBy(calendarEventsTable.eventDate),
 
+      db.select().from(jobBroadcastsTable)
+        .where(and(
+          eq(jobBroadcastsTable.crewId, crew.id),
+          inArray(jobBroadcastsTable.status, ["pending", "approved", "declined"]),
+        ))
+        .orderBy(desc(jobBroadcastsTable.sentAt)),
+
+      db.select().from(emergencyPingTargetsTable)
+        .where(and(
+          eq(emergencyPingTargetsTable.crewId, crew.id),
+          inArray(emergencyPingTargetsTable.status, ["pending", "committed", "missed", "expired"]),
+        ))
+        .orderBy(desc(emergencyPingTargetsTable.sentAt)),
+
+      // Moved up from sequential — one less round trip.
+      db.select().from(crewRoutePlansTable)
+        .where(and(
+          eq(crewRoutePlansTable.crewId, crew.id),
+          gte(crewRoutePlansTable.day, weekStart),
+          lte(crewRoutePlansTable.day, weekEnd),
+        )),
+
+      // Hoisted out of the response literal where it was an await inside .parse().
+      crew.leaderId
+        ? db.select({ name: crewsTable.name }).from(crewsTable)
+            .where(eq(crewsTable.id, crew.leaderId))
+        : Promise.resolve([] as { name: string }[]),
+    ]);
+
+  // ── Phase B: resolve pings, then the complete job-ID union. ──
+  // Order matters. Offers and emergency pings reference jobs that are NOT in
+  // the schedule window, and both silently drop rows when the job is missing
+  // (`jobsById.has` and `if (!job) return false`) — so a scoped query built
+  // from schedule alone empties both arrays with no error.
+  const emergencyPingIds = [...new Set(emergencyTargetRows.map((t) => t.pingId))];
+  const emergencyPings = emergencyPingIds.length
+    ? await db.select().from(emergencyPingsTable)
+        .where(inArray(emergencyPingsTable.id, emergencyPingIds))
+    : [];
+  const pingById = new Map(emergencyPings.map((p) => [p.id, p]));
+
+  const jobIds = [...new Set([
+    ...schedRows.map((s) => s.jobId),
+    ...eventRows.map((e) => e.jobId),
+    ...offerRows.map((o) => o.jobId),
+    ...emergencyPings.map((p) => p.jobId),
+  ].filter((id): id is string => Boolean(id)))];
+
+  const jobs = jobIds.length
+    ? await db.select().from(jobsTable).where(inArray(jobsTable.id, jobIds))
+    : [];
   const jobsById = new Map(jobs.map((j) => [j.id, j]));
+
+  // ── Phase C: properties, contacts, offer photos. ──
+  const propIds = [...new Set(
+    jobs.map((j) => j.propertyId).filter((p): p is string => Boolean(p)),
+  )];
+  const offerJobIds = [...new Set(offerRows.map((o) => o.jobId))];
+
+  const [props, contacts, offerPhotos] = await Promise.all([
+    propIds.length
+      ? db.select().from(propertiesTable).where(inArray(propertiesTable.id, propIds))
+      : Promise.resolve([] as (typeof propertiesTable.$inferSelect)[]),
+    propIds.length
+      ? db.select().from(contactsTable).where(inArray(contactsTable.propertyId, propIds))
+      : Promise.resolve([] as (typeof contactsTable.$inferSelect)[]),
+    offerJobIds.length
+      ? db.select().from(activitiesTable).where(and(
+          eq(activitiesTable.entityType, "job"),
+          inArray(activitiesTable.entityId, offerJobIds),
+        ))
+      : Promise.resolve([] as (typeof activitiesTable.$inferSelect)[]),
+  ]);
   const propsById = new Map(props.map((p) => [p.id, p]));
 
-  // Best contact per property: prefer on-site roles with a phone, then any
-  // with a phone, then any contact at all (so name/email still show).
+  // Unchanged from the original — kept here because the sort below needs it.
+  const orderByDay = new Map<string, Map<string, number>>();
+  for (const p of planRows) {
+    const keys = Array.isArray(p.stopKeys) ? (p.stopKeys as string[]) : [];
+    orderByDay.set(p.day, new Map(keys.map((k, i) => [k, i])));
+  }
+
+  const contactsByProp = new Map<string, typeof contacts>();
+  for (const c of contacts) {
+    if (!c.propertyId) continue;
+    const list = contactsByProp.get(c.propertyId);
+    if (list) list.push(c);
+    else contactsByProp.set(c.propertyId, [c]);
+  }
+
   const contactForProp = (propertyId: string | null | undefined) => {
     if (!propertyId) return null;
-    const forProp = contacts.filter((c) => c.propertyId === propertyId);
-    if (forProp.length === 0) return null;
+    const forProp = contactsByProp.get(propertyId);
+    if (!forProp?.length) return null;
     const withPhone = forProp.filter((c) => c.phone);
     const onSite = withPhone.find((c) => /on.?site|maint/i.test(c.role ?? ""));
     return onSite ?? withPhone[0] ?? forProp[0]!;
@@ -418,21 +494,6 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
   };
   // Apply the office's saved route order within each day: planned stops first
   // (in saved order), everything else after by time.
-  const planRows = await db
-    .select()
-    .from(crewRoutePlansTable)
-    .where(
-      and(
-        eq(crewRoutePlansTable.crewId, crew.id),
-        gte(crewRoutePlansTable.day, weekStart),
-        lte(crewRoutePlansTable.day, weekEnd),
-      ),
-    );
-  const orderByDay = new Map<string, Map<string, number>>();
-  for (const p of planRows) {
-    const keys = Array.isArray(p.stopKeys) ? (p.stopKeys as string[]) : [];
-    orderByDay.set(p.day, new Map(keys.map((k, i) => [k, i])));
-  }
   const planIdx = (item: { id: string; scheduledOn: string | null }) => {
     const m = item.scheduledOn ? orderByDay.get(item.scheduledOn) : undefined;
     return m?.get(item.id) ?? Number.MAX_SAFE_INTEGER;
@@ -445,43 +506,6 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
     return windowMinutes(a.windowStart) - windowMinutes(b.windowStart);
   });
 
-  // Job offers broadcast to this crew (pending first, then recent responses).
-  const offerRows = await db
-    .select()
-    .from(jobBroadcastsTable)
-    .where(
-      and(
-        eq(jobBroadcastsTable.crewId, crew.id),
-        inArray(jobBroadcastsTable.status, [
-          "pending",
-          "approved",
-          "declined",
-        ]),
-      ),
-    )
-    .orderBy(desc(jobBroadcastsTable.sentAt));
-
-  const offerJobIds = [...new Set(offerRows.map((o) => o.jobId))];
-  const offerPropIds = [
-    ...new Set(
-      offerRows
-        .map((o) => jobsById.get(o.jobId)?.propertyId)
-        .filter((p): p is string => Boolean(p)),
-    ),
-  ];
-  const [offerPhotos] = await Promise.all([
-    offerJobIds.length > 0
-      ? db
-          .select()
-          .from(activitiesTable)
-          .where(
-            and(
-              eq(activitiesTable.entityType, "job"),
-              inArray(activitiesTable.entityId, offerJobIds),
-            ),
-          )
-      : Promise.resolve([] as (typeof activitiesTable.$inferSelect)[]),
-  ]);
 
   const offers = offerRows
     .filter((o) => jobsById.has(o.jobId))
@@ -523,31 +547,6 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
 
   const unseen = await computeUnseen(crew);
 
-  // Live emergency pings aimed at this crew: pending ones they can commit to,
-  // plus their own committed one until the job completes.
-  const emergencyTargetRows = await db
-    .select()
-    .from(emergencyPingTargetsTable)
-    .where(
-      and(
-        eq(emergencyPingTargetsTable.crewId, crew.id),
-        inArray(emergencyPingTargetsTable.status, [
-          "pending",
-          "committed",
-          "missed",
-          "expired",
-        ]),
-      ),
-    )
-    .orderBy(desc(emergencyPingTargetsTable.sentAt));
-  const emergencyPingIds = [...new Set(emergencyTargetRows.map((t) => t.pingId))];
-  const emergencyPings = emergencyPingIds.length
-    ? await db
-        .select()
-        .from(emergencyPingsTable)
-        .where(inArray(emergencyPingsTable.id, emergencyPingIds))
-    : [];
-  const pingById = new Map(emergencyPings.map((p) => [p.id, p]));
   const emergencyOffers = emergencyTargetRows
     .filter((t) => {
       const ping = pingById.get(t.pingId);
@@ -602,10 +601,7 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
         isLeader: crew.isLeader ?? null,
         leaderId: crew.leaderId ?? null,
         paymentTerms: crew.paymentTerms ?? null,
-        leaderName: crew.leaderId
-          ? ((await db.select().from(crewsTable).where(eq(crewsTable.id, crew.leaderId)))[0]
-              ?.name ?? null)
-          : null,
+        leaderName: leaderRows[0]?.name ?? null,
       },
       schedule,
       offers,
@@ -1127,54 +1123,112 @@ router.post("/portal/:token/checkins", async (req, res): Promise<void> => {
       }
     }
   }
-  const [row] = await db
-    .insert(crewCheckinsTable)
-    .values({
-      crewId: crew.id,
-      jobId: body.jobId ?? null,
-      kind,
-      lat: body.lat ?? null,
-      lng: body.lng ?? null,
-      accuracy: body.accuracy ?? null,
-      label: body.label ?? null,
-      note: body.note ?? null,
-    })
-    .returning();
-  // A new check-in clears the "moving to unit X" bubble that was set when the
-  // crew clocked out of their previous job — but only on the single latest
-  // checkout, so historical tracker records are not affected.
-  if (kind === "checkin") {
-    const [latestOut] = await db
-      .select({ id: crewCheckinsTable.id })
-      .from(crewCheckinsTable)
-      .where(and(eq(crewCheckinsTable.crewId, crew.id), eq(crewCheckinsTable.kind, "checkout")))
-      .orderBy(desc(crewCheckinsTable.createdAt))
-      .limit(1);
-    if (latestOut) {
-      await db
-        .update(crewCheckinsTable)
-        .set({ movingToUnit: null })
-        .where(eq(crewCheckinsTable.id, latestOut.id));
+  // ── Duplicate punch guard (Path A — interactive transaction) ─────────────
+  // A crew member who double-taps the check-in button inside the 90-second
+  // replay window gets a 201 with the existing row — idempotent. Punches
+  // older than 14 h (stale open) are ignored by the window so a new shift
+  // always creates a fresh row.
+  const STALE_PUNCH_MS = 14 * 60 * 60 * 1000;
+  const DEDUPE_MS = 90_000;
+  class DuplicatePunchError extends Error {}
+
+  let row: typeof crewCheckinsTable.$inferSelect;
+  let deduped = false;
+  try {
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(crewCheckinsTable)
+        .where(
+          and(
+            eq(crewCheckinsTable.crewId, crew.id),
+            eq(crewCheckinsTable.kind, kind as "checkin" | "checkout"),
+            body.jobId
+              ? eq(crewCheckinsTable.jobId, body.jobId)
+              : isNull(crewCheckinsTable.jobId),
+            gte(crewCheckinsTable.createdAt, new Date(Date.now() - DEDUPE_MS)),
+            gte(crewCheckinsTable.createdAt, new Date(Date.now() - STALE_PUNCH_MS)),
+          ),
+        )
+        .limit(1)
+        .for("update");
+      if (existing) throw new DuplicatePunchError();
+      [row!] = await tx
+        .insert(crewCheckinsTable)
+        .values({
+          crewId: crew.id,
+          jobId: body.jobId ?? null,
+          kind,
+          lat: body.lat ?? null,
+          lng: body.lng ?? null,
+          accuracy: body.accuracy ?? null,
+          label: body.label ?? null,
+          note: body.note ?? null,
+        })
+        .returning();
+    });
+  } catch (e) {
+    if (e instanceof DuplicatePunchError) {
+      deduped = true;
+      const [recent] = await db
+        .select()
+        .from(crewCheckinsTable)
+        .where(
+          and(
+            eq(crewCheckinsTable.crewId, crew.id),
+            eq(crewCheckinsTable.kind, kind as "checkin" | "checkout"),
+          ),
+        )
+        .orderBy(desc(crewCheckinsTable.createdAt))
+        .limit(1);
+      row = recent!;
+    } else {
+      throw e;
     }
   }
-  const jobLabel = body.jobId
-    ? ((await jobLabelMap([body.jobId])).get(body.jobId) ?? null)
-    : null;
-  await db.insert(notificationsTable).values({
-    kind: "crew_checkin",
-    priority: "normal",
-    entityType: "crew",
-    entityId: crew.id,
-    title:
-      kind === "checkout"
-        ? `${crew.name} checked out${jobLabel ? ` — ${jobLabel}` : ""}`
-        : `${crew.name} checked in${jobLabel ? ` — ${jobLabel}` : ""}`,
-    body:
-      body.note ??
-      body.label ??
-      (body.lat != null ? `${body.lat}, ${body.lng}` : null),
-  });
-  res.status(201).json(CreatePortalCheckinResponse.parse(ser(row)));
+
+  if (!deduped) {
+    // A new check-in clears the "moving to unit X" bubble that was set when
+    // the crew clocked out of their previous job — but only on the single
+    // latest checkout, so historical tracker records are not affected.
+    if (kind === "checkin") {
+      const [latestOut] = await db
+        .select({ id: crewCheckinsTable.id })
+        .from(crewCheckinsTable)
+        .where(and(eq(crewCheckinsTable.crewId, crew.id), eq(crewCheckinsTable.kind, "checkout")))
+        .orderBy(desc(crewCheckinsTable.createdAt))
+        .limit(1);
+      if (latestOut) {
+        await db
+          .update(crewCheckinsTable)
+          .set({ movingToUnit: null })
+          .where(eq(crewCheckinsTable.id, latestOut.id));
+      }
+    }
+    const jobLabel = body.jobId
+      ? ((await jobLabelMap([body.jobId])).get(body.jobId) ?? null)
+      : null;
+    const noFix = kind === "checkin" && body.lat == null;
+    await db.insert(notificationsTable).values({
+      kind: "crew_checkin",
+      priority: "normal",
+      entityType: "crew",
+      entityId: crew.id,
+      title:
+        kind === "checkout"
+          ? `${crew.name} checked out${jobLabel ? ` — ${jobLabel}` : ""}`
+          : `${crew.name} checked in${jobLabel ? ` — ${jobLabel}` : ""}${noFix ? " · no GPS" : ""}`,
+      body:
+        body.note ??
+        body.label ??
+        (body.lat != null ? `${body.lat}, ${body.lng}` : null),
+    });
+  }
+  res.status(201).json(
+    deduped
+      ? { ...CreatePortalCheckinResponse.parse(ser(row!)), duplicate: true }
+      : CreatePortalCheckinResponse.parse(ser(row!)),
+  );
 });
 
 // PATCH /portal/:token/moving-to — sets "moving to unit X" on the crew's most
@@ -2329,7 +2383,7 @@ router.get("/portal/:token/earnings", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Invalid portal link" });
     return;
   }
-  const [holds, payouts, payments, jobs] = await Promise.all([
+  const [holds, payouts, payments] = await Promise.all([
     db
       .select()
       .from(crewPayHoldsTable)
@@ -2348,9 +2402,15 @@ router.get("/portal/:token/earnings", async (req, res): Promise<void> => {
       .select()
       .from(crewPaymentsTable)
       .where(eq(crewPaymentsTable.crewId, crew.id)),
-    db.select().from(jobsTable),
   ]);
-  const jobsById2 = new Map(jobs.map((j) => [j.id, j]));
+
+  // Scoped job lookup — only the jobs referenced by this crew's holds.
+  const holdJobIds = [...new Set(holds.map((h) => h.jobId).filter((id): id is string => Boolean(id)))];
+  const holdJobs = holdJobIds.length
+    ? await db.select().from(jobsTable).where(inArray(jobsTable.id, holdJobIds))
+    : [];
+  const jobsById2 = new Map(holdJobs.map((j) => [j.id, j]));
+
   // Shared settlement predicate: paid payout or the canonical emergency
   // same-day payment — base-rate crew payments must NOT flip a hold to paid.
   const settled = emergencySettledKeys(payouts, payments);
@@ -2359,23 +2419,28 @@ router.get("/portal/:token/earnings", async (req, res): Promise<void> => {
   let payableTotal = 0;
   let paidTotal = 0;
   const rows = holds.map((h) => {
-    const job = jobsById2.get(h.jobId);
-    const paid = h.status === "RELEASED" && settled.has(`${h.crewId}|${h.jobId}`);
-    // Shared outstanding: prior completed base payments reduce what's
-    // still owed on a released hold (same rule as Today + payout queue).
-    const owed = outstandingHoldAmount(h.amount, h.crewId, h.jobId, payments);
+    const job = jobsById2.get(h.jobId ?? "");
+    const released = h.status === "RELEASED";
+    const settledFlag = released && settled.has(`${h.crewId}|${h.jobId}`);
+    // outstanding = what is still owed on this hold after any partial payments.
+    const outstanding = outstandingHoldAmount(h.amount, h.crewId, h.jobId, payments);
+    // alreadyPaid = whatever base payments have been applied to this hold.
+    const alreadyPaid = Math.max(0, h.amount - outstanding);
+
     let state: "held" | "payable" | "paid" | "cancelled";
     if (h.status === "HELD") {
       state = "held";
       heldTotal += h.amount;
     } else if (h.status === "CANCELLED") {
       state = "cancelled";
-    } else if (paid || owed <= 0) {
+    } else if (settledFlag || outstanding <= 0) {
       state = "paid";
       paidTotal += h.amount;
     } else {
+      // Partially-settled hold: split between paid and payable buckets.
       state = "payable";
-      payableTotal += owed;
+      payableTotal += outstanding;
+      paidTotal += alreadyPaid;
     }
     return {
       id: h.id,

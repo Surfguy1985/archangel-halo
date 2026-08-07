@@ -248,6 +248,14 @@ const COPY = {
     emergencyAccept: "Accept",
     emergencyDismiss: "Dismiss",
     locationErr: "Location needed — turn on location access and try again.",
+    alreadyIn: "You're already clocked in on this job.",
+    saveErr: "Something went wrong — try again.",
+    noGpsTitle: "Can't get a location fix",
+    noGpsBody: "You can still start. We'll tell the office the location is missing.",
+    noGpsStart: "Start without location",
+    noGpsRetry: "Try location again",
+    noGpsLabel: "Checked in without a GPS fix",
+    noGpsActive: "Started without location — no travel trail today.",
     photoErr: "Photo upload failed. Check your connection and try again.",
     saving: "Saving…",
     uploading: "Uploading…",
@@ -319,6 +327,14 @@ const COPY = {
     emergencyAccept: "Aceptar",
     emergencyDismiss: "Descartar",
     locationErr: "Necesito tu ubicación — activa el acceso a la ubicación.",
+    alreadyIn: "Ya estás registrado en este trabajo.",
+    saveErr: "Algo salió mal — inténtalo de nuevo.",
+    noGpsTitle: "No se puede fijar la ubicación",
+    noGpsBody: "Puedes empezar igual. Le avisamos a la oficina que falta la ubicación.",
+    noGpsStart: "Empezar sin ubicación",
+    noGpsRetry: "Intentar ubicación otra vez",
+    noGpsLabel: "Registrado sin señal de GPS",
+    noGpsActive: "Empezaste sin ubicación — hoy no hay ruta registrada.",
     photoErr: "Error al subir foto. Verifica tu conexión.",
     saving: "Guardando…",
     uploading: "Subiendo…",
@@ -591,6 +607,8 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
   const [notice, setNotice] = useState<string | null>(null);
   const [localCheckedOut, setLocalCheckedOut] = useState<Record<string, boolean>>({});
   const [dismissedEmergency, setDismissedEmergency] = useState<Set<string>>(new Set());
+  // Job id whose check-in is waiting on a location decision. Null = no prompt.
+  const [gpsBlocked, setGpsBlocked] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [showHome, setShowHome] = useState(false);
   const [cleanChecklists, setCleanChecklists] = useState<Record<string, CleaningChecklistState>>({});
@@ -781,15 +799,46 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
 
   // ── action handlers ──────────────────────────────────────────────────
 
-  const doCheckIn = async (jobId: string) => {
+  const doCheckIn = async (jobId: string, allowNoGps = false) => {
     setErr(null); setNotice(null); setBusy(`ci:${jobId}`);
     const pos = await getPosition();
-    if (!pos) { setBusy(null); setErr(t.locationErr); return; }
+
+    if (!pos && !allowNoGps) {
+      setBusy(null);
+      setGpsBlocked(jobId);   // a fork, not a dead end
+      return;
+    }
+    setGpsBlocked(null);
+
     checkinMut.mutate(
-      { token, data: { jobId, kind: "checkin", lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy } },
       {
-        onSuccess: () => { setBusy(null); startTrail(jobId); setNotice(t.checkinOk); refresh(); },
-        onError: () => { setBusy(null); setErr(t.locationErr); },
+        token,
+        data: {
+          jobId,
+          kind: "checkin",
+          lat: pos?.coords.latitude ?? null,
+          lng: pos?.coords.longitude ?? null,
+          accuracy: pos?.coords.accuracy ?? null,
+          // Goes straight into the office notification body — must read as a
+          // sentence, not a slug.
+          label: pos ? null : t.noGpsLabel,
+        },
+      },
+      {
+        onSuccess: () => {
+          setBusy(null);
+          // No fix means no trail. Starting one from a device that just failed
+          // to produce a position writes null points for the rest of the shift.
+          if (pos) startTrail(jobId);
+          setNotice(pos ? t.checkinOk : t.noGpsActive);
+          refresh();
+        },
+        onError: (e) => {
+          setBusy(null);
+          const data = (e as { data?: { code?: string; error?: string } | null })?.data;
+          if (data?.code === "duplicate_punch") { setNotice(t.alreadyIn); refresh(); return; }
+          setErr(data?.error ?? t.saveErr);
+        },
       },
     );
   };
@@ -1279,13 +1328,40 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
             )}
           </div>
           <div className="px-[22px] pb-[22px]">
-            <PrimaryBtn
-              onClick={() => doCheckIn(job.id)}
-              busy={isBusy}
-              disabled={isBusy || !windowOpen}
-              icon={LogIn}
-              label={windowOpen ? t.checkInBtn : t.checkInLocked(minsToWindow)}
-            />
+            {gpsBlocked === job.id ? (
+              <div className="flex flex-col gap-[10px]">
+                <div className="rounded-[14px] bg-amber-500/10 border border-amber-500/25 px-[13px] py-[12px]">
+                  <div className="flex items-center gap-[7px]">
+                    <AlertCircle className="w-[15px] h-[15px] text-amber-400 shrink-0" />
+                    <span className="text-[13.5px] font-bold text-amber-300">{t.noGpsTitle}</span>
+                  </div>
+                  <p className="text-[12.5px] text-white/55 mt-[7px] leading-[1.45]">{t.noGpsBody}</p>
+                </div>
+                <PrimaryBtn
+                  onClick={() => doCheckIn(job.id, true)}
+                  busy={isBusy}
+                  disabled={isBusy}
+                  icon={LogIn}
+                  label={t.noGpsStart}
+                />
+                <button
+                  type="button"
+                  onClick={() => { setGpsBlocked(null); void doCheckIn(job.id); }}
+                  disabled={isBusy}
+                  className="w-full py-[12px] text-[14px] font-bold text-white/55 disabled:opacity-40"
+                >
+                  {t.noGpsRetry}
+                </button>
+              </div>
+            ) : (
+              <PrimaryBtn
+                onClick={() => doCheckIn(job.id)}
+                busy={isBusy}
+                disabled={isBusy || !windowOpen}
+                icon={LogIn}
+                label={windowOpen ? t.checkInBtn : t.checkInLocked(minsToWindow)}
+              />
+            )}
           </div>
         </div>
       );
