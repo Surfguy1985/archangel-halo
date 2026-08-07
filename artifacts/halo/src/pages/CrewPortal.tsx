@@ -339,28 +339,32 @@ export default function CrewPortal() {
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
         <SheetContent
           side="bottom"
-          className="h-[90vh] flex flex-col rounded-t-[20px] bg-card border-t border-border p-0"
+          className="h-[90dvh] flex flex-col rounded-t-[20px] bg-card border-t border-border p-0"
         >
-          {/* Tab selector bar */}
-          <div className="px-[14px] pt-[14px] pb-0 border-b border-border shrink-0">
-            <div className="flex gap-[4px] overflow-x-auto no-scrollbar pb-[10px]">
+          {/* Tab selector — 4-column icon grid so all tabs are visible on screen */}
+          <div className="shrink-0 px-[12px] pt-[12px] pb-[12px] border-b border-border">
+            <div className="grid grid-cols-4 gap-[7px]">
               {tabs
                 .filter((t) => t.key !== "jobs")
                 .map((t) => {
                   const Icon = t.icon;
+                  const active = tab === t.key;
                   return (
                     <button
                       key={t.key}
                       onClick={() => setTab(t.key)}
-                      className={`flex items-center gap-[5px] whitespace-nowrap rounded-[10px] px-[12px] py-[8px] text-[12.5px] font-display font-bold transition-all ${
-                        tab === t.key
-                          ? "bg-[var(--gold-light)] text-primary-foreground"
+                      className={`relative flex flex-col items-center gap-[4px] rounded-[12px] py-[9px] px-[4px] transition-all active:scale-[0.94] ${
+                        active
+                          ? "bg-[var(--gold-light)] text-black"
                           : "bg-muted text-muted-foreground hover:bg-muted/80"
                       }`}
                     >
-                      <Icon className="w-[14px] h-[14px]" /> {t.label}
+                      <Icon className="w-[17px] h-[17px] shrink-0" />
+                      <span className="text-[10px] font-display font-bold leading-tight text-center w-full truncate px-[2px]">
+                        {t.label}
+                      </span>
                       {t.alert ? (
-                        <span className="ml-[2px] bg-red-500 text-white px-[5px] py-[1px] rounded-full text-[10px] font-bold min-w-[16px] text-center">
+                        <span className="absolute top-[5px] right-[5px] min-w-[14px] h-[14px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-[3px] leading-none">
                           {t.alert}
                         </span>
                       ) : null}
@@ -381,7 +385,7 @@ export default function CrewPortal() {
             {tab === "invoice" && (
               <InvoiceTab portal={portal} token={token} initialJobId={invoiceJobId} />
             )}
-            {tab === "packets" && <WelcomeKitTab token={token} />}
+            {tab === "packets" && <WelcomeKitTab token={token} autoOpen />}
             {tab === "messages" &&
               (portal.crew.leaderId ? (
                 <ForemanRoutedNotice leaderName={portal.crew.leaderName ?? null} />
@@ -688,8 +692,9 @@ function WelcomeKitModal({
 
       {/* Scrollable kit content */}
       <div className="flex-1 overflow-y-auto px-[16px] py-[20px]">
-        {/* Render the full WelcomeKitTab — packet list + PacketRunner */}
-        <WelcomeKitTab token={token} />
+        {/* Render the full WelcomeKitTab — auto-open first packet so the crew
+            lands directly in the flow without an extra tap */}
+        <WelcomeKitTab token={token} autoOpen />
       </div>
 
       {/* Sticky bottom CTA */}

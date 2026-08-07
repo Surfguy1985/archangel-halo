@@ -52,7 +52,15 @@ type FormsData = Record<string, Record<string, unknown>>;
 type Signatures = Record<string, SignatureValue>;
 type Attachments = Record<string, PacketAttachmentValue[]>;
 
-export default function WelcomeKitTab({ token }: { token: string }) {
+export default function WelcomeKitTab({
+  token,
+  autoOpen,
+}: {
+  token: string;
+  /** When true, auto-opens the first non-submitted packet so the crew lands
+   *  directly in the flow without an extra tap. */
+  autoOpen?: boolean;
+}) {
   const { data: packets, isLoading } = useListPortalPackets(token, {
     query: {
       queryKey: getListPortalPacketsQueryKey(token),
@@ -60,6 +68,18 @@ export default function WelcomeKitTab({ token }: { token: string }) {
     },
   });
   const [openId, setOpenId] = useState<string | null>(null);
+
+  // Auto-open the first incomplete packet (once, on mount) when the caller
+  // requests it — e.g. tapping "Welcome Kit" from the home screen.
+  const didAutoOpen = useRef(false);
+  useEffect(() => {
+    if (!autoOpen || didAutoOpen.current || !packets || packets.length === 0 || openId) return;
+    const first = packets.find((p) => p.status !== "submitted");
+    if (first) {
+      didAutoOpen.current = true;
+      setOpenId(first.id);
+    }
+  }, [autoOpen, packets]);
 
   if (isLoading) {
     return (
@@ -604,11 +624,9 @@ function PdfViewer({ url, title }: { url: string; title: string }) {
         </a>
       </div>
 
-      {/* Scrollable page stack */}
-      <div
-        className="overflow-y-auto bg-[#525659] flex flex-col gap-[3px] p-[3px]"
-        style={{ maxHeight: 500 }}
-      >
+      {/* Page stack — no inner scroll; pages grow in-flow and the outer
+          sheet content area scrolls. This avoids iOS nested-scroll traps. */}
+      <div className="bg-[#525659] flex flex-col gap-[3px] p-[3px]">
         {loading && (
           <div className="flex flex-col items-center justify-center gap-[8px] py-[48px]">
             <Loader2 className="w-[20px] h-[20px] animate-spin text-white/70" />

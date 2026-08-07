@@ -154,6 +154,9 @@ const PUBLIC_PREFIXES = [
   "/job-summaries/",
   "/storage/",
   "/vapi/",
+  // Source legal PDFs that crews must read during onboarding — no office
+  // session needed; the template key + form code are not secret.
+  "/packets/templates/",
   // Presentation Mode: an unauthenticated audience device drives the scripted
   // card lifecycle and renders the office-side board. Both endpoints are
   // token-guarded (current demo dashboardToken + active demo) and only ever
