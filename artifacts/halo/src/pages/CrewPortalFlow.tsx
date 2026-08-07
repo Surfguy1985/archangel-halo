@@ -2098,6 +2098,21 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
         </div>
       )}
 
+      {/* ── Leader / team context banner (members only) ──────────── */}
+      {(() => {
+        const c = portal.crew as unknown as { leaderId?: string | null; leaderName?: string | null; isLeader?: boolean | null };
+        if (!c.leaderId || c.isLeader) return null;
+        const leaderName = c.leaderName;
+        return (
+          <div className="mx-[20px] mt-[10px] rounded-[14px] bg-white/[0.04] border border-white/[0.07] px-[14px] py-[9px] flex items-center gap-[8px]">
+            <span className="w-[7px] h-[7px] rounded-full bg-[#B4FF44] shrink-0" />
+            <span className="text-[12px] text-white/50 font-semibold">
+              {leaderName ? `You're part of ${leaderName}'s crew` : "You're part of a crew team"}
+            </span>
+          </div>
+        );
+      })()}
+
       {/* ── Notices / errors ──────────────────────────────────────── */}
       {notice && (
         <div className="mx-[20px] mt-[10px] rounded-[14px] bg-green-900/40 border border-green-500/25 px-[14px] py-[10px] flex items-center gap-[8px]">

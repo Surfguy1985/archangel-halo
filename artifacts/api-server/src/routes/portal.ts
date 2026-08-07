@@ -344,8 +344,10 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
   const schedStart = fmtDate(new Date(now.getFullYear(), now.getMonth(), 1));
   const schedEnd = fmtDate(new Date(now.getFullYear(), now.getMonth() + 2, 0));
 
-  // ── Phase A: crew-scoped only. Six queries, no job dependency. ──
-  const [schedRows, eventRows, offerRows, emergencyTargetRows, planRows, leaderRows] =
+  const today = fmtDate(now);
+
+  // ── Phase A: crew-scoped only. Seven queries, no job dependency. ──
+  const [schedRows, eventRows, offerRows, emergencyTargetRows, planRows, leaderRows, memberDispatchRows] =
     await Promise.all([
       db.select().from(schedulesTable)
         .where(and(
@@ -390,6 +392,17 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
         ? db.select({ name: crewsTable.name }).from(crewsTable)
             .where(eq(crewsTable.id, crew.leaderId))
         : Promise.resolve([] as { name: string }[]),
+
+      // Today's dispatch assignments for this member (non-leaders only — leaders
+      // don't get dispatched as members of another crew). Used to promote the
+      // dispatched job onto the main guided card flow.
+      crew.leaderId
+        ? db.select().from(crewDispatchAssignmentsTable)
+            .where(and(
+              eq(crewDispatchAssignmentsTable.memberId, crew.id),
+              eq(crewDispatchAssignmentsTable.day, today),
+            ))
+        : Promise.resolve([] as (typeof crewDispatchAssignmentsTable.$inferSelect)[]),
     ]);
 
   // ── Phase B: resolve pings, then the complete job-ID union. ──
@@ -409,6 +422,7 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
     ...eventRows.map((e) => e.jobId),
     ...offerRows.map((o) => o.jobId),
     ...emergencyPings.map((p) => p.jobId),
+    ...memberDispatchRows.map((d) => d.jobId),
   ].filter((id): id is string => Boolean(id)))];
 
   const jobs = jobIds.length
@@ -514,6 +528,30 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       tasks: ev.notes ? taskify(ev.notes) : taskify(job?.description),
     });
   }
+  // Merge today's dispatch assignments for non-leader members into the schedule
+  // so the guided card flow promotes them to the primary home card. Deduplicate
+  // by jobNo — if a schedule row already covers this job on today's date, skip.
+  const schedJobNosToday = new Set(
+    schedule.filter((s) => s.scheduledOn === today).map((s) => s.jobNo).filter(Boolean),
+  );
+  for (const da of memberDispatchRows) {
+    const job = jobsById.get(da.jobId);
+    if (!job) continue;
+    if (job.jobNo && schedJobNosToday.has(job.jobNo)) continue; // already covered
+    schedule.push({
+      id: `dispatch-${da.id}`,
+      kind: "dispatch",
+      jobNo: job.jobNo ?? null,
+      description: job.description ?? null,
+      ...propFields(job.propertyId),
+      unitNo: job.unitNo ?? null,
+      scheduledOn: today,
+      windowStart: null,
+      status: "scheduled",
+      tasks: taskify(job.description),
+    });
+  }
+
   // Time windows are free text ("9:00 AM", "13:30"); parse to minutes so the
   // fallback order is chronological, unparseable/missing last.
   const windowMinutes = (w: string | null): number => {
@@ -1398,12 +1436,14 @@ async function jobBelongsToCrew(
   jobId: string,
   crewId: string,
 ): Promise<boolean> {
+  // 1. Direct assignment: this crew is the job leader.
   const [direct] = await db
     .select({ id: jobsTable.id })
     .from(jobsTable)
     .where(and(eq(jobsTable.id, jobId), eq(jobsTable.crewLeaderId, crewId)))
     .limit(1);
   if (direct) return true;
+  // 2. Schedule row: crew was dispatched via a schedule entry.
   const [sched] = await db
     .select({ id: schedulesTable.id })
     .from(schedulesTable)
@@ -1414,7 +1454,22 @@ async function jobBelongsToCrew(
       ),
     )
     .limit(1);
-  return !!sched;
+  if (sched) return true;
+  // 3. Member dispatch assignment for today. Excludes pending_move rows
+  //    because those members are leaving the job, not actively on it.
+  const [dispatch] = await db
+    .select({ id: crewDispatchAssignmentsTable.id })
+    .from(crewDispatchAssignmentsTable)
+    .where(
+      and(
+        eq(crewDispatchAssignmentsTable.jobId, jobId),
+        eq(crewDispatchAssignmentsTable.memberId, crewId),
+        eq(crewDispatchAssignmentsTable.day, localToday()),
+        ne(crewDispatchAssignmentsTable.status, "pending_move"),
+      ),
+    )
+    .limit(1);
+  return !!dispatch;
 }
 
 router.get("/portal/:token/jobs", async (req, res): Promise<void> => {
@@ -1424,16 +1479,24 @@ router.get("/portal/:token/jobs", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Invalid portal link" });
     return;
   }
-  const schedules = await db
-    .select()
-    .from(schedulesTable)
-    .where(eq(schedulesTable.crewLeaderId, crew.id));
-  const directJobs = await db
-    .select()
-    .from(jobsTable)
-    .where(eq(jobsTable.crewLeaderId, crew.id));
+  const [schedules, directJobs, memberDispatch] = await Promise.all([
+    db.select().from(schedulesTable).where(eq(schedulesTable.crewLeaderId, crew.id)),
+    db.select().from(jobsTable).where(eq(jobsTable.crewLeaderId, crew.id)),
+    // Non-leader members get their jobs via dispatch assignments, not crewLeaderId.
+    crew.leaderId
+      ? db.select().from(crewDispatchAssignmentsTable)
+          .where(and(
+            eq(crewDispatchAssignmentsTable.memberId, crew.id),
+            eq(crewDispatchAssignmentsTable.day, localToday()),
+          ))
+      : Promise.resolve([] as (typeof crewDispatchAssignmentsTable.$inferSelect)[]),
+  ]);
   const jobIds = Array.from(
-    new Set([...schedules.map((s) => s.jobId), ...directJobs.map((j) => j.id)]),
+    new Set([
+      ...schedules.map((s) => s.jobId),
+      ...directJobs.map((j) => j.id),
+      ...memberDispatch.map((d) => d.jobId),
+    ]),
   );
   const jobs = jobIds.length
     ? await db.select().from(jobsTable).where(inArray(jobsTable.id, jobIds))
@@ -3375,19 +3438,11 @@ router.post(
       .limit(1);
     if (!job) { res.status(404).json({ error: "Job not found" }); return; }
 
-    // Check ownership — crew must be assigned to this job
-    if (job.crewLeaderId !== crew.id) {
-      const schedCount = await db
-        .select({ id: schedulesTable.id })
-        .from(schedulesTable)
-        .where(
-          and(eq(schedulesTable.jobId, jobId), eq(schedulesTable.crewLeaderId, crew.id)),
-        )
-        .limit(1);
-      if (schedCount.length === 0) {
-        res.status(403).json({ error: "Not assigned to this job" });
-        return;
-      }
+    // Check ownership — crew must be assigned to this job (leader, schedule,
+    // or today's active dispatch assignment).
+    if (!(await jobBelongsToCrew(jobId, crew.id))) {
+      res.status(403).json({ error: "Not assigned to this job" });
+      return;
     }
 
     const existing = await db
