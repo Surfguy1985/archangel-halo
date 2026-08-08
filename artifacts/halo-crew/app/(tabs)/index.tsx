@@ -1029,6 +1029,26 @@ export default function TodayScreen() {
           </Pressable>
         )}
 
+        {/* Walk approved cards */}
+        {(portal?.approvedWalks ?? []).map((walk) => (
+          <View key={walk.jobId} style={todayStyles.walkApprovedCard}>
+            <View style={todayStyles.walkApprovedHeader}>
+              <Ionicons name="checkmark-circle" size={18} color="#B4FF44" />
+              <Text style={todayStyles.walkApprovedTitle}>Walk Approved — Ready to Start</Text>
+            </View>
+            <Text style={todayStyles.walkApprovedProperty}>
+              {walk.propertyName ?? 'Property'}
+              {walk.unitNo ? ` · Unit ${walk.unitNo}` : ''}
+            </Text>
+            {walk.jobNo && (
+              <Text style={todayStyles.walkApprovedJobNo}>Job #{walk.jobNo}</Text>
+            )}
+            <Text style={todayStyles.walkApprovedBody}>
+              The client has signed off — you're cleared to begin work.
+            </Text>
+          </View>
+        ))}
+
         {/* Job card */}
         {phase !== 'idle' && phase !== 'loading' && job ? (
           <View style={todayStyles.jobCard}>
@@ -1302,5 +1322,44 @@ const todayStyles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     color: '#8CA0B9',
     marginTop: 1,
+  },
+  walkApprovedCard: {
+    backgroundColor: '#0E1F12',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(180,255,68,0.25)',
+  },
+  walkApprovedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  walkApprovedTitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: '#B4FF44',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  walkApprovedProperty: {
+    fontSize: 16,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#F4F7F9',
+    marginBottom: 2,
+  },
+  walkApprovedJobNo: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    color: '#8CA0B9',
+    marginBottom: 8,
+  },
+  walkApprovedBody: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: '#8CA0B9',
+    lineHeight: 19,
   },
 });

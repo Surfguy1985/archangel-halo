@@ -5286,12 +5286,24 @@ export interface PortalUnseen {
   pay: number;
 }
 
+export interface ApprovedWalk {
+  jobId: string;
+  /** @nullable */
+  jobNo?: string | null;
+  /** @nullable */
+  propertyName?: string | null;
+  /** @nullable */
+  unitNo?: string | null;
+  approvedAt: string;
+}
+
 export interface PortalBundle {
   crew: PortalCrew;
   schedule: PortalScheduleItem[];
   offers: PortalOffer[];
   emergencyOffers: PortalEmergencyOffer[];
   unseen: PortalUnseen;
+  approvedWalks?: ApprovedWalk[];
 }
 
 export interface PortalEmergencyCommitResult {

@@ -68,6 +68,15 @@
           "photosPermission": "HALO Crew accesses your photos to let you pick job documentation images.",
           "cameraPermission": "HALO Crew uses your camera to take before and after photos for jobs."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#07101E",
+          "sounds": [],
+          "iosDisplayInForeground": true
+        }
       ]
     ],
     "experiments": {

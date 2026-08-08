@@ -6563,6 +6563,13 @@ export const GetPortalResponse = zod.object({
   "leaderId": zod.string().nullish(),
   "leaderName": zod.string().nullish()
 }),
+  "approvedWalks": zod.array(zod.object({
+  "jobId": zod.string(),
+  "jobNo": zod.string().nullish(),
+  "propertyName": zod.string().nullish(),
+  "unitNo": zod.string().nullish(),
+  "approvedAt": zod.string()
+})).optional(),
   "schedule": zod.array(zod.object({
   "id": zod.string(),
   "kind": zod.string().nullish().describe('job | event'),

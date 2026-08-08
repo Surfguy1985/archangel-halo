@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -23,6 +24,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 
+const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN ?? '';
+
 function formatTime(iso: string | null | undefined) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -35,9 +38,32 @@ function formatDate(iso: string | null | undefined) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
+function AttachmentPill({ name, path, fromCrew }: { name: string; path: string; fromCrew: boolean }) {
+  const handleOpen = () => {
+    const url = `https://${DOMAIN}/api/storage${path}`;
+    Linking.openURL(url).catch(() => {});
+  };
+  return (
+    <Pressable
+      style={[msgStyles.attachPill, fromCrew ? msgStyles.attachPillRight : msgStyles.attachPillLeft]}
+      onPress={handleOpen}
+    >
+      <Ionicons name="document-attach-outline" size={14} color={fromCrew ? '#07101E' : '#B4FF44'} />
+      <Text
+        style={[msgStyles.attachName, fromCrew ? msgStyles.attachNameRight : msgStyles.attachNameLeft]}
+        numberOfLines={1}
+      >
+        {name}
+      </Text>
+      <Ionicons name="open-outline" size={12} color={fromCrew ? '#2D4A2D' : '#8CA0B9'} />
+    </Pressable>
+  );
+}
+
 function MessageBubble({ msg }: { msg: CrewMessage }) {
   // sender === 'office' means office sent it; anything else is crew
   const fromCrew = msg.sender !== 'office';
+  const hasAttachment = !!msg.attachmentName && !!msg.attachmentPath;
   return (
     <View
       style={[
@@ -56,6 +82,13 @@ function MessageBubble({ msg }: { msg: CrewMessage }) {
       >
         {msg.body}
       </Text>
+      {hasAttachment && (
+        <AttachmentPill
+          name={msg.attachmentName!}
+          path={msg.attachmentPath!}
+          fromCrew={fromCrew}
+        />
+      )}
       <Text style={[msgStyles.time, fromCrew ? msgStyles.timeRight : msgStyles.timeLeft]}>
         {formatTime(msg.createdAt)}
       </Text>
@@ -93,6 +126,21 @@ const msgStyles = StyleSheet.create({
   time: { fontSize: 11, marginTop: 3 },
   timeLeft: { color: '#435A7D' },
   timeRight: { color: '#435A7D' },
+  attachPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    maxWidth: '100%',
+  },
+  attachPillLeft: { backgroundColor: 'rgba(180,255,68,0.12)' },
+  attachPillRight: { backgroundColor: 'rgba(7,16,30,0.2)' },
+  attachName: { fontSize: 12, fontFamily: 'Inter_600SemiBold', flex: 1 },
+  attachNameLeft: { color: '#B4FF44' },
+  attachNameRight: { color: '#07101E' },
 });
 
 export default function MessagesScreen() {

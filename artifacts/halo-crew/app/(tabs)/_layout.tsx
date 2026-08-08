@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Tabs, router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 function AuthGuard() {
   const { isLoading, isAuthenticated, portal } = useAuth();
@@ -37,6 +38,7 @@ function AuthGuard() {
 
 export default function TabLayout() {
   const colors = useColors();
+  usePushNotifications();
 
   return (
     <>

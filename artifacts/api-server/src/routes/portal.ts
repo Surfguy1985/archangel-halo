@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { limits } from "../lib/rateLimit";
 import { Router, type IRouter } from "express";
-import { and, count, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, notInArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, notInArray, sql } from "drizzle-orm";
 import {
   db,
   crewsTable,
@@ -55,6 +55,7 @@ import {
   type JobChecklistType,
 } from "../lib/jobChecklists";
 import { seedChecklist, jobShortLabel, isUniqueViolation } from "./dispatchBoard";
+import { sendExpoPush } from "../lib/pushNotification";
 import {
   GetPortalDispatchParams,
   GetPortalDispatchResponse,
@@ -358,8 +359,8 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
 
   const today = fmtDate(now);
 
-  // ── Phase A: crew-scoped only. Seven queries, no job dependency. ──
-  const [schedRows, eventRows, offerRows, emergencyTargetRows, planRows, leaderRows, memberDispatchRows] =
+  // ── Phase A: crew-scoped only. Eight queries, no job dependency. ──
+  const [schedRows, eventRows, offerRows, emergencyTargetRows, planRows, leaderRows, memberDispatchRows, walkApprovedJobRows] =
     await Promise.all([
       db.select().from(schedulesTable)
         .where(and(
@@ -415,6 +416,27 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
               eq(crewDispatchAssignmentsTable.day, today),
             ))
         : Promise.resolve([] as (typeof crewDispatchAssignmentsTable.$inferSelect)[]),
+
+      // Walk-approved jobs — crew sees a "ready to start" card for each job
+      // the client approved in the last 30 days.
+      db.select({
+        id: jobsTable.id,
+        jobNo: jobsTable.jobNo,
+        unitNo: jobsTable.unitNo,
+        propertyId: jobsTable.propertyId,
+        walkApprovedAt: (jobsTable as any).walkApprovedAt,
+      })
+      .from(jobsTable)
+      .where(and(
+        eq(jobsTable.crewLeaderId, crew.id),
+        isNotNull((jobsTable as any).walkApprovedAt),
+        gte(
+          (jobsTable as any).walkApprovedAt,
+          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        ),
+      ))
+      .orderBy(desc((jobsTable as any).walkApprovedAt))
+      .limit(5),
     ]);
 
   // ── Phase B: resolve pings, then the complete job-ID union. ──
@@ -463,6 +485,27 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       : Promise.resolve([] as (typeof activitiesTable.$inferSelect)[]),
   ]);
   const propsById = new Map(props.map((p) => [p.id, p]));
+
+  // Resolve property names for walk-approved jobs not already in propsById.
+  const walkExtraPropIds = walkApprovedJobRows
+    .map((w) => w.propertyId)
+    .filter((id): id is string => !!id && !propsById.has(id));
+  if (walkExtraPropIds.length) {
+    const extraProps = await db
+      .select()
+      .from(propertiesTable)
+      .where(inArray(propertiesTable.id, walkExtraPropIds));
+    for (const p of extraProps) propsById.set(p.id, p);
+  }
+  const approvedWalks = walkApprovedJobRows
+    .filter((w): w is typeof w & { walkApprovedAt: Date } => w.walkApprovedAt != null)
+    .map((w) => ({
+      jobId: w.id,
+      jobNo: w.jobNo ?? null,
+      propertyName: w.propertyId ? (propsById.get(w.propertyId)?.name ?? null) : null,
+      unitNo: w.unitNo ?? null,
+      approvedAt: w.walkApprovedAt.toISOString(),
+    }));
 
   // Unchanged from the original — kept here because the sort below needs it.
   const orderByDay = new Map<string, Map<string, number>>();
@@ -701,6 +744,7 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       offers,
       emergencyOffers,
       unseen,
+      approvedWalks,
     }),
   );
 });
@@ -721,6 +765,24 @@ router.post("/portal/:token/seen", async (req, res): Promise<void> => {
     .where(eq(crewsTable.id, crew.id));
   const unseen = await computeUnseen({ ...crew, portalSeen: seen });
   res.json(MarkPortalSeenResponse.parse(unseen));
+});
+
+// Save the crew's Expo push token so the server can send native notifications.
+router.put("/portal/:token/push-token", async (req, res): Promise<void> => {
+  const { token } = z.object({ token: z.coerce.string() }).parse(req.params);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+  const { pushToken } = z
+    .object({ pushToken: z.string().min(1) })
+    .parse(req.body);
+  await db
+    .update(crewsTable)
+    .set({ pushToken })
+    .where(eq(crewsTable.id, crew.id));
+  res.json({ ok: true });
 });
 
 async function invoicesWithItems(crewId: string) {

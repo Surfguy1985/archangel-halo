@@ -75,6 +75,7 @@ import {
 import { ser } from "../lib/serialize";
 import { jobLabelMap } from "../lib/jobLabels";
 import { gatherDayReport, buildDayReportPdf } from "../lib/dayReportPdf";
+import { sendExpoPush } from "../lib/pushNotification";
 
 const router: IRouter = Router();
 
@@ -179,10 +180,21 @@ router.get("/crews/:id/messages", async (req, res): Promise<void> => {
 router.post("/crews/:id/messages", async (req, res): Promise<void> => {
   const { id } = SendCrewMessageParams.parse(req.params);
   const body = SendCrewMessageBody.parse(req.body);
-  const [row] = await db
-    .insert(crewMessagesTable)
-    .values({ crewId: id, sender: "admin", body: body.body })
-    .returning();
+  const [[row], crewRows] = await Promise.all([
+    db
+      .insert(crewMessagesTable)
+      .values({ crewId: id, sender: "admin", body: body.body })
+      .returning(),
+    db
+      .select({ pushToken: crewsTable.pushToken })
+      .from(crewsTable)
+      .where(eq(crewsTable.id, id)),
+  ]);
+  // Best-effort push — never await or throw
+  sendExpoPush(crewRows[0]?.pushToken, {
+    title: "📨 New message from office",
+    body: body.body.slice(0, 120),
+  }).catch(() => {});
   res.status(201).json(SendCrewMessageResponse.parse(ser(row)));
 });
 

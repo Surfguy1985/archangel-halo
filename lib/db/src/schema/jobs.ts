@@ -48,6 +48,8 @@ export const crewsTable = pgTable("crews", {
   //   jobScope: "all"|"selected", jobIds: string[] }. Null = no office access.
   accessGrants: jsonb("access_grants"),
   selfiePath: text("selfie_path"),
+  // Expo push token saved by the crew's mobile app for native push delivery.
+  pushToken: text("push_token"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
