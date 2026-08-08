@@ -1,0 +1,55 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+import { secrets } from 'base44:runtime';
+
+// Read-only snapshot of HALO operational data.
+// Secured by a shared secret your Replit Express server sends in the `x-halo-token` header.
+export default async function(req: Request): Promise<Response> {
+  try {
+    const token = req.headers.get('x-halo-token');
+    if (!token || token !== secrets.get('HALO_READ_TOKEN')) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const base44 = createClientFromRequest(req);
+
+    // Only GET is allowed — refuse anything else early.
+    if (req.method !== 'GET') {
+      return Response.json({ error: 'Method Not Allowed' }, { status: 405 });
+    }
+
+    const url = new URL(req.url);
+    const resources = (url.searchParams.get('resources') || '').split(',').map((s) => s.trim()).filter(Boolean);
+
+    // service role: deliver the full operational picture regardless of caller identity
+    const role = base44.asServiceRole;
+
+    const candidates: Record<string, () => Promise<any[]>> = {
+      units: () => role.entities.Unit.list('-updated_date', 500),
+      invoices: () => role.entities.Invoice.filter({ archived: false }, '-updated_date', 500),
+      crews: () => role.entities.Crew.list('-updated_date', 500),
+      crew_jobs: () => role.entities.CrewJob.list('-date', 1000),
+      payment_requests: () => role.entities.PaymentRequest.list('-updated_date', 500),
+      calendar_slots: () => role.entities.CalendarSlot.list('-date', 1000),
+      owners: () => role.entities.Owner.list('order', 200),
+      properties: () => role.entities.Property.list('-updated_date', 200),
+      price_items: () => role.entities.PriceItem.list('-updated_date', 500),
+    };
+
+    const requested = resources.length
+      ? Object.keys(candidates).filter((k) => resources.includes(k))
+      : Object.keys(candidates);
+
+    const out: Record<string, any> = {};
+    for (const key of requested) {
+      try {
+        out[key] = await candidates[key]();
+      } catch (e) {
+        out[key] = { error: (e as Error).message };
+      }
+    }
+
+    return Response.json({ generated_at: new Date().toISOString(), data: out });
+  } catch (error) {
+    return Response.json({ error: (error as Error).message }, { status: 500 });
+  }
+}
