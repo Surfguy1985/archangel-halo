@@ -1,4 +1,4 @@
-import { boolean, doublePrecision, pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, doublePrecision, pgTable, primaryKey, uuid, text, timestamp } from "drizzle-orm/pg-core";
 
 export const businessSettingsTable = pgTable("business_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -43,6 +43,21 @@ export const businessSettingsTable = pgTable("business_settings", {
 });
 
 export type BusinessSettings = typeof businessSettingsTable.$inferSelect;
+
+// Cross-reference table: maps a Base44 entity ID to the HALO UUID so the
+// periodic sync can upsert without polluting any existing table with an
+// external-ID column.  PK is (resource, base44_id) so each Base44 record
+// maps to exactly one HALO row, and re-syncing is always idempotent.
+export const base44SyncMapTable = pgTable(
+  "base44_sync_map",
+  {
+    resource: text("resource").notNull(),
+    base44Id: text("base44_id").notNull(),
+    haloId: text("halo_id").notNull(), // UUID stored as text for cross-table flexibility
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.resource, t.base44Id] })],
+);
 
 // Singleton row of saved Tax Planner inputs. Like business_settings, this is
 // preserved by the Settings data reset.

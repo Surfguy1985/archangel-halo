@@ -91,6 +91,7 @@ import {
 } from "@workspace/api-zod";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { executeAutopilotAction, runAutopilot } from "../lib/autopilot";
+import { runBase44Sync, getLastSyncResult } from "../lib/base44Sync";
 
 const router: IRouter = Router();
 
@@ -369,6 +370,23 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     });
   });
   res.json(ResetAllDataResponse.parse({ ok: true }));
+});
+
+// ─── Base44 sync endpoints ─────────────────────────────────────────────────
+
+/** GET /settings/sync-base44/status — last sync result (or null if never run). */
+router.get("/settings/sync-base44/status", (_req, res): void => {
+  res.json({ result: getLastSyncResult() });
+});
+
+/** POST /settings/sync-base44 — trigger an immediate sync and wait for it. */
+router.post("/settings/sync-base44", async (_req, res): Promise<void> => {
+  try {
+    const result = await runBase44Sync();
+    res.json({ ok: true, result });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 export default router;

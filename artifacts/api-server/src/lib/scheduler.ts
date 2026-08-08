@@ -10,6 +10,7 @@ import {
 } from "./notifications";
 import { campaignByKind } from "./leadTemplates";
 import { runAutopilot } from "./autopilot";
+import { runBase44Sync } from "./base44Sync";
 import { sendClientCardDigests } from "./clientCardDigest";
 import { expireOverdueEmergencyPings } from "./emergencyExpiry";
 import { runWingsAutomation } from "../wings/services/automation";
@@ -27,6 +28,7 @@ const WEEKLY_DOW = 1; // Monday
 const TICK_MS = 60 * 1000;
 const URGENT_CHECK_MS = 15 * 60 * 1000;
 const AUTOPILOT_CHECK_MS = 15 * 60 * 1000;
+const BASE44_SYNC_MS = 15 * 60 * 1000; // pull from Base44 every 15 minutes
 
 let lastDailyDate: string | null = null;
 let lastCloseDate: string | null = null;
@@ -36,6 +38,7 @@ let lastUrgentCheck = 0;
 let lastAutopilotCheck = 0;
 const WINGS_CHECK_MS = 15 * 60 * 1000;
 let lastWingsCheck = 0;
+let lastBase44Sync = 0;
 // New-card digests to clients: at most one email per account per hour.
 const CLIENT_CARD_DIGEST_MS = 60 * 60 * 1000;
 let lastClientCardDigest = 0;
@@ -271,6 +274,13 @@ async function tick(): Promise<void> {
     lastAutopilotCheck = stamp;
     // runAutopilot never throws; it checks the settings toggle itself.
     await runAutopilot();
+  }
+
+  if (stamp - lastBase44Sync >= BASE44_SYNC_MS) {
+    lastBase44Sync = stamp;
+    runBase44Sync().catch((err) =>
+      logger.warn({ err }, "base44 scheduled sync failed"),
+    );
   }
 
   if (stamp - lastWingsCheck >= WINGS_CHECK_MS) {

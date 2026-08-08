@@ -25,6 +25,7 @@
 - [HALO job board](halo-job-board.md) — one broadcast row per (job,crew) — DB-unique + upserted; specialty mode scopes offers by crew services w/ staggered start times; job fill must be guarded UPDATE + row-count (first-wins); photo URLs are /api/storage${storagePath}.
 - [HALO Crew GPS sentinel](halo-crew-gps-sentinel.md) — AsyncStorage 'halo_gps_active' sentinel prevents ghost location pings after checkout/force-quit; clear before stop, set before start, check first in BG task.
 - [HALO portal schedule feed](halo-portal-schedule.md) — portal schedule merges crew_schedules + crew-assigned calendar_events (deduped by jobId|date); new assignment sources must merge into this feed.
+- [HALO Base44 sync](halo-base44-sync.md) — 15-min scheduler pull from legacy Base44 into 8 HALO tables; id mapping in base44_sync_map; price_items needs manual SELECT+UPDATE (expression index).
 - [HALO Crew push notifications](halo-crew-push-notifications.md) — crews.push_token column; sendExpoPush helper in lib/pushNotification.ts; wired to office messages only; walk + emergency + offer push not yet wired.
 - [HALO money summary bank data](halo-money-summary-bank.md) — when Plaid bank connected, MTD cash metrics come from real bank transactions (negative=inflow); receivables stay invoice-based.
 - [HALO Plaid credentials](halo-plaid-credentials.md) — PRODUCTION keys via secrets; multi-bank: plaid_items unique item_id + upsert exchange, all endpoints loop every item.
