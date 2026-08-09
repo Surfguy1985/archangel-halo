@@ -17,6 +17,7 @@ import {
   propertiesTable,
   crewsTable,
   jobsTable,
+  schedulesTable,
   invoicesTable,
   paymentRequestsTable,
   calendarEventsTable,
@@ -299,14 +300,41 @@ function unitStatusToBoardStatus(status: string | null | undefined): string {
 }
 
 /**
+ * Board-status rank — higher means further along in the job lifecycle.
+ * The sync never downgrades a card: if HALO is already at rank N, a Base44
+ * status at rank < N is ignored so crew progress (photos, line-item
+ * completions) is never overwritten by the next pull.
+ */
+const BOARD_RANK: Record<string, number> = {
+  removed:      -1,
+  active:        0,
+  reopened:      0,
+  filled:        1,
+  manual_check:  1,
+  completed:     2,
+  billing:       3,
+  pay_alert:     3,
+};
+
+function boardRank(s: string | null | undefined): number {
+  return BOARD_RANK[s ?? "active"] ?? 0;
+}
+
+/**
  * Sync Base44 units as HALO job board cards.
  *
- * Units are the primary work-order entity in Base44 (they carry property,
- * unit #, services needed, crew assignment, status, and date).  This creates
- * one HALO job per unit so every card appears on the Job Board and moves
- * between rails automatically as the Base44 status changes.
+ * Each unit becomes ONE job card on the board.  Two protections are applied:
  *
- * Map key: "unit_jobs" (separate from "units" which maps to property_units).
+ * 1. STATUS PROTECTION — the sync never downgrades a card's rail.  If a crew
+ *    completed line-items in HALO (card is now "Done"), a subsequent sync that
+ *    reads "assigned" from Base44 will not slide the card back to "In progress".
+ *    Only an equal-or-higher-rank Base44 status can update boardStatus.
+ *
+ * 2. SCHEDULE ROWS — when a unit has a crew + date, a row is upserted into the
+ *    `schedules` table so the job appears in the crew's guided card and daily
+ *    schedule in the crew portal — not just on the office Job Board.
+ *
+ * Map key: "unit_jobs" (separate from "units" → property_units).
  */
 async function syncUnitsAsJobs(records: any[]): Promise<SyncStats> {
   let created = 0, updated = 0, errors = 0;
@@ -320,7 +348,7 @@ async function syncUnitsAsJobs(records: any[]): Promise<SyncStats> {
         (await resolvePropertyId(rec.property_id ?? rec.propertyId));
       if (!propertyId) continue;
 
-      // Resolve first assigned crew.
+      // Resolve first assigned crew (crew_ids is an array in Base44).
       const crewIds: any[] = Array.isArray(rec.crew_ids) ? rec.crew_ids : [];
       const firstCrewRef = crewIds[0] ?? null;
       const crewLeaderId = firstCrewRef ? await resolveCrewId(firstCrewRef) : null;
@@ -328,9 +356,40 @@ async function syncUnitsAsJobs(records: any[]): Promise<SyncStats> {
       const services = Array.isArray(rec.services_needed) ? rec.services_needed : [];
       const unitNo = String(rec.unit_number ?? rec.unit_no ?? rec.label ?? "").trim() || null;
       const jobNo = unitNo ? `B44-${unitNo}` : `B44-${bid.slice(-6)}`;
-      const boardStatus = unitStatusToBoardStatus(rec.status);
-      const status = boardStatus === "completed" || boardStatus === "billing" ? "complete" : "open";
+      const inboundBoardStatus = unitStatusToBoardStatus(rec.status);
+      const scheduledOn = toDateStr(rec.move_in_date ?? rec.scheduled_date ?? rec.date);
 
+      // ── Resolve the HALO job ID ───────────────────────────────────────────
+      let haloId = await lookupMap("unit_jobs", bid);
+      let isNew = false;
+      if (!haloId) {
+        const byNo = await db
+          .select({ id: jobsTable.id })
+          .from(jobsTable)
+          .where(eq(jobsTable.jobNo, jobNo))
+          .limit(1);
+        haloId = byNo[0]?.id ?? randomUUID();
+        isNew = !byNo[0];
+        await saveMap("unit_jobs", bid, haloId);
+      }
+
+      // ── Status-protection: never downgrade an existing card ───────────────
+      let boardStatus = inboundBoardStatus;
+      if (!isNew) {
+        const cur = await db
+          .select({ boardStatus: jobsTable.boardStatus })
+          .from(jobsTable)
+          .where(eq(jobsTable.id, haloId))
+          .limit(1);
+        const currentRank = boardRank(cur[0]?.boardStatus);
+        const inboundRank = boardRank(inboundBoardStatus);
+        if (inboundRank < currentRank) {
+          // Crew has advanced the card further than Base44 knows — keep HALO's status.
+          boardStatus = cur[0]?.boardStatus ?? inboundBoardStatus;
+        }
+      }
+
+      const status = boardStatus === "completed" || boardStatus === "billing" ? "complete" : "open";
       const payload = {
         jobNo,
         propertyId,
@@ -339,30 +398,37 @@ async function syncUnitsAsJobs(records: any[]): Promise<SyncStats> {
         description: services.length > 0 ? services.join(", ") : (rec.notes ?? null),
         status,
         crewLeaderId: crewLeaderId ?? null,
-        scheduledOn: toDateStr(rec.move_in_date ?? rec.scheduled_date ?? rec.date),
+        scheduledOn,
         boardStatus,
       };
 
-      const existing = await lookupMap("unit_jobs", bid);
-      if (existing) {
-        await db.update(jobsTable).set(payload).where(eq(jobsTable.id, existing));
-        updated++;
+      if (isNew) {
+        await db.insert(jobsTable).values({ id: haloId, ...payload }).onConflictDoNothing();
+        created++;
       } else {
-        // Match by jobNo to avoid re-creating if the map was lost.
-        const byNo = await db
-          .select({ id: jobsTable.id })
-          .from(jobsTable)
-          .where(eq(jobsTable.jobNo, jobNo))
-          .limit(1);
-        const haloId = byNo[0]?.id ?? randomUUID();
-        if (byNo[0]) {
-          await db.update(jobsTable).set(payload).where(eq(jobsTable.id, haloId));
-          updated++;
+        await db.update(jobsTable).set(payload).where(eq(jobsTable.id, haloId));
+        updated++;
+      }
+
+      // ── Schedule row: makes the job appear in the crew portal ────────────
+      // The crew portal schedule feed is built from the `schedules` table.
+      // Without a row here the crew never sees a guided card for this job.
+      if (crewLeaderId && scheduledOn) {
+        const schedMap = await lookupMap("unit_schedules", bid);
+        if (schedMap) {
+          // Update the existing schedule row if date/crew changed.
+          await db
+            .update(schedulesTable)
+            .set({ scheduledOn, crewLeaderId, status: status === "complete" ? "complete" : "scheduled" })
+            .where(eq(schedulesTable.id, schedMap));
         } else {
-          await db.insert(jobsTable).values({ id: haloId, ...payload }).onConflictDoNothing();
-          created++;
+          const schedId = randomUUID();
+          await db
+            .insert(schedulesTable)
+            .values({ id: schedId, jobId: haloId, scheduledOn, crewLeaderId, status: "scheduled" })
+            .onConflictDoNothing();
+          await saveMap("unit_schedules", bid, schedId);
         }
-        await saveMap("unit_jobs", bid, haloId);
       }
     } catch (err) {
       logger.warn({ err, bid }, "base44 sync: unit_job error");
