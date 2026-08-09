@@ -28,7 +28,7 @@ const WEEKLY_DOW = 1; // Monday
 const TICK_MS = 60 * 1000;
 const URGENT_CHECK_MS = 15 * 60 * 1000;
 const AUTOPILOT_CHECK_MS = 15 * 60 * 1000;
-const BASE44_SYNC_MS = 15 * 60 * 1000; // pull from Base44 every 15 minutes
+const BASE44_SYNC_MS = 2 * 60 * 1000; // pull from Base44 every 2 minutes
 
 let lastDailyDate: string | null = null;
 let lastCloseDate: string | null = null;
