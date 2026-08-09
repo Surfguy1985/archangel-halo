@@ -1,0 +1,91 @@
+HALO DATA EXPORT,Generated: 2026-08-08,,,,,,,,,,,,,,,,,,,,,,,,,
+
+,,,,,,,,,,,,,,,,,,,,,,,,,
+PROPERTIES,,,,,,,,,,,,,,,,,,,,,,,,,
+Property Name,Address,City,Total Units,PMC / Owner Name,Status,Margin Min,Margin Target,Created
+Falkon Demo — Skyline Terrace,"4800 Skyline Terrace, Los Angeles, CA 90068",Los Angeles,24,Falkon Property Group,active,,,2026-08-04
+My house,6000 pepper grass,Prosper,,,,,,2026-07-21
+Thornbury at Chase Oaks,,Plano TX,,,,,,2026-07-31
+
+,,,,,,,,,,,,,,,,,,,,,,,,,
+UNITS,,,,,,,,,,,,,,,,,,,,,,,,,
+Property Name,Unit Label
+Falkon Demo — Skyline Terrace,108
+Falkon Demo — Skyline Terrace,204
+Falkon Demo — Skyline Terrace,310
+My house,101
+My house,204
+My house,1601
+My house,2101
+Thornbury at Chase Oaks,1161
+Thornbury at Chase Oaks,2001
+Thornbury at Chase Oaks,5000
+Thornbury at Chase Oaks,6000
+Thornbury at Chase Oaks,Common Area
+
+,,,,,,,,,,,,,,,,,,,,,,,,,
+CREW MEMBERS,,,,,,,,,,,,,,,,,,,,,,,,,
+Name,Trade / Services,Phone,Email,Role,Active,Is Leader,Hire Date,Payment Terms,Reports To
+Bryce Back,"Make Ready, Cleaning, Carpet Cleaning",972-750-6075,BRYCEBECK85@GMAIL.COM,Foreman,Yes,Yes,2026-08-06,Net 30,
+Dana Whitfield,Plumbing,(555) 010-1002,demo-crew@falkon.example,,Yes,Yes,,,
+Jose Ramirez,,,,,Yes,No,,,
+Luis Ortega,Landscaping,(555) 010-1003,demo-crew@falkon.example,,Yes,Yes,,,
+Marco Reyes,Paint & Drywall,(555) 010-1001,demo-crew@falkon.example,,Yes,Yes,,,
+May Mahboob,,+1 (214) 537-4570,,,,Yes,,,
+William Fuentes,,,,,Yes,No,,,
+
+,,,,,,,,,,,,,,,,,,,,,,,,,
+JOBS,,,,,,,,,,,,,,,,,,,,,,,,,
+Job #,WO #,PO #,Property,Unit,Category,Description,Status,Board Status,Schedule Type,Crew Lead,Scheduled On,Completed,Cleared,Gross Profit,Margin %,Crew Rate,Crews Needed,Crews Filled,Same Day Pay,Recurring,Recurrence,Created
+J-2001,,,"My house",,,"Funnel test job",complete,completed,scheduled,,,2026-07-23,2026-07-23,1000,1.00,,1,0,No,No,,2026-07-23
+J-2002,,,"My house",,Landscaping,"Landscape refresh — front beds",complete,completed,scheduled,Jose Ramirez,,2026-07-29,2026-07-29,-250,,250,1,0,No,No,,2026-07-23
+J-2004,,po-5112,"My house",,Make Ready,Make Ready,complete,completed,scheduled,Bryce Back,,2026-07-23,2026-07-23,-30,,30,1,0,No,No,,2026-07-23
+J-2005,,,"My house",,Make Ready,Make Ready,complete,completed,scheduled,Bryce Back,,2026-07-23,2026-07-23,500,1.00,,1,0,No,No,,2026-07-23
+J-2006,,,"My house",2101,,Paint,complete,completed,flex,Jose Ramirez,,2026-07-29,,-120,,120,1,0,No,No,,2026-07-23
+J-2007,wo-1939,,"My house",204,Make Ready,Make Ready,complete,completed,scheduled,Bryce Back,2026-07-29,2026-07-29,,120,1.00,,1,0,No,No,,2026-07-29
+J-2008,wo-1234,12345,"My house",,Make Ready,Make Ready,scheduled,removed,scheduled,William Fuentes,2026-08-05,,,,,,1,0,No,No,,2026-07-29
+J-2009,,,"My house",204,,"Please schedule the sink leak fix",scheduled,filled,scheduled,Jose Ramirez,2026-08-06,,,,,,1,0,No,No,,2026-07-29
+J-2014,,,"Thornbury at Chase Oaks",6000,,"Basic Carpet Clean / Wall Prep & Paint / Make-Ready Package",complete,billing,scheduled,Bryce Back,2026-08-05,2026-08-05,,505,0.808,120,1,0,No,No,,2026-08-05
+J-2015,,,"Falkon Demo — Skyline Terrace",1000,,"Cleaning / Make Ready / Paint",complete,completed,scheduled,Dana Whitfield,2026-07-29,2026-08-05,,,,,1,0,No,No,,2026-08-05
+J-2016,,12345,"Falkon Demo — Skyline Terrace",707,,"Specialty test unit turn",complete,completed,scheduled,Bryce Back,2026-08-06,2026-08-06,,,,,1,1,No,No,,2026-08-05
+J-2017,,,"Falkon Demo — Skyline Terrace",,Gate repair,Gate repair,open,filled,scheduled,Bryce Back,,,,,,,3,0,No,No,,2026-08-05
+J-2018,,,"Thornbury at Chase Oaks",Common Area,,"Discovery walk findings — Common Area",open,removed,flex,,,,,,,,,1,0,No,No,,2026-08-05
+J-2019,,1234567,"My house",1600,,"Discovery walk findings — Unit 1600",complete,completed,flex,Bryce Back,,2026-08-06,,,,,1,0,No,No,,2026-08-06
+J-2020,,12345,"My house",,,"Needs a deep clean",complete,completed,scheduled,Bryce Back,,2026-08-06,,275,1.00,,1,0,No,No,,2026-08-06
+J-2021,,123456,"Falkon Demo — Skyline Terrace",100,,"Look for trashout opps",open,removed,scheduled,,2026-08-08,,,,,,1,0,No,No,,2026-08-06
+J-2022,872348,12345,"Thornbury at Chase Oaks",5000,Paint,Make sure it gets done,complete,completed,scheduled,Bryce Back,2026-08-07,2026-08-06,,,,,1,0,No,No,,2026-08-06
+J-2023,,12345,"Thornbury at Chase Oaks",1161,,"Make-Ready Package",complete,billing,scheduled,Bryce Back,2026-08-13,2026-08-06,,275,1.00,,1,0,No,No,,2026-08-06
+J-2024,,,"Falkon Demo — Skyline Terrace",1900,,"Make-Ready Package",open,filled,scheduled,Bryce Back,2026-08-08,,,,,,1,0,No,No,,2026-08-06
+J-9001,,,"Falkon Demo — Skyline Terrace",204,Maintenance,"Full repaint + drywall patch",complete,completed,scheduled,Marco Reyes,2026-08-07,2026-08-06,,2150,1.00,,1,0,No,No,,2026-08-04
+J-9002,,,"Falkon Demo — Skyline Terrace",108,Maintenance,"Water heater replacement",complete,completed,scheduled,Dana Whitfield,2026-08-07,2026-08-06,,,,,1,0,No,No,,2026-08-04
+J-9003,,,"Falkon Demo — Skyline Terrace",,Landscaping,"Courtyard landscaping refresh — hedges / irrigation",scheduled,filled,scheduled,Bryce Back,2026-08-04,,,,,,1,0,No,No,,2026-08-04
+J-9004,,,"Falkon Demo — Skyline Terrace",310,Turnover,"Unit turnover — paint / deep clean / fixture swap",complete,active,scheduled,Marco Reyes,,2026-08-02,,4807.50,0.9912,,1,0,No,No,,2026-08-04
+
+,,,,,,,,,,,,,,,,,,,,,,,,,
+INVOICES RECEIVED FROM PROPERTIES,,,,,,,,,,,,,,,,,,,,,,,,,
+Invoice #,Property,Billed To,Invoice Amount ($),Payment Amount ($),Payment Method,Payer Name,Check #,Check Image on File,Date Received
+INV-9002,Falkon Demo — Skyline Terrace,Falkon Property Group,1200.00,1200.00,Check,Falkon Property Group,,No,2026-08-02
+
+,,,,,,,,,,,,,,,,,,,,,,,,,
+CREW PAYMENTS LOGGED,,,,,,,,,,,,,,,,,,,,,,,,,
+Crew Member,Job #,Property,Amount ($),Method,Kind,Status,Note,Due On,Paid On,Created
+Bryce Back,J-2007,My house,120.00,,,completed,Job J-2007 close-out,,2026-07-23,2026-07-23
+Bryce Back,,, 30.00,,,completed,Job J-2006 close-out,,2026-07-23,2026-07-23
+Bryce Back,,,  0.00,,,completed,Job J-2003 close-out,,2026-07-23,2026-07-23
+Bryce Back,,,  0.00,,,completed,Job J-2006 close-out,,2026-07-23,2026-07-23
+Bryce Back,,,100.00,Zelle,,completed,,,2026-07-23,2026-07-23
+Bryce Back,J-2005,My house,  0.00,,,completed,Job J-2005 close-out,,2026-07-23,2026-07-23
+Bryce Back,J-2004,My house, 30.00,,,completed,Job J-2004 close-out,,2026-07-23,2026-07-23
+Jose Ramirez,J-2002,My house,250.00,,,completed,Job J-2002 close-out,,2026-07-23,2026-07-23
+Jose Ramirez,,,140.00,Bank,,completed,Imported from bank,2026-07-09,2026-07-18,2026-07-18
+William Fuentes,,,540.00,Bank,,completed,Imported from bank,2026-07-16,2026-07-18,2026-07-18
+William Fuentes,,,100.00,Bank,,completed,Imported from bank,2026-07-16,2026-07-18,2026-07-18
+
+,,,,,,,,,,,,,,,,,,,,,,,,,
+CREW INVOICES SUBMITTED,,,,,,,,,,,,,,,,,,,,,,,,,
+(No crew invoices on record),,,,,,,,,,,,,,,,,,,,,,,,,
+
+,,,,,,,,,,,,,,,,,,,,,,,,,
+CHECK IMAGES ON FILE,,,,,,,,,,,,,,,,,,,,,,,,,
+NOTE: 1 check payment recorded (INV-9002 / $1200 / Falkon Property Group / 2026-08-02) — no check image was uploaded at time of recording.,,,,,,,,,,,,,,,,,,,,,,,,,
+To attach a check image: record the payment in HALO and use the camera icon to photograph the check before saving.,,,,,,,,,,,,,,,,,,,,,,,,,

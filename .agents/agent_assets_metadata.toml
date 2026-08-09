@@ -198,3 +198,10 @@ uri = "file://crew-portal-code.zip"
 type = "unspecified"
 title = "Crew Portal Code"
 description = "CrewPortal.tsx · CrewPortalFlow.tsx · portal.ts — 3 files, 10,482 lines"
+
+[[outputs]]
+id = "3jF2BK3H0nWJyy0sG7ARD"
+uri = "file://halo-export.csv"
+type = "table"
+title = "HALO Full Data Export"
+description = "Properties · Units · Crew Members · Jobs · Invoices Received · Crew Payments · Check Images"
