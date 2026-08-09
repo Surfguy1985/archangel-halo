@@ -24,6 +24,7 @@ import CreateInvoice from "@/pages/CreateInvoice";
 import CrewDetail from "@/pages/CrewDetail";
 import CrewPortal from "@/pages/CrewPortal";
 import JobBoard from "@/pages/JobBoard";
+import WorkEmbed from "@/pages/WorkEmbed";
 import Catalog from "@/pages/Catalog";
 import Wings from "@/pages/Wings";
 import Payments from "@/pages/Payments";
@@ -67,6 +68,7 @@ function App() {
                   <Route path="/invoices/:id" component={InvoiceDetail} />
                   <Route path="/money">{() => <HubShell title="Money" tabs={MONEY_TABS}><Money /></HubShell>}</Route>
                   <Route path="/money/payments">{() => <HubShell title="Money" tabs={MONEY_TABS}><Payments /></HubShell>}</Route>
+                  <Route path="/work">{() => <HubShell title="Work" tabs={WORK_TABS}><WorkEmbed /></HubShell>}</Route>
                   <Route path="/calendar">{() => <HubShell title="Work" tabs={WORK_TABS}><Calendar /></HubShell>}</Route>
                   <Route path="/dispatch">{() => <HubShell title="Work" tabs={WORK_TABS}><Dispatch /></HubShell>}</Route>
                   <Route path="/crews" component={Crews} />

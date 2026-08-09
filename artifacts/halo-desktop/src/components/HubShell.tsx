@@ -67,6 +67,7 @@ export function HubShell({
 }
 
 export const WORK_TABS: HubTab[] = [
+  { label: "Work", href: "/work" },
   { label: "Board", href: "/jobboard" },
   { label: "Dispatch", href: "/dispatch" },
   { label: "Calendar", href: "/calendar" },
