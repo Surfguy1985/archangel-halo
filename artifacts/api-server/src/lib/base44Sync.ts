@@ -27,7 +27,7 @@ import {
 import { logger } from "./logger";
 import { randomUUID } from "crypto";
 
-const BASE44_URL = "https://wakeful-ready-track-flow.base44.app/api/apps/wakeful-ready-track-flow/functions/haloRead";
+const BASE44_URL = "https://wakeful-ready-track-flow.base44.app/functions/haloRead";
 const TOKEN = process.env.HALO_READ_TOKEN ?? "";
 
 // Mutual-exclusion flag so a slow sync can't overlap itself.
@@ -87,11 +87,35 @@ async function resolvePropertyId(raw: any): Promise<string | null> {
   return lookupMap("properties", ref);
 }
 
+/** Resolve a property by its display name (Base44 stores property as a name string). */
+async function resolvePropertyByName(name: any): Promise<string | null> {
+  if (!name || typeof name !== "string") return null;
+  const rows = await db
+    .select({ id: propertiesTable.id })
+    .from(propertiesTable)
+    .where(eq(propertiesTable.name, name.trim()))
+    .limit(1);
+  return rows[0]?.id ?? null;
+}
+
 /** Resolve a Base44 crew reference to a HALO crew UUID. */
 async function resolveCrewId(raw: any): Promise<string | null> {
   const ref = typeof raw === "object" && raw !== null ? (raw._id ?? raw.id ?? raw) : raw;
   if (!ref || typeof ref !== "string") return null;
   return lookupMap("crews", ref);
+}
+
+/** Given a Base44 unit ID, return the HALO propertyId for that unit. */
+async function resolveUnitPropertyId(base44UnitId: any): Promise<string | null> {
+  if (!base44UnitId || typeof base44UnitId !== "string") return null;
+  const haloUnitId = await lookupMap("units", base44UnitId);
+  if (!haloUnitId) return null;
+  const rows = await db
+    .select({ propertyId: propertyUnitsTable.propertyId })
+    .from(propertyUnitsTable)
+    .where(eq(propertyUnitsTable.id, haloUnitId))
+    .limit(1);
+  return rows[0]?.propertyId ?? null;
 }
 
 // ─── fetch ───────────────────────────────────────────────────────────────────
@@ -161,11 +185,13 @@ async function syncCrews(records: any[]): Promise<SyncStats> {
     const bid = b44Id(rec);
     if (!bid) continue;
     try {
+      // Base44 crews: skills[] → trade, phone may be null, no email field
+      const skills = Array.isArray(rec.skills) ? rec.skills : [];
       const payload = {
         name: String(rec.name ?? rec.full_name ?? "Unnamed Crew"),
         phone: rec.phone ?? rec.phone_number ?? null,
         email: rec.email ?? null,
-        trade: rec.trade ?? rec.specialty ?? null,
+        trade: skills.length > 0 ? skills.join(", ") : (rec.trade ?? rec.specialty ?? null),
         active: rec.active !== false && rec.status !== "inactive",
         hireDate: toDateStr(rec.hire_date ?? rec.hireDate ?? rec.start_date),
         role: rec.role ?? null,
@@ -175,23 +201,23 @@ async function syncCrews(records: any[]): Promise<SyncStats> {
         await db.update(crewsTable).set(payload).where(eq(crewsTable.id, existing));
         updated++;
       } else {
-        // Try to match by phone to avoid duplicates.
-        const byPhone = payload.phone
-          ? await db
-              .select({ id: crewsTable.id })
-              .from(crewsTable)
-              .where(eq(crewsTable.phone, payload.phone))
-              .limit(1)
+        // Match by name first (phone is often null in Base44)
+        const byName = await db
+          .select({ id: crewsTable.id })
+          .from(crewsTable)
+          .where(eq(crewsTable.name, payload.name))
+          .limit(1);
+        const byPhone = !byName[0] && payload.phone
+          ? await db.select({ id: crewsTable.id }).from(crewsTable)
+              .where(eq(crewsTable.phone, payload.phone)).limit(1)
           : [];
-        const haloId = byPhone[0]?.id ?? randomUUID();
-        if (byPhone[0]) {
+        const match = byName[0] ?? byPhone[0];
+        const haloId = match?.id ?? randomUUID();
+        if (match) {
           await db.update(crewsTable).set(payload).where(eq(crewsTable.id, haloId));
           updated++;
         } else {
-          await db
-            .insert(crewsTable)
-            .values({ id: haloId, ...payload })
-            .onConflictDoNothing();
+          await db.insert(crewsTable).values({ id: haloId, ...payload }).onConflictDoNothing();
           created++;
         }
         await saveMap("crews", bid, haloId);
@@ -210,9 +236,12 @@ async function syncUnits(records: any[]): Promise<SyncStats> {
     const bid = b44Id(rec);
     if (!bid) continue;
     try {
-      const propertyId = await resolvePropertyId(rec.property_id ?? rec.property ?? rec.propertyId);
-      if (!propertyId) continue; // can't place without a property
-      const label = String(rec.label ?? rec.unit_number ?? rec.name ?? rec.unit_no ?? "");
+      // Base44 units: property is a string name, unit_number is the label
+      const propertyId =
+        (await resolvePropertyByName(rec.property)) ??
+        (await resolvePropertyId(rec.property_id ?? rec.propertyId));
+      if (!propertyId) continue;
+      const label = String(rec.unit_number ?? rec.label ?? rec.name ?? rec.unit_no ?? "");
       if (!label) continue;
       const payload = {
         propertyId,
@@ -264,20 +293,36 @@ async function syncCrewJobs(records: any[]): Promise<SyncStats> {
     const bid = b44Id(rec);
     if (!bid) continue;
     try {
-      const propertyId = await resolvePropertyId(rec.property_id ?? rec.property ?? rec.propertyId);
+      // Base44 crew_jobs: property resolved via unit_id → HALO unit → propertyId
+      const propertyId =
+        (await resolveUnitPropertyId(rec.unit_id)) ??
+        (await resolvePropertyByName(rec.property)) ??
+        (await resolvePropertyId(rec.property_id ?? rec.propertyId));
       if (!propertyId) continue;
       const crewLeaderId = await resolveCrewId(rec.crew_id ?? rec.crew ?? rec.crewId);
-      const jobNo = String(rec.job_no ?? rec.jobNo ?? rec.job_number ?? bid.slice(-6));
+      // Derive unit label from the HALO unit we mapped
+      let unitNo: string | null = null;
+      if (rec.unit_id) {
+        const haloUnitId = await lookupMap("units", rec.unit_id);
+        if (haloUnitId) {
+          const uRows = await db.select({ label: propertyUnitsTable.label })
+            .from(propertyUnitsTable).where(eq(propertyUnitsTable.id, haloUnitId)).limit(1);
+          unitNo = uRows[0]?.label ?? null;
+        }
+      }
+      const services = Array.isArray(rec.services_completed) ? rec.services_completed : [];
+      const jobNo = String(rec.job_no ?? rec.jobNo ?? rec.job_number ?? `B44-${bid.slice(-6)}`);
       const payload = {
         jobNo,
         propertyId,
-        unitNo: rec.unit ?? rec.unit_no ?? rec.unitNo ?? null,
-        category: rec.category ?? rec.type ?? rec.trade ?? null,
-        description: rec.description ?? rec.notes ?? null,
-        status: rec.status ?? "open",
+        unitNo: unitNo ?? rec.unit ?? rec.unit_no ?? rec.unitNo ?? null,
+        category: services[0] ?? rec.category ?? rec.type ?? null,
+        description: services.length > 0 ? services.join(", ") : (rec.description ?? rec.notes ?? null),
+        status: rec.paid ? "complete" : "open",
         crewLeaderId: crewLeaderId ?? null,
         scheduledOn: toDateStr(rec.date ?? rec.scheduled_date ?? rec.scheduledDate),
-        boardStatus: rec.board_status ?? rec.boardStatus ?? "active",
+        crewRate: rec.amount ? Number(rec.amount) : null,
+        boardStatus: rec.paid ? "completed" : (rec.board_status ?? rec.boardStatus ?? "active"),
       };
       const existing = await lookupMap("crew_jobs", bid);
       if (existing) {
@@ -316,28 +361,25 @@ async function syncInvoices(records: any[]): Promise<SyncStats> {
     const bid = b44Id(rec);
     if (!bid) continue;
     try {
-      const propertyId = await resolvePropertyId(rec.property_id ?? rec.property ?? rec.propertyId);
+      // Base44 invoices: property is a string name, invoice_number is the key field
+      const propertyId =
+        (await resolvePropertyByName(rec.property)) ??
+        (await resolvePropertyId(rec.property_id ?? rec.propertyId));
       if (!propertyId) continue;
-      const jobId = await (async () => {
-        const ref = rec.job_id ?? rec.job ?? rec.jobId;
-        if (!ref) return null;
-        const id = typeof ref === "object" ? (ref._id ?? ref.id) : ref;
-        return id ? lookupMap("crew_jobs", id) : null;
-      })();
-      const invoiceNo = String(rec.invoice_no ?? rec.invoiceNo ?? rec.number ?? bid.slice(-8));
+      const invoiceNo = String(rec.invoice_number ?? rec.invoice_no ?? rec.invoiceNo ?? bid.slice(-8));
       const payload = {
         invoiceNo,
         propertyId,
-        jobId: jobId ?? null,
+        jobId: null,
         amount: Number(rec.amount ?? rec.total ?? 0),
-        status: rec.status ?? "draft",
-        issuedOn: toDateStr(rec.issued_date ?? rec.issuedDate ?? rec.created_date),
-        dueAt: toDate(rec.due_date ?? rec.dueDate ?? rec.due_at),
-        paidAt: toDate(rec.paid_date ?? rec.paidDate ?? rec.paid_at),
+        status: rec.status ?? (rec.date_paid ? "paid" : rec.date_sent ? "sent" : "draft"),
+        issuedOn: toDateStr(rec.date_sent ?? rec.issued_date ?? rec.created_date),
+        dueAt: null,
+        paidAt: toDate(rec.date_paid ?? rec.paid_date ?? rec.paidDate),
         poNumber: rec.po_number ?? rec.poNumber ?? null,
-        billToName: rec.bill_to ?? rec.billTo ?? rec.client_name ?? null,
-        notes: rec.notes ?? rec.memo ?? null,
-        taxAmount: Number(rec.tax ?? rec.tax_amount ?? rec.taxAmount ?? 0),
+        billToName: rec.property ?? rec.bill_to ?? rec.billTo ?? null,
+        notes: rec.notes ?? null,
+        taxAmount: 0,
       };
       const existing = await lookupMap("invoices", bid);
       if (existing) {
@@ -376,18 +418,24 @@ async function syncPaymentRequests(records: any[]): Promise<SyncStats> {
     const bid = b44Id(rec);
     if (!bid) continue;
     try {
-      const propertyId = await resolvePropertyId(rec.property_id ?? rec.property ?? rec.propertyId);
+      // Base44 payment_requests: property_name is a string, amount in cents
+      const propertyId =
+        (await resolvePropertyByName(rec.property_name ?? rec.property)) ??
+        (await resolvePropertyId(rec.property_id ?? rec.propertyId));
       if (!propertyId) continue;
-      const requestNo = String(rec.request_no ?? rec.requestNo ?? rec.number ?? bid.slice(-8));
+      const requestNo = String((rec.crew_invoice_number || rec.request_no) ?? rec.requestNo ?? bid.slice(-8));
+      const amountDollars = rec.amount_cents != null
+        ? Number(rec.amount_cents) / 100
+        : Number(rec.total ?? rec.amount ?? 0);
       const payload = {
         requestNo,
         token: rec.token ?? randomUUID(),
         propertyId,
-        total: Number(rec.total ?? rec.amount ?? 0),
-        memo: rec.memo ?? rec.notes ?? null,
-        status: rec.status ?? "draft",
-        sentAt: toDate(rec.sent_at ?? rec.sentAt),
-        paidAt: toDate(rec.paid_at ?? rec.paidAt),
+        total: amountDollars,
+        memo: rec.scope_summary ?? rec.memo ?? rec.notes ?? null,
+        status: rec.state ?? rec.status ?? "draft",
+        sentAt: toDate(rec.next_attempt_at ?? rec.sent_at ?? rec.sentAt),
+        paidAt: toDate(rec.date_paid ?? rec.paid_at ?? rec.paidAt),
       };
       const existing = await lookupMap("payment_requests", bid);
       if (existing) {
@@ -435,13 +483,26 @@ async function syncCalendarSlots(records: any[]): Promise<SyncStats> {
       const eventDate = toDateStr(rec.date ?? rec.event_date ?? rec.eventDate ?? rec.start_date);
       if (!eventDate) continue;
       const crewId = await resolveCrewId(rec.crew_id ?? rec.crew ?? rec.crewId);
+      // Base44: services_needed[] → title, property + unit_number as context
+      const services = Array.isArray(rec.services_needed) ? rec.services_needed : [];
+      const propertyPart = rec.property ? String(rec.property) : null;
+      const unitPart = rec.unit_number ? `#${rec.unit_number}` : null;
+      const contextParts = [propertyPart, unitPart].filter(Boolean).join(" ");
+      const serviceLabel = services.length > 0 ? services.join(", ") : null;
+      const title = [serviceLabel ?? rec.title ?? rec.name ?? "Scheduled Work", contextParts]
+        .filter(Boolean).join(" — ");
+      const noteParts = [
+        rec.notes,
+        rec.move_type ? `Move type: ${rec.move_type}` : null,
+        rec.status ? `Status: ${rec.status}` : null,
+      ].filter(Boolean);
       const payload = {
-        title: String(rec.title ?? rec.name ?? rec.description ?? "Event"),
-        notes: rec.notes ?? rec.description ?? null,
+        title,
+        notes: noteParts.length > 0 ? noteParts.join(" · ") : null,
         eventDate,
         startTime: rec.start_time ?? rec.startTime ?? rec.time ?? null,
         endTime: rec.end_time ?? rec.endTime ?? null,
-        allDay: rec.all_day ?? rec.allDay ?? false,
+        allDay: rec.all_day ?? rec.allDay ?? true,
         crewId: crewId ?? null,
         color: rec.color ?? "gold",
       };
@@ -471,35 +532,36 @@ async function syncCalendarSlots(records: any[]): Promise<SyncStats> {
 
 async function syncPriceItems(records: any[]): Promise<SyncStats> {
   let created = 0, updated = 0, errors = 0;
+  // Base44 price_items have no property_id — broadcast to all HALO properties
+  // so the full price book is available everywhere.
+  const allProperties = await db.select({ id: propertiesTable.id }).from(propertiesTable);
+  if (allProperties.length === 0) return { created, updated, errors };
+
   for (const rec of records) {
     const bid = b44Id(rec);
     if (!bid) continue;
     try {
-      const propertyId = await resolvePropertyId(rec.property_id ?? rec.property ?? rec.propertyId);
-      if (!propertyId) continue;
       const service = String(rec.service ?? rec.name ?? rec.item ?? "");
       if (!service) continue;
-      const payload = {
-        propertyId,
-        service,
-        detail: rec.detail ?? rec.description ?? null,
-        unit: rec.unit ?? null,
-        rate: Number(rec.rate ?? rec.price ?? rec.unit_price ?? 0),
-        category: rec.category ?? null,
-      };
-      const existing = await lookupMap("price_items", bid);
-      if (existing) {
-        await db.update(priceItemsTable).set(payload).where(eq(priceItemsTable.id, existing));
-        updated++;
-      } else {
-        // The unique index is on (property_id, lower(trim(service))) — an expression
-        // index that drizzle can't target directly.  Do a manual check+upsert instead.
+      // Base44 uses `price` field, not `rate`
+      const rate = Number(rec.price ?? rec.rate ?? rec.unit_price ?? 0);
+
+      for (const prop of allProperties) {
+        const payload = {
+          propertyId: prop.id,
+          service,
+          detail: rec.detail ?? rec.description ?? null,
+          unit: rec.unit ?? null,
+          rate,
+          category: rec.category ?? null,
+        };
+        // The unique index is on (property_id, lower(trim(service))).
         const byService = await db
           .select({ id: priceItemsTable.id })
           .from(priceItemsTable)
           .where(
             and(
-              eq(priceItemsTable.propertyId, propertyId),
+              eq(priceItemsTable.propertyId, prop.id),
               sql`lower(trim(${priceItemsTable.service})) = lower(trim(${service}))`,
             ),
           )
@@ -509,13 +571,13 @@ async function syncPriceItems(records: any[]): Promise<SyncStats> {
           await db.update(priceItemsTable).set(payload).where(eq(priceItemsTable.id, haloId));
           updated++;
         } else {
-          await db
-            .insert(priceItemsTable)
-            .values({ id: haloId, ...payload })
-            .onConflictDoNothing();
+          await db.insert(priceItemsTable).values({ id: haloId, ...payload }).onConflictDoNothing();
           created++;
         }
-        await saveMap("price_items", bid, haloId);
+        // Only save map once (for the first property) to keep it idempotent
+        if (prop.id === allProperties[0]!.id) {
+          await saveMap("price_items", bid, haloId);
+        }
       }
     } catch (err) {
       logger.warn({ err, bid }, "base44 sync: price_item error");
