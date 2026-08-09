@@ -287,48 +287,68 @@ async function syncUnits(records: any[]): Promise<SyncStats> {
   return { created, updated, errors };
 }
 
-async function syncCrewJobs(records: any[]): Promise<SyncStats> {
+/** Map a Base44 unit status string to the HALO boardStatus that drives rail placement. */
+function unitStatusToBoardStatus(status: string | null | undefined): string {
+  const s = (status ?? "").toLowerCase().trim();
+  if (!s || s === "pending" || s === "available" || s === "unassigned") return "active";
+  if (s === "assigned" || s === "scheduled" || s === "in_progress") return "filled";
+  if (s === "completed" || s === "done") return "completed";
+  if (s === "billed" || s === "invoiced") return "billing";
+  if (s === "cancelled" || s === "canceled") return "removed";
+  return "active";
+}
+
+/**
+ * Sync Base44 units as HALO job board cards.
+ *
+ * Units are the primary work-order entity in Base44 (they carry property,
+ * unit #, services needed, crew assignment, status, and date).  This creates
+ * one HALO job per unit so every card appears on the Job Board and moves
+ * between rails automatically as the Base44 status changes.
+ *
+ * Map key: "unit_jobs" (separate from "units" which maps to property_units).
+ */
+async function syncUnitsAsJobs(records: any[]): Promise<SyncStats> {
   let created = 0, updated = 0, errors = 0;
   for (const rec of records) {
     const bid = b44Id(rec);
     if (!bid) continue;
     try {
-      // Base44 crew_jobs: property resolved via unit_id → HALO unit → propertyId
+      // Resolve property from the string name Base44 provides.
       const propertyId =
-        (await resolveUnitPropertyId(rec.unit_id)) ??
         (await resolvePropertyByName(rec.property)) ??
         (await resolvePropertyId(rec.property_id ?? rec.propertyId));
       if (!propertyId) continue;
-      const crewLeaderId = await resolveCrewId(rec.crew_id ?? rec.crew ?? rec.crewId);
-      // Derive unit label from the HALO unit we mapped
-      let unitNo: string | null = null;
-      if (rec.unit_id) {
-        const haloUnitId = await lookupMap("units", rec.unit_id);
-        if (haloUnitId) {
-          const uRows = await db.select({ label: propertyUnitsTable.label })
-            .from(propertyUnitsTable).where(eq(propertyUnitsTable.id, haloUnitId)).limit(1);
-          unitNo = uRows[0]?.label ?? null;
-        }
-      }
-      const services = Array.isArray(rec.services_completed) ? rec.services_completed : [];
-      const jobNo = String(rec.job_no ?? rec.jobNo ?? rec.job_number ?? `B44-${bid.slice(-6)}`);
+
+      // Resolve first assigned crew.
+      const crewIds: any[] = Array.isArray(rec.crew_ids) ? rec.crew_ids : [];
+      const firstCrewRef = crewIds[0] ?? null;
+      const crewLeaderId = firstCrewRef ? await resolveCrewId(firstCrewRef) : null;
+
+      const services = Array.isArray(rec.services_needed) ? rec.services_needed : [];
+      const unitNo = String(rec.unit_number ?? rec.unit_no ?? rec.label ?? "").trim() || null;
+      const jobNo = unitNo ? `B44-${unitNo}` : `B44-${bid.slice(-6)}`;
+      const boardStatus = unitStatusToBoardStatus(rec.status);
+      const status = boardStatus === "completed" || boardStatus === "billing" ? "complete" : "open";
+
       const payload = {
         jobNo,
         propertyId,
-        unitNo: unitNo ?? rec.unit ?? rec.unit_no ?? rec.unitNo ?? null,
-        category: services[0] ?? rec.category ?? rec.type ?? null,
-        description: services.length > 0 ? services.join(", ") : (rec.description ?? rec.notes ?? null),
-        status: rec.paid ? "complete" : "open",
+        unitNo,
+        category: services[0] ?? null,
+        description: services.length > 0 ? services.join(", ") : (rec.notes ?? null),
+        status,
         crewLeaderId: crewLeaderId ?? null,
-        scheduledOn: toDateStr(rec.date ?? rec.scheduled_date ?? rec.scheduledDate),
-        crewRate: rec.amount ? Number(rec.amount) : null,
-        boardStatus: rec.paid ? "completed" : (rec.board_status ?? rec.boardStatus ?? "active"),
+        scheduledOn: toDateStr(rec.move_in_date ?? rec.scheduled_date ?? rec.date),
+        boardStatus,
       };
-      const existing = await lookupMap("crew_jobs", bid);
+
+      const existing = await lookupMap("unit_jobs", bid);
       if (existing) {
         await db.update(jobsTable).set(payload).where(eq(jobsTable.id, existing));
         updated++;
       } else {
+        // Match by jobNo to avoid re-creating if the map was lost.
         const byNo = await db
           .select({ id: jobsTable.id })
           .from(jobsTable)
@@ -339,12 +359,95 @@ async function syncCrewJobs(records: any[]): Promise<SyncStats> {
           await db.update(jobsTable).set(payload).where(eq(jobsTable.id, haloId));
           updated++;
         } else {
-          await db
-            .insert(jobsTable)
-            .values({ id: haloId, ...payload })
-            .onConflictDoNothing();
+          await db.insert(jobsTable).values({ id: haloId, ...payload }).onConflictDoNothing();
           created++;
         }
+        await saveMap("unit_jobs", bid, haloId);
+      }
+    } catch (err) {
+      logger.warn({ err, bid }, "base44 sync: unit_job error");
+      errors++;
+    }
+  }
+  return { created, updated, errors };
+}
+
+/**
+ * Sync Base44 crew_jobs.
+ *
+ * crew_jobs are payment records tied to a unit (via unit_id).  If the unit
+ * was already synced as a job card by syncUnitsAsJobs we enrich that card
+ * (crewRate, paid status, crew assignment) rather than create a duplicate.
+ * Only when no unit_jobs mapping exists do we create a standalone job.
+ */
+async function syncCrewJobs(records: any[]): Promise<SyncStats> {
+  let created = 0, updated = 0, errors = 0;
+  for (const rec of records) {
+    const bid = b44Id(rec);
+    if (!bid) continue;
+    try {
+      const crewLeaderId = await resolveCrewId(rec.crew_id ?? rec.crew ?? rec.crewId);
+      const crewRate = rec.amount ? Number(rec.amount) : null;
+      const paid = !!rec.paid;
+
+      // — Path A: enrich the existing unit-job card ———————————————————————
+      if (rec.unit_id) {
+        const unitJobId = await lookupMap("unit_jobs", rec.unit_id);
+        if (unitJobId) {
+          // Patch only the payment-related fields; never overwrite boardStatus
+          // unless this payment confirms the work is done.
+          const patch: Record<string, unknown> = { crewRate };
+          if (crewLeaderId) patch.crewLeaderId = crewLeaderId;
+          if (paid) {
+            patch.boardStatus = "completed";
+            patch.status = "complete";
+          }
+          await db.update(jobsTable).set(patch).where(eq(jobsTable.id, unitJobId));
+          // Record the crew_job → same HALO job link so future syncs find it.
+          await saveMap("crew_jobs", bid, unitJobId);
+          updated++;
+          continue;
+        }
+      }
+
+      // — Path B: standalone job (no matching unit card) ————————————————
+      const propertyId =
+        (await resolveUnitPropertyId(rec.unit_id)) ??
+        (await resolvePropertyByName(rec.property)) ??
+        (await resolvePropertyId(rec.property_id ?? rec.propertyId));
+      if (!propertyId) continue;
+
+      let unitNo: string | null = null;
+      if (rec.unit_id) {
+        const haloUnitId = await lookupMap("units", rec.unit_id);
+        if (haloUnitId) {
+          const uRows = await db.select({ label: propertyUnitsTable.label })
+            .from(propertyUnitsTable).where(eq(propertyUnitsTable.id, haloUnitId)).limit(1);
+          unitNo = uRows[0]?.label ?? null;
+        }
+      }
+      const services = Array.isArray(rec.services_completed) ? rec.services_completed : [];
+      const jobNo = String(rec.job_no ?? rec.jobNo ?? `B44-CJ-${bid.slice(-6)}`);
+      const payload = {
+        jobNo,
+        propertyId,
+        unitNo: unitNo ?? rec.unit_no ?? null,
+        category: services[0] ?? null,
+        description: services.length > 0 ? services.join(", ") : null,
+        status: paid ? "complete" : "open",
+        crewLeaderId: crewLeaderId ?? null,
+        scheduledOn: toDateStr(rec.date ?? rec.scheduled_date),
+        crewRate,
+        boardStatus: paid ? "completed" : "filled",
+      };
+      const existing = await lookupMap("crew_jobs", bid);
+      if (existing) {
+        await db.update(jobsTable).set(payload).where(eq(jobsTable.id, existing));
+        updated++;
+      } else {
+        const haloId = randomUUID();
+        await db.insert(jobsTable).values({ id: haloId, ...payload }).onConflictDoNothing();
+        created++;
         await saveMap("crew_jobs", bid, haloId);
       }
     } catch (err) {
@@ -696,18 +799,18 @@ export async function runBase44Sync(): Promise<SyncResult> {
       logger.info(resources.crews, "base44 sync: crews done");
     }
 
-    // 3. Units, price_items, calendar_slots, jobs, invoices, payment_requests
-    //    (all reference properties / crews).
+    // 3. Units → property_units table AND unit_jobs (job board cards).
+    //    price_items, calendar_slots, owners run in parallel with units.
     const parallel: Promise<void>[] = [];
 
     if (data.units?.length) {
+      // syncUnits → property_units (unit map grid)
       parallel.push(
         syncUnits(data.units).then((s) => { resources.units = s; logger.info(s, "base44 sync: units done"); }),
       );
     }
     if (data.price_items?.length) {
-      // price_items are synced sequentially (not parallel) to avoid hitting
-      // the expression-index unique constraint from concurrent inserts.
+      // price_items are synced sequentially to avoid expression-index conflicts.
       resources.price_items = await syncPriceItems(data.price_items);
       logger.info(resources.price_items, "base44 sync: price_items done");
     }
@@ -716,8 +819,6 @@ export async function runBase44Sync(): Promise<SyncResult> {
         syncCalendarSlots(data.calendar_slots).then((s) => { resources.calendar_slots = s; logger.info(s, "base44 sync: calendar_slots done"); }),
       );
     }
-
-    // Owners patch properties, so run after properties.
     if (data.owners?.length) {
       parallel.push(
         syncOwners(data.owners, data.properties ?? []).then((s) => { resources.owners = s; logger.info(s, "base44 sync: owners done"); }),
@@ -726,7 +827,15 @@ export async function runBase44Sync(): Promise<SyncResult> {
 
     await Promise.all(parallel);
 
-    // 4. crew_jobs after properties + crews.
+    // 4. syncUnitsAsJobs — one job board card per Base44 unit.
+    //    Runs after syncUnits so the "units" map is populated (needed by
+    //    syncCrewJobs which enriches these cards).
+    if (data.units?.length) {
+      resources.unit_jobs = await syncUnitsAsJobs(data.units);
+      logger.info(resources.unit_jobs, "base44 sync: unit_jobs done");
+    }
+
+    // 5. crew_jobs enriches the unit-job cards (crewRate, paid status).
     if (data.crew_jobs?.length) {
       resources.crew_jobs = await syncCrewJobs(data.crew_jobs);
       logger.info(resources.crew_jobs, "base44 sync: crew_jobs done");
