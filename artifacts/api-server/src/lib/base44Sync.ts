@@ -10,7 +10,7 @@
  * units, jobs, invoices, price_items, etc. need resolved HALO UUIDs.
  */
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   base44SyncMapTable,
@@ -231,8 +231,39 @@ async function syncCrews(records: any[]): Promise<SyncStats> {
   return { created, updated, errors };
 }
 
-async function syncUnits(records: any[]): Promise<SyncStats> {
-  let created = 0, updated = 0, errors = 0;
+/**
+ * Auto-place a new unit in a 5-column grid on the site map.
+ * Fractional coords (0–1).  Units are 0.18 wide × 0.08 tall with 0.02 gaps.
+ * index = count of units already placed for this property.
+ */
+function autoUnitPosition(index: number): { x: number; y: number; w: number; h: number } {
+  const col = index % 5;
+  const row = Math.floor(index / 5);
+  return { x: 0.01 + col * 0.20, y: 0.01 + row * 0.10, w: 0.18, h: 0.08 };
+}
+
+/**
+ * Sync Base44 units → property_units (site map boxes).
+ *
+ * Three behaviours beyond a plain upsert:
+ *
+ * 1. POSITION PRESERVATION — existing unit boxes keep the x/y/w/h the user
+ *    set in the HALO site-map editor; only label/propertyId are updated.
+ *
+ * 2. AUTO-LAYOUT — newly created units are placed in a 5-column grid so
+ *    they don't all land at (0,0) on first import.
+ *
+ * 3. REMOVAL SYNC — units deleted from Base44 are deleted from property_units
+ *    and their job-board cards are marked "removed".  Only Base44-sourced
+ *    units (tracked in the sync map) are ever deleted this way; manually
+ *    created HALO units are untouched.
+ */
+async function syncUnits(records: any[]): Promise<SyncStats & { deleted: number }> {
+  let created = 0, updated = 0, errors = 0, deleted = 0;
+
+  // Track Base44 IDs successfully processed in this run.
+  const processedB44Ids = new Set<string>();
+
   for (const rec of records) {
     const bid = b44Id(rec);
     if (!bid) continue;
@@ -244,21 +275,20 @@ async function syncUnits(records: any[]): Promise<SyncStats> {
       if (!propertyId) continue;
       const label = String(rec.unit_number ?? rec.label ?? rec.name ?? rec.unit_no ?? "");
       if (!label) continue;
-      const payload = {
-        propertyId,
-        label,
-        x: Number(rec.x ?? 0),
-        y: Number(rec.y ?? 0),
-        w: Number(rec.w ?? 0.1),
-        h: Number(rec.h ?? 0.08),
-      };
+
       const existing = await lookupMap("units", bid);
       if (existing) {
-        await db.update(propertyUnitsTable).set(payload).where(eq(propertyUnitsTable.id, existing));
+        // POSITION PRESERVATION: only update label, not coords.
+        await db
+          .update(propertyUnitsTable)
+          .set({ label, propertyId })
+          .where(eq(propertyUnitsTable.id, existing));
         updated++;
+        processedB44Ids.add(bid);
       } else {
+        // New unit — check by label first to avoid duplication.
         const byLabel = await db
-          .select({ id: propertyUnitsTable.id })
+          .select({ id: propertyUnitsTable.id, x: propertyUnitsTable.x, y: propertyUnitsTable.y })
           .from(propertyUnitsTable)
           .where(
             and(
@@ -267,25 +297,97 @@ async function syncUnits(records: any[]): Promise<SyncStats> {
             ),
           )
           .limit(1);
+
         const haloId = byLabel[0]?.id ?? randomUUID();
         if (byLabel[0]) {
-          await db.update(propertyUnitsTable).set(payload).where(eq(propertyUnitsTable.id, haloId));
+          // Existing row by label — bind it to the sync map but preserve its position.
+          await db
+            .update(propertyUnitsTable)
+            .set({ label, propertyId })
+            .where(eq(propertyUnitsTable.id, haloId));
           updated++;
         } else {
+          // Brand-new unit — AUTO-LAYOUT: place in the next grid cell.
+          const countRows = await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(propertyUnitsTable)
+            .where(eq(propertyUnitsTable.propertyId, propertyId));
+          const pos = autoUnitPosition(Number(countRows[0]?.count ?? 0));
           await db
             .insert(propertyUnitsTable)
-            .values({ id: haloId, ...payload })
+            .values({ id: haloId, propertyId, label, ...pos })
             .onConflictDoNothing();
           created++;
         }
         await saveMap("units", bid, haloId);
+        processedB44Ids.add(bid);
       }
     } catch (err) {
       logger.warn({ err, bid }, "base44 sync: unit error");
       errors++;
     }
   }
-  return { created, updated, errors };
+
+  // ── REMOVAL SYNC ──────────────────────────────────────────────────────────
+  // Find all Base44-sourced units in the sync map and delete any that were
+  // not in the current Base44 payload (they were removed from Base44).
+  try {
+    const allMapped = await db
+      .select({ base44Id: base44SyncMapTable.base44Id, haloId: base44SyncMapTable.haloId })
+      .from(base44SyncMapTable)
+      .where(eq(base44SyncMapTable.resource, "units"));
+
+    const stale = allMapped.filter((m) => !processedB44Ids.has(m.base44Id));
+
+    for (const entry of stale) {
+      try {
+        // Delete the property_units row.
+        await db.delete(propertyUnitsTable).where(eq(propertyUnitsTable.id, entry.haloId));
+
+        // Mark the unit-job card "removed" on the board.
+        const unitJobId = await lookupMap("unit_jobs", entry.base44Id);
+        if (unitJobId) {
+          await db
+            .update(jobsTable)
+            .set({ boardStatus: "removed", status: "cancelled" })
+            .where(eq(jobsTable.id, unitJobId));
+        }
+
+        // Delete the schedule row if one was created.
+        const schedId = await lookupMap("unit_schedules", entry.base44Id);
+        if (schedId) {
+          await db.delete(schedulesTable).where(eq(schedulesTable.id, schedId));
+          await db
+            .delete(base44SyncMapTable)
+            .where(
+              and(
+                eq(base44SyncMapTable.resource, "unit_schedules"),
+                eq(base44SyncMapTable.base44Id, entry.base44Id),
+              ),
+            );
+        }
+
+        // Remove the sync-map entries for units / unit_jobs.
+        await db
+          .delete(base44SyncMapTable)
+          .where(
+            and(
+              inArray(base44SyncMapTable.resource, ["units", "unit_jobs"]),
+              eq(base44SyncMapTable.base44Id, entry.base44Id),
+            ),
+          );
+
+        deleted++;
+      } catch (err) {
+        logger.warn({ err, b44Id: entry.base44Id }, "base44 sync: unit removal error");
+        errors++;
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "base44 sync: stale-unit scan error");
+  }
+
+  return { created, updated, errors, deleted };
 }
 
 /** Map a Base44 unit status string to the HALO boardStatus that drives rail placement. */
@@ -870,9 +972,14 @@ export async function runBase44Sync(): Promise<SyncResult> {
     const parallel: Promise<void>[] = [];
 
     if (data.units?.length) {
-      // syncUnits → property_units (unit map grid)
+      // syncUnits → property_units (unit map grid) + removal pruning
       parallel.push(
         syncUnits(data.units).then((s) => { resources.units = s; logger.info(s, "base44 sync: units done"); }),
+      );
+    } else {
+      // No units in Base44 at all — prune everything previously synced.
+      parallel.push(
+        syncUnits([]).then((s) => { resources.units = s; logger.info(s, "base44 sync: units done (all removed)"); }),
       );
     }
     if (data.price_items?.length) {
