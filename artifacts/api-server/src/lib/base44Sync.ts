@@ -10,7 +10,7 @@
  * units, jobs, invoices, price_items, etc. need resolved HALO UUIDs.
  */
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   base44SyncMapTable,
@@ -691,6 +691,24 @@ async function syncInvoices(records: any[]): Promise<SyncStats> {
         }
         await saveMap("invoices", bid, haloId);
       }
+
+      // When a Base44 invoice is paid and linked to a job, advance the job
+      // card to "billing" so the office board reflects the real pay state.
+      // Never downgrade — guard with boardRank.
+      const isPaid = payload.status === "paid" || !!payload.paidAt;
+      if (jobId && isPaid) {
+        const cur = await db
+          .select({ boardStatus: jobsTable.boardStatus })
+          .from(jobsTable)
+          .where(eq(jobsTable.id, jobId))
+          .limit(1);
+        if (cur[0] && boardRank(cur[0].boardStatus) < boardRank("billing")) {
+          await db
+            .update(jobsTable)
+            .set({ boardStatus: "billing", status: "complete" })
+            .where(eq(jobsTable.id, jobId));
+        }
+      }
     } catch (err) {
       logger.warn({ err, bid }, "base44 sync: invoice error");
       errors++;
@@ -714,13 +732,14 @@ async function syncPaymentRequests(records: any[]): Promise<SyncStats> {
       const amountDollars = rec.amount_cents != null
         ? Number(rec.amount_cents) / 100
         : Number(rec.total ?? rec.amount ?? 0);
+      const prStatus = rec.state ?? rec.status ?? "draft";
       const payload = {
         requestNo,
         token: rec.token ?? randomUUID(),
         propertyId,
         total: amountDollars,
         memo: rec.scope_summary ?? rec.memo ?? rec.notes ?? null,
-        status: rec.state ?? rec.status ?? "draft",
+        status: prStatus,
         sentAt: toDate(rec.next_attempt_at ?? rec.sent_at ?? rec.sentAt),
         paidAt: toDate(rec.date_paid ?? rec.paid_at ?? rec.paidAt),
       };
@@ -752,6 +771,40 @@ async function syncPaymentRequests(records: any[]): Promise<SyncStats> {
           created++;
         }
         await saveMap("payment_requests", bid, haloId);
+      }
+
+      // Advance the linked job card to "billing" when a payment request is
+      // sent or paid. Look up the job via unit_id → unit_jobs map first,
+      // then fall back to property + unit_no string match. Never downgrade.
+      const prActive = ["sent", "pending", "paid", "viewed"].includes(prStatus);
+      if (prActive && propertyId) {
+        let linkedJobId: string | null = null;
+        if (rec.unit_id) {
+          linkedJobId = await lookupMap("unit_jobs", String(rec.unit_id));
+        }
+        const unitLabel = rec.unit_no ?? rec.unit_number ?? rec.unitNo ?? null;
+        if (!linkedJobId && unitLabel) {
+          const jobRows = await db
+            .select({ id: jobsTable.id })
+            .from(jobsTable)
+            .where(and(eq(jobsTable.propertyId, propertyId), eq(jobsTable.unitNo, String(unitLabel))))
+            .orderBy(desc(jobsTable.createdAt))
+            .limit(1);
+          linkedJobId = jobRows[0]?.id ?? null;
+        }
+        if (linkedJobId) {
+          const cur = await db
+            .select({ boardStatus: jobsTable.boardStatus })
+            .from(jobsTable)
+            .where(eq(jobsTable.id, linkedJobId))
+            .limit(1);
+          if (cur[0] && boardRank(cur[0].boardStatus) < boardRank("billing")) {
+            await db
+              .update(jobsTable)
+              .set({ boardStatus: "billing", status: "complete" })
+              .where(eq(jobsTable.id, linkedJobId));
+          }
+        }
       }
     } catch (err) {
       logger.warn({ err, bid }, "base44 sync: payment_request error");

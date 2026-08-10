@@ -319,6 +319,29 @@ export default function PhotosScreen() {
   const takePhoto = useCallback(
     async (phase: PhotoPhase, fromGallery = false) => {
       if (!activeJob || picking) return;
+
+      // Request the appropriate permission before launching the picker.
+      // On first call iOS shows the system prompt; subsequent calls return cached status.
+      if (fromGallery) {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Photo Library Access Required',
+            'Go to Settings → HALO Crew → Photos and enable access, then try again.',
+          );
+          return;
+        }
+      } else {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Camera Access Required',
+            'Go to Settings → HALO Crew → Camera and enable access, then try again.',
+          );
+          return;
+        }
+      }
+
       setPicking(true);
       setShowPicker(false);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
