@@ -419,23 +419,15 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
 
       // Walk-approved jobs — crew sees a "ready to start" card for each job
       // the client approved in the last 30 days.
-      db.select({
-        id: jobsTable.id,
-        jobNo: jobsTable.jobNo,
-        unitNo: jobsTable.unitNo,
-        propertyId: jobsTable.propertyId,
-        walkApprovedAt: (jobsTable as any).walkApprovedAt,
-      })
+      // Use sql`` for walk_approved_at to avoid (as any) undefined column refs.
+      db.select()
       .from(jobsTable)
       .where(and(
         eq(jobsTable.crewLeaderId, crew.id),
-        isNotNull((jobsTable as any).walkApprovedAt),
-        gte(
-          (jobsTable as any).walkApprovedAt,
-          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-        ),
+        sql`${jobsTable}.walk_approved_at IS NOT NULL`,
+        sql`${jobsTable}.walk_approved_at >= ${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)}`,
       ))
-      .orderBy(desc((jobsTable as any).walkApprovedAt))
+      .orderBy(sql`${jobsTable}.walk_approved_at DESC`)
       .limit(5),
     ]);
 

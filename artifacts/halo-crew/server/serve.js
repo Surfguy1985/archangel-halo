@@ -126,12 +126,112 @@ function serveStaticFile(urlPath, res) {
 const landingPageTemplate = fs.readFileSync(TEMPLATE_PATH, 'utf-8');
 const appName = getAppName();
 
+/**
+ * Serves an auto-auth HTML page for /portal/:token.
+ *
+ * The office sends crews a link like:
+ *   https://[domain]/halo-crew/portal/<token>
+ *
+ * The crew taps the link on their phone → browser opens this handler →
+ * the page stores the token in localStorage (same key the Expo web app reads),
+ * attempts to open the native app via deep link, then redirects to the
+ * app's root so the AuthProvider picks up the stored token automatically.
+ */
+function servePortalRedirect(token, req, res) {
+  const forwardedProto = req.headers['x-forwarded-proto'] || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers['host'];
+  // Root of the halo-crew web app (basePath already stripped at call site, so add it back)
+  const crewRoot = `${forwardedProto}://${host}${basePath}/`;
+  const safeToken = token.replace(/[^a-zA-Z0-9_\-]/g, '');
+
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>HALO Crew — Connecting…</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07101E;color:#F4F7F9;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 20px}
+    .card{background:#13223A;border-radius:20px;padding:36px 28px;max-width:400px;width:100%;text-align:center;border:1px solid rgba(140,160,185,0.14)}
+    .icon{width:72px;height:72px;border-radius:36px;background:rgba(180,255,68,0.10);border:1px solid rgba(180,255,68,0.22);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:32px}
+    h1{font-size:22px;font-weight:700;margin-bottom:10px}
+    p{font-size:15px;color:#8CA0B9;line-height:1.6;margin-bottom:28px}
+    .spinner{width:32px;height:32px;border:3px solid rgba(180,255,68,0.2);border-top-color:#B4FF44;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .status{font-size:13px;color:#8CA0B9}
+    .btn{display:inline-block;margin-top:24px;background:#B4FF44;color:#07101E;font-weight:700;font-size:16px;padding:14px 32px;border-radius:12px;text-decoration:none;cursor:pointer;border:none}
+    .btn:hover{opacity:.9}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">🛡️</div>
+  <h1>HALO Crew</h1>
+  <p>Connecting your crew account…</p>
+  <div class="spinner" id="spinner"></div>
+  <div class="status" id="status">Saving your link…</div>
+  <button class="btn" id="openBtn" style="display:none" onclick="openApp()">Open HALO Crew</button>
+</div>
+<script>
+  var TOKEN = ${JSON.stringify(safeToken)};
+  var CREW_ROOT = ${JSON.stringify(crewRoot)};
+
+  function openApp() {
+    window.location.href = CREW_ROOT;
+  }
+
+  (function() {
+    try {
+      // Store token under the same key the Expo/React Native AsyncStorage uses on web.
+      // AsyncStorage on web maps to localStorage with the key pattern:
+      //   @RN:token_key  (some versions)  or just the raw key
+      // The app uses TOKEN_KEY = 'halo_crew_token'
+      localStorage.setItem('halo_crew_token', TOKEN);
+      // Expo AsyncStorage on web also stores under this namespace
+      localStorage.setItem('@halo_crew_token', TOKEN);
+
+      document.getElementById('status').textContent = 'Redirecting to the app…';
+    } catch(e) {
+      document.getElementById('status').textContent = 'Tap the button below to open the app.';
+    }
+
+    // Try native deep link first (works if app is installed)
+    try {
+      window.location.href = 'halo-crew://portal/' + TOKEN;
+    } catch(e) {}
+
+    // After a short delay, redirect to the web app root
+    setTimeout(function() {
+      try {
+        window.location.href = CREW_ROOT;
+      } catch(e) {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('status').textContent = 'Tap below to open the app.';
+        document.getElementById('openBtn').style.display = 'inline-block';
+      }
+    }, 1200);
+  })();
+</script>
+</body>
+</html>`;
+
+  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+  res.end(html);
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host}`);
   let pathname = url.pathname;
 
   if (basePath && pathname.startsWith(basePath)) {
     pathname = pathname.slice(basePath.length) || '/';
+  }
+
+  // Auto-auth handler: /portal/:token
+  const portalMatch = pathname.match(/^\/portal\/([^/?#]+)/);
+  if (portalMatch) {
+    return servePortalRedirect(portalMatch[1], req, res);
   }
 
   if (pathname === '/' || pathname === '/manifest') {

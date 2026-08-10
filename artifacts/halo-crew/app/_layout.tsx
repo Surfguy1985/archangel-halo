@@ -40,8 +40,10 @@ function RootLayoutNav() {
         }}
       >
         <Stack.Screen name="link" />
+        <Stack.Screen name="portal/[token]" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="more" />
+        <Stack.Screen name="onboarding" />
         <Stack.Screen name="+not-found" />
       </Stack>
     </>

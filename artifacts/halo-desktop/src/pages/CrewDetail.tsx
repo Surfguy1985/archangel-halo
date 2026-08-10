@@ -958,9 +958,10 @@ export default function CrewDetail() {
   }
 
   const portalToken = crew.portalToken;
-  // Always share the mobile-friendly portal (served at the site root) — crews open this on their phones.
+  // Point to the crew portal web app (served at /halo-crew/).
+  // Crews open this on their phone — it auto-authenticates them on arrival.
   const portalUrl = portalToken
-    ? `${window.location.origin}/portal/${portalToken}`
+    ? `${window.location.origin}/halo-crew/portal/${portalToken}`
     : null;
 
   const handleGenerate = () =>
