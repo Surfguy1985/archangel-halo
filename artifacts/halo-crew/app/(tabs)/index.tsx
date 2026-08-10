@@ -572,17 +572,6 @@ export default function JobScreen() {
           </Pressable>
         )}
 
-        {/* Walk approved banners */}
-        {(portal?.approvedWalks ?? []).map((walk) => (
-          <View key={walk.jobId} style={s.walkCard}>
-            <Ionicons name="checkmark-circle" size={16} color="#B4FF44" />
-            <Text style={s.walkText}>
-              Walk Approved — {walk.propertyName ?? ''}
-              {walk.unitNo ? ` · Unit ${walk.unitNo}` : ''}
-            </Text>
-          </View>
-        ))}
-
         {/* Main content */}
         {!jobs ? (
           <View style={s.loadingBox}>

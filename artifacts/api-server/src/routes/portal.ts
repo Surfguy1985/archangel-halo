@@ -412,7 +412,7 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
   const today = fmtDate(now);
 
   // ── Phase A: crew-scoped only. Eight queries, no job dependency. ──
-  const [schedRows, eventRows, offerRows, emergencyTargetRows, planRows, leaderRows, memberDispatchRows, walkApprovedJobRows] =
+  const [schedRows, eventRows, offerRows, emergencyTargetRows, planRows, leaderRows, memberDispatchRows] =
     await Promise.all([
       db.select().from(schedulesTable)
         .where(and(
@@ -469,18 +469,6 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
             ))
         : Promise.resolve([] as (typeof crewDispatchAssignmentsTable.$inferSelect)[]),
 
-      // Walk-approved jobs — crew sees a "ready to start" card for each job
-      // the client approved in the last 30 days.
-      // Use sql`` for walk_approved_at to avoid (as any) undefined column refs.
-      db.select()
-      .from(jobsTable)
-      .where(and(
-        eq(jobsTable.crewLeaderId, crew.id),
-        sql`${jobsTable}.walk_approved_at IS NOT NULL`,
-        sql`${jobsTable}.walk_approved_at >= ${new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)}`,
-      ))
-      .orderBy(sql`${jobsTable}.walk_approved_at DESC`)
-      .limit(5),
     ]);
 
   // ── Phase B: resolve pings, then the complete job-ID union. ──
@@ -530,26 +518,6 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
   ]);
   const propsById = new Map(props.map((p) => [p.id, p]));
 
-  // Resolve property names for walk-approved jobs not already in propsById.
-  const walkExtraPropIds = walkApprovedJobRows
-    .map((w) => w.propertyId)
-    .filter((id): id is string => !!id && !propsById.has(id));
-  if (walkExtraPropIds.length) {
-    const extraProps = await db
-      .select()
-      .from(propertiesTable)
-      .where(inArray(propertiesTable.id, walkExtraPropIds));
-    for (const p of extraProps) propsById.set(p.id, p);
-  }
-  const approvedWalks = walkApprovedJobRows
-    .filter((w): w is typeof w & { walkApprovedAt: Date } => w.walkApprovedAt != null)
-    .map((w) => ({
-      jobId: w.id,
-      jobNo: w.jobNo ?? null,
-      propertyName: w.propertyId ? (propsById.get(w.propertyId)?.name ?? null) : null,
-      unitNo: w.unitNo ?? null,
-      approvedAt: w.walkApprovedAt.toISOString(),
-    }));
 
   // Unchanged from the original — kept here because the sort below needs it.
   const orderByDay = new Map<string, Map<string, number>>();
@@ -788,7 +756,6 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       offers,
       emergencyOffers,
       unseen,
-      approvedWalks,
     }),
   );
 });
