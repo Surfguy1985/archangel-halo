@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { uploadAsync, FileSystemUploadType } from 'expo-file-system/legacy';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/context/AuthContext';
@@ -25,9 +26,8 @@ async function uploadToStorage(uri: string): Promise<string> {
   const compressed = await ImageManipulator.manipulateAsync(
     uri,
     [{ resize: { width: 600 } }],
-    { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+    { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
   );
-  const base64 = compressed.base64 ?? '';
 
   // Get presigned URL
   const urlResp = await fetch(`https://${DOMAIN}/api/storage/uploads/request-url`, {
@@ -36,18 +36,17 @@ async function uploadToStorage(uri: string): Promise<string> {
     body: JSON.stringify({ name: `selfie-${Date.now()}.jpg`, contentType: 'image/jpeg' }),
   });
   if (!urlResp.ok) throw new Error('Failed to get upload URL');
-  const { uploadUrl, storagePath } = await urlResp.json();
+  const { uploadURL, objectPath } = await urlResp.json();
 
-  // Upload
-  const binary = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  const uploadResp = await fetch(uploadUrl, {
-    method: 'PUT',
+  // Upload directly from disk — avoids Blob/atob issues in Hermes
+  const result = await uploadAsync(compressed.uri, uploadURL, {
+    httpMethod: 'PUT',
+    uploadType: FileSystemUploadType.BINARY_CONTENT,
     headers: { 'Content-Type': 'image/jpeg' },
-    body: binary,
   });
-  if (!uploadResp.ok) throw new Error('Upload failed');
+  if (result.status < 200 || result.status >= 300) throw new Error('Upload failed');
 
-  return storagePath as string;
+  return objectPath as string;
 }
 
 export default function SelfieScreen() {

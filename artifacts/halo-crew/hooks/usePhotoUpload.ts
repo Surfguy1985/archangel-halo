@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { uploadAsync, FileSystemUploadType } from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUploadPortalPhoto } from '@workspace/api-client-react';
@@ -32,22 +33,21 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-async function compressImage(uri: string): Promise<{ uri: string; base64: string }> {
-  // Resize to max 1920px on longest side, get base64 for upload
+async function compressImage(uri: string): Promise<string> {
+  // Resize to max 1920px on longest side, return local file URI
   const result = await ImageManipulator.manipulateAsync(
     uri,
     [{ resize: { width: MAX_DIMENSION } }],
     {
       compress: COMPRESS,
       format: ImageManipulator.SaveFormat.JPEG,
-      base64: true,
     },
   );
-  return { uri: result.uri, base64: result.base64 ?? '' };
+  return result.uri;
 }
 
 async function uploadToStorage(
-  base64: string,
+  localUri: string,
   domain: string,
 ): Promise<string> {
   // Step 1: Get presigned upload URL
@@ -58,7 +58,6 @@ async function uploadToStorage(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: `crew-photo-${Date.now()}.jpg`,
-        size: Math.round(base64.length * 0.75),
         contentType: 'image/jpeg',
       }),
     },
@@ -66,20 +65,15 @@ async function uploadToStorage(
   if (!urlResp.ok) throw new Error(`Request URL failed: ${urlResp.status}`);
   const { uploadURL, objectPath } = await urlResp.json();
 
-  // Step 2: Convert base64 to binary and PUT to presigned URL
-  const byteString = atob(base64);
-  const bytes = new Uint8Array(byteString.length);
-  for (let i = 0; i < byteString.length; i++) {
-    bytes[i] = byteString.charCodeAt(i);
-  }
-  const blob = new Blob([bytes], { type: 'image/jpeg' });
-
-  const putResp = await fetch(uploadURL, {
-    method: 'PUT',
-    body: blob,
+  // Step 2: PUT the file directly from disk — avoids Blob/atob issues in Hermes
+  const result = await uploadAsync(localUri, uploadURL, {
+    httpMethod: 'PUT',
+    uploadType: FileSystemUploadType.BINARY_CONTENT,
     headers: { 'Content-Type': 'image/jpeg' },
   });
-  if (!putResp.ok) throw new Error(`PUT failed: ${putResp.status}`);
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`PUT failed: ${result.status}`);
+  }
 
   return objectPath as string;
 }
@@ -145,9 +139,9 @@ export function usePhotoUpload(
       );
 
       try {
-        const { base64 } = await compressImage(item.uri);
+        const compressedUri = await compressImage(item.uri);
         const storagePath = await uploadToStorage(
-          base64,
+          compressedUri,
           process.env.EXPO_PUBLIC_DOMAIN!,
         );
 
