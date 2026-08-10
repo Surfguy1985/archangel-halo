@@ -12,7 +12,6 @@ import { useAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 
 type MoreItem = {
   id: string;
@@ -26,7 +25,7 @@ type MoreItem = {
 
 export default function MoreScreen() {
   const insets = useSafeAreaInsets();
-  const { portal, token } = useAuth();
+  const { portal } = useAuth();
   const unseen = portal?.unseen;
 
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
@@ -78,31 +77,6 @@ export default function MoreScreen() {
       badge: unseen?.pay,
       accent: '#22C55E',
     },
-    {
-      id: 'wings',
-      label: 'Wings',
-      sub: 'Profit share program',
-      icon: 'ribbon-outline',
-      route: '/more/wings',
-      accent: '#EAB308',
-    },
-    {
-      id: 'docs',
-      label: 'Documents',
-      sub: 'W-9, bank, packets',
-      icon: 'folder-open-outline',
-      route: '/more/docs',
-      badge: unseen?.documents,
-      accent: '#F4F7F9',
-    },
-    {
-      id: 'guide',
-      label: 'Guide',
-      sub: 'How everything works (EN / ES)',
-      icon: 'book-outline',
-      route: '/more/guide',
-      accent: '#8CA0B9',
-    },
   ];
 
   const press = (route: string) => {
@@ -140,7 +114,7 @@ export default function MoreScreen() {
               <View
                 style={[
                   moreStyles.iconBox,
-                  { backgroundColor: item.accent + '18' },
+                  { backgroundColor: (item.accent ?? '#B4FF44') + '18' },
                 ]}
               >
                 <Ionicons
@@ -160,7 +134,7 @@ export default function MoreScreen() {
           ))}
         </View>
 
-        {/* Profile section */}
+        {/* Profile */}
         <View style={moreStyles.profileCard}>
           <View style={moreStyles.profileLeft}>
             <View style={moreStyles.avatar}>
@@ -185,23 +159,9 @@ export default function MoreScreen() {
 const moreStyles = StyleSheet.create({
   scroll: { paddingHorizontal: 16, flexGrow: 1 },
   header: { marginBottom: 20 },
-  title: {
-    fontSize: 28,
-    fontFamily: 'Inter_700Bold',
-    color: '#F4F7F9',
-  },
-  crewName: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: '#8CA0B9',
-    marginTop: 2,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 20,
-  },
+  title: { fontSize: 28, fontFamily: 'Inter_700Bold', color: '#F4F7F9' },
+  crewName: { fontSize: 13, fontFamily: 'Inter_400Regular', color: '#8CA0B9', marginTop: 2 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
   card: {
     width: '47%',
     backgroundColor: '#13223A',
@@ -214,74 +174,27 @@ const moreStyles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   iconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
+    width: 48, height: 48, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 10,
   },
-  cardLabel: {
-    fontSize: 15,
-    fontFamily: 'Inter_600SemiBold',
-    color: '#F4F7F9',
-    marginBottom: 2,
-  },
-  cardSub: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    color: '#8CA0B9',
-    lineHeight: 17,
-  },
+  cardLabel: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#F4F7F9', marginBottom: 2 },
+  cardSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: '#8CA0B9', lineHeight: 17 },
   badge: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#E11D48',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 5,
+    position: 'absolute', top: 14, right: 14,
+    minWidth: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#E11D48', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5,
   },
-  badgeText: {
-    fontSize: 11,
-    fontFamily: 'Inter_700Bold',
-    color: '#FFFFFF',
-  },
+  badgeText: { fontSize: 11, fontFamily: 'Inter_700Bold', color: '#FFFFFF' },
   profileCard: {
-    backgroundColor: '#13223A',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: 'rgba(140,160,185,0.12)',
+    backgroundColor: '#13223A', borderRadius: 16, padding: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 1, borderColor: 'rgba(140,160,185,0.12)',
   },
-  profileLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
+  profileLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(140,160,185,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(140,160,185,0.12)', alignItems: 'center', justifyContent: 'center',
   },
-  profileName: {
-    fontSize: 15,
-    fontFamily: 'Inter_600SemiBold',
-    color: '#F4F7F9',
-  },
-  profileRole: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: '#8CA0B9',
-    marginTop: 1,
-  },
+  profileName: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#F4F7F9' },
+  profileRole: { fontSize: 13, fontFamily: 'Inter_400Regular', color: '#8CA0B9', marginTop: 1 },
 });

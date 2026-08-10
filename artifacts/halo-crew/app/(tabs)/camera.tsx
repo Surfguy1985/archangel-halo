@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,8 +10,6 @@ import {
   Text,
   View,
 } from 'react-native';
-
-const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN ?? '';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 import { usePhotoUpload } from '@/hooks/usePhotoUpload';
@@ -21,55 +19,334 @@ import {
   getListPortalJobsQueryKey,
   getListPortalPhotosQueryKey,
 } from '@workspace/api-client-react';
+import type { PortalJob } from '@workspace/api-client-react';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
+const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN ?? '';
+
 type PhotoPhase = 'before' | 'after';
 
-function getPhaseBadgeStyle(phase: PhotoPhase) {
-  return {
-    before: { bg: 'rgba(37,99,235,0.15)', color: '#60A5FA', border: 'rgba(37,99,235,0.3)', label: 'BEFORE' },
-    after: { bg: 'rgba(249,115,22,0.15)', color: '#F97316', border: 'rgba(249,115,22,0.3)', label: 'AFTER' },
-  }[phase];
+// ─── Phase picker sheet ───────────────────────────────────────────────────────
+
+function PhasePicker({
+  onPick,
+  onDismiss,
+}: {
+  onPick: (phase: PhotoPhase) => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <View style={pp.overlay}>
+      <Pressable style={pp.backdrop} onPress={onDismiss} />
+      <View style={pp.sheet}>
+        <Text style={pp.title}>What type of photo?</Text>
+        <Pressable
+          style={[pp.optBtn, { borderColor: 'rgba(37,99,235,0.35)', backgroundColor: 'rgba(37,99,235,0.08)' }]}
+          onPress={() => onPick('before')}
+        >
+          <Ionicons name="camera-outline" size={22} color="#60A5FA" />
+          <View style={{ flex: 1 }}>
+            <Text style={[pp.optLabel, { color: '#60A5FA' }]}>Before</Text>
+            <Text style={pp.optSub}>Photo of the unit before you start work</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#60A5FA" />
+        </Pressable>
+        <Pressable
+          style={[pp.optBtn, { borderColor: 'rgba(249,115,22,0.35)', backgroundColor: 'rgba(249,115,22,0.08)' }]}
+          onPress={() => onPick('after')}
+        >
+          <Ionicons name="checkmark-done-outline" size={22} color="#F97316" />
+          <View style={{ flex: 1 }}>
+            <Text style={[pp.optLabel, { color: '#F97316' }]}>After</Text>
+            <Text style={pp.optSub}>Photo of the unit after you finish work</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#F97316" />
+        </Pressable>
+        <Pressable style={pp.cancelBtn} onPress={onDismiss}>
+          <Text style={pp.cancelText}>Cancel</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
 }
 
-export default function CameraScreen() {
+const pp = StyleSheet.create({
+  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', zIndex: 100 },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheet: {
+    backgroundColor: '#13223A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+    gap: 12,
+  },
+  title: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#F4F7F9', marginBottom: 4 },
+  optBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    borderRadius: 14, padding: 16, borderWidth: 1,
+  },
+  optLabel: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
+  optSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: '#8CA0B9', marginTop: 2 },
+  cancelBtn: {
+    alignItems: 'center', paddingVertical: 14,
+    backgroundColor: 'rgba(140,160,185,0.08)', borderRadius: 12, marginTop: 4,
+  },
+  cancelText: { fontSize: 15, fontFamily: 'Inter_500Medium', color: '#8CA0B9' },
+});
+
+// ─── Photo grid section for one unit ──────────────────────────────────────────
+
+type Photo = { id: string; jobId?: string | null; phase?: string | null; storagePath?: string | null };
+
+function UnitPhotoSection({
+  job,
+  before,
+  after,
+  onDelete,
+  deletingId,
+}: {
+  job: PortalJob;
+  before: Photo[];
+  after: Photo[];
+  onDelete: (id: string) => void;
+  deletingId: string | null;
+}) {
+  const allPhotos = before.length + after.length;
+  if (allPhotos === 0) return null;
+
+  return (
+    <View style={us.card}>
+      <LinearGradient colors={['#1C3050', '#13223A']} style={us.header}>
+        <View style={us.unitRow}>
+          <Ionicons name="home-outline" size={14} color="#8CA0B9" />
+          <Text style={us.propertyName}>
+            {job.propertyName ?? 'Property'}
+            {job.unitNo ? ` · Unit ${job.unitNo}` : ''}
+          </Text>
+        </View>
+        <View style={us.countRow}>
+          <View style={[us.countPill, { backgroundColor: 'rgba(37,99,235,0.15)' }]}>
+            <Text style={[us.countText, { color: '#60A5FA' }]}>{before.length} before</Text>
+          </View>
+          <View style={[us.countPill, { backgroundColor: 'rgba(249,115,22,0.15)' }]}>
+            <Text style={[us.countText, { color: '#F97316' }]}>{after.length} after</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      <View style={us.body}>
+        {before.length > 0 && (
+          <>
+            <Text style={us.phaseLabel}>BEFORE</Text>
+            <View style={us.grid}>
+              {before.map((p) => (
+                <PhotoThumb key={p.id} photo={p} onDelete={onDelete} deletingId={deletingId} />
+              ))}
+            </View>
+          </>
+        )}
+
+        {after.length > 0 && (
+          <>
+            <Text style={[us.phaseLabel, { color: '#F97316', marginTop: before.length > 0 ? 16 : 0 }]}>AFTER</Text>
+            <View style={us.grid}>
+              {after.map((p) => (
+                <PhotoThumb key={p.id} photo={p} onDelete={onDelete} deletingId={deletingId} />
+              ))}
+            </View>
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const us = StyleSheet.create({
+  card: {
+    backgroundColor: '#13223A', borderRadius: 18, overflow: 'hidden',
+    borderWidth: 1, borderColor: 'rgba(140,160,185,0.12)', marginBottom: 16,
+  },
+  header: { padding: 16, gap: 8 },
+  unitRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  propertyName: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#F4F7F9', flex: 1 },
+  countRow: { flexDirection: 'row', gap: 8 },
+  countPill: {
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  countText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  body: { padding: 16 },
+  phaseLabel: {
+    fontSize: 11, fontFamily: 'Inter_700Bold', color: '#60A5FA',
+    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10,
+  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+});
+
+// ─── Individual photo thumb ───────────────────────────────────────────────────
+
+function PhotoThumb({
+  photo,
+  onDelete,
+  deletingId,
+}: {
+  photo: Photo;
+  onDelete: (id: string) => void;
+  deletingId: string | null;
+}) {
+  return (
+    <View style={thumb.wrap}>
+      <Image
+        source={{ uri: `https://${DOMAIN}/api/storage${photo.storagePath}` }}
+        style={{ width: '100%', height: '100%' }}
+        resizeMode="cover"
+      />
+      <Pressable style={thumb.del} onPress={() => onDelete(photo.id)} hitSlop={6}>
+        {deletingId === photo.id ? (
+          <ActivityIndicator size="small" color="#FFFFFF" />
+        ) : (
+          <Ionicons name="close" size={13} color="#FFFFFF" />
+        )}
+      </Pressable>
+    </View>
+  );
+}
+
+const thumb = StyleSheet.create({
+  wrap: {
+    width: '31.5%', aspectRatio: 1, borderRadius: 10, overflow: 'hidden',
+    backgroundColor: '#1C3050', position: 'relative',
+  },
+  del: {
+    position: 'absolute', top: 5, right: 5,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center', zIndex: 10,
+  },
+});
+
+// ─── Upload queue strip ───────────────────────────────────────────────────────
+
+function UploadQueue({ queue, onRetry }: { queue: ReturnType<typeof usePhotoUpload>['queue']; onRetry: () => void }) {
+  if (queue.length === 0) return null;
+  const hasError = queue.some((i) => i.status === 'error');
+  return (
+    <Pressable
+      style={[uq.strip, hasError && uq.stripError]}
+      onPress={hasError ? onRetry : undefined}
+    >
+      {hasError ? (
+        <Ionicons name="alert-circle" size={16} color="#E11D48" />
+      ) : (
+        <ActivityIndicator size="small" color="#B4FF44" />
+      )}
+      <Text style={[uq.text, hasError && { color: '#E11D48' }]}>
+        {hasError
+          ? `${queue.filter((i) => i.status === 'error').length} upload failed — tap to retry`
+          : `Uploading ${queue.filter((i) => i.status !== 'done').length} photo${queue.filter((i) => i.status !== 'done').length > 1 ? 's' : ''}…`}
+      </Text>
+    </Pressable>
+  );
+}
+
+const uq = StyleSheet.create({
+  strip: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: 'rgba(180,255,68,0.08)', borderRadius: 12,
+    padding: 12, marginBottom: 12,
+    borderWidth: 1, borderColor: 'rgba(180,255,68,0.20)',
+  },
+  stripError: {
+    backgroundColor: 'rgba(225,29,72,0.08)',
+    borderColor: 'rgba(225,29,72,0.25)',
+  },
+  text: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', color: '#B4FF44' },
+});
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
+
+export default function PhotosScreen() {
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
-  const [activePhase, setActivePhase] = useState<PhotoPhase>('before');
 
-  // Get current job context
+  const [showPicker, setShowPicker] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [localHidden, setLocalHidden] = useState<Set<string>>(new Set());
+
   const { data: jobs } = useListPortalJobs(token!, {
     query: { enabled: !!token, staleTime: 20_000, queryKey: getListPortalJobsQueryKey(token!) },
   });
-  // Today's string for date filtering (local date parts, never UTC)
-  const todayStr = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  })();
-
-  const job =
-    jobs?.find(
-      (j) =>
-        j.status !== 'cleared' &&
-        (!j.scheduledOn || j.scheduledOn === todayStr),
-    ) ?? null;
-  const checkedIn = job?.checkedIn ?? false;
-
-  const { addPhoto, queue, retryFailed } = usePhotoUpload(token, job?.id ?? null);
-
   const { data: photos, refetch: refetchPhotos } = useListPortalPhotos(token!, {
     query: { enabled: !!token, staleTime: 10_000, queryKey: getListPortalPhotosQueryKey(token!) },
   });
 
-  // Local soft-delete state — optimistic hide before server confirms
-  const [localHidden, setLocalHidden] = useState<Set<string>>(new Set());
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Active job = checked in but not checked out
+  const activeJob = useMemo(
+    () => (jobs ?? []).find((j) => j.checkedIn && !j.checkedOut) ?? null,
+    [jobs],
+  );
 
-  const allPhasePhotos = (photos ?? []).filter((p) => p.phase === activePhase && p.jobId === job?.id);
-  const phasePhotos = allPhasePhotos.filter((p) => !localHidden.has(p.id));
+  const { addPhoto, queue, retryFailed } = usePhotoUpload(token, activeJob?.id ?? null);
+
+  // Group photos by job, ordered by most recent job first
+  const jobMap = useMemo(
+    () => new Map((jobs ?? []).map((j) => [j.id, j])),
+    [jobs],
+  );
+
+  const unitSections = useMemo(() => {
+    const map = new Map<string, { job: PortalJob; before: Photo[]; after: Photo[] }>();
+    // Preserve job order from the jobs list so active/most-recent shows first
+    for (const job of (jobs ?? [])) {
+      map.set(job.id, { job, before: [], after: [] });
+    }
+    for (const p of photos ?? []) {
+      if (localHidden.has(p.id)) continue;
+      const entry = map.get(p.jobId ?? '');
+      if (!entry) continue;
+      if (p.phase === 'before') entry.before.push(p);
+      else if (p.phase === 'after') entry.after.push(p);
+    }
+    // Return only units that have at least one photo
+    return Array.from(map.values()).filter((s) => s.before.length + s.after.length > 0);
+  }, [jobs, photos, localHidden]);
+
+  const totalPhotos = (photos ?? []).filter((p) => !localHidden.has(p.id)).length;
+
+  const takePhoto = useCallback(
+    async (phase: PhotoPhase, fromGallery = false) => {
+      if (!activeJob || picking) return;
+      setPicking(true);
+      setShowPicker(false);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      try {
+        const result = fromGallery
+          ? await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, allowsMultipleSelection: false })
+          : await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1, cameraType: ImagePicker.CameraType.back });
+
+        if (!result.canceled && result.assets[0]) {
+          await addPhoto(result.assets[0].uri, phase);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          refetchPhotos();
+        }
+      } catch {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } finally {
+        setPicking(false);
+      }
+    },
+    [activeJob, picking, addPhoto, refetchPhotos],
+  );
+
+  const handlePhaseSelected = useCallback(
+    (phase: PhotoPhase) => {
+      takePhoto(phase, false);
+    },
+    [takePhoto],
+  );
 
   const deletePhoto = useCallback(
     (photoId: string) => {
@@ -77,26 +354,16 @@ export default function CameraScreen() {
       Alert.alert('Delete photo?', 'This cannot be undone.', [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: 'Delete', style: 'destructive',
           onPress: async () => {
-            // Optimistic hide
             setLocalHidden((prev) => new Set(prev).add(photoId));
             setDeletingId(photoId);
             try {
-              await fetch(
-                `https://${DOMAIN}/api/portal/${token}/photos/${photoId}`,
-                { method: 'DELETE' },
-              );
+              await fetch(`https://${DOMAIN}/api/portal/${token}/photos/${photoId}`, { method: 'DELETE' });
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               refetchPhotos();
             } catch {
-              // Revert if request failed
-              setLocalHidden((prev) => {
-                const next = new Set(prev);
-                next.delete(photoId);
-                return next;
-              });
+              setLocalHidden((prev) => { const n = new Set(prev); n.delete(photoId); return n; });
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             } finally {
               setDeletingId(null);
@@ -108,475 +375,123 @@ export default function CameraScreen() {
     [token, refetchPhotos],
   );
 
-  const [picking, setPicking] = useState(false);
-
-  const takePhoto = useCallback(
-    async (fromGallery = false) => {
-      if (!checkedIn || picking) return;
-      setPicking(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-      try {
-        const result = fromGallery
-          ? await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ['images'],
-              quality: 1,
-              allowsMultipleSelection: false,
-            })
-          : await ImagePicker.launchCameraAsync({
-              mediaTypes: ['images'],
-              quality: 1,
-              cameraType: ImagePicker.CameraType.back,
-            });
-
-        if (!result.canceled && result.assets[0]) {
-          await addPhoto(result.assets[0].uri, activePhase);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          refetchPhotos();
-        }
-      } catch (err) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      } finally {
-        setPicking(false);
-      }
-    },
-    [checkedIn, picking, activePhase, addPhoto, refetchPhotos],
-  );
-
   const topPad = insets.top + (Platform.OS === 'web' ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === 'web' ? 34 : 80);
 
   return (
-    <View style={[s.container]}>
+    <View style={{ flex: 1, backgroundColor: '#07101E' }}>
+      {showPicker && (
+        <PhasePicker onPick={handlePhaseSelected} onDismiss={() => setShowPicker(false)} />
+      )}
+
       {/* Header */}
       <LinearGradient
         colors={['#07101E', 'transparent']}
-        style={[s.header, { paddingTop: topPad + 12 }]}
+        style={[sc.header, { paddingTop: topPad + 12 }]}
       >
-        <Text style={s.headerTitle}>Camera</Text>
-        {job && (
-          <Text style={s.headerSub}>{job.propertyName ?? 'Active job'}</Text>
-        )}
+        <View style={sc.headerRow}>
+          <View>
+            <Text style={sc.title}>Photos</Text>
+            {activeJob ? (
+              <Text style={sc.sub}>
+                {activeJob.propertyName ?? 'Active job'}
+                {activeJob.unitNo ? ` · Unit ${activeJob.unitNo}` : ''}
+              </Text>
+            ) : (
+              <Text style={sc.sub}>{totalPhotos} photo{totalPhotos !== 1 ? 's' : ''} today</Text>
+            )}
+          </View>
+
+          {/* Camera button */}
+          {activeJob && (
+            <Pressable
+              style={({ pressed }) => [sc.camBtn, picking && sc.camBtnDisabled, pressed && { opacity: 0.85 }]}
+              onPress={() => setShowPicker(true)}
+              disabled={picking}
+            >
+              {picking ? (
+                <ActivityIndicator size="small" color="#07101E" />
+              ) : (
+                <>
+                  <Ionicons name="camera" size={20} color="#07101E" />
+                  <Text style={sc.camBtnText}>Add Photo</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+        </View>
       </LinearGradient>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[
-          s.scroll,
-          { paddingTop: topPad + 70, paddingBottom: bottomPad + 20 },
-        ]}
+        contentContainerStyle={[sc.scroll, { paddingTop: topPad + 80, paddingBottom: bottomPad + 20 }]}
       >
-        {/* Phase toggle */}
-        <View style={s.phaseToggle}>
-          {(['before', 'after'] as PhotoPhase[]).map((ph) => {
-            const cfg = getPhaseBadgeStyle(ph);
-            return (
-              <Pressable
-                key={ph}
-                style={({ pressed }) => [
-                  s.phaseBtn,
-                  activePhase === ph && {
-                    backgroundColor: cfg.bg,
-                    borderColor: cfg.border,
-                  },
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={() => {
-                  setActivePhase(ph);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-              >
-                <Text
-                  style={[
-                    s.phaseBtnText,
-                    activePhase === ph && { color: cfg.color },
-                  ]}
-                >
-                  {cfg.label}
-                </Text>
-                {phasePhotos.length > 0 && activePhase === ph && (
-                  <View style={[s.phaseCount, { backgroundColor: cfg.color }]}>
-                    <Text style={s.phaseCountText}>{phasePhotos.length}</Text>
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
+        <UploadQueue queue={queue} onRetry={retryFailed} />
 
-        {!checkedIn ? (
-          /* Not checked in */
-          <View style={s.notCheckedIn}>
-            <View style={s.lockCircle}>
-              <Ionicons name="lock-closed-outline" size={36} color="#435A7D" />
-            </View>
-            <Text style={s.lockTitle}>Check in first</Text>
-            <Text style={s.lockBody}>
-              Go to the Today tab and check in to your job before taking photos.
+        {!activeJob && (
+          <View style={sc.noCheckinBanner}>
+            <Ionicons name="information-circle-outline" size={16} color="#8CA0B9" />
+            <Text style={sc.noCheckinText}>Check in to a unit to add new photos</Text>
+          </View>
+        )}
+
+        {unitSections.length === 0 ? (
+          <View style={sc.emptyBox}>
+            <Ionicons name="images-outline" size={44} color="#435A7D" />
+            <Text style={sc.emptyTitle}>No photos yet</Text>
+            <Text style={sc.emptyBody}>
+              {activeJob
+                ? 'Tap "Add Photo" above to document your work'
+                : 'Check in to a unit on the Job tab, then add before and after photos here.'}
             </Text>
           </View>
         ) : (
-          <>
-            {/* Camera button */}
-            <View style={s.cameraCard}>
-              <Pressable
-                style={({ pressed }) => [
-                  s.shutterBtn,
-                  pressed && s.shutterPressed,
-                  picking && s.shutterDisabled,
-                ]}
-                onPress={() => takePhoto(false)}
-                disabled={picking}
-              >
-                {picking ? (
-                  <ActivityIndicator size="large" color="#07101E" />
-                ) : (
-                  <>
-                    <Ionicons name="camera" size={40} color="#07101E" />
-                    <Text style={s.shutterText}>Take Photo</Text>
-                  </>
-                )}
-              </Pressable>
-
-              <Text style={s.phaseLabel}>
-                {getPhaseBadgeStyle(activePhase).label} photo for this job
-              </Text>
-
-              <Pressable
-                style={({ pressed }) => [s.galleryBtn, pressed && { opacity: 0.7 }]}
-                onPress={() => takePhoto(true)}
-                disabled={picking}
-              >
-                <Ionicons name="images-outline" size={18} color="#8CA0B9" />
-                <Text style={s.galleryText}>Pick from library</Text>
-              </Pressable>
-            </View>
-
-            {/* Upload queue */}
-            {queue.length > 0 && (
-              <View style={s.queueCard}>
-                <Text style={s.queueTitle}>
-                  {queue.some((i) => i.status === 'error') ? 'Upload issues' : 'Uploading…'}
-                </Text>
-                {queue.map((item) => {
-                  const isError = item.status === 'error';
-                  const Row = isError ? Pressable : View;
-                  return (
-                    <Row
-                      key={item.id}
-                      style={[
-                        s.queueRow,
-                        isError && s.queueRowError,
-                      ]}
-                      {...(isError ? { onPress: retryFailed } : {})}
-                    >
-                      <Ionicons
-                        name={
-                          item.status === 'done'
-                            ? 'checkmark-circle'
-                            : item.status === 'error'
-                            ? 'alert-circle'
-                            : 'cloud-upload-outline'
-                        }
-                        size={18}
-                        color={
-                          item.status === 'done'
-                            ? '#22C55E'
-                            : item.status === 'error'
-                            ? '#E11D48'
-                            : '#B4FF44'
-                        }
-                      />
-                      <Text style={[s.queueRowText, isError && s.queueRowTextError]}>
-                        {item.status === 'uploading'
-                          ? 'Uploading…'
-                          : item.status === 'error'
-                          ? 'Failed — tap to retry'
-                          : item.status === 'done'
-                          ? 'Uploaded'
-                          : 'Queued'}
-                      </Text>
-                      {item.status === 'uploading' && (
-                        <ActivityIndicator size="small" color="#B4FF44" />
-                      )}
-                      {isError && (
-                        <Ionicons name="refresh-outline" size={16} color="#E11D48" />
-                      )}
-                    </Row>
-                  );
-                })}
-              </View>
-            )}
-
-            {/* Photo grid */}
-            {phasePhotos.length > 0 && (
-              <View>
-                <Text style={s.gridTitle}>
-                  {getPhaseBadgeStyle(activePhase).label} —{' '}
-                  {phasePhotos.length} photo{phasePhotos.length !== 1 ? 's' : ''}
-                </Text>
-                <View style={s.photoGrid}>
-                  {phasePhotos.map((p) => (
-                    <View key={p.id} style={s.photoThumb}>
-                      <Image
-                        source={{
-                          uri: `https://${process.env.EXPO_PUBLIC_DOMAIN}/api/storage${p.storagePath}`,
-                        }}
-                        style={{ width: '100%', height: '100%' }}
-                        resizeMode="cover"
-                      />
-                      {/* Delete button */}
-                      <Pressable
-                        style={s.deleteBtn}
-                        onPress={() => deletePhoto(p.id)}
-                        hitSlop={6}
-                      >
-                        {deletingId === p.id ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <Ionicons name="close" size={13} color="#FFFFFF" />
-                        )}
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {phasePhotos.length === 0 && queue.length === 0 && (
-              <View style={s.emptyPhotos}>
-                <Text style={s.emptyPhotosText}>
-                  No {activePhase} photos yet
-                </Text>
-              </View>
-            )}
-          </>
+          unitSections.map(({ job, before, after }) => (
+            <UnitPhotoSection
+              key={job.id}
+              job={job}
+              before={before}
+              after={after}
+              onDelete={deletePhoto}
+              deletingId={deletingId}
+            />
+          ))
         )}
       </ScrollView>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#07101E' },
+const sc = StyleSheet.create({
   header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
+    paddingHorizontal: 20, paddingBottom: 16,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontFamily: 'Inter_700Bold',
-    color: '#F4F7F9',
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontSize: 28, fontFamily: 'Inter_700Bold', color: '#F4F7F9' },
+  sub: { fontSize: 13, fontFamily: 'Inter_400Regular', color: '#8CA0B9', marginTop: 2 },
+
+  camBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#B4FF44', borderRadius: 12,
+    paddingVertical: 10, paddingHorizontal: 16,
   },
-  headerSub: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: '#8CA0B9',
-    marginTop: 2,
-  },
+  camBtnDisabled: { opacity: 0.6 },
+  camBtnText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#07101E' },
+
   scroll: { paddingHorizontal: 16, flexGrow: 1 },
-  phaseToggle: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
+
+  noCheckinBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(140,160,185,0.08)', borderRadius: 10, padding: 12, marginBottom: 14,
+    borderWidth: 1, borderColor: 'rgba(140,160,185,0.14)',
   },
-  phaseBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(140,160,185,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(140,160,185,0.14)',
-  },
-  phaseBtnText: {
-    fontSize: 13,
-    fontFamily: 'Inter_700Bold',
-    color: '#435A7D',
-    letterSpacing: 1,
-  },
-  phaseCount: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  phaseCountText: {
-    fontSize: 11,
-    fontFamily: 'Inter_700Bold',
-    color: '#07101E',
-  },
-  notCheckedIn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    gap: 12,
-  },
-  lockCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(140,160,185,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(140,160,185,0.14)',
-  },
-  lockTitle: {
-    fontSize: 20,
-    fontFamily: 'Inter_600SemiBold',
-    color: '#F4F7F9',
-  },
-  lockBody: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    color: '#8CA0B9',
-    textAlign: 'center',
-    lineHeight: 21,
-    maxWidth: 280,
-  },
-  cameraCard: {
-    backgroundColor: '#13223A',
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(140,160,185,0.12)',
-    marginBottom: 16,
-    gap: 12,
-  },
-  shutterBtn: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#B4FF44',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    shadowColor: '#B4FF44',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  shutterPressed: { opacity: 0.85, transform: [{ scale: 0.96 }] },
-  shutterDisabled: { opacity: 0.6 },
-  shutterText: {
-    fontSize: 13,
-    fontFamily: 'Inter_700Bold',
-    color: '#07101E',
-  },
-  phaseLabel: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: '#8CA0B9',
-  },
-  galleryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(140,160,185,0.08)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(140,160,185,0.14)',
-  },
-  galleryText: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    color: '#8CA0B9',
-  },
-  queueCard: {
-    backgroundColor: '#13223A',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(140,160,185,0.12)',
-    gap: 10,
-  },
-  queueTitle: {
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-    color: '#8CA0B9',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  queueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  queueRowError: {
-    backgroundColor: 'rgba(225,29,72,0.08)',
-    borderRadius: 8,
-    padding: 8,
-    marginHorizontal: -4,
-  },
-  queueRowText: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    color: '#F4F7F9',
-  },
-  queueRowTextError: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    color: '#E11D48',
-  },
-  gridTitle: {
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-    color: '#8CA0B9',
-    marginBottom: 12,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  photoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  photoThumb: {
-    width: '31.5%',
-    aspectRatio: 1,
-    borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: '#1C3050',
-    position: 'relative',
-  },
-  deleteBtn: {
-    position: 'absolute',
-    top: 5,
-    right: 5,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  emptyPhotos: {
-    alignItems: 'center',
-    paddingVertical: 30,
-  },
-  emptyPhotosText: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    color: '#435A7D',
+  noCheckinText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: '#8CA0B9', flex: 1 },
+
+  emptyBox: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 10 },
+  emptyTitle: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: '#F4F7F9', marginTop: 4 },
+  emptyBody: {
+    fontSize: 14, fontFamily: 'Inter_400Regular', color: '#8CA0B9',
+    textAlign: 'center', lineHeight: 21, maxWidth: 280,
   },
 });

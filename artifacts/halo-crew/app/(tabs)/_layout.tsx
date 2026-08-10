@@ -9,24 +9,17 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 function AuthGuard() {
   const { isLoading, isAuthenticated, portal } = useAuth();
-  // Track whether we've already sent this session to onboarding to prevent
-  // looping back when the portal hasn't refreshed yet after agreement acceptance.
   const sentToOnboarding = useRef(false);
 
   useEffect(() => {
     if (isLoading) return;
 
     if (!isAuthenticated) {
-      // Reset the guard when the session ends so a new login goes through cleanly.
       sentToOnboarding.current = false;
       router.replace('/link');
       return;
     }
 
-    // Only redirect to onboarding once per session. The onboarding flow calls
-    // invalidate() after accepting, but the portal refetch may not have
-    // settled by the time the user navigates back to tabs — the ref prevents
-    // a loop caused by stale portal data.
     if (!sentToOnboarding.current && portal && !portal.crew?.agreementAcceptedAt) {
       sentToOnboarding.current = true;
       router.replace('/onboarding');
@@ -58,15 +51,9 @@ export default function TabLayout() {
           },
           tabBarBackground: () =>
             Platform.OS === 'ios' ? (
-              <BlurView
-                intensity={90}
-                tint="dark"
-                style={StyleSheet.absoluteFill}
-              />
+              <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
             ) : (
-              <View
-                style={[StyleSheet.absoluteFill, { backgroundColor: '#07101E' }]}
-              />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: '#07101E' }]} />
             ),
           tabBarLabelStyle: {
             fontSize: 11,
@@ -81,18 +68,18 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Today',
+            title: 'Job',
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="today-outline" size={size} color={color} />
+              <Ionicons name="location-outline" size={size} color={color} />
             ),
           }}
         />
         <Tabs.Screen
           name="camera"
           options={{
-            title: 'Camera',
+            title: 'Photos',
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="camera-outline" size={size} color={color} />
+              <Ionicons name="images-outline" size={size} color={color} />
             ),
           }}
         />

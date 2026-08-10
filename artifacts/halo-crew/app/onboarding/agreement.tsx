@@ -59,7 +59,7 @@ export default function AgreementScreen() {
       await acceptAgreement({ token });
       invalidate(); // refresh portal bundle so agreementAcceptedAt is populated
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace('/onboarding/selfie');
+      router.replace('/(tabs)');
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
