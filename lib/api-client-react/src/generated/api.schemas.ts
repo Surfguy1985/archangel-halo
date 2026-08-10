@@ -5352,6 +5352,20 @@ export interface PortalEarnings {
   holds: PortalEarningsHold[];
 }
 
+export interface PortalServicesCatalogItem {
+  service: string;
+  /** @nullable */
+  unit?: string | null;
+  rate: number;
+  /** @nullable */
+  category?: string | null;
+}
+
+export interface PortalServices {
+  catalog: PortalServicesCatalogItem[];
+  byJob: Record<string, string[]>;
+}
+
 export interface EmergencyCandidate {
   crewId: string;
   name: string;

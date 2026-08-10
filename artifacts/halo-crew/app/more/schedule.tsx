@@ -219,8 +219,7 @@ function ScheduleCard({
   const tasks = item.tasks ?? [];
   const lineItems = job?.lineItems ?? [];
   const myItems = lineItems.filter((li) => li.mine);
-  const otherItems = lineItems.filter((li) => !li.mine);
-  const hasContent = hasAddress || tasks.length > 0 || lineItems.length > 0 || item.contactName;
+  const hasContent = hasAddress || tasks.length > 0 || myItems.length > 0 || item.contactName;
 
   const { day, date } = shortDay(item.scheduledOn);
   const timeStr = formatTime(item.windowStart);
@@ -343,33 +342,21 @@ function ScheduleCard({
               </View>
             )}
 
-            {/* Work checklist */}
-            {lineItems.length > 0 && (
+            {/* Work checklist — only this crew's assigned items */}
+            {myItems.length > 0 && (
               <View style={cardStyles.section}>
                 <View style={cardStyles.checklistHeader}>
-                  <Text style={cardStyles.sectionTitle}>CHECKLIST</Text>
-                  {lineItems.length > 0 && (
-                    <Text style={cardStyles.checklistProgress}>
-                      {lineItems.filter((li) => li.completed).length}/{lineItems.length}
-                    </Text>
-                  )}
+                  <Text style={cardStyles.sectionTitle}>MY TASKS</Text>
+                  <Text style={cardStyles.checklistProgress}>
+                    {myItems.filter((li) => li.completed).length}/{myItems.length}
+                  </Text>
                 </View>
-                {/* My items first */}
                 {myItems.map((li) => (
                   <CheckRow
                     key={li.id}
                     label={li.service}
                     done={li.completed}
                     mine={true}
-                  />
-                ))}
-                {/* Other crew items */}
-                {otherItems.map((li) => (
-                  <CheckRow
-                    key={li.id}
-                    label={li.service}
-                    done={li.completed}
-                    mine={false}
                   />
                 ))}
               </View>

@@ -7462,6 +7462,26 @@ export const GetPortalEarningsResponse = zod.object({
 
 
 /**
+ * @summary Master payout service catalog and per-job eligible services for this crew
+ */
+export const GetPortalServicesParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPortalServicesResponseCatalogItem = zod.object({
+  "service": zod.string(),
+  "unit": zod.string().nullish(),
+  "rate": zod.number(),
+  "category": zod.string().nullish()
+})
+
+export const GetPortalServicesResponse = zod.object({
+  "catalog": zod.array(GetPortalServicesResponseCatalogItem),
+  "byJob": zod.record(zod.string(), zod.array(zod.string()))
+})
+
+
+/**
  * @summary Packets assigned to this crew
  */
 export const ListPortalPacketsParams = zod.object({

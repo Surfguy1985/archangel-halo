@@ -130,6 +130,8 @@ import {
   SetPortalSelfieResponse,
   GetJobTrackerParams,
   GetJobTrackerResponse,
+  GetPortalServicesParams,
+  GetPortalServicesResponse,
 } from "@workspace/api-zod";
 import { createHash } from "node:crypto";
 import { businessSettingsTable } from "@workspace/db";
@@ -854,6 +856,114 @@ async function resolveInvoiceJobLink(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Service catalog — master payout list + per-job eligible services for this crew
+// ---------------------------------------------------------------------------
+router.get("/portal/:token/services", async (req, res): Promise<void> => {
+  const { token } = GetPortalServicesParams.parse(req.params);
+  const crew = await crewByToken(token);
+  if (!crew) {
+    res.status(404).json({ error: "Invalid portal link" });
+    return;
+  }
+
+  // Build the master catalog: distinct services deduplicated by name (case-insensitive).
+  const allPriceItems = await db
+    .select({
+      service: priceItemsTable.service,
+      unit: priceItemsTable.unit,
+      rate: priceItemsTable.rate,
+      category: priceItemsTable.category,
+    })
+    .from(priceItemsTable);
+
+  const catalogMap = new Map<
+    string,
+    { service: string; unit: string | null; rate: number; category: string | null }
+  >();
+  for (const item of allPriceItems) {
+    const key = item.service.trim().toLowerCase();
+    if (!catalogMap.has(key)) {
+      catalogMap.set(key, {
+        service: item.service,
+        unit: item.unit ?? null,
+        rate: item.rate,
+        category: item.category ?? null,
+      });
+    }
+  }
+  const catalog = Array.from(catalogMap.values()).sort((a, b) =>
+    (a.category ?? "").localeCompare(b.category ?? "") ||
+    a.service.localeCompare(b.service),
+  );
+
+  // Per-job eligible services: what this crew actually did on each assigned job.
+  // Source 1: job.description (Base44 services_completed joined by ", ")
+  // Source 2: job line items explicitly assigned to this crew member
+  const [schedules, directJobs] = await Promise.all([
+    db
+      .select({ jobId: schedulesTable.jobId })
+      .from(schedulesTable)
+      .where(eq(schedulesTable.crewLeaderId, crew.id)),
+    db
+      .select({ id: jobsTable.id })
+      .from(jobsTable)
+      .where(eq(jobsTable.crewLeaderId, crew.id)),
+  ]);
+  const jobIds = Array.from(
+    new Set([
+      ...schedules.map((s) => s.jobId).filter((id): id is string => !!id),
+      ...directJobs.map((j) => j.id),
+    ]),
+  );
+
+  if (jobIds.length === 0) {
+    res.json(GetPortalServicesResponse.parse({ catalog, byJob: {} }));
+    return;
+  }
+
+  const [jobs, lineItems] = await Promise.all([
+    db
+      .select({
+        id: jobsTable.id,
+        description: jobsTable.description,
+        category: jobsTable.category,
+      })
+      .from(jobsTable)
+      .where(inArray(jobsTable.id, jobIds)),
+    db
+      .select({ jobId: jobLineItemsTable.jobId, service: jobLineItemsTable.service })
+      .from(jobLineItemsTable)
+      .where(
+        and(
+          inArray(jobLineItemsTable.jobId, jobIds),
+          eq(jobLineItemsTable.assignedCrewId, crew.id),
+        ),
+      ),
+  ]);
+
+  const byJob: Record<string, string[]> = {};
+  for (const job of jobs) {
+    const services = new Set<string>();
+    if (job.description) {
+      for (const s of job.description
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)) {
+        services.add(s);
+      }
+    }
+    if (job.category) services.add(job.category.trim());
+    byJob[job.id] = Array.from(services);
+  }
+  for (const li of lineItems) {
+    if (!byJob[li.jobId]) byJob[li.jobId] = [];
+    if (!byJob[li.jobId]!.includes(li.service)) byJob[li.jobId]!.push(li.service);
+  }
+
+  res.json(GetPortalServicesResponse.parse({ catalog, byJob }));
+});
+
 router.get("/portal/:token/invoices", async (req, res): Promise<void> => {
   const { token } = ListPortalInvoicesParams.parse(req.params);
   const crew = await crewByToken(token);
@@ -921,6 +1031,47 @@ router.post("/portal/:token/invoices", async (req, res): Promise<void> => {
   if (!link.ok) {
     res.status(400).json({ error: link.error });
     return;
+  }
+
+  // Validate each typeOfWork against services this crew was actually assigned on this job.
+  // Only enforced when the job has service data — if the job has no description/line-items
+  // we skip the check so legacy/plain jobs stay unblocked.
+  if (link.jobId) {
+    const [linkedJob] = await db
+      .select({ description: jobsTable.description, category: jobsTable.category })
+      .from(jobsTable)
+      .where(eq(jobsTable.id, link.jobId));
+    const crewLineItems = await db
+      .select({ service: jobLineItemsTable.service })
+      .from(jobLineItemsTable)
+      .where(
+        and(
+          eq(jobLineItemsTable.jobId, link.jobId),
+          eq(jobLineItemsTable.assignedCrewId, crew.id),
+        ),
+      );
+    const eligible = new Set<string>();
+    if (linkedJob?.description) {
+      for (const s of linkedJob.description
+        .split(",")
+        .map((x) => x.trim().toLowerCase())
+        .filter(Boolean)) {
+        eligible.add(s);
+      }
+    }
+    if (linkedJob?.category) eligible.add(linkedJob.category.trim().toLowerCase());
+    for (const li of crewLineItems) eligible.add(li.service.trim().toLowerCase());
+
+    if (eligible.size > 0) {
+      for (const it of items) {
+        if (!eligible.has(it.typeOfWork.trim().toLowerCase())) {
+          res.status(400).json({
+            error: `"${it.typeOfWork}" is not a service you were assigned on this job. Please select from your approved services.`,
+          });
+          return;
+        }
+      }
+    }
   }
 
   const pdfPath = body.pdfStoragePath?.trim() || null;
