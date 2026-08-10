@@ -186,7 +186,28 @@ export default function JobBoard() {
     }
     return out;
   })();
-  const openCard = cards.find((c) => c.job.id === openId) ?? null;
+  // Property filter — "all" shows every card; any other value scopes to one property.
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("all");
+
+  // Derive a sorted list of unique properties from the full (unfiltered) card list.
+  const propertyOptions = (() => {
+    const seen = new Map<string, string>();
+    for (const c of cards) {
+      if (c.job.propertyId && !seen.has(c.job.propertyId)) {
+        seen.set(c.job.propertyId, c.job.propertyName || "Unknown Property");
+      }
+    }
+    return [...seen.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  })();
+
+  const visibleCards =
+    selectedPropertyId === "all"
+      ? cards
+      : cards.filter((c) => c.job.propertyId === selectedPropertyId);
+
+  const openCard = visibleCards.find((c) => c.job.id === openId) ?? null;
 
   // Flash cards that just switched rails for 15s so the move is easy to spot.
   // Rails are compared against the previous render's snapshot; first sight of
@@ -292,6 +313,33 @@ export default function JobBoard() {
         </DialogContent>
       </Dialog>
 
+      {/* Property filter — only shown once cards are loaded and more than one property exists */}
+      {!isLoading && propertyOptions.length > 1 && (
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Property</span>
+          <Select value={selectedPropertyId} onValueChange={(v) => { setSelectedPropertyId(v); setExpandedDecks(new Set()); }}>
+            <SelectTrigger className="h-8 w-56 text-sm rounded-full border-[var(--hairline)] bg-white shadow-none" data-testid="property-filter-trigger">
+              <SelectValue placeholder="All properties" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All properties</SelectItem>
+              {propertyOptions.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedPropertyId !== "all" && (
+            <button
+              type="button"
+              onClick={() => { setSelectedPropertyId("all"); setExpandedDecks(new Set()); }}
+              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+            >
+              Show all
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex-1 pb-12">
         {isLoading ? (
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
@@ -305,10 +353,16 @@ export default function JobBoard() {
             <p className="font-medium text-lg text-[var(--secondary)]">Nothing on the board yet</p>
             <p className="text-sm">Post a job from a property, or use + New → Job.</p>
           </div>
+        ) : visibleCards.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 border border-dashed border-[var(--hairline)] text-muted-foreground bg-card rounded-2xl">
+            <ClipboardList className="w-12 h-12 mb-4 text-border" />
+            <p className="font-medium text-lg text-[var(--secondary)]">No jobs for this property</p>
+            <button type="button" onClick={() => setSelectedPropertyId("all")} className="text-sm text-[var(--secondary)] underline underline-offset-2 mt-1">Show all properties</button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 items-start" data-testid="jobboard-rails">
             {JOB_RAILS.map((rail) => {
-              const railCards = cards.filter((c) => jobRail(c) === rail.key);
+              const railCards = visibleCards.filter((c) => jobRail(c) === rail.key);
               return (
                 <section key={rail.key} className="min-w-0" data-testid={`jobrail-${rail.key}`}>
                   <div className="mb-3 px-1">
@@ -615,6 +669,29 @@ function JobTile({ card, tone, crews, flash, onOpen }: { card: JobBoardCard; ton
             <span className="shrink-0 rounded-full bg-[var(--gold-light)] px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-black">
               Leader
             </span>
+          </div>
+        )}
+        {/* Payment request chip — synced live from Base44 */}
+        {card.paymentRequest && (
+          <div className="mt-2 flex items-center gap-1.5" data-testid={`job-pay-req-${job.id}`}>
+            <DollarSign className="w-3 h-3 shrink-0 text-muted-foreground" />
+            <span className="text-[11px] font-semibold text-[var(--ink)]">
+              ${card.paymentRequest.total.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </span>
+            <span
+              className={`shrink-0 rounded-full px-1.5 py-px text-[9px] font-bold uppercase tracking-wide ${
+                card.paymentRequest.status === "paid"
+                  ? "bg-emerald-100 text-emerald-800"
+                  : card.paymentRequest.status === "sent"
+                    ? "bg-sky-100 text-sky-800"
+                    : "bg-amber-100 text-amber-800"
+              }`}
+            >
+              {card.paymentRequest.status}
+            </span>
+            {card.paymentRequest.memo && (
+              <span className="truncate text-[10px] text-muted-foreground">{card.paymentRequest.memo}</span>
+            )}
           </div>
         )}
       </div>

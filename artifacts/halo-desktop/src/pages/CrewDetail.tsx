@@ -891,7 +891,7 @@ export default function CrewDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: crew, isLoading } = useGetCrewDetail(id);
+  const { data: crew, isLoading } = useGetCrewDetail(id, { query: { queryKey: getGetCrewDetailQueryKey(id), refetchInterval: 30000 } });
   const { data: messages } = useListCrewMessages(id, {
     query: { queryKey: getListCrewMessagesQueryKey(id), refetchInterval: 8000 },
   });

@@ -31,7 +31,7 @@ function useAutoGenerateImages(properties?: { id: string; imagePath?: string | n
 export default function Properties() {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const { data: properties, isLoading } = useListProperties({ search: search || undefined });
+  const { data: properties, isLoading } = useListProperties({ search: search || undefined }, { query: { queryKey: getListPropertiesQueryKey(), refetchInterval: 30000 } });
 
   useAutoGenerateImages(properties);
 

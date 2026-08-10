@@ -97,9 +97,9 @@ export default function Properties() {
   const [view, setView] = useState<"list" | "map">("map");
   const [addOpen, setAddOpen] = useState(false);
   const [sopProperty, setSopProperty] = useState<{ id: string; name: string } | null>(null);
-  const { data: properties, isLoading: propsLoading } = useListProperties();
+  const { data: properties, isLoading: propsLoading } = useListProperties({ query: { queryKey: getListPropertiesQueryKey(), refetchInterval: 30000 } });
   const { data: allJobs, isLoading: jobsLoading } = useListJobs(undefined, {
-    query: { queryKey: getListJobsQueryKey() },
+    query: { queryKey: getListJobsQueryKey(), refetchInterval: 30000 },
   });
   const [, navigate] = useLocation();
 

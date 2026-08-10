@@ -17,6 +17,8 @@ import {
   clientDashboardCardsTable,
   crewMessagesTable,
   crewPhotosTable,
+  paymentRequestsTable,
+  paymentRequestJobsTable,
 } from "@workspace/db";
 import { threadKeysFor, notifyClientBoard } from "./clientBoard";
 import { emitBoardEvent } from "../lib/boardEvents";
@@ -153,7 +155,7 @@ router.post("/jobs/:id/quality-check", qualityCheckLimit, async (req, res): Prom
 });
 
 router.get("/job-board", async (_req, res): Promise<void> => {
-  const [jobs, props, priceItems, broadcasts, crews, invoices, lineItems, photoActs] =
+  const [jobs, props, priceItems, broadcasts, crews, invoices, lineItems, photoActs, payRequests, payReqJobs] =
     await Promise.all([
       db.select().from(jobsTable).orderBy(desc(jobsTable.createdAt)),
       db.select().from(propertiesTable),
@@ -167,6 +169,8 @@ router.get("/job-board", async (_req, res): Promise<void> => {
         .from(activitiesTable)
         .where(eq(activitiesTable.entityType, "job"))
         .orderBy(desc(activitiesTable.createdAt)),
+      db.select().from(paymentRequestsTable).orderBy(desc(paymentRequestsTable.createdAt)),
+      db.select().from(paymentRequestJobsTable),
     ]);
 
   // Client board placements: where the property moved each job's card on
@@ -229,6 +233,25 @@ router.get("/job-board", async (_req, res): Promise<void> => {
     broadcastsByJob.set(b.jobId, list);
   }
 
+  // Payment requests: prefer per-job link (payment_request_jobs table) then
+  // fall back to newest active request for the job's property.
+  const payReqById = new Map(payRequests.map((r) => [r.id, r]));
+  // Map jobId → requestId from the join table (newest wins for same job).
+  const payReqIdByJob = new Map<string, string>();
+  for (const prj of payReqJobs) {
+    if (prj.jobId && prj.requestId && !payReqIdByJob.has(prj.jobId)) {
+      payReqIdByJob.set(prj.jobId, prj.requestId);
+    }
+  }
+  // Newest non-paid active request per property (fallback).
+  const activePayReqByProp = new Map<string, (typeof payRequests)[number]>();
+  for (const r of payRequests) {
+    if (r.status === "returned") continue;
+    if (!activePayReqByProp.has(r.propertyId)) {
+      activePayReqByProp.set(r.propertyId, r);
+    }
+  }
+
   const cards = jobs.filter((j) => j.boardStatus !== "removed").map((j) => {
     const prop = propsById.get(j.propertyId);
     const boardStatus =
@@ -280,6 +303,21 @@ router.get("/job-board", async (_req, res): Promise<void> => {
           sentAt: b.sentAt ? b.sentAt.toISOString() : null,
           respondedAt: b.respondedAt ? b.respondedAt.toISOString() : null,
         })),
+      paymentRequest: (() => {
+        // Per-job link takes priority; fall back to newest property-level request.
+        const reqId = payReqIdByJob.get(j.id);
+        const req = reqId ? (payReqById.get(reqId) ?? null) : (activePayReqByProp.get(j.propertyId) ?? null);
+        if (!req) return null;
+        return {
+          id: req.id,
+          requestNo: req.requestNo,
+          total: req.total,
+          status: req.status,
+          memo: req.memo ?? null,
+          sentAt: req.sentAt ? req.sentAt.toISOString() : null,
+          paidAt: req.paidAt ? req.paidAt.toISOString() : null,
+        };
+      })(),
     };
   });
 

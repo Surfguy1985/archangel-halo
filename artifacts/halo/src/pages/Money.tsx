@@ -181,7 +181,7 @@ const statusLabel: Record<string, string> = {
 };
 
 function OverviewHero() {
-  const { data: money, isLoading } = useGetMoneySummary();
+  const { data: money, isLoading } = useGetMoneySummary({ query: { queryKey: getGetMoneySummaryQueryKey(), refetchInterval: 30000 } });
   if (isLoading || !money) {
     return <div className="animate-pulse h-[260px] bg-card shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[var(--hairline)] rounded-[20px] border border-[var(--hairline)]" />;
   }
@@ -245,7 +245,7 @@ function OverviewHero() {
 function Invoices() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
-  const { data: invoices, isLoading } = useListInvoices();
+  const { data: invoices, isLoading } = useListInvoices({ query: { queryKey: getListInvoicesQueryKey(), refetchInterval: 30000 } });
   const [addOpen, setAddOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -474,7 +474,7 @@ function Invoices() {
 function Expenses() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: expenses, isLoading } = useListExpenses();
+  const { data: expenses, isLoading } = useListExpenses({ query: { queryKey: getListExpensesQueryKey(), refetchInterval: 30000 } });
   const [addOpen, setAddOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const payBill = usePayExpenseBill();
@@ -605,7 +605,7 @@ function Expenses() {
 
 function CrewPay() {
   const queryClient = useQueryClient();
-  const { data: payments, isLoading } = useListCrewPayments();
+  const { data: payments, isLoading } = useListCrewPayments({ query: { queryKey: getListCrewPaymentsQueryKey(), refetchInterval: 30000 } });
   const [addOpen, setAddOpen] = useState(false);
   const markPaid = useUpdateCrewPayment();
 

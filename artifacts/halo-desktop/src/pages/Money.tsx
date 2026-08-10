@@ -112,7 +112,7 @@ const invoiceFilters: { key: InvoiceFilter; label: string}[] = [
 ];
 
 function SummaryCards() {
-  const { data: summary, isLoading} = useGetMoneySummary();
+  const { data: summary, isLoading} = useGetMoneySummary({ query: { queryKey: getGetMoneySummaryQueryKey(), refetchInterval: 30000 } });
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -378,7 +378,7 @@ function Invoices() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const { toast} = useToast();
-  const { data: invoices, isLoading} = useListInvoices();
+  const { data: invoices, isLoading} = useListInvoices({ query: { queryKey: getListInvoicesQueryKey(), refetchInterval: 30000 } });
   const [filter, setFilter] = useState<InvoiceFilter>("all");
   const [payInvoice, setInvoiceToPay] = useState<Invoice | null>(null);
   const [sendInvoice, setInvoiceToSend] = useState<Invoice | null>(null);
@@ -650,7 +650,7 @@ function Invoices() {
 function Expenses() {
   const queryClient = useQueryClient();
   const { toast} = useToast();
-  const { data: expenses, isLoading} = useListExpenses();
+  const { data: expenses, isLoading} = useListExpenses({ query: { queryKey: getListExpensesQueryKey(), refetchInterval: 30000 } });
   const [addOpen, setAddOpen] = useState(false);
   const [billOpen, setBillOpen] = useState(false);
   const payBill = usePayExpenseBill();
@@ -882,7 +882,7 @@ function Expenses() {
 
 function CrewPay() {
   const queryClient = useQueryClient();
-  const { data: payments, isLoading} = useListCrewPayments();
+  const { data: payments, isLoading} = useListCrewPayments({ query: { queryKey: getListCrewPaymentsQueryKey(), refetchInterval: 30000 } });
   const [addOpen, setAddOpen] = useState(false);
   const markPaid = useUpdateCrewPayment();
   const { toast} = useToast();

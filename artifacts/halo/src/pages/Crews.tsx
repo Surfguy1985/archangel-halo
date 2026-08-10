@@ -1,4 +1,4 @@
-import { useListCrews, useGenerateCrewPortalLink } from "@workspace/api-client-react";
+import { useListCrews, useGenerateCrewPortalLink, getListCrewsQueryKey } from "@workspace/api-client-react";
 import { Plus, Pencil, Radio, ChevronRight, Link2, Check, Pickaxe, MapPin, Phone, Briefcase } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -23,7 +23,7 @@ export default function Crews() {
   const [editCrew, setEditCrew] = useState<CrewRow | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   
-  const { data: crews, isLoading } = useListCrews();
+  const { data: crews, isLoading } = useListCrews({ query: { queryKey: getListCrewsQueryKey(), refetchInterval: 30000 } });
   const genLink = useGenerateCrewPortalLink();
   const { toast } = useToast();
 

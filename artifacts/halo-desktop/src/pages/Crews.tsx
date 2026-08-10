@@ -1,4 +1,4 @@
-import { useListCrews} from "@workspace/api-client-react";
+import { useListCrews, getListCrewsQueryKey} from "@workspace/api-client-react";
 import { Skeleton} from "@/components/ui/skeleton";
 import { Link} from "wouter";
 import { Users, Plus, Search, Pencil, Navigation, ShieldCheck, ChevronRight} from "lucide-react";
@@ -16,7 +16,7 @@ export default function Crews() {
   const [editing, setEditing] = useState<EditableCrew | null>(null);
   const [planCrew, setPlanCrew] = useState<{ id: string; name: string } | null>(null);
   const [accessCrew, setAccessCrew] = useState<NonNullable<typeof crews>[number] | null>(null);
-  const { data: crews, isLoading } = useListCrews();
+  const { data: crews, isLoading } = useListCrews({ query: { queryKey: getListCrewsQueryKey(), refetchInterval: 30000 } });
 
   const filtered = crews?.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 

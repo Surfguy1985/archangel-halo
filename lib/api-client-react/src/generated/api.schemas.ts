@@ -2903,6 +2903,19 @@ export interface JobBoardInvoiceInfo {
   clientPaidReportedAt?: string | null;
 }
 
+export interface JobBoardPaymentRequest {
+  id: string;
+  requestNo: string;
+  total: number;
+  status: string;
+  /** @nullable */
+  memo?: string | null;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+}
+
 export interface JobBoardCard {
   job: Job;
   /**
@@ -2915,6 +2928,8 @@ export interface JobBoardCard {
   lineItems?: JobLineItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];
+  /** @nullable */
+  paymentRequest?: JobBoardPaymentRequest | null;
 }
 
 export interface CrewPayInput {

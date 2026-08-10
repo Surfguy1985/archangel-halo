@@ -638,10 +638,26 @@ async function syncInvoices(records: any[]): Promise<SyncStats> {
         (await resolvePropertyId(rec.property_id ?? rec.propertyId));
       if (!propertyId) continue;
       const invoiceNo = String(rec.invoice_number ?? rec.invoice_no ?? rec.invoiceNo ?? bid.slice(-8));
+      // Try to link to a specific job via unit_id / unit_number → unit_jobs map.
+      let jobId: string | null = null;
+      const rawUnitId = rec.unit_id ?? rec.unitId;
+      if (rawUnitId) {
+        jobId = await lookupMap("unit_jobs", String(rawUnitId));
+      }
+      if (!jobId && (rec.unit_no ?? rec.unit_number) && propertyId) {
+        const uRows = await db
+          .select({ id: jobsTable.id })
+          .from(jobsTable)
+          .where(and(eq(jobsTable.propertyId, propertyId), eq(jobsTable.unitNo, String(rec.unit_no ?? rec.unit_number))))
+          .orderBy(desc(jobsTable.createdAt))
+          .limit(1);
+        jobId = uRows[0]?.id ?? null;
+      }
+
       const payload = {
         invoiceNo,
         propertyId,
-        jobId: null,
+        jobId,
         amount: Number(rec.amount ?? rec.total ?? 0),
         status: rec.status ?? (rec.date_paid ? "paid" : rec.date_sent ? "sent" : "draft"),
         issuedOn: toDateStr(rec.date_sent ?? rec.issued_date ?? rec.created_date),
