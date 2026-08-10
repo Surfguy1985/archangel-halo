@@ -4359,7 +4359,19 @@ export const GetCrewMapPinsResponseItem = zod.object({
   "lat": zod.number(),
   "lng": zod.number(),
   "at": zod.string()
-})).optional().describe('Today\'s GPS breadcrumb trail for this crew (oldest first)')
+})).optional().describe('Today\'s GPS breadcrumb trail for this crew (oldest first)'),
+  "unitNo": zod.string().nullish(),
+  "photos": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string(),
+  "phase": zod.string().nullish(),
+  "note": zod.string().nullish()
+})).optional().describe('Before/after photos for this crew\'s current job'),
+  "services": zod.array(zod.object({
+  "id": zod.string(),
+  "service": zod.string(),
+  "done": zod.boolean()
+})).optional().describe('Line items / services this crew is completing today')
 })
 export const GetCrewMapPinsResponse = zod.array(GetCrewMapPinsResponseItem)
 
@@ -12788,7 +12800,18 @@ export const GetClientBoardMapResponse = zod.object({
   "lat": zod.number(),
   "lng": zod.number(),
   "at": zod.string()
-})).optional().describe('Today\'s GPS breadcrumb trail for this job (oldest first)')
+})).optional().describe('Today\'s GPS breadcrumb trail for this job (oldest first)'),
+  "photos": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string(),
+  "phase": zod.string().nullish(),
+  "note": zod.string().nullish()
+})).optional().describe('Before/after photos for this crew\'s current job'),
+  "services": zod.array(zod.object({
+  "id": zod.string(),
+  "service": zod.string(),
+  "done": zod.boolean()
+})).optional().describe('Line items / services this crew is completing today')
 })),
   "happenings": zod.array(zod.object({
   "at": zod.string(),

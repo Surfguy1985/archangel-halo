@@ -17,6 +17,7 @@ import {
   propertiesTable,
   propertyUnitsTable,
   jobsTable,
+  jobLineItemsTable,
   crewsTable,
   crewCheckinsTable,
   crewPhotosTable,
@@ -2918,7 +2919,7 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
     ...new Set(active.map((j) => j.crewLeaderId).filter((x): x is string => !!x)),
   ];
   const jobIds = active.map((j) => j.id);
-  const [crews, checkins, photos] = await Promise.all([
+  const [crews, checkins, photos, lineItems] = await Promise.all([
     crewIds.length
       ? db.select().from(crewsTable).where(inArray(crewsTable.id, crewIds))
       : Promise.resolve([]),
@@ -2936,11 +2937,32 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
           .from(crewPhotosTable)
           .where(inArray(crewPhotosTable.jobId, jobIds))
           .orderBy(desc(crewPhotosTable.createdAt))
-          .limit(20)
+          .limit(150)
+      : Promise.resolve([]),
+    jobIds.length
+      ? db
+          .select()
+          .from(jobLineItemsTable)
+          .where(inArray(jobLineItemsTable.jobId, jobIds))
       : Promise.resolve([]),
   ]);
   const crewById = new Map(crews.map((c) => [c.id, c]));
   const jobById = new Map(active.map((j) => [j.id, j]));
+
+  // Group photos and line items by jobId for O(1) lookup.
+  const photosByJobId = new Map<string, (typeof photos)[number][]>();
+  for (const p of photos) {
+    if (!p.jobId) continue;
+    const list = photosByJobId.get(p.jobId) ?? [];
+    list.push(p);
+    photosByJobId.set(p.jobId, list);
+  }
+  const lineItemsByJobId = new Map<string, (typeof lineItems)[number][]>();
+  for (const li of lineItems) {
+    const list = lineItemsByJobId.get(li.jobId) ?? [];
+    list.push(li);
+    lineItemsByJobId.set(li.jobId, list);
+  }
 
   // Per-job trail: up to 30 newest events for EACH job independently (the
   // shared 200-row checkins query above can starve older jobs on busy
@@ -3038,6 +3060,17 @@ router.get("/client/:token/board/map", async (req, res): Promise<void> => {
         // exactly when the crew arrived and left, not just the latest ping.
         events: trailByJob.get(j.id) ?? [],
         trail: gpsTrail,
+        photos: (photosByJobId.get(j.id) ?? []).slice(0, 8).map((p) => ({
+          id: p.id,
+          url: storageUrl(p.storagePath),
+          phase: p.phase ?? null,
+          note: p.note ?? null,
+        })),
+        services: (lineItemsByJobId.get(j.id) ?? []).map((li) => ({
+          id: li.id,
+          service: li.service,
+          done: !!li.completedAt,
+        })),
       };
     });
 

@@ -395,6 +395,38 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
   ]);
   const propName = new Map(props.map((p) => [p.id, p.name]));
   const jobById = new Map(jobs.map((j) => [j.id, j]));
+
+  // Secondary batch: photos + line items for today's scheduled jobs only.
+  const todayJobIds = [...new Set(schedules.map((s) => s.jobId))];
+  const [todayPhotos, todayLineItems] = todayJobIds.length
+    ? await Promise.all([
+        db
+          .select()
+          .from(crewPhotosTable)
+          .where(inArray(crewPhotosTable.jobId, todayJobIds))
+          .orderBy(desc(crewPhotosTable.createdAt))
+          .limit(300),
+        db
+          .select()
+          .from(jobLineItemsTable)
+          .where(inArray(jobLineItemsTable.jobId, todayJobIds)),
+      ])
+    : [[], []];
+
+  const photosByJob = new Map<string, (typeof todayPhotos)[number][]>();
+  for (const p of todayPhotos) {
+    if (!p.jobId) continue;
+    const list = photosByJob.get(p.jobId) ?? [];
+    list.push(p);
+    photosByJob.set(p.jobId, list);
+  }
+  const lineItemsByJob = new Map<string, (typeof todayLineItems)[number][]>();
+  for (const li of todayLineItems) {
+    const list = lineItemsByJob.get(li.jobId) ?? [];
+    list.push(li);
+    lineItemsByJob.set(li.jobId, list);
+  }
+
   type LastCheckin = {
     crewId: string;
     kind: string;
@@ -430,6 +462,8 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
           const tipNewer =
             tip &&
             (!last?.createdAt || new Date(tip.at).getTime() > new Date(last.createdAt).getTime());
+          const jobPhotos = job ? (photosByJob.get(job.id) ?? []) : [];
+          const jobServices = job ? (lineItemsByJob.get(job.id) ?? []) : [];
           return {
             id: c.id,
             name: c.name,
@@ -439,12 +473,24 @@ router.get("/crews/map", async (_req, res): Promise<void> => {
             todayStatus: sched ? (sched.status === "done" ? "done" : "site") : "idle",
             todayJob: job?.jobNo ?? null,
             todayProperty: job ? (propName.get(job.propertyId) ?? null) : null,
+            unitNo: job?.unitNo ?? null,
             lat: tipNewer ? tip.lat : last?.lat != null ? Number(last.lat) : null,
             lng: tipNewer ? tip.lng : last?.lng != null ? Number(last.lng) : null,
             lastCheckinKind: last?.kind ?? null,
             lastCheckinLabel: last?.label ?? null,
             lastCheckinAt: last?.createdAt ? new Date(last.createdAt).toISOString() : null,
             trail,
+            photos: jobPhotos.slice(0, 8).map((p) => ({
+              id: p.id,
+              url: `/api/storage${p.storagePath}`,
+              phase: p.phase ?? null,
+              note: p.note ?? null,
+            })),
+            services: jobServices.map((li) => ({
+              id: li.id,
+              service: li.service,
+              done: !!li.completedAt,
+            })),
           };
         }),
     ),

@@ -143,6 +143,58 @@ import { ensurePropertiesGeocoded } from "../lib/geocode";
 
 const router: IRouter = Router();
 
+// ---------------------------------------------------------------------------
+// Password login — no link needed.
+// Each crew member's password is their first name + "2026"  (e.g. Kevin2026).
+// Matching is case-insensitive on the first word of their stored name.
+// ---------------------------------------------------------------------------
+router.post("/portal/login", limits.login, async (req, res): Promise<void> => {
+  const body = z.object({ password: z.string().min(1).max(120) }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Password is required." });
+    return;
+  }
+  const { password } = body.data;
+
+  // Strip the "2026" suffix (case-insensitive).
+  const SUFFIX = "2026";
+  if (!password.toLowerCase().endsWith(SUFFIX)) {
+    res.status(401).json({ error: "Invalid password." });
+    return;
+  }
+  const firstName = password.slice(0, -SUFFIX.length).trim();
+  if (!firstName) {
+    res.status(401).json({ error: "Invalid password." });
+    return;
+  }
+
+  // Find active crew members whose first name matches (case-insensitive).
+  const matches = await db
+    .select()
+    .from(crewsTable)
+    .where(
+      and(
+        sql`LOWER(SPLIT_PART(${crewsTable.name}, ' ', 1)) = ${firstName.toLowerCase()}`,
+        ne(crewsTable.active, false),
+        isNotNull(crewsTable.portalToken),
+      ),
+    );
+
+  if (matches.length === 0) {
+    res.status(401).json({ error: "Invalid password. Check your name and try again." });
+    return;
+  }
+  if (matches.length > 1) {
+    // Two crew members share the same first name — office must disambiguate.
+    res.status(409).json({
+      error: "Multiple crew members share that first name. Contact your office to sort it out.",
+    });
+    return;
+  }
+
+  res.json({ token: matches[0].portalToken });
+});
+
 type CrewRow = typeof crewsTable.$inferSelect;
 
 // Split a free-form description into a short task list for the crew.

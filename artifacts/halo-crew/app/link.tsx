@@ -8,6 +8,7 @@ import {
   Text,
   TextInput,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
@@ -17,77 +18,55 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 
-function extractToken(input: string): string | null {
-  const trimmed = input.trim();
-  // Check if it's a URL containing /portal/TOKEN
-  try {
-    const url = new URL(trimmed);
-    const parts = url.pathname.split('/').filter(Boolean);
-    const portalIdx = parts.indexOf('portal');
-    if (portalIdx >= 0 && parts[portalIdx + 1]) {
-      return parts[portalIdx + 1];
-    }
-    // Check query param
-    const token = url.searchParams.get('token');
-    if (token) return token;
-  } catch {
-    // Not a URL — treat as raw token
-    if (/^[a-zA-Z0-9_-]{8,}$/.test(trimmed)) return trimmed;
-  }
-  return null;
-}
-
 const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN ?? '';
 
-async function validateToken(token: string): Promise<{ ok: boolean; status: number }> {
+async function loginWithPassword(
+  password: string,
+): Promise<{ token: string } | { error: string }> {
   try {
-    const resp = await fetch(`https://${DOMAIN}/api/portal/${token}`);
-    return { ok: resp.ok, status: resp.status };
+    const resp = await fetch(`https://${DOMAIN}/api/portal/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    const json = await resp.json();
+    if (!resp.ok) return { error: json.error ?? 'Something went wrong.' };
+    return { token: json.token };
   } catch {
-    return { ok: false, status: 0 };
+    return { error: 'No connection — check your internet and try again.' };
   }
 }
 
-export default function LinkScreen() {
+export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { setToken } = useAuth();
 
-  const [input, setInput] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleConnect = async () => {
+  const handleSignIn = async () => {
     setError('');
-    const token = extractToken(input);
-    if (!token) {
-      setError('Paste the full crew link your office sent you.');
+    const trimmed = password.trim();
+    if (!trimmed) {
+      setError('Enter your password to continue.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
 
     setLoading(true);
     try {
-      // Validate the token against the server BEFORE storing it
-      const { ok, status } = await validateToken(token);
-      if (!ok) {
-        const msg =
-          status === 404
-            ? "That link isn't valid. Ask your office to send a fresh crew link."
-            : status === 0
-            ? 'No connection — check your internet and try again.'
-            : 'Could not connect — check your link and try again.';
-        setError(msg);
+      const result = await loginWithPassword(trimmed);
+      if ('error' in result) {
+        setError(result.error);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         return;
       }
-
-      await setToken(token);
+      await setToken(result.token);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace('/(tabs)');
-    } catch {
-      setError('Could not connect — check your connection and try again.');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
     }
@@ -96,10 +75,7 @@ export default function LinkScreen() {
   const s = styles(colors);
 
   return (
-    <LinearGradient
-      colors={['#07101E', '#13223A', '#07101E']}
-      style={s.bg}
-    >
+    <LinearGradient colors={['#07101E', '#13223A', '#07101E']} style={s.bg}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -122,56 +98,67 @@ export default function LinkScreen() {
 
           {/* Card */}
           <View style={s.card}>
-            <Text style={s.cardTitle}>Connect your account</Text>
-            <Text style={s.cardBody}>
-              Paste the crew link your office sent you — it looks like a web
-              address.
+            <Text style={s.cardTitle}>Sign In</Text>
+            <Text style={s.cardSub}>
+              Enter your crew password to access the app.
             </Text>
 
-            <View style={[s.inputWrapper, error ? s.inputError : null]}>
-              <Ionicons name="link-outline" size={18} color="#8CA0B9" style={s.inputIcon} />
+            {/* Password input */}
+            <View style={[s.inputRow, error ? s.inputError : null]}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={18}
+                color="#435A7D"
+                style={s.inputIcon}
+              />
               <TextInput
                 style={s.input}
-                placeholder="https://… or paste token"
+                placeholder="Your password"
                 placeholderTextColor="#435A7D"
-                value={input}
-                onChangeText={(t) => {
-                  setInput(t);
-                  setError('');
-                }}
+                value={password}
+                onChangeText={(v) => { setPassword(v); setError(''); }}
+                secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 autoCorrect={false}
-                returnKeyType="go"
-                onSubmitEditing={handleConnect}
+                returnKeyType="done"
+                onSubmitEditing={handleSignIn}
               />
-              {input.length > 0 && (
-                <Pressable onPress={() => setInput('')} hitSlop={8}>
-                  <Ionicons name="close-circle" size={18} color="#435A7D" />
-                </Pressable>
-              )}
+              <Pressable onPress={() => setShowPassword(v => !v)} hitSlop={10}>
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={18}
+                  color="#435A7D"
+                />
+              </Pressable>
             </View>
 
-            {!!error && <Text style={s.errorText}>{error}</Text>}
+            {error ? <Text style={s.errorText}>{error}</Text> : null}
 
+            {/* Sign in button */}
             <Pressable
-              style={({ pressed }) => [s.btn, pressed && s.btnPressed, loading && s.btnDisabled]}
-              onPress={handleConnect}
+              onPress={handleSignIn}
               disabled={loading}
+              style={({ pressed }) => [s.btn, pressed && s.btnPressed, loading && s.btnDisabled]}
             >
-              <Text style={s.btnText}>
-                {loading ? 'Connecting…' : 'Connect'}
-              </Text>
-              {!loading && <Ionicons name="arrow-forward" size={18} color="#07101E" />}
+              {loading ? (
+                <ActivityIndicator color="#07101E" />
+              ) : (
+                <>
+                  <Ionicons name="arrow-forward-circle" size={20} color="#07101E" />
+                  <Text style={s.btnText}>Sign In</Text>
+                </>
+              )}
             </Pressable>
-          </View>
 
-          {/* Help */}
-          <View style={s.help}>
-            <Ionicons name="information-circle-outline" size={16} color="#435A7D" />
-            <Text style={s.helpText}>
-              Don't have a link? Ask your office manager to send you your crew
-              portal link.
-            </Text>
+            {/* Hint */}
+            <View style={s.hint}>
+              <Ionicons name="information-circle-outline" size={16} color="#435A7D" />
+              <Text style={s.hintText}>
+                Your password is your first name followed by{' '}
+                <Text style={s.hintBold}>2026</Text>
+                {' '}(e.g. Kevin2026).
+              </Text>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -181,76 +168,79 @@ export default function LinkScreen() {
 
 const styles = (colors: ReturnType<typeof useColors>) =>
   StyleSheet.create({
-    bg: { flex: 1, backgroundColor: '#07101E' },
-    scroll: { flexGrow: 1, paddingHorizontal: 24, alignItems: 'center' },
+    bg: { flex: 1 },
+    scroll: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     logoArea: { alignItems: 'center', marginBottom: 40 },
     logoCircle: {
       width: 80,
       height: 80,
       borderRadius: 40,
       backgroundColor: 'rgba(180,255,68,0.12)',
+      borderWidth: 1,
+      borderColor: 'rgba(180,255,68,0.3)',
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: 'rgba(180,255,68,0.25)',
       marginBottom: 16,
     },
     logoTitle: {
-      fontSize: 28,
-      fontWeight: '800' as const,
+      fontSize: 26,
+      fontWeight: '800',
       color: '#F4F7F9',
-      letterSpacing: 4,
+      letterSpacing: 3,
       fontFamily: 'Inter_700Bold',
     },
     logoSub: {
-      fontSize: 13,
-      color: '#8CA0B9',
+      fontSize: 12,
+      color: '#435A7D',
+      letterSpacing: 2,
       marginTop: 4,
       fontFamily: 'Inter_400Regular',
-      letterSpacing: 1,
     },
     card: {
       width: '100%',
-      backgroundColor: '#13223A',
+      maxWidth: 400,
+      backgroundColor: 'rgba(19,34,58,0.9)',
       borderRadius: 20,
-      padding: 24,
       borderWidth: 1,
       borderColor: 'rgba(140,160,185,0.14)',
-      marginBottom: 24,
+      padding: 28,
     },
     cardTitle: {
-      fontSize: 20,
-      fontWeight: '700' as const,
+      fontSize: 22,
+      fontWeight: '700',
       color: '#F4F7F9',
       marginBottom: 8,
       fontFamily: 'Inter_700Bold',
     },
-    cardBody: {
+    cardSub: {
       fontSize: 14,
       color: '#8CA0B9',
-      marginBottom: 20,
-      lineHeight: 21,
+      marginBottom: 24,
+      lineHeight: 20,
       fontFamily: 'Inter_400Regular',
     },
-    inputWrapper: {
+    inputRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: 'rgba(140,160,185,0.10)',
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: 'rgba(140,160,185,0.18)',
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      marginBottom: 12,
       gap: 10,
+      backgroundColor: 'rgba(255,255,255,0.04)',
+      borderWidth: 1,
+      borderColor: 'rgba(140,160,185,0.2)',
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+      marginBottom: 12,
     },
-    inputError: {
-      borderColor: 'rgba(225,29,72,0.5)',
-    },
+    inputError: { borderColor: 'rgba(225,29,72,0.5)' },
     inputIcon: { flexShrink: 0 },
     input: {
       flex: 1,
-      fontSize: 14,
+      fontSize: 16,
       color: '#F4F7F9',
       fontFamily: 'Inter_400Regular',
     },
@@ -269,26 +259,30 @@ const styles = (colors: ReturnType<typeof useColors>) =>
       paddingVertical: 15,
       gap: 8,
       marginTop: 4,
+      marginBottom: 20,
     },
     btnPressed: { opacity: 0.8 },
     btnDisabled: { opacity: 0.5 },
     btnText: {
       fontSize: 16,
-      fontWeight: '700' as const,
+      fontWeight: '700',
       color: '#07101E',
       fontFamily: 'Inter_700Bold',
     },
-    help: {
+    hint: {
       flexDirection: 'row',
       gap: 8,
-      paddingHorizontal: 4,
       alignItems: 'flex-start',
     },
-    helpText: {
+    hintText: {
       flex: 1,
       fontSize: 13,
       color: '#435A7D',
       lineHeight: 19,
       fontFamily: 'Inter_400Regular',
+    },
+    hintBold: {
+      fontFamily: 'Inter_600SemiBold',
+      color: '#8CA0B9',
     },
   });
