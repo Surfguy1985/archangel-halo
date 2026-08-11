@@ -2,17 +2,29 @@ import {
   useListProperties,
   useListJobs,
   useGeneratePropertyImage,
+  useDeleteProperty,
   getListPropertiesQueryKey,
   getListJobsQueryKey,
+  getGetPropertyQueryKey,
   type Job,
 } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link, useLocation } from "wouter";
-import { Building, Plus, Search, MapPin, Building2, Sparkles, Settings, LayoutList, LayoutGrid } from "lucide-react";
+import { Building, Plus, Search, MapPin, Building2, Sparkles, Settings, LayoutList, LayoutGrid, Trash2 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AddPropertyDialog } from "@/components/PropertyDialogs";
 import { PropertySopDialog } from "@/components/PropertySopDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function useAutoGenerateImages(properties?: { id: string; imagePath?: string | null }[]) {
   const queryClient = useQueryClient();
@@ -97,11 +109,38 @@ export default function Properties() {
   const [view, setView] = useState<"list" | "map">("map");
   const [addOpen, setAddOpen] = useState(false);
   const [sopProperty, setSopProperty] = useState<{ id: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const { data: properties, isLoading: propsLoading } = useListProperties({ query: { queryKey: getListPropertiesQueryKey(), refetchInterval: 30000 } });
   const { data: allJobs, isLoading: jobsLoading } = useListJobs(undefined, {
     query: { queryKey: getListJobsQueryKey(), refetchInterval: 30000 },
   });
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+
+  const del = useDeleteProperty();
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    setDeleteError(null);
+    del.mutate(
+      { id: deleteTarget.id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListPropertiesQueryKey() });
+          queryClient.removeQueries({ queryKey: getGetPropertyQueryKey(deleteTarget.id) });
+          setDeleteTarget(null);
+          navigate("/properties");
+        },
+        onError: (err: unknown) => {
+          const msg =
+            (err as { data?: { error?: string } })?.data?.error ||
+            "Couldn't delete — it may still have jobs attached.";
+          setDeleteError(msg);
+        },
+      },
+    );
+  };
 
   useAutoGenerateImages(properties);
 
@@ -127,6 +166,7 @@ export default function Properties() {
   const isLoading = propsLoading || jobsLoading;
 
   return (
+    <>
     <div className="p-8 max-w-[1200px] mx-auto animate-in fade-in duration-500">
       <div className="bg-[var(--secondary)] rounded-[24px] p-6 md:p-8 shadow-2xl flex flex-col min-h-[70vh] border border-white/5">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -257,17 +297,29 @@ export default function Properties() {
                             )}
                           </div>
                         </div>
-                        {/* SOP settings button */}
-                        <button
-                          type="button"
-                          aria-label={`SOP invoice guidelines for ${p.name}`}
-                          title="SOP invoice guidelines"
-                          data-testid={`property-sop-settings-${p.id}`}
-                          onClick={() => setSopProperty({ id: p.id, name: p.name })}
-                          className="w-7 h-7 rounded-full grid place-items-center text-white/30 hover:text-[var(--gold-light)] hover:bg-white/10 transition-colors shrink-0"
-                        >
-                          <Settings className="w-3.5 h-3.5" />
-                        </button>
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            aria-label={`SOP invoice guidelines for ${p.name}`}
+                            title="SOP invoice guidelines"
+                            data-testid={`property-sop-settings-${p.id}`}
+                            onClick={() => setSopProperty({ id: p.id, name: p.name })}
+                            className="w-7 h-7 rounded-full grid place-items-center text-white/30 hover:text-[var(--gold-light)] hover:bg-white/10 transition-colors"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Delete ${p.name}`}
+                            title="Delete property"
+                            data-testid={`property-delete-${p.id}`}
+                            onClick={() => { setDeleteError(null); setDeleteTarget({ id: p.id, name: p.name }); }}
+                            className="w-7 h-7 rounded-full grid place-items-center text-white/30 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Job boxes */}
@@ -297,7 +349,7 @@ export default function Properties() {
           ) : (
             /* ── LIST VIEW ── */
             <div className="flex flex-col">
-              <div className="grid grid-cols-[48px_1fr_1.5fr_100px_100px_40px] gap-4 pb-3 border-b border-white/10 text-white/40 text-xs font-bold uppercase tracking-wider px-4">
+              <div className="grid grid-cols-[48px_1fr_1.5fr_100px_100px_72px] gap-4 pb-3 border-b border-white/10 text-white/40 text-xs font-bold uppercase tracking-wider px-4">
                 <div></div>
                 <div>Name</div>
                 <div>Location</div>
@@ -313,7 +365,7 @@ export default function Properties() {
                     <Link
                       key={p.id}
                       href={`/properties/${p.id}`}
-                      className="group grid grid-cols-[48px_1fr_1.5fr_100px_100px_40px] gap-4 items-center py-3 border-b border-white/5 hover:bg-white/5 transition-colors px-4 rounded-xl"
+                      className="group grid grid-cols-[48px_1fr_1.5fr_100px_100px_72px] gap-4 items-center py-3 border-b border-white/5 hover:bg-white/5 transition-colors px-4 rounded-xl"
                     >
                       <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/5 border border-white/10 shrink-0 relative flex items-center justify-center">
                         {p.imagePath ? (
@@ -362,20 +414,37 @@ export default function Properties() {
                           </span>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        aria-label={`SOP invoice guidelines for ${p.name}`}
-                        title="SOP invoice guidelines"
-                        data-testid={`property-sop-settings-${p.id}`}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setSopProperty({ id: p.id, name: p.name });
-                        }}
-                        className="w-8 h-8 rounded-full grid place-items-center text-white/40 hover:text-[var(--gold-light)] hover:bg-white/10 transition-colors justify-self-end"
-                      >
-                        <Settings className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1 justify-self-end">
+                        <button
+                          type="button"
+                          aria-label={`SOP invoice guidelines for ${p.name}`}
+                          title="SOP invoice guidelines"
+                          data-testid={`property-sop-settings-${p.id}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSopProperty({ id: p.id, name: p.name });
+                          }}
+                          className="w-8 h-8 rounded-full grid place-items-center text-white/40 hover:text-[var(--gold-light)] hover:bg-white/10 transition-colors"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Delete ${p.name}`}
+                          title="Delete property"
+                          data-testid={`property-delete-list-${p.id}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDeleteError(null);
+                            setDeleteTarget({ id: p.id, name: p.name });
+                          }}
+                          className="w-8 h-8 rounded-full grid place-items-center text-white/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </Link>
                   );
                 })}
@@ -391,5 +460,32 @@ export default function Properties() {
         </div>
       </div>
     </div>
+
+    <AlertDialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="font-display">
+            Delete {deleteTarget?.name}?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            This removes the property, its price list, and its contacts. All jobs must be removed first. This can't be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {deleteError && (
+          <p className="text-sm text-destructive px-1 -mt-1">{deleteError}</p>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Keep it</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => { e.preventDefault(); confirmDelete(); }}
+            disabled={del.isPending}
+            className="bg-destructive text-white hover:bg-destructive/90 disabled:opacity-50"
+          >
+            {del.isPending ? "Deleting…" : "Delete property"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
