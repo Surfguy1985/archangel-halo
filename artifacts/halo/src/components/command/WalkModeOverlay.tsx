@@ -1,10 +1,11 @@
 /**
  * WalkModeOverlay — premium full-screen walk capture interface.
  *
- * A manager walking a unit speaks naturally, captures photos, and HALO
- * structures the scope. Surfaces inline in the HALO Command thread as a
- * full-screen takeover. Uses voice transcription and links to the Walk app
- * for the full capture + job-creation flow.
+ * A manager walking a unit speaks naturally, captures observations,
+ * and HALO structures the scope. Voice audio is transcribed via
+ * /api/walk/voice/parse. Surfaces inline in the HALO Command thread
+ * as a full-screen takeover. Links to the Walk app for full
+ * capture + job-creation flow.
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -20,8 +21,8 @@ import {
   Check,
   ExternalLink,
   Trash2,
+  ArrowLeft,
 } from "lucide-react";
-import { useParseWalkVoice } from "@workspace/api-client-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,11 +51,9 @@ export function WalkModeOverlay({ onClose, onSendToHalo }: WalkModeOverlayProps)
   const [isParsing, setIsParsing] = useState(false);
   const [manualInput, setManualInput] = useState("");
   const [phase, setPhase] = useState<"setup" | "capture" | "review">("setup");
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
 
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const parseWalkVoice = useParseWalkVoice?.();
 
   // Start microphone recording
   const startListening = async () => {
@@ -66,7 +65,6 @@ export function WalkModeOverlay({ onClose, onSendToHalo }: WalkModeOverlayProps)
       mr.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        setAudioBlob(blob);
         handleParseVoice(blob);
       };
       mr.start();
@@ -74,7 +72,6 @@ export function WalkModeOverlay({ onClose, onSendToHalo }: WalkModeOverlayProps)
       setIsListening(true);
       setTranscript("");
     } catch {
-      // Microphone not available — show a hint
       setTranscript("(Microphone not available. Type your observations below.)");
     }
   };
@@ -86,39 +83,41 @@ export function WalkModeOverlay({ onClose, onSendToHalo }: WalkModeOverlayProps)
     setIsListening(false);
   };
 
+  // Convert recorded audio blob to base64 and send to walk voice parse endpoint.
+  // The endpoint returns structured work items extracted from the speech.
   const handleParseVoice = async (blob: Blob) => {
     setIsParsing(true);
     try {
-      // Convert blob to base64
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = async () => {
         const base64 = (reader.result as string).split(",")[1];
         try {
-          const result = await fetch("/api/walk/voice/parse", {
+          const res = await fetch("/api/walk/voice/parse", {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ audio: base64 }),
           });
-          if (result.ok) {
-            const data = await result.json();
-            // Parse response into items
+          if (res.ok) {
+            const data = await res.json();
             if (data.items && Array.isArray(data.items)) {
-              const newItems: CapturedItem[] = data.items.map((item: { description?: string; service?: string; note?: string }, idx: number) => ({
-                id: `voice-${Date.now()}-${idx}`,
-                description: item.description ?? "Work item",
-                unit: unit || "TBD",
-                service: item.service,
-                note: item.note,
-                hasPhoto: false,
-                source: "voice" as const,
-              }));
+              const newItems: CapturedItem[] = data.items.map(
+                (item: { description?: string; service?: string; note?: string }, idx: number) => ({
+                  id: `voice-${Date.now()}-${idx}`,
+                  description: item.description ?? "Work item",
+                  unit: unit || "TBD",
+                  service: item.service,
+                  note: item.note,
+                  hasPhoto: false,
+                  source: "voice" as const,
+                })
+              );
               setItems(prev => [...prev, ...newItems]);
             } else if (data.transcript) {
-              // Fallback: add as manual item
+              // Fallback: treat transcribed text as a manual observation
               setTranscript(data.transcript);
-              addManualItem(data.transcript);
+              addManualItemText(data.transcript);
             }
           }
         } finally {
@@ -130,19 +129,17 @@ export function WalkModeOverlay({ onClose, onSendToHalo }: WalkModeOverlayProps)
     }
   };
 
-  const addManualItem = (text?: string) => {
-    const desc = (text ?? manualInput).trim();
+  const addManualItemText = (text: string) => {
+    const desc = text.trim();
     if (!desc) return;
     setItems(prev => [
       ...prev,
-      {
-        id: `manual-${Date.now()}`,
-        description: desc,
-        unit: unit || "TBD",
-        hasPhoto: false,
-        source: "manual",
-      },
+      { id: `manual-${Date.now()}`, description: desc, unit: unit || "TBD", hasPhoto: false, source: "manual" },
     ]);
+  };
+
+  const addManualItem = () => {
+    addManualItemText(manualInput);
     setManualInput("");
   };
 
@@ -167,36 +164,36 @@ export function WalkModeOverlay({ onClose, onSendToHalo }: WalkModeOverlayProps)
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-[#020B18]">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-5 pt-[calc(16px+env(safe-area-inset-top))] pb-4 border-b border-white/8">
-        <div className="w-9 h-9 rounded-[12px] bg-[#B4FF44] grid place-items-center shrink-0">
-          <Footprints className="w-5 h-5 text-[#07101E]" strokeWidth={2.5} />
+      {/* ── Header ───────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 px-5 pt-[calc(14px+env(safe-area-inset-top))] pb-4 border-b border-white/7">
+        <div className="w-9 h-9 rounded-[11px] bg-[#B4FF44] grid place-items-center shrink-0 shadow-[0_4px_12px_rgba(180,255,68,0.32)]">
+          <Footprints className="w-[18px] h-[18px] text-[#07101E]" strokeWidth={2.5} />
         </div>
-        <div className="flex-1">
-          <div className="text-[11px] font-bold tracking-[0.2em] uppercase text-[#B4FF44]/80">
-            HALO Walk Mode
-          </div>
-          <div className="text-[13px] text-white/60">
-            {phase === "setup" ? "Where are you?" : `Unit ${unit} · ${items.length} item${items.length !== 1 ? "s" : ""}`}
+        <div className="flex-1 min-w-0">
+          <div className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#B4FF44]/72">HALO Walk Mode</div>
+          <div className="text-[12.5px] text-white/50 truncate">
+            {phase === "setup"
+              ? "Where are you walking?"
+              : `Unit ${unit || "TBD"} · ${items.length} item${items.length !== 1 ? "s" : ""} captured`}
           </div>
         </div>
         <button
           onClick={onClose}
-          className="w-9 h-9 rounded-full bg-white/8 grid place-items-center text-white/50 hover:text-white/80 hover:bg-white/12 transition-colors"
+          className="w-9 h-9 rounded-full bg-white/7 grid place-items-center text-white/45 hover:text-white/75 hover:bg-white/11 transition-colors active:scale-[0.94]"
         >
-          <X className="w-4.5 h-4.5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Phase: Setup */}
+      {/* ── Phase: Setup ─────────────────────────────────────────────── */}
       {phase === "setup" && (
-        <div className="flex-1 flex flex-col justify-center px-6 gap-6">
+        <div className="flex-1 flex flex-col justify-center px-6 gap-7">
           <div>
-            <div className="text-[28px] font-bold text-white leading-tight mb-2">
+            <div className="text-[27px] font-bold text-white leading-tight tracking-[-0.01em] mb-2">
               Which unit are<br />you walking?
             </div>
-            <p className="text-[14px] text-white/50 leading-relaxed">
-              Enter the unit number or location. You can speak or type your observations as you walk.
+            <p className="text-[14px] text-white/45 leading-relaxed font-light">
+              Enter the unit number or location. Speak naturally as you walk — HALO structures your scope automatically.
             </p>
           </div>
           <input
@@ -204,95 +201,97 @@ export function WalkModeOverlay({ onClose, onSendToHalo }: WalkModeOverlayProps)
             value={unit}
             onChange={e => setUnit(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter" && unit.trim()) setPhase("capture"); }}
-            placeholder="e.g. 312, Lobby, Pool Area…"
-            className="w-full h-[54px] rounded-[16px] bg-white/8 border border-white/15 px-4 text-[16px] text-white placeholder:text-white/30 focus:outline-none focus:border-[#B4FF44]/50 focus:ring-2 focus:ring-[#B4FF44]/20 transition-all"
+            placeholder="312, Lobby, Pool Area…"
+            className="w-full h-[54px] rounded-[16px] bg-white/7 border border-white/12 px-4 text-[16px] text-white placeholder:text-white/28 focus:outline-none focus:border-[#B4FF44]/45 focus:ring-1 focus:ring-[#B4FF44]/18 transition-all"
           />
           <div className="flex gap-3">
             <button
               onClick={() => setPhase("capture")}
-              className="flex-1 rounded-[14px] bg-[#B4FF44] text-black font-bold text-[15px] py-[14px] active:scale-[0.97] transition-transform"
+              className="flex-1 rounded-[14px] bg-[#B4FF44] text-black font-bold text-[15px] py-[14px] active:scale-[0.97] transition-transform shadow-[0_6px_20px_rgba(180,255,68,0.32)]"
             >
               Start walk
             </button>
             <button
               onClick={handleOpenWalkApp}
-              className="flex items-center gap-2 px-4 rounded-[14px] bg-white/8 border border-white/15 text-white/60 font-bold text-[14px] py-[14px] active:scale-[0.97] transition-colors hover:text-white/80"
+              className="flex items-center gap-2 px-5 rounded-[14px] bg-white/7 border border-white/12 text-white/55 font-bold text-[14px] py-[14px] hover:text-white/80 hover:bg-white/10 transition-colors active:scale-[0.97]"
             >
-              Full app <ExternalLink className="w-4 h-4" />
+              Full app <ExternalLink className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Phase: Capture */}
+      {/* ── Phase: Capture ───────────────────────────────────────────── */}
       {phase === "capture" && (
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Items list */}
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2 overscroll-none">
             {items.length === 0 && !isParsing && (
-              <div className="flex flex-col items-center justify-center py-12 gap-3 text-white/30">
-                <Mic className="w-10 h-10" />
-                <div className="text-center text-[14px] leading-relaxed">
-                  Hold the mic button and describe what you see.<br />
-                  <span className="text-[12px] text-white/20">e.g. "Living room needs paint, carpet is worn"</span>
+              <div className="flex flex-col items-center justify-center py-14 gap-4">
+                <div className="w-14 h-14 rounded-full bg-[#B4FF44]/8 border border-[#B4FF44]/18 grid place-items-center">
+                  <Mic className="w-6 h-6 text-[#B4FF44]/60" />
+                </div>
+                <div className="text-center">
+                  <div className="text-[14px] text-white/45 leading-relaxed mb-1">
+                    Hold the mic and describe what you see
+                  </div>
+                  <div className="text-[12px] text-white/22">
+                    "Living room needs paint, carpet is worn"
+                  </div>
                 </div>
               </div>
             )}
 
             {isParsing && (
-              <div className="flex items-center gap-3 bg-[#B4FF44]/8 border border-[#B4FF44]/20 rounded-[16px] px-4 py-4">
+              <div className="flex items-center gap-3 bg-[#B4FF44]/7 border border-[#B4FF44]/18 rounded-[15px] px-4 py-4">
                 <Loader2 className="w-5 h-5 text-[#B4FF44] animate-spin shrink-0" />
                 <div>
-                  <div className="text-[13px] text-[#B4FF44]/90 font-medium">HALO is processing your voice…</div>
-                  <div className="text-[11px] text-[#B4FF44]/50 mt-0.5">Extracting work items</div>
+                  <div className="text-[13px] text-[#B4FF44]/85 font-medium">Processing your voice…</div>
+                  <div className="text-[11px] text-[#B4FF44]/45 mt-0.5">Extracting work items</div>
                 </div>
               </div>
             )}
 
             {items.map(item => (
-              <div key={item.id} className="flex items-start gap-3 bg-white/6 rounded-[16px] px-4 py-3 border border-white/8">
-                <div className="mt-0.5">
+              <div key={item.id} className="flex items-start gap-3 bg-white/5 rounded-[14px] px-4 py-3 border border-white/7">
+                <div className="mt-0.5 shrink-0">
                   {item.source === "voice" ? (
-                    <Mic className="w-4 h-4 text-[#B4FF44]" />
+                    <Mic className="w-3.5 h-3.5 text-[#B4FF44]" />
                   ) : item.source === "photo" ? (
-                    <Camera className="w-4 h-4 text-[#F59E0B]" />
+                    <Camera className="w-3.5 h-3.5 text-[#F59E0B]" />
                   ) : (
-                    <Plus className="w-4 h-4 text-white/40" />
+                    <Plus className="w-3.5 h-3.5 text-white/35" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13.5px] text-white/90 font-medium leading-snug">{item.description}</div>
-                  {item.service && (
-                    <div className="text-[11px] text-[#B4FF44]/70 mt-1">{item.service}</div>
-                  )}
-                  {item.note && (
-                    <div className="text-[11px] text-white/40 mt-0.5">{item.note}</div>
-                  )}
+                  <div className="text-[13px] text-white/85 font-medium leading-snug">{item.description}</div>
+                  {item.service && <div className="text-[11px] text-[#B4FF44]/65 mt-1">{item.service}</div>}
+                  {item.note && <div className="text-[11px] text-white/35 mt-0.5">{item.note}</div>}
                 </div>
                 <button
                   onClick={() => removeItem(item.id)}
-                  className="w-7 h-7 rounded-full bg-white/6 grid place-items-center text-white/30 hover:text-[#E11D48] hover:bg-[#E11D48]/10 transition-colors shrink-0"
+                  className="w-7 h-7 rounded-full bg-white/5 grid place-items-center text-white/28 hover:text-[#E11D48] hover:bg-[#E11D48]/10 transition-colors shrink-0 mt-0.5"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-3 h-3" />
                 </button>
               </div>
             ))}
           </div>
 
           {/* Manual input row */}
-          <div className="px-5 py-3 border-t border-white/8">
+          <div className="px-5 py-3 border-t border-white/7">
             <div className="flex items-center gap-2">
               <input
                 value={manualInput}
                 onChange={e => setManualInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") addManualItem(); }}
                 placeholder="Type an observation…"
-                className="flex-1 h-[42px] rounded-[12px] bg-white/8 border border-white/12 px-3 text-[13px] text-white placeholder:text-white/30 focus:outline-none focus:border-[#B4FF44]/40"
+                className="flex-1 h-[42px] rounded-[11px] bg-white/6 border border-white/10 px-3 text-[13px] text-white placeholder:text-white/28 focus:outline-none focus:border-[#B4FF44]/38 transition-all"
               />
               <button
-                onClick={() => addManualItem()}
+                onClick={addManualItem}
                 disabled={!manualInput.trim()}
-                className="w-[42px] h-[42px] rounded-[12px] bg-white/8 border border-white/12 grid place-items-center text-white/50 hover:text-white/80 disabled:opacity-30 transition-colors"
+                className="w-[42px] h-[42px] rounded-[11px] bg-white/6 border border-white/10 grid place-items-center text-white/45 hover:text-white/80 disabled:opacity-28 transition-colors active:scale-[0.95]"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -301,35 +300,32 @@ export function WalkModeOverlay({ onClose, onSendToHalo }: WalkModeOverlayProps)
 
           {/* Action row */}
           <div className="px-5 pb-[calc(16px+env(safe-area-inset-bottom))] flex items-center gap-3">
-            {/* Mic */}
+            {/* Mic — hold to record */}
             <button
               onPointerDown={startListening}
               onPointerUp={stopListening}
               onPointerLeave={stopListening}
               disabled={isParsing}
-              className={`w-[60px] h-[60px] rounded-full flex items-center justify-center shrink-0 transition-all active:scale-[0.93] ${
+              className={`w-[60px] h-[60px] rounded-full flex items-center justify-center shrink-0 transition-all select-none ${
                 isListening
-                  ? "bg-[#E11D48] shadow-[0_0_20px_rgba(225,29,72,0.5)]"
-                  : "bg-[#B4FF44] shadow-[0_4px_20px_rgba(180,255,68,0.35)]"
+                  ? "bg-[#E11D48] shadow-[0_0_24px_rgba(225,29,72,0.5)] scale-[1.04]"
+                  : "bg-[#B4FF44] shadow-[0_6px_20px_rgba(180,255,68,0.32)] active:scale-[0.94]"
               }`}
             >
-              {isListening ? (
-                <MicOff className="w-6 h-6 text-white" strokeWidth={2.5} />
-              ) : (
-                <Mic className="w-6 h-6 text-[#07101E]" strokeWidth={2.5} />
-              )}
+              {isListening
+                ? <MicOff className="w-6 h-6 text-white" strokeWidth={2.5} />
+                : <Mic className="w-6 h-6 text-[#07101E]" strokeWidth={2.5} />
+              }
             </button>
+
             {isListening && (
-              <div className="flex-1 text-[13px] text-white/60 italic">
-                Listening… release to stop
-              </div>
+              <div className="flex-1 text-[13px] text-white/50 italic">Listening… release to stop</div>
             )}
 
-            {/* Review / send */}
             {!isListening && items.length > 0 && (
               <button
                 onClick={() => setPhase("review")}
-                className="flex-1 flex items-center justify-center gap-2 rounded-[14px] bg-white/10 border border-white/15 text-white/80 font-bold text-[13.5px] py-[14px] active:scale-[0.97] transition-all"
+                className="flex-1 flex items-center justify-center gap-2 rounded-[14px] bg-white/8 border border-white/12 text-white/75 font-bold text-[13.5px] py-[14px] active:scale-[0.97] transition-all"
               >
                 Review {items.length} item{items.length !== 1 ? "s" : ""}
                 <ChevronRight className="w-4 h-4" />
@@ -337,29 +333,29 @@ export function WalkModeOverlay({ onClose, onSendToHalo }: WalkModeOverlayProps)
             )}
 
             {!isListening && items.length === 0 && (
-              <div className="flex-1 text-[13px] text-white/30 text-center">
-                Hold mic to describe what you see
+              <div className="flex-1 text-[12.5px] text-white/25 text-center leading-snug">
+                Hold the mic to describe what you see
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Phase: Review */}
+      {/* ── Phase: Review ────────────────────────────────────────────── */}
       {phase === "review" && (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
-            <div className="text-[22px] font-bold text-white mb-4">
-              Review scope for Unit {unit}
+          <div className="flex-1 overflow-y-auto px-5 py-5 space-y-2 overscroll-none">
+            <div className="text-[21px] font-bold text-white tracking-[-0.01em] mb-4">
+              Review scope — Unit {unit || "TBD"}
             </div>
-            {items.map((item, i) => (
-              <div key={item.id} className="flex items-start gap-3 bg-white/6 rounded-[16px] px-4 py-3 border border-white/8">
-                <div className="w-5 h-5 rounded-full bg-[#B4FF44]/20 border border-[#B4FF44]/40 grid place-items-center shrink-0 mt-0.5">
-                  <Check className="w-3 h-3 text-[#B4FF44]" strokeWidth={2.5} />
+            {items.map(item => (
+              <div key={item.id} className="flex items-start gap-3 bg-white/5 rounded-[14px] px-4 py-3 border border-white/7">
+                <div className="w-5 h-5 rounded-full bg-[#B4FF44]/18 border border-[#B4FF44]/35 grid place-items-center shrink-0 mt-0.5">
+                  <Check className="w-2.5 h-2.5 text-[#B4FF44]" strokeWidth={2.5} />
                 </div>
                 <div className="flex-1">
-                  <div className="text-[13.5px] text-white/90 font-medium">{item.description}</div>
-                  {item.service && <div className="text-[11px] text-[#B4FF44]/60 mt-0.5">{item.service}</div>}
+                  <div className="text-[13px] text-white/85 font-medium leading-snug">{item.description}</div>
+                  {item.service && <div className="text-[11px] text-[#B4FF44]/55 mt-0.5">{item.service}</div>}
                 </div>
               </div>
             ))}
@@ -368,16 +364,16 @@ export function WalkModeOverlay({ onClose, onSendToHalo }: WalkModeOverlayProps)
           <div className="px-5 pb-[calc(20px+env(safe-area-inset-bottom))] flex gap-3">
             <button
               onClick={() => setPhase("capture")}
-              className="w-[48px] h-[52px] flex items-center justify-center rounded-[14px] bg-white/8 border border-white/12 text-white/50 hover:text-white/80 transition-colors"
+              className="w-[48px] h-[52px] flex items-center justify-center rounded-[13px] bg-white/7 border border-white/11 text-white/45 hover:text-white/75 transition-colors active:scale-[0.95]"
             >
-              ←
+              <ArrowLeft className="w-4 h-4" />
             </button>
             <button
               onClick={handleSend}
-              className="flex-1 flex items-center justify-center gap-2 rounded-[14px] bg-[#B4FF44] text-black font-bold text-[15px] py-[14px] active:scale-[0.97] transition-transform shadow-[0_4px_20px_rgba(180,255,68,0.35)]"
+              className="flex-1 flex items-center justify-center gap-2 rounded-[14px] bg-[#B4FF44] text-black font-bold text-[15px] py-[14px] active:scale-[0.97] transition-transform shadow-[0_6px_20px_rgba(180,255,68,0.32)]"
             >
               <Check className="w-5 h-5" strokeWidth={2.5} />
-              Send {items.length} items to HALO
+              Send {items.length} item{items.length !== 1 ? "s" : ""} to HALO
             </button>
           </div>
         </div>

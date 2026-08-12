@@ -247,29 +247,32 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <div data-tour="ask-halo" className="relative max-w-2xl flex-1">
-            <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--primary)]" />
-            <input
-              value={cmdText}
-              onChange={(e) => setCmdText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") submitCommand();
-             }}
-              placeholder="Ask HALO to do anything — “Invoice Maple Grove $950 for painting unit 5”…"
-              className="w-full h-12 rounded-full bg-card border border-border shadow-sm pl-11 pr-24 text-sm focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_15px_rgba(180,255,68,0.1)] placeholder:text-muted-foreground font-mono transition-all text-foreground"
-              data-testid="input-command-bar"
-            />
-            {cmdText.trim() && (
-              <button
-                type="button"
-                onClick={submitCommand}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 px-6 rounded-full bg-[var(--primary)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(180,255,68,0.3)] text-[var(--primary-foreground)] text-xs font-display font-bold transition-all"
-                data-testid="button-command-go"
-              >
-                Do it
-              </button>
-            )}
-          </div>
+          {/* Command input — hidden on "/" (HaloCommand has its own composer) */}
+          {location !== "/" && (
+            <div data-tour="ask-halo" className="relative max-w-2xl flex-1">
+              <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--primary)]" />
+              <input
+                value={cmdText}
+                onChange={(e) => setCmdText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitCommand();
+                }}
+                placeholder='Ask HALO to do anything — "Invoice Maple Grove $950 for painting unit 5"…'
+                className="w-full h-12 rounded-full bg-card border border-border shadow-sm pl-11 pr-24 text-sm focus:outline-none focus:border-[var(--primary)] focus:shadow-[0_0_15px_rgba(180,255,68,0.1)] placeholder:text-muted-foreground font-mono transition-all text-foreground"
+                data-testid="input-command-bar"
+              />
+              {cmdText.trim() && (
+                <button
+                  type="button"
+                  onClick={submitCommand}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 px-6 rounded-full bg-[var(--primary)] hover:bg-[var(--gold-light)] hover:shadow-[0_0_15px_rgba(180,255,68,0.3)] text-[var(--primary-foreground)] text-xs font-display font-bold transition-all"
+                  data-testid="button-command-go"
+                >
+                  Do it
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex-1">
           {children}

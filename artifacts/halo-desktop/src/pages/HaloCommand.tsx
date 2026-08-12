@@ -5,6 +5,9 @@
  * The main content area becomes a full-height conversational workspace.
  * Falkon-mode-aware, role-responsive, and backed by the same API as
  * the legacy Today screen.
+ *
+ * Thread state is persisted at module level so navigating to a detail
+ * view and pressing Back restores the conversation in full.
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -18,8 +21,6 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronDown,
-  Plus,
-  X,
   Zap,
 } from "lucide-react";
 
@@ -47,7 +48,7 @@ import { WalkModeOverlay } from "@/components/command/WalkModeOverlay";
 import { isFalkonFormationIntent, useFalkonHealth } from "@/lib/falkonNetwork";
 import type { VoiceAction } from "@workspace/api-client-react";
 
-// ─── Thread message types (same as mobile) ────────────────────────────────────
+// ─── Thread message types ─────────────────────────────────────────────────────
 
 type TMsg =
   | { id: string; kind: "morning-brief" }
@@ -62,7 +63,12 @@ type TMsg =
   | { id: string; kind: "success"; text: string }
   | { id: string; kind: "error"; text: string };
 
-// ─── Intent detection (same logic as mobile) ──────────────────────────────────
+// ─── Module-level thread persistence (survives route changes / remounts) ───────
+
+let _savedThread: TMsg[] | null = null;
+let _threadReady = false;
+
+// ─── Intent detection ─────────────────────────────────────────────────────────
 
 const LENS_MAP: Array<{ keywords: string[]; lens: LensType }> = [
   { keywords: ["invoice", "payment", "money", "margin", "revenue", "budget", "overdue", "outstanding", "scope", "financial", "bill", "collect", "paid", "unpaid", "past due"], lens: "money" },
@@ -96,42 +102,56 @@ function detectIntent(text: string): { type: "lens"; lens: LensType } | { type: 
 // ─── Falkon mode ──────────────────────────────────────────────────────────────
 
 type FalkonMode = "SHADOW" | "ASSISTED" | "LIVE";
+
 function deriveFalkonMode(health?: { overallHealth?: string }): FalkonMode {
   if (!health || !["healthy", "degraded"].includes(health.overallHealth ?? "")) return "SHADOW";
   return health.overallHealth === "healthy" ? "ASSISTED" : "SHADOW";
 }
 
-const MODE_STYLES: Record<FalkonMode, { badge: string; dot: string }> = {
-  SHADOW:   { badge: "bg-white/8 border border-white/12 text-white/40",      dot: "bg-white/40" },
-  ASSISTED: { badge: "bg-[#B4FF44]/12 border border-[#B4FF44]/25 text-[#B4FF44]/80", dot: "bg-[#B4FF44]" },
-  LIVE:     { badge: "bg-[#22C55E]/12 border border-[#22C55E]/25 text-[#22C55E]/80", dot: "bg-[#22C55E]" },
+const MODE_STYLES: Record<FalkonMode, { badge: string; dot: string; pulse: boolean }> = {
+  SHADOW:   { badge: "bg-white/6 border border-white/10 text-white/38",              dot: "bg-white/35",  pulse: false },
+  ASSISTED: { badge: "bg-[#B4FF44]/10 border border-[#B4FF44]/22 text-[#B4FF44]/80", dot: "bg-[#B4FF44]", pulse: true  },
+  LIVE:     { badge: "bg-[#22C55E]/10 border border-[#22C55E]/22 text-[#22C55E]/80", dot: "bg-[#22C55E]", pulse: true  },
 };
 
 // ─── Ambient messages ─────────────────────────────────────────────────────────
 
 const AMBIENT = [
-  "Evaluating 14 active job margins…",
-  "2 vendor COI responses received",
-  "Falkon network — 1 peer healthy",
-  "Invoice evidence verified",
+  "Evaluating active job margins…",
+  "Vendor COI status — checking…",
+  "Falkon network sync in progress…",
+  "Invoice evidence verified.",
   "Scanning autopilot conditions…",
   "Monitoring crew GPS breadcrumbs…",
+];
+
+// ─── Suggested prompts ────────────────────────────────────────────────────────
+
+const SUGGESTED = [
+  "Show invoices over scope",
+  "Which crews are on site right now?",
+  "Show turns due this week",
+  "Brief me across the portfolio",
+  "Who is missing after photos?",
+  "Show vendor compliance issues",
+  "Show payment-ready invoices",
+  "Find margin leakage",
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ThinkingBubble() {
   return (
-    <div className="flex items-end gap-2.5 mb-2">
-      <div className="w-6 h-6 rounded-full bg-[#B4FF44]/15 border border-[#B4FF44]/25 grid place-items-center shrink-0">
-        <HaloRing className="w-3.5 h-3.5" />
+    <div className="flex items-end gap-2.5 mb-3">
+      <div className="w-[22px] h-[22px] rounded-full bg-[#B4FF44]/12 border border-[#B4FF44]/22 grid place-items-center shrink-0">
+        <HaloRing className="w-[11px] h-[11px]" />
       </div>
-      <div className="bg-card border border-border rounded-[14px] rounded-bl-[4px] px-4 py-3 flex items-center gap-2">
+      <div className="bg-card border border-border rounded-[14px] rounded-bl-[4px] px-4 py-3 flex items-center gap-1.5 shadow-sm">
         {[0, 1, 2].map(i => (
           <div
             key={i}
-            className="w-1.5 h-1.5 rounded-full bg-[#B4FF44]/50"
-            style={{ animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }}
+            className="w-[5px] h-[5px] rounded-full bg-[#B4FF44]/45"
+            style={{ animation: `haloBounce 1.2s ease-in-out ${i * 0.18}s infinite` }}
           />
         ))}
       </div>
@@ -141,12 +161,12 @@ function ThinkingBubble() {
 
 function HaloBubble({ text }: { text: string }) {
   return (
-    <div className="flex items-end gap-2.5 mb-2">
-      <div className="w-6 h-6 rounded-full bg-[#B4FF44]/15 border border-[#B4FF44]/25 grid place-items-center shrink-0">
-        <HaloRing className="w-3.5 h-3.5" />
+    <div className="flex items-end gap-2.5 mb-3">
+      <div className="w-[22px] h-[22px] rounded-full bg-[#B4FF44]/12 border border-[#B4FF44]/22 grid place-items-center shrink-0">
+        <HaloRing className="w-[11px] h-[11px]" />
       </div>
-      <div className="max-w-[70%] bg-card border border-border rounded-[14px] rounded-bl-[4px] px-4 py-3">
-        <p className="text-[13.5px] text-foreground leading-relaxed">{text}</p>
+      <div className="max-w-[68%] bg-card border border-border rounded-[14px] rounded-bl-[4px] px-4 py-3 shadow-sm">
+        <p className="text-[13.5px] text-foreground/85 leading-relaxed">{text}</p>
       </div>
     </div>
   );
@@ -154,9 +174,9 @@ function HaloBubble({ text }: { text: string }) {
 
 function UserBubble({ text }: { text: string }) {
   return (
-    <div className="flex justify-end mb-2">
-      <div className="max-w-[70%] bg-[#B4FF44] text-[#07101E] rounded-[14px] rounded-br-[4px] px-4 py-3">
-        <p className="text-[13.5px] font-medium leading-relaxed">{text}</p>
+    <div className="flex justify-end mb-3">
+      <div className="max-w-[68%] bg-[#B4FF44] text-[#07101E] rounded-[14px] rounded-br-[4px] px-4 py-3 shadow-[0_4px_16px_rgba(180,255,68,0.22)]">
+        <p className="text-[13.5px] font-semibold leading-relaxed">{text}</p>
       </div>
     </div>
   );
@@ -164,7 +184,7 @@ function UserBubble({ text }: { text: string }) {
 
 function SystemAlertCard({ card, tier }: { card: FeedCardType; tier: "today" | "week" }) {
   const [, navigate] = useLocation();
-  const color = tier === "today" ? "#F59E0B" : "#64748B";
+  const color = tier === "today" ? "#F59E0B" : "#4B5563";
 
   const go = () => {
     if (card.entityType === "job" && card.entityId) navigate(`/jobs/${card.entityId}`);
@@ -176,25 +196,25 @@ function SystemAlertCard({ card, tier }: { card: FeedCardType; tier: "today" | "
   return (
     <div
       onClick={go}
-      className="flex items-start gap-3 bg-card border border-border rounded-[14px] px-4 py-3 mb-2 cursor-pointer hover:bg-accent/30 transition-colors"
-      style={{ borderLeftWidth: 3, borderLeftColor: color }}
+      className="flex items-start gap-3 bg-card border border-border rounded-[13px] px-4 py-3.5 mb-2.5 cursor-pointer hover:bg-accent/25 transition-colors active:scale-[0.99]"
+      style={{ borderLeftWidth: 2, borderLeftColor: color }}
     >
       <div className="flex-1 min-w-0">
-        <div className="text-[10px] font-bold tracking-[0.15em] uppercase mb-1" style={{ color }}>
+        <div className="text-[9.5px] font-bold tracking-[0.18em] uppercase mb-1" style={{ color }}>
           {tier === "today" ? "Today" : "This Week"}
         </div>
-        <div className="text-sm font-semibold text-foreground leading-snug">{card.title}</div>
-        {card.sub && <div className="text-xs text-muted-foreground mt-0.5">{card.sub}</div>}
+        <div className="text-[13.5px] font-semibold text-foreground leading-snug">{card.title}</div>
+        {card.sub && <div className="text-[12px] text-muted-foreground mt-0.5 leading-snug">{card.sub}</div>}
       </div>
       {card.amount != null && (
-        <div className="text-sm font-bold text-foreground shrink-0">${card.amount.toLocaleString()}</div>
+        <div className="text-[13.5px] font-bold text-foreground shrink-0 tabular-nums">${card.amount.toLocaleString()}</div>
       )}
-      <ChevronDown className="w-4 h-4 text-muted-foreground rotate-[-90deg] shrink-0 mt-0.5" />
+      <ChevronDown className="w-4 h-4 text-muted-foreground/50 rotate-[-90deg] shrink-0 mt-0.5" />
     </div>
   );
 }
 
-// ─── Morning Brief (Desktop) ──────────────────────────────────────────────────
+// ─── Desktop Morning Brief ────────────────────────────────────────────────────
 
 function DesktopMorningBrief() {
   const { data: today } = useGetToday({ query: { queryKey: getGetTodayQueryKey() } });
@@ -215,23 +235,24 @@ function DesktopMorningBrief() {
   const mtd = money?.mtd ?? 0;
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-secondary to-background rounded-[20px] p-6 mb-3 border border-border shadow-lg">
-      {/* Glow */}
-      <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-primary/5 blur-[60px] pointer-events-none" />
+    <div className="relative overflow-hidden bg-gradient-to-br from-secondary/80 to-background rounded-[20px] p-6 mb-4 border border-border shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
+      {/* Ambient glow */}
+      <div className="absolute -top-12 -right-12 w-52 h-52 rounded-full bg-primary/5 blur-[72px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-40 h-28 rounded-full bg-[#3B82F6]/3 blur-[56px] pointer-events-none" />
 
       <div className="relative z-10">
         <div className="flex items-center gap-2 mb-4">
-          <HaloRing className="w-5 h-5 text-primary" />
-          <span className="text-xs font-bold tracking-[0.2em] uppercase text-primary/70">
+          <HaloRing className="w-[18px] h-[18px] text-primary" />
+          <span className="text-[10px] font-bold tracking-[0.22em] uppercase text-primary/65">
             {h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening"} Brief
           </span>
-          <span className="ml-auto text-xs text-muted-foreground">
+          <span className="ml-auto text-[11px] text-muted-foreground/70 tabular-nums">
             {new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
           </span>
         </div>
 
-        <div className="text-[26px] font-bold text-foreground leading-tight mb-2">{greeting}</div>
-        <p className="text-[14px] text-muted-foreground leading-relaxed mb-5">
+        <div className="text-[26px] font-bold text-foreground leading-tight tracking-[-0.01em] mb-2">{greeting}</div>
+        <p className="text-[14px] text-muted-foreground leading-relaxed mb-5 font-light">
           {needsYou === 0
             ? "All operations running smoothly. Nothing needs your attention right now."
             : `${healthPct}% of today's operation requires no action. I need ${needsYou} decision${needsYou !== 1 ? "s" : ""} from you.`}
@@ -240,14 +261,14 @@ function DesktopMorningBrief() {
         {/* KPIs */}
         <div className="grid grid-cols-4 gap-3">
           {[
-            { label: "MTD Revenue", value: mtd >= 1000 ? `$${(mtd / 1000).toFixed(1)}k` : `$${mtd}`, color: "text-primary" },
-            { label: "Active Jobs", value: String(activeJobs.length), color: "text-foreground" },
-            { label: "Crew Available", value: String(crews?.length ?? 0), color: "text-foreground" },
-            { label: "Decisions", value: String(needsYou), color: needsYou > 0 ? "text-destructive" : "text-[#22C55E]" },
+            { label: "MTD Revenue",     value: mtd >= 1000 ? `$${(mtd / 1000).toFixed(1)}k` : `$${mtd}`,  color: "text-primary" },
+            { label: "Active Jobs",     value: String(activeJobs.length),                                   color: "text-foreground" },
+            { label: "Crew Available",  value: String(crews?.length ?? 0),                                  color: "text-foreground" },
+            { label: "Decisions",       value: String(needsYou),                                            color: needsYou > 0 ? "text-destructive" : "text-[#22C55E]" },
           ].map(kpi => (
-            <div key={kpi.label} className="bg-background/50 rounded-[12px] px-4 py-3 border border-border/50">
-              <div className="text-[10px] font-bold tracking-[0.12em] uppercase text-muted-foreground mb-1">{kpi.label}</div>
-              <div className={`text-[22px] font-bold leading-none ${kpi.color}`}>{kpi.value}</div>
+            <div key={kpi.label} className="bg-background/60 rounded-[12px] px-4 py-3.5 border border-border/50">
+              <div className="text-[9.5px] font-bold tracking-[0.15em] uppercase text-muted-foreground/70 mb-1.5">{kpi.label}</div>
+              <div className={`text-[22px] font-bold leading-none tabular-nums ${kpi.color}`}>{kpi.value}</div>
             </div>
           ))}
         </div>
@@ -268,9 +289,14 @@ export default function HaloCommand() {
   const { data: health } = useFalkonHealth();
   const parseVoice = useParseVoice();
 
-  // ── Thread state ──────────────────────────────────────────────────────────
-  const [messages, setMessages] = useState<TMsg[]>([{ id: "brief-0", kind: "morning-brief" }]);
-  const initialized = useRef(false);
+  // ── Thread state (initialized from module-level persistence) ───────────────
+  const [messages, setMessages] = useState<TMsg[]>(() =>
+    _savedThread ?? [{ id: "brief-0", kind: "morning-brief" }]
+  );
+  const initialized = useRef(_threadReady);
+
+  // Sync to module-level persistence on every change
+  useEffect(() => { _savedThread = messages; }, [messages]);
 
   // ── Input + overlay state ─────────────────────────────────────────────────
   const [input, setInput] = useState("");
@@ -281,20 +307,22 @@ export default function HaloCommand() {
   // ── Scroll ────────────────────────────────────────────────────────────────
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollToBottom = useCallback(() => {
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }, []);
 
   // ── Ambient ───────────────────────────────────────────────────────────────
   const [ambientIdx, setAmbientIdx] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setAmbientIdx(i => (i + 1) % AMBIENT.length), 6000);
+    const t = setInterval(() => setAmbientIdx(i => (i + 1) % AMBIENT.length), 7000);
     return () => clearInterval(t);
   }, []);
 
-  // ── Initialize thread ─────────────────────────────────────────────────────
+  // ── Initialize thread (once per session, not on remount) ──────────────────
   useEffect(() => {
     if (!today || initialized.current) return;
     initialized.current = true;
+    _threadReady = true;
+
     const nowCards = today.feed?.filter((c: FeedCardType) => c.tier === "now") ?? [];
     const todayCards = today.feed?.filter((c: FeedCardType) => c.tier === "today") ?? [];
     const weekCards = today.feed?.filter((c: FeedCardType) => c.tier === "week") ?? [];
@@ -329,7 +357,7 @@ export default function HaloCommand() {
     const intent = detectIntent(text);
 
     if (intent.type === "lens") {
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 380));
       setMessages(prev => prev.map(m =>
         m.id === thinkId ? { id: thinkId, kind: "lens", lensType: intent.lens, query: text } : m
       ));
@@ -345,7 +373,10 @@ export default function HaloCommand() {
         ));
       } else {
         setMessages(prev => prev.map(m =>
-          m.id === thinkId ? { id: thinkId, kind: "halo-response", text: "I couldn't identify a specific action. Try 'show invoices over scope' or 'schedule job J-2001 for Thursday'." } : m
+          m.id === thinkId ? {
+            id: thinkId, kind: "halo-response",
+            text: "I couldn't identify a specific action. Try 'show invoices over scope' or 'schedule job J-2001 for Thursday'.",
+          } : m
         ));
       }
     } catch {
@@ -363,13 +394,14 @@ export default function HaloCommand() {
   const apCount = (autopilot ?? []).filter(a => a.status === "pending").length;
   const totalNeeds = nowCount + apCount;
 
+  // ── Render message ────────────────────────────────────────────────────────
   const renderMessage = (msg: TMsg) => {
     switch (msg.kind) {
-      case "morning-brief": return <DesktopMorningBrief key={msg.id} />;
+      case "morning-brief": return <DesktopMorningBrief />;
+
       case "decision-packet":
         return (
           <DecisionPacket
-            key={msg.id}
             card={msg.card}
             onAskHalo={ctx => setInput(`Tell me more about: ${ctx}`)}
             onResolved={() => {
@@ -378,10 +410,10 @@ export default function HaloCommand() {
             }}
           />
         );
+
       case "autopilot-packet":
         return (
           <DecisionPacket
-            key={msg.id}
             autopilot={msg.action}
             onAskHalo={ctx => setInput(`Tell me more about: ${ctx}`)}
             onResolved={() => {
@@ -390,15 +422,18 @@ export default function HaloCommand() {
             }}
           />
         );
-      case "system-alert": return <SystemAlertCard key={msg.id} card={msg.card} tier={msg.tier} />;
-      case "user-msg": return <UserBubble key={msg.id} text={msg.text} />;
-      case "thinking": return <ThinkingBubble key={msg.id} />;
-      case "halo-response": return <HaloBubble key={msg.id} text={msg.text} />;
-      case "lens": return <LensCard key={msg.id} lensType={msg.lensType} query={msg.query} onDeepLink={navigate} />;
+
+      case "system-alert": return <SystemAlertCard card={msg.card} tier={msg.tier} />;
+      case "user-msg": return <UserBubble text={msg.text} />;
+      case "thinking": return <ThinkingBubble />;
+      case "halo-response": return <HaloBubble text={msg.text} />;
+
+      case "lens":
+        return <LensCard lensType={msg.lensType} query={msg.query} onDeepLink={navigate} />;
+
       case "confirmation":
         return (
           <ConfirmCard
-            key={msg.id}
             logId={msg.logId}
             actions={msg.actions}
             onConfirmed={text => {
@@ -410,20 +445,23 @@ export default function HaloCommand() {
             }}
           />
         );
+
       case "success":
         return (
-          <div key={msg.id} className="flex items-center gap-2 bg-[#22C55E]/10 border border-[#22C55E]/20 rounded-[12px] px-4 py-3 mb-2">
-            <CheckCircle2 className="w-4 h-4 text-[#22C55E]" />
-            <span className="text-sm text-[#22C55E]/90">{msg.text}</span>
+          <div className="flex items-center gap-2.5 bg-[#22C55E]/8 border border-[#22C55E]/18 rounded-[12px] px-4 py-3 mb-2.5">
+            <CheckCircle2 className="w-[15px] h-[15px] text-[#22C55E] shrink-0" />
+            <span className="text-[13.5px] text-[#22C55E]/85">{msg.text}</span>
           </div>
         );
+
       case "error":
         return (
-          <div key={msg.id} className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-[12px] px-4 py-3 mb-2">
-            <AlertCircle className="w-4 h-4 text-destructive" />
-            <span className="text-sm text-destructive/90">{msg.text}</span>
+          <div className="flex items-center gap-2.5 bg-destructive/8 border border-destructive/18 rounded-[12px] px-4 py-3 mb-2.5">
+            <AlertCircle className="w-[15px] h-[15px] text-destructive shrink-0" />
+            <span className="text-[13.5px] text-destructive/85">{msg.text}</span>
           </div>
         );
+
       default: return null;
     }
   };
@@ -431,73 +469,92 @@ export default function HaloCommand() {
   return (
     <>
       <style>{`
-        @keyframes bounce {
+        @keyframes haloBounce {
           0%, 60%, 100% { transform: translateY(0); }
-          30% { transform: translateY(-6px); }
+          30% { transform: translateY(-5px); }
+        }
+        @keyframes haloMsgIn {
+          from { opacity: 0; transform: translateY(7px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes haloAmbient {
+          0%, 100% { opacity: 0.18; transform: scaleY(0.55); }
+          50%      { opacity: 0.5;  transform: scaleY(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .halo-msg-enter { animation: none !important; }
         }
       `}</style>
 
       <div className="flex flex-col h-full bg-background" data-tour="nav-today">
-        {/* ── Top status bar ──────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 px-6 py-3.5 border-b border-border shrink-0">
-          <div>
-            <div className="text-[11px] font-bold tracking-[0.2em] uppercase text-muted-foreground">
+        {/* ── Status bar ──────────────────────────────────────────────── */}
+        <div className="flex items-center gap-3 px-6 py-3.5 border-b border-border/60 shrink-0">
+          <div className="flex items-center gap-2">
+            <HaloRing className="w-[14px] h-[14px] text-primary" />
+            <div className="text-[10.5px] font-bold tracking-[0.22em] uppercase text-muted-foreground/70">
               HALO Command
             </div>
           </div>
           <div className="flex-1" />
 
-          {/* Attention indicator */}
+          {/* Attention */}
           {totalNeeds > 0 ? (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/8 border border-destructive/18">
               <div className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
-              <span className="text-xs font-bold text-destructive/90">{totalNeeds} need{totalNeeds === 1 ? "s" : ""} you</span>
+              <span className="text-[10.5px] font-bold text-destructive/85">{totalNeeds} need{totalNeeds === 1 ? "s" : ""} you</span>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#22C55E]/10 border border-[#22C55E]/20">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E]" />
-              <span className="text-xs font-bold text-[#22C55E]/90">All clear</span>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#22C55E]/8 border border-[#22C55E]/18">
+              <CheckCircle2 className="w-3 h-3 text-[#22C55E]" />
+              <span className="text-[10.5px] font-bold text-[#22C55E]/80">All clear</span>
             </div>
           )}
 
           {/* Falkon mode */}
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold tracking-[0.12em] ${modeStyle.badge}`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${modeStyle.dot}`} />
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9.5px] font-bold tracking-[0.14em] ${modeStyle.badge}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${modeStyle.dot} ${modeStyle.pulse ? "animate-pulse" : ""}`} />
             {falkonMode}
           </div>
 
-          {/* Ambient */}
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            <span className="hidden lg:block">{AMBIENT[ambientIdx]}</span>
+          {/* Ambient ticker */}
+          <div className="flex items-center gap-2 text-[11.5px] text-muted-foreground/55 hidden lg:flex">
+            <div className="flex gap-[3px]">
+              {[0, 1, 2].map(i => (
+                <div
+                  key={i}
+                  className="w-[3px] h-[10px] rounded-full bg-primary"
+                  style={{ animation: `haloAmbient 2.2s ease-in-out ${i * 0.35}s infinite` }}
+                />
+              ))}
+            </div>
+            <span>{AMBIENT[ambientIdx]}</span>
           </div>
         </div>
 
         {/* ── Thread ──────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 scroll-smooth">
-          {messages.map(renderMessage)}
+        <div className="flex-1 overflow-y-auto px-6 py-5 overscroll-none">
+          {messages.map(msg => (
+            <div
+              key={msg.id}
+              className="halo-msg-enter"
+              style={{ animation: "haloMsgIn 0.22s ease-out both" }}
+            >
+              {renderMessage(msg)}
+            </div>
+          ))}
 
           {/* Suggested prompts */}
           {messages.length <= 1 && (
-            <div className="mt-6">
-              <div className="text-[10px] font-bold tracking-[0.18em] uppercase text-muted-foreground mb-4">
-                Suggested
+            <div className="mt-6 mb-2">
+              <div className="text-[9.5px] font-bold tracking-[0.2em] uppercase text-muted-foreground/55 mb-4">
+                Ask HALO anything
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {[
-                  "Show invoices over scope",
-                  "Which crews are on site right now?",
-                  "Show turns due this week",
-                  "Brief me across the portfolio",
-                  "Who is missing after photos?",
-                  "Show vendor compliance issues",
-                  "Show payment-ready invoices",
-                  "Find margin leakage",
-                ].map(p => (
+                {SUGGESTED.map(p => (
                   <button
                     key={p}
                     onClick={() => setInput(p)}
-                    className="text-left px-4 py-3 rounded-[12px] bg-card border border-border text-sm text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/30 transition-all active:scale-[0.98]"
+                    className="text-left px-4 py-3 rounded-[12px] bg-card border border-border text-[13.5px] text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/25 transition-all active:scale-[0.98] leading-snug"
                   >
                     {p}
                   </button>
@@ -508,36 +565,36 @@ export default function HaloCommand() {
           <div ref={bottomRef} className="h-4" />
         </div>
 
-        {/* ── Command input ────────────────────────────────────────────── */}
-        <div className="px-6 py-4 border-t border-border bg-background shrink-0">
+        {/* ── Command composer ──────────────────────────────────────────── */}
+        <div className="px-6 py-4 border-t border-border/60 bg-background shrink-0">
           <div className="flex items-center gap-3">
             {/* Mic */}
             <button
               onClick={() => { setVoiceInitial(undefined); setVoiceOpen(true); }}
-              className="w-10 h-10 rounded-full bg-primary/10 border border-primary/25 grid place-items-center text-primary hover:bg-primary/20 transition-all active:scale-[0.93] shrink-0"
+              className="w-10 h-10 rounded-full bg-primary/8 border border-primary/22 grid place-items-center text-primary hover:bg-primary/15 transition-all active:scale-[0.93] shrink-0"
             >
-              <Mic className="w-4 h-4" strokeWidth={2} />
+              <Mic className="w-[15px] h-[15px]" strokeWidth={2} />
             </button>
 
             {/* Input */}
             <div className="relative flex-1">
-              <Sparkles className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-primary/50 pointer-events-none" />
+              <Sparkles className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[13px] h-[13px] text-primary/40 pointer-events-none" />
               <input
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-                placeholder="Ask HALO anything — state the outcome you want…"
-                className="w-full h-10 rounded-full bg-accent/30 border border-border pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15 transition-all"
+                placeholder="State an outcome or ask HALO anything…"
+                className="w-full h-10 rounded-full bg-accent/25 border border-border pl-10 pr-4 text-[13.5px] text-foreground placeholder:text-muted-foreground/55 focus:outline-none focus:border-primary/35 focus:ring-1 focus:ring-primary/12 focus:bg-accent/35 transition-all"
               />
             </div>
 
             {/* Walk */}
             <button
               onClick={() => setWalkOpen(true)}
-              className="w-10 h-10 rounded-full bg-accent/30 border border-border grid place-items-center text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/8 transition-all active:scale-[0.93] shrink-0"
+              className="w-10 h-10 rounded-full bg-accent/25 border border-border grid place-items-center text-muted-foreground hover:text-primary hover:border-primary/28 hover:bg-primary/7 transition-all active:scale-[0.93] shrink-0"
               title="Walk Mode"
             >
-              <Footprints className="w-4 h-4" strokeWidth={2} />
+              <Footprints className="w-[15px] h-[15px]" strokeWidth={2} />
             </button>
 
             {/* Send */}
@@ -545,9 +602,9 @@ export default function HaloCommand() {
               <button
                 onClick={handleSubmit}
                 disabled={parseVoice.isPending}
-                className="w-10 h-10 rounded-full bg-primary grid place-items-center text-primary-foreground shadow-[0_4px_14px_rgba(180,255,68,0.3)] hover:scale-105 active:scale-95 transition-transform disabled:opacity-60 shrink-0"
+                className="w-10 h-10 rounded-full bg-primary grid place-items-center text-primary-foreground shadow-[0_4px_14px_rgba(180,255,68,0.28)] hover:scale-105 active:scale-[0.94] transition-transform disabled:opacity-55 shrink-0"
               >
-                {parseVoice.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" strokeWidth={2.5} />}
+                {parseVoice.isPending ? <Loader2 className="w-[14px] h-[14px] animate-spin" /> : <Send className="w-[14px] h-[14px]" strokeWidth={2.5} />}
               </button>
             )}
           </div>
@@ -570,14 +627,14 @@ export default function HaloCommand() {
                   ]);
                   scrollToBottom();
                 }}
-                className="flex-shrink-0 px-3 py-1.5 rounded-full bg-accent/40 border border-border text-[11px] font-bold text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-all active:scale-95"
+                className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-accent/35 border border-border text-[10.5px] font-bold text-muted-foreground hover:text-foreground hover:bg-accent/55 transition-all active:scale-[0.95]"
               >
                 {chip.label}
               </button>
             ))}
             <button
               onClick={() => navigate("/today")}
-              className="flex-shrink-0 px-3 py-1.5 rounded-full bg-accent/40 border border-border text-[11px] font-bold text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-all active:scale-95 flex items-center gap-1"
+              className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-accent/35 border border-border text-[10.5px] font-bold text-muted-foreground hover:text-foreground hover:bg-accent/55 transition-all active:scale-[0.95] flex items-center gap-1"
             >
               <Zap className="w-3 h-3" />
               Legacy View
@@ -589,7 +646,7 @@ export default function HaloCommand() {
       {/* ── Overlays ─────────────────────────────────────────────────── */}
       <VoiceCaptureDialog
         open={voiceOpen}
-        onOpenChange={setVoiceOpen}
+        onOpenChange={o => { setVoiceOpen(o); if (!o) setVoiceInitial(undefined); }}
         initialText={voiceInitial}
       />
 
