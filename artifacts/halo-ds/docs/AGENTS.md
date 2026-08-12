@@ -9,6 +9,14 @@ on it and import its theme and components directly.
 
 - `tokens.json` — the single source of truth (DTCG format): colors (full light
   and dark sets), typography, spacing, and radius.
+  - **Light:** `#F4F7F9` paper bg · `#07101E` ink text · `#B4FF44` lime primary · `#13223A` navy secondary · `#07101E` dark sidebar
+  - **Dark:** `#041029` deep navy bg · `#B4FF44` lime primary (constant) · navy card/muted layers
+  - Fonts: Plus Jakarta Sans (sans/UI) · Outfit (display/serif) · system mono
+  - Radius base: `0.875rem` (14px — matches HALO `--radius`)
+- `docs/references/component-inventory.md` — full component inventory index. Read before modifying any component.
+- `docs/references/components/<component-slug>.md` — per-family build reference for pilot components (button, badge, card, input, avatar). Read the relevant file before editing that component.
+- `docs/references/logos/logo.png` — retained HALO mark (copied from `artifacts/halo/src/assets/halo-logo.png`).
+- `public/logo.png` — same mark, served for the preview header at `${BASE_URL}logo.png`.
 - `scripts/build-tokens.mjs` — generates the outputs below from `tokens.json`.
 - `src/index.css` — GENERATED token theme (web), exported as `./styles.css`.
 - `src/generated/tokens.tsx` — GENERATED hex token object, the package's `.` and
