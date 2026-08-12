@@ -1,6 +1,6 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Link } from "wouter";
-import { CalendarDays, GitBranch, Package, ShieldCheck, FileUp, BookOpen, ChevronRight, ClipboardList, Settings, Feather, Presentation, ExternalLink, Loader2 } from "lucide-react";
+import { CalendarDays, GitBranch, Package, ShieldCheck, FileUp, BookOpen, ChevronRight, ClipboardList, Settings, Feather, Presentation, ExternalLink, Loader2, Network } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -127,6 +127,12 @@ const groups = [
       { href: "/catalog", label: "Price Book", sub: "Master list of services & prices", Icon: BookOpen },
       { href: "/supply", label: "Supply", sub: "Inventory & purchase orders", Icon: Package },
       { href: "/vendors", label: "Vendors", sub: "COI compliance", Icon: ShieldCheck },
+    ],
+  },
+  {
+    label: "Network",
+    items: [
+      { href: "/falkon-network", label: "Falkon Network", sub: "Connected businesses, requests & phases", Icon: Network },
     ],
   },
   {

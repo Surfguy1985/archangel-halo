@@ -9,6 +9,9 @@ import { MoreMenuSheet } from "./MoreMenuSheet";
 import { ArrivalDetection } from "./ArrivalSheet";
 import { QuickJobSheet } from "./QuickJobSheet";
 import { FalkonBadge } from "./FalkonBadge";
+import { FalkonNetworkPulse } from "./FalkonNetworkPulse";
+import { AskFalkonSheet } from "./AskFalkonSheet";
+import { isFalkonFormationIntent } from "@/lib/falkonNetwork";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -21,10 +24,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [cmdText, setCmdText] = useState("");
   const [cmdInitial, setCmdInitial] = useState<string | undefined>(undefined);
+  const [falkonOpen, setFalkonOpen] = useState(false);
+  const [falkonInitialText, setFalkonInitialText] = useState("");
 
   const submitCommand = () => {
     const text = cmdText.trim();
     if (!text) return;
+
+    // JARVIS formation intent → route to Falkon Ask sheet instead of voice
+    if (isFalkonFormationIntent(text)) {
+      setFalkonInitialText(text);
+      setCmdText("");
+      setFalkonOpen(true);
+      return;
+    }
+
     setCmdInitial(text);
     setCmdText("");
     setVoiceOpen(true);
@@ -40,14 +54,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* App Bar */}
         <header className="flex items-center gap-[10px] px-[18px] pt-[16px] pb-[12px] shrink-0 border-b border-[var(--hairline)]">
           <img src={haloLogo} alt="HALO — Archangel Operations" className="h-[30px] w-auto shrink-0" style={{ filter: 'brightness(0)' }} />
-          <Link href="/calendar">
-            <button
-              className={`ml-auto w-[40px] h-[40px] rounded-full grid place-items-center bg-card border border-[var(--hairline)] ${location.startsWith("/calendar") ? "text-[var(--gold)]" : ""}`}
-              aria-label="Calendar"
-            >
-              <CalendarDays className="w-[19px] h-[19px]" strokeWidth={1.9} />
-            </button>
-          </Link>
+          <div className="ml-auto flex items-center gap-[8px]">
+            <FalkonNetworkPulse />
+            <Link href="/calendar">
+              <button
+                className={`w-[40px] h-[40px] rounded-full grid place-items-center bg-card border border-[var(--hairline)] ${location.startsWith("/calendar") ? "text-[var(--gold)]" : ""}`}
+                aria-label="Calendar"
+              >
+                <CalendarDays className="w-[19px] h-[19px]" strokeWidth={1.9} />
+              </button>
+            </Link>
+          </div>
           <button
             className="w-[40px] h-[40px] rounded-full grid place-items-center bg-card border border-[var(--hairline)] hover:bg-[var(--hairline)] transition-colors"
             onClick={() => setMoreOpen(true)}
@@ -168,6 +185,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <NotificationsDrawer open={notificationsOpen} onOpenChange={setNotificationsOpen} />
         <MoreMenuSheet open={moreOpen} onOpenChange={setMoreOpen} />
         <ArrivalDetection />
+        <AskFalkonSheet
+          open={falkonOpen}
+          onOpenChange={(o) => {
+            setFalkonOpen(o);
+            if (!o) setFalkonInitialText("");
+          }}
+          initialText={falkonInitialText}
+        />
       </div>
     </div>
   );

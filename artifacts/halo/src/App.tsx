@@ -31,6 +31,7 @@ import JobBoard from "./pages/JobBoard";
 import Settings from "./pages/Settings";
 import Catalog from "./pages/Catalog";
 import Wings from "./pages/Wings";
+import FalkonNetwork from "./pages/FalkonNetwork";
 import NotFound from "@/pages/not-found";
 import { OfficeGate } from "./components/OfficeGate";
 
@@ -70,6 +71,7 @@ function AdminRouter() {
         <Route path="/jobboard" component={JobBoard} />
         <Route path="/catalog" component={Catalog} />
         <Route path="/wings" component={Wings} />
+        <Route path="/falkon-network" component={FalkonNetwork} />
         <Route path="/supply" component={Supply} />
         <Route path="/vendors" component={Vendors} />
         <Route path="/import" component={Import} />
