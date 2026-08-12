@@ -1,0 +1,19 @@
+kind = "design-system"
+previewPath = "/halo-ds/"
+title = "HALO Design System"
+description = "The visual language, component library, and token set for HALO — Archangel Operations. Dark navy + lime brand palette. Used by the office app, crew portal, client dashboard, and walk apps."
+version = "1.0.0"
+id = "artifacts/halo-ds"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/halo-ds/" ]
+localPort = 25165
+
+[services.development]
+run = "pnpm --filter @workspace/halo-ds run dev"
+
+[services.env]
+PORT = "25165"
+BASE_PATH = "/halo-ds/"
