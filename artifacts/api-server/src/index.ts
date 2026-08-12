@@ -2,6 +2,8 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startScheduler } from "./lib/scheduler";
 import { ensureChartOfAccounts } from "./lib/ledger";
+import { ensureFalkonSchema } from "./lib/ensureFalkonSchema";
+import { ensureFalkonIdentity } from "./lib/falkonIdentity";
 
 const rawPort = process.env["PORT"];
 
@@ -28,4 +30,11 @@ app.listen(port, (err) => {
   ensureChartOfAccounts().catch((err) =>
     logger.error({ err }, "Failed to seed chart of accounts"),
   );
+  // Falkon: schema first, then identity (identity table must exist before we
+  // generate or load the keypair)
+  ensureFalkonSchema()
+    .then(() => ensureFalkonIdentity())
+    .catch((err) =>
+      logger.error({ err }, "Failed to bootstrap Falkon schema or identity"),
+    );
 });

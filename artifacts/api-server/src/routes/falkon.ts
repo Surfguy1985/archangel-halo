@@ -58,16 +58,20 @@ async function getConnection() {
   return conn ?? null;
 }
 
-/** Redact the secret so it never reaches the browser. */
+/** Redact the secret fields so they never reach the browser. */
 function redactConn(conn: typeof falkonConnectionsTable.$inferSelect) {
   return {
     id: conn.id,
     falkonOrgId: conn.falkonOrgId,
     webhookUrl: conn.webhookUrl,
     mode: conn.mode,
+    // status is a non-secret field the UI reads to display pending/verified/etc.
+    status: conn.status,
     capabilities: conn.capabilities,
     connectedAt: conn.connectedAt,
     verifiedAt: conn.verifiedAt,
+    trustDocVerifiedAt: conn.trustDocVerifiedAt,
+    capabilitiesRegisteredAt: conn.capabilitiesRegisteredAt,
     lastPingAt: conn.lastPingAt,
     updatedAt: conn.updatedAt,
   };
@@ -80,10 +84,10 @@ router.get("/falkon/connection", async (_req, res) => {
   try {
     const conn = await getConnection();
     if (!conn) return res.json({ connected: false });
-    res.json({ connected: true, connection: redactConn(conn) });
+    return res.json({ connected: true, connection: redactConn(conn) });
   } catch (err) {
     logger.error({ err }, "GET /falkon/connection failed");
-    res.status(500).json({ error: "Internal error" });
+    return res.status(500).json({ error: "Internal error" });
   }
 });
 
@@ -104,36 +108,65 @@ router.post("/falkon/connect", async (req, res) => {
     const apiKeyHash = hashKey(String(partnerKey));
     const now = new Date();
 
-    // Upsert — one connection row per HALO deployment
+    // Upsert — one connection row per HALO deployment.
+    // New connections start in SHADOW mode (all writes no-ops, safe by default).
+    // Reconnecting FULLY resets verification state — all five steps must be
+    // re-run against the new credentials. The cached remote identity (Falkon's
+    // public key) is also wiped so the fail-closed signature check cannot
+    // accept callbacks using a stale key from the previous connection.
     const existing = await getConnection();
     if (existing) {
+      // Full reset: clear every partner/verification/identity field so a
+      // reconnect cannot inherit any state from the previous connection.
       await db
         .update(falkonConnectionsTable)
         .set({
           apiKeyHash,
           webhookUrl: String(webhookUrl),
           webhookSecret: String(webhookSecret),
-          mode: "OFF",
+          // Reset all partner identity fields
+          falkonOrgId: null,
+          partnerClientId: null,
+          partnerTenant: null,
+          capabilities: [],
+          // Reset mode to SHADOW and clear all verification state
+          mode: "SHADOW",
+          status: "pending",
           connectedAt: now,
           verifiedAt: null,
+          lastPingAt: null,
+          verificationSteps: null,
+          trustDocVerifiedAt: null,
+          capabilitiesRegisteredAt: null,
           updatedAt: now,
         })
         .where(eq(falkonConnectionsTable.id, existing.id));
+      // Wipe the cached remote identity key so verification cannot use a stale key.
+      await db.execute(sql`DELETE FROM falkon_remote_identity WHERE TRUE`);
+      // Cancel any pending outbox events from the previous connection —
+      // delivering them to a new partner would be incorrect.
+      // falkon_events has no updated_at column, so we update only status.
+      await db.execute(
+        sql`UPDATE falkon_events SET status = 'cancelled'
+            WHERE status IN ('pending', 'failed')`,
+      );
     } else {
+      // Brand-new connections start in SHADOW + pending — same as reconnect.
       await db.insert(falkonConnectionsTable).values({
         apiKeyHash,
         webhookUrl: String(webhookUrl),
         webhookSecret: String(webhookSecret),
-        mode: "OFF",
+        mode: "SHADOW",
+        status: "pending",
         connectedAt: now,
       });
     }
 
     const conn = await getConnection();
-    res.json({ ok: true, connection: redactConn(conn!) });
+    return res.json({ ok: true, connection: redactConn(conn!) });
   } catch (err) {
     logger.error({ err }, "POST /falkon/connect failed");
-    res.status(500).json({ error: "Internal error" });
+    return res.status(500).json({ error: "Internal error" });
   }
 });
 
@@ -177,18 +210,24 @@ router.post("/falkon/verify", async (_req, res) => {
       return res.json({ ok: true, connection: redactConn(updated!) });
     }
 
-    res.status(502).json({
+    return res.status(502).json({
       error: "Falkon webhook did not respond successfully — check webhookUrl and try again",
     });
   } catch (err) {
     logger.error({ err }, "POST /falkon/verify failed");
-    res.status(500).json({ error: "Internal error" });
+    return res.status(500).json({ error: "Internal error" });
   }
 });
 
 // ---------------------------------------------------------------------------
 // PATCH /falkon/connection
-// Body: { mode?: string; webhookUrl?: string }
+// Body: { webhookUrl?: string }
+//
+// NOTE: Mode promotion is intentionally NOT allowed here.
+// Use POST /falkon/admin/eligibility/promote which enforces the gated ladder
+// (SHADOW → ASSISTED → LIVE, status=verified required, Ed25519 identity active).
+// Reconnecting (new partnerKey/webhookUrl) resets status to 'pending' and clears
+// verification so the five-step flow must be re-run.
 // ---------------------------------------------------------------------------
 router.patch("/falkon/connection", async (req, res) => {
   try {
@@ -196,25 +235,25 @@ router.patch("/falkon/connection", async (req, res) => {
     if (!conn) return res.status(404).json({ error: "No Falkon connection found" });
 
     const { mode, webhookUrl } = req.body ?? {};
-    const VALID_MODES = ["OFF", "SHADOW", "ASSISTED", "LIVE"];
 
-    if (mode !== undefined && !VALID_MODES.includes(mode)) {
-      return res.status(400).json({ error: `mode must be one of: ${VALID_MODES.join(", ")}` });
-    }
-    if (mode === "ASSISTED" || mode === "LIVE") {
-      if (!conn.verifiedAt) {
-        return res.status(400).json({ error: "Webhook must be verified before enabling ASSISTED or LIVE mode" });
-      }
+    // Mode promotion via PATCH is explicitly forbidden — use /falkon/admin/eligibility/promote
+    if (mode !== undefined) {
+      return res.status(400).json({
+        error: "Mode promotion is not allowed via this endpoint. Use POST /api/falkon/admin/eligibility/promote which enforces the gated SHADOW → ASSISTED → LIVE ladder.",
+      });
     }
 
     const updates: Record<string, unknown> = { updatedAt: new Date() };
-    if (mode !== undefined) updates.mode = mode;
     if (webhookUrl !== undefined) {
       if (!/^https:\/\//i.test(webhookUrl)) {
         return res.status(400).json({ error: "webhookUrl must be HTTPS" });
       }
       updates.webhookUrl = webhookUrl;
-      updates.verifiedAt = null; // re-verify after URL change
+      // Changing the webhook URL invalidates verification — reset to pending and
+      // clear steps so the five-step flow must be re-run against the new URL.
+      updates.verifiedAt = null;
+      updates.status = "pending";
+      updates.verificationSteps = null;
     }
 
     await db
@@ -223,36 +262,39 @@ router.patch("/falkon/connection", async (req, res) => {
       .where(eq(falkonConnectionsTable.id, conn.id));
 
     const updated = await getConnection();
-    res.json({ ok: true, connection: redactConn(updated!) });
+    return res.json({ ok: true, connection: redactConn(updated!) });
   } catch (err) {
     logger.error({ err }, "PATCH /falkon/connection failed");
-    res.status(500).json({ error: "Internal error" });
+    return res.status(500).json({ error: "Internal error" });
   }
 });
 
 // ---------------------------------------------------------------------------
-// DELETE /falkon/connection — disconnect (mode → OFF, wipe secrets)
+// DELETE /falkon/connection — true disconnect: deletes the connection row
+// and cancels all pending outbox events.
 // ---------------------------------------------------------------------------
 router.delete("/falkon/connection", async (_req, res) => {
   try {
     const conn = await getConnection();
     if (!conn) return res.status(404).json({ error: "No connection to disconnect" });
 
-    await db
-      .update(falkonConnectionsTable)
-      .set({
-        mode: "OFF",
-        apiKeyHash: null,
-        webhookSecret: null,
-        verifiedAt: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(falkonConnectionsTable.id, conn.id));
+    // Cancel all pending outbox events before deleting the row so delivery
+    // cannot continue after reconnect to a different partner.
+    // falkon_events has no updated_at column; update only status.
+    await db.execute(
+      sql`UPDATE falkon_events SET status = 'cancelled'
+          WHERE status IN ('pending', 'failed')`,
+    );
+    // Delete the singleton row — GET /falkon/connection will return
+    // { connected: false } and the UI will show the Connect form.
+    await db.delete(falkonConnectionsTable).where(eq(falkonConnectionsTable.id, conn.id));
+    // Wipe the cached remote identity key.
+    await db.execute(sql`DELETE FROM falkon_remote_identity WHERE TRUE`);
 
-    res.json({ ok: true, message: "Falkon integration disconnected. No events will be emitted." });
+    return res.json({ ok: true, message: "Falkon integration disconnected. No events will be emitted." });
   } catch (err) {
     logger.error({ err }, "DELETE /falkon/connection failed");
-    res.status(500).json({ error: "Internal error" });
+    return res.status(500).json({ error: "Internal error" });
   }
 });
 
@@ -498,10 +540,10 @@ router.post("/falkon/inbound/:eventType", async (req, res) => {
     });
 
     // Acknowledge immediately — heavy processing would be async
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (err) {
     logger.error({ err }, "POST /falkon/inbound/:eventType failed");
-    res.status(500).json({ error: "Internal error" });
+    return res.status(500).json({ error: "Internal error" });
   }
 });
 
@@ -549,7 +591,7 @@ router.get("/falkon/jobs/:id/evidence", async (req, res) => {
         id: crewPhotosTable.id,
         phase: crewPhotosTable.phase,
         storagePath: crewPhotosTable.storagePath,
-        notes: crewPhotosTable.notes,
+        note: crewPhotosTable.note,
         createdAt: crewPhotosTable.createdAt,
       })
       .from(crewPhotosTable)
@@ -607,7 +649,7 @@ router.get("/falkon/jobs/:id/evidence", async (req, res) => {
       .orderBy(desc(activitiesTable.createdAt))
       .limit(1);
 
-    res.json({
+    return res.json({
       job,
       evidence: {
         photos,
@@ -623,7 +665,7 @@ router.get("/falkon/jobs/:id/evidence", async (req, res) => {
     });
   } catch (err) {
     logger.error({ err }, "GET /falkon/jobs/:id/evidence failed");
-    res.status(500).json({ error: "Internal error" });
+    return res.status(500).json({ error: "Internal error" });
   }
 });
 

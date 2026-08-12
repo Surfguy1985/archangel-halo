@@ -168,6 +168,9 @@ const PUBLIC_PREFIXES = [
   // verified in routes/falkon.ts before any processing.
   "/falkon/inbound/",
   "/falkon/ping",
+  // Falkon Phase 1: Ed25519-verified inbound webhook + trust document
+  "/falkon/webhook",
+  "/.well-known/",
 ];
 
 // Walk app routes are gated by their OWN passcode (separate from the office

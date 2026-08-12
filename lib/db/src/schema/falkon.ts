@@ -48,6 +48,22 @@ export const falkonConnectionsTable = pgTable("falkon_connections", {
   /** Set after the round-trip ping verifies the webhook URL responds correctly. */
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
   lastPingAt: timestamp("last_ping_at", { withTimezone: true }),
+  /** Human-readable connection status: connected | verified | disconnected */
+  status: text("status").default("connected"),
+  /** Per-step result snapshots for the five-step verification flow. */
+  verificationSteps: jsonb("verification_steps"),
+  /** Falkon-assigned client ID mirrored from their trust response. */
+  partnerClientId: text("partner_client_id"),
+  /** Falkon-assigned tenant string. */
+  partnerTenant: text("partner_tenant"),
+  /** Timestamp of the most recent successful trust-document verification with Falkon. */
+  trustDocVerifiedAt: timestamp("trust_doc_verified_at", { withTimezone: true }),
+  /**
+   * Timestamp set when HALO successfully pushes the capability registry to the
+   * Falkon gateway. Required for the "Capabilities Registered" eligibility gate.
+   * Cleared on reconnect/disconnect.
+   */
+  capabilitiesRegisteredAt: timestamp("capabilities_registered_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

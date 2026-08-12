@@ -39,6 +39,8 @@ import emergencyRouter from "./emergency";
 import dispatchBoardRouter from "./dispatchBoard";
 import walksRouter from "./walks";
 import falkonRouter from "./falkon";
+import { falkonWebhookRouter } from "./falkonWebhook";
+import { falkonAdminRouter } from "./falkonAdmin";
 
 const router: IRouter = Router();
 
@@ -104,5 +106,7 @@ router.use(invoiceJobDraftRouter);
 router.use(presentationRouter);
 router.use(walksRouter);
 router.use(falkonRouter);
+router.use(falkonWebhookRouter);
+router.use(falkonAdminRouter);
 
 export default router;

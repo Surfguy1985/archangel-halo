@@ -1,9 +1,20 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { buildTrustDoc } from "./lib/falkonIdentity";
+
+// Extend Request so rawBody is available for webhook signature verification
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      rawBody?: string;
+    }
+  }
+}
 
 const app: Express = express();
 
@@ -34,6 +45,15 @@ app.use(
 );
 app.use(cors());
 app.use(cookieParser());
+// Capture rawBody before JSON parsing (needed for Falkon webhook Ed25519 verification)
+const rawBodyCapture = (
+  req: Request,
+  _res: express.Response,
+  buf: Buffer,
+): void => {
+  req.rawBody = buf.toString("utf8");
+};
+
 app.use(
   [
     "/api/ingest/scan",
@@ -41,9 +61,21 @@ app.use(
     "/api/checks/scan",
     "/api/properties/:id/sop-rule",
   ],
-  express.json({ limit: "15mb" }),
+  express.json({ limit: "15mb", verify: rawBodyCapture }),
 );
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "2mb", verify: rawBodyCapture }));
+
+// ── Falkon trust document (served at /.well-known/ — root, NOT /api) ────────
+app.get("/.well-known/falkon-trust.json", (req, res) => {
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0]?.trim();
+  const origin = domain ? `https://${domain}` : `${req.protocol}://${req.headers.host}`;
+  const doc = buildTrustDoc(origin);
+  if (!doc) {
+    return res.status(503).json({ error: "Identity not yet initialised" });
+  }
+  res.set("Cache-Control", "public, max-age=3600");
+  return res.json(doc);
+});
 app.use(express.urlencoded({ extended: true }));
 
 // Preset stage artwork for board cards — static, safe to cache hard.

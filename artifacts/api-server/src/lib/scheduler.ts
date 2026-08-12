@@ -17,7 +17,7 @@ import { runWingsAutomation } from "../wings/services/automation";
 import { sendCampaignStepEmail } from "../routes/pipeline";
 import { AUTO_EMAILS } from "./emailPolicy";
 import { logger } from "./logger";
-import { deliverFalkonOutbox } from "./falkonScheduler";
+import { deliverFalkonOutbox, purgeExpiredNonces } from "./falkonScheduler";
 
 const DAILY_HOUR = 6;
 const DAILY_MINUTE = 45;
@@ -40,6 +40,8 @@ let lastAutopilotCheck = 0;
 const WINGS_CHECK_MS = 15 * 60 * 1000;
 let lastWingsCheck = 0;
 let lastBase44Sync = 0;
+const NONCE_PURGE_MS = 15 * 60 * 1000;
+let lastNoncePurge = 0;
 // New-card digests to clients: at most one email per account per hour.
 const CLIENT_CARD_DIGEST_MS = 60 * 60 * 1000;
 let lastClientCardDigest = 0;
@@ -277,6 +279,14 @@ async function tick(): Promise<void> {
     await deliverFalkonOutbox();
   } catch (err) {
     logger.warn({ err }, "Falkon outbox delivery sweep failed");
+  }
+
+  // Every ~15 min: purge expired replay-prevention nonces.
+  if (stamp - lastNoncePurge >= NONCE_PURGE_MS) {
+    lastNoncePurge = stamp;
+    purgeExpiredNonces().catch((err) =>
+      logger.warn({ err }, "Falkon nonce purge failed"),
+    );
   }
 
   if (stamp - lastAutopilotCheck >= AUTOPILOT_CHECK_MS) {

@@ -97,6 +97,20 @@ export async function deliverFalkonOutbox(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Nonce purge — remove expired replay-prevention nonces
+// ---------------------------------------------------------------------------
+
+export async function purgeExpiredNonces(): Promise<void> {
+  try {
+    await db.execute(
+      sql`DELETE FROM falkon_webhook_nonces WHERE expires_at < now()`,
+    );
+  } catch {
+    /* silent — table may not exist yet on first start */
+  }
+}
+
 async function markFailed(id: string, currentAttempts: number, error: string) {
   const attempts = currentAttempts + 1;
   const isDead = attempts >= MAX_ATTEMPTS;
