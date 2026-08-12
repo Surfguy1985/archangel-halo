@@ -164,6 +164,116 @@ const STATEMENTS: string[] = [
 
   `ALTER TABLE falkon_units
    ADD COLUMN IF NOT EXISTS reconciliation_status text`,
+
+  // ── Falkon Network — peer registry ───────────────────────────────────────
+  `CREATE TABLE IF NOT EXISTS falkon_peers (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    domain text NOT NULL,
+    trust_doc_url text NOT NULL,
+    capabilities_url text NOT NULL,
+    health_state text NOT NULL DEFAULT 'pending_peer',
+    last_health_check_at timestamptz,
+    trust_doc_data jsonb,
+    capabilities_data jsonb,
+    notes text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS falkon_peers_domain_uq ON falkon_peers (domain)`,
+
+  // ── Falkon Network — cross-business request model ─────────────────────────
+  `CREATE TABLE IF NOT EXISTS falkon_cross_requests (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    direction text NOT NULL,
+    peer_id uuid,
+    peer_name text,
+    capability_id text NOT NULL,
+    capability_name text,
+    correlation_id text NOT NULL,
+    external_ref text,
+    approval_state text NOT NULL DEFAULT 'pending_delivery',
+    summary text,
+    shared_data_snapshot jsonb,
+    requester_identity jsonb,
+    provider_identity jsonb,
+    request_events jsonb DEFAULT '[]'::jsonb,
+    attempts integer NOT NULL DEFAULT 0,
+    last_attempt_at timestamptz,
+    next_retry_at timestamptz,
+    last_error text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS falkon_cross_requests_correlation_uq ON falkon_cross_requests (correlation_id)`,
+
+  // ── Falkon Network — phase gate activation state ──────────────────────────
+  `CREATE TABLE IF NOT EXISTS falkon_phase_gates (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    phase integer NOT NULL,
+    enabled boolean NOT NULL DEFAULT false,
+    activated_at timestamptz,
+    activated_by text,
+    rollback_to integer,
+    readiness_snapshot jsonb,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS falkon_phase_gates_phase_uq ON falkon_phase_gates (phase)`,
+
+  // ── Falkon Network — append-only audit log ────────────────────────────────
+  `CREATE TABLE IF NOT EXISTS falkon_audit_log (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_type text NOT NULL,
+    actor text NOT NULL DEFAULT 'system',
+    entity_type text NOT NULL,
+    entity_id text,
+    summary text NOT NULL,
+    payload jsonb,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+
+  // ── Seed Phase 1 as active, Phases 2–6 as dormant ─────────────────────────
+  `INSERT INTO falkon_phase_gates (id, phase, enabled, activated_at, activated_by, created_at, updated_at)
+   VALUES (gen_random_uuid(), 1, true, now(), 'system', now(), now())
+   ON CONFLICT (phase) DO NOTHING`,
+
+  `INSERT INTO falkon_phase_gates (id, phase, enabled, created_at, updated_at)
+   VALUES (gen_random_uuid(), 2, false, now(), now())
+   ON CONFLICT (phase) DO NOTHING`,
+
+  `INSERT INTO falkon_phase_gates (id, phase, enabled, created_at, updated_at)
+   VALUES (gen_random_uuid(), 3, false, now(), now())
+   ON CONFLICT (phase) DO NOTHING`,
+
+  `INSERT INTO falkon_phase_gates (id, phase, enabled, created_at, updated_at)
+   VALUES (gen_random_uuid(), 4, false, now(), now())
+   ON CONFLICT (phase) DO NOTHING`,
+
+  `INSERT INTO falkon_phase_gates (id, phase, enabled, created_at, updated_at)
+   VALUES (gen_random_uuid(), 5, false, now(), now())
+   ON CONFLICT (phase) DO NOTHING`,
+
+  `INSERT INTO falkon_phase_gates (id, phase, enabled, created_at, updated_at)
+   VALUES (gen_random_uuid(), 6, false, now(), now())
+   ON CONFLICT (phase) DO NOTHING`,
+
+  // ── Seed UR Founders as HALO's first Falkon peer ──────────────────────────
+  `INSERT INTO falkon_peers
+     (id, name, domain, trust_doc_url, capabilities_url, health_state, notes, created_at, updated_at)
+   VALUES
+     (gen_random_uuid(),
+      'UR Founders',
+      'urfounders.com',
+      'https://www.urfounders.com/.well-known/falkon-trust.json',
+      'https://www.urfounders.com/api/falkon/network/capabilities',
+      'pending_peer',
+      'HALO''s first Falkon Network peer — entity formation, compliance, and LLC services.',
+      now(), now())
+   ON CONFLICT (domain) DO NOTHING`,
 ];
 
 // ---------------------------------------------------------------------------

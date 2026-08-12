@@ -185,7 +185,113 @@ export const falkonUnitsTable = pgTable(
   (t) => [uniqueIndex("falkon_units_property_label_uq").on(t.propertyId, t.unitLabel)],
 );
 
+// ── Falkon Network — Peer Registry ───────────────────────────────────────────
+
+export const falkonPeersTable = pgTable(
+  "falkon_peers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    /** Bare domain (no protocol) — unique key. */
+    domain: text("domain").notNull(),
+    trustDocUrl: text("trust_doc_url").notNull(),
+    capabilitiesUrl: text("capabilities_url").notNull(),
+    /** pending_peer | connected | degraded | disconnected */
+    healthState: text("health_state").notNull().default("pending_peer"),
+    lastHealthCheckAt: timestamp("last_health_check_at", { withTimezone: true }),
+    /** Cached trust document JSON from last poll. */
+    trustDocData: jsonb("trust_doc_data"),
+    /** Cached capabilities JSON from last poll. */
+    capabilitiesData: jsonb("capabilities_data"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("falkon_peers_domain_uq").on(t.domain)],
+);
+
+// ── Falkon Network — Cross-Business Request Model ────────────────────────────
+
+export const falkonCrossRequestsTable = pgTable(
+  "falkon_cross_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** inbound | outbound */
+    direction: text("direction").notNull(),
+    peerId: uuid("peer_id"),
+    peerName: text("peer_name"),
+    capabilityId: text("capability_id").notNull(),
+    capabilityName: text("capability_name"),
+    /** Idempotency key — unique. */
+    correlationId: text("correlation_id").notNull(),
+    /** Peer's internal reference (for their tracking). */
+    externalRef: text("external_ref"),
+    /**
+     * State machine:
+     *   Inbound:  awaiting_approval → approved | rejected
+     *   Outbound: pending_delivery → sent | delivery_failed
+     *   Both:     → cancelled | fulfilled
+     */
+    approvalState: text("approval_state").notNull().default("pending_delivery"),
+    summary: text("summary"),
+    /** Data snapshot the approval is bound to — prevents bait-and-switch. */
+    sharedDataSnapshot: jsonb("shared_data_snapshot"),
+    requesterIdentity: jsonb("requester_identity"),
+    providerIdentity: jsonb("provider_identity"),
+    /** Append-only event history array [{ts, event, detail, attempt?}]. */
+    requestEvents: jsonb("request_events").default([]),
+    attempts: integer("attempts").notNull().default(0),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("falkon_cross_requests_correlation_uq").on(t.correlationId)],
+);
+
+// ── Falkon Network — Phase Gate Activation State ─────────────────────────────
+
+export const falkonPhaseGatesTable = pgTable(
+  "falkon_phase_gates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** 1–6. */
+    phase: integer("phase").notNull(),
+    enabled: boolean("enabled").notNull().default(false),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    activatedBy: text("activated_by"),
+    /** Phase number this gate was rolled back from, for audit trail. */
+    rollbackTo: integer("rollback_to"),
+    readinessSnapshot: jsonb("readiness_snapshot"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("falkon_phase_gates_phase_uq").on(t.phase)],
+);
+
+// ── Falkon Network — Append-Only Audit Log ───────────────────────────────────
+
+export const falkonAuditLogTable = pgTable("falkon_audit_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  eventType: text("event_type").notNull(),
+  /** office | system */
+  actor: text("actor").notNull().default("system"),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id"),
+  summary: text("summary").notNull(),
+  /** Structured payload — no secrets ever stored here. */
+  payload: jsonb("payload"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── Type Exports ─────────────────────────────────────────────────────────────
+
 export type FalkonConnection = typeof falkonConnectionsTable.$inferSelect;
 export type FalkonEvent = typeof falkonEventsTable.$inferSelect;
 export type FalkonPolicy = typeof falkonPoliciesTable.$inferSelect;
 export type FalkonUnit = typeof falkonUnitsTable.$inferSelect;
+export type FalkonPeer = typeof falkonPeersTable.$inferSelect;
+export type FalkonCrossRequest = typeof falkonCrossRequestsTable.$inferSelect;
+export type FalkonPhaseGate = typeof falkonPhaseGatesTable.$inferSelect;
+export type FalkonAuditLog = typeof falkonAuditLogTable.$inferSelect;

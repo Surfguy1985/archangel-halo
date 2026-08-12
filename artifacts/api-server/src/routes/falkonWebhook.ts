@@ -235,6 +235,64 @@ async function dispatchEvent(
     }
   }
 
+  // ── Inbound capability request — insert into cross_requests for office review
+  if (eventType === "capability.request") {
+    const correlationId = (payload.correlationId ?? jti) as string;
+    const capabilityId = payload.capabilityId as string | undefined;
+    const summary = payload.summary as string | undefined;
+    const requester = payload.requester as Record<string, unknown> | undefined;
+    const sharedData = payload.sharedData as unknown;
+    const externalRef = (payload.externalRef ?? payload.jti ?? jti) as string;
+
+    if (!capabilityId) {
+      logger.warn({ jti }, "falkon webhook: capability.request missing capabilityId — skipping");
+    } else {
+      // Resolve peerId from requester domain (best-effort)
+      const requesterDomain = ((requester?.domain ?? requester?.trustDocUrl) as string | undefined)
+        ?.replace(/^https?:\/\//, "")
+        .split("/")[0];
+
+      const peerRow = requesterDomain
+        ? await db.execute(
+            sql`SELECT id, name FROM falkon_peers WHERE domain = ${requesterDomain} LIMIT 1`,
+          ).then((r) => {
+            const rows = (r as any).rows ?? r;
+            return Array.isArray(rows) ? (rows[0] as { id: string; name: string } | undefined) : undefined;
+          }).catch(() => undefined)
+        : undefined;
+
+      const initEvent = JSON.stringify([{
+        ts: Date.now(),
+        event: "received",
+        detail: `Inbound capability.request received via webhook (jti: ${jti.slice(0, 8)})`,
+      }]);
+
+      await db.execute(
+        sql`INSERT INTO falkon_cross_requests
+              (id, direction, peer_id, peer_name, capability_id,
+               correlation_id, external_ref, approval_state, summary,
+               shared_data_snapshot, requester_identity, request_events,
+               attempts, created_at, updated_at)
+            VALUES
+              (gen_random_uuid(), 'inbound',
+               ${peerRow?.id ? `${peerRow.id}` : null}::uuid,
+               ${peerRow?.name ?? (requester?.businessName as string) ?? requesterDomain ?? 'Unknown'},
+               ${capabilityId},
+               ${correlationId},
+               ${externalRef},
+               'awaiting_approval',
+               ${summary ?? null},
+               ${sharedData ? JSON.stringify(sharedData) : null}::jsonb,
+               ${requester ? JSON.stringify(requester) : null}::jsonb,
+               ${initEvent}::jsonb,
+               0, now(), now())
+            ON CONFLICT (correlation_id) DO NOTHING`,
+      );
+
+      logger.info({ jti, correlationId, capabilityId }, "falkon webhook: inbound capability.request stored for approval");
+    }
+  }
+
   // Mark event processed
   await db.execute(
     sql`UPDATE falkon_inbound_events

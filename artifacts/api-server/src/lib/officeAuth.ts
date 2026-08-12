@@ -171,6 +171,8 @@ const PUBLIC_PREFIXES = [
   // Falkon Phase 1: Ed25519-verified inbound webhook + trust document
   "/falkon/webhook",
   "/.well-known/",
+  // Falkon Network Phase 1: public capability catalog (external peers need to discover HALO)
+  "/falkon/network/capabilities",
 ];
 
 // Walk app routes are gated by their OWN passcode (separate from the office

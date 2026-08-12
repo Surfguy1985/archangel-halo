@@ -41,6 +41,7 @@ import walksRouter from "./walks";
 import falkonRouter from "./falkon";
 import { falkonWebhookRouter } from "./falkonWebhook";
 import { falkonAdminRouter } from "./falkonAdmin";
+import { falkonNetworkRouter } from "./falkonNetwork";
 
 const router: IRouter = Router();
 
@@ -108,5 +109,6 @@ router.use(walksRouter);
 router.use(falkonRouter);
 router.use(falkonWebhookRouter);
 router.use(falkonAdminRouter);
+router.use(falkonNetworkRouter);
 
 export default router;
