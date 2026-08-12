@@ -50,6 +50,14 @@ export const crewsTable = pgTable("crews", {
   selfiePath: text("selfie_path"),
   // Expo push token saved by the crew's mobile app for native push delivery.
   pushToken: text("push_token"),
+  // Falkon Ops vendor registry — external ID assigned by Falkon on sync.
+  falkonVendorId: text("falkon_vendor_id").unique(),
+  // Contractor compliance fields surfaced to Falkon's vendor twin.
+  vendorLicense: text("vendor_license"),
+  insuranceCert: text("insurance_cert"),
+  insuranceExpiry: date("insurance_expiry", { mode: "string" }),
+  // Falkon vendor tier: preferred | standard | on-demand | emergency
+  falkonTier: text("falkon_tier"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -113,6 +121,9 @@ export const jobsTable = pgTable("jobs", {
   // { crewId, name, amount, paidAt, clearedAt } — office pays each member,
   // then manually clears each row; all cleared → card leaves the board.
   crewPay: jsonb("crew_pay"),
+  // Falkon Ops job twin — external job reference assigned by Falkon on sync.
+  // NULL until the job is registered in the Falkon twin model.
+  falkonJobId: text("falkon_job_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

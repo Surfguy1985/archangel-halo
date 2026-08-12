@@ -38,6 +38,7 @@ import presentationRouter from "./presentation";
 import emergencyRouter from "./emergency";
 import dispatchBoardRouter from "./dispatchBoard";
 import walksRouter from "./walks";
+import falkonRouter from "./falkon";
 
 const router: IRouter = Router();
 
@@ -102,5 +103,6 @@ router.use(workRequestsRouter);
 router.use(invoiceJobDraftRouter);
 router.use(presentationRouter);
 router.use(walksRouter);
+router.use(falkonRouter);
 
 export default router;

@@ -35,6 +35,7 @@ import AdminAccount from "@/pages/AdminAccount";
 // refetches when the app regains focus or reconnects, so updates made on any
 // phone or desktop appear everywhere without a manual reload.
 import ClientBoardOffice from "@/pages/ClientBoardOffice";
+import FalkonConnect from "@/pages/FalkonConnect";
 import { HubShell, WORK_TABS, CLIENT_TABS, MONEY_TABS, PURCHASING_TABS } from "@/components/HubShell";
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,6 +80,7 @@ function App() {
                   <Route path="/supply">{() => <HubShell title="Purchasing" tabs={PURCHASING_TABS}><Supply /></HubShell>}</Route>
                   <Route path="/vendors">{() => <HubShell title="Purchasing" tabs={PURCHASING_TABS}><Vendors /></HubShell>}</Route>
                   <Route path="/import" component={Import} />
+                  <Route path="/integrations">{() => <FalkonConnect />}</Route>
                   <Route path="/jobboard">{() => <HubShell title="Work" tabs={WORK_TABS}><JobBoard /></HubShell>}</Route>
                   <Route path="/admin">{() => <HubShell title="Clients" tabs={CLIENT_TABS}><Admin /></HubShell>}</Route>
                   <Route path="/admin/:propertyId" component={AdminAccount} />

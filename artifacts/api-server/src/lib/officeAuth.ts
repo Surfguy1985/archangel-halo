@@ -164,6 +164,10 @@ const PUBLIC_PREFIXES = [
   // is safe. See routes/presentation.ts.
   "/presentation/demo/step",
   "/presentation/demo/office-board",
+  // Falkon Ops inbound webhook and round-trip ping — HMAC-signed by Falkon,
+  // verified in routes/falkon.ts before any processing.
+  "/falkon/inbound/",
+  "/falkon/ping",
 ];
 
 // Walk app routes are gated by their OWN passcode (separate from the office

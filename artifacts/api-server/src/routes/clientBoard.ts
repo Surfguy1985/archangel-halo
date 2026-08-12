@@ -70,6 +70,7 @@ import { bidsTable } from "@workspace/db";
 import { computeUnitStatuses, normUnit } from "./clientCms";
 import { acceptWorkRequest } from "./workRequests";
 import { emitBoardEvent } from "../lib/boardEvents";
+import { emitFalkonEvent } from "../lib/falkonEmit";
 import { deriveLaneWaybill, waybillCodeFor } from "../lib/waybill";
 
 // Every projected card gets a network waybill: the FLK code is deterministic
@@ -1932,6 +1933,16 @@ const ACTIONS: Record<
           body: `Walk findings approved for job ${job.jobNo ?? jobId} — work is a go`,
         });
       }
+      // Falkon Ops: resident-ready signal — the highest-value event in the
+      // make-ready pipeline.  Fire-and-forget; never throws.
+      void emitFalkonEvent("job.walk_approved", "job", jobId, {
+        jobId,
+        jobNo: job.jobNo,
+        propertyId: job.propertyId,
+        unitNo: job.unitNo,
+        approvedBy: ctx.viewer.name ?? "Property Manager",
+        approvedAt: new Date().toISOString(),
+      });
       return {
         ok: true,
         blocked: false,

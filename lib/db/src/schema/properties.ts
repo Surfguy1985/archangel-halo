@@ -29,6 +29,14 @@ export const propertiesTable = pgTable("properties", {
   marginMin: doublePrecision("margin_min"),
   marginTarget: doublePrecision("margin_target"),
   status: text("status").notNull().default("active"),
+  // Falkon Ops twin — external identifier assigned by Falkon on first sync.
+  // NULL until the property is registered in the Falkon twin model.
+  falkonPropertyId: text("falkon_property_id").unique(),
+  falkonSyncedAt: timestamp("falkon_synced_at", { withTimezone: true }),
+  // Property-level mode override: NULL = inherit from falkon_connections.mode.
+  // Set to SHADOW/ASSISTED/LIVE to promote individual properties ahead of the
+  // global connection mode during the phased rollout.
+  falkonMode: text("falkon_mode"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -52,6 +52,7 @@ import {
 } from "@workspace/api-zod";
 import { randomUUID } from "node:crypto";
 import { attachBoardStream, emitBoardEvent } from "../lib/boardEvents";
+import { emitFalkonEvent } from "../lib/falkonEmit";
 import { raiseClientCard, webhookUrlProblem, ACTION_STATE_KEYS } from "../lib/clientBoard";
 import { resolveViewer, notifyClientBoard, threadKeysFor, threadMessageDto } from "./clientBoard";
 import { hashPassword, newTempPassword, emailCredentials } from "./admin";
@@ -1108,6 +1109,18 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
               entityId: walkJob.crewLeaderId,
               kind: "walk_approved",
               body: `Walk findings approved for job ${walkJob.jobNo ?? jobId} — work is a go`,
+            });
+          }
+          // Falkon Ops: client-board walk approval also fires the resident-ready
+          // signal so Falkon receives it regardless of which surface approves.
+          if (jobId) {
+            void emitFalkonEvent("job.walk_approved", "job", jobId, {
+              jobId,
+              jobNo: walkJob?.jobNo,
+              propertyId: account.propertyId,
+              approvedBy: actorName ?? "Client",
+              approvedAt: nowIso,
+              source: "client_board",
             });
           }
         }

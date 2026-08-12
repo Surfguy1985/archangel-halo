@@ -17,6 +17,7 @@ import { runWingsAutomation } from "../wings/services/automation";
 import { sendCampaignStepEmail } from "../routes/pipeline";
 import { AUTO_EMAILS } from "./emailPolicy";
 import { logger } from "./logger";
+import { deliverFalkonOutbox } from "./falkonScheduler";
 
 const DAILY_HOUR = 6;
 const DAILY_MINUTE = 45;
@@ -268,6 +269,14 @@ async function tick(): Promise<void> {
     await expireOverdueEmergencyPings();
   } catch (err) {
     logger.warn({ err }, "Emergency ping expiry sweep failed");
+  }
+
+  // Every tick: deliver any pending Falkon outbox events. No-ops when mode
+  // is OFF or no connection is configured. Never throws.
+  try {
+    await deliverFalkonOutbox();
+  } catch (err) {
+    logger.warn({ err }, "Falkon outbox delivery sweep failed");
   }
 
   if (stamp - lastAutopilotCheck >= AUTOPILOT_CHECK_MS) {
