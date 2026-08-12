@@ -96,4 +96,9 @@ app.use("/api", (_req, res, next) => {
 });
 app.use("/api", router);
 
+// Root health — answers Replit's proxy health probe at GET /
+app.get("/", (_req, res) => {
+  res.status(200).json({ ok: true, service: "halo-api" });
+});
+
 export default app;
