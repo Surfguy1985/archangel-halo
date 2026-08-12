@@ -30,6 +30,7 @@ import Wings from "@/pages/Wings";
 import Payments from "@/pages/Payments";
 import Admin from "@/pages/Admin";
 import AdminAccount from "@/pages/AdminAccount";
+import HaloCommand from "@/pages/HaloCommand";
 
 // Live cross-device sync: every device polls the shared server every 15s,
 // refetches when the app regains focus or reconnects, so updates made on any
@@ -61,7 +62,8 @@ function App() {
               <SplashScreen />
               <DesktopLayout>
                 <Switch>
-                  <Route path="/" component={Today} />
+                  <Route path="/" component={HaloCommand} />
+                  <Route path="/today" component={Today} />
                   <Route path="/properties">{() => <HubShell title="Clients" tabs={CLIENT_TABS}><Properties /></HubShell>}</Route>
                   <Route path="/properties/:id" component={PropertyDetail} />
                   <Route path="/jobs/:id" component={JobDetail} />

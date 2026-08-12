@@ -32,6 +32,7 @@ import Settings from "./pages/Settings";
 import Catalog from "./pages/Catalog";
 import Wings from "./pages/Wings";
 import FalkonNetwork from "./pages/FalkonNetwork";
+import HaloCommand from "./pages/HaloCommand";
 import NotFound from "@/pages/not-found";
 import { OfficeGate } from "./components/OfficeGate";
 
@@ -56,7 +57,7 @@ function AdminRouter() {
       <SplashScreen />
       <Layout>
       <Switch>
-        <Route path="/" component={Today} />
+        <Route path="/today" component={Today} />
         <Route path="/properties" component={Properties} />
         <Route path="/properties/:id" component={PropertyDetail} />
         <Route path="/properties/:id/board" component={ClientBoardOffice} />
@@ -132,6 +133,12 @@ function App() {
             <Route path="/client/:token/requests" component={ClientRequest} />
             <Route path="/track/:token" component={JobTracker} />
             <Route path="/pay/:token" component={PublicPayment} />
+            {/* HALO Command — full-screen conversational OS, own minimal chrome */}
+            <Route path="/">
+              <OfficeGate>
+                <HaloCommand />
+              </OfficeGate>
+            </Route>
             <Route component={GatedAdminRouter} />
           </Switch>
         </WouterRouter>
