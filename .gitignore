@@ -1,17 +1,55 @@
-# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# compiled output
+# ── Compiled output ───────────────────────────────────────────────────────────
 dist
 tmp
 out-tsc
 *.tsbuildinfo
-.expo
-.expo-shared
 
-# dependencies
+# ── Dependencies ──────────────────────────────────────────────────────────────
 node_modules
 
-# IDEs and editors
+# ── Environment / secrets ─────────────────────────────────────────────────────
+# NEVER commit real env files. Copy .env.example → .env and fill in values.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# ── Private keys & certificates ───────────────────────────────────────────────
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+id_ecdsa
+id_ecdsa.*
+.netrc
+
+# ── Replit runtime / session files ───────────────────────────────────────────
+.cache/
+.local/
+.expo/
+.expo-shared/
+.replit.deploy
+
+# ── Generated codebase exports ────────────────────────────────────────────────
+# These are Replit-session artifacts — not source code.
+exports/
+artifacts/halo/public/halo-backend-codebase.md
+artifacts/halo/public/halo-backend-codebase.zip
+
+# ── Uploaded / attached assets ────────────────────────────────────────────────
+# Files uploaded during Replit sessions (PDFs, images, etc.) — not source code.
+attached_assets/
+
+# ── IDEs and editors ─────────────────────────────────────────────────────────
 /.idea
 .project
 .classpath
@@ -20,14 +58,18 @@ node_modules
 .settings/
 *.sublime-workspace
 
-# IDE - VSCode
+# ── VSCode (keep shared settings, ignore personal) ───────────────────────────
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# misc
+# ── Cursor ────────────────────────────────────────────────────────────────────
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
 /.sass-cache
 /connect.lock
 /coverage
@@ -37,13 +79,6 @@ yarn-error.log
 testem.log
 /typings
 
-# System Files
+# ── System files ─────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
-# Replit
-.cache/
-.local/
