@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearch } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1047,6 +1047,7 @@ function PhaseRoadmapTab() {
   const [rollbackPhase, setRollbackPhase] = useState<number | null>(null);
   const [rollbackConfirm, setRollbackConfirm] = useState("");
   const [expandedPhase, setExpandedPhase] = useState<number | null>(null);
+  const activatingRef = useRef(false);
   const { toast } = useToast();
 
   const load = useCallback(async () => {
@@ -1095,10 +1096,12 @@ function PhaseRoadmapTab() {
 
   const activate = async () => {
     if (!cmdPhase || !checkResult) return;
+    if (activatingRef.current) return;
     if (cmdPhase >= 3 && confirmInput !== `ACTIVATE PHASE ${cmdPhase}`) {
       setCmdError(`Type exactly: ACTIVATE PHASE ${cmdPhase}`);
       return;
     }
+    activatingRef.current = true;
     setCmdState("activating");
     try {
       await apiFetch(`/falkon/network/phases/${cmdPhase}/activate`, { method: "POST" });
@@ -1109,6 +1112,8 @@ function PhaseRoadmapTab() {
     } catch (err: any) {
       setCmdState("error");
       setCmdError(err.message ?? "Activation failed");
+    } finally {
+      activatingRef.current = false;
     }
   };
 
