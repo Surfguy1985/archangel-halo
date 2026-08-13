@@ -111,7 +111,7 @@ export default function Properties() {
   const [sopProperty, setSopProperty] = useState<{ id: string; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const { data: properties, isLoading: propsLoading } = useListProperties({ query: { queryKey: getListPropertiesQueryKey(), refetchInterval: 30000 } });
+  const { data: properties, isLoading: propsLoading } = useListProperties(undefined, { query: { queryKey: getListPropertiesQueryKey(), refetchInterval: 30000 } });
   const { data: allJobs, isLoading: jobsLoading } = useListJobs(undefined, {
     query: { queryKey: getListJobsQueryKey(), refetchInterval: 30000 },
   });

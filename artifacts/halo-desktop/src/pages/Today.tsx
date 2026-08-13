@@ -1,4 +1,5 @@
 import { useGetToday, useRefreshBrief, useGetQueues, useListActivities, useListJobs, useDismissFeedItem, useAcceptWorkRequest, useDeclineWorkRequest, useRemindInvoice, useNudgeBid, getGetTodayQueryKey, getGetQueuesQueryKey, getListActivitiesQueryKey, getListWorkRequestsQueryKey, getListJobsQueryKey, getListInvoicesQueryKey, getListBidsQueryKey, type FeedCard} from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { PushCardDialog, type PushPrefill} from "@/components/PushCardDialog";
 import { InvoiceWizardDialog} from "@/components/InvoiceWizardDialog";
 import { Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { useQueryClient} from "@tanstack/react-query";
 import { useToast} from "@/hooks/use-toast";
 import { useLocation} from "wouter";
 import { AutopilotActions} from "@/components/AutopilotActions";
-import { Sparkles, ArrowRight, RefreshCw, X, History, ChevronDown, Zap} from "lucide-react";
+import { Sparkles, ArrowRight, RefreshCw, X, History, ChevronDown, Zap, Network} from "lucide-react";
 import { QuickJobDialog} from "@/components/QuickJobDialog";
 
 function entityRoute(entityType?: string | null, entityId?: string | null): string | null {
@@ -111,6 +112,29 @@ export default function Today() {
   const { data: jobs } = useListJobs(undefined, {
     query: { queryKey: getListJobsQueryKey(), refetchInterval: 10_000 },
   });
+
+  // Falkon inbound requests awaiting approval
+  const BASE = import.meta.env.BASE_URL as string;
+  const {
+    data: falkonRequests,
+    isError: falkonError,
+    isFetching: falkonFetching,
+  } = useQuery<Array<{ id: string; direction: string; approval_state: string }>>({
+    queryKey: ["falkon-network-requests"],
+    queryFn: async () => {
+      // Filter server-side to inbound+awaiting_approval only; limit=200 avoids the
+      // default-50 truncation — operators must never miss an approval request.
+      const url = `${BASE}api/falkon/network/requests?direction=inbound&state=awaiting_approval&limit=200`;
+      const r = await fetch(url, { credentials: "include" });
+      if (!r.ok) throw new Error(`Falkon requests fetch failed: ${r.status}`);
+      const json = await r.json();
+      return Array.isArray(json) ? json : (json.requests ?? []);
+    },
+    refetchInterval: 30_000,
+    retry: 2,
+  });
+  // Server already filters to inbound+awaiting_approval; length is the full count.
+  const pendingFalkonCount = (falkonRequests ?? []).length;
 
   // Work happening at each property today: in-progress jobs + jobs scheduled for today.
   const todayByProperty = useMemo(() => {
@@ -314,6 +338,31 @@ export default function Today() {
                 </p>
               </CardContent>
             </Card>
+          )}
+
+          {/* Falkon: inbound requests awaiting approval */}
+          {pendingFalkonCount > 0 && (
+            <button
+              type="button"
+              onClick={() => navigate("/integrations?tab=requests")}
+              className="w-full text-left bg-amber-50 border border-amber-300 rounded-3xl p-5 flex items-center gap-4 shadow-sm hover:bg-amber-100 transition-colors group"
+              data-testid="falkon-pending-blocker"
+            >
+              <div className="w-10 h-10 rounded-2xl bg-amber-400/20 flex items-center justify-center shrink-0">
+                <Network className="w-5 h-5 text-amber-700" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-amber-900 text-sm">
+                  {pendingFalkonCount === 1
+                    ? "1 Falkon request needs your approval"
+                    : `${pendingFalkonCount} Falkon requests need your approval`}
+                </p>
+                <p className="text-amber-700 text-xs mt-0.5">
+                  Inbound cross-business requests are waiting — review in Request Inbox
+                </p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-amber-600 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+            </button>
           )}
 
           {/* Today at the properties */}

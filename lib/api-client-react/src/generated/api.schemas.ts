@@ -3399,6 +3399,12 @@ export interface CrewMapPin {
   lastCheckinAt?: string | null;
   /** Today's GPS breadcrumb trail for this crew (oldest first) */
   trail?: TrailPoint[];
+  /** @nullable */
+  unitNo?: string | null;
+  /** Job photos for today's scheduled job (up to 8) */
+  photos?: Array<{ id: string; url: string; phase: string | null; note: string | null }>;
+  /** Line-item services for today's scheduled job */
+  services?: Array<{ id: string; service: string; done: boolean }>;
 }
 
 export interface CrewDayPlanSaveInput {

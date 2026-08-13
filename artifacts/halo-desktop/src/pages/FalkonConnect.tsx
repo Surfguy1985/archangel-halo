@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearch } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -2161,6 +2162,24 @@ function AuditLogTab() {
 // ─── Root Component ───────────────────────────────────────────────────────────
 
 export default function FalkonConnect() {
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const tabParam = params.get("tab");
+  const VALID_TABS = [
+    "roadmap","network-identity","peers","requests","audit",
+    "overview","verify","properties","units","vendors",
+    "capabilities","make-ready","events","usage","eligibility",
+  ];
+  const initialTab = tabParam && VALID_TABS.includes(tabParam) ? tabParam : "roadmap";
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // If the URL tab param changes (e.g. navigated from Today feed), sync it.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("tab");
+    if (p && VALID_TABS.includes(p)) setActiveTab(p);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
@@ -2175,7 +2194,7 @@ export default function FalkonConnect() {
         </p>
       </div>
 
-      <Tabs defaultValue="roadmap">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap h-auto gap-1 mb-6">
           {/* Network-first tabs */}
           <TabsTrigger value="roadmap">Phase Roadmap</TabsTrigger>
