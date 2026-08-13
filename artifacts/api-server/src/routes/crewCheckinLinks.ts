@@ -511,6 +511,27 @@ router.post("/checkin/:token/checkout", limits.checkinWrite, async (req, res): P
     const { row } = resolved;
     await touchAccess(row.id);
 
+    // ── Guard: open check-in session required ────────────────────────────────
+    // Read the most-recent event for this crew. If it's already "checkout" (or
+    // no event exists at all) we reject with 409 — this prevents both orphaned
+    // checkouts (crew never checked in) and duplicate checkouts (already out).
+    // Legitimate midnight checkout: the crew checked in yesterday and the last
+    // event is still "checkin" → the guard passes without special-casing time.
+    const [lastEvent] = await db
+      .select({ kind: crewCheckinsTable.kind })
+      .from(crewCheckinsTable)
+      .where(eq(crewCheckinsTable.crewId, row.crewId))
+      .orderBy(desc(crewCheckinsTable.createdAt))
+      .limit(1);
+
+    if (!lastEvent || lastEvent.kind !== "checkin") {
+      res.status(409).json({
+        error: "not_checked_in",
+        message: "No open check-in session found. Check in before checking out.",
+      });
+      return;
+    }
+
     const [crew] = await db
       .select({ id: crewsTable.id, active: crewsTable.active })
       .from(crewsTable)

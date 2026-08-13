@@ -7,7 +7,6 @@ import NotFound from "@/pages/not-found";
 import { DesktopLayout } from "@/components/DesktopLayout";
 import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { SplashScreen } from "@/components/SplashScreen";
-import Today from "@/pages/Today";
 import Properties from "@/pages/Properties";
 import PropertyDetail from "@/pages/PropertyDetail";
 import Money from "@/pages/Money";
@@ -83,7 +82,6 @@ function App() {
                 <SplashScreen />
                 <DesktopLayout>
                   <Switch>
-                    <Route path="/today" component={Today} />
                     <Route path="/properties">{() => <HubShell title="Properties" tabs={CLIENT_TABS}><Properties /></HubShell>}</Route>
                     <Route path="/properties/:id" component={PropertyDetail} />
                     <Route path="/jobs/:id" component={JobDetail} />
