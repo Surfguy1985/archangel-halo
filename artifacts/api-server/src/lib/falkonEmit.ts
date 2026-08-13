@@ -9,11 +9,9 @@
  * The scheduler tick (falkonScheduler.ts) picks up pending rows and
  * delivers them using Ed25519 signing (canonical Falkon contract).
  *
- * ASSISTED-mode Decision Gate:
- *   checkAssistedGate(action, payload, policy) — returns a DecisionPacket
- *   when an action requires human approval in ASSISTED mode. Routes that
- *   perform "consequential" external writes (dispatch, invoice, payment,
- *   scope change) MUST call this before executing if mode === "ASSISTED".
+ * Consequential mutations are gated by falkonMutationGuard / enforceFalkonMutation
+ * (decideFalkonPolicy). checkAssistedGate remains a thin wrapper for callers
+ * that already have a policy snapshot.
  */
 
 import { createHmac, timingSafeEqual } from "node:crypto";
@@ -23,6 +21,7 @@ import {
   falkonEventsTable,
 } from "@workspace/db/schema";
 import { logger } from "./logger";
+import { decideFalkonPolicy } from "./falkonPolicyCore";
 
 // ---------------------------------------------------------------------------
 // Event type registry
@@ -129,95 +128,32 @@ export interface DecisionPacket {
 }
 
 /**
- * Check whether a consequential action needs a human Decision Packet.
- *
- * Returns { permitted: true } when:
- *   - Mode is not ASSISTED (SHADOW / LIVE / OFF act on existing rules)
- *   - A relevant low-risk policy explicitly pre-authorises this variant
- *
- * Returns { permitted: false } when ASSISTED and no policy override.
- * Routes MUST surface the returned `summary` to the office operator and
- * await explicit confirmation before executing.
+ * Canonical decision wrapper. LIVE is denied. SHADOW AI/workers cannot mutate.
+ * ASSISTED requires approval unless a policy threshold matches.
  */
 export function checkAssistedGate(
   action: ConsequentialAction,
   context: { amount?: number; crewRate?: number },
   policy: PolicySnapshot,
 ): DecisionPacket {
-  if (!policy.mode || policy.mode !== "ASSISTED") {
-    return { permitted: true, reason: "Not in ASSISTED mode", summary: "", policyGranted: false };
-  }
-
-  // Policy-gated auto-permits
-  if (action === "dispatch_crew" && policy.autoDispatchEnabled) {
-    return {
-      permitted: true,
-      reason: "Policy: autoDispatchEnabled",
-      summary: "Auto-dispatch authorised by policy",
-      policyGranted: true,
-    };
-  }
-
-  if (
-    (action === "approve_invoice" || action === "send_invoice" || action === "pay_invoice") &&
-    typeof policy.maxAutoInvoiceAmount === "number" &&
-    typeof context.amount === "number" &&
-    context.amount <= policy.maxAutoInvoiceAmount
-  ) {
-    return {
-      permitted: true,
-      reason: `Policy: amount ${context.amount} ≤ maxAutoInvoiceAmount ${policy.maxAutoInvoiceAmount}`,
-      summary: "Invoice within auto-approval limit",
-      policyGranted: true,
-    };
-  }
-
-  if (
-    action === "approve_change_order" &&
-    typeof policy.maxAutoChangeOrder === "number" &&
-    typeof context.amount === "number" &&
-    context.amount <= policy.maxAutoChangeOrder
-  ) {
-    return {
-      permitted: true,
-      reason: `Policy: amount ${context.amount} ≤ maxAutoChangeOrder ${policy.maxAutoChangeOrder}`,
-      summary: "Change order within auto-approval limit",
-      policyGranted: true,
-    };
-  }
-
-  if (
-    action === "pay_crew" &&
-    typeof policy.maxAutoCrewRate === "number" &&
-    typeof context.crewRate === "number" &&
-    context.crewRate <= policy.maxAutoCrewRate
-  ) {
-    return {
-      permitted: true,
-      reason: `Policy: crewRate ${context.crewRate} ≤ maxAutoCrewRate ${policy.maxAutoCrewRate}`,
-      summary: "Crew payment within auto-approval limit",
-      policyGranted: true,
-    };
-  }
-
-  // Default: ASSISTED mode requires explicit human approval
-  const actionLabels: Record<ConsequentialAction, string> = {
-    dispatch_crew:        "Dispatching a crew to this job",
-    reassign_crew:        "Reassigning the crew mid-job",
-    approve_invoice:      "Approving this invoice",
-    send_invoice:         "Sending this invoice",
-    pay_invoice:          "Recording payment on this invoice",
-    approve_change_order: "Approving this change order",
-    pay_crew:             "Releasing crew payment",
-    approve_walk:         "Approving this walk",
-    submit_bid:           "Submitting this bid",
-  };
-
+  const decision = decideFalkonPolicy({
+    mode: policy.mode ?? "OFF",
+    action,
+    actorChannel: "human",
+    amount: context.amount,
+    crewRate: context.crewRate,
+    policy: {
+      autoDispatchEnabled: policy.autoDispatchEnabled,
+      maxAutoInvoiceAmount: policy.maxAutoInvoiceAmount,
+      maxAutoCrewRate: policy.maxAutoCrewRate,
+      maxAutoChangeOrder: policy.maxAutoChangeOrder,
+    },
+  });
   return {
-    permitted: false,
-    reason: "ASSISTED mode — explicit approval required",
-    summary: `${actionLabels[action] ?? action} requires office approval in ASSISTED mode.`,
-    policyGranted: false,
+    permitted: decision.permitted,
+    reason: decision.reason,
+    summary: decision.summary,
+    policyGranted: decision.policyGranted,
   };
 }
 
@@ -273,8 +209,8 @@ export async function emitFalkonEvent(
 }
 
 // ---------------------------------------------------------------------------
-// Legacy HMAC helpers — kept for inbound verification fallback only.
-// NOT used for outbound delivery. Outbound uses Ed25519 (falkonScheduler.ts).
+// HMAC helpers for HALO-owned webhook ping (POST /falkon/verify).
+// Not used for Falkon S2S inbound or outbound gateway delivery.
 // ---------------------------------------------------------------------------
 
 /**

@@ -19,6 +19,7 @@ import { getAutoEmails } from "./emailPolicy";
 import { logger } from "./logger";
 import { deliverFalkonOutbox, purgeExpiredNonces } from "./falkonScheduler";
 import { nudgeStaleForemanMoves } from "./foremanMoveNudge";
+import { runScheduledEodBriefing } from "./eodBriefing";
 
 const DAILY_HOUR = 6;
 const DAILY_MINUTE = 45;
@@ -30,10 +31,11 @@ const WEEKLY_DOW = 1; // Monday
 const TICK_MS = 60 * 1000;
 const URGENT_CHECK_MS = 15 * 60 * 1000;
 const AUTOPILOT_CHECK_MS = 15 * 60 * 1000;
-const BASE44_SYNC_MS = 30 * 1000; // pull from Base44 every 30 seconds (near-real-time)
+const BASE44_SYNC_MS = 30 * 1000; // SoR projection pull (~30s). Not a HALO mutation; not ASSISTED-gated.
 
 let lastDailyDate: string | null = null;
 let lastCloseDate: string | null = null;
+let lastBriefingDate: string | null = null;
 let lastWeeklyDate: string | null = null;
 let lastUrgentSignature = "";
 let lastUrgentCheck = 0;
@@ -246,6 +248,20 @@ async function tick(): Promise<void> {
       if (sent) lastDailyDate = date;
     } catch (err) {
       logger.warn({ err }, "Scheduled daily digest failed");
+    }
+  }
+
+  if (
+    tickPolicy.eveningClose &&
+    hour === CLOSE_HOUR &&
+    minute >= CLOSE_MINUTE &&
+    lastBriefingDate !== date
+  ) {
+    try {
+      await runScheduledEodBriefing();
+      lastBriefingDate = date;
+    } catch (err) {
+      logger.warn({ err }, "Scheduled EOD briefing failed");
     }
   }
 

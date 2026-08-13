@@ -40,6 +40,7 @@ import { limits } from "../lib/rateLimit";
 import { ensurePropertiesGeocoded } from "../lib/geocode";
 import { completeJson } from "../lib/ai";
 import { logger } from "../lib/logger";
+import { persistWalkEvidence } from "../lib/walkReport";
 
 const router: IRouter = Router();
 
@@ -690,6 +691,27 @@ router.post("/walks/:id/complete", limits.walkWrite, async (req, res): Promise<v
   if (outcome.status === 409) {
     res.status(409).json({ error: outcome.error });
     return;
+  }
+  try {
+    const kindLabel =
+      outcome.updated.kind === "baseline"
+        ? "Baseline"
+        : outcome.updated.kind === "qa"
+          ? "QA"
+          : outcome.updated.kind === "completion"
+            ? "Completion"
+            : "Discovery";
+    await persistWalkEvidence({
+      walkId: id,
+      propertyName: outcome.propertyName,
+      kind: kindLabel,
+      notes: outcome.updated.notes,
+      captureCount: outcome.captureCount,
+      jobNos: createdJobs.map((j) => j.jobNo),
+      endedAt: outcome.updated.endedAt,
+    });
+  } catch (err) {
+    logger.warn({ err, walkId: id }, "field.walk_report evidence persist failed");
   }
   res.json(
     CompleteWalkResponse.parse({

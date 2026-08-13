@@ -4,6 +4,8 @@ import { startScheduler } from "./lib/scheduler";
 import { ensureChartOfAccounts } from "./lib/ledger";
 import { ensureFalkonSchema } from "./lib/ensureFalkonSchema";
 import { ensureFalkonIdentity } from "./lib/falkonIdentity";
+import { ensureBase44Schema } from "./lib/ensureBase44Schema";
+import { ensureEnforcerSchema } from "./lib/ensureEnforcerSchema";
 import { startFalkonNetworkPoller } from "./lib/falkonNetworkPoller";
 
 const rawPort = process.env["PORT"];
@@ -39,4 +41,10 @@ app.listen(port, (err) => {
     .catch((err) =>
       logger.error({ err }, "Failed to bootstrap Falkon schema or identity"),
     );
+  ensureBase44Schema().catch((err) =>
+    logger.error({ err }, "Failed to bootstrap Base44 projection schema"),
+  );
+  ensureEnforcerSchema().catch((err) =>
+    logger.error({ err }, "Failed to bootstrap Enforcer/PM-link schema"),
+  );
 });

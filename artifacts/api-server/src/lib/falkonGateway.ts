@@ -24,10 +24,39 @@ import { sql } from "drizzle-orm";
 // Constants
 // ---------------------------------------------------------------------------
 
-export const GATEWAY_ORIGIN = "https://building-blocks--austpryb1.replit.app/api";
-export const CLIENT_ID = "fk_archangel_halo_prod";
-export const TENANT = "archangel-halo-prod";
-export const PARTNER_ID = "archangel-halo";
+function isProdRuntime(): boolean {
+  return process.env.NODE_ENV === "production" || process.env.HALO_ENV === "production";
+}
+
+export function getGatewayOrigin(): string {
+  return (process.env.FALKON_GATEWAY_ORIGIN ?? process.env.FALKON_API_BASE_URL ?? "")
+    .trim()
+    .replace(/\/$/, "");
+}
+
+export function getFalkonClientId(): string {
+  const v = (process.env.FALKON_CLIENT_ID ?? "").trim();
+  if (v) return v;
+  return isProdRuntime() ? "" : "fk_archangel_halo_dev";
+}
+
+export function getFalkonPartnerId(): string {
+  const v = (process.env.FALKON_PARTNER_ID ?? "").trim();
+  if (v) return v;
+  return isProdRuntime() ? "" : "archangel-halo";
+}
+
+export function getFalkonTenant(): string {
+  const v = (process.env.FALKON_TENANT ?? "").trim();
+  if (v) return v;
+  return isProdRuntime() ? "" : "archangel-halo-dev";
+}
+
+/** Live getters — do not hardcode a Replit hostname. */
+export const GATEWAY_ORIGIN = getGatewayOrigin();
+export const CLIENT_ID = getFalkonClientId();
+export const TENANT = getFalkonTenant();
+export const PARTNER_ID = getFalkonPartnerId();
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -127,7 +156,7 @@ function buildOutboundSignature(
 ): string | null {
   const key = getSigningKey();
   if (!key) return null;
-  const signingString = `${CLIENT_ID}\n${timestampMs}\n${nonce}\n${bodyHash}`;
+  const signingString = `${getFalkonClientId()}\n${timestampMs}\n${nonce}\n${bodyHash}`;
   try {
     const sigBuf = edSign(null, Buffer.from(signingString, "utf8"), key);
     return base64urlNopad(sigBuf);
@@ -164,7 +193,7 @@ async function gatewayFetch<T>(
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-Falkon-Client-Id": CLIENT_ID,
+    "X-Falkon-Client-Id": getFalkonClientId(),
     "X-Falkon-Timestamp": String(timestampMs),
     "X-Falkon-Nonce": nonce,
     "X-Falkon-Mode": options.mode,
@@ -173,8 +202,17 @@ async function gatewayFetch<T>(
     headers["X-Falkon-Signature"] = signature;
   }
 
+  const origin = getGatewayOrigin();
+  const clientId = getFalkonClientId();
+  if (!origin || !clientId) {
+    return {
+      data: null,
+      error: new FalkonGatewayError("Falkon gateway is not configured", "unconfigured", false),
+    };
+  }
+
   try {
-    const resp = await fetch(`${GATEWAY_ORIGIN}${path}`, {
+    const resp = await fetch(`${origin}${path}`, {
       method,
       headers,
       body: rawBody || undefined,
@@ -288,10 +326,10 @@ export async function submitTrustBinding(trustDocUrl: string, publicKeyPem: stri
   const { data, error } = await gatewayFetch<{
     ok: boolean;
     falkonPublicKeyPem?: string;
-  }>(`/partners/${CLIENT_ID}/trust`, {
+  }>(`/partners/${getFalkonClientId()}/trust`, {
     method: "PUT",
     body: {
-      clientId: CLIENT_ID,
+      clientId: getFalkonClientId(),
       partnerId: PARTNER_ID,
       trustDocUrl,
       publicKeyPem,
@@ -309,12 +347,12 @@ export async function submitTrustBinding(trustDocUrl: string, publicKeyPem: stri
 export async function registerCallback(webhookUrl: string): Promise<GatewayCallbackResult> {
   const mode = await getEffectiveMode();
   const { data, error } = await gatewayFetch<GatewayCallbackResult>(
-    `/partners/${CLIENT_ID}/callbacks`,
+    `/partners/${getFalkonClientId()}/callbacks`,
     {
       method: "POST",
       body: {
         partnerId: PARTNER_ID,
-        clientId: CLIENT_ID,
+        clientId: getFalkonClientId(),
         tenant: TENANT,
         webhookUrl,
         events: ["*"],
@@ -336,7 +374,7 @@ export async function runShadowExecution(payload: {
   jobId?: string;
 }): Promise<GatewayShadowExecutionResult> {
   const { data, error } = await gatewayFetch<GatewayShadowExecutionResult>(
-    `/partners/${CLIENT_ID}/shadow/execute`,
+    `/partners/${getFalkonClientId()}/shadow/execute`,
     {
       method: "POST",
       body: {
@@ -362,7 +400,7 @@ export async function gatewayPing(nonce?: string): Promise<GatewayPingResult> {
     ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]!.trim()}`
     : "";
   const { data, error } = await gatewayFetch<GatewayPingResult>(
-    `/partners/${CLIENT_ID}/ping`,
+    `/partners/${getFalkonClientId()}/ping`,
     {
       method: "POST",
       body: {
@@ -396,7 +434,7 @@ export async function syncPropertyTwin(property: {
 }): Promise<GatewayTwinResult> {
   const mode = await getEffectiveMode();
   const { data, error } = await gatewayFetch<GatewayTwinResult>(
-    `/partners/${CLIENT_ID}/twins/properties/${property.id}`,
+    `/partners/${getFalkonClientId()}/twins/properties/${property.id}`,
     {
       method: "PUT",
       body: {
@@ -433,7 +471,7 @@ export async function syncUnitTwin(unit: {
 }): Promise<GatewayTwinResult> {
   const mode = await getEffectiveMode();
   const { data, error } = await gatewayFetch<GatewayTwinResult>(
-    `/partners/${CLIENT_ID}/twins/units/${unit.id}`,
+    `/partners/${getFalkonClientId()}/twins/units/${unit.id}`,
     {
       method: "PUT",
       body: {
@@ -466,7 +504,7 @@ export async function syncVendorTwin(vendor: {
 }): Promise<GatewayTwinResult> {
   const mode = await getEffectiveMode();
   const { data, error } = await gatewayFetch<GatewayTwinResult>(
-    `/partners/${CLIENT_ID}/twins/vendors/${vendor.id}`,
+    `/partners/${getFalkonClientId()}/twins/vendors/${vendor.id}`,
     {
       method: "PUT",
       body: {
@@ -495,7 +533,7 @@ export async function registerCapabilities(capabilities: {
 }[]): Promise<GatewayCapabilitiesResult> {
   const mode = await getEffectiveMode();
   const { data, error } = await gatewayFetch<GatewayCapabilitiesResult>(
-    `/partners/${CLIENT_ID}/capabilities`,
+    `/partners/${getFalkonClientId()}/capabilities`,
     {
       method: "PUT",
       body: {
@@ -539,7 +577,7 @@ export async function reportPhaseTransition(params: {
 }): Promise<GatewayPhaseTransitionResult> {
   const mode = await getEffectiveMode();
   const { data, error } = await gatewayFetch<GatewayPhaseTransitionResult>(
-    `/partners/${CLIENT_ID}/make-ready/transitions`,
+    `/partners/${getFalkonClientId()}/make-ready/transitions`,
     {
       method: "POST",
       body: {
@@ -587,7 +625,7 @@ export async function ingestEvent(
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-Falkon-Client-Id": CLIENT_ID,
+    "X-Falkon-Client-Id": getFalkonClientId(),
     "X-Falkon-Timestamp": String(timestampMs),
     "X-Falkon-Nonce": nonce,
   };

@@ -1,45 +1,238 @@
 /**
- * Crew Check-in Links — the entire crew UX is one bookmark.
+ * Crew check-in links — one bookmark, two taps: check in / check out.
  *
- * Office endpoints (behind passcode gate):
- *   POST   /crew-checkin-links            generate a link for a crew member
- *   GET    /crew-checkin-links            list active links
- *   DELETE /crew-checkin-links/:token     revoke a link
+ * Office: POST/GET/DELETE /crew-checkin-links
+ * Public: GET  /checkin/:token
+ *         POST /checkin/:token/checkin|checkout|location
  *
- * Public endpoints (in PUBLIC_PREFIXES):
- *   GET    /checkin/:token                crew info + today's assignment
- *   POST   /checkin/:token/checkin        record check-in with GPS
- *   POST   /checkin/:token/checkout       record check-out with GPS
+ * Tokens are hashed at rest. GPS is session-justified only.
+ * Checkout never requires photos, checklists, or invoices.
  */
 
 import { Router } from "express";
-import { randomBytes } from "crypto";
+import { createHash } from "node:crypto";
 import {
   db,
   crewCheckinLinksTable,
+  crewCheckinAuditTable,
   crewsTable,
   crewCheckinsTable,
+  crewTrackPointsTable,
   jobsTable,
   propertiesTable,
 } from "@workspace/db";
+import { recordFieldProvenance } from "../lib/fieldProvenance";
 import { eq, and, gte, desc, isNull, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { limits } from "../lib/rateLimit";
+import {
+  classifyCrewTokenShape,
+  crewLinkHttpStatus,
+  decideCheckin,
+  decideCheckout,
+  decideLocationPing,
+  evaluateCrewLink,
+  evaluateGps,
+  formatTodayAssignment,
+  gpsAllowsCheckin,
+  hashCrewToken,
+  localIsoDate,
+  mapSessionView,
+  mintCrewToken,
+  sessionFromEvents,
+  todaysDispatch,
+  type CrewLinkRecord,
+  type DispatchJob,
+  type PunchEvent,
+} from "../lib/crewCheckinCore";
 
 const router = Router();
+
+function ipHash(req: {
+  headers: Record<string, unknown>;
+  socket?: { remoteAddress?: string };
+}): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  const ip =
+    (typeof forwarded === "string" ? forwarded.split(",")[0]?.trim() : null) ??
+    req.socket?.remoteAddress ??
+    "unknown";
+  return createHash("sha256").update(`halo-ip:${ip}`).digest("hex").slice(0, 32);
+}
+
+function publicAppOrigin(req: { get: (h: string) => string | undefined; protocol: string }): string {
+  const fromEnv = process.env.PUBLIC_APP_URL?.replace(/\/$/, "");
+  if (fromEnv) return fromEnv;
+  if (process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  const host = req.get("x-forwarded-host") ?? req.get("host") ?? "halo.app";
+  const proto = req.get("x-forwarded-proto") ?? req.protocol;
+  return `${proto}://${host}`;
+}
+
+function tokenParam(raw: string | string[] | undefined): string {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function asCoreRecord(row: typeof crewCheckinLinksTable.$inferSelect): CrewLinkRecord {
+  return {
+    id: row.id,
+    tokenHash: row.tokenHash ?? hashCrewToken(row.token),
+    tokenPrefix: row.tokenPrefix ?? row.token.slice(0, 14),
+    crewId: row.crewId,
+    expiresAt: row.expiresAt.toISOString(),
+    revokedAt: row.revokedAt?.toISOString() ?? null,
+    lastAccessedAt: row.lastAccessedAt?.toISOString() ?? null,
+  };
+}
+
+async function audit(
+  linkId: string,
+  action: string,
+  req: { headers: Record<string, unknown>; socket?: { remoteAddress?: string } },
+  detail?: Record<string, unknown>,
+) {
+  try {
+    await db.insert(crewCheckinAuditTable).values({
+      linkId,
+      action,
+      ipHash: ipHash(req),
+      detail: detail ?? null,
+    });
+  } catch (err) {
+    logger.warn({ err, action, linkId }, "crew-checkin: audit write failed");
+  }
+}
+
+async function lookupLink(bearer: string) {
+  const tokenHash = hashCrewToken(bearer);
+  const hashedPlaceholder = `h:${tokenHash}`;
+  const [row] = await db
+    .select()
+    .from(crewCheckinLinksTable)
+    .where(
+      or(
+        eq(crewCheckinLinksTable.tokenHash, tokenHash),
+        eq(crewCheckinLinksTable.token, bearer),
+        eq(crewCheckinLinksTable.token, hashedPlaceholder),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+function sendLinkError(
+  res: { status: (n: number) => { json: (b: unknown) => unknown } },
+  err: "malformed" | "expired" | "revoked" | "not_found" | "valid" | undefined,
+) {
+  const status = err && err !== "valid" ? err : "not_found";
+  res.status(crewLinkHttpStatus(status)).json({ error: status });
+}
+
+async function resolveLink(bearer: string, now = new Date()) {
+  if (classifyCrewTokenShape(bearer) === "malformed") return { err: "malformed" as const };
+  const row = await lookupLink(bearer);
+  const evaluated = evaluateCrewLink(bearer, row ? asCoreRecord(row) : null, now);
+  if (evaluated.status !== "valid" || !evaluated.link || !row) {
+    return { err: evaluated.status === "valid" ? ("not_found" as const) : evaluated.status };
+  }
+  return { row, link: evaluated.link };
+}
+
+async function touchAccess(id: string) {
+  await db
+    .update(crewCheckinLinksTable)
+    .set({ lastAccessedAt: new Date() })
+    .where(eq(crewCheckinLinksTable.id, id));
+}
+
+async function loadSession(crewId: string): Promise<{ session: ReturnType<typeof sessionFromEvents>; events: PunchEvent[] }> {
+  const rows = await db
+    .select()
+    .from(crewCheckinsTable)
+    .where(eq(crewCheckinsTable.crewId, crewId))
+    .orderBy(desc(crewCheckinsTable.createdAt))
+    .limit(8);
+  const events: PunchEvent[] = rows
+    .slice()
+    .reverse()
+    .map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      createdAt: r.createdAt,
+      jobId: r.jobId,
+      lat: r.lat,
+      lng: r.lng,
+      accuracy: r.accuracy,
+    }));
+  return { session: sessionFromEvents(events), events };
+}
+
+async function loadDispatch(crewId: string, now: Date): Promise<DispatchJob[]> {
+  const today = localIsoDate(now);
+  const rows = await db
+    .select({
+      id: jobsTable.id,
+      propertyId: jobsTable.propertyId,
+      unitNo: jobsTable.unitNo,
+      description: jobsTable.description,
+      scheduledOn: jobsTable.scheduledOn,
+      boardStatus: jobsTable.boardStatus,
+      crewLeaderId: jobsTable.crewLeaderId,
+      propertyName: propertiesTable.name,
+    })
+    .from(jobsTable)
+    .leftJoin(propertiesTable, eq(propertiesTable.id, jobsTable.propertyId))
+    .where(eq(jobsTable.crewLeaderId, crewId));
+  return todaysDispatch(
+    rows.map((r) => ({
+      id: r.id,
+      propertyId: r.propertyId,
+      propertyName: r.propertyName,
+      unitNo: r.unitNo,
+      description: r.description,
+      scheduledOn: r.scheduledOn,
+      boardStatus: r.boardStatus,
+      crewLeaderId: r.crewLeaderId,
+    })),
+    crewId,
+    today,
+  );
+}
+
+function gpsBody(body: unknown) {
+  const b = (body ?? {}) as Record<string, unknown>;
+  return {
+    lat: b.lat,
+    lng: b.lng,
+    accuracy: b.accuracy,
+    capturedAt: b.capturedAt,
+  };
+}
+
+function gpsColumns(verdict: ReturnType<typeof evaluateGps>): {
+  lat: number | null;
+  lng: number | null;
+  accuracy: number | null;
+} {
+  if (verdict.status === "ok" || verdict.status === "low_accuracy") {
+    return { lat: verdict.lat, lng: verdict.lng, accuracy: verdict.accuracy };
+  }
+  return { lat: null, lng: null, accuracy: null };
+}
 
 // ─── Office: generate a link ──────────────────────────────────────────────────
 
 router.post("/crew-checkin-links", async (req, res): Promise<void> => {
   try {
     const { crewId, expiresInDays = 90, label } = req.body ?? {};
-
-    if (!crewId) {
+    if (!crewId || typeof crewId !== "string") {
       res.status(400).json({ error: "crewId required" });
       return;
     }
 
     const [crew] = await db
-      .select({ id: crewsTable.id, name: crewsTable.name })
+      .select({ id: crewsTable.id, name: crewsTable.name, active: crewsTable.active })
       .from(crewsTable)
       .where(eq(crewsTable.id, crewId))
       .limit(1);
@@ -49,37 +242,46 @@ router.post("/crew-checkin-links", async (req, res): Promise<void> => {
       return;
     }
 
-    const token = "crew_" + randomBytes(12).toString("hex");
+    const minted = mintCrewToken();
     const expiresAt = new Date(Date.now() + Number(expiresInDays) * 86_400_000);
 
-    const [link] = await db
+    const [row] = await db
       .insert(crewCheckinLinksTable)
       .values({
-        token,
+        token: `h:${minted.tokenHash}`,
+        tokenHash: minted.tokenHash,
+        tokenPrefix: minted.tokenPrefix,
         crewId,
         expiresAt,
         label: label ?? `${crew.name} — check-in link`,
       })
       .returning();
 
-    const host = req.get("x-forwarded-host") ?? req.get("host") ?? "halo.app";
-    const proto = req.get("x-forwarded-proto") ?? req.protocol;
-    const baseUrl = process.env.REPLIT_DEV_DOMAIN
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : `${proto}://${host}`;
-
-    const url = `${baseUrl}/checkin/${token}`;
+    const url = `${publicAppOrigin(req)}/checkin/${minted.token}`;
     const firstName = crew.name.split(" ")[0] ?? crew.name;
     const smsText = `Hi ${firstName} 👋 Here's your HALO check-in link:\n${url}\n\nBookmark it and tap when you arrive or leave.`;
 
-    res.json({ ok: true, link, url, smsText, crewName: crew.name });
+    await audit(row.id, "created", req, { crewId });
+    res.json({
+      ok: true,
+      url,
+      smsText,
+      crewName: crew.name,
+      token: minted.token,
+      link: {
+        id: row.id,
+        tokenPrefix: minted.tokenPrefix,
+        crewId: row.crewId,
+        label: row.label,
+        expiresAt: row.expiresAt,
+        createdAt: row.createdAt,
+      },
+    });
   } catch (err) {
     logger.error({ err }, "crew-checkin-links: create failed");
     res.status(500).json({ error: "Failed to create link" });
   }
 });
-
-// ─── Office: list active links ────────────────────────────────────────────────
 
 router.get("/crew-checkin-links", async (_req, res): Promise<void> => {
   try {
@@ -87,20 +289,18 @@ router.get("/crew-checkin-links", async (_req, res): Promise<void> => {
     const links = await db
       .select({
         id: crewCheckinLinksTable.id,
-        token: crewCheckinLinksTable.token,
+        tokenPrefix: crewCheckinLinksTable.tokenPrefix,
         crewId: crewCheckinLinksTable.crewId,
         label: crewCheckinLinksTable.label,
         expiresAt: crewCheckinLinksTable.expiresAt,
         createdAt: crewCheckinLinksTable.createdAt,
+        lastAccessedAt: crewCheckinLinksTable.lastAccessedAt,
         crewName: crewsTable.name,
       })
       .from(crewCheckinLinksTable)
-      .innerJoin(crewsTable, eq(crewCheckinLinksTable.crewId, crewsTable.id))
+      .innerJoin(crewsTable, eq(crewsTable.id, crewCheckinLinksTable.crewId))
       .where(
-        and(
-          isNull(crewCheckinLinksTable.revokedAt),
-          gte(crewCheckinLinksTable.expiresAt, now),
-        ),
+        and(isNull(crewCheckinLinksTable.revokedAt), gte(crewCheckinLinksTable.expiresAt, now)),
       )
       .orderBy(desc(crewCheckinLinksTable.createdAt))
       .limit(100);
@@ -112,14 +312,30 @@ router.get("/crew-checkin-links", async (_req, res): Promise<void> => {
   }
 });
 
-// ─── Office: revoke a link ────────────────────────────────────────────────────
-
 router.delete("/crew-checkin-links/:token", async (req, res): Promise<void> => {
   try {
-    await db
-      .update(crewCheckinLinksTable)
-      .set({ revokedAt: new Date() })
-      .where(eq(crewCheckinLinksTable.token, req.params.token));
+    const raw = tokenParam(req.params.token);
+    const now = new Date();
+    let updated: { id: string }[] = [];
+    if (/^[0-9a-f-]{36}$/i.test(raw)) {
+      updated = await db
+        .update(crewCheckinLinksTable)
+        .set({ revokedAt: now })
+        .where(eq(crewCheckinLinksTable.id, raw))
+        .returning({ id: crewCheckinLinksTable.id });
+    } else {
+      const hash = classifyCrewTokenShape(raw) === "ok" ? hashCrewToken(raw) : null;
+      updated = await db
+        .update(crewCheckinLinksTable)
+        .set({ revokedAt: now })
+        .where(
+          hash
+            ? or(eq(crewCheckinLinksTable.tokenHash, hash), eq(crewCheckinLinksTable.token, raw))
+            : eq(crewCheckinLinksTable.token, raw),
+        )
+        .returning({ id: crewCheckinLinksTable.id });
+    }
+    if (updated[0]) await audit(updated[0].id, "revoked", req);
     res.json({ ok: true });
   } catch (err) {
     logger.error({ err }, "crew-checkin-links: revoke failed");
@@ -127,36 +343,22 @@ router.delete("/crew-checkin-links/:token", async (req, res): Promise<void> => {
   }
 });
 
-// ─── Shared: resolve token ────────────────────────────────────────────────────
+// ─── Public: crew + today's assignment + session/map ─────────────────────────
 
-async function resolveCheckinLink(token: string) {
-  const [link] = await db
-    .select()
-    .from(crewCheckinLinksTable)
-    .where(eq(crewCheckinLinksTable.token, token))
-    .limit(1);
-
-  if (!link) return { err: "not_found" as const };
-  if (link.revokedAt) return { err: "revoked" as const };
-  if (link.expiresAt < new Date()) return { err: "expired" as const };
-  return { link };
-}
-
-// ─── Public: crew info + today's assignment ───────────────────────────────────
-
-router.get("/checkin/:token", async (req, res): Promise<void> => {
+router.get("/checkin/:token", limits.checkinView, async (req, res): Promise<void> => {
   try {
-    const resolved = await resolveCheckinLink(req.params.token);
+    const resolved = await resolveLink(tokenParam(req.params.token));
     if ("err" in resolved) {
-      res.status(resolved.err === "not_found" ? 404 : 410).json({ error: resolved.err });
+      sendLinkError(res, resolved.err);
       return;
     }
-    const { link } = resolved;
+    const { row } = resolved;
+    await touchAccess(row.id);
 
     const [crew] = await db
-      .select({ id: crewsTable.id, name: crewsTable.name })
+      .select({ id: crewsTable.id, name: crewsTable.name, active: crewsTable.active })
       .from(crewsTable)
-      .where(eq(crewsTable.id, link.crewId))
+      .where(eq(crewsTable.id, row.crewId))
       .limit(1);
 
     if (!crew) {
@@ -164,59 +366,43 @@ router.get("/checkin/:token", async (req, res): Promise<void> => {
       return;
     }
 
-    // Today's assignment — look for an active job where this crew is the lead
-    const [activeJob] = await db
-      .select({
-        id: jobsTable.id,
-        description: jobsTable.description,
-        propertyId: jobsTable.propertyId,
-      })
-      .from(jobsTable)
-      .where(
-        and(
-          eq(jobsTable.crewLeaderId, crew.id),
-          or(
-            eq(jobsTable.boardStatus, "active"),
-            eq(jobsTable.boardStatus, "filled"),
-            eq(jobsTable.boardStatus, "assigned"),
-          ),
-        ),
-      )
+    const now = new Date();
+    const dispatch = await loadDispatch(crew.id, now);
+    const assignment = formatTodayAssignment(dispatch);
+    const { session } = await loadSession(crew.id);
+
+    const [lastPing] = await db
+      .select()
+      .from(crewTrackPointsTable)
+      .where(eq(crewTrackPointsTable.crewId, crew.id))
+      .orderBy(desc(crewTrackPointsTable.createdAt))
       .limit(1);
 
-    // Get property name if there's an active job
-    let propertyName: string | null = null;
-    if (activeJob?.propertyId) {
-      const [prop] = await db
-        .select({ name: propertiesTable.name })
-        .from(propertiesTable)
-        .where(eq(propertiesTable.id, activeJob.propertyId))
-        .limit(1);
-      propertyName = prop?.name ?? null;
-    }
+    const map = mapSessionView({
+      session,
+      now,
+      lastPing:
+        lastPing && lastPing.lat != null && lastPing.lng != null
+          ? { lat: lastPing.lat, lng: lastPing.lng, accuracy: lastPing.accuracy, at: lastPing.createdAt }
+          : null,
+    });
 
-    // Current check-in status
-    const [lastCheckin] = await db
-      .select({ kind: crewCheckinsTable.kind, createdAt: crewCheckinsTable.createdAt })
-      .from(crewCheckinsTable)
-      .where(eq(crewCheckinsTable.crewId, crew.id))
-      .orderBy(desc(crewCheckinsTable.createdAt))
-      .limit(1);
-
-    const currentStatus: "in" | "out" =
-      lastCheckin?.kind === "checkin" ? "in" : "out";
+    await audit(row.id, "accessed", req);
 
     res.json({
       crew: { id: crew.id, name: crew.name },
-      todayAssignment: activeJob
+      todayAssignment: assignment
         ? {
-            propertyName,
-            unitLabel: null,
-            jobDescription: activeJob.description ?? null,
+            propertyName: assignment.propertyName,
+            unitLabel: assignment.unitLabel,
+            jobDescription: assignment.jobDescription,
+            units: assignment.units,
           }
         : null,
-      currentStatus,
-      lastCheckin: lastCheckin?.createdAt?.toISOString() ?? null,
+      currentStatus: map.status,
+      lastCheckin: map.checkedInAt,
+      session: map,
+      backgroundGpsSupported: false,
     });
   } catch (err) {
     logger.error({ err }, "crew-checkin: info failed");
@@ -224,93 +410,242 @@ router.get("/checkin/:token", async (req, res): Promise<void> => {
   }
 });
 
-// ─── Public: check in ────────────────────────────────────────────────────────
-
-router.post("/checkin/:token/checkin", async (req, res): Promise<void> => {
+router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Promise<void> => {
   try {
-    const resolved = await resolveCheckinLink(req.params.token);
+    const resolved = await resolveLink(tokenParam(req.params.token));
     if ("err" in resolved) {
-      res.status(resolved.err === "not_found" ? 404 : 410).json({ error: resolved.err });
+      sendLinkError(res, resolved.err);
       return;
     }
-    const { link } = resolved;
+    const { row } = resolved;
+    await touchAccess(row.id);
 
-    const { lat, lng, accuracy } = req.body ?? {};
-
-    const [activeJob] = await db
-      .select({ id: jobsTable.id })
-      .from(jobsTable)
-      .where(
-        and(
-          eq(jobsTable.crewLeaderId, link.crewId),
-          or(
-            eq(jobsTable.boardStatus, "active"),
-            eq(jobsTable.boardStatus, "filled"),
-            eq(jobsTable.boardStatus, "assigned"),
-          ),
-        ),
-      )
+    const [crew] = await db
+      .select({ id: crewsTable.id, active: crewsTable.active })
+      .from(crewsTable)
+      .where(eq(crewsTable.id, row.crewId))
       .limit(1);
+    if (!crew) {
+      res.status(404).json({ error: "Crew member not found" });
+      return;
+    }
 
-    await db.insert(crewCheckinsTable).values({
-      crewId: link.crewId,
-      jobId: activeJob?.id ?? null,
-      kind: "checkin",
-      lat: lat != null ? Number(lat) : null,
-      lng: lng != null ? Number(lng) : null,
-      accuracy: accuracy != null ? Number(accuracy) : null,
-      label: "Check-in via link",
+    const now = new Date();
+    const gps = evaluateGps(gpsBody(req.body), now);
+    if (!gpsAllowsCheckin(gps)) {
+      const code = gps.status === "stale" ? "gps_stale" : "gps_invalid";
+      await audit(row.id, "denied", req, { code });
+      res.status(400).json({
+        error: gps.status === "stale" ? "Location is too old. Try again." : "Location looks invalid.",
+        code,
+      });
+      return;
+    }
+
+    const { session } = await loadSession(crew.id);
+    const decision = decideCheckin({
+      session,
+      now,
+      linkCrewId: row.crewId,
+      requestedCrewId: (req.body as { crewId?: unknown } | undefined)?.crewId,
+      crewActive: crew.active !== false,
     });
+    if (!decision.ok) {
+      await audit(row.id, "denied", req, { code: decision.code });
+      res.status(decision.status).json({
+        error: decision.code === "wrong_crew" ? "This link is not for that crew." : "This crew is not active.",
+        code: decision.code,
+      });
+      return;
+    }
 
-    res.json({ ok: true, checkedIn: true });
+    const dispatch = await loadDispatch(crew.id, now);
+    const primaryJobId = dispatch[0]?.id ?? session.openCheckin?.jobId ?? null;
+    const coords = gpsColumns(gps);
+
+    if (decision.action === "create") {
+      const [punch] = await db.insert(crewCheckinsTable).values({
+        crewId: crew.id,
+        jobId: primaryJobId,
+        kind: "checkin",
+        lat: coords.lat,
+        lng: coords.lng,
+        accuracy: coords.accuracy,
+        label: "Check-in via link",
+      }).returning({ id: crewCheckinsTable.id });
+      if (punch) {
+        void recordFieldProvenance({
+          eventId: punch.id,
+          kind: "checkin",
+          crewId: crew.id,
+          haloJobId: primaryJobId,
+          lat: coords.lat,
+          lng: coords.lng,
+          propertyName: dispatch[0]?.propertyName ?? null,
+        });
+      }
+    }
+
+    await audit(row.id, "checkin", req, { replay: decision.action === "replay", gps: gps.status });
+    res.json({
+      ok: true,
+      checkedIn: true,
+      replayed: decision.action === "replay",
+      reason: decision.reason,
+      gps: gps.status,
+      assignment: formatTodayAssignment(dispatch),
+    });
   } catch (err) {
     logger.error({ err }, "crew-checkin: checkin failed");
     res.status(500).json({ error: "Failed to record check-in" });
   }
 });
 
-// ─── Public: check out ───────────────────────────────────────────────────────
-
-router.post("/checkin/:token/checkout", async (req, res): Promise<void> => {
+router.post("/checkin/:token/checkout", limits.checkinWrite, async (req, res): Promise<void> => {
   try {
-    const resolved = await resolveCheckinLink(req.params.token);
+    const resolved = await resolveLink(tokenParam(req.params.token));
     if ("err" in resolved) {
-      res.status(resolved.err === "not_found" ? 404 : 410).json({ error: resolved.err });
+      sendLinkError(res, resolved.err);
       return;
     }
-    const { link } = resolved;
+    const { row } = resolved;
+    await touchAccess(row.id);
 
-    const { lat, lng, accuracy } = req.body ?? {};
-
-    const [activeJob] = await db
-      .select({ id: jobsTable.id })
-      .from(jobsTable)
-      .where(
-        and(
-          eq(jobsTable.crewLeaderId, link.crewId),
-          or(
-            eq(jobsTable.boardStatus, "active"),
-            eq(jobsTable.boardStatus, "filled"),
-            eq(jobsTable.boardStatus, "assigned"),
-          ),
-        ),
-      )
+    const [crew] = await db
+      .select({ id: crewsTable.id, active: crewsTable.active })
+      .from(crewsTable)
+      .where(eq(crewsTable.id, row.crewId))
       .limit(1);
+    if (!crew) {
+      res.status(404).json({ error: "Crew member not found" });
+      return;
+    }
 
-    await db.insert(crewCheckinsTable).values({
-      crewId: link.crewId,
-      jobId: activeJob?.id ?? null,
-      kind: "checkout",
-      lat: lat != null ? Number(lat) : null,
-      lng: lng != null ? Number(lng) : null,
-      accuracy: accuracy != null ? Number(accuracy) : null,
-      label: "Checkout via link",
+    const now = new Date();
+    const gps = evaluateGps(gpsBody(req.body), now);
+    if (gps.status === "invalid" || gps.status === "stale") {
+      res.status(400).json({
+        error: gps.status === "stale" ? "Location is too old. Try again." : "Location looks invalid.",
+        code: gps.status === "stale" ? "gps_stale" : "gps_invalid",
+      });
+      return;
+    }
+
+    const { session } = await loadSession(crew.id);
+    const decision = decideCheckout({
+      session,
+      now,
+      linkCrewId: row.crewId,
+      requestedCrewId: (req.body as { crewId?: unknown } | undefined)?.crewId,
+      crewActive: crew.active !== false,
     });
+    if (!decision.ok) {
+      await audit(row.id, "denied", req, { code: decision.code });
+      const message =
+        decision.code === "checkout_without_checkin"
+          ? "Check out needs an active check-in."
+          : decision.code === "wrong_crew"
+            ? "This link is not for that crew."
+            : "This crew is not active.";
+      res.status(decision.status).json({ error: message, code: decision.code });
+      return;
+    }
 
-    res.json({ ok: true, checkedOut: true });
+    const coords = gpsColumns(gps);
+    if (decision.action === "create") {
+      const [punch] = await db.insert(crewCheckinsTable).values({
+        crewId: crew.id,
+        jobId: session.openCheckin?.jobId ?? null,
+        kind: "checkout",
+        lat: coords.lat,
+        lng: coords.lng,
+        accuracy: coords.accuracy,
+        label: "Checkout via link",
+      }).returning({ id: crewCheckinsTable.id });
+      if (punch) {
+        void recordFieldProvenance({
+          eventId: punch.id,
+          kind: "checkout",
+          crewId: crew.id,
+          haloJobId: session.openCheckin?.jobId ?? null,
+          lat: coords.lat,
+          lng: coords.lng,
+        });
+      }
+    }
+
+    await audit(row.id, "checkout", req, { replay: decision.action === "replay", trackingEnds: true });
+    res.json({
+      ok: true,
+      checkedOut: true,
+      replayed: decision.action === "replay",
+      trackingActive: false,
+      backgroundGpsSupported: false,
+    });
   } catch (err) {
     logger.error({ err }, "crew-checkin: checkout failed");
     res.status(500).json({ error: "Failed to record checkout" });
+  }
+});
+
+router.post("/checkin/:token/location", limits.trackPoint, async (req, res): Promise<void> => {
+  try {
+    const resolved = await resolveLink(tokenParam(req.params.token));
+    if ("err" in resolved) {
+      sendLinkError(res, resolved.err);
+      return;
+    }
+    const { row } = resolved;
+    await touchAccess(row.id);
+
+    const now = new Date();
+    const gps = evaluateGps(gpsBody(req.body), now);
+    const { session } = await loadSession(row.crewId);
+    const decision = decideLocationPing({ session, gps });
+    if (!decision.ok) {
+      const message =
+        decision.code === "session_ended"
+          ? "Location updates stop after check-out."
+          : "A fresh location fix is required.";
+      res.status(decision.status).json({ error: message, code: decision.code });
+      return;
+    }
+
+    const coords = gpsColumns(gps);
+    const jobId = session.openCheckin?.jobId ?? null;
+    const [ping] = await db.insert(crewTrackPointsTable).values({
+      crewId: row.crewId,
+      jobId,
+      lat: coords.lat!,
+      lng: coords.lng!,
+      accuracy: coords.accuracy,
+    }).returning({ id: crewTrackPointsTable.id });
+    if (ping) {
+      void recordFieldProvenance({
+        eventId: ping.id,
+        kind: "location",
+        crewId: row.crewId,
+        haloJobId: jobId,
+        lat: coords.lat!,
+        lng: coords.lng!,
+      });
+    }
+
+    await audit(row.id, "location", req, { jobId });
+    res.json({
+      ok: true,
+      trackingActive: true,
+      backgroundGpsSupported: false,
+      lastKnownPosition: {
+        lat: coords.lat,
+        lng: coords.lng,
+        accuracy: coords.accuracy,
+        at: now.toISOString(),
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "crew-checkin: location failed");
+    res.status(500).json({ error: "Failed to record location" });
   }
 });
 

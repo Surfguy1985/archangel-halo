@@ -51,8 +51,10 @@ import {
   registerCapabilities,
   submitTrustBinding,
   CLIENT_ID,
-  GATEWAY_ORIGIN,
+  getGatewayOrigin,
 } from "../lib/falkonGateway";
+import { resolveFalkonApproval } from "../lib/falkonPolicy";
+import { falkonPendingApprovalsTable, falkonPolicyDecisionsTable } from "@workspace/db/schema";
 import { buildTrustDoc, getPublicKeyPem } from "../lib/falkonIdentity";
 import { FALKON_CAPABILITIES, getCapabilityRegistration } from "../lib/falkonCapabilities";
 import { advanceExecution, PHASES } from "../lib/falkonMakeReady";
@@ -139,7 +141,7 @@ falkonAdminRouter.post("/falkon/admin/verify/2-trust-binding", async (req, res) 
       if (!falkonPublicKeyPem) {
         try {
           const tdResp = await fetch(
-            `${GATEWAY_ORIGIN}/.well-known/falkon-trust.json`,
+            `${getGatewayOrigin()}/.well-known/falkon-trust.json`,
             { signal: AbortSignal.timeout(8_000) },
           );
           if (tdResp.ok) {
@@ -163,11 +165,11 @@ falkonAdminRouter.post("/falkon/admin/verify/2-trust-binding", async (req, res) 
                 (id, partner_id, public_key_pem, algorithm, fetched_at, trust_doc_url, created_at)
               VALUES
                 (gen_random_uuid(), 'falkon-gateway', ${falkonPublicKeyPem},
-                 'Ed25519', now(), ${GATEWAY_ORIGIN}, now())`,
+                 'Ed25519', now(), ${getGatewayOrigin()}, now())`,
         );
         logger.info("falkon: Falkon gateway Ed25519 public key cached for webhook verification");
       } else {
-        logger.warn("falkon: trust binding succeeded but Falkon did not return a public key — webhook verify will fall back to HMAC");
+        logger.warn("falkon: trust binding succeeded but Falkon did not return a public key — inbound verify will fail closed until a key is cached");
       }
 
       await db.execute(
@@ -1626,6 +1628,65 @@ falkonAdminRouter.delete("/falkon/admin/test/seed-remote-identity", async (req, 
     return res.json({ ok: true });
   } catch (err: any) {
     logger.error({ err }, "DELETE /falkon/admin/test/seed-remote-identity failed");
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ASSISTED approvals + policy audit
+// ---------------------------------------------------------------------------
+
+falkonAdminRouter.get("/falkon/approvals", async (_req, res) => {
+  try {
+    const rows = await db
+      .select()
+      .from(falkonPendingApprovalsTable)
+      .orderBy(desc(falkonPendingApprovalsTable.createdAt))
+      .limit(100);
+    return res.json({ approvals: rows });
+  } catch (err: any) {
+    logger.error({ err }, "GET /falkon/approvals failed");
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+falkonAdminRouter.post("/falkon/approvals/:id/approve", async (req, res) => {
+  try {
+    const ok = await resolveFalkonApproval(req.params.id, "approved");
+    if (!ok) return res.status(404).json({ error: "Pending approval not found" });
+    return res.json({
+      ok: true,
+      id: req.params.id,
+      status: "approved",
+      retryHeader: "X-Falkon-Approval-Id",
+    });
+  } catch (err: any) {
+    logger.error({ err }, "POST /falkon/approvals/:id/approve failed");
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+falkonAdminRouter.post("/falkon/approvals/:id/deny", async (req, res) => {
+  try {
+    const ok = await resolveFalkonApproval(req.params.id, "denied");
+    if (!ok) return res.status(404).json({ error: "Pending approval not found" });
+    return res.json({ ok: true, id: req.params.id, status: "denied" });
+  } catch (err: any) {
+    logger.error({ err }, "POST /falkon/approvals/:id/deny failed");
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+falkonAdminRouter.get("/falkon/policy/decisions", async (_req, res) => {
+  try {
+    const rows = await db
+      .select()
+      .from(falkonPolicyDecisionsTable)
+      .orderBy(desc(falkonPolicyDecisionsTable.createdAt))
+      .limit(100);
+    return res.json({ decisions: rows });
+  } catch (err: any) {
+    logger.error({ err }, "GET /falkon/policy/decisions failed");
     return res.status(500).json({ error: err.message });
   }
 });

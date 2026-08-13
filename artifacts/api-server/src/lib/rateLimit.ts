@@ -86,6 +86,14 @@ export const limits = {
   trackPoint: rateLimit({ limit: 10, windowMs: 60_000 }),
   /** passcode-free Walk app writes — a PM taps at human speed, scripts don't */
   walkWrite: rateLimit({ limit: 30, windowMs: 60_000 }),
+  /** PM live chat — conversation-speed, not scraping */
+  pmChat: rateLimit({ limit: 30, windowMs: 5 * 60_000 }),
+  /** PM live view bundle */
+  pmView: rateLimit({ limit: 60, windowMs: 60_000 }),
+  /** Crew check-in page load */
+  checkinView: rateLimit({ limit: 60, windowMs: 60_000 }),
+  /** Check-in / check-out taps — human speed; scripts 429 */
+  checkinWrite: rateLimit({ limit: 20, windowMs: 60_000 }),
 };
 
 /**

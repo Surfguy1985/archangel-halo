@@ -82,6 +82,9 @@ import {
   wingEventsTable,
   wingAutomationRunsTable,
   wingAuditTable,
+  base44SyncMapTable,
+  base44SyncRunsTable,
+  base44EvidenceTable,
 } from "@workspace/db";
 import {
   GetBusinessSettingsResponse,
@@ -91,7 +94,13 @@ import {
 } from "@workspace/api-zod";
 import { getBusinessSettings } from "../lib/businessSettings";
 import { executeAutopilotAction, runAutopilot } from "../lib/autopilot";
-import { runBase44Sync, getLastSyncResult } from "../lib/base44Sync";
+import {
+  runBase44Sync,
+  getLastSyncResult,
+  getBase44SyncHealth,
+  hydrateSyncHealthFromDb,
+} from "../lib/base44Sync";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -268,7 +277,7 @@ router.post("/autopilot/actions/:id/approve", async (req, res): Promise<void> =>
     res.status(409).json({ error: `Action is already ${action.status}` });
     return;
   }
-  const done = await executeAutopilotAction(action);
+  const done = await executeAutopilotAction(action, "http");
   if (!done) {
     res.status(409).json({ error: "Action was already handled" });
     return;
@@ -390,6 +399,9 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
     await tx.delete(wingEventsTable);
     await tx.delete(wingAutomationRunsTable);
     await tx.delete(wingAuditTable);
+    await tx.delete(base44EvidenceTable);
+    await tx.delete(base44SyncRunsTable);
+    await tx.delete(base44SyncMapTable);
     // Intentionally preserved: businessSettingsTable (company info),
     // plaidItemsTable (real bank connection).
     await tx.insert(activitiesTable).values({
@@ -404,18 +416,34 @@ router.post("/settings/reset", async (_req, res): Promise<void> => {
 
 // ─── Base44 sync endpoints ─────────────────────────────────────────────────
 
-/** GET /settings/sync-base44/status — last sync result (or null if never run). */
-router.get("/settings/sync-base44/status", (_req, res): void => {
-  res.json({ result: getLastSyncResult() });
+/** GET /settings/sync-base44/status — last sync + freshness. Never returns credentials. */
+router.get("/settings/sync-base44/status", async (_req, res): Promise<void> => {
+  await hydrateSyncHealthFromDb();
+  const health = getBase44SyncHealth();
+  res.json({
+    result: getLastSyncResult(),
+    health: {
+      lastAttemptedAt: health.lastAttemptedAt,
+      lastSuccessfulAt: health.lastSuccessfulAt,
+      lastDurationMs: health.lastDurationMs,
+      lastStatus: health.lastStatus,
+      lastErrorCode: health.lastErrorCode,
+      freshness: health.freshness,
+      recordsProcessed: health.recordsProcessed,
+      failures: health.failures,
+      stale: health.stale,
+    },
+  });
 });
 
 /** POST /settings/sync-base44 — trigger an immediate sync and wait for it. */
 router.post("/settings/sync-base44", async (_req, res): Promise<void> => {
   try {
     const result = await runBase44Sync();
-    res.json({ ok: true, result });
+    res.json({ ok: result.status !== "failed", result, health: getBase44SyncHealth() });
   } catch (err) {
-    res.status(500).json({ error: (err as Error).message });
+    logger.error({ err }, "base44 sync: endpoint failed");
+    res.status(500).json({ error: "Base44 sync failed" });
   }
 });
 

@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { randomBytes } from "crypto";
 import { and, desc, eq, gte, ilike, lt, ne, or, sql } from "drizzle-orm";
 import { completeJsonWithImage } from "../lib/ai";
+import { ensurePortalBearer, publicPortalBearer } from "../lib/portalToken";
 import { z } from "zod";
 import {
   db,
@@ -96,7 +97,7 @@ function crewDetail(row: CrewRow) {
     hireDate: row.hireDate ?? null,
     wingsExcluded: row.wingsExcluded ?? false,
     active: row.active,
-    portalToken: row.portalToken,
+    portalToken: publicPortalBearer(row.portalToken),
     preferredPaymentMethod: row.preferredPaymentMethod,
     paymentDetails: row.paymentDetails,
     paymentTerms: row.paymentTerms,
@@ -141,11 +142,8 @@ router.get("/crews/:id/detail", async (req, res): Promise<void> => {
 
 // STABLE PORTAL LINK — tokens are permanent and must NEVER be rotated.
 // New crews get a token at creation (POST /crews). This endpoint is a
-// safe fallback for legacy rows that predate auto-minting. It is
-// intentionally idempotent: it returns the existing token unchanged and
-// only mints a fresh one when the column is still null. Do NOT add any
-// logic here that overwrites an existing token — doing so would silently
-// invalidate every SMS / saved bookmark the crew already has.
+// Bearer is returned once. Hashed rows cannot be reconstructed — mint a new
+// URL token. Legacy plaintext is reused so existing SMS bookmarks still work.
 router.post("/crews/:id/portal-link", async (req, res): Promise<void> => {
   const { id } = GenerateCrewPortalLinkParams.parse(req.params);
   const [row] = await db.select().from(crewsTable).where(eq(crewsTable.id, id));
@@ -153,15 +151,7 @@ router.post("/crews/:id/portal-link", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Crew not found" });
     return;
   }
-  let token = row.portalToken;
-  if (!token) {
-    // Legacy crew created before auto-minting — mint now and persist once.
-    token = randomBytes(24).toString("base64url");
-    await db
-      .update(crewsTable)
-      .set({ portalToken: token })
-      .where(eq(crewsTable.id, id));
-  }
+  const token = await ensurePortalBearer(row);
   res.json(
     GenerateCrewPortalLinkResponse.parse({
       token,

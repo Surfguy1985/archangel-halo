@@ -10,10 +10,12 @@
  * units, jobs, invoices, price_items, etc. need resolved HALO UUIDs.
  */
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   db,
   base44SyncMapTable,
+  base44SyncRunsTable,
+  base44EvidenceTable,
   propertiesTable,
   crewsTable,
   jobsTable,
@@ -27,9 +29,21 @@ import {
 } from "@workspace/db";
 import { logger } from "./logger";
 import { randomUUID } from "crypto";
-
-const BASE44_URL = "https://wakeful-ready-track-flow.base44.app/functions/haloRead";
-const TOKEN = process.env.HALO_READ_TOKEN ?? "";
+import { Base44ClientError, fetchBase44Snapshot } from "./base44Client";
+import { ensureBase44Schema } from "./ensureBase44Schema";
+import {
+  applyIngest,
+  computeFreshness,
+  parseBase44Body,
+  shouldApplyCollection,
+  type CollectionPresence,
+  type Freshness,
+  type IngestState,
+  type MapEntry,
+  type ProjectionRecord,
+  type SyncErrorCode,
+  mapKey,
+} from "./base44SyncCore";
 
 // Mutual-exclusion flag so a slow sync can't overlap itself.
 let syncRunning = false;
@@ -58,13 +72,56 @@ async function lookupMap(resource: string, base44id: string): Promise<string | n
 
 /** Write (or refresh) a Base44-ID → HALO-UUID mapping. */
 async function saveMap(resource: string, base44id: string, haloId: string): Promise<void> {
+  const now = new Date();
   await db
     .insert(base44SyncMapTable)
-    .values({ resource, base44Id: base44id, haloId, syncedAt: new Date() })
+    .values({
+      resource,
+      base44Id: base44id,
+      haloId,
+      syncedAt: now,
+      lastSeenAt: now,
+      staleAt: null,
+      status: "active",
+    })
     .onConflictDoUpdate({
       target: [base44SyncMapTable.resource, base44SyncMapTable.base44Id],
-      set: { haloId, syncedAt: new Date() },
+      set: {
+        haloId,
+        syncedAt: now,
+        lastSeenAt: now,
+        staleAt: null,
+        status: "active",
+      },
     });
+}
+
+async function markMappedStale(resource: string, liveIds: Set<string>): Promise<number> {
+  const allMapped = await db
+    .select({
+      base44Id: base44SyncMapTable.base44Id,
+      haloId: base44SyncMapTable.haloId,
+      status: base44SyncMapTable.status,
+    })
+    .from(base44SyncMapTable)
+    .where(eq(base44SyncMapTable.resource, resource));
+  const now = new Date();
+  let n = 0;
+  for (const entry of allMapped) {
+    if (liveIds.has(entry.base44Id)) continue;
+    if (entry.status === "stale") continue;
+    await db
+      .update(base44SyncMapTable)
+      .set({ status: "stale", staleAt: now })
+      .where(
+        and(
+          eq(base44SyncMapTable.resource, resource),
+          eq(base44SyncMapTable.base44Id, entry.base44Id),
+        ),
+      );
+    n++;
+  }
+  return n;
 }
 
 /** Coerce a Base44 date string / timestamp to a JS Date or null. */
@@ -119,20 +176,118 @@ async function resolveUnitPropertyId(base44UnitId: any): Promise<string | null> 
   return rows[0]?.propertyId ?? null;
 }
 
-// ─── fetch ───────────────────────────────────────────────────────────────────
-
-async function fetchBase44(): Promise<Record<string, any[]>> {
-  if (!TOKEN) throw new Error("HALO_READ_TOKEN not set");
-  const resp = await fetch(BASE44_URL, {
-    headers: { "x-halo-token": TOKEN },
-  });
-  if (!resp.ok) throw new Error(`Base44 returned ${resp.status}`);
-  const body = await resp.json() as { data: Record<string, any> };
-  const out: Record<string, any[]> = {};
-  for (const [k, v] of Object.entries(body.data ?? {})) {
-    out[k] = Array.isArray(v) ? v : [];
+async function loadIngestState(): Promise<IngestState> {
+  const rows = await db
+    .select({
+      resource: base44SyncMapTable.resource,
+      base44Id: base44SyncMapTable.base44Id,
+      status: base44SyncMapTable.status,
+      payloadHash: base44SyncMapTable.payloadHash,
+      lastSeenAt: base44SyncMapTable.lastSeenAt,
+      staleAt: base44SyncMapTable.staleAt,
+      sourceUpdatedAt: base44SyncMapTable.sourceUpdatedAt,
+    })
+    .from(base44SyncMapTable);
+  const maps = new Map<string, MapEntry>();
+  for (const row of rows) {
+    maps.set(mapKey(row.resource, row.base44Id), {
+      resource: row.resource,
+      base44Id: row.base44Id,
+      status: row.status === "stale" ? "stale" : "active",
+      payloadHash: row.payloadHash ?? "",
+      lastSeenAt: row.lastSeenAt?.toISOString() ?? new Date(0).toISOString(),
+      staleAt: row.staleAt?.toISOString() ?? null,
+      sourceUpdatedAt: row.sourceUpdatedAt?.toISOString() ?? null,
+    });
   }
-  return out;
+  return { maps };
+}
+
+async function persistEvidence(records: ProjectionRecord[], now: Date): Promise<void> {
+  for (const row of records) {
+    await db
+      .insert(base44EvidenceTable)
+      .values({
+        resource: row.resource,
+        base44Id: row.base44Id,
+        kind: row.kind,
+        propertyName: row.propertyName,
+        unitLabel: row.unitLabel,
+        title: row.title,
+        body: row.body,
+        mediaUrl: row.mediaUrl,
+        occurredAt: row.occurredAt ? new Date(row.occurredAt) : null,
+        sourceUpdatedAt: row.sourceUpdatedAt ? new Date(row.sourceUpdatedAt) : null,
+        lastSeenAt: now,
+        stale: false,
+        payloadHash: row.payloadHash,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [base44EvidenceTable.resource, base44EvidenceTable.base44Id],
+        set: {
+          kind: row.kind,
+          propertyName: row.propertyName,
+          unitLabel: row.unitLabel,
+          title: row.title,
+          body: row.body,
+          mediaUrl: row.mediaUrl,
+          occurredAt: row.occurredAt ? new Date(row.occurredAt) : null,
+          sourceUpdatedAt: row.sourceUpdatedAt ? new Date(row.sourceUpdatedAt) : null,
+          lastSeenAt: now,
+          stale: false,
+          payloadHash: row.payloadHash,
+          updatedAt: now,
+        },
+      });
+  }
+}
+
+async function persistMapStatuses(state: IngestState): Promise<void> {
+  for (const entry of state.maps.values()) {
+    const existing = await lookupMap(entry.resource, entry.base44Id);
+    const haloId = existing ?? randomUUID();
+    const now = new Date(entry.lastSeenAt);
+    await db
+      .insert(base44SyncMapTable)
+      .values({
+        resource: entry.resource,
+        base44Id: entry.base44Id,
+        haloId,
+        syncedAt: now,
+        lastSeenAt: now,
+        staleAt: entry.staleAt ? new Date(entry.staleAt) : null,
+        sourceUpdatedAt: entry.sourceUpdatedAt ? new Date(entry.sourceUpdatedAt) : null,
+        status: entry.status,
+        payloadHash: entry.payloadHash || null,
+      })
+      .onConflictDoUpdate({
+        target: [base44SyncMapTable.resource, base44SyncMapTable.base44Id],
+        set: {
+          lastSeenAt: now,
+          staleAt: entry.staleAt ? new Date(entry.staleAt) : null,
+          sourceUpdatedAt: entry.sourceUpdatedAt ? new Date(entry.sourceUpdatedAt) : null,
+          status: entry.status,
+          payloadHash: entry.payloadHash || null,
+          syncedAt: now,
+        },
+      });
+  }
+}
+
+async function markEvidenceStale(state: IngestState): Promise<void> {
+  for (const entry of state.maps.values()) {
+    if (entry.status !== "stale") continue;
+    await db
+      .update(base44EvidenceTable)
+      .set({ stale: true, updatedAt: new Date() })
+      .where(
+        and(
+          eq(base44EvidenceTable.resource, entry.resource),
+          eq(base44EvidenceTable.base44Id, entry.base44Id),
+        ),
+      );
+  }
 }
 
 // ─── per-entity sync functions ───────────────────────────────────────────────
@@ -253,13 +408,12 @@ function autoUnitPosition(index: number): { x: number; y: number; w: number; h: 
  * 2. AUTO-LAYOUT — newly created units are placed in a 5-column grid so
  *    they don't all land at (0,0) on first import.
  *
- * 3. REMOVAL SYNC — units deleted from Base44 are deleted from property_units
- *    and their job-board cards are marked "removed".  Only Base44-sourced
- *    units (tracked in the sync map) are ever deleted this way; manually
- *    created HALO units are untouched.
+ * 3. STALE MARKING — units missing from a successful non-empty Base44
+ *    payload are marked stale in the sync map. HALO rows are never deleted
+ *    by a sync (empty/missing payloads never prune).
  */
-async function syncUnits(records: any[]): Promise<SyncStats & { deleted: number }> {
-  let created = 0, updated = 0, errors = 0, deleted = 0;
+async function syncUnits(records: any[]): Promise<SyncStats & { stale: number }> {
+  let created = 0, updated = 0, errors = 0, stale = 0;
 
   // Track Base44 IDs successfully processed in this run.
   const processedB44Ids = new Set<string>();
@@ -328,66 +482,16 @@ async function syncUnits(records: any[]): Promise<SyncStats & { deleted: number 
     }
   }
 
-  // ── REMOVAL SYNC ──────────────────────────────────────────────────────────
-  // Find all Base44-sourced units in the sync map and delete any that were
-  // not in the current Base44 payload (they were removed from Base44).
+  // ── STALE MARKING ─────────────────────────────────────────────────────────
+  // Never delete operational rows. A successful non-empty collection may
+  // mark mapped units that vanished from Base44 as stale.
   try {
-    const allMapped = await db
-      .select({ base44Id: base44SyncMapTable.base44Id, haloId: base44SyncMapTable.haloId })
-      .from(base44SyncMapTable)
-      .where(eq(base44SyncMapTable.resource, "units"));
-
-    const stale = allMapped.filter((m) => !processedB44Ids.has(m.base44Id));
-
-    for (const entry of stale) {
-      try {
-        // Delete the property_units row.
-        await db.delete(propertyUnitsTable).where(eq(propertyUnitsTable.id, entry.haloId));
-
-        // Mark the unit-job card "removed" on the board.
-        const unitJobId = await lookupMap("unit_jobs", entry.base44Id);
-        if (unitJobId) {
-          await db
-            .update(jobsTable)
-            .set({ boardStatus: "removed", status: "cancelled" })
-            .where(eq(jobsTable.id, unitJobId));
-        }
-
-        // Delete the schedule row if one was created.
-        const schedId = await lookupMap("unit_schedules", entry.base44Id);
-        if (schedId) {
-          await db.delete(schedulesTable).where(eq(schedulesTable.id, schedId));
-          await db
-            .delete(base44SyncMapTable)
-            .where(
-              and(
-                eq(base44SyncMapTable.resource, "unit_schedules"),
-                eq(base44SyncMapTable.base44Id, entry.base44Id),
-              ),
-            );
-        }
-
-        // Remove the sync-map entries for units / unit_jobs.
-        await db
-          .delete(base44SyncMapTable)
-          .where(
-            and(
-              inArray(base44SyncMapTable.resource, ["units", "unit_jobs"]),
-              eq(base44SyncMapTable.base44Id, entry.base44Id),
-            ),
-          );
-
-        deleted++;
-      } catch (err) {
-        logger.warn({ err, b44Id: entry.base44Id }, "base44 sync: unit removal error");
-        errors++;
-      }
-    }
+    stale = await markMappedStale("units", processedB44Ids);
   } catch (err) {
     logger.warn({ err }, "base44 sync: stale-unit scan error");
   }
 
-  return { created, updated, errors, deleted };
+  return { created, updated, errors, stale };
 }
 
 /** Map a Base44 unit status string to the HALO boardStatus that drives rail placement. */
@@ -999,124 +1103,312 @@ export interface SyncResult {
   startedAt: string;
   finishedAt: string;
   durationMs: number;
+  status: "success" | "partial" | "failed" | "skipped";
+  errorCode: SyncErrorCode;
+  freshness: Freshness;
+  attempts: number;
   resources: Record<string, SyncStats>;
   totalCreated: number;
   totalUpdated: number;
+  totalStale: number;
   totalErrors: number;
 }
 
+export interface SyncHealth {
+  lastAttemptedAt: string | null;
+  lastSuccessfulAt: string | null;
+  lastDurationMs: number | null;
+  lastStatus: SyncResult["status"] | null;
+  lastErrorCode: SyncErrorCode;
+  freshness: Freshness;
+  recordsProcessed: number;
+  failures: number;
+  stale: number;
+  result: SyncResult | null;
+}
+
 let lastSyncResult: SyncResult | null = null;
+let lastSuccessfulAt: Date | null = null;
 
 export function getLastSyncResult(): SyncResult | null {
   return lastSyncResult;
 }
 
-export async function runBase44Sync(): Promise<SyncResult> {
+/** Restore last run into memory so health survives process restart. */
+export async function hydrateSyncHealthFromDb(): Promise<void> {
+  if (lastSyncResult) return;
+  try {
+    const rows = await db
+      .select()
+      .from(base44SyncRunsTable)
+      .orderBy(desc(base44SyncRunsTable.attemptedAt))
+      .limit(8);
+    const latest = rows[0];
+    if (!latest) return;
+    lastSyncResult = {
+      startedAt: latest.attemptedAt.toISOString(),
+      finishedAt: (latest.finishedAt ?? latest.attemptedAt).toISOString(),
+      durationMs: latest.durationMs ?? 0,
+      status: (["success", "partial", "failed", "skipped"].includes(latest.status)
+        ? latest.status
+        : "failed") as SyncResult["status"],
+      errorCode: (latest.errorCode as SyncErrorCode) ?? null,
+      freshness: (latest.freshness as Freshness) || "unavailable",
+      attempts: latest.attempts,
+      resources: (latest.resources as Record<string, SyncStats>) ?? {},
+      totalCreated: latest.totalCreated,
+      totalUpdated: latest.totalUpdated,
+      totalStale: latest.totalStale,
+      totalErrors: latest.totalErrors,
+    };
+    const lastOk = rows.find((r) => r.status === "success" || r.status === "partial");
+    if (lastOk?.finishedAt) lastSuccessfulAt = lastOk.finishedAt;
+  } catch (err) {
+    logger.warn({ err }, "base44 sync: could not hydrate health from db");
+  }
+}
+
+export function getBase44SyncHealth(now = new Date()): SyncHealth {
+  const lastError = lastSyncResult?.errorCode ?? null;
+  return {
+    lastAttemptedAt: lastSyncResult?.startedAt ?? null,
+    lastSuccessfulAt: lastSuccessfulAt?.toISOString() ?? null,
+    lastDurationMs: lastSyncResult?.durationMs ?? null,
+    lastStatus: lastSyncResult?.status ?? null,
+    lastErrorCode: lastError,
+    freshness: computeFreshness(lastSuccessfulAt, lastError, now),
+    recordsProcessed:
+      (lastSyncResult?.totalCreated ?? 0) + (lastSyncResult?.totalUpdated ?? 0),
+    failures: lastSyncResult?.totalErrors ?? 0,
+    stale: lastSyncResult?.totalStale ?? 0,
+    result: lastSyncResult,
+  };
+}
+
+function asList(value: unknown[] | undefined, presence: CollectionPresence): any[] | null {
+  if (!shouldApplyCollection(presence) || !value) return null;
+  return value;
+}
+
+async function persistRun(result: SyncResult): Promise<void> {
+  try {
+    await db.insert(base44SyncRunsTable).values({
+      attemptedAt: new Date(result.startedAt),
+      finishedAt: new Date(result.finishedAt),
+      durationMs: result.durationMs,
+      status: result.status,
+      errorCode: result.errorCode,
+      freshness: result.freshness,
+      totalCreated: result.totalCreated,
+      totalUpdated: result.totalUpdated,
+      totalStale: result.totalStale,
+      totalErrors: result.totalErrors,
+      attempts: result.attempts,
+      resources: result.resources,
+    });
+  } catch (err) {
+    logger.warn({ err }, "base44 sync: failed to persist run");
+  }
+}
+
+function finishResult(
+  startedAt: Date,
+  partial: Omit<SyncResult, "startedAt" | "finishedAt" | "durationMs" | "freshness">,
+): SyncResult {
+  const finishedAt = new Date();
+  const freshness = computeFreshness(
+    partial.status === "failed" ? lastSuccessfulAt : finishedAt,
+    partial.errorCode,
+    finishedAt,
+  );
+  const result: SyncResult = {
+    ...partial,
+    startedAt: startedAt.toISOString(),
+    finishedAt: finishedAt.toISOString(),
+    durationMs: finishedAt.getTime() - startedAt.getTime(),
+    freshness,
+  };
+  lastSyncResult = result;
+  if (result.status === "success" || result.status === "partial") {
+    lastSuccessfulAt = finishedAt;
+  }
+  return result;
+}
+
+export async function runBase44Sync(opts?: {
+  fetchFn?: typeof fetch;
+  token?: string;
+  url?: string;
+}): Promise<SyncResult> {
   if (syncRunning) {
     logger.info("base44 sync: already running — skip");
-    return lastSyncResult ?? { startedAt: "", finishedAt: "", durationMs: 0, resources: {}, totalCreated: 0, totalUpdated: 0, totalErrors: 0 };
+    const now = new Date().toISOString();
+    return (
+      lastSyncResult ?? {
+        startedAt: now,
+        finishedAt: now,
+        durationMs: 0,
+        status: "skipped",
+        errorCode: null,
+        freshness: "unavailable",
+        attempts: 0,
+        resources: {},
+        totalCreated: 0,
+        totalUpdated: 0,
+        totalStale: 0,
+        totalErrors: 0,
+      }
+    );
   }
   syncRunning = true;
   const startedAt = new Date();
   logger.info("base44 sync: starting");
 
-  const resources: Record<string, SyncStats> = {};
   try {
-    const data = await fetchBase44();
+    await ensureBase44Schema();
+  } catch (err) {
+    logger.warn({ err }, "base44 sync: schema ensure failed (continuing)");
+  }
 
-    // 1. Sync properties first (others depend on resolved property IDs).
-    if (data.properties?.length) {
-      resources.properties = await syncProperties(data.properties);
-      logger.info(resources.properties, "base44 sync: properties done");
+  try {
+    const fetched = await fetchBase44Snapshot({
+      fetchFn: opts?.fetchFn,
+      token: opts?.token,
+      url: opts?.url,
+    });
+    const parsed = parseBase44Body(fetched.body);
+    if (!parsed.ok) {
+      const result = finishResult(startedAt, {
+        status: "failed",
+        errorCode: "malformed",
+        attempts: fetched.attempts,
+        resources: {},
+        totalCreated: 0,
+        totalUpdated: 0,
+        totalStale: 0,
+        totalErrors: 1,
+      });
+      await persistRun(result);
+      logger.warn("base44 sync: malformed payload — existing data left untouched");
+      return result;
     }
 
-    // 2. Sync crews (jobs depend on resolved crew IDs).
-    if (data.crews?.length) {
-      resources.crews = await syncCrews(data.crews);
-      logger.info(resources.crews, "base44 sync: crews done");
+    const prev = await loadIngestState();
+    const ingest = applyIngest(prev, parsed, new Date());
+    await persistEvidence(ingest.records, new Date());
+    await persistMapStatuses(ingest.state);
+    await markEvidenceStale(ingest.state);
+
+    const resources: Record<string, SyncStats> = {};
+    const properties = asList(parsed.collections.properties, parsed.presence.properties);
+    const crews = asList(parsed.collections.crews, parsed.presence.crews);
+    const units = asList(parsed.collections.units, parsed.presence.units);
+    const priceItems = asList(parsed.collections.price_items, parsed.presence.price_items);
+    const calendarSlots = asList(parsed.collections.calendar_slots, parsed.presence.calendar_slots);
+    const owners = asList(parsed.collections.owners, parsed.presence.owners);
+    const crewJobs = asList(parsed.collections.crew_jobs, parsed.presence.crew_jobs);
+    const invoices = asList(parsed.collections.invoices, parsed.presence.invoices);
+    const paymentRequests = asList(
+      parsed.collections.payment_requests,
+      parsed.presence.payment_requests,
+    );
+
+    if (properties) {
+      resources.properties = await syncProperties(properties);
+    }
+    if (crews) {
+      resources.crews = await syncCrews(crews);
     }
 
-    // 3. Units → property_units table AND unit_jobs (job board cards).
-    //    price_items, calendar_slots, owners run in parallel with units.
     const parallel: Promise<void>[] = [];
-
-    if (data.units?.length) {
-      // syncUnits → property_units (unit map grid) + removal pruning
+    if (units) {
       parallel.push(
-        syncUnits(data.units).then((s) => { resources.units = s; logger.info(s, "base44 sync: units done"); }),
-      );
-    } else {
-      // No units in Base44 at all — prune everything previously synced.
-      parallel.push(
-        syncUnits([]).then((s) => { resources.units = s; logger.info(s, "base44 sync: units done (all removed)"); }),
+        syncUnits(units).then((s) => {
+          resources.units = s;
+        }),
       );
     }
-    if (data.price_items?.length) {
-      // price_items are synced sequentially to avoid expression-index conflicts.
-      resources.price_items = await syncPriceItems(data.price_items);
-      logger.info(resources.price_items, "base44 sync: price_items done");
+    if (priceItems) {
+      resources.price_items = await syncPriceItems(priceItems);
     }
-    if (data.calendar_slots?.length) {
+    if (calendarSlots) {
       parallel.push(
-        syncCalendarSlots(data.calendar_slots).then((s) => { resources.calendar_slots = s; logger.info(s, "base44 sync: calendar_slots done"); }),
+        syncCalendarSlots(calendarSlots).then((s) => {
+          resources.calendar_slots = s;
+        }),
       );
     }
-    if (data.owners?.length) {
+    if (owners) {
       parallel.push(
-        syncOwners(data.owners, data.properties ?? []).then((s) => { resources.owners = s; logger.info(s, "base44 sync: owners done"); }),
+        syncOwners(owners, properties ?? []).then((s) => {
+          resources.owners = s;
+        }),
       );
     }
-
     await Promise.all(parallel);
 
-    // 4. syncUnitsAsJobs — one job board card per Base44 unit.
-    //    Runs after syncUnits so the "units" map is populated (needed by
-    //    syncCrewJobs which enriches these cards).
-    if (data.units?.length) {
-      resources.unit_jobs = await syncUnitsAsJobs(data.units);
-      logger.info(resources.unit_jobs, "base44 sync: unit_jobs done");
+    if (units) {
+      resources.unit_jobs = await syncUnitsAsJobs(units);
+    }
+    if (crewJobs) {
+      resources.crew_jobs = await syncCrewJobs(crewJobs);
     }
 
-    // 5. crew_jobs enriches the unit-job cards (crewRate, paid status).
-    if (data.crew_jobs?.length) {
-      resources.crew_jobs = await syncCrewJobs(data.crew_jobs);
-      logger.info(resources.crew_jobs, "base44 sync: crew_jobs done");
-    }
-
-    // 5. Invoices and payment_requests after jobs.
     const parallel2: Promise<void>[] = [];
-    if (data.invoices?.length) {
+    if (invoices) {
       parallel2.push(
-        syncInvoices(data.invoices).then((s) => { resources.invoices = s; logger.info(s, "base44 sync: invoices done"); }),
+        syncInvoices(invoices).then((s) => {
+          resources.invoices = s;
+        }),
       );
     }
-    if (data.payment_requests?.length) {
+    if (paymentRequests) {
       parallel2.push(
-        syncPaymentRequests(data.payment_requests).then((s) => { resources.payment_requests = s; logger.info(s, "base44 sync: payment_requests done"); }),
+        syncPaymentRequests(paymentRequests).then((s) => {
+          resources.payment_requests = s;
+        }),
       );
     }
     await Promise.all(parallel2);
+
+    const compatErrors = Object.values(resources).reduce((s, r) => s + r.errors, 0);
+    const result = finishResult(startedAt, {
+      status: ingest.totalErrors + compatErrors > 0 ? "partial" : "success",
+      errorCode: null,
+      attempts: fetched.attempts,
+      resources,
+      totalCreated: ingest.totalCreated,
+      totalUpdated: ingest.totalUpdated,
+      totalStale: ingest.totalStale,
+      totalErrors: ingest.totalErrors + compatErrors,
+    });
+    await persistRun(result);
+    logger.info(
+      {
+        durationMs: result.durationMs,
+        totalCreated: result.totalCreated,
+        freshness: result.freshness,
+      },
+      "base44 sync: complete",
+    );
+    return result;
   } catch (err) {
-    logger.error({ err }, "base44 sync: fetch or top-level error");
-    resources._error = { created: 0, updated: 0, errors: 1 };
+    const code: SyncErrorCode =
+      err instanceof Base44ClientError ? err.code : "network";
+    logger.error({ err, code }, "base44 sync: fetch or top-level error — data left untouched");
+    const result = finishResult(startedAt, {
+      status: "failed",
+      errorCode: code,
+      attempts: 1,
+      resources: {},
+      totalCreated: 0,
+      totalUpdated: 0,
+      totalStale: 0,
+      totalErrors: 1,
+    });
+    await persistRun(result);
+    return result;
   } finally {
     syncRunning = false;
   }
-
-  const finishedAt = new Date();
-  const result: SyncResult = {
-    startedAt: startedAt.toISOString(),
-    finishedAt: finishedAt.toISOString(),
-    durationMs: finishedAt.getTime() - startedAt.getTime(),
-    resources,
-    totalCreated: Object.values(resources).reduce((s, r) => s + r.created, 0),
-    totalUpdated: Object.values(resources).reduce((s, r) => s + r.updated, 0),
-    totalErrors: Object.values(resources).reduce((s, r) => s + r.errors, 0),
-  };
-  lastSyncResult = result;
-  logger.info(
-    { durationMs: result.durationMs, totalCreated: result.totalCreated, totalUpdated: result.totalUpdated },
-    "base44 sync: complete",
-  );
-  return result;
 }

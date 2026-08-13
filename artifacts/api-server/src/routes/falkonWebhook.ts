@@ -6,22 +6,16 @@
  *
  * Both routes are public (no office-passcode gate).
  *
- * WEBHOOK VERIFICATION (fail-closed):
+ * WEBHOOK VERIFICATION (fail-closed, Ed25519 only):
  *
- *   Primary path — Falkon Ed25519 canonical contract:
- *     Headers: X-Falkon-Client-Id, X-Falkon-Timestamp (epoch ms),
- *              X-Falkon-Nonce (UUID), X-Falkon-Signature (base64url-no-pad)
- *     signingString = clientId + "\n" + timestampMs + "\n" + nonce + "\n" + sha256hex(rawBody)
- *     Verified against Falkon's cached Ed25519 public key (falkon_remote_identity).
- *
- *   Fallback path — HMAC-SHA256 (transition only, if webhookSecret is set
- *     and no remote Ed25519 key is cached):
- *     Headers: X-Falkon-Timestamp (ms), X-Falkon-Signature: v1=<hex>
- *     msg = timestampMs + "." + rawBody
+ *   Headers: X-Falkon-Client-Id, X-Falkon-Timestamp (epoch ms),
+ *            X-Falkon-Nonce (UUID), X-Falkon-Signature (base64url-no-pad)
+ *   signingString = clientId + "\n" + timestampMs + "\n" + nonce + "\n" + sha256hex(rawBody)
+ *   Verified against Falkon's cached Ed25519 public key (falkon_remote_identity).
  *
  *   Rejection rules:
  *     - Missing signature header                     → 401
- *     - No remote Ed25519 key AND no webhookSecret   → 401
+ *     - No remote Ed25519 key                        → 401
  *     - Timestamp outside ±5-minute window           → 400
  *     - Signature mismatch                           → 401
  *     - DB error on nonce claim                      → 500 (sender retries)
@@ -33,7 +27,7 @@
  */
 
 import { Router } from "express";
-import { createHash, verify as edVerify, timingSafeEqual, createHmac } from "node:crypto";
+import { createHash, verify as edVerify } from "node:crypto";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { buildTrustDoc } from "../lib/falkonIdentity";
@@ -196,14 +190,7 @@ interface VerifyArgs {
 
 /**
  * Verify inbound Falkon signature. Fail-closed on all error paths.
- *
- * 1. If X-Falkon-Signature is present and a remote Ed25519 key is cached →
- *    verify Ed25519 using the canonical signing string.
- *
- * 2. Else if a webhookSecret is configured →
- *    verify HMAC-SHA256 fallback (transition period only).
- *
- * 3. If neither is available → reject (cannot verify → 401).
+ * Ed25519 only — HMAC is not accepted.
  */
 async function verifyInboundSignature(args: VerifyArgs): Promise<boolean> {
   const { rawBody, xClientId, xTimestamp, xNonce, xSignature, legacySig } = args;
@@ -231,36 +218,19 @@ async function verifyInboundSignature(args: VerifyArgs): Promise<boolean> {
         logger.warn("falkon webhook: Ed25519 signature mismatch");
         return false;
       }
-      // No remote key yet — fall through to HMAC
+      // No remote key yet — fail closed (no HMAC fallback)
+      logger.warn("falkon webhook: remote Ed25519 key missing — rejected");
+      return false;
     } catch (err) {
       logger.error({ err }, "falkon webhook: Ed25519 verification threw");
       return false;
     }
   }
 
-  // ── Attempt 2: HMAC-SHA256 fallback ───────────────────────────────────
-  const hmacSig = legacySig ?? xSignature;
-  if (hmacSig) {
-    try {
-      const secret = await getWebhookSecret();
-      if (secret) {
-        // Legacy scheme: v1=hmac(secret, timestampMs + "." + rawBody)
-        const msg = `${xTimestamp}.${rawBody}`;
-        const expected = "v1=" + createHmac("sha256", secret).update(msg).digest("hex");
-        const a = Buffer.from(expected);
-        const b = Buffer.from(hmacSig);
-        if (a.length === b.length && timingSafeEqual(a, b)) return true;
-      }
-    } catch (err) {
-      logger.error({ err }, "falkon webhook: HMAC verification threw");
-    }
-  }
-
-  // ── Nothing worked ────────────────────────────────────────────────────
   logger.warn({
     hasXSig: !!xSignature,
     hasLegacySig: !!legacySig,
-  }, "falkon webhook: no valid signature — rejected");
+  }, "falkon webhook: no valid Ed25519 signature — rejected");
   return false;
 }
 
@@ -270,17 +240,6 @@ async function getRemotePublicKey(): Promise<string | null> {
       sql`SELECT public_key_pem FROM falkon_remote_identity ORDER BY fetched_at DESC LIMIT 1`,
     );
     return ((row as any).rows?.[0] ?? (row as any)[0])?.public_key_pem as string ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function getWebhookSecret(): Promise<string | null> {
-  try {
-    const row = await db.execute(
-      sql`SELECT webhook_secret FROM falkon_connections LIMIT 1`,
-    );
-    return ((row as any).rows?.[0] ?? (row as any)[0])?.webhook_secret as string ?? null;
   } catch {
     return null;
   }

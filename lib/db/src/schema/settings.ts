@@ -77,6 +77,11 @@ export const base44SyncMapTable = pgTable(
     base44Id: text("base44_id").notNull(),
     haloId: text("halo_id").notNull(), // UUID stored as text for cross-table flexibility
     syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    staleAt: timestamp("stale_at", { withTimezone: true }),
+    sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }),
+    status: text("status").notNull().default("active"), // active | stale
+    payloadHash: text("payload_hash"),
   },
   (t) => [primaryKey({ columns: [t.resource, t.base44Id] })],
 );

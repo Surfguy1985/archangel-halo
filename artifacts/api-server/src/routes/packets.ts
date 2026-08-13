@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { and, desc, eq, ne } from "drizzle-orm";
+import { findCrewByPortalBearer } from "../lib/portalToken";
 import {
   db,
   crewsTable,
@@ -44,12 +45,7 @@ type CrewRow = typeof crewsTable.$inferSelect;
 type PacketRow = typeof crewPacketsTable.$inferSelect;
 
 async function crewByToken(token: string): Promise<CrewRow | null> {
-  if (!token) return null;
-  const [row] = await db
-    .select()
-    .from(crewsTable)
-    .where(eq(crewsTable.portalToken, token));
-  return row ?? null;
+  return findCrewByPortalBearer(token);
 }
 
 function packetPayload(row: PacketRow) {

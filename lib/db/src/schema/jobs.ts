@@ -30,6 +30,8 @@ export const crewsTable = pgTable("crews", {
   leaderId: uuid("leader_id"),
   active: boolean("active").default(true),
   portalToken: text("portal_token"),
+  // sha256 of the URL bearer. portal_token holds either legacy plaintext or `h:<hash>`.
+  portalTokenHash: text("portal_token_hash"),
   agreementAcceptedAt: timestamp("agreement_accepted_at", {
     withTimezone: true,
   }),

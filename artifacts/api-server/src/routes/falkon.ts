@@ -37,7 +37,7 @@ import {
   crewCheckinsTable,
   activitiesTable,
 } from "@workspace/db/schema";
-import { buildFalkonSignature, verifyFalkonSignature } from "../lib/falkonEmit";
+import { buildFalkonSignature } from "../lib/falkonEmit";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -96,7 +96,7 @@ router.get("/falkon/connection", async (_req, res) => {
 // Body: {
 //   webhookUrl:     string  (required — Falkon sends events here)
 //   partnerKey?:    string  (optional — hashed for evidence endpoint gating)
-//   webhookSecret?: string  (optional — HMAC fallback only; not needed for Ed25519)
+//   webhookSecret?: string  (optional — used only for HALO /falkon/verify ping)
 //   eventIngestUrl?: string (optional — Falkon's dedicated event-ingestion endpoint)
 // }
 // ---------------------------------------------------------------------------
@@ -515,7 +515,7 @@ router.post("/falkon/ping", async (req, res) => {
 // ---------------------------------------------------------------------------
 // POST /falkon/inbound/:eventType
 // Receives signed Falkon → HALO events.
-// Verification: Ed25519 primary (X-Falkon-* headers) + HMAC fallback.
+// Verification: Ed25519 only (fail closed, no HMAC fallback).
 // ---------------------------------------------------------------------------
 router.post("/falkon/inbound/:eventType", async (req, res) => {
   try {
@@ -552,10 +552,9 @@ router.post("/falkon/inbound/:eventType", async (req, res) => {
       return res.status(400).json({ error: "Timestamp outside ±5-minute window" });
     }
 
-    // ── Signature verification (Ed25519 primary → HMAC fallback) ────────────
+    // ── Signature verification: Ed25519 only (fail closed, no HMAC fallback) ─
     let sigValid = false;
 
-    // Try Ed25519 first
     if (xSig) {
       try {
         const remoteKeyRow = await db.execute(
@@ -566,33 +565,24 @@ router.post("/falkon/inbound/:eventType", async (req, res) => {
           (Array.isArray(remoteKeyRow) ? remoteKeyRow[0] : undefined)
         )?.public_key_pem as string | undefined;
 
-        if (remoteKey) {
-          const { createHash, verify: edVerify } = await import("node:crypto");
-          const bodyHash = createHash("sha256").update(rawBody, "utf8").digest("hex");
-          const sigStr = `${xClientId ?? ""}\n${String(tsMs)}\n${xNonce ?? ""}\n${bodyHash}`;
-          // Decode base64url signature
-          const padded = xSig.replace(/-/g, "+").replace(/_/g, "/");
-          const mod4 = padded.length % 4;
-          const sigBuf = Buffer.from(mod4 ? padded + "=".repeat(4 - mod4) : padded, "base64");
-          sigValid = edVerify(null, Buffer.from(sigStr, "utf8"), remoteKey, sigBuf);
-          if (!sigValid) {
-            logger.warn({ eventType }, "falkon inbound: Ed25519 mismatch — hard reject");
-            return res.status(401).json({ error: "Invalid Falkon signature" });
-          }
+        if (!remoteKey) {
+          logger.warn({ eventType }, "falkon inbound: no remote Ed25519 key — rejected");
+          return res.status(401).json({ error: "Falkon identity is not bound" });
         }
-        // No remote key yet → fall through to HMAC
+        const { createHash, verify: edVerify } = await import("node:crypto");
+        const bodyHash = createHash("sha256").update(rawBody, "utf8").digest("hex");
+        const sigStr = `${xClientId ?? ""}\n${String(tsMs)}\n${xNonce ?? ""}\n${bodyHash}`;
+        const padded = xSig.replace(/-/g, "+").replace(/_/g, "/");
+        const mod4 = padded.length % 4;
+        const sigBuf = Buffer.from(mod4 ? padded + "=".repeat(4 - mod4) : padded, "base64");
+        sigValid = edVerify(null, Buffer.from(sigStr, "utf8"), remoteKey, sigBuf);
       } catch {
         return res.status(500).json({ error: "Signature verification error" });
       }
     }
 
-    // HMAC fallback (only when no remote Ed25519 key is cached)
-    if (!sigValid && conn.webhookSecret) {
-      sigValid = verifyFalkonSignature(conn.webhookSecret, String(tsMs), effectiveSig, rawBody);
-    }
-
     if (!sigValid) {
-      logger.warn({ eventType, hasSecret: !!conn.webhookSecret }, "falkon: inbound signature failed");
+      logger.warn({ eventType }, "falkon: inbound signature failed");
       return res.status(401).json({ error: "Invalid signature" });
     }
 

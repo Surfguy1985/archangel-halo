@@ -20,6 +20,13 @@ import { eq, isNull, and, inArray, gte, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { computeQueues } from "./queues";
 import { falkonConnectionsTable } from "@workspace/db/schema";
+import type { HaloIdentity } from "./enforcerCore";
+import {
+  filterBySnapshotScope,
+  filterPropertiesByScope,
+  snapshotPropertyScope,
+  type SnapshotPropertyScope,
+} from "./commandSnapshotCore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,6 +76,7 @@ export interface BusinessSnapshot {
     flaggedCount: number;
   };
   falkonMode: string;
+  snapshotScope: SnapshotPropertyScope;
 }
 
 export type BrainResponseType = "answer" | "lens" | "voice_action" | "error";
@@ -113,13 +121,14 @@ export interface ConversationMessage {
 
 // ─── Snapshot builder ─────────────────────────────────────────────────────────
 
-export async function buildSnapshot(): Promise<BusinessSnapshot> {
+export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSnapshot> {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
   // Local midnight for today — used as a string for the date columns
   const todayMidnight = new Date(`${todayStr}T00:00:00`);
+  const scope = snapshotPropertyScope(identity);
 
-  const [props, jobs, invoices, crews, todayCheckins, crewPays, { feed }] =
+  const [propsRaw, jobsRaw, invoicesRaw, crewsRaw, todayCheckinsRaw, crewPays, { feed: feedRaw }] =
     await Promise.all([
       db.select().from(propertiesTable),
       db.select().from(jobsTable),
@@ -127,7 +136,7 @@ export async function buildSnapshot(): Promise<BusinessSnapshot> {
       db.select().from(crewsTable),
       // Count today's check-in events (kind='checkin') as a proxy for active crews
       db
-        .select({ crewId: crewCheckinsTable.crewId })
+        .select({ crewId: crewCheckinsTable.crewId, jobId: crewCheckinsTable.jobId })
         .from(crewCheckinsTable)
         .where(
           and(
@@ -140,6 +149,18 @@ export async function buildSnapshot(): Promise<BusinessSnapshot> {
       ),
       computeQueues(),
     ]);
+
+  const props = filterPropertiesByScope(propsRaw, scope);
+  const jobs = filterBySnapshotScope(jobsRaw, scope);
+  const invoices = filterBySnapshotScope(invoicesRaw, scope);
+  const feed = filterBySnapshotScope(feedRaw, scope);
+  const scopedJobIds = new Set(jobs.map((j) => j.id));
+  const todayCheckins =
+    scope.mode === "tenant"
+      ? todayCheckinsRaw
+      : todayCheckinsRaw.filter((c) => c.jobId && scopedJobIds.has(c.jobId));
+  const crews = scope.mode === "tenant" ? crewsRaw : [];
+  const pendingCrewPay = scope.mode === "tenant" ? crewPays.reduce((s, p) => s + (p.amount ?? 0), 0) : 0;
 
   const openStatuses = ["open", "pending", "scheduled", "in_progress", "active"];
   const openJobs = jobs.filter((j) => openStatuses.includes(j.status));
@@ -214,10 +235,10 @@ export async function buildSnapshot(): Promise<BusinessSnapshot> {
       totalReceivables,
       overdueCount: overdueInvoices.length,
       sentCount: receivables.length,
-      pendingCrewPay: crewPays.reduce((s, p) => s + (p.amount ?? 0), 0),
+      pendingCrewPay,
     },
     crews: {
-      total: crews.length,
+      total: scope.mode === "tenant" ? crews.length : uniqueCheckedIn,
       checkedInToday: uniqueCheckedIn,
     },
     margin: {
@@ -225,6 +246,7 @@ export async function buildSnapshot(): Promise<BusinessSnapshot> {
       flaggedCount: overBudgetJobs.length,
     },
     falkonMode,
+    snapshotScope: scope,
   };
 }
 
@@ -273,10 +295,17 @@ export function buildSystemPrompt(
     .map((i) => `• ${i.title}${i.amount ? ` ($${i.amount.toLocaleString()})` : ""}`)
     .join("\n");
 
+  const scopeNote =
+    snapshot.snapshotScope.mode === "property"
+      ? snapshot.snapshotScope.propertyIds.length === 0
+        ? "\n\nSECURITY: This identity has no property scope. You have no property, job, invoice, or feed data. Do not invent any."
+        : `\n\nSECURITY: You may discuss ONLY property id(s) ${snapshot.snapshotScope.propertyIds.join(", ")}. The snapshot already excludes every other site. If asked about another property, say you cannot see it.`
+      : "";
+
   return `You are HALO, an expert AI chief-of-staff for a property-maintenance and make-ready contracting business. You have access to live business data and assist with operational decisions, financial analysis, crew management, and work coordination.
 
 Role: ${role} — ${roleDesc}
-${shadowNote}
+${shadowNote}${scopeNote}
 
 ## Live Business Snapshot (${snapshot.date})
 Properties: ${snapshot.properties.length} | Open jobs: ${snapshot.jobs.open} | Crews: ${snapshot.crews.total} (${snapshot.crews.checkedInToday} checked in today)
@@ -292,11 +321,12 @@ ${attentionItems || "Nothing urgent right now."}
 ## Data Sources
 HALO is the operational brain. Its database is populated from two authoritative external platforms — cite them when relevant:
 
-1. **MakeReady Flow (Base44)** — syncs every 15 minutes. Authoritative source for:
+1. **MakeReady Flow (Base44)** — HALO pulls a projection about every 30 seconds. This is a read of the system of record, not a HALO mutation, and it is not Falkon-gated.
+   Authoritative source for:
    Property, Unit, Crew, CalendarSlot, FieldSubmission, CrewJob, Invoice, PaymentRequest,
    Approval, PriceItem, CrewRate, Owner, Reminder.
    When citing data for these entity types, note "via MakeReady Flow" in sources.
-   If the user asks whether data is current, note "MakeReady Flow syncs every 15 min".
+   If the user asks whether data is current, say the projection refreshes about every 30 seconds and may be stale if the last pull failed. Do not claim a 15-minute cadence.
 
 2. **Falkon Business Twin** — real-time peer network. Authoritative source for:
    peer business verification, capability matching, verified contractor rates, compliance status,
@@ -320,6 +350,13 @@ HALO is the operational brain. Its database is populated from two authoritative 
 - For "money / show money / financials / invoices / revenue / receivables" → return type "lens" with lensKind "money".
 - For "generate a live link / create a PM link / send a link to [property] / text a link to the property manager / I can send to the PM today" → return type "voice_action", capability "pm_link.generate", risk "auto", params.propertyName = the property name mentioned (exactly as stated), params.expiresInHours = 24. Text should be warm and action-oriented: "Creating a secure 24-hour live link for [property] — I'll format it for texting."
 - For "generate a check-in link / crew check-in link / give [name] a check-in link / checkin link for [name]" → return type "voice_action", capability "crew_checkin_link.generate", risk "auto", params.crewName = the crew member's name as stated. Text: "Generating a GPS check-in link for [name] they can bookmark on their phone."
+- For "weather risk / scan weather / rain delay / which sites have weather risk" → return type "voice_action", capability "weather.risk_scan", risk "auto". Text: "Scanning HALO properties for weather risk — this does not change the Base44 schedule."
+- For "end of day briefing / EOD recap / close the day / tonight's briefing" → return type "voice_action", capability "ops.eod_briefing", risk "auto". Text: "Writing today's HALO field recap from check-ins, jobs, and Base44 freshness."
+- For "look up catalog / price book / what do we charge for [service]" → return type "voice_action", capability "catalog.lookup", risk "auto", params.query = the service text. Text: "Looking that up in the HALO catalog — not creating a bid."
+- For "weather schedule / rain delay recommend / which jobs should we move" → return type "voice_action", capability "weather.schedule_recommend", risk "auto". Text: "I'll recommend safer days. Base44 still owns the schedule — nothing will be moved."
+- For "estimate from this / draft lines from the walk / bid from photos text" → return type "voice_action", capability "estimate.from_evidence", risk "auto", params.text = the pasted evidence if any. Text: "Drafting line items from evidence. This is not an invoice."
+- For "text the crew / SMS blast / send a text to [name]" → return type "voice_action", capability "comms.sms", risk "review". Text: "Outbound SMS needs Falkon approval in ASSISTED. I will not send until you approve."
+- For "call them for EOD / voice end of day / dial the crew" → return type "voice_action", capability "field.voice_eod", risk "review". Text: "Outbound EOD calls need Falkon approval. I will not auto-dial a batch."
 - Always give 2–3 specific follow-up suggestions relevant to the current context.
 - Respond in JSON format exactly as specified. No markdown fences, no prose outside the JSON.`;
 }
@@ -412,11 +449,15 @@ export async function runCommandBrain(
   history: ConversationMessage[],
   snapshot: BusinessSnapshot,
   entityContext?: { entityType: string; entityId: string } | null,
+  opts?: { systemPromptOverride?: string; readOnly?: boolean },
 ): Promise<BrainResponse> {
   const entityNote = entityContext
     ? `\n\n## Entity Context\nThis conversation is scoped to a specific ${entityContext.entityType} (ID: ${entityContext.entityId}). When the user asks about status, budget, timeline, photos, or other details, answer in the context of this specific ${entityContext.entityType} rather than the global portfolio. When emitting a lens type, prefer the entity-specific kinds (property_status, turn_timeline, budget_breakdown, invoice_detail, photo_evidence, inspection_checklist) and return entityId="${entityContext.entityId}" in your response.`
     : "";
-  const systemPrompt = buildSystemPrompt(role, snapshot) + entityNote;
+  const systemPrompt = (opts?.systemPromptOverride ?? buildSystemPrompt(role, snapshot)) + entityNote;
+  const readOnlyNote = opts?.readOnly
+    ? "\n\nREAD-ONLY SESSION: never emit voice_action or actionPlan. You cannot mutate operational data."
+    : "";
 
   // Build the messages array with history + current message
   const messages: Array<{ role: "user" | "assistant"; content: string }> = [
@@ -429,7 +470,7 @@ export async function runCommandBrain(
     messages.shift();
   }
 
-  const fullSystem = `${systemPrompt}\n\n## Response Format\nReturn ONLY valid JSON matching this schema:\n${BRAIN_RESPONSE_SCHEMA}`;
+  const fullSystem = `${systemPrompt}${readOnlyNote}\n\n## Response Format\nReturn ONLY valid JSON matching this schema:\n${BRAIN_RESPONSE_SCHEMA}`;
 
   try {
     const response = await anthropic.messages.create({
@@ -453,6 +494,12 @@ export async function runCommandBrain(
     if (firstBrace > 0) jsonStr = jsonStr.slice(firstBrace);
 
     const parsed = JSON.parse(jsonStr) as BrainResponse;
+
+    if (opts?.readOnly && parsed.type === "voice_action") {
+      parsed.type = "answer";
+      parsed.actionPlan = undefined;
+      parsed.shadowLabel = undefined;
+    }
 
     return {
       type: parsed.type ?? "answer",

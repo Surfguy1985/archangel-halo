@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { randomBytes } from "node:crypto";
 import { emitFalkonEvent } from "../lib/falkonEmit";
+import { mintPortalToken, portalTokenColumns } from "../lib/portalToken";
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
   db,
@@ -2175,10 +2176,9 @@ router.get("/crews", async (_req, res): Promise<void> => {
 
 router.post("/crews", async (req, res): Promise<void> => {
   const body = CreateCrewBody.parse(req.body);
-  // Mint the portal token at creation so the link is permanent from day one.
-  // It is never rotated — the same token serves the crew forever.
-  const portalToken = randomBytes(24).toString("base64url");
-  const [row] = await db.insert(crewsTable).values({ ...body, portalToken }).returning();
+  // Hash-at-rest. Bearer is revealed by POST /crews/:id/portal-link or SMS senders.
+  const minted = mintPortalToken();
+  const [row] = await db.insert(crewsTable).values({ ...body, ...portalTokenColumns(minted) }).returning();
   res.status(201).json(CreateCrewResponse.parse(ser(row)));
 });
 

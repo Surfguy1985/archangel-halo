@@ -35,7 +35,6 @@ import {
   pmLiveLinksTable,
   crewCheckinLinksTable,
 } from "@workspace/db";
-import { falkonConnectionsTable } from "@workspace/db/schema";
 import {
   buildSnapshot,
   buildSuggestedPrompts,
@@ -46,6 +45,10 @@ import { JOB_CHECKLIST_ITEMS_FLAT } from "../lib/jobChecklists";
 import { CLEANING_CHECKLIST } from "../lib/cleaningChecklist";
 import { computeQueues, type FeedItem } from "../lib/queues";
 import { logger } from "../lib/logger";
+import { authorizeAction, primaryRole } from "../lib/enforcerCore";
+import { mintCrewToken } from "../lib/crewCheckinCore";
+import { mintPmToken } from "../lib/pmLiveCore";
+import { filterBySnapshotScope, snapshotPropertyScope } from "../lib/commandSnapshotCore";
 
 const router: IRouter = Router();
 
@@ -84,10 +87,10 @@ router.get("/command/conversations", async (req, res): Promise<void> => {
         )
         .orderBy(desc(haloConversationsTable.updatedAt))
         .limit(10),
-      buildSnapshot(),
+      buildSnapshot(req.haloIdentity),
     ]);
 
-    const role = "executive"; // default; real role-detection is a future enhancement
+    const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
     const suggestedPrompts = buildSuggestedPrompts(snapshot, role);
 
     res.json({ conversations, suggestedPrompts });
@@ -101,8 +104,9 @@ router.get("/command/conversations", async (req, res): Promise<void> => {
 
 router.post("/command/conversations", async (req, res): Promise<void> => {
   try {
-    const { entityType, entityId, role = "executive", title } = req.body ?? {};
+    const { entityType, entityId, title } = req.body ?? {};
     const actor = actorToken(req);
+    const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
 
     const [conv] = await db
       .insert(haloConversationsTable)
@@ -171,7 +175,7 @@ router.get("/command/conversations/:id/messages", async (req, res): Promise<void
 router.get("/command/conversations/entity/:type/:entityId", async (req, res): Promise<void> => {
   try {
     const { type, entityId } = req.params;
-    const role = (req.query.role as string) ?? "executive";
+    const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
     const actor = actorToken(req);
 
     // Try to find existing conversation owned by this actor
@@ -216,8 +220,9 @@ router.get("/command/conversations/entity/:type/:entityId", async (req, res): Pr
 
 router.post("/command/conversations/:id/ask", async (req, res): Promise<void> => {
   const { id } = req.params;
-  const { message, role = "executive" } = req.body ?? {};
+  const { message } = req.body ?? {};
   const actor = actorToken(req);
+  const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
 
   if (!message || typeof message !== "string" || !message.trim()) {
     res.status(400).json({ error: "message is required" });
@@ -257,7 +262,7 @@ router.post("/command/conversations/:id/ask", async (req, res): Promise<void> =>
 
     // Build live snapshot and save user message in parallel
     const [snapshot] = await Promise.all([
-      buildSnapshot(),
+      buildSnapshot(req.haloIdentity),
       db.insert(haloConversationMessagesTable).values({
         conversationId: id,
         role: "user",
@@ -344,19 +349,23 @@ router.get("/command/briefing", async (req, res): Promise<void> => {
     const hour = now.getHours();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [{ feed }, snapshot, pendingAutopilot, paidMtd] = await Promise.all([
+    const scope = snapshotPropertyScope(req.haloIdentity);
+    const [{ feed: feedRaw }, snapshot, pendingAutopilotRaw, paidMtdRaw] = await Promise.all([
       computeQueues(),
-      buildSnapshot(),
+      buildSnapshot(req.haloIdentity),
       db.select().from(autopilotActionsTable)
         .where(eq(autopilotActionsTable.status, "pending"))
         .orderBy(desc(autopilotActionsTable.createdAt)),
-      db.select({ amount: invoicesTable.amount })
+      db.select({ amount: invoicesTable.amount, propertyId: invoicesTable.propertyId })
         .from(invoicesTable)
         .where(and(
           eq(invoicesTable.status, "paid"),
           gte(invoicesTable.paidAt, monthStart),
         )),
     ]);
+    const feed = filterBySnapshotScope(feedRaw, scope);
+    const pendingAutopilot = scope.mode === "tenant" ? pendingAutopilotRaw : [];
+    const paidMtd = filterBySnapshotScope(paidMtdRaw, scope);
 
     const greetWord = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
@@ -460,12 +469,15 @@ router.get("/command/briefing", async (req, res): Promise<void> => {
 
 router.get("/command/attention", async (req, res): Promise<void> => {
   try {
-    const [{ feed }, pendingAutopilot] = await Promise.all([
+    const scope = snapshotPropertyScope(req.haloIdentity);
+    const [{ feed: feedRaw }, pendingAutopilotRaw] = await Promise.all([
       computeQueues(),
       db.select().from(autopilotActionsTable)
         .where(eq(autopilotActionsTable.status, "pending"))
         .orderBy(desc(autopilotActionsTable.createdAt)),
     ]);
+    const feed = filterBySnapshotScope(feedRaw, scope);
+    const pendingAutopilot = scope.mode === "tenant" ? pendingAutopilotRaw : [];
 
     type UrgencyLevel = "critical" | "warn" | "info";
     const attentionItems = [
@@ -993,59 +1005,29 @@ router.get("/command/activity-since", async (req, res): Promise<void> => {
 //
 // POST /command/actions/execute
 //
-// Executes an AI-proposed action in ASSISTED mode. Risk classification:
-//   "auto"   → executes immediately (safe, non-financial, reversible)
-//   "review" → surfaces an approval card (consequential)
-//   "block"  → 403 (requires elevated authorization)
-//
-// In SHADOW or OFF mode the server always returns executed:false so the client
-// can render the SHADOW treatment without a second round-trip.
+// Falkon policy is enforced by falkonMutationGuard before this handler.
+// Identity capability is checked here. Client-supplied risk is ignored.
 
 router.post("/command/actions/execute", async (req, res): Promise<void> => {
   try {
-    const { description, risk, capability, params = {} } = req.body ?? {};
-
-    // Read current Falkon mode
-    const [conn] = await db
-      .select({ mode: falkonConnectionsTable.mode })
-      .from(falkonConnectionsTable)
-      .limit(1);
-    const falkonMode = conn?.mode ?? "SHADOW";
-
-    if (falkonMode === "SHADOW" || falkonMode === "OFF") {
-      res.json({
-        ok: false,
-        executed: false,
-        reason: "shadow",
-        message: "SHADOW mode — action proposed but not executed.",
-      });
+    const identity = req.haloIdentity;
+    if (!identity) {
+      res.status(401).json({ ok: false, executed: false, error: "Authentication required" });
       return;
     }
 
-    if (risk === "block") {
+    const { description, capability, params = {} } = req.body ?? {};
+    const authz = authorizeAction(identity, typeof capability === "string" ? capability : undefined);
+    if (!authz.ok) {
       res.status(403).json({
         ok: false,
         executed: false,
-        reason: "block",
-        message: "This action requires elevated authorization and cannot be auto-executed from the chat interface.",
+        reason: "insufficient_role",
+        message: "This action is not permitted for your role.",
       });
       return;
     }
 
-    if (risk === "review") {
-      // Return a pending approval — the UI already shows the approval card before
-      // calling this endpoint, so this is just the ack.
-      res.json({
-        ok: true,
-        executed: false,
-        requiresApproval: true,
-        description,
-        message: "This action requires explicit approval before execution.",
-      });
-      return;
-    }
-
-    // risk === "auto" in ASSISTED mode — route to appropriate handler
     const host = req.get("x-forwarded-host") ?? req.get("host") ?? "halo.app";
     const proto = req.get("x-forwarded-proto") ?? req.protocol;
     const baseUrl = process.env.REPLIT_DEV_DOMAIN
@@ -1103,13 +1085,14 @@ async function dispatchAutoAction(
         return `No active property found matching "${propertyName}". Try using the exact property name.`;
       }
 
-      const { randomBytes } = await import("crypto");
-      const token = "pmlink_" + randomBytes(12).toString("hex");
+      const minted = mintPmToken();
       const expiresAt = new Date(Date.now() + Number(expiresInHours) * 3_600_000);
       const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
       await db.insert(pmLiveLinksTable).values({
-        token,
+        token: `h:${minted.tokenHash}`,
+        tokenHash: minted.tokenHash,
+        tokenPrefix: minted.tokenPrefix,
         propertyId: match.id,
         permissions: (permissions as { map: boolean; kanban: boolean; money: boolean } | undefined)
           ?? { map: true, kanban: true, money: false },
@@ -1117,7 +1100,7 @@ async function dispatchAutoAction(
         label: `sent ${today}`,
       });
 
-      const url = `${baseUrl}/live/${token}`;
+      const url = `${baseUrl}/live/${minted.token}`;
       const expTime = expiresAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
       const smsText =
         `Hi 👋 Here's your daily update for ${match.name}:\n\n` +
@@ -1128,7 +1111,7 @@ async function dispatchAutoAction(
         type: "live_link",
         propertyName: match.name,
         url,
-        token,
+        token: minted.token,
         smsText,
         expiresAt: expiresAt.toISOString(),
       });
@@ -1149,18 +1132,19 @@ async function dispatchAutoAction(
         return `No active crew member found matching "${crewName}".`;
       }
 
-      const { randomBytes } = await import("crypto");
-      const token = "crew_" + randomBytes(12).toString("hex");
+      const minted = mintCrewToken();
       const expiresAt = new Date(Date.now() + Number(expiresInDays) * 86_400_000);
 
       await db.insert(crewCheckinLinksTable).values({
-        token,
+        token: `h:${minted.tokenHash}`,
+        tokenHash: minted.tokenHash,
+        tokenPrefix: minted.tokenPrefix,
         crewId: match.id,
         expiresAt,
         label: `${match.name} — check-in link`,
       });
 
-      const url = `${baseUrl}/checkin/${token}`;
+      const url = `${baseUrl}/checkin/${minted.token}`;
       const firstName = match.name.split(" ")[0];
       const smsText =
         `Hi ${firstName} 👋 Here's your HALO check-in link:\n${url}\n\nBookmark it and tap when you arrive or leave.`;
@@ -1169,10 +1153,118 @@ async function dispatchAutoAction(
         type: "crew_link",
         crewName: match.name,
         url,
-        token,
+        token: minted.token,
         smsText,
         expiresAt: expiresAt.toISOString(),
       });
+    }
+
+    case "weather.risk_scan": {
+      const { scanHeadline, scanSites } = await import("../lib/weatherScan");
+      const props = await db
+        .select({
+          id: propertiesTable.id,
+          name: propertiesTable.name,
+          city: propertiesTable.city,
+          address: propertiesTable.address,
+          latitude: propertiesTable.latitude,
+          longitude: propertiesTable.longitude,
+        })
+        .from(propertiesTable)
+        .where(eq(propertiesTable.status, "active"));
+      const sites = await scanSites(
+        props.map((p) => ({
+          id: p.id,
+          name: p.name,
+          city: p.city,
+          address: p.address,
+          latitude: p.latitude,
+          longitude: p.longitude,
+        })),
+      );
+      return JSON.stringify({
+        type: "weather_scan",
+        headline: scanHeadline(sites),
+        sites,
+      });
+    }
+
+    case "ops.eod_briefing": {
+      const { persistEodBriefing } = await import("../lib/eodBriefing");
+      const saved = await persistEodBriefing();
+      return JSON.stringify({ type: "eod_briefing", ...saved });
+    }
+
+    case "catalog.lookup": {
+      const query = String((_params as Record<string, unknown>).query ?? (_params as Record<string, unknown>).q ?? description);
+      const { loadCatalogCandidates } = await import("../lib/catalogLookup");
+      const { matchCatalogTop } = await import("../lib/catalogMatchCore");
+      const matches = matchCatalogTop(query, await loadCatalogCandidates());
+      return JSON.stringify({ type: "catalog_lookup", query, matches });
+    }
+
+    case "weather.schedule_recommend": {
+      const { localDateInEastern } = await import("../lib/eodBriefingCore");
+      const { recommendScheduleMoves } = await import("../lib/scheduleRecommendCore");
+      const { MAX_SCAN_SITES, scanSites } = await import("../lib/weatherScan");
+      const today = localDateInEastern();
+      const jobRows = await db
+        .select({
+          id: jobsTable.id,
+          jobNo: jobsTable.jobNo,
+          propertyId: jobsTable.propertyId,
+          scheduledOn: jobsTable.scheduledOn,
+          description: jobsTable.description,
+        })
+        .from(jobsTable);
+      const upcoming = jobRows.filter((j) => j.scheduledOn && j.scheduledOn >= today);
+      const propIds = [...new Set(upcoming.map((j) => j.propertyId))].slice(0, MAX_SCAN_SITES);
+      const props = propIds.length
+        ? await db
+            .select({
+              id: propertiesTable.id,
+              name: propertiesTable.name,
+              city: propertiesTable.city,
+              address: propertiesTable.address,
+              latitude: propertiesTable.latitude,
+              longitude: propertiesTable.longitude,
+            })
+            .from(propertiesTable)
+            .where(inArray(propertiesTable.id, propIds))
+        : [];
+      const scanned = await scanSites(
+        props.map((p) => ({
+          id: p.id,
+          name: p.name,
+          city: p.city,
+          address: p.address,
+          latitude: p.latitude,
+          longitude: p.longitude,
+        })),
+      );
+      const nameById = new Map(props.map((p) => [p.id, p.name]));
+      const packet = recommendScheduleMoves(
+        upcoming.map((j) => ({
+          ...j,
+          propertyName: nameById.get(j.propertyId) ?? null,
+        })),
+        scanned.map((s) => ({
+          propertyId: s.propertyId,
+          days: s.days.map((d) => ({ date: d.date, severity: d.severity, summary: d.summary })),
+        })),
+        today,
+      );
+      return JSON.stringify({ type: "schedule_recommend", ...packet });
+    }
+
+    case "estimate.from_evidence": {
+      const text = String((_params as Record<string, unknown>).text ?? description ?? "");
+      const { loadCatalogCandidates } = await import("../lib/catalogLookup");
+      const { draftEstimateFromLines, estimateHeadline, heuristicExtractLines } = await import(
+        "../lib/estimateFromEvidenceCore"
+      );
+      const lines = draftEstimateFromLines(heuristicExtractLines(text), await loadCatalogCandidates());
+      return JSON.stringify({ type: "estimate_draft", headline: estimateHeadline(lines), lines, invoice: false });
     }
 
     default:

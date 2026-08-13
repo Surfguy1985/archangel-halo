@@ -155,58 +155,28 @@ import { ser } from "../lib/serialize";
 import { buildJobLabel, jobLabelMap } from "../lib/jobLabels";
 import { ensurePropertiesGeocoded } from "../lib/geocode";
 
+import { crewPortalExposed } from "../lib/crewCheckinCore";
+import { findCrewByPortalBearer } from "../lib/portalToken";
+
 const router: IRouter = Router();
 
-// ---------------------------------------------------------------------------
-// Password login — no link needed.
-// Each crew member's password is their first name + "2026"  (e.g. Kevin2026).
-// Matching is case-insensitive on the first word of their stored name.
-// ---------------------------------------------------------------------------
-router.post("/portal/login", limits.login, async (req, res): Promise<void> => {
-  const body = z.object({ password: z.string().min(1).max(120) }).safeParse(req.body);
-  if (!body.success) {
-    res.status(400).json({ error: "Password is required." });
+router.use((req, res, next) => {
+  if (crewPortalExposed(process.env)) {
+    next();
     return;
   }
-  const { password } = body.data;
+  res.status(410).json({
+    error: "The crew portal is retired. Use your check-in link.",
+    code: "crew_portal_retired",
+  });
+});
 
-  // Strip the "2026" suffix (case-insensitive).
-  const SUFFIX = "2026";
-  if (!password.toLowerCase().endsWith(SUFFIX)) {
-    res.status(401).json({ error: "Invalid password." });
-    return;
-  }
-  const firstName = password.slice(0, -SUFFIX.length).trim();
-  if (!firstName) {
-    res.status(401).json({ error: "Invalid password." });
-    return;
-  }
-
-  // Find active crew members whose first name matches (case-insensitive).
-  const matches = await db
-    .select()
-    .from(crewsTable)
-    .where(
-      and(
-        sql`LOWER(SPLIT_PART(${crewsTable.name}, ' ', 1)) = ${firstName.toLowerCase()}`,
-        ne(crewsTable.active, false),
-        isNotNull(crewsTable.portalToken),
-      ),
-    );
-
-  if (matches.length === 0) {
-    res.status(401).json({ error: "Invalid password. Check your name and try again." });
-    return;
-  }
-  if (matches.length > 1) {
-    // Two crew members share the same first name — office must disambiguate.
-    res.status(409).json({
-      error: "Multiple crew members share that first name. Contact your office to sort it out.",
-    });
-    return;
-  }
-
-  res.json({ token: matches[0].portalToken });
+// Password login is retired. Field access is the hashed check-in link.
+router.post("/portal/login", limits.login, async (_req, res): Promise<void> => {
+  res.status(410).json({
+    error: "Password login is retired. Use your check-in link.",
+    code: "crew_portal_login_retired",
+  });
 });
 
 type CrewRow = typeof crewsTable.$inferSelect;
@@ -390,12 +360,7 @@ async function computeUnseen(crew: CrewRow) {
 }
 
 async function crewByToken(token: string): Promise<CrewRow | null> {
-  if (!token) return null;
-  const [row] = await db
-    .select()
-    .from(crewsTable)
-    .where(eq(crewsTable.portalToken, token));
-  return row ?? null;
+  return findCrewByPortalBearer(token);
 }
 
 router.get("/portal/:token", async (req, res): Promise<void> => {

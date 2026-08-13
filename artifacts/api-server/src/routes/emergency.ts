@@ -26,6 +26,7 @@ import {
   CancelEmergencyPingResponse,
 } from "@workspace/api-zod";
 import { smsEnabled, sendSms } from "../lib/sms";
+import { mintPortalToken, portalTokenColumns } from "../lib/portalToken";
 import { recomputeJobFinancials } from "../lib/jobFinance";
 import { syncJobLaborLedger } from "../lib/ledger";
 import { logger } from "../lib/logger";
@@ -295,12 +296,12 @@ router.post("/jobs/:id/emergency/ping", async (req, res): Promise<void> => {
     for (const crew of crews) {
       // Every recipient needs a live portal link.
       if (!crew.portalToken) {
-        const token = randomBytes(24).toString("base64url");
+        const minted = mintPortalToken();
         await tx
           .update(crewsTable)
-          .set({ portalToken: token })
+          .set(portalTokenColumns(minted))
           .where(eq(crewsTable.id, crew.id));
-        crew.portalToken = token;
+        crew.portalToken = minted.token;
       }
       const r = rankedById.get(crew.id);
       await tx.insert(emergencyPingTargetsTable).values({
