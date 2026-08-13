@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_VOICE_EOD_BATCH,
+  acceptVoiceEodStructured,
+  heuristicVoiceEodReport,
   vapiOutboundConfig,
   voiceEodBatchAllowed,
   voiceEodFirstMessage,
@@ -29,5 +31,23 @@ describe("field.voice_eod policy", () => {
     expect(voiceEodBatchAllowed(MAX_VOICE_EOD_BATCH)).toBe(true);
     expect(voiceEodBatchAllowed(MAX_VOICE_EOD_BATCH + 1)).toBe(false);
     expect(voiceEodFirstMessage("Marcus")).toContain("Marcus");
+  });
+
+  it("extracts a structured report from a transcript without a model", () => {
+    const report = heuristicVoiceEodReport(
+      "We finished unit 12 paint. Waiting on parts for the dishwasher. Tomorrow two of us are on site.",
+    );
+    expect(report.fallbackUsed).toBe(true);
+    expect(report.done.join(" ")).toMatch(/finished/i);
+    expect(report.blockers.join(" ")).toMatch(/Waiting/i);
+    expect(report.tomorrow.join(" ")).toMatch(/Tomorrow/i);
+  });
+
+  it("keeps the heuristic when model JSON is empty", () => {
+    const fallback = heuristicVoiceEodReport("Wrapped the turn today.");
+    expect(acceptVoiceEodStructured({}, fallback)).toEqual(fallback);
+    expect(
+      acceptVoiceEodStructured({ done: ["Paint"], blockers: [], tomorrow: ["Back at 7"] }, fallback).fallbackUsed,
+    ).toBe(false);
   });
 });

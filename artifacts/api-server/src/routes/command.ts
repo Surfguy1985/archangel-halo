@@ -48,6 +48,7 @@ import { logger } from "../lib/logger";
 import { authorizeAction, primaryRole } from "../lib/enforcerCore";
 import { mintCrewToken } from "../lib/crewCheckinCore";
 import { mintPmToken } from "../lib/pmLiveCore";
+import { filterBySnapshotScope, snapshotPropertyScope } from "../lib/commandSnapshotCore";
 
 const router: IRouter = Router();
 
@@ -86,7 +87,7 @@ router.get("/command/conversations", async (req, res): Promise<void> => {
         )
         .orderBy(desc(haloConversationsTable.updatedAt))
         .limit(10),
-      buildSnapshot(),
+      buildSnapshot(req.haloIdentity),
     ]);
 
     const role = req.haloIdentity ? primaryRole(req.haloIdentity) : "admin";
@@ -261,7 +262,7 @@ router.post("/command/conversations/:id/ask", async (req, res): Promise<void> =>
 
     // Build live snapshot and save user message in parallel
     const [snapshot] = await Promise.all([
-      buildSnapshot(),
+      buildSnapshot(req.haloIdentity),
       db.insert(haloConversationMessagesTable).values({
         conversationId: id,
         role: "user",
@@ -348,19 +349,23 @@ router.get("/command/briefing", async (req, res): Promise<void> => {
     const hour = now.getHours();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [{ feed }, snapshot, pendingAutopilot, paidMtd] = await Promise.all([
+    const scope = snapshotPropertyScope(req.haloIdentity);
+    const [{ feed: feedRaw }, snapshot, pendingAutopilotRaw, paidMtdRaw] = await Promise.all([
       computeQueues(),
-      buildSnapshot(),
+      buildSnapshot(req.haloIdentity),
       db.select().from(autopilotActionsTable)
         .where(eq(autopilotActionsTable.status, "pending"))
         .orderBy(desc(autopilotActionsTable.createdAt)),
-      db.select({ amount: invoicesTable.amount })
+      db.select({ amount: invoicesTable.amount, propertyId: invoicesTable.propertyId })
         .from(invoicesTable)
         .where(and(
           eq(invoicesTable.status, "paid"),
           gte(invoicesTable.paidAt, monthStart),
         )),
     ]);
+    const feed = filterBySnapshotScope(feedRaw, scope);
+    const pendingAutopilot = scope.mode === "tenant" ? pendingAutopilotRaw : [];
+    const paidMtd = filterBySnapshotScope(paidMtdRaw, scope);
 
     const greetWord = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
@@ -464,12 +469,15 @@ router.get("/command/briefing", async (req, res): Promise<void> => {
 
 router.get("/command/attention", async (req, res): Promise<void> => {
   try {
-    const [{ feed }, pendingAutopilot] = await Promise.all([
+    const scope = snapshotPropertyScope(req.haloIdentity);
+    const [{ feed: feedRaw }, pendingAutopilotRaw] = await Promise.all([
       computeQueues(),
       db.select().from(autopilotActionsTable)
         .where(eq(autopilotActionsTable.status, "pending"))
         .orderBy(desc(autopilotActionsTable.createdAt)),
     ]);
+    const feed = filterBySnapshotScope(feedRaw, scope);
+    const pendingAutopilot = scope.mode === "tenant" ? pendingAutopilotRaw : [];
 
     type UrgencyLevel = "critical" | "warn" | "info";
     const attentionItems = [

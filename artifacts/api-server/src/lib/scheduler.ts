@@ -31,7 +31,7 @@ const WEEKLY_DOW = 1; // Monday
 const TICK_MS = 60 * 1000;
 const URGENT_CHECK_MS = 15 * 60 * 1000;
 const AUTOPILOT_CHECK_MS = 15 * 60 * 1000;
-const BASE44_SYNC_MS = 30 * 1000; // pull from Base44 every 30 seconds (near-real-time)
+const BASE44_SYNC_MS = 30 * 1000; // SoR projection pull (~30s). Not a HALO mutation; not ASSISTED-gated.
 
 let lastDailyDate: string | null = null;
 let lastCloseDate: string | null = null;

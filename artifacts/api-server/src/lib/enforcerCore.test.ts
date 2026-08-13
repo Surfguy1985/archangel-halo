@@ -318,6 +318,8 @@ describe("PM property isolation", () => {
     const id = pmLiveIdentity("prop-a");
     expect(authorizePropertyAccess(id, "prop-a")).toBe(true);
     expect(authorizePropertyAccess(id, "prop-b")).toBe(false);
+    expect(authorizePropertyAccess(id, null)).toBe(false);
+    expect(authorizePropertyAccess(id, undefined)).toBe(false);
   });
 
   it("cross-property prompt text cannot expand the snapshot", () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  acceptPolishedLines,
   draftEstimateFromLines,
   heuristicExtractLines,
   linesFromWalkCaptures,
@@ -34,5 +35,13 @@ describe("estimate.from_evidence", () => {
       { service: "Paint", qty: 2, unitPrice: null, note: null },
     ]);
     expect(lines).toEqual([{ description: "Paint", amount: 200, qty: 3, unit: null }]);
+  });
+
+  it("falls back to heuristic lines when the model returns junk", () => {
+    const heuristic = heuristicExtractLines("Demo kitchen $1,250.00");
+    expect(acceptPolishedLines({ lines: "nope" }, heuristic)).toEqual(heuristic);
+    expect(acceptPolishedLines({ lines: [{ description: "Paint", amount: 40, qty: 2, unit: "hr" }] }, heuristic)).toEqual([
+      { description: "Paint", amount: 40, qty: 2, unit: "hr" },
+    ]);
   });
 });

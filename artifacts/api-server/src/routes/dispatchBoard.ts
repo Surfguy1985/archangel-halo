@@ -28,6 +28,7 @@ import { smsEnabled, sendSms } from "../lib/sms";
 import { sendEmail } from "../lib/email";
 import { logger } from "../lib/logger";
 import { isUniqueViolation } from "../lib/dbErrors";
+import { ensurePortalBearer } from "../lib/portalToken";
 
 const router: IRouter = Router();
 
@@ -48,9 +49,10 @@ async function notifyForemanOfPendingMove(opts: {
     if (!leader) return;
     const domain =
       process.env.REPLIT_DOMAINS?.split(",")[0] ?? process.env.REPLIT_DEV_DOMAIN;
+    const bearer = await ensurePortalBearer(leader);
     const portalUrl =
-      leader.portalToken && domain
-        ? `https://${domain}/portal/${leader.portalToken}`
+      bearer && domain
+        ? `https://${domain}/portal/${bearer}`
         : null;
     const line = `Move waiting on you: ${opts.memberName} from job ${opts.fromJobNo} to job ${opts.toJobNo} (${opts.day}). Open your crew portal to approve or decline.`;
     if (leader.phone && (await smsEnabled())) {

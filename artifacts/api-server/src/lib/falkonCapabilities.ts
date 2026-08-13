@@ -68,6 +68,22 @@ export const FALKON_CAPABILITIES: FalkonCapability[] = [
     pipelineStage: "arriving",
   },
   {
+    id: "field.checkin",
+    name: "Field Check-In",
+    description: "Hashed two-tap GPS check-in. Dispatch from HALO, never client jobId.",
+    haloDataSource: "POST /checkin/:token/checkin + halo_field evidence",
+    status: "mapped",
+    pipelineStage: "arriving",
+  },
+  {
+    id: "field.location",
+    name: "Field Location",
+    description: "Session-justified GPS trail while checked in. Stops at checkout.",
+    haloDataSource: "POST /checkin/:token/location + crew_track_points + halo_field evidence",
+    status: "mapped",
+    pipelineStage: "arriving",
+  },
+  {
     id: "bid-estimate",
     name: "Bid & Estimate",
     description: "Bid creation and price-book line items",

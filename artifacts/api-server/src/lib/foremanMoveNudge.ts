@@ -6,6 +6,7 @@ import {
   jobsTable,
 } from "@workspace/db";
 import { smsEnabled, sendSms } from "./sms";
+import { ensurePortalBearer } from "./portalToken";
 import { sendEmail } from "./email";
 import { logger } from "./logger";
 
@@ -53,7 +54,8 @@ async function nudgeForeman(opts: {
       .where(eq(crewsTable.id, opts.leaderId));
     if (!leader) return false;
 
-    const url = leader.portalToken ? portalUrl(leader.portalToken) : "";
+    const bearer = await ensurePortalBearer(leader);
+    const url = bearer ? portalUrl(bearer) : "";
     const body =
       `Reminder: move still waiting on your approval — ` +
       `${opts.memberName} from job ${opts.fromJobNo} to job ${opts.toJobNo} (${opts.day}). ` +

@@ -16,6 +16,7 @@ import { contactsTable } from "@workspace/db";
 import { getBusinessSettings } from "./businessSettings";
 import { sendInvoiceReminderEmail } from "./email";
 import { logger } from "./logger";
+import { mintPortalToken, portalTokenColumns } from "./portalToken";
 import { enforceFalkonMutation } from "./falkonPolicy";
 
 /**
@@ -186,10 +187,10 @@ async function executeRebroadcast(action: AutopilotAction): Promise<string> {
   let added = 0;
   for (const crew of targets) {
     if (!crew.portalToken) {
-      const token = randomBytes(24).toString("base64url");
+      const minted = mintPortalToken();
       await db
         .update(crewsTable)
-        .set({ portalToken: token })
+        .set(portalTokenColumns(minted))
         .where(eq(crewsTable.id, crew.id));
     }
     const prior = byCrew.get(crew.id);

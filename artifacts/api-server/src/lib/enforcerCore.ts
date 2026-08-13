@@ -428,7 +428,7 @@ export function authorizePropertyAccess(
   requestedPropertyId: string | null | undefined,
 ): boolean {
   if (!identity.propertyId) return true;
-  if (!requestedPropertyId) return true;
+  if (!requestedPropertyId) return false;
   return identity.propertyId === requestedPropertyId;
 }
 

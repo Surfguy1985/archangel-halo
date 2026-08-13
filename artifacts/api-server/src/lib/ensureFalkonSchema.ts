@@ -409,6 +409,10 @@ const STATEMENTS: string[] = [
     lines jsonb NOT NULL DEFAULT '[]'::jsonb,
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
+
+  `ALTER TABLE crews ADD COLUMN IF NOT EXISTS portal_token_hash text`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS crews_portal_token_hash_uq
+     ON crews (portal_token_hash)`,
 ];
 
 // ---------------------------------------------------------------------------

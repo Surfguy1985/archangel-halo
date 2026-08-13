@@ -13,6 +13,7 @@ import {
   haloVoiceEodCallsTable,
 } from "@workspace/db";
 import { completeJson } from "../lib/ai";
+import { acceptVoiceEodStructured, heuristicVoiceEodReport } from "../lib/voiceEodCore";
 import { sendLeadThankYouEmail } from "../lib/email";
 import { getAutoEmails } from "../lib/emailPolicy";
 import { logger } from "../lib/logger";
@@ -136,12 +137,29 @@ router.post("/vapi/webhook", async (req, res): Promise<void> => {
     if (eod[0] || haloCap === "field.voice_eod") {
       const targetId = eod[0]?.id ?? str(metadata.haloCallId);
       if (targetId) {
+        const fallback = heuristicVoiceEodReport(transcript ?? "", summary);
+        let structured = fallback;
+        try {
+          const extracted = await completeJson<{
+            done?: unknown;
+            blockers?: unknown;
+            tomorrow?: unknown;
+          }>(
+            'Extract a field end-of-day report. JSON keys: done (string[]), blockers (string[]), tomorrow (string[]). No invoices or schedule changes.',
+            `Summary: ${summary ?? ""}\n\nTranscript:\n${(transcript ?? "").slice(0, 8000)}`,
+            1024,
+          );
+          structured = acceptVoiceEodStructured(extracted, fallback);
+        } catch (err) {
+          logger.warn({ err }, "field.voice_eod structure extract failed; using heuristic");
+        }
         await db
           .update(haloVoiceEodCallsTable)
           .set({
             status: "completed",
             transcript: transcript,
             summary: summary,
+            structured: structured as unknown as Record<string, unknown>,
             completedAt: new Date(),
           })
           .where(eq(haloVoiceEodCallsTable.id, targetId));

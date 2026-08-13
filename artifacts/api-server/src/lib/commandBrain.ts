@@ -20,6 +20,13 @@ import { eq, isNull, and, inArray, gte, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { computeQueues } from "./queues";
 import { falkonConnectionsTable } from "@workspace/db/schema";
+import type { HaloIdentity } from "./enforcerCore";
+import {
+  filterBySnapshotScope,
+  filterPropertiesByScope,
+  snapshotPropertyScope,
+  type SnapshotPropertyScope,
+} from "./commandSnapshotCore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,6 +76,7 @@ export interface BusinessSnapshot {
     flaggedCount: number;
   };
   falkonMode: string;
+  snapshotScope: SnapshotPropertyScope;
 }
 
 export type BrainResponseType = "answer" | "lens" | "voice_action" | "error";
@@ -113,13 +121,14 @@ export interface ConversationMessage {
 
 // ─── Snapshot builder ─────────────────────────────────────────────────────────
 
-export async function buildSnapshot(): Promise<BusinessSnapshot> {
+export async function buildSnapshot(identity?: HaloIdentity): Promise<BusinessSnapshot> {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
   // Local midnight for today — used as a string for the date columns
   const todayMidnight = new Date(`${todayStr}T00:00:00`);
+  const scope = snapshotPropertyScope(identity);
 
-  const [props, jobs, invoices, crews, todayCheckins, crewPays, { feed }] =
+  const [propsRaw, jobsRaw, invoicesRaw, crewsRaw, todayCheckinsRaw, crewPays, { feed: feedRaw }] =
     await Promise.all([
       db.select().from(propertiesTable),
       db.select().from(jobsTable),
@@ -127,7 +136,7 @@ export async function buildSnapshot(): Promise<BusinessSnapshot> {
       db.select().from(crewsTable),
       // Count today's check-in events (kind='checkin') as a proxy for active crews
       db
-        .select({ crewId: crewCheckinsTable.crewId })
+        .select({ crewId: crewCheckinsTable.crewId, jobId: crewCheckinsTable.jobId })
         .from(crewCheckinsTable)
         .where(
           and(
@@ -140,6 +149,18 @@ export async function buildSnapshot(): Promise<BusinessSnapshot> {
       ),
       computeQueues(),
     ]);
+
+  const props = filterPropertiesByScope(propsRaw, scope);
+  const jobs = filterBySnapshotScope(jobsRaw, scope);
+  const invoices = filterBySnapshotScope(invoicesRaw, scope);
+  const feed = filterBySnapshotScope(feedRaw, scope);
+  const scopedJobIds = new Set(jobs.map((j) => j.id));
+  const todayCheckins =
+    scope.mode === "tenant"
+      ? todayCheckinsRaw
+      : todayCheckinsRaw.filter((c) => c.jobId && scopedJobIds.has(c.jobId));
+  const crews = scope.mode === "tenant" ? crewsRaw : [];
+  const pendingCrewPay = scope.mode === "tenant" ? crewPays.reduce((s, p) => s + (p.amount ?? 0), 0) : 0;
 
   const openStatuses = ["open", "pending", "scheduled", "in_progress", "active"];
   const openJobs = jobs.filter((j) => openStatuses.includes(j.status));
@@ -214,10 +235,10 @@ export async function buildSnapshot(): Promise<BusinessSnapshot> {
       totalReceivables,
       overdueCount: overdueInvoices.length,
       sentCount: receivables.length,
-      pendingCrewPay: crewPays.reduce((s, p) => s + (p.amount ?? 0), 0),
+      pendingCrewPay,
     },
     crews: {
-      total: crews.length,
+      total: scope.mode === "tenant" ? crews.length : uniqueCheckedIn,
       checkedInToday: uniqueCheckedIn,
     },
     margin: {
@@ -225,6 +246,7 @@ export async function buildSnapshot(): Promise<BusinessSnapshot> {
       flaggedCount: overBudgetJobs.length,
     },
     falkonMode,
+    snapshotScope: scope,
   };
 }
 
@@ -273,10 +295,17 @@ export function buildSystemPrompt(
     .map((i) => `• ${i.title}${i.amount ? ` ($${i.amount.toLocaleString()})` : ""}`)
     .join("\n");
 
+  const scopeNote =
+    snapshot.snapshotScope.mode === "property"
+      ? snapshot.snapshotScope.propertyIds.length === 0
+        ? "\n\nSECURITY: This identity has no property scope. You have no property, job, invoice, or feed data. Do not invent any."
+        : `\n\nSECURITY: You may discuss ONLY property id(s) ${snapshot.snapshotScope.propertyIds.join(", ")}. The snapshot already excludes every other site. If asked about another property, say you cannot see it.`
+      : "";
+
   return `You are HALO, an expert AI chief-of-staff for a property-maintenance and make-ready contracting business. You have access to live business data and assist with operational decisions, financial analysis, crew management, and work coordination.
 
 Role: ${role} — ${roleDesc}
-${shadowNote}
+${shadowNote}${scopeNote}
 
 ## Live Business Snapshot (${snapshot.date})
 Properties: ${snapshot.properties.length} | Open jobs: ${snapshot.jobs.open} | Crews: ${snapshot.crews.total} (${snapshot.crews.checkedInToday} checked in today)
@@ -292,11 +321,12 @@ ${attentionItems || "Nothing urgent right now."}
 ## Data Sources
 HALO is the operational brain. Its database is populated from two authoritative external platforms — cite them when relevant:
 
-1. **MakeReady Flow (Base44)** — syncs every 15 minutes. Authoritative source for:
+1. **MakeReady Flow (Base44)** — HALO pulls a projection about every 30 seconds. This is a read of the system of record, not a HALO mutation, and it is not Falkon-gated.
+   Authoritative source for:
    Property, Unit, Crew, CalendarSlot, FieldSubmission, CrewJob, Invoice, PaymentRequest,
    Approval, PriceItem, CrewRate, Owner, Reminder.
    When citing data for these entity types, note "via MakeReady Flow" in sources.
-   If the user asks whether data is current, note "MakeReady Flow syncs every 15 min".
+   If the user asks whether data is current, say the projection refreshes about every 30 seconds and may be stale if the last pull failed. Do not claim a 15-minute cadence.
 
 2. **Falkon Business Twin** — real-time peer network. Authoritative source for:
    peer business verification, capability matching, verified contractor rates, compliance status,

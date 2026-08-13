@@ -19,6 +19,7 @@ import {
   DeleteCalendarEventParams,
   DeleteCalendarEventResponse,
 } from "@workspace/api-zod";
+import { publicPortalBearer } from "../lib/portalToken";
 
 const router: IRouter = Router();
 
@@ -109,7 +110,7 @@ router.get("/calendar", async (req, res): Promise<void> => {
       jobId: s.jobId,
       crewId: s.crewLeaderId ?? null,
       crewName: crew?.name ?? null,
-      crewPortalToken: crew?.portalToken ?? null,
+      crewPortalToken: publicPortalBearer(crew?.portalToken),
       propertyName: prop?.name ?? null,
       status: s.status ?? null,
     });
@@ -131,7 +132,7 @@ router.get("/calendar", async (req, res): Promise<void> => {
       jobId: n.jobId ?? null,
       crewId: n.crewId ?? null,
       crewName: crew?.name ?? null,
-      crewPortalToken: crew?.portalToken ?? null,
+      crewPortalToken: publicPortalBearer(crew?.portalToken),
       propertyName: null,
       status: null,
     });
@@ -158,7 +159,7 @@ async function serEvent(n: typeof calendarEventsTable.$inferSelect) {
     jobId: n.jobId,
     crewId: n.crewId,
     crewName: crew?.name ?? null,
-    crewPortalToken: crew?.portalToken ?? null,
+    crewPortalToken: publicPortalBearer(crew?.portalToken ?? null),
     propertyName: null,
     status: null,
   };

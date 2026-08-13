@@ -44,3 +44,69 @@ export function voiceEodSystemPrompt(crewName: string): string {
     "When they are done, thank them and end the call.",
   ].join(" ");
 }
+
+export interface VoiceEodStructured {
+  done: string[];
+  blockers: string[];
+  tomorrow: string[];
+  fallbackUsed: boolean;
+}
+
+function clipList(items: unknown, max = 8): string[] {
+  if (!Array.isArray(items)) return [];
+  return items
+    .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+    .map((x) => x.trim().slice(0, 240))
+    .slice(0, max);
+}
+
+function sentencesOf(text: string): string[] {
+  return text
+    .split(/[\n.!?]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 8);
+}
+
+/** Deterministic extract so a missing model still yields a structured EOD. */
+export function heuristicVoiceEodReport(
+  transcript: string,
+  summary?: string | null,
+): VoiceEodStructured {
+  const blob = [summary, transcript].filter(Boolean).join("\n");
+  const sentences = sentencesOf(blob);
+  const done: string[] = [];
+  const blockers: string[] = [];
+  const tomorrow: string[] = [];
+  for (const s of sentences) {
+    if (/\b(block|stuck|wait(?:ing)?|need(?:s|ed)?|short|missing|safety)\b/i.test(s)) {
+      blockers.push(s);
+    } else if (/\b(tomorrow|next\s+day|in the morning|on site tomorrow)\b/i.test(s)) {
+      tomorrow.push(s);
+    } else if (/\b(finish(?:ed)?|done|complete(?:d)?|wrapped|closed)\b/i.test(s)) {
+      done.push(s);
+    }
+  }
+  if (done.length === 0 && summary?.trim()) done.push(summary.trim().slice(0, 240));
+  if (done.length === 0 && transcript.trim()) {
+    done.push(transcript.trim().slice(0, 240));
+  }
+  return {
+    done: done.slice(0, 8),
+    blockers: blockers.slice(0, 8),
+    tomorrow: tomorrow.slice(0, 8),
+    fallbackUsed: true,
+  };
+}
+
+export function acceptVoiceEodStructured(
+  raw: unknown,
+  fallback: VoiceEodStructured,
+): VoiceEodStructured {
+  if (!raw || typeof raw !== "object") return fallback;
+  const o = raw as Record<string, unknown>;
+  const done = clipList(o.done);
+  const blockers = clipList(o.blockers);
+  const tomorrow = clipList(o.tomorrow);
+  if (done.length === 0 && blockers.length === 0 && tomorrow.length === 0) return fallback;
+  return { done, blockers, tomorrow, fallbackUsed: false };
+}

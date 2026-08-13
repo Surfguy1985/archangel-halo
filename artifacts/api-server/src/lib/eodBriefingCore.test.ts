@@ -5,6 +5,7 @@ import {
   inWindow,
   jobIsOpen,
   localDateInEastern,
+  acceptEodSummary,
   type EodBriefingMetrics,
 } from "./eodBriefingCore";
 
@@ -66,5 +67,16 @@ describe("Eastern day window", () => {
 
   it("formats today as YYYY-MM-DD", () => {
     expect(localDateInEastern(new Date("2026-08-13T12:00:00-04:00"))).toBe("2026-08-13");
+  });
+});
+
+describe("optional LLM recap", () => {
+  it("keeps fallbackSummary when the model is empty or junk", () => {
+    const fallback = fallbackSummary(empty);
+    expect(acceptEodSummary("", fallback)).toEqual({ summary: fallback, fallbackUsed: true });
+    expect(acceptEodSummary("too short", fallback)).toEqual({ summary: fallback, fallbackUsed: true });
+    const ok = acceptEodSummary("Three crews finished the Oakridge turns and left two punch items.", fallback);
+    expect(ok.fallbackUsed).toBe(false);
+    expect(ok.summary).toContain("Oakridge");
   });
 });

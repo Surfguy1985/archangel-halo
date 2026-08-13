@@ -21,6 +21,7 @@ import {
   jobsTable,
   propertiesTable,
 } from "@workspace/db";
+import { recordFieldProvenance } from "../lib/fieldProvenance";
 import { eq, and, gte, desc, isNull, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { limits } from "../lib/rateLimit";
@@ -463,7 +464,7 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
     const coords = gpsColumns(gps);
 
     if (decision.action === "create") {
-      await db.insert(crewCheckinsTable).values({
+      const [punch] = await db.insert(crewCheckinsTable).values({
         crewId: crew.id,
         jobId: primaryJobId,
         kind: "checkin",
@@ -471,7 +472,18 @@ router.post("/checkin/:token/checkin", limits.checkinWrite, async (req, res): Pr
         lng: coords.lng,
         accuracy: coords.accuracy,
         label: "Check-in via link",
-      });
+      }).returning({ id: crewCheckinsTable.id });
+      if (punch) {
+        void recordFieldProvenance({
+          eventId: punch.id,
+          kind: "checkin",
+          crewId: crew.id,
+          haloJobId: primaryJobId,
+          lat: coords.lat,
+          lng: coords.lng,
+          propertyName: dispatch[0]?.propertyName ?? null,
+        });
+      }
     }
 
     await audit(row.id, "checkin", req, { replay: decision.action === "replay", gps: gps.status });
@@ -541,7 +553,7 @@ router.post("/checkin/:token/checkout", limits.checkinWrite, async (req, res): P
 
     const coords = gpsColumns(gps);
     if (decision.action === "create") {
-      await db.insert(crewCheckinsTable).values({
+      const [punch] = await db.insert(crewCheckinsTable).values({
         crewId: crew.id,
         jobId: session.openCheckin?.jobId ?? null,
         kind: "checkout",
@@ -549,7 +561,17 @@ router.post("/checkin/:token/checkout", limits.checkinWrite, async (req, res): P
         lng: coords.lng,
         accuracy: coords.accuracy,
         label: "Checkout via link",
-      });
+      }).returning({ id: crewCheckinsTable.id });
+      if (punch) {
+        void recordFieldProvenance({
+          eventId: punch.id,
+          kind: "checkout",
+          crewId: crew.id,
+          haloJobId: session.openCheckin?.jobId ?? null,
+          lat: coords.lat,
+          lng: coords.lng,
+        });
+      }
     }
 
     await audit(row.id, "checkout", req, { replay: decision.action === "replay", trackingEnds: true });
@@ -591,13 +613,23 @@ router.post("/checkin/:token/location", limits.trackPoint, async (req, res): Pro
 
     const coords = gpsColumns(gps);
     const jobId = session.openCheckin?.jobId ?? null;
-    await db.insert(crewTrackPointsTable).values({
+    const [ping] = await db.insert(crewTrackPointsTable).values({
       crewId: row.crewId,
       jobId,
       lat: coords.lat!,
       lng: coords.lng!,
       accuracy: coords.accuracy,
-    });
+    }).returning({ id: crewTrackPointsTable.id });
+    if (ping) {
+      void recordFieldProvenance({
+        eventId: ping.id,
+        kind: "location",
+        crewId: row.crewId,
+        haloJobId: jobId,
+        lat: coords.lat!,
+        lng: coords.lng!,
+      });
+    }
 
     await audit(row.id, "location", req, { jobId });
     res.json({

@@ -13,11 +13,13 @@ import {
 } from "@workspace/db";
 import { loadCatalogCandidates } from "../lib/catalogLookup";
 import {
+  acceptPolishedLines,
   draftEstimateFromLines,
   estimateHeadline,
   heuristicExtractLines,
   linesFromWalkCaptures,
 } from "../lib/estimateFromEvidenceCore";
+import { completeJson } from "../lib/ai";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -51,6 +53,19 @@ router.post("/estimates/from-evidence", async (req, res): Promise<void> => {
       const fromWalk = linesFromWalkCaptures(captures);
       lines = text.trim() ? [...lines, ...fromWalk] : fromWalk;
       source = text.trim() ? "text+walk" : "walk";
+    }
+
+    if (text.trim() && !walkId) {
+      try {
+        const polished = await completeJson<{ lines: unknown }>(
+          "Extract billable estimate lines from contractor text. JSON {lines:[{description, amount, qty, unit}]}. No totals, no invoices. Amount is a number or null.",
+          text.slice(0, 12_000),
+          2048,
+        );
+        lines = acceptPolishedLines(polished, lines);
+      } catch (err) {
+        logger.warn({ err }, "estimate.from_evidence model polish failed; using heuristic");
+      }
     }
 
     const catalog = await loadCatalogCandidates(resolvedPropertyId);

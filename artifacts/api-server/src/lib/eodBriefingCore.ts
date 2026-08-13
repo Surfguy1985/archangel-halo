@@ -108,3 +108,13 @@ const CLOSED_JOB_STATUSES = new Set(["complete", "closed", "cancelled", "paid", 
 export function jobIsOpen(status: string | null | undefined): boolean {
   return !CLOSED_JOB_STATUSES.has((status ?? "").toLowerCase());
 }
+
+/** Model recap is optional. Empty / tiny output always loses to fallbackSummary. */
+export function acceptEodSummary(
+  modelText: string | null | undefined,
+  fallback: string,
+): { summary: string; fallbackUsed: boolean } {
+  const t = (modelText ?? "").trim();
+  if (t.length < 24) return { summary: fallback, fallbackUsed: true };
+  return { summary: t.slice(0, 4000), fallbackUsed: false };
+}

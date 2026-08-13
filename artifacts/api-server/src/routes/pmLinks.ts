@@ -549,6 +549,7 @@ router.post("/live/:token/chat", limits.pmChat, async (req, res): Promise<void> 
       crews: isolated.crews,
       margin: isolated.margin,
       falkonMode: isolated.falkonMode,
+      snapshotScope: { mode: "property", propertyIds: [isolated.propertyId] },
     };
 
     const response = await runCommandBrain(

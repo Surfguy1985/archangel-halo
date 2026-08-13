@@ -21,6 +21,7 @@ import {
   paymentRequestJobsTable,
 } from "@workspace/db";
 import { threadKeysFor, notifyClientBoard } from "./clientBoard";
+import { mintPortalToken, portalTokenColumns } from "../lib/portalToken";
 import { emitBoardEvent } from "../lib/boardEvents";
 import { syncExpenseLedger } from "../lib/ledger";
 import { recomputeJobFinancials } from "../lib/jobFinance";
@@ -621,10 +622,10 @@ async function sendBroadcasts(
   for (const crew of toSend) {
     // Every recipient needs a live link — mint one if the crew doesn't have it yet.
     if (!crew.portalToken) {
-      const token = randomBytes(24).toString("base64url");
+      const minted = mintPortalToken();
       await db
         .update(crewsTable)
-        .set({ portalToken: token })
+        .set(portalTokenColumns(minted))
         .where(eq(crewsTable.id, crew.id));
     }
     const meta = metaFor(crew.id);

@@ -101,3 +101,25 @@ export function estimateHeadline(lines: DraftEstimateLine[]): string {
   const matched = lines.filter((l) => l.match).length;
   return `${lines.length} draft line${lines.length === 1 ? "" : "s"} (${matched} catalog match${matched === 1 ? "" : "es"}). Not an invoice.`;
 }
+
+function asExtractedLine(raw: unknown): ExtractedLine | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.description !== "string" || !o.description.trim()) return null;
+  const amount = typeof o.amount === "number" && Number.isFinite(o.amount) ? o.amount : null;
+  const qty = typeof o.qty === "number" && o.qty > 0 ? o.qty : 1;
+  const unit = typeof o.unit === "string" && o.unit.trim() ? o.unit.trim() : null;
+  return { description: o.description.trim().slice(0, 240), amount, qty, unit };
+}
+
+/** Vision/LLM polish is optional. Invalid JSON falls back to heuristic lines. */
+export function acceptPolishedLines(raw: unknown, fallback: ExtractedLine[]): ExtractedLine[] {
+  const lines = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object" && Array.isArray((raw as { lines?: unknown }).lines)
+      ? (raw as { lines: unknown[] }).lines
+      : null;
+  if (!lines) return fallback;
+  const parsed = lines.map(asExtractedLine).filter((l): l is ExtractedLine => l != null);
+  return parsed.length > 0 ? parsed.slice(0, 80) : fallback;
+}

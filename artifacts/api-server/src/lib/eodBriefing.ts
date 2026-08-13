@@ -16,11 +16,13 @@ import {
 import {
   easternDayWindow,
   fallbackSummary,
+  acceptEodSummary,
   inWindow,
   jobIsOpen,
   localDateInEastern,
   type EodBriefingMetrics,
 } from "./eodBriefingCore";
+import { completeText } from "./ai";
 import { enforceFalkonMutation } from "./falkonPolicy";
 import { logger } from "./logger";
 
@@ -81,29 +83,43 @@ export async function persistEodBriefing(date = localDateInEastern()): Promise<{
   date: string;
   summary: string;
   metrics: EodBriefingMetrics;
-  fallbackUsed: true;
+  fallbackUsed: boolean;
 }> {
   const metrics = await aggregateEodBriefing(date);
-  const summary = fallbackSummary(metrics);
+  const fallback = fallbackSummary(metrics);
+  let summary = fallback;
+  let fallbackUsed = true;
+  try {
+    const modelText = await completeText(
+      "You write a short HALO end-of-day recap for the office. Use only the metrics. No schedule changes, no invoices, no invented facts. 2-4 sentences.",
+      JSON.stringify(metrics),
+      400,
+    );
+    const accepted = acceptEodSummary(modelText, fallback);
+    summary = accepted.summary;
+    fallbackUsed = accepted.fallbackUsed;
+  } catch (err) {
+    logger.warn({ err }, "ops.eod_briefing model recap failed; using fallbackSummary");
+  }
   const metricsJson: Record<string, unknown> = { ...metrics };
   await db
     .insert(haloEodBriefingsTable)
     .values({
       localDate: date,
       summary,
-      fallbackUsed: true,
+      fallbackUsed,
       metrics: metricsJson,
     })
     .onConflictDoUpdate({
       target: haloEodBriefingsTable.localDate,
       set: {
         summary,
-        fallbackUsed: true,
+        fallbackUsed,
         metrics: metricsJson,
         updatedAt: new Date(),
       },
     });
-  return { date, summary, metrics, fallbackUsed: true };
+  return { date, summary, metrics, fallbackUsed };
 }
 
 export async function latestEodBriefing(): Promise<{
