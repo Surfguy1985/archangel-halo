@@ -106,7 +106,7 @@ export function DesktopLayout({ children}: { children: React.ReactNode}) {
         </div>
 
         <nav data-tour="sidebar" className="flex-1 py-6 px-4 flex flex-col gap-2 overflow-y-auto overflow-x-hidden">
-          <NavItem href="/" icon={Home} label="Today" active={location === "/" || location === "/today"} tourId="nav-today" />
+          <NavItem href="/" icon={Sparkles} label="HALO" active={location === "/"} tourId="nav-today" />
           <NavItem
             href="/jobboard"
             icon={ClipboardList}

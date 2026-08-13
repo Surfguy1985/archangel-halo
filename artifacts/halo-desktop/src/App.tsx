@@ -72,6 +72,11 @@ function App() {
               </OfficeGate>
             </Route>
 
+            {/* ── /today → HALO Command (same as mobile) ───────────────── */}
+            <Route path="/today">
+              {() => { window.location.replace(import.meta.env.BASE_URL.replace(/\/$/, "") + "/"); return null; }}
+            </Route>
+
             {/* ── All other routes — hub layout with sidebar ────────────── */}
             <Route>
               <OfficeGate>

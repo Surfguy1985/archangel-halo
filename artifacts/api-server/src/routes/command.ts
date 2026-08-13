@@ -35,6 +35,8 @@ import {
   pmLiveLinksTable,
   crewCheckinLinksTable,
 } from "@workspace/db";
+import { falkonConnectionsTable, falkonPoliciesTable } from "@workspace/db/schema";
+import { checkAssistedGate, type ConsequentialAction, type PolicySnapshot } from "../lib/falkonEmit";
 import {
   buildSnapshot,
   buildSuggestedPrompts,
@@ -1028,6 +1030,71 @@ router.post("/command/actions/execute", async (req, res): Promise<void> => {
       return;
     }
 
+    if (risk === "review") {
+      // Return a pending approval — the UI already shows the approval card before
+      // calling this endpoint, so this is just the ack.
+      res.json({
+        ok: true,
+        executed: false,
+        requiresApproval: true,
+        description,
+        message: "This action requires explicit approval before execution.",
+      });
+      return;
+    }
+
+    // risk === "auto" in ASSISTED mode — gate-check consequential capabilities first.
+    // Non-consequential capabilities (notes, briefings, reads) pass through immediately.
+    const CAPABILITY_GATE_MAP: Partial<Record<string, ConsequentialAction>> = {
+      dispatch_crew:          "dispatch_crew",
+      "crew.assign":          "dispatch_crew",
+      "crew.dispatch":        "dispatch_crew",
+      "crew.reassign":        "reassign_crew",
+      "invoice.approve":      "approve_invoice",
+      "invoice.send":         "send_invoice",
+      "invoice.pay":          "pay_invoice",
+      "payment.record":       "pay_invoice",
+      "crew.pay":             "pay_crew",
+      "payment.crew":         "pay_crew",
+      "walk.approve":         "approve_walk",
+      "change_order.approve": "approve_change_order",
+      "bid.submit":           "submit_bid",
+    };
+
+    const consequentialAction = capability ? CAPABILITY_GATE_MAP[capability] : undefined;
+    if (consequentialAction) {
+      // Load global default policy (propertyId IS NULL) for gate evaluation
+      const [policy] = await db
+        .select()
+        .from(falkonPoliciesTable)
+        .where(isNull(falkonPoliciesTable.propertyId))
+        .limit(1);
+
+      const policySnapshot: PolicySnapshot = {
+        mode: falkonMode,
+        autoDispatchEnabled: policy?.autoDispatchEnabled ?? false,
+        maxAutoInvoiceAmount: policy?.maxAutoInvoiceAmount ?? null,
+        maxAutoCrewRate:      policy?.maxAutoCrewRate ?? null,
+        maxAutoChangeOrder:   policy?.maxAutoChangeOrder ?? null,
+      };
+
+      const reqParams = params as Record<string, unknown>;
+      const amount   = typeof reqParams.amount   === "number" ? reqParams.amount   : undefined;
+      const crewRate = typeof reqParams.crewRate === "number" ? reqParams.crewRate : undefined;
+
+      const decision = checkAssistedGate(consequentialAction, { amount, crewRate }, policySnapshot);
+      if (!decision.permitted) {
+        res.status(403).json({
+          ok: false, executed: false,
+          gateBlocked: true,
+          reason:  decision.reason,
+          summary: decision.summary,
+        });
+        return;
+      }
+    }
+
+    // Gate passed (or non-consequential) — route to appropriate handler
     const host = req.get("x-forwarded-host") ?? req.get("host") ?? "halo.app";
     const proto = req.get("x-forwarded-proto") ?? req.protocol;
     const baseUrl = process.env.REPLIT_DEV_DOMAIN

@@ -143,9 +143,20 @@ function timeGreeting() {
 
 // ─── API helper ───────────────────────────────────────────────────────────────
 
+class ApiFetchError extends Error {
+  constructor(readonly status: number, readonly body: unknown, text: string) {
+    super(`${status}: ${text}`);
+  }
+}
+
 async function apiFetch(path: string, opts?: RequestInit): Promise<any> {
   const res = await fetch(path, { ...opts, credentials: "same-origin" });
-  if (!res.ok) throw new Error(`${res.status}: ${await res.text().catch(() => "")}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    let body: unknown = null;
+    try { body = JSON.parse(text); } catch {}
+    throw new ApiFetchError(res.status, body, text);
+  }
   return res.json();
 }
 
@@ -669,8 +680,18 @@ export default function HaloCommand() {
               } else {
                 setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "done" as const, result: r.result } : m));
               }
-            } catch {
-              setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "error" as const } : m));
+            } catch (err) {
+              const apiErr = err instanceof ApiFetchError ? err : null;
+              if (apiErr?.status === 403 && (apiErr.body as any)?.gateBlocked) {
+                // Policy gate blocked auto-execution — downgrade to pending so user can still approve
+                const summary = (apiErr.body as any).summary ?? "Policy approval required.";
+                setMessages(prev => [
+                  ...prev.map(m => m.id === planId ? { ...m as any, status: "pending" as const } : m),
+                  { id: `gate-${Date.now()}`, kind: "halo-answer" as const, text: `🔒 ${summary} Tap Approve to proceed.` },
+                ]);
+              } else {
+                setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "error" as const } : m));
+              }
             }
           } else {
             setMessages(prev => [...prev, { id: planId, kind: "action-plan" as const, plan, status: "pending" as const }]);
