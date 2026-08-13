@@ -8018,3 +8018,4 @@ status?: string;
 export type MarkClientBoardNotificationsRead200 = {
   ok: boolean;
 };
+
