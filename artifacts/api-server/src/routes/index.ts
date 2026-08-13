@@ -50,6 +50,11 @@ const router: IRouter = Router();
 import { clientSessionExchangeHandler, clientAuth, resolveClientPropertyIdForToken } from "../lib/sessionAuth";
 import { limits } from "../lib/rateLimit";
 
+// Concierge must be mounted BEFORE clientAuth so its own resolveViewer()
+// handles both guest and signed-in users. clientAuth's STRICT_MODE would
+// 401 the POST before it reached the handler for unauthenticated clients.
+router.use(conciergeRouter);
+
 router.post("/client/:token/session", limits.session, clientSessionExchangeHandler());
 router.use("/client/:token", clientAuth(resolveClientPropertyIdForToken));
 // Rate-limit only mutating pay requests — GET page loads stay unthrottled so
@@ -102,7 +107,6 @@ router.use(jobSummariesRouter);
 router.use(clientAccessRouter);
 router.use(clientBoardRouter);
 router.use(clientCmsRouter);
-router.use(conciergeRouter);
 router.use(workRequestsRouter);
 router.use(invoiceJobDraftRouter);
 router.use(presentationRouter);

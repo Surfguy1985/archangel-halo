@@ -13,9 +13,9 @@
  *            cards, confirmation packets, decision packets, and walk capture
  *            remain fully functional.
  *
- * Navigation: A minimal bottom strip exposes "Chat" (active on /) and
- * "Work App" (navigates to /today — the full CRM/legacy office experience).
- * All expert screens remain accessible there and via the MoreMenuSheet.
+ * Navigation: HaloCommand is the sole entry point — / stays here.
+ * All expert screens (properties, money, jobs, crews) are reachable via the
+ * More menu, lens chips, or voice. /today redirects back to /.
  *
  * Falkon safeguards: SHADOW / ASSISTED / LIVE modes are displayed. Consequential
  * actions always surface a ConfirmCard for explicit approval before execution.
@@ -37,8 +37,6 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronRight,
-  MessageSquare,
-  Briefcase,
   DollarSign,
   MapPin,
   FileText,
@@ -200,7 +198,7 @@ function detectIntent(text: string): { type: "navigate"; path: string } | { type
   const lower = text.toLowerCase().trim();
 
   if (WORK_APP_PHRASES.some(p => lower.includes(p))) {
-    return { type: "navigate", path: "/today" };
+    return { type: "navigate", path: "/properties" };
   }
   if (isFalkonFormationIntent(text)) return { type: "falkon" };
 
@@ -1372,31 +1370,8 @@ export default function HaloCommand() {
           </>
         )}
 
-        {/* ── Bottom nav strip: Chat | Work App ─────────────────────────── */}
-        <div className="shrink-0 flex items-center border-t border-white/[0.05] bg-[#080D17] pb-[env(safe-area-inset-bottom)]">
-          {/* Chat tab (active) */}
-          <button
-            className="flex-1 flex flex-col items-center gap-1 py-2.5 text-[#B4FF44]"
-          >
-            <div className="relative">
-              <MessageSquare className="w-[18px] h-[18px]" strokeWidth={2} />
-              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#B4FF44]" />
-            </div>
-            <span className="text-[9.5px] font-bold tracking-[0.06em]">Chat</span>
-          </button>
-
-          {/* Divider */}
-          <div className="w-px h-8 bg-white/[0.06]" />
-
-          {/* Work App tab */}
-          <button
-            onClick={() => navigate("/today")}
-            className="flex-1 flex flex-col items-center gap-1 py-2.5 text-white/28 hover:text-white/60 transition-colors active:scale-[0.95]"
-          >
-            <Briefcase className="w-[18px] h-[18px]" strokeWidth={1.9} />
-            <span className="text-[9.5px] font-medium tracking-[0.06em]">Work App</span>
-          </button>
-        </div>
+        {/* Safe-area pad at bottom */}
+        <div className="shrink-0 bg-[#080D17]" style={{ height: "env(safe-area-inset-bottom)" }} />
       </div>
 
       {/* ── Overlays ──────────────────────────────────────────────────────── */}

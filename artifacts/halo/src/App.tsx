@@ -133,6 +133,10 @@ function App() {
             <Route path="/client/:token/requests" component={ClientRequest} />
             <Route path="/track/:token" component={JobTracker} />
             <Route path="/pay/:token" component={PublicPayment} />
+            {/* /today redirects to the chat-first OS */}
+            <Route path="/today">
+              {() => { window.location.replace("/"); return null; }}
+            </Route>
             {/* HALO Command — full-screen conversational OS, own minimal chrome */}
             <Route path="/">
               <OfficeGate>
