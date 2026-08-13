@@ -124,7 +124,7 @@ export default function Today() {
     queryFn: async () => {
       // Filter server-side to inbound+awaiting_approval only; limit=200 avoids the
       // default-50 truncation — operators must never miss an approval request.
-      const url = `${BASE}api/falkon/network/requests?direction=inbound&state=awaiting_approval&limit=200`;
+      const url = `/api/falkon/network/requests?direction=inbound&state=awaiting_approval&limit=200`;
       const r = await fetch(url, { credentials: "include" });
       if (!r.ok) throw new Error(`Falkon requests fetch failed: ${r.status}`);
       const json = await r.json();

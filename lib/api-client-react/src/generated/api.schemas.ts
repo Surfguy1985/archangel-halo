@@ -2903,6 +2903,13 @@ export interface JobBoardInvoiceInfo {
   clientPaidReportedAt?: string | null;
 }
 
+export interface JobBoardCardPaymentRequest {
+  total: number;
+  status: string;
+  /** @nullable */
+  memo?: string | null;
+}
+
 export interface JobBoardCard {
   job: Job;
   /**
@@ -2915,6 +2922,8 @@ export interface JobBoardCard {
   lineItems?: JobLineItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];
+  /** @nullable */
+  paymentRequest?: JobBoardCardPaymentRequest | null;
 }
 
 export interface CrewPayInput {
@@ -3379,6 +3388,21 @@ export interface TrailPoint {
   lat: number;
   lng: number;
   at: string;
+}
+
+export interface CrewMapPinPhoto {
+  id: string;
+  url: string;
+  /** @nullable */
+  phase?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface CrewMapPinService {
+  id: string;
+  service: string;
+  done: boolean;
 }
 
 export interface CrewMapPin {

@@ -1008,3 +1008,84 @@ falkonAdminRouter.post("/falkon/admin/eligibility/promote", async (req, res) => 
 falkonAdminRouter.get("/falkon/admin/capabilities", async (_req, res) => {
   return res.json({ capabilities: FALKON_CAPABILITIES, total: FALKON_CAPABILITIES.length });
 });
+
+// ---------------------------------------------------------------------------
+// POST /falkon/admin/test/seed-remote-identity
+// DELETE /falkon/admin/test/seed-remote-identity
+//
+// TEST-ONLY: seeds or removes an Ed25519 public key in falkon_remote_identity
+// so integration tests can sign webhook events with a test keypair without
+// needing a live Falkon gateway.
+//
+// POST body:  { publicKeyPem: string }
+// POST returns: { ok: true, previousPublicKeyPem: string | null }
+//   The caller MUST pass previousPublicKeyPem back in the DELETE (or a second
+//   POST) to restore the original state after the test run.
+//
+// DELETE removes the current remote identity (leaves the table empty).
+// DELETE body: { restorePublicKeyPem?: string } — if supplied, re-inserts
+//   that key instead of leaving the table empty, enabling full round-trip restore.
+//
+// ONLY available when HALO_TEST_MODE=1. Returns 404 in all other environments.
+// Office-gated (passcode cookie) as an additional safety layer.
+// ---------------------------------------------------------------------------
+falkonAdminRouter.post("/falkon/admin/test/seed-remote-identity", async (req, res) => {
+  if (process.env.HALO_TEST_MODE !== "1") {
+    return res.status(404).json({ error: "Not found" });
+  }
+  try {
+    const { publicKeyPem } = req.body ?? {};
+    if (!publicKeyPem || typeof publicKeyPem !== "string") {
+      return res.status(400).json({ error: "publicKeyPem is required" });
+    }
+    // Save the existing key before wiping so the caller can restore it
+    const prev = await db.execute(
+      sql`SELECT public_key_pem FROM falkon_remote_identity ORDER BY fetched_at DESC LIMIT 1`,
+    );
+    const prevRows = (prev as any).rows ?? prev;
+    const previousPublicKeyPem: string | null =
+      Array.isArray(prevRows) && prevRows.length > 0
+        ? ((prevRows[0] as any).public_key_pem as string)
+        : null;
+
+    await db.execute(sql`DELETE FROM falkon_remote_identity WHERE TRUE`);
+    await db.execute(
+      sql`INSERT INTO falkon_remote_identity
+            (id, partner_id, public_key_pem, algorithm, fetched_at, trust_doc_url, created_at)
+          VALUES
+            (gen_random_uuid(), 'falkon-test', ${publicKeyPem},
+             'Ed25519', now(), 'https://test.falkon-partner.example.com', now())`,
+    );
+    logger.info("falkon: test remote identity seeded (HALO_TEST_MODE=1)");
+    return res.json({ ok: true, previousPublicKeyPem });
+  } catch (err: any) {
+    logger.error({ err }, "POST /falkon/admin/test/seed-remote-identity failed");
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+falkonAdminRouter.delete("/falkon/admin/test/seed-remote-identity", async (req, res) => {
+  if (process.env.HALO_TEST_MODE !== "1") {
+    return res.status(404).json({ error: "Not found" });
+  }
+  try {
+    const { restorePublicKeyPem } = req.body ?? {};
+    await db.execute(sql`DELETE FROM falkon_remote_identity WHERE TRUE`);
+    if (restorePublicKeyPem && typeof restorePublicKeyPem === "string") {
+      await db.execute(
+        sql`INSERT INTO falkon_remote_identity
+              (id, partner_id, public_key_pem, algorithm, fetched_at, trust_doc_url, created_at)
+            VALUES
+              (gen_random_uuid(), 'falkon-gateway', ${restorePublicKeyPem},
+               'Ed25519', now(), 'https://gateway.falkon.app', now())`,
+      );
+      logger.info("falkon: remote identity restored to previous key (HALO_TEST_MODE=1)");
+    } else {
+      logger.info("falkon: remote identity cleared (HALO_TEST_MODE=1)");
+    }
+    return res.json({ ok: true });
+  } catch (err: any) {
+    logger.error({ err }, "DELETE /falkon/admin/test/seed-remote-identity failed");
+    return res.status(500).json({ error: err.message });
+  }
+});
