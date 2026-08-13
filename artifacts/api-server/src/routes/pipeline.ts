@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { assertFalkonBoundary, handleBoundaryError } from "../lib/falkonBoundary";
 import { getAutoEmails } from "../lib/emailPolicy";
 import { isUniqueViolation } from "../lib/dbErrors";
 import { desc, eq, asc, and } from "drizzle-orm";
@@ -796,6 +797,12 @@ router.post("/bids/:id/send", async (req, res): Promise<void> => {
   if (!bid) {
     res.status(404).json({ error: "Bid not found" });
     return;
+  }
+  try {
+    await assertFalkonBoundary("submit_bid");
+  } catch (err) {
+    if (handleBoundaryError(err, res)) return;
+    throw err;
   }
   const detail = await bidDetailJson(bid);
   const to =

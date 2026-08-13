@@ -91,7 +91,8 @@ export async function deliverFalkonOutbox(): Promise<void> {
       .from(falkonConnectionsTable)
       .limit(1);
 
-    if (!conn || conn.mode === "OFF") return;
+    // SHADOW: outbox delivery is suppressed — same guarantee as emitFalkonEvent.
+    if (!conn || conn.mode === "OFF" || conn.mode === "SHADOW") return;
 
     const deliveryUrl =
       (conn as any).eventIngestUrl ?? conn.webhookUrl;

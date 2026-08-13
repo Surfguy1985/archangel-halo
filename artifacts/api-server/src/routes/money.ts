@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { assertFalkonBoundary, handleBoundaryError } from "../lib/falkonBoundary";
 import { and, asc, desc, eq, gte, inArray } from "drizzle-orm";
 import {
   db,
@@ -410,6 +411,12 @@ async function validateInvoiceJobLink(
 
 router.post("/invoices", async (req, res): Promise<void> => {
   const body = CreateInvoiceBody.parse(req.body);
+  try {
+    await assertFalkonBoundary("send_invoice");
+  } catch (err) {
+    if (handleBoundaryError(err, res)) return;
+    throw err;
+  }
   const jobLinkError = await validateInvoiceJobLink(body.jobId, body.propertyId);
   if (jobLinkError) {
     res.status(400).json({ error: jobLinkError });
@@ -839,6 +846,12 @@ router.post("/invoices/:id/send", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Invoice not found" });
     return;
   }
+  try {
+    await assertFalkonBoundary("send_invoice", { amount: inv.amount });
+  } catch (err) {
+    if (handleBoundaryError(err, res)) return;
+    throw err;
+  }
   const override = body.recipientEmail?.trim();
   if (override && !EMAIL_RE.test(override)) {
     res.status(422).json({ error: "That doesn't look like a valid email address" });
@@ -960,6 +973,12 @@ router.post("/invoices/:id/status", async (req, res): Promise<void> => {
     if (!existing) {
       res.status(404).json({ error: "Invoice not found" });
       return;
+    }
+    try {
+      await assertFalkonBoundary("pay_invoice", { amount: existing.amount });
+    } catch (err) {
+      if (handleBoundaryError(err, res)) return;
+      throw err;
     }
     const covered = await checkCoverage(id);
     if (covered + 0.01 < existing.amount) {

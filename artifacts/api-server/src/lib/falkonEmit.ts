@@ -183,7 +183,9 @@ export async function emitFalkonEvent(
       .from(falkonConnectionsTable)
       .limit(1);
 
-    if (!conn || conn.mode === "OFF") return;
+    // SHADOW: local mutations are simulation-only — suppress outbound events so
+    // no consequential external Falkon write can escape from HALO's side.
+    if (!conn || conn.mode === "OFF" || conn.mode === "SHADOW") return;
 
     await db.insert(falkonEventsTable).values({
       eventType,

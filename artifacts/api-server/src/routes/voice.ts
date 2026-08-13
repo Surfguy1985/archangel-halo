@@ -148,47 +148,61 @@ router.post("/voice/confirm", async (req, res): Promise<void> => {
     mark_invoice_paid:  "pay_invoice",
   };
 
-  {
-    const [falkonConn] = await db
-      .select({ mode: falkonConnectionsTable.mode })
-      .from(falkonConnectionsTable);
-    const falkonMode = falkonConn?.mode ?? "SHADOW";
+  // ── Falkon mode boundary — same control plane as chat-OS and REST routes ────
+  const [falkonConn] = await db
+    .select({ mode: falkonConnectionsTable.mode })
+    .from(falkonConnectionsTable);
+  const falkonMode = falkonConn?.mode ?? "SHADOW";
 
-    if (falkonMode === "ASSISTED") {
-      const [policy] = await db
-        .select()
-        .from(falkonPoliciesTable)
-        .where(isNull(falkonPoliciesTable.propertyId))
-        .limit(1);
+  // OFF: fail-closed — no voice mutations allowed in maintenance mode.
+  if (falkonMode === "OFF") {
+    res.status(503).json({
+      ok: false,
+      error: "off",
+      message:
+        "HALO is in maintenance mode (Falkon OFF). Voice actions are disabled " +
+        "until the Falkon connection is restored.",
+    });
+    return;
+  }
 
-      const policySnapshot: PolicySnapshot = {
-        mode: falkonMode,
-        autoDispatchEnabled: policy?.autoDispatchEnabled ?? false,
-        maxAutoInvoiceAmount: policy?.maxAutoInvoiceAmount ?? null,
-        maxAutoCrewRate:      policy?.maxAutoCrewRate ?? null,
-        maxAutoChangeOrder:   policy?.maxAutoChangeOrder ?? null,
-      };
+  // ASSISTED: policy gate — same decision logic as assertFalkonBoundary.
+  if (falkonMode === "ASSISTED") {
+    const [policy] = await db
+      .select()
+      .from(falkonPoliciesTable)
+      .where(isNull(falkonPoliciesTable.propertyId))
+      .limit(1);
 
-      for (const a of body.actions) {
-        const consequentialAction = VOICE_GATE_MAP[a.tool];
-        if (!consequentialAction) continue;
-        const f = a.fields as Record<string, unknown>;
-        const amount   = typeof f.amount   === "number" ? f.amount   : undefined;
-        const crewRate = typeof f.crewRate === "number" ? f.crewRate : undefined;
-        const decision = checkAssistedGate(consequentialAction, { amount, crewRate }, policySnapshot);
-        if (!decision.permitted) {
-          res.status(403).json({
-            ok: false,
-            gateBlocked: true,
-            reason:      decision.reason,
-            summary:     decision.summary,
-            blockedTool: a.tool,
-          });
-          return;
-        }
+    const policySnapshot: PolicySnapshot = {
+      mode: falkonMode,
+      autoDispatchEnabled: policy?.autoDispatchEnabled ?? false,
+      maxAutoInvoiceAmount: policy?.maxAutoInvoiceAmount ?? null,
+      maxAutoCrewRate:      policy?.maxAutoCrewRate ?? null,
+      maxAutoChangeOrder:   policy?.maxAutoChangeOrder ?? null,
+    };
+
+    for (const a of body.actions) {
+      const consequentialAction = VOICE_GATE_MAP[a.tool];
+      if (!consequentialAction) continue;
+      const f = a.fields as Record<string, unknown>;
+      const amount   = typeof f.amount   === "number" ? f.amount   : undefined;
+      const crewRate = typeof f.crewRate === "number" ? f.crewRate : undefined;
+      const decision = checkAssistedGate(consequentialAction, { amount, crewRate }, policySnapshot);
+      if (!decision.permitted) {
+        res.status(403).json({
+          ok: false,
+          gateBlocked: true,
+          reason:      decision.reason,
+          summary:     decision.summary,
+          blockedTool: a.tool,
+        });
+        return;
       }
     }
   }
+  // SHADOW / LIVE: falls through — local mutations execute.
+  // External Falkon events are suppressed at emitFalkonEvent / scheduler level.
 
   for (const a of body.actions) {
     const f = a.fields as Record<string, unknown>;

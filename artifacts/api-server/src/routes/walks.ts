@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { assertFalkonBoundary, handleBoundaryError } from "../lib/falkonBoundary";
 import { and, desc, eq, ilike } from "drizzle-orm";
 import {
   db,
@@ -734,6 +735,12 @@ router.post("/walks/:id/approve", async (req, res): Promise<void> => {
   if (walk.status !== "completed") {
     res.status(409).json({ error: "Finish the walk first — approve sends the created jobs to the client board." });
     return;
+  }
+  try {
+    await assertFalkonBoundary("approve_walk");
+  } catch (err) {
+    if (handleBoundaryError(err, res)) return;
+    throw err;
   }
   const created = (walk.createdJobs ?? []) as { id: string; jobNo?: string; unitNo?: string | null }[];
   if (created.length === 0) {

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { assertFalkonBoundary, handleBoundaryError } from "../lib/falkonBoundary";
 import { and, desc, eq } from "drizzle-orm";
 import {
   db,
@@ -508,6 +509,12 @@ router.post("/work-requests/:id/accept", async (req, res): Promise<void> => {
   if (adjust.neededBy && !/^\d{4}-\d{2}-\d{2}$/.test(adjust.neededBy)) {
     res.status(400).json({ error: "Adjusted date must be YYYY-MM-DD" });
     return;
+  }
+  try {
+    await assertFalkonBoundary("approve_change_order");
+  } catch (err) {
+    if (handleBoundaryError(err, res)) return;
+    throw err;
   }
   let result: { jobId: string; jobNo: string; changeOrderJobNo: string | null };
   try {

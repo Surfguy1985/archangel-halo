@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { randomBytes } from "node:crypto";
 import { emitFalkonEvent } from "../lib/falkonEmit";
 import { mintPortalToken, portalTokenColumns } from "../lib/portalToken";
+import { assertFalkonBoundary, handleBoundaryError } from "../lib/falkonBoundary";
 import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
   db,
@@ -396,6 +397,12 @@ router.post("/jobs/:id/pull-crew", async (req, res): Promise<void> => {
   if (body.fromJobId === id) {
     res.status(409).json({ error: "The crew is already on this job." });
     return;
+  }
+  try {
+    await assertFalkonBoundary("reassign_crew");
+  } catch (err) {
+    if (handleBoundaryError(err, res)) return;
+    throw err;
   }
   const result = await db.transaction(async (tx) => {
     const [target] = await tx
@@ -928,6 +935,12 @@ router.post("/job-line-items/:id/swap", async (req, res): Promise<void> => {
 router.post("/jobs/:id/schedule", async (req, res): Promise<void> => {
   const { id } = ScheduleJobParams.parse(req.params);
   const body = ScheduleJobBody.parse(req.body);
+  try {
+    await assertFalkonBoundary("dispatch_crew");
+  } catch (err) {
+    if (handleBoundaryError(err, res)) return;
+    throw err;
+  }
   const [row] = await db
     .update(jobsTable)
     .set({
@@ -972,6 +985,12 @@ router.post("/jobs/:id/dispatch", async (req, res): Promise<void> => {
   if (crewLeaderId && !scheduledOn) {
     res.status(400).json({ error: "Pick a day to dispatch the crew to." });
     return;
+  }
+  try {
+    await assertFalkonBoundary("dispatch_crew");
+  } catch (err) {
+    if (handleBoundaryError(err, res)) return;
+    throw err;
   }
   const result = await db.transaction(async (tx) => {
     const [job] = await tx
