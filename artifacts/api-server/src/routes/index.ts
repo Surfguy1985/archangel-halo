@@ -52,6 +52,7 @@ import estimatesRouter from "./estimates";
 import smsOfficeRouter, { twilioWebhookRouter } from "./sms";
 import voiceEodRouter from "./voiceEod";
 import exchangeRouter from "./exchange";
+import falkonTestHelperRouter from "./falkonTestHelper";
 
 const router: IRouter = Router();
 
@@ -125,6 +126,20 @@ router.use(workRequestsRouter);
 router.use(invoiceJobDraftRouter);
 router.use(presentationRouter);
 router.use(walksRouter);
+// Mount the test helper ONLY when HALO_E2E_ENABLED=1 — never in production.
+// It sits inside officeGuard so the passcode/session cookie is still required.
+// A startup hard-fail prevents the flag from accidentally reaching production.
+if (process.env.HALO_E2E_ENABLED === "1") {
+  if (process.env.NODE_ENV === "production") {
+    // Refuse to boot — this is a deliberate fail-closed rather than a silent
+    // skip so that a misconfigured deployment is immediately visible in logs.
+    throw new Error(
+      "FATAL: HALO_E2E_ENABLED=1 must never be set in a production environment. " +
+        "Remove the flag before deploying.",
+    );
+  }
+  router.use(falkonTestHelperRouter);
+}
 router.use(falkonRouter);
 router.use(falkonWebhookRouter);
 router.use(falkonAdminRouter);
