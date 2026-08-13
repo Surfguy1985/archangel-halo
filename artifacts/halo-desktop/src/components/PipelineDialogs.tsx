@@ -9,6 +9,7 @@ import {
   useListLeadCampaignDefs,
   useStartLeadCampaign,
   useStopLeadCampaign,
+  useGetBusinessSettings,
   useCreateBid,
   useGetBid,
   useUpdateBid,
@@ -253,6 +254,7 @@ export function LeadDetailDialog({
   const sendEmail = useSendLeadEmail();
   const startCampaign = useStartLeadCampaign();
   const stopCampaign = useStopLeadCampaign();
+  const { data: bizSettings } = useGetBusinessSettings();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const doDeleteLead = () => {
@@ -335,6 +337,7 @@ export function LeadDetailDialog({
 
   const hasRecipient = !!(contactEmail.trim() || lead.contactEmail || lead.propertyId);
   const activeCampaign = lead.campaignStatus === "active";
+  const dripEnabled = bizSettings?.emailLeadNurtureDrip ?? false;
   const tpl = templates?.find((t) => t.key === selectedTemplate);
 
   const doSendEmail = (templateKey: string) => {
@@ -358,20 +361,20 @@ export function LeadDetailDialog({
 
   const doStartCampaign = (kind: string) => {
     startCampaign.mutate(
-      { id: lead.id, data: { kind}},
+      { id: lead.id, data: { kind } },
       {
         onSuccess: () => {
           invalidate();
           toast({
             title: "Campaign started",
             description: "The first email just went out. The rest are scheduled automatically.",
-         });
-       },
+          });
+        },
         onError: (e) =>
-          toast({ title: "Couldn't start campaign", description: e.message, variant: "destructive"}),
-     },
+          toast({ title: "Couldn't start campaign", description: e.message, variant: "destructive" }),
+      },
     );
- };
+  };
 
   const doStopCampaign = () => {
     stopCampaign.mutate(
@@ -552,9 +555,9 @@ export function LeadDetailDialog({
               </div>
             ) : !hasRecipient ? (
               <p className="text-xs text-muted-foreground">
-                Add a contact email to start an automated email sequence.
+                Add a contact email to send a one-off template email to this lead.
               </p>
-            ) : (
+            ) : dripEnabled ? (
               <div className="space-y-2">
                 {campaignDefs?.map((c) => (
                   <div
@@ -576,6 +579,18 @@ export function LeadDetailDialog({
                     </Button>
                   </div>
                 ))}
+                {lead.campaignStatus === "completed" && (
+                  <p className="text-xs text-muted-foreground">Previous campaign completed.</p>
+                )}
+                {lead.campaignStatus === "stopped" && (
+                  <p className="text-xs text-muted-foreground">Previous campaign was stopped.</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Drip campaigns are currently turned off. Use a one-off template email above to reach out.
+                </p>
                 {lead.campaignStatus === "completed" && (
                   <p className="text-xs text-muted-foreground">Previous campaign completed.</p>
                 )}

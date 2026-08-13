@@ -17,13 +17,20 @@ import { useAuth } from '@/context/AuthContext';
 import {
   useListPortalInvoices,
   useListPortalJobs,
-  useGetPortalServices,
   useSubmitPortalInvoice,
   getListPortalInvoicesQueryKey,
   getListPortalJobsQueryKey,
-  getGetPortalServicesQueryKey,
 } from '@workspace/api-client-react';
-import type { PortalServicesCatalogItem } from '@workspace/api-client-react';
+import { useQuery } from '@tanstack/react-query';
+
+export interface PortalServicesCatalogItem {
+  service: string;
+  unit: string | null;
+  rate: number;
+  category: string | null;
+}
+
+const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN ?? '';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
@@ -168,8 +175,14 @@ export default function InvoiceScreen() {
     query: { enabled: !!token, queryKey: getListPortalJobsQueryKey(token!) },
   });
 
-  const { data: servicesData } = useGetPortalServices(token!, {
-    query: { enabled: !!token, queryKey: getGetPortalServicesQueryKey(token!) },
+  const { data: servicesData } = useQuery<{ catalog: PortalServicesCatalogItem[]; byJob: Record<string, string[]> }>({
+    queryKey: ['portalServices', token],
+    enabled: !!token,
+    queryFn: async () => {
+      const res = await fetch(`https://${DOMAIN}/api/portal/${token}/services`);
+      if (!res.ok) throw new Error('Failed to load services');
+      return res.json();
+    },
   });
 
   const activeJob = jobs?.find((j) => j.checkedIn) ?? jobs?.[0] ?? null;

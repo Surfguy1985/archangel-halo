@@ -11,6 +11,7 @@ import {
   useListLeadCampaignDefs,
   useStartLeadCampaign,
   useStopLeadCampaign,
+  useGetBusinessSettings,
   getListLeadsQueryKey,
 } from "@workspace/api-client-react";
 
@@ -52,6 +53,7 @@ export function LeadDetailSheet({
   const sendEmail = useSendLeadEmail();
   const startCampaign = useStartLeadCampaign();
   const stopCampaign = useStopLeadCampaign();
+  const { data: bizSettings } = useGetBusinessSettings();
   const { data: templates } = useListLeadEmailTemplates(lead?.id ?? "", {
     query: {
       queryKey: ["leadTemplates", lead?.id ?? ""],
@@ -117,6 +119,7 @@ export function LeadDetailSheet({
 
   const hasRecipient = !!(contactEmail.trim() || lead.contactEmail || lead.propertyId);
   const activeCampaign = lead.campaignStatus === "active";
+  const dripEnabled = bizSettings?.emailLeadNurtureDrip ?? false;
   const tpl = templates?.find((t) => t.key === selectedTemplate);
 
   const btnGold =
@@ -278,9 +281,9 @@ export function LeadDetailSheet({
               </div>
             ) : !hasRecipient ? (
               <div className="text-[12.5px] text-muted-foreground">
-                Add a contact email to start an automated sequence.
+                Add a contact email to send a one-off template email to this lead.
               </div>
-            ) : (
+            ) : dripEnabled ? (
               <div className="flex flex-col gap-[8px]">
                 {campaignDefs?.map((c) => (
                   <div key={c.kind} className="flex items-center justify-between gap-[10px] bg-[var(--paper)] border border-[var(--hairline)] rounded-[18px] p-[11px]">
@@ -308,6 +311,10 @@ export function LeadDetailSheet({
                     </button>
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className="text-[12.5px] text-muted-foreground leading-snug">
+                Drip campaigns are currently turned off. Use a one-off template email above to reach out.
               </div>
             )}
           </div>
