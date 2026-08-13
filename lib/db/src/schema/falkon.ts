@@ -505,7 +505,6 @@ export const falkonExchangeActivationTable = pgTable(
   },
   (t) => [uniqueIndex("falkon_exchange_activation_singleton_uq").on(t.singletonKey)],
 );
->>>>>>> 8389061 (Implement Falkon schema validation and command execution logic)
 
 // ── Type Exports ─────────────────────────────────────────────────────────────
 

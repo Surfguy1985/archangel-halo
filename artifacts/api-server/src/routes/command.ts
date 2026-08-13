@@ -1038,6 +1038,27 @@ router.post("/command/actions/execute", async (req, res): Promise<void> => {
       return;
     }
 
+    // Load Falkon gateway mode for risk classification
+    const [_execConnRow] = await db
+      .select({ mode: falkonConnectionsTable.mode })
+      .from(falkonConnectionsTable)
+      .limit(1);
+    const falkonMode = _execConnRow?.mode ?? "SHADOW";
+
+    // Consequential capabilities require explicit operator approval in ASSISTED mode.
+    // Read-only capabilities (exchange.list_products, exchange.check_status, etc.) are auto.
+    const REVIEW_CAPABILITIES = new Set([
+      "dispatch_crew", "crew.assign", "crew.dispatch", "crew.reassign",
+      "invoice.approve", "invoice.send", "invoice.pay", "payment.record",
+      "crew.pay", "payment.crew", "walk.approve", "change_order.approve", "bid.submit",
+      "exchange.create_product", "exchange.publish_listing", "exchange.grant_entitlement", "exchange.activate",
+    ]);
+    const capStr = typeof capability === "string" ? capability : undefined;
+    const risk: "review" | "auto" =
+      falkonMode === "ASSISTED" && capStr && REVIEW_CAPABILITIES.has(capStr)
+        ? "review"
+        : "auto";
+
     if (risk === "review") {
       // Return a pending approval — the UI already shows the approval card before
       // calling this endpoint, so this is just the ack.
@@ -1322,7 +1343,6 @@ async function dispatchAutoAction(
       ];
       const missing = prerequisites.filter((p) => !p.met).map((p) => p.label);
       return JSON.stringify({ type: "exchange_status", activationState: activationRow[0]?.state ?? "draft", prerequisitesAllMet: missing.length === 0, missing, prerequisites, hint: missing.length === 0 ? "All prerequisites met. POST /api/exchange/activate to begin activation." : `${missing.length} prerequisite(s) unmet — resolve before activating.` });
-    }
     }
 
     default:
