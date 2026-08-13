@@ -269,3 +269,215 @@ describe("wings & member-dispatch cross-crew boundary", () => {
     expect(JSON.stringify(res.body)).not.toContain(nonce);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Foreman team-view isolation
+// ---------------------------------------------------------------------------
+// Two foremen (A and B), each leading one member.  Foreman A's member has a
+// pending_move assignment; foreman B's member has a normal assigned one.
+//
+// Invariants under test:
+//   1. Each foreman sees only their OWN team (members + assignments).
+//   2. Foreman B gets 403 when calling move-response on foreman A's member's
+//      assignment (member.leaderId !== foremanB).
+// ---------------------------------------------------------------------------
+describe("foreman team-view cross-foreman boundary", () => {
+  const fNonce = `${Date.now()}-${randomBytes(4).toString("hex")}-foreman`;
+  const day = localToday();
+  const tokenForemanA = `foreman-boundary-a-${randomUUID()}`;
+  const tokenForemanB = `foreman-boundary-b-${randomUUID()}`;
+
+  let fPropertyId = "";
+  let foremanAId = "";
+  let foremanBId = "";
+  let memberAId = "";
+  let memberBId = "";
+  let jobAId = "";   // memberA's current job
+  let jobA2Id = "";  // memberA's pending target job (for the move)
+  let jobBId = "";   // memberB's job
+  let assignmentAId = ""; // pending_move
+  let assignmentBId = ""; // assigned
+
+  const MEMBER_A_NOTE = `private-member-a-item ${fNonce}`;
+  const MEMBER_B_NOTE = `private-member-b-item ${fNonce}`;
+
+  beforeAll(async () => {
+    const [prop] = await db
+      .insert(propertiesTable)
+      .values({ name: `Foreman Boundary Property ${fNonce}` })
+      .returning();
+    fPropertyId = prop!.id;
+
+    const mkJob = async (suffix: string) => {
+      const [j] = await db
+        .insert(jobsTable)
+        .values({
+          jobNo: `FB-${Date.now()}-${suffix}`,
+          propertyId: fPropertyId,
+          description: `foreman boundary ${suffix} ${fNonce}`,
+        })
+        .returning();
+      return j!.id;
+    };
+    jobAId = await mkJob("aMain");
+    jobA2Id = await mkJob("aPending");
+    jobBId = await mkJob("b");
+
+    // Insert the four crew rows.
+    const [fa] = await db
+      .insert(crewsTable)
+      .values({
+        name: `Foreman A ${fNonce}`,
+        portalToken: tokenForemanA,
+        isLeader: true,
+      })
+      .returning();
+    foremanAId = fa!.id;
+
+    const [fb] = await db
+      .insert(crewsTable)
+      .values({
+        name: `Foreman B ${fNonce}`,
+        portalToken: tokenForemanB,
+        isLeader: true,
+      })
+      .returning();
+    foremanBId = fb!.id;
+
+    const [ma] = await db
+      .insert(crewsTable)
+      .values({ name: `Member A ${fNonce}`, leaderId: foremanAId })
+      .returning();
+    memberAId = ma!.id;
+
+    const [mb] = await db
+      .insert(crewsTable)
+      .values({ name: `Member B ${fNonce}`, leaderId: foremanBId })
+      .returning();
+    memberBId = mb!.id;
+
+    // Foreman A's own leaderId must point to themselves so the members query
+    // (WHERE leaderId = foremanAId) picks up only their real members.
+    await db
+      .update(crewsTable)
+      .set({ leaderId: foremanAId })
+      .where(eq(crewsTable.id, foremanAId));
+    await db
+      .update(crewsTable)
+      .set({ leaderId: foremanBId })
+      .where(eq(crewsTable.id, foremanBId));
+
+    // Assignment for memberA: pending_move so pendingMoves list is populated.
+    const [asgA] = await db
+      .insert(crewDispatchAssignmentsTable)
+      .values({
+        day,
+        jobId: jobAId,
+        memberId: memberAId,
+        status: "pending_move",
+        pendingJobId: jobA2Id,
+        moveRequestedAt: new Date(),
+        checklist: [{ id: randomUUID(), text: MEMBER_A_NOTE, done: false }],
+      })
+      .returning();
+    assignmentAId = asgA!.id;
+
+    // Assignment for memberB: regular assigned.
+    const [asgB] = await db
+      .insert(crewDispatchAssignmentsTable)
+      .values({
+        day,
+        jobId: jobBId,
+        memberId: memberBId,
+        status: "assigned",
+        checklist: [{ id: randomUUID(), text: MEMBER_B_NOTE, done: false }],
+      })
+      .returning();
+    assignmentBId = asgB!.id;
+  });
+
+  afterAll(async () => {
+    if (assignmentAId)
+      await db
+        .delete(crewDispatchAssignmentsTable)
+        .where(eq(crewDispatchAssignmentsTable.id, assignmentAId));
+    if (assignmentBId)
+      await db
+        .delete(crewDispatchAssignmentsTable)
+        .where(eq(crewDispatchAssignmentsTable.id, assignmentBId));
+    await db
+      .delete(crewsTable)
+      .where(
+        inArray(crewsTable.id, [foremanAId, foremanBId, memberAId, memberBId].filter(Boolean)),
+      );
+    await db
+      .delete(jobsTable)
+      .where(inArray(jobsTable.id, [jobAId, jobA2Id, jobBId].filter(Boolean)));
+    if (fPropertyId)
+      await db.delete(propertiesTable).where(eq(propertiesTable.id, fPropertyId));
+  });
+
+  it("foreman A sees their own team member and the pending move (control)", async () => {
+    const r = await portal(`${tokenForemanA}/dispatch`);
+    expect(r.status).toBe(200);
+    expect(r.json.team).not.toBeNull();
+    const memberIds = (r.json.team.members as any[]).map((m: any) => m.id);
+    expect(memberIds).toContain(memberAId);
+    expect(memberIds).not.toContain(memberBId);
+    expect(r.json.team.pendingMoves.some((pm: any) => pm.assignmentId === assignmentAId)).toBe(true);
+  });
+
+  it("foreman B sees only their own team — none of foreman A's members or assignments", async () => {
+    const r = await portal(`${tokenForemanB}/dispatch`);
+    expect(r.status).toBe(200);
+    expect(r.json.team).not.toBeNull();
+
+    const memberIds = (r.json.team.members as any[]).map((m: any) => m.id);
+    expect(memberIds).toContain(memberBId);
+    expect(memberIds).not.toContain(memberAId);
+    expect(memberIds).not.toContain(foremanAId);
+
+    // Assignment A must not appear anywhere in the response body.
+    const body = JSON.stringify(r.json);
+    expect(body).not.toContain(assignmentAId);
+    expect(body).not.toContain(MEMBER_A_NOTE);
+    expect(body).not.toContain(`Member A`);
+  });
+
+  it("foreman B does not see foreman A's pending move in their pendingMoves list", async () => {
+    const r = await portal(`${tokenForemanB}/dispatch`);
+    expect(r.status).toBe(200);
+    const pendingIds = (r.json.team?.pendingMoves ?? []).map((pm: any) => pm.assignmentId);
+    expect(pendingIds).not.toContain(assignmentAId);
+  });
+
+  it("foreman B gets 403 trying to approve foreman A's member's pending move", async () => {
+    const res = await request(app)
+      .post(`/api/portal/${tokenForemanB}/dispatch/${assignmentAId}/move-response`)
+      .send({ approve: true });
+    expect(res.status).toBe(403);
+    // Response must not leak the assignment's content.
+    expect(JSON.stringify(res.body)).not.toContain(MEMBER_A_NOTE);
+    expect(JSON.stringify(res.body)).not.toContain(fNonce);
+  });
+
+  it("foreman B gets 403 trying to decline foreman A's member's pending move", async () => {
+    const res = await request(app)
+      .post(`/api/portal/${tokenForemanB}/dispatch/${assignmentAId}/move-response`)
+      .send({ approve: false });
+    expect(res.status).toBe(403);
+  });
+
+  it("foreman A can still act on their own member's pending move (not blocked)", async () => {
+    // Decline (approve:false) — safe because it resets the assignment back to
+    // "assigned" rather than deleting or touching foreman B's data.
+    const res = await request(app)
+      .post(`/api/portal/${tokenForemanA}/dispatch/${assignmentAId}/move-response`)
+      .send({ approve: false });
+    // 200 = declined cleanly; 409 = already decided by a previous run — both
+    // mean the ownership gate passed and foreman A was not refused.
+    expect([200, 409]).toContain(res.status);
+    expect(res.status).not.toBe(403);
+    expect(res.status).not.toBe(404);
+  });
+});
