@@ -16,6 +16,7 @@ import { contactsTable } from "@workspace/db";
 import { getBusinessSettings } from "./businessSettings";
 import { sendInvoiceReminderEmail } from "./email";
 import { logger } from "./logger";
+import { enforceFalkonMutation } from "./falkonPolicy";
 
 /**
  * Pick the billing email for a property: prefer a contact whose role mentions
@@ -231,6 +232,7 @@ async function executeRebroadcast(action: AutopilotAction): Promise<string> {
  */
 export async function executeAutopilotAction(
   action: AutopilotAction,
+  source: "http" | "worker" = "worker",
 ): Promise<AutopilotAction | null> {
   const [claimed] = await db
     .update(autopilotActionsTable)
@@ -244,6 +246,27 @@ export async function executeAutopilotAction(
     .returning();
   if (!claimed) return null;
   try {
+    if (source === "worker") {
+      const gate = await enforceFalkonMutation({
+        action: action.kind === "send_invoice_reminder" ? "send_invoice" : "job.assign",
+        actorChannel: "worker",
+        targetType: "autopilot",
+        targetId: action.id,
+        payload: { kind: action.kind },
+      });
+      if (!gate.decision.permitted) {
+        const result = `Blocked by Falkon policy (${gate.decision.code})${
+          gate.approvalId ? ` approvalId=${gate.approvalId}` : ""
+        } corr=${gate.correlationId}`;
+        await markAction(action.id, "failed", result);
+        return {
+          ...action,
+          status: "failed",
+          result,
+          executedAt: new Date(),
+        };
+      }
+    }
     let result: string;
     if (action.kind === "send_invoice_reminder") {
       result = await executeInvoiceReminder(action);

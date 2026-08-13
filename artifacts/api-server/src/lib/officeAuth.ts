@@ -166,7 +166,7 @@ export const PUBLIC_PREFIXES = [
   // is safe. See routes/presentation.ts.
   "/presentation/demo/step",
   "/presentation/demo/office-board",
-  // Falkon Ops inbound webhook and round-trip ping — HMAC-signed by Falkon,
+  // Falkon Ops inbound webhook and round-trip ping — Ed25519-signed by Falkon,
   // verified in routes/falkon.ts before any processing.
   "/falkon/inbound/",
   "/falkon/ping",

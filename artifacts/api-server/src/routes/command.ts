@@ -35,7 +35,6 @@ import {
   pmLiveLinksTable,
   crewCheckinLinksTable,
 } from "@workspace/db";
-import { falkonConnectionsTable } from "@workspace/db/schema";
 import {
   buildSnapshot,
   buildSuggestedPrompts,
@@ -996,13 +995,8 @@ router.get("/command/activity-since", async (req, res): Promise<void> => {
 //
 // POST /command/actions/execute
 //
-// Executes an AI-proposed action in ASSISTED mode. Risk classification:
-//   "auto"   → executes immediately (safe, non-financial, reversible)
-//   "review" → surfaces an approval card (consequential)
-//   "block"  → 403 (requires elevated authorization)
-//
-// In SHADOW or OFF mode the server always returns executed:false so the client
-// can render the SHADOW treatment without a second round-trip.
+// Falkon policy is enforced by falkonMutationGuard before this handler.
+// Identity capability is checked here. Client-supplied risk is ignored.
 
 router.post("/command/actions/execute", async (req, res): Promise<void> => {
   try {
@@ -1020,23 +1014,6 @@ router.post("/command/actions/execute", async (req, res): Promise<void> => {
         executed: false,
         reason: "insufficient_role",
         message: "This action is not permitted for your role.",
-      });
-      return;
-    }
-
-    // Read current Falkon mode
-    const [conn] = await db
-      .select({ mode: falkonConnectionsTable.mode })
-      .from(falkonConnectionsTable)
-      .limit(1);
-    const falkonMode = conn?.mode ?? "SHADOW";
-
-    if (falkonMode === "SHADOW" || falkonMode === "OFF") {
-      res.json({
-        ok: false,
-        executed: false,
-        reason: "shadow",
-        message: "SHADOW mode — action proposed but not executed.",
       });
       return;
     }

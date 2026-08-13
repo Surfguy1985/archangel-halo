@@ -277,7 +277,7 @@ router.post("/autopilot/actions/:id/approve", async (req, res): Promise<void> =>
     res.status(409).json({ error: `Action is already ${action.status}` });
     return;
   }
-  const done = await executeAutopilotAction(action);
+  const done = await executeAutopilotAction(action, "http");
   if (!done) {
     res.status(409).json({ error: "Action was already handled" });
     return;

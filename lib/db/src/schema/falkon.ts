@@ -290,6 +290,43 @@ export const falkonAuditLogTable = pgTable("falkon_audit_log", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Append-only policy decisions for every gated mutation. */
+export const falkonPolicyDecisionsTable = pgTable("falkon_policy_decisions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  correlationId: text("correlation_id").notNull(),
+  mode: text("mode").notNull(),
+  action: text("action").notNull(),
+  decision: text("decision").notNull(),
+  actorChannel: text("actor_channel").notNull(),
+  actor: text("actor"),
+  role: text("role"),
+  tenantId: text("tenant_id"),
+  capability: text("capability"),
+  targetType: text("target_type"),
+  targetId: text("target_id"),
+  policyGranted: boolean("policy_granted").notNull().default(false),
+  reason: text("reason").notNull(),
+  approvalId: uuid("approval_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Durable pending approvals created in ASSISTED mode. */
+export const falkonPendingApprovalsTable = pgTable("falkon_pending_approvals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  action: text("action").notNull(),
+  targetType: text("target_type"),
+  targetId: text("target_id"),
+  actor: text("actor"),
+  role: text("role"),
+  tenantId: text("tenant_id"),
+  capability: text("capability"),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  status: text("status").notNull().default("pending"), // pending | approved | denied | consumed
+  decisionId: uuid("decision_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});
+
 // ── Type Exports ─────────────────────────────────────────────────────────────
 
 export type FalkonConnection = typeof falkonConnectionsTable.$inferSelect;
@@ -300,3 +337,5 @@ export type FalkonPeer = typeof falkonPeersTable.$inferSelect;
 export type FalkonCrossRequest = typeof falkonCrossRequestsTable.$inferSelect;
 export type FalkonPhaseGate = typeof falkonPhaseGatesTable.$inferSelect;
 export type FalkonAuditLog = typeof falkonAuditLogTable.$inferSelect;
+export type FalkonPolicyDecision = typeof falkonPolicyDecisionsTable.$inferSelect;
+export type FalkonPendingApproval = typeof falkonPendingApprovalsTable.$inferSelect;

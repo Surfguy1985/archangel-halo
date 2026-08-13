@@ -73,9 +73,11 @@ router.use("/pay/:token", (req, res, next) => {
 // token-authenticated client/crew/public-share surface or an inbound webhook.
 import officeAuthRouter, { officeGuard } from "../lib/officeAuth";
 import { enforcerGuard } from "../lib/enforcer";
+import { falkonMutationGuard } from "../lib/falkonMutationGuard";
 router.use(officeAuthRouter);
 router.use(officeGuard());
 router.use(enforcerGuard());
+router.use(falkonMutationGuard());
 
 router.use(healthRouter);
 router.use(todayRouter);

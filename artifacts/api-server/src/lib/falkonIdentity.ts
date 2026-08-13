@@ -30,8 +30,14 @@ import { logger } from "./logger";
 // Constants
 // ---------------------------------------------------------------------------
 
-const PARTNER_ID = "archangel-halo";
-const CLIENT_ID = "fk_archangel_halo_prod";
+function isProdRuntime(): boolean {
+  return process.env.NODE_ENV === "production" || process.env.HALO_ENV === "production";
+}
+
+const PARTNER_ID =
+  (process.env.FALKON_PARTNER_ID ?? "").trim() || (isProdRuntime() ? "" : "archangel-halo");
+const CLIENT_ID =
+  (process.env.FALKON_CLIENT_ID ?? "").trim() || (isProdRuntime() ? "" : "fk_archangel_halo_dev");
 const ALGORITHM = "Ed25519";
 /** Trust doc validity: 1 year rolling */
 const TRUST_TTL_MS = 365 * 24 * 3_600_000;
