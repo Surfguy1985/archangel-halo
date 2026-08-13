@@ -1114,6 +1114,9 @@ interface GateResult {
   detail?: string;
   error?: string;
   ts: string;
+  /** Gate 7 only: true when no live eventIngestUrl is configured; the gate
+   *  auto-passes on dispatch confirmation without a real round-trip callback. */
+  stub?: boolean;
 }
 
 /**
@@ -1176,7 +1179,7 @@ async function runShadowRoundTrip(): Promise<GateResult> {
       // Auto-pass: dispatch succeeded, no live callback expected yet.
       const detail = `Dispatch confirmed (stub) — ${stubReason}. Connect a live gateway to enable full round-trip verification.`;
       await setVerifStep("gate7", { ok: true, testJobId, stub: true, stubReason, ts: new Date().toISOString() });
-      return { gate: 7, name, passed: true, detail, ts: new Date().toISOString() };
+      return { gate: 7, name, passed: true, detail, stub: true, ts: new Date().toISOString() };
     }
 
     // ── Live gateway: poll falkon_inbound_events for up to 15 s ──────────
@@ -1277,7 +1280,7 @@ falkonAdminRouter.post("/falkon/admin/verify/gate/:gateNumber", async (req, res)
   }
   try {
     const result = await runGate(gateNum);
-    await setVerifStep(`gate${gateNum}`, { ok: result.passed, detail: result.detail, error: result.error, ts: result.ts });
+    await setVerifStep(`gate${gateNum}`, { ok: result.passed, detail: result.detail, error: result.error, ts: result.ts, ...(result.stub !== undefined ? { stub: result.stub } : {}) });
     return res.json(result);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
@@ -1291,7 +1294,7 @@ falkonAdminRouter.post("/falkon/admin/verify/all", async (_req, res) => {
     for (let g = 1; g <= 7; g++) {
       const result = await runGate(g);
       results.push(result);
-      await setVerifStep(`gate${g}`, { ok: result.passed, detail: result.detail, error: result.error, ts: result.ts });
+      await setVerifStep(`gate${g}`, { ok: result.passed, detail: result.detail, error: result.error, ts: result.ts, ...(result.stub !== undefined ? { stub: result.stub } : {}) });
       if (!result.passed) break;
     }
     const fullyConnected = results.length === 7 && results.every((r) => r.passed);
@@ -1317,7 +1320,7 @@ falkonAdminRouter.post("/falkon/admin/verify/all", async (_req, res) => {
 falkonAdminRouter.post("/falkon/admin/verify/shadow-roundtrip", async (_req, res) => {
   try {
     const result = await runShadowRoundTrip();
-    await setVerifStep("gate7", { ok: result.passed, detail: result.detail, error: result.error, ts: result.ts });
+    await setVerifStep("gate7", { ok: result.passed, detail: result.detail, error: result.error, ts: result.ts, ...(result.stub !== undefined ? { stub: result.stub } : {}) });
     return res.json(result);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
@@ -1337,11 +1340,14 @@ falkonAdminRouter.get("/falkon/admin/health", async (_req, res) => {
       db.execute(sql`SELECT COUNT(*) AS cnt FROM falkon_inbound_events WHERE created_at > now() - INTERVAL '24 hours'`).then((r) => Number(((r as any).rows ?? r)[0]?.cnt ?? 0)).catch(() => 0),
     ]);
 
-    const steps = (conn?.verificationSteps ?? {}) as Record<string, { ok?: boolean; ts?: string; detail?: string; error?: string }>;
+    const steps = (conn?.verificationSteps ?? {}) as Record<string, { ok?: boolean; ts?: string; detail?: string; error?: string; stub?: boolean }>;
     const gates = Array.from({ length: 7 }, (_, i) => {
       const key = `gate${i + 1}`;
       const step = steps[key];
-      return { gate: i + 1, name: GATE_NAMES[i], passed: step?.ok ?? false, detail: step?.detail, error: step?.error, ts: step?.ts ?? null };
+      const base = { gate: i + 1, name: GATE_NAMES[i], passed: step?.ok ?? false, detail: step?.detail, error: step?.error, ts: step?.ts ?? null };
+      // Gate 7 carries a stub flag when there is no live eventIngestUrl configured
+      if (i === 6 && step?.stub) return { ...base, stub: true };
+      return base;
     });
     const fullyConnected = gates.every((g) => g.passed);
 

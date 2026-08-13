@@ -45,6 +45,7 @@ interface GateStatus {
   detail?: string;
   error?: string;
   ts: string | null;
+  stub?: boolean;
 }
 
 interface HealthData {
@@ -89,10 +90,15 @@ interface InboundEvent {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+const STUB_TOOLTIP = "No live gateway configured. Set eventIngestUrl in the Falkon connection to enable full round-trip verification.";
+
 function GateRow({ gate, running }: { gate: GateStatus; running: boolean }) {
+  const isStub = gate.passed && gate.stub;
+
   return (
     <div className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
       <div className={`w-5 h-5 rounded-full grid place-items-center shrink-0 text-[9px] font-bold ${
+        isStub ? "bg-amber-500/20 text-amber-400" :
         gate.passed ? "bg-[#22C55E]/20 text-[#22C55E]" :
         gate.ts ? "bg-[#E11D48]/20 text-[#E11D48]" :
         "bg-white/8 text-white/30"
@@ -109,6 +115,19 @@ function GateRow({ gate, running }: { gate: GateStatus; running: boolean }) {
       </div>
       {running ? (
         <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin shrink-0" />
+      ) : isStub ? (
+        <div className="relative group/stub shrink-0">
+          <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold tracking-wide uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30 cursor-default select-none">
+            stub
+          </span>
+          {/* Tooltip */}
+          <div className="pointer-events-none absolute right-0 bottom-full mb-2 w-56 rounded-[10px] bg-[#0E1A2D] border border-amber-500/25 shadow-xl px-3 py-2 opacity-0 group-hover/stub:opacity-100 transition-opacity duration-150 z-50">
+            <div className="text-[10px] font-semibold text-amber-400 mb-1">Stub mode active</div>
+            <div className="text-[10px] text-white/55 leading-relaxed">{STUB_TOOLTIP}</div>
+            {/* Arrow */}
+            <div className="absolute right-3 top-full -mt-px w-2 h-2 rotate-45 border-b border-r border-amber-500/25 bg-[#0E1A2D]" />
+          </div>
+        </div>
       ) : gate.passed ? (
         <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E] shrink-0" />
       ) : gate.ts ? (
