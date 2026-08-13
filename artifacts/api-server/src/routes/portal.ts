@@ -853,7 +853,9 @@ async function resolveInvoiceJobLink(
     .from(jobsTable)
     .where(eq(jobsTable.id, jobId));
   if (!job) return { ok: false, error: "That job no longer exists" };
-  if (job.crewLeaderId !== crewId) {
+  // Accept the job leader OR any crew member with an active dispatch assignment
+  // for today (crewLeaderId alone would reject dispatched members).
+  if (!(await jobBelongsToCrew(job.id, crewId))) {
     return { ok: false, error: "That job isn't assigned to your crew" };
   }
   const [prop] = await db
