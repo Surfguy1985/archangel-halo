@@ -296,6 +296,7 @@ import type {
   PortalEarnings,
   PortalEmergencyCommitResult,
   PortalJob,
+  PortalServicesCatalogItem,
   PortalLineItemDoneInput,
   PortalMoveDecisionInput,
   PortalOfferRespondInput,
@@ -14939,6 +14940,74 @@ export const listPortalMessages = async (token: string, options?: RequestInit): 
 
 
 
+
+export interface PortalServicesResponse {
+  catalog: PortalServicesCatalogItem[];
+  byJob: Record<string, string[]>;
+}
+
+export const getGetPortalServicesUrl = (token: string) =>
+  `/api/portal/${token}/services`;
+
+export const getPortalServices = async (
+  token: string,
+  options?: RequestInit,
+): Promise<PortalServicesResponse> =>
+  customFetch<PortalServicesResponse>(getGetPortalServicesUrl(token), {
+    ...options,
+    method: 'GET',
+  });
+
+export type GetPortalServicesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPortalServices>>
+>;
+
+export const getGetPortalServicesQueryKey = (token: string) =>
+  [`/api/portal/${token}/services`] as const;
+
+export const getGetPortalServicesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPortalServices>>,
+  TError = ErrorType<Error>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getPortalServices>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetPortalServicesQueryKey(token);
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalServices>>> = ({ signal }) =>
+    getPortalServices(token, { signal, ...requestOptions });
+  return {
+    queryKey,
+    queryFn,
+    enabled: token !== null && token !== undefined,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getPortalServices>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+/**
+ * @summary Crew portal service catalog + per-job eligible services
+ */
+export function useGetPortalServices<
+  TData = Awaited<ReturnType<typeof getPortalServices>>,
+  TError = ErrorType<Error>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<Awaited<ReturnType<typeof getPortalServices>>, TError, TData>;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPortalServicesQueryOptions(token, options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 export const getListPortalMessagesQueryKey = (token: string,) => {
     return [

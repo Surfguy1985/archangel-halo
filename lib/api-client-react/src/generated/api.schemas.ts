@@ -2915,6 +2915,19 @@ export interface JobBoardCard {
   lineItems?: JobLineItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];
+  /** @nullable */
+  paymentRequest?: {
+    id: string;
+    requestNo: string;
+    total: number;
+    status: string;
+    /** @nullable */
+    memo?: string | null;
+    /** @nullable */
+    sentAt?: string | null;
+    /** @nullable */
+    paidAt?: string | null;
+  } | null;
 }
 
 export interface CrewPayInput {
@@ -5365,6 +5378,14 @@ export interface PortalEarnings {
   holds: PortalEarningsHold[];
 }
 
+export interface PortalServicesCatalogItem {
+  service: string;
+  /** @nullable */
+  unit?: string | null;
+  rate: number;
+  /** @nullable */
+  category?: string | null;
+}
 export interface EmergencyCandidate {
   crewId: string;
   name: string;
@@ -7322,6 +7343,21 @@ export interface ClientBoardMapCrew {
   events?: ClientBoardMapEvent[];
   /** Today's GPS breadcrumb trail for this job (oldest first) */
   trail?: TrailPoint[];
+  /** Today's crew photos for the active job (newest first, max 8) */
+  photos?: {
+    id: string;
+    url: string;
+    /** @nullable */
+    phase?: string | null;
+    /** @nullable */
+    note?: string | null;
+  }[];
+  /** Job line items for the active job, used as a service checklist */
+  services?: {
+    id: string;
+    service: string;
+    done: boolean;
+  }[];
 }
 
 export interface ClientBoardHappening {
@@ -8019,3 +8055,8 @@ export type MarkClientBoardNotificationsRead200 = {
   ok: boolean;
 };
 
+
+export interface PortalServices {
+  catalog: PortalServicesCatalogItem[];
+  byJob: Record<string, string[]>;
+}
