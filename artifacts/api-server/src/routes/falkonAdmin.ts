@@ -1146,20 +1146,47 @@ async function isStubMode(): Promise<{ stub: boolean; reason: string }> {
   }
 }
 
-async function runShadowRoundTrip(): Promise<GateResult> {
+async function runShadowRoundTrip(opts?: {
+  /** Override the generated testJobId — useful for tests that need to pre-seed inbound events. */
+  overrideJobId?: string;
+  /**
+   * Force stub or live mode instead of running the isStubMode() probe.
+   * "stub"  — skip the poll loop (auto-pass immediately).
+   * "live"  — enter the poll loop regardless of gateway reachability.
+   * Omit to use the normal isStubMode() logic.
+   */
+  forceMode?: "stub" | "live";
+  /**
+   * Skip the runShadowExecution gateway call and treat dispatch as always
+   * successful.  Only for testing — allows the poll loop to be exercised
+   * even when no live gateway is reachable.
+   */
+  skipDispatch?: boolean;
+}): Promise<GateResult> {
   const ts = new Date().toISOString();
   const name = GATE_NAMES[6];
-  const testJobId = `verify-test-${Date.now()}`;
+  const testJobId = opts?.overrideJobId ?? `verify-test-${Date.now()}`;
   try {
     // ── Stub-mode detection ───────────────────────────────────────────────
     // When no live Falkon gateway is configured (or it is unreachable) we
     // auto-pass on dispatch confirmation so the verify flow doesn't hang for
     // 15 s waiting for a callback that will never arrive.
-    const { stub, reason: stubReason } = await isStubMode();
+    let stub: boolean;
+    let stubReason: string;
+    if (opts?.forceMode === "stub") {
+      stub = true;
+      stubReason = "stub mode forced by caller";
+    } else if (opts?.forceMode === "live") {
+      stub = false;
+      stubReason = "live mode forced by caller";
+    } else {
+      ({ stub, reason: stubReason } = await isStubMode());
+    }
 
-    const execResult = await runShadowExecution({
-      jobId: testJobId,
-    });
+    // skipDispatch lets tests exercise the poll loop without a live gateway.
+    const execResult = opts?.skipDispatch
+      ? { ok: true, phase: "needs_turn" }
+      : await runShadowExecution({ jobId: testJobId });
     if (!execResult.ok) {
       return { gate: 7, name, passed: false, error: (execResult as any).error ?? "Shadow dispatch failed", ts };
     }
@@ -1425,6 +1452,136 @@ falkonAdminRouter.get("/falkon/admin/inbound", async (req, res) => {
 });
 
 // ─── (test-only routes below) ─────────────────────────────────────────────────
+
+// ---------------------------------------------------------------------------
+// POST /falkon/admin/test/gate7-roundtrip
+//
+// TEST-ONLY: runs Gate 7 (SHADOW round-trip) under controlled conditions so
+// automated tests can exercise both the stub path and the live callback-poll
+// path without needing a real Falkon gateway.
+//
+// Request body:
+//   ingestUrl         — the value to temporarily write into event_ingest_url
+//                       (null / omitted = no gateway configured → stub mode)
+//   seedInboundEvent  — if true, pre-inserts a falkon_inbound_events row that
+//                       matches the overrideJobId so the poll loop finds it
+//                       immediately (simulates a Falkon callback arriving)
+//   overrideJobId     — deterministic testJobId; required when seedInboundEvent=true
+//   forceMode         — "stub" | "live" — bypass the isStubMode() reachability
+//                       probe and force a specific branch (optional)
+//
+// Response:
+//   { passed, detail?, error?, durationMs, stubMode }
+//
+// State contract:
+//   - event_ingest_url on falkon_connections is restored to its pre-call value
+//   - any seeded falkon_inbound_events row is deleted in afterAll (caller
+//     receives the seededEventId and must clean it up, or the endpoint does
+//     it automatically in the teardown phase)
+//
+// ONLY available when HALO_TEST_MODE=1.
+// ---------------------------------------------------------------------------
+falkonAdminRouter.post("/falkon/admin/test/gate7-roundtrip", async (req, res) => {
+  if (process.env.HALO_TEST_MODE !== "1") {
+    return res.status(404).json({ error: "Not found" });
+  }
+  const {
+    ingestUrl,
+    seedInboundEvent = false,
+    overrideJobId,
+    forceMode,
+  } = (req.body ?? {}) as {
+    ingestUrl?: string | null;
+    seedInboundEvent?: boolean;
+    overrideJobId?: string;
+    forceMode?: "stub" | "live";
+  };
+
+  // Resolve the jobId that Gate 7 will search for
+  const testJobId = overrideJobId ?? `verify-test-test-${Date.now()}`;
+
+  // Capture the current event_ingest_url so we can restore it
+  let previousIngestUrl: string | null = null;
+  let seededEventId: string | null = null;
+
+  try {
+    // ── Save current value ───────────────────────────────────────────────
+    const connRow = await db.execute(
+      sql`SELECT event_ingest_url FROM falkon_connections LIMIT 1`,
+    );
+    const connRows = (connRow as any).rows ?? connRow;
+    previousIngestUrl = Array.isArray(connRows) && connRows.length > 0
+      ? ((connRows[0] as any).event_ingest_url as string | null) ?? null
+      : null;
+
+    // ── Patch event_ingest_url to the requested value ────────────────────
+    await db.execute(
+      sql`UPDATE falkon_connections
+          SET event_ingest_url = ${ingestUrl ?? null}, updated_at = now()
+          WHERE id = (SELECT id FROM falkon_connections LIMIT 1)`,
+    );
+
+    // ── Optionally pre-seed a matching inbound event ─────────────────────
+    // This simulates the Falkon gateway delivering a callback event.
+    // Gate 7's poll query matches on payload->>'testJobId'.
+    if (seedInboundEvent) {
+      if (!overrideJobId) {
+        return res.status(400).json({ error: "overrideJobId is required when seedInboundEvent=true" });
+      }
+      const seedRows = await db.execute(
+        sql`INSERT INTO falkon_inbound_events
+              (id, falkon_event_id, event_type, payload, status, processed_at, created_at)
+            VALUES
+              (gen_random_uuid(),
+               ${"gate7-test-" + overrideJobId},
+               'shadow.roundtrip.callback',
+               ${JSON.stringify({ testJobId: overrideJobId, source: "gate7-test" })}::jsonb,
+               'processed',
+               now(),
+               now())
+            RETURNING id`,
+      );
+      seededEventId = ((seedRows as any).rows?.[0] ?? (seedRows as any)[0])?.id as string | null;
+    }
+
+    // ── Run Gate 7 ───────────────────────────────────────────────────────
+    const t0 = Date.now();
+    const result = await runShadowRoundTrip({
+      overrideJobId: testJobId,
+      forceMode,
+      // When a pre-seeded event is in place we skip the actual gateway
+      // dispatch so the poll loop is exercised without a live connection.
+      skipDispatch: seedInboundEvent,
+    });
+    const durationMs = Date.now() - t0;
+
+    return res.json({
+      passed: result.passed,
+      detail: result.detail,
+      error: result.error,
+      durationMs,
+      seededEventId,
+      testJobId,
+    });
+  } catch (err: any) {
+    logger.error({ err }, "POST /falkon/admin/test/gate7-roundtrip failed");
+    return res.status(500).json({ error: err.message });
+  } finally {
+    // ── Always restore event_ingest_url ──────────────────────────────────
+    await db.execute(
+      sql`UPDATE falkon_connections
+          SET event_ingest_url = ${previousIngestUrl}, updated_at = now()
+          WHERE id = (SELECT id FROM falkon_connections LIMIT 1)`,
+    ).catch(() => {});
+
+    // ── Clean up seeded event ────────────────────────────────────────────
+    if (seededEventId) {
+      await db.execute(
+        sql`DELETE FROM falkon_inbound_events WHERE id = ${seededEventId}::uuid`,
+      ).catch(() => {});
+    }
+  }
+});
 
 falkonAdminRouter.delete("/falkon/admin/test/seed-remote-identity", async (req, res) => {
   if (process.env.HALO_TEST_MODE !== "1") {
