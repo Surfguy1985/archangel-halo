@@ -1,11 +1,13 @@
 import {
   useGetInvoice,
+  useGetJob,
   useSendInvoice,
   useRemindInvoice,
   useDeleteInvoice,
   useCreateContact,
   getGetPropertyQueryKey,
   getGetInvoiceQueryKey,
+  getGetJobQueryKey,
   getListInvoicesQueryKey,
   getGetMoneySummaryQueryKey,
 } from "@workspace/api-client-react";
@@ -26,6 +28,7 @@ import { InvoiceEditor } from "@/components/InvoiceEditor";
 import { RecordPaymentSheet } from "@/components/RecordPaymentSheet";
 import { UpdateClientSheet } from "@/components/UpdateClientSheet";
 import { useToast } from "@/hooks/use-toast";
+import { AlertTriangle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,6 +101,14 @@ export default function InvoiceDetail() {
   const createContact = useCreateContact();
   const remind = useRemindInvoice();
   const del = useDeleteInvoice();
+
+  const jobId = inv?.jobId ?? "";
+  const { data: linkedJob } = useGetJob(jobId, {
+    query: { enabled: sendOpen && !!jobId, queryKey: getGetJobQueryKey(jobId) },
+  });
+  const clientBudget =
+    typeof linkedJob?.job?.clientBudget === "number" ? linkedJob.job.clientBudget : null;
+  const overBudget = clientBudget != null && (inv?.amount ?? 0) > clientBudget;
 
   const apiBase = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -472,6 +483,15 @@ export default function InvoiceDetail() {
               need to send it somewhere else.
             </DialogDescription>
           </DialogHeader>
+          {overBudget && clientBudget != null && (
+            <div className="flex items-start gap-[8px] rounded-[10px] border border-amber-300 bg-amber-50 px-[12px] py-[10px] mb-[4px]">
+              <AlertTriangle className="w-[15px] h-[15px] mt-[1px] shrink-0 text-amber-600" />
+              <p className="text-[12px] text-amber-900 leading-snug">
+                <span className="font-bold">Over budget — </span>
+                {money(inv.amount || subtotal)} exceeds the {money(clientBudget)} client budget. You can still send.
+              </p>
+            </div>
+          )}
           <div className="space-y-[6px]">
             <Label
               htmlFor="recipient"

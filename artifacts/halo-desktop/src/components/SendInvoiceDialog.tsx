@@ -4,9 +4,11 @@ import {
   useSendInvoice,
   useGetBusinessSettings,
   useGetProperty,
+  useGetJob,
   useCreateContact,
   getListInvoicesQueryKey,
   getGetInvoiceQueryKey,
+  getGetJobQueryKey,
   getGetMoneySummaryQueryKey,
   getGetPropertyQueryKey,
 } from "@workspace/api-client-react";
@@ -41,6 +43,7 @@ export function SendInvoiceDialog({
     id: string;
     invoiceNo: string;
     amount: number;
+    jobId?: string | null;
     propertyId?: string | null;
     billToName?: string | null;
     propertyAddress?: string | null;
@@ -58,6 +61,14 @@ export function SendInvoiceDialog({
   const { data: propertyDetail} = useGetProperty(propertyId, {
     query: { enabled: open && !!propertyId, queryKey: getGetPropertyQueryKey(propertyId)},
   });
+
+  const jobId = invoice?.jobId ?? "";
+  const { data: linkedJob} = useGetJob(jobId, {
+    query: { enabled: open && !!jobId, queryKey: getGetJobQueryKey(jobId)},
+  });
+  const clientBudget =
+    typeof linkedJob?.job?.clientBudget === "number" ? linkedJob.job.clientBudget : null;
+  const overBudget = clientBudget != null && (invoice?.amount ?? 0) > clientBudget;
   const savedEmail =
     propertyDetail?.contacts.find((c) => c.email)?.email ?? null;
   // Only assert "missing" once contacts have actually loaded.
@@ -163,6 +174,19 @@ export function SendInvoiceDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          {overBudget && clientBudget != null && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium">Invoice exceeds client budget</p>
+                  <p className="text-xs mt-0.5">
+                    {money(invoice!.amount)} is over the {money(clientBudget)} client budget. You can still send.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           {missingBillingEmail && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
               <div className="flex items-start gap-2">

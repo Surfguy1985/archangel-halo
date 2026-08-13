@@ -12418,6 +12418,7 @@ components:
         todayStatus: { type: ["string", "null"], description: "route | site | done | idle" }
         todayJob: { type: ["string", "null"] }
         todayProperty: { type: ["string", "null"] }
+        unitNo: { type: ["string", "null"], description: "Unit number of the job the crew is on today" }
         lat: { type: ["number", "null"] }
         lng: { type: ["number", "null"] }
         lastCheckinKind: { type: ["string", "null"], description: "checkin | checkout" }
@@ -12428,6 +12429,27 @@ components:
           description: "Today's GPS breadcrumb trail for this crew (oldest first)"
           items:
             $ref: "#/components/schemas/TrailPoint"
+        photos:
+          type: array
+          description: "Today's crew photos for the active job (newest first, max 8)"
+          items:
+            type: object
+            required: [id, url]
+            properties:
+              id: { type: string }
+              url: { type: string }
+              phase: { type: ["string", "null"] }
+              note: { type: ["string", "null"] }
+        services:
+          type: array
+          description: "Job line items for the active job, used as a service checklist"
+          items:
+            type: object
+            required: [id, service, done]
+            properties:
+              id: { type: string }
+              service: { type: string }
+              done: { type: boolean }
     CrewDayPlanSaveInput:
       type: object
       required: [day, stopKeys]

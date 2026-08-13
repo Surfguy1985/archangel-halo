@@ -4341,6 +4341,7 @@ export const GetCrewMapPinsResponseItem = zod.object({
   "todayStatus": zod.string().nullish().describe('route | site | done | idle'),
   "todayJob": zod.string().nullish(),
   "todayProperty": zod.string().nullish(),
+  "unitNo": zod.string().nullish().describe('Unit number of the job the crew is on today'),
   "lat": zod.number().nullish(),
   "lng": zod.number().nullish(),
   "lastCheckinKind": zod.string().nullish().describe('checkin | checkout'),
@@ -4350,7 +4351,18 @@ export const GetCrewMapPinsResponseItem = zod.object({
   "lat": zod.number(),
   "lng": zod.number(),
   "at": zod.string()
-})).optional().describe('Today\'s GPS breadcrumb trail for this crew (oldest first)')
+})).optional().describe('Today\'s GPS breadcrumb trail for this crew (oldest first)'),
+  "photos": zod.array(zod.object({
+  "id": zod.string(),
+  "url": zod.string(),
+  "phase": zod.string().nullish(),
+  "note": zod.string().nullish()
+})).optional().describe('Today\'s crew photos for the active job (newest first, max 8)'),
+  "services": zod.array(zod.object({
+  "id": zod.string(),
+  "service": zod.string(),
+  "done": zod.boolean()
+})).optional().describe('Job line items for the active job, used as a service checklist')
 })
 export const GetCrewMapPinsResponse = zod.array(GetCrewMapPinsResponseItem)
 
