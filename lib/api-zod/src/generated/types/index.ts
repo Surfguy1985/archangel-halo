@@ -348,6 +348,7 @@ export * from './invoiceStatusInput';
 export * from './invoiceStatusInputStatus';
 export * from './job';
 export * from './jobBoardCard';
+export * from './jobBoardCardPaymentRequest';
 export * from './jobBoardInvoiceInfo';
 export * from './jobBroadcastInfo';
 export * from './jobDetail';

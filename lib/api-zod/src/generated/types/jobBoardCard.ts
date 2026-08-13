@@ -6,21 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Job } from './job';
+import type { JobBoardCardPaymentRequest } from './jobBoardCardPaymentRequest';
 import type { JobBoardInvoiceInfo } from './jobBoardInvoiceInfo';
 import type { JobBroadcastInfo } from './jobBroadcastInfo';
 import type { JobLineItem } from './jobLineItem';
 import type { JobPhoto } from './jobPhoto';
 import type { PriceItem } from './priceItem';
-
-export interface JobBoardCardPaymentRequest {
-  id: string;
-  requestNo: string;
-  total: number;
-  status: string;
-  memo?: string | null;
-  sentAt?: string | null;
-  paidAt?: string | null;
-}
 
 export interface JobBoardCard {
   job: Job;
@@ -34,5 +25,5 @@ export interface JobBoardCard {
   lineItems?: JobLineItem[];
   photos: JobPhoto[];
   broadcasts: JobBroadcastInfo[];
-  paymentRequest?: JobBoardCardPaymentRequest | null;
+  paymentRequest?: JobBoardCardPaymentRequest;
 }
