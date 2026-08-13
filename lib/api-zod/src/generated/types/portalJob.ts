@@ -21,5 +21,15 @@ export interface PortalJob {
   checkedIn?: boolean;
   /** True when this crew has checked out of this job (a checkout exists at/after the latest check-in) */
   checkedOut?: boolean;
+  /**
+     * ISO timestamp when the client walk-approved this job; null until approved
+     * @nullable
+     */
+  walkApprovedAt?: string | null;
+  /**
+     * ISO timestamp when this crew agreed to the payout terms for this job
+     * @nullable
+     */
+  jobAgreedAt?: string | null;
   lineItems?: PortalJobLineItem[];
 }

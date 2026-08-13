@@ -1866,6 +1866,7 @@ router.get("/portal/:token/jobs", async (req, res): Promise<void> => {
         scheduledOn: j.scheduledOn ?? null,
         checkedIn,
         checkedOut,
+        walkApprovedAt: (j as unknown as { walkApprovedAt?: Date | null }).walkApprovedAt?.toISOString() ?? null,
         jobAgreedAt: agreementByJob.get(j.id)?.agreedAt?.toISOString() ?? null,
         lineItems: (itemsByJob.get(j.id) ?? []).map((li) => ({
           id: li.id,

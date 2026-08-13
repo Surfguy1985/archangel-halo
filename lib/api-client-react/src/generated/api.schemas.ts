@@ -1778,6 +1778,8 @@ export interface PropertySummary {
   latitude?: number | null;
   /** @nullable */
   longitude?: number | null;
+  /** True when the last geocode attempt for this property failed */
+  geocodeFailed?: boolean;
 }
 
 export interface CrewPayEntry {
@@ -3229,6 +3231,8 @@ export interface OfficeViewProperty {
   /** @nullable */
   longitude?: number | null;
   activeJobs: number;
+  /** True when the last geocode attempt for this property failed */
+  geocodeFailed?: boolean;
 }
 
 export interface OfficeViewJob {
@@ -4996,6 +5000,16 @@ export interface PortalJob {
   checkedIn?: boolean;
   /** True when this crew has checked out of this job (a checkout exists at/after the latest check-in) */
   checkedOut?: boolean;
+  /**
+     * ISO timestamp when the client walk-approved this job; null until approved
+     * @nullable
+     */
+  walkApprovedAt?: string | null;
+  /**
+     * ISO timestamp when this crew agreed to the payout terms for this job
+     * @nullable
+     */
+  jobAgreedAt?: string | null;
   lineItems?: PortalJobLineItem[];
 }
 

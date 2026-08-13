@@ -11206,6 +11206,7 @@ components:
         address: { type: ["string", "null"] }
         latitude: { type: ["number", "null"] }
         longitude: { type: ["number", "null"] }
+        geocodeFailed: { type: boolean, description: "True when the last geocode attempt for this property failed" }
     PropertyDetail:
       type: object
       required: [property, contacts, priceItems, jobs, expenses, agreements, invoices, upcomingVisits, stats]
@@ -12308,6 +12309,7 @@ components:
         latitude: { type: ["number", "null"] }
         longitude: { type: ["number", "null"] }
         activeJobs: { type: number }
+        geocodeFailed: { type: boolean, description: "True when the last geocode attempt for this property failed" }
     OfficeViewJob:
       type: object
       required: [id, jobNo, status]
@@ -13887,6 +13889,12 @@ components:
         checkedOut:
           type: boolean
           description: True when this crew has checked out of this job (a checkout exists at/after the latest check-in)
+        walkApprovedAt:
+          type: ["string", "null"]
+          description: ISO timestamp when the client walk-approved this job; null until approved
+        jobAgreedAt:
+          type: ["string", "null"]
+          description: ISO timestamp when this crew agreed to the payout terms for this job
         lineItems:
           type: array
           items:

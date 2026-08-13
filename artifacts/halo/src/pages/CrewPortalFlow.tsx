@@ -93,6 +93,7 @@ type ActiveCard =
   | { kind: "idle" }
   | { kind: "offer"; offer: PortalOffer }
   | { kind: "job-agreement"; job: PortalJobShape }
+  | { kind: "walk-approved"; job: PortalJobShape }
   | {
       kind: "scheduled";
       job: PortalJobShape;
@@ -208,6 +209,10 @@ const COPY = {
     offerDate: "Date",
     offerUnit: "Unit",
     offerProp: "Property",
+    walkApprovedTag: "Client approved",
+    walkApprovedTitle: "Ready to start!",
+    walkApprovedBody: "The client has reviewed and approved the walk findings. You're cleared to begin work.",
+    walkApprovedCta: "Check in — I'm here",
     scheduledTag: "Today",
     checkInBtn: "Check in — I'm here",
     checkInLocked: (mins: number) => `Window opens in ${mins} min`,
@@ -287,6 +292,10 @@ const COPY = {
     offerDate: "Fecha",
     offerUnit: "Unidad",
     offerProp: "Propiedad",
+    walkApprovedTag: "Cliente aprobó",
+    walkApprovedTitle: "¡Listo para empezar!",
+    walkApprovedBody: "El cliente revisó y aprobó los hallazgos de la visita. Estás autorizado para comenzar el trabajo.",
+    walkApprovedCta: "Registrarme — ya llegué",
     scheduledTag: "Hoy",
     checkInBtn: "Registrarme — ya llegué",
     checkInLocked: (mins: number) => `Ventana abre en ${mins} min`,
@@ -455,6 +464,12 @@ function deriveCard(
     const allMyDone = myItems.length === 0 || myItems.every((li) => li.completed);
 
     if (!isIn) {
+      // Walk-approved jobs get a celebratory "green-lit" card before check-in
+      // instead of the plain scheduled card.
+      const jAny2 = job as unknown as { walkApprovedAt?: string | null };
+      if (jAny2.walkApprovedAt) {
+        return { kind: "walk-approved", job };
+      }
       const { open, minsToWindow } = parseWindow(schedItem?.windowStart, nowMs);
       return { kind: "scheduled", job, schedItem, windowOpen: open, minsToWindow };
     }
@@ -1288,6 +1303,70 @@ export default function CrewPortalFlow({ token, portal, onOpenMore, onInvoice }:
               disabled={isBusy}
               label={t.offerDecline}
             />
+          </div>
+        </div>
+      );
+    }
+
+    if (card.kind === "walk-approved") {
+      const { job } = card;
+      const isBusy = busy === `ci:${job.id}`;
+      return (
+        <div className={cardBase}>
+          <JobHeader job={job} checkedIn={false} t={t} onBack={() => setShowHome(true)} />
+          <div className="px-[22px] py-[20px] flex flex-col gap-[14px]">
+            {/* Celebratory header */}
+            <div className="flex items-center gap-[10px]">
+              {tag(t.walkApprovedTag, "#B4FF44")}
+            </div>
+            <div className="flex items-center gap-[10px]">
+              <PartyPopper className="w-[26px] h-[26px] text-[#B4FF44] shrink-0" />
+              <div className="font-display font-bold text-[22px] text-white leading-tight">
+                {t.walkApprovedTitle}
+              </div>
+            </div>
+            {/* Info block */}
+            <div className="rounded-[16px] border border-[#B4FF44]/20 bg-[#B4FF44]/[0.06] px-[16px] py-[14px]">
+              <p className="text-[13.5px] text-white/75 leading-relaxed">
+                {t.walkApprovedBody}
+              </p>
+            </div>
+          </div>
+          <div className="px-[22px] pb-[22px] flex flex-col gap-[10px]">
+            {gpsBlocked === job.id ? (
+              <div className="flex flex-col gap-[10px]">
+                <div className="rounded-[14px] bg-amber-500/10 border border-amber-500/25 px-[13px] py-[12px]">
+                  <div className="flex items-center gap-[7px]">
+                    <AlertCircle className="w-[15px] h-[15px] text-amber-400 shrink-0" />
+                    <span className="text-[13.5px] font-bold text-amber-300">{t.noGpsTitle}</span>
+                  </div>
+                  <p className="text-[12.5px] text-white/55 mt-[7px] leading-[1.45]">{t.noGpsBody}</p>
+                </div>
+                <PrimaryBtn
+                  onClick={() => doCheckIn(job.id, true)}
+                  busy={isBusy}
+                  disabled={isBusy}
+                  icon={LogIn}
+                  label={t.noGpsStart}
+                />
+                <button
+                  type="button"
+                  onClick={() => { setGpsBlocked(null); void doCheckIn(job.id); }}
+                  disabled={isBusy}
+                  className="w-full py-[12px] text-[14px] font-bold text-white/55 disabled:opacity-40"
+                >
+                  {t.noGpsRetry}
+                </button>
+              </div>
+            ) : (
+              <PrimaryBtn
+                onClick={() => doCheckIn(job.id)}
+                busy={isBusy}
+                disabled={isBusy}
+                icon={LogIn}
+                label={t.walkApprovedCta}
+              />
+            )}
           </div>
         </div>
       );

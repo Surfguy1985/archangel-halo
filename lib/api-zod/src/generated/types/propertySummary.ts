@@ -27,4 +27,6 @@ export interface PropertySummary {
   latitude?: number | null;
   /** @nullable */
   longitude?: number | null;
+  /** True when the last geocode attempt for this property failed */
+  geocodeFailed?: boolean;
 }

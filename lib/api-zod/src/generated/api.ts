@@ -132,7 +132,8 @@ export const ListPropertiesResponseItem = zod.object({
   "imagePath": zod.string().nullish(),
   "address": zod.string().nullish(),
   "latitude": zod.number().nullish(),
-  "longitude": zod.number().nullish()
+  "longitude": zod.number().nullish(),
+  "geocodeFailed": zod.boolean().optional().describe('True when the last geocode attempt for this property failed')
 })
 export const ListPropertiesResponse = zod.array(ListPropertiesResponseItem)
 
@@ -6908,7 +6909,8 @@ export const GetPortalOfficeViewResponse = zod.object({
   "units": zod.number().nullish(),
   "latitude": zod.number().nullish(),
   "longitude": zod.number().nullish(),
-  "activeJobs": zod.number()
+  "activeJobs": zod.number(),
+  "geocodeFailed": zod.boolean().optional().describe('True when the last geocode attempt for this property failed')
 })),
   "jobs": zod.array(zod.object({
   "id": zod.string(),
@@ -7057,6 +7059,8 @@ export const ListPortalJobsResponseItem = zod.object({
   "status": zod.string().nullish(),
   "checkedIn": zod.boolean().optional().describe('True when this crew\'s latest check-in for this job is newer than any checkout (currently on site)'),
   "checkedOut": zod.boolean().optional().describe('True when this crew has checked out of this job (a checkout exists at\/after the latest check-in)'),
+  "walkApprovedAt": zod.string().nullish().describe('ISO timestamp when the client walk-approved this job; null until approved'),
+  "jobAgreedAt": zod.string().nullish().describe('ISO timestamp when this crew agreed to the payout terms for this job'),
   "lineItems": zod.array(zod.object({
   "id": zod.string(),
   "service": zod.string(),
