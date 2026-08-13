@@ -5,6 +5,8 @@
  * HALO — Archangel Operations Layer API
  * OpenAPI spec version: 0.1.0
  */
+import type { CrewMapPinPhotosItem } from './crewMapPinPhotosItem';
+import type { CrewMapPinServicesItem } from './crewMapPinServicesItem';
 import type { TrailPoint } from './trailPoint';
 
 export interface CrewMapPin {
@@ -25,6 +27,11 @@ export interface CrewMapPin {
   todayJob?: string | null;
   /** @nullable */
   todayProperty?: string | null;
+  /**
+     * Unit number of the job the crew is on today
+     * @nullable
+     */
+  unitNo?: string | null;
   /** @nullable */
   lat?: number | null;
   /** @nullable */
@@ -40,4 +47,8 @@ export interface CrewMapPin {
   lastCheckinAt?: string | null;
   /** Today's GPS breadcrumb trail for this crew (oldest first) */
   trail?: TrailPoint[];
+  /** Today's crew photos for the active job (newest first, max 8) */
+  photos?: CrewMapPinPhotosItem[];
+  /** Job line items for the active job, used as a service checklist */
+  services?: CrewMapPinServicesItem[];
 }

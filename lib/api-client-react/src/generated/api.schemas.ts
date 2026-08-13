@@ -3360,25 +3360,25 @@ export interface CrewToday {
   pendingPackets?: number;
 }
 
-export interface TrailPoint {
-  lat: number;
-  lng: number;
-  at: string;
-}
-
-export interface CrewMapPinPhoto {
+export type CrewMapPinPhotosItem = {
   id: string;
   url: string;
   /** @nullable */
   phase?: string | null;
   /** @nullable */
   note?: string | null;
-}
+};
 
-export interface CrewMapPinService {
+export type CrewMapPinServicesItem = {
   id: string;
   service: string;
   done: boolean;
+};
+
+export interface TrailPoint {
+  lat: number;
+  lng: number;
+  at: string;
 }
 
 export interface CrewMapPin {
@@ -3420,9 +3420,9 @@ export interface CrewMapPin {
   /** Today's GPS breadcrumb trail for this crew (oldest first) */
   trail?: TrailPoint[];
   /** Today's crew photos for the active job (newest first, max 8) */
-  photos?: CrewMapPinPhoto[];
+  photos?: CrewMapPinPhotosItem[];
   /** Job line items for the active job, used as a service checklist */
-  services?: CrewMapPinService[];
+  services?: CrewMapPinServicesItem[];
 }
 
 export interface CrewDayPlanSaveInput {

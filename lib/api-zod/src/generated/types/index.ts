@@ -243,6 +243,8 @@ export * from './crewMapModule';
 export * from './crewMapModuleCrewsItem';
 export * from './crewMapModuleType';
 export * from './crewMapPin';
+export * from './crewMapPinPhotosItem';
+export * from './crewMapPinServicesItem';
 export * from './crewMessage';
 export * from './crewPacket';
 export * from './crewPacketAttachments';
