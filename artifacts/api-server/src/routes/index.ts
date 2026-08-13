@@ -45,6 +45,12 @@ import { falkonNetworkRouter } from "./falkonNetwork";
 import commandRouter from "./command";
 import pmLinksRouter from "./pmLinks";
 import crewCheckinLinksRouter from "./crewCheckinLinks";
+import weatherRouter from "./weather";
+import briefingsRouter from "./briefings";
+import catalogLookupRouter from "./catalogLookup";
+import estimatesRouter from "./estimates";
+import smsOfficeRouter, { twilioWebhookRouter } from "./sms";
+import voiceEodRouter from "./voiceEod";
 
 const router: IRouter = Router();
 
@@ -56,6 +62,7 @@ import { limits } from "../lib/rateLimit";
 // handles both guest and signed-in users. clientAuth's STRICT_MODE would
 // 401 the POST before it reached the handler for unauthenticated clients.
 router.use(conciergeRouter);
+router.use(twilioWebhookRouter);
 
 router.post("/client/:token/session", limits.session, clientSessionExchangeHandler());
 router.use("/client/:token", clientAuth(resolveClientPropertyIdForToken));
@@ -124,5 +131,11 @@ router.use(falkonNetworkRouter);
 router.use(commandRouter);
 router.use(pmLinksRouter);
 router.use(crewCheckinLinksRouter);
+router.use(weatherRouter);
+router.use(briefingsRouter);
+router.use(catalogLookupRouter);
+router.use(estimatesRouter);
+router.use(smsOfficeRouter);
+router.use(voiceEodRouter);
 
 export default router;

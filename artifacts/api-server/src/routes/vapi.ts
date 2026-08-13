@@ -10,6 +10,7 @@ import {
   catalogItemsTable,
   activitiesTable,
   notificationsTable,
+  haloVoiceEodCallsTable,
 } from "@workspace/db";
 import { completeJson } from "../lib/ai";
 import { sendLeadThankYouEmail } from "../lib/email";
@@ -121,6 +122,35 @@ router.post("/vapi/webhook", async (req, res): Promise<void> => {
     res.json({ ok: true, ignored: "no transcript" });
     return;
   }
+
+  const metadata = (msg?.call?.metadata ?? msg?.metadata ?? {}) as Record<string, unknown>;
+  const haloCap = str(metadata.haloCapability);
+  if (callId || haloCap === "field.voice_eod") {
+    const eod = callId
+      ? await db
+          .select({ id: haloVoiceEodCallsTable.id })
+          .from(haloVoiceEodCallsTable)
+          .where(eq(haloVoiceEodCallsTable.vapiCallId, callId))
+          .limit(1)
+      : [];
+    if (eod[0] || haloCap === "field.voice_eod") {
+      const targetId = eod[0]?.id ?? str(metadata.haloCallId);
+      if (targetId) {
+        await db
+          .update(haloVoiceEodCallsTable)
+          .set({
+            status: "completed",
+            transcript: transcript,
+            summary: summary,
+            completedAt: new Date(),
+          })
+          .where(eq(haloVoiceEodCallsTable.id, targetId));
+      }
+      res.json({ ok: true, capability: "field.voice_eod", stored: true });
+      return;
+    }
+  }
+
   if (callId) {
     if (processedCallIds.has(callId)) {
       res.json({ ok: true, ignored: "duplicate" });

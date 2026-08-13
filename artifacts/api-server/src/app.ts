@@ -5,6 +5,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { buildTrustDoc } from "./lib/falkonIdentity";
+import { corsOriginSetting } from "./lib/corsPolicy";
 
 // Extend Request so rawBody is available for webhook signature verification
 declare global {
@@ -44,7 +45,12 @@ app.use(
     },
   }),
 );
-app.use(cors());
+app.use(
+  cors({
+    origin: corsOriginSetting(process.env),
+    credentials: true,
+  }),
+);
 app.use(cookieParser());
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");

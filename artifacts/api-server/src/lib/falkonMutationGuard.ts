@@ -4,18 +4,10 @@
 
 import type { NextFunction, Request, Response } from "express";
 import { randomUUID } from "node:crypto";
-import { classifyMutation, httpStatusForDecision, targetIdFromPath } from "./falkonPolicyCore";
+import { classifyMutation, httpStatusForDecision, targetIdFromPath, actorChannelFromRequest } from "./falkonPolicyCore";
 import { enforceFalkonMutation } from "./falkonPolicy";
 import { logger } from "./logger";
-import type { FalkonActorChannel } from "./falkonPolicyCore";
 import { isPublicApiPath } from "./officeAuth";
-
-function actorChannel(req: Request): FalkonActorChannel {
-  if (req.path === "/command/actions/execute") return "ai";
-  if (req.headers["x-halo-actor-channel"] === "worker") return "worker";
-  if (req.haloIdentity) return "human";
-  return "s2s";
-}
 
 export function falkonMutationGuard() {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -45,7 +37,7 @@ export function falkonMutationGuard() {
     try {
       const result = await enforceFalkonMutation({
         action: classified.action,
-        actorChannel: actorChannel(req),
+        actorChannel: actorChannelFromRequest(req),
         identity: req.haloIdentity,
         capability: typeof req.body?.capability === "string" ? req.body.capability : classified.action,
         targetType: classified.targetType,

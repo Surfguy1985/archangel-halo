@@ -179,6 +179,7 @@ export const PUBLIC_PREFIXES = [
   "/live/",
   // Crew check-in — one-tap GPS check-in/checkout via a texted link, no login needed
   "/checkin/",
+  "/twilio/",
 ];
 
 // Walk app routes are gated by their OWN passcode (separate from the office

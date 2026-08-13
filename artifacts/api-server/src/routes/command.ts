@@ -47,6 +47,7 @@ import { computeQueues, type FeedItem } from "../lib/queues";
 import { logger } from "../lib/logger";
 import { authorizeAction, primaryRole } from "../lib/enforcerCore";
 import { mintCrewToken } from "../lib/crewCheckinCore";
+import { mintPmToken } from "../lib/pmLiveCore";
 
 const router: IRouter = Router();
 
@@ -1076,13 +1077,14 @@ async function dispatchAutoAction(
         return `No active property found matching "${propertyName}". Try using the exact property name.`;
       }
 
-      const { randomBytes } = await import("crypto");
-      const token = "pmlink_" + randomBytes(12).toString("hex");
+      const minted = mintPmToken();
       const expiresAt = new Date(Date.now() + Number(expiresInHours) * 3_600_000);
       const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
       await db.insert(pmLiveLinksTable).values({
-        token,
+        token: `h:${minted.tokenHash}`,
+        tokenHash: minted.tokenHash,
+        tokenPrefix: minted.tokenPrefix,
         propertyId: match.id,
         permissions: (permissions as { map: boolean; kanban: boolean; money: boolean } | undefined)
           ?? { map: true, kanban: true, money: false },
@@ -1090,7 +1092,7 @@ async function dispatchAutoAction(
         label: `sent ${today}`,
       });
 
-      const url = `${baseUrl}/live/${token}`;
+      const url = `${baseUrl}/live/${minted.token}`;
       const expTime = expiresAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
       const smsText =
         `Hi 👋 Here's your daily update for ${match.name}:\n\n` +
@@ -1101,7 +1103,7 @@ async function dispatchAutoAction(
         type: "live_link",
         propertyName: match.name,
         url,
-        token,
+        token: minted.token,
         smsText,
         expiresAt: expiresAt.toISOString(),
       });
@@ -1147,6 +1149,114 @@ async function dispatchAutoAction(
         smsText,
         expiresAt: expiresAt.toISOString(),
       });
+    }
+
+    case "weather.risk_scan": {
+      const { scanHeadline, scanSites } = await import("../lib/weatherScan");
+      const props = await db
+        .select({
+          id: propertiesTable.id,
+          name: propertiesTable.name,
+          city: propertiesTable.city,
+          address: propertiesTable.address,
+          latitude: propertiesTable.latitude,
+          longitude: propertiesTable.longitude,
+        })
+        .from(propertiesTable)
+        .where(eq(propertiesTable.status, "active"));
+      const sites = await scanSites(
+        props.map((p) => ({
+          id: p.id,
+          name: p.name,
+          city: p.city,
+          address: p.address,
+          latitude: p.latitude,
+          longitude: p.longitude,
+        })),
+      );
+      return JSON.stringify({
+        type: "weather_scan",
+        headline: scanHeadline(sites),
+        sites,
+      });
+    }
+
+    case "ops.eod_briefing": {
+      const { persistEodBriefing } = await import("../lib/eodBriefing");
+      const saved = await persistEodBriefing();
+      return JSON.stringify({ type: "eod_briefing", ...saved });
+    }
+
+    case "catalog.lookup": {
+      const query = String((_params as Record<string, unknown>).query ?? (_params as Record<string, unknown>).q ?? description);
+      const { loadCatalogCandidates } = await import("../lib/catalogLookup");
+      const { matchCatalogTop } = await import("../lib/catalogMatchCore");
+      const matches = matchCatalogTop(query, await loadCatalogCandidates());
+      return JSON.stringify({ type: "catalog_lookup", query, matches });
+    }
+
+    case "weather.schedule_recommend": {
+      const { localDateInEastern } = await import("../lib/eodBriefingCore");
+      const { recommendScheduleMoves } = await import("../lib/scheduleRecommendCore");
+      const { MAX_SCAN_SITES, scanSites } = await import("../lib/weatherScan");
+      const today = localDateInEastern();
+      const jobRows = await db
+        .select({
+          id: jobsTable.id,
+          jobNo: jobsTable.jobNo,
+          propertyId: jobsTable.propertyId,
+          scheduledOn: jobsTable.scheduledOn,
+          description: jobsTable.description,
+        })
+        .from(jobsTable);
+      const upcoming = jobRows.filter((j) => j.scheduledOn && j.scheduledOn >= today);
+      const propIds = [...new Set(upcoming.map((j) => j.propertyId))].slice(0, MAX_SCAN_SITES);
+      const props = propIds.length
+        ? await db
+            .select({
+              id: propertiesTable.id,
+              name: propertiesTable.name,
+              city: propertiesTable.city,
+              address: propertiesTable.address,
+              latitude: propertiesTable.latitude,
+              longitude: propertiesTable.longitude,
+            })
+            .from(propertiesTable)
+            .where(inArray(propertiesTable.id, propIds))
+        : [];
+      const scanned = await scanSites(
+        props.map((p) => ({
+          id: p.id,
+          name: p.name,
+          city: p.city,
+          address: p.address,
+          latitude: p.latitude,
+          longitude: p.longitude,
+        })),
+      );
+      const nameById = new Map(props.map((p) => [p.id, p.name]));
+      const packet = recommendScheduleMoves(
+        upcoming.map((j) => ({
+          ...j,
+          propertyName: nameById.get(j.propertyId) ?? null,
+        })),
+        scanned.map((s) => ({
+          propertyId: s.propertyId,
+          days: s.days.map((d) => ({ date: d.date, severity: d.severity, summary: d.summary })),
+        })),
+        today,
+      );
+      return JSON.stringify({ type: "schedule_recommend", ...packet });
+    }
+
+    case "estimate.from_evidence": {
+      const text = String((_params as Record<string, unknown>).text ?? description ?? "");
+      const { loadCatalogCandidates } = await import("../lib/catalogLookup");
+      const { draftEstimateFromLines, estimateHeadline, heuristicExtractLines } = await import(
+        "../lib/estimateFromEvidenceCore"
+      );
+      const lines = draftEstimateFromLines(heuristicExtractLines(text), await loadCatalogCandidates());
+      return JSON.stringify({ type: "estimate_draft", headline: estimateHeadline(lines), lines, invoice: false });
     }
 
     default:

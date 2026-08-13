@@ -18,6 +18,19 @@ export type FalkonDecisionCode = (typeof FALKON_DECISIONS)[number];
 
 export type FalkonActorChannel = "human" | "ai" | "worker" | "s2s";
 
+/**
+ * HTTP actor channel. Never trust `x-halo-actor-channel` — clients can set it.
+ * Background workers call enforceFalkonMutation in-process with actorChannel "worker".
+ */
+export function actorChannelFromRequest(req: {
+  path: string;
+  haloIdentity?: unknown;
+}): FalkonActorChannel {
+  if (req.path === "/command/actions/execute") return "ai";
+  if (req.haloIdentity) return "human";
+  return "s2s";
+}
+
 export const CONSEQUENTIAL_ACTIONS = [
   "dispatch_crew",
   "reassign_crew",
@@ -38,6 +51,9 @@ export const CONSEQUENTIAL_ACTIONS = [
   "property.complete",
   "settings.reset",
   "payment.release",
+  "ops.eod_briefing",
+  "comms.sms",
+  "field.voice_eod",
   "generic.mutate",
 ] as const;
 
@@ -179,6 +195,28 @@ export function decideFalkonPolicy(input: FalkonDecisionInput): FalkonDecision {
     });
   }
 
+  // HALO snapshot of facts that already happened — not a Base44 / schedule write.
+  // LIVE still denied above. SHADOW workers may persist so the evening recap exists.
+  if (action === "ops.eod_briefing" && (mode === "OFF" || mode === "SHADOW" || mode === "ASSISTED")) {
+    return packet({
+      ...base,
+      code: "ALLOW_AUTOMATIC",
+      reason: "halo_internal_snapshot",
+      summary: "EOD briefing is a HALO snapshot — not a source-of-record write.",
+    });
+  }
+
+  // Outbound dial is an external action. SHADOW observes only. ASSISTED always
+  // requires approval — including single calls and batches. LIVE already denied.
+  if (action === "field.voice_eod" && mode === "SHADOW") {
+    return packet({
+      ...base,
+      code: "SHADOW_ONLY",
+      reason: "shadow_no_outbound_dial",
+      summary: "SHADOW mode — outbound EOD calls are recorded, not placed.",
+    });
+  }
+
   if (!isConsequentialAction(action)) {
     return packet({
       ...base,
@@ -266,6 +304,9 @@ const SAFE_PATHS: RegExp[] = [
   /^\/walks\/[^/]+\/(captures|voice-capture|complete)(\/|$)/,
   /^\/walks$/,
   /^\/walk-captures\//,
+  /^\/weather\//,
+  /^\/catalog\/lookup$/,
+  /^\/estimates\//,
 ];
 
 /** Best-effort target id from `/resource/:id/...` office paths. */
@@ -297,6 +338,9 @@ const ACTION_RULES: Array<{ re: RegExp; action: ConsequentialActionName; targetT
   { re: /^\/settings\/reset$/, action: "settings.reset", targetType: "system" },
   { re: /^\/autopilot\/actions\/[^/]+\/approve/, action: "generic.mutate", targetType: "autopilot" },
   { re: /^\/portal\/[^/]+\/invoices/, action: "pay_invoice", targetType: "invoice" },
+  { re: /^\/briefings\//, action: "ops.eod_briefing", targetType: "briefing" },
+  { re: /^\/sms\//, action: "comms.sms", targetType: "sms" },
+  { re: /^\/voice-eod\//, action: "field.voice_eod", targetType: "crew" },
 ];
 
 const CHAT_CAPABILITY_TO_ACTION: Record<string, ConsequentialActionName> = {
@@ -308,10 +352,22 @@ const CHAT_CAPABILITY_TO_ACTION: Record<string, ConsequentialActionName> = {
   "payment.release": "payment.release",
   "expense.approve": "pay_invoice",
   "pm_link.generate": "generic.mutate",
+  "ops.eod_briefing": "ops.eod_briefing",
+  "comms.sms": "comms.sms",
+  "field.voice_eod": "field.voice_eod",
 };
+
+const READ_CHAT_CAPABILITIES = new Set([
+  "weather.risk_scan",
+  "weather.schedule_recommend",
+  "catalog.lookup",
+  "estimate.from_evidence",
+  "status.query",
+]);
 
 export function actionFromChatCapability(capability: string | undefined | null): string {
   if (!capability) return "generic.mutate";
+  if (READ_CHAT_CAPABILITIES.has(capability)) return capability;
   return CHAT_CAPABILITY_TO_ACTION[capability] ?? (isConsequentialAction(capability) ? capability : "generic.mutate");
 }
 

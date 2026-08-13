@@ -7,6 +7,7 @@ import {
   isConsequentialAction,
   parseFalkonMode,
   targetIdFromPath,
+  actorChannelFromRequest,
   type FalkonDecisionInput,
 } from "./falkonPolicyCore";
 
@@ -34,6 +35,12 @@ describe("LIVE remains disabled", () => {
     const d = decideFalkonPolicy(input({ mode: "LIVE", action: "job.create", actorChannel: "human" }));
     expect(d.code).toBe("DENY");
     expect(d.permitted).toBe(false);
+    expect(d.reason).toBe("live_disabled");
+  });
+
+  it("denies ops.eod_briefing in LIVE", () => {
+    const d = decideFalkonPolicy(input({ mode: "LIVE", action: "ops.eod_briefing", actorChannel: "worker" }));
+    expect(d.code).toBe("DENY");
     expect(d.reason).toBe("live_disabled");
   });
 });
@@ -131,6 +138,36 @@ describe("direct API classification (bypass surface)", () => {
     expect(classifyMutation("GET", "/jobs")).toEqual({ skip: true });
   });
 
+  it("does not treat weather.risk_scan as a schedule write", () => {
+    expect(classifyMutation("POST", "/weather/scan")).toEqual({ skip: true });
+    expect(actionFromChatCapability("weather.risk_scan")).toBe("weather.risk_scan");
+    expect(isConsequentialAction("weather.risk_scan")).toBe(false);
+  });
+
+  it("keeps catalog lookup, estimate drafts, and schedule recommend as non-writes", () => {
+    expect(classifyMutation("POST", "/catalog/lookup")).toEqual({ skip: true });
+    expect(classifyMutation("POST", "/estimates/from-evidence")).toEqual({ skip: true });
+    expect(classifyMutation("POST", "/weather/recommend")).toEqual({ skip: true });
+    expect(actionFromChatCapability("catalog.lookup")).toBe("catalog.lookup");
+    expect(actionFromChatCapability("estimate.from_evidence")).toBe("estimate.from_evidence");
+    expect(actionFromChatCapability("weather.schedule_recommend")).toBe("weather.schedule_recommend");
+  });
+
+  it("gates outbound SMS and voice EOD as consequential", () => {
+    expect(classifyMutation("POST", "/sms/blast")).toMatchObject({ action: "comms.sms", consequential: true });
+    expect(classifyMutation("POST", "/voice-eod/batch")).toMatchObject({
+      action: "field.voice_eod",
+      consequential: true,
+    });
+    expect(classifyMutation("GET", "/sms/recent")).toEqual({ skip: true });
+  });
+
+  it("classifies briefing persist as ops.eod_briefing", () => {
+    const c = classifyMutation("POST", "/briefings/run-now");
+    expect(c).toMatchObject({ action: "ops.eod_briefing", consequential: true });
+    expect(classifyMutation("GET", "/briefings/latest")).toEqual({ skip: true });
+  });
+
   it("treats unknown office POSTs as generic.mutate (fail closed in ASSISTED)", () => {
     const c = classifyMutation("POST", "/mystery/wipe");
     expect(c).toMatchObject({ action: "generic.mutate", consequential: true });
@@ -167,6 +204,61 @@ describe("auditability of the decision packet", () => {
       reason: "assisted_approval_required",
     });
     expect(httpStatusForDecision(d.code)).toBe(202);
+  });
+});
+
+describe("HTTP actor channel is not client-settable", () => {
+  it("never treats HTTP as worker even if a client would send that header", () => {
+    expect(
+      actorChannelFromRequest({
+        path: "/jobs",
+        haloIdentity: { tenantId: "t" },
+      }),
+    ).toBe("human");
+    expect(actorChannelFromRequest({ path: "/jobs" })).toBe("s2s");
+    expect(actorChannelFromRequest({ path: "/command/actions/execute" })).toBe("ai");
+  });
+});
+
+describe("ops.eod_briefing is a HALO snapshot", () => {
+  it("lets a SHADOW worker persist the recap", () => {
+    const d = decideFalkonPolicy(
+      input({ mode: "SHADOW", action: "ops.eod_briefing", actorChannel: "worker" }),
+    );
+    expect(d.code).toBe("ALLOW_AUTOMATIC");
+    expect(d.reason).toBe("halo_internal_snapshot");
+  });
+
+  it("lets ASSISTED persist without invoice-style approval", () => {
+    const d = decideFalkonPolicy(
+      input({ mode: "ASSISTED", action: "ops.eod_briefing", actorChannel: "human" }),
+    );
+    expect(d.permitted).toBe(true);
+  });
+});
+
+describe("field.voice_eod outbound dial", () => {
+  it("does not place calls in SHADOW", () => {
+    const d = decideFalkonPolicy(
+      input({ mode: "SHADOW", action: "field.voice_eod", actorChannel: "human" }),
+    );
+    expect(d.code).toBe("SHADOW_ONLY");
+    expect(d.reason).toBe("shadow_no_outbound_dial");
+  });
+
+  it("requires ASSISTED approval even for a human operator", () => {
+    const d = decideFalkonPolicy(
+      input({ mode: "ASSISTED", action: "field.voice_eod", actorChannel: "human" }),
+    );
+    expect(d.code).toBe("REQUIRE_APPROVAL");
+    expect(d.permitted).toBe(false);
+  });
+
+  it("denies LIVE dials", () => {
+    const d = decideFalkonPolicy(
+      input({ mode: "LIVE", action: "field.voice_eod", actorChannel: "human" }),
+    );
+    expect(d.code).toBe("DENY");
   });
 });
 
