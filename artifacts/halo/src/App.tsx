@@ -4,38 +4,28 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "./components/Layout";
 import { SplashScreen } from "./components/SplashScreen";
-import Today from "./pages/Today";
-import Properties from "./pages/Properties";
-import PropertyDetail from "./pages/PropertyDetail";
+
+// Operational deep-link targets (emails, notifications, menu)
 import JobDetail from "./pages/JobDetail";
-import Money from "./pages/Money";
 import InvoiceDetail from "./pages/InvoiceDetail";
-import Calendar from "./pages/Calendar";
-import Crews from "./pages/Crews";
-import CrewDetail from "./pages/CrewDetail";
+import PropertyDetail from "./pages/PropertyDetail";
+import ClientBoardOffice from "./pages/ClientBoardOffice";
+import Settings from "./pages/Settings";
+
+// Public token surfaces
 import CrewPortal from "./pages/CrewPortal";
 import PhotoShare from "./pages/PhotoShare";
 import RecapShare from "./pages/RecapShare";
 import SummaryShare from "./pages/SummaryShare";
 import ClientAdmin from "./pages/ClientAdmin";
-import ClientBoardOffice from "./pages/ClientBoardOffice";
 import ClientRequest from "./pages/ClientRequest";
 import JobTracker from "./pages/JobTracker";
-import Pipeline from "./pages/Pipeline";
-import PaymentsHub from "./pages/PaymentsHub";
 import PublicPayment from "./pages/PublicPayment";
-import Supply from "./pages/Supply";
-import Vendors from "./pages/Vendors";
-import Import from "./pages/Import";
-import JobBoard from "./pages/JobBoard";
-import Settings from "./pages/Settings";
-import Catalog from "./pages/Catalog";
-import Wings from "./pages/Wings";
-import FalkonNetwork from "./pages/FalkonNetwork";
-import HaloCommand from "./pages/HaloCommand";
 import PMliveView from "./pages/PMliveView";
 import CrewCheckinPage from "./pages/CrewCheckinPage";
-import NotFound from "@/pages/not-found";
+
+// Primary interface
+import HaloCommand from "./pages/HaloCommand";
 import { OfficeGate } from "./components/OfficeGate";
 
 // Live cross-device sync: every device polls the shared server every 15s,
@@ -53,43 +43,12 @@ const queryClient = new QueryClient({
   },
 });
 
-function AdminRouter() {
-  return (
-    <>
-      <SplashScreen />
-      <Layout>
-      <Switch>
-        <Route path="/today" component={Today} />
-        <Route path="/properties" component={Properties} />
-        <Route path="/properties/:id" component={PropertyDetail} />
-        <Route path="/properties/:id/board" component={ClientBoardOffice} />
-        <Route path="/jobs/:id" component={JobDetail} />
-        <Route path="/money" component={Money} />
-        <Route path="/money/payments" component={PaymentsHub} />
-        <Route path="/invoices/:id" component={InvoiceDetail} />
-        <Route path="/calendar" component={Calendar} />
-        <Route path="/crews" component={Crews} />
-        <Route path="/crews/:id" component={CrewDetail} />
-        <Route path="/pipeline" component={Pipeline} />
-        <Route path="/jobboard" component={JobBoard} />
-        <Route path="/catalog" component={Catalog} />
-        <Route path="/wings" component={Wings} />
-        <Route path="/falkon-network" component={FalkonNetwork} />
-        <Route path="/supply" component={Supply} />
-        <Route path="/vendors" component={Vendors} />
-        <Route path="/import" component={Import} />
-        <Route path="/settings" component={Settings} />
-        <Route component={NotFound} />
-      </Switch>
-      </Layout>
-    </>
-  );
-}
-
-function GatedAdminRouter() {
+/** Wrap a page component with the office gate + stripped Layout chrome. */
+function GatedPage({ children }: { children: React.ReactNode }) {
   return (
     <OfficeGate>
-      <AdminRouter />
+      <SplashScreen />
+      <Layout>{children}</Layout>
     </OfficeGate>
   );
 }
@@ -100,11 +59,21 @@ function App() {
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Switch>
+            {/* ── Public token routes (no auth) ─────────────────────────── */}
             <Route path="/portal/:token" component={CrewPortal} />
             <Route path="/photos/:token" component={PhotoShare} />
             <Route path="/recap/:token" component={RecapShare} />
             <Route path="/summary/:token" component={SummaryShare} />
-            {/* Previously sent /dashboard links redirect to the new client board path. */}
+            <Route path="/track/:token" component={JobTracker} />
+            <Route path="/pay/:token" component={PublicPayment} />
+            <Route path="/live/:token">
+              {(params) => <PMliveView token={params.token} />}
+            </Route>
+            <Route path="/checkin/:token">
+              {(params) => <CrewCheckinPage token={params.token} />}
+            </Route>
+
+            {/* ── Legacy redirects — bookmarked / emailed links ──────────── */}
             <Route path="/dashboard/:token">
               {(params) => {
                 window.location.replace(`/board/${encodeURIComponent(params.token)}${window.location.search}${window.location.hash}`);
@@ -117,7 +86,6 @@ function App() {
                 return null;
               }}
             </Route>
-            {/* Bare client links now live on the client dashboard artifact. */}
             <Route path="/client/:token">
               {(params) => {
                 window.location.replace(`/board/${encodeURIComponent(params.token)}${window.location.search}${window.location.hash}`);
@@ -125,7 +93,6 @@ function App() {
               }}
             </Route>
             <Route path="/client/:token/admin" component={ClientAdmin} />
-            {/* Old client board retired — bookmarked links land on the new dashboard. */}
             <Route path="/client/:token/board">
               {(params) => {
                 window.location.replace(`/board/${encodeURIComponent(params.token)}${window.location.search}${window.location.hash}`);
@@ -133,27 +100,38 @@ function App() {
               }}
             </Route>
             <Route path="/client/:token/requests" component={ClientRequest} />
-            <Route path="/track/:token" component={JobTracker} />
-            <Route path="/pay/:token" component={PublicPayment} />
-            {/* PM Live View — secure token-scoped daily property update, texted by office */}
-            <Route path="/live/:token">
-              {(params) => <PMliveView token={params.token} />}
-            </Route>
-            {/* Crew Check-in — one-tap GPS check-in/checkout, no login needed */}
-            <Route path="/checkin/:token">
-              {(params) => <CrewCheckinPage token={params.token} />}
-            </Route>
-            {/* /today redirects to the chat-first OS */}
-            <Route path="/today">
-              {() => { window.location.replace("/"); return null; }}
-            </Route>
-            {/* HALO Command — full-screen conversational OS, own minimal chrome */}
+
+            {/* ── HALO Command — the entire product surface ─────────────── */}
             <Route path="/">
               <OfficeGate>
                 <HaloCommand />
               </OfficeGate>
             </Route>
-            <Route component={GatedAdminRouter} />
+
+            {/* ── Operational deep-links ─────────────────────────────────
+                Accessible from the Settings menu item and from links in
+                emails / push notifications. Never surfaced in the chat UI.  */}
+            <Route path="/settings">
+              <GatedPage><Settings /></GatedPage>
+            </Route>
+            <Route path="/jobs/:id">
+              <GatedPage><JobDetail /></GatedPage>
+            </Route>
+            <Route path="/invoices/:id">
+              <GatedPage><InvoiceDetail /></GatedPage>
+            </Route>
+            {/* Board must be matched before /:id so it isn't swallowed */}
+            <Route path="/properties/:id/board">
+              <GatedPage><ClientBoardOffice /></GatedPage>
+            </Route>
+            <Route path="/properties/:id">
+              <GatedPage><PropertyDetail /></GatedPage>
+            </Route>
+
+            {/* ── Catch-all: every unrecognised path → chat OS ──────────── */}
+            <Route>
+              {() => { window.location.replace("/"); return null; }}
+            </Route>
           </Switch>
         </WouterRouter>
         <Toaster />

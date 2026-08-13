@@ -256,15 +256,17 @@ function GateHeader({ title, subtitle }: { title: string; subtitle: string }) {
 }
 
 function GateInput({
-  type, placeholder, value, onChange, autoFocus, focused, onFocus, onBlur, testId,
+  type, placeholder, value, onChange, autoFocus, focused, onFocus, onBlur, testId, autoComplete,
 }: {
   type: string; placeholder: string; value: string;
   onChange: (v: string) => void; autoFocus?: boolean;
-  focused: boolean; onFocus: () => void; onBlur: () => void; testId?: string;
+  focused: boolean; onFocus: () => void; onBlur: () => void; testId?: string; autoComplete?: string;
 }) {
   return (
     <input
-      type={type} inputMode="text" autoFocus={autoFocus}
+      type={type} inputMode="text"
+      autoComplete={autoComplete ?? (type === "password" ? "current-password" : "on")}
+      autoFocus={autoFocus}
       value={value} onChange={e => onChange(e.target.value)}
       onFocus={onFocus} onBlur={onBlur}
       placeholder={placeholder} data-testid={testId}

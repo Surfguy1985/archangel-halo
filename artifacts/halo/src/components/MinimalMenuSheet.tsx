@@ -1,13 +1,12 @@
 /**
- * MinimalMenuSheet — stripped-down 4-item settings drawer.
- * Replaces the old MoreMenuSheet with a lean, intentional list.
+ * MinimalMenuSheet — lean 2-item settings drawer.
+ * Falkon Network and Import are chat-native flows ("connect Falkon", "import a file").
+ * The menu only surfaces toggles and exits that can't live in the thread.
  */
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Link } from "wouter";
 import {
   Settings,
-  Network,
-  FileUp,
   Presentation,
   ExternalLink,
   Loader2,
@@ -119,34 +118,6 @@ export function MinimalMenuSheet({
                 <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
               </a>
             )}
-
-            {/* Falkon Network */}
-            <Link href="/falkon-network" onClick={close}>
-              <div className="flex items-center gap-3 rounded-[13px] bg-white/[0.04] border border-white/[0.07] px-4 py-3.5">
-                <div className="w-8 h-8 rounded-full bg-white/[0.06] grid place-items-center shrink-0">
-                  <Network className="w-4 h-4 text-[#B4FF44]/70" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13.5px] font-medium text-white/80">Falkon Network</div>
-                  <div className="text-[11.5px] text-white/35">Peers, gates & business twin</div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
-              </div>
-            </Link>
-
-            {/* Import */}
-            <Link href="/import" onClick={close}>
-              <div className="flex items-center gap-3 rounded-[13px] bg-white/[0.04] border border-white/[0.07] px-4 py-3.5">
-                <div className="w-8 h-8 rounded-full bg-white/[0.06] grid place-items-center shrink-0">
-                  <FileUp className="w-4 h-4 text-white/40" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13.5px] font-medium text-white/80">Import</div>
-                  <div className="text-[11.5px] text-white/35">Upload a file, HALO files it</div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-white/25 shrink-0" />
-              </div>
-            </Link>
 
             {/* Settings */}
             <Link href="/settings" onClick={close}>
