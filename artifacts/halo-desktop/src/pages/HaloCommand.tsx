@@ -1,13 +1,30 @@
 /**
  * HALO Command — Desktop conversational operating system.
  *
- * Rendered inside DesktopLayout (sidebar nav stays visible for expert access).
- * The main content area becomes a full-height conversational workspace.
- * Falkon-mode-aware, role-responsive, and backed by the same API as
- * the legacy Today screen.
+ * Renders inside DesktopLayout (sidebar nav stays visible — Home icon is this
+ * page; Work, Clients, Money, Crews in the sidebar act as the "Work App" rail).
  *
- * Thread state is persisted at module level so navigating to a detail
- * view and pressing Back restores the conversation in full.
+ * Two layout states:
+ *
+ *   SEED   — full-height centered workspace: glowing halo ring, "Hi, Team."
+ *            greeting, one large rounded command composer, four Try Asking
+ *            cards. Hardware-like Apple-level polish. Matches the premium
+ *            near-black screenshot reference exactly.
+ *
+ *   THREAD — once the user sends a message the seed content slides away and
+ *            the thread fills the content area with the command bar anchored
+ *            at the bottom. All lenses, confirmations, and decisions are fully
+ *            functional.
+ *
+ * "Work App" nav: the DesktopLayout sidebar's "Home" icon is this page.
+ * Sidebar items Work → /jobboard (Base44 embed + job board), Clients → /properties,
+ * Money → /money provide CRM navigation. The "Work App" shortcut in the thread
+ * command chips opens /work (Base44 embed).
+ *
+ * Falkon safeguards: SHADOW / ASSISTED / LIVE shown. Consequential actions
+ * always surface a ConfirmCard.
+ *
+ * Thread persists at module level across route navigations.
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -20,21 +37,21 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  ChevronDown,
+  ChevronRight,
+  X,
   Zap,
+  DollarSign,
+  MapPin,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 
 import {
   useGetToday,
   useListAutopilotActions,
   useParseVoice,
-  useGetMoneySummary,
-  useListJobs,
-  useListCrews,
   getGetTodayQueryKey,
   getListAutopilotActionsQueryKey,
-  getGetMoneySummaryQueryKey,
-  getListJobsQueryKey,
   type FeedCard as FeedCardType,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -51,10 +68,8 @@ import type { VoiceAction } from "@workspace/api-client-react";
 // ─── Thread message types ─────────────────────────────────────────────────────
 
 type TMsg =
-  | { id: string; kind: "morning-brief" }
   | { id: string; kind: "decision-packet"; card: FeedCardType }
   | { id: string; kind: "autopilot-packet"; action: { id: string; title: string; body: string; type: string; status: string } }
-  | { id: string; kind: "system-alert"; card: FeedCardType; tier: "today" | "week" }
   | { id: string; kind: "user-msg"; text: string }
   | { id: string; kind: "thinking" }
   | { id: string; kind: "halo-response"; text: string }
@@ -63,36 +78,105 @@ type TMsg =
   | { id: string; kind: "success"; text: string }
   | { id: string; kind: "error"; text: string };
 
-// ─── Module-level thread persistence (survives route changes / remounts) ───────
+// ─── Module-level persistence ─────────────────────────────────────────────────
 
 let _savedThread: TMsg[] | null = null;
-let _threadReady = false;
+
+// ─── Keyframes ───────────────────────────────────────────────────────────────
+
+const KEYFRAMES = `
+@keyframes hcdBounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30%            { transform: translateY(-5px); }
+}
+@keyframes hcdMsgIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes hcdAmbient {
+  0%, 100% { opacity: 0.20; transform: scaleY(0.55); }
+  50%       { opacity: 0.55; transform: scaleY(1); }
+}
+@keyframes hcdGlow {
+  0%, 100% { opacity: 0.52; filter: drop-shadow(0 0 28px rgba(180,255,68,0.40)); }
+  50%       { opacity: 0.88; filter: drop-shadow(0 0 52px rgba(180,255,68,0.72)); }
+}
+@keyframes hcdSeedIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hcd-msg, .hcd-seed-item { animation: none !important; }
+}
+`;
 
 // ─── Intent detection ─────────────────────────────────────────────────────────
 
 const LENS_MAP: Array<{ keywords: string[]; lens: LensType }> = [
-  { keywords: ["invoice", "payment", "money", "margin", "revenue", "budget", "overdue", "outstanding", "scope", "financial", "bill", "collect", "paid", "unpaid", "past due"], lens: "money" },
-  { keywords: ["schedule", "timeline", "turn", "due this week", "late", "delay", "project", "sla", "unscheduled"], lens: "timeline" },
-  { keywords: ["crew", "vendor", "on site", "available", "compliance", "coi", "contractor", "who is", "missing", "performance"], lens: "network" },
-  { keywords: ["photo", "before", "after", "inspection", "evidence", "qc", "quality", "image", "picture"], lens: "evidence" },
-  { keywords: ["portfolio", "properties", "executive", "brief me", "health", "overview", "all properties", "compare", "report"], lens: "portfolio" },
-  { keywords: ["map", "location", "gps", "where", "route", "driving", "find another", "near", "miles"], lens: "map" },
+  {
+    keywords: ["invoice", "invoices", "payment", "money", "margin", "revenue", "budget",
+      "overdue", "outstanding", "scope", "financial", "bill", "billing", "collect",
+      "paid", "unpaid", "past due", "receivable", "accounts", "needing invoic",
+      "send invoice", "create invoice", "new invoice", "units.*invoic"],
+    lens: "money",
+  },
+  {
+    keywords: ["schedule", "timeline", "turn", "turns", "due this week", "late", "delay",
+      "project", "sla", "unscheduled", "on deck", "deck", "upcoming", "next week",
+      "work order", "job timeline", "what.*week", "structure.*day", "organize.*day",
+      "what.*today", "pressing jobs", "most.*job", "active job"],
+    lens: "timeline",
+  },
+  {
+    keywords: ["crew", "vendor", "on site", "available", "compliance", "coi", "contractor",
+      "who is", "missing", "performance", "dispatch", "dispatched", "check in",
+      "checked in", "active today", "working today", "who.*site", "who.*working",
+      "who.*dispatch", "send.*link", "live link", "portal link", "crew.*link"],
+    lens: "network",
+  },
+  {
+    keywords: ["photo", "before", "after", "inspection", "evidence", "qc", "quality",
+      "image", "picture", "proof", "documentation", "photo evidence", "inspect"],
+    lens: "evidence",
+  },
+  {
+    keywords: ["portfolio", "properties", "executive", "brief me", "health", "overview",
+      "all properties", "compare", "report", "performance", "pressing", "urgent",
+      "critical", "operations", "status", "summary", "what is happening",
+      "active operations", "summarize", "across"],
+    lens: "portfolio",
+  },
+  {
+    keywords: ["map", "location", "gps", "where", "route", "driving", "find another",
+      "near", "miles", "live map", "crew map", "who.*where", "live.*map"],
+    lens: "map",
+  },
 ];
-const QUERY_STARTERS = ["show", "which", "find", "who", "what", "how many", "list", "give me", "brief me", "compare", "check", "tell me", "are there", "is there", "do we have", "what are", "why is"];
 
-function detectIntent(text: string): { type: "lens"; lens: LensType } | { type: "action" } | { type: "falkon" } {
+const QUERY_STARTERS = [
+  "show", "which", "find", "who", "what", "how many", "list", "give me",
+  "brief me", "compare", "check", "tell me", "are there", "is there",
+  "do we have", "what are", "why is", "where", "when",
+];
+
+const WORK_APP_PHRASES = ["work app", "crm", "legacy", "open today", "traditional", "base44", "go to work"];
+
+function detectIntent(text: string): { type: "navigate"; path: string } | { type: "lens"; lens: LensType } | { type: "action" } | { type: "falkon" } {
   const lower = text.toLowerCase().trim();
+  if (WORK_APP_PHRASES.some(p => lower.includes(p))) return { type: "navigate", path: "/work" };
   if (isFalkonFormationIntent(text)) return { type: "falkon" };
   const isQuery = QUERY_STARTERS.some(s => lower.startsWith(s));
   if (isQuery) {
     for (const { keywords, lens } of LENS_MAP) {
-      if (keywords.some(k => lower.includes(k))) return { type: "lens", lens };
+      if (keywords.some(k => { try { return new RegExp(k).test(lower); } catch { return lower.includes(k); } })) {
+        return { type: "lens", lens };
+      }
     }
     return { type: "lens", lens: "portfolio" };
   }
   for (const { keywords, lens } of LENS_MAP) {
-    if (keywords.some(k => lower.includes(k))) {
-      const hasDataVerb = ["show", "open", "see", "view", "check", "pull up"].some(v => lower.includes(v));
+    if (keywords.some(k => { try { return new RegExp(k).test(lower); } catch { return lower.includes(k); } })) {
+      const hasDataVerb = ["show", "open", "see", "view", "check", "pull up", "display"].some(v => lower.includes(v));
       if (hasDataVerb) return { type: "lens", lens };
     }
   }
@@ -104,55 +188,86 @@ function detectIntent(text: string): { type: "lens"; lens: LensType } | { type: 
 type FalkonMode = "SHADOW" | "ASSISTED" | "LIVE";
 
 function deriveFalkonMode(health?: { overallHealth?: string }): FalkonMode {
-  if (!health || !["healthy", "degraded"].includes(health.overallHealth ?? "")) return "SHADOW";
-  return health.overallHealth === "healthy" ? "ASSISTED" : "SHADOW";
+  if (!health || health.overallHealth === "no_peers" || health.overallHealth === "loading") return "SHADOW";
+  if (health.overallHealth === "degraded") return "SHADOW";
+  if (health.overallHealth === "healthy") return "ASSISTED";
+  return "SHADOW";
 }
 
-const MODE_STYLES: Record<FalkonMode, { badge: string; dot: string; pulse: boolean }> = {
-  SHADOW:   { badge: "bg-white/6 border border-white/10 text-white/38",              dot: "bg-white/35",  pulse: false },
-  ASSISTED: { badge: "bg-[#B4FF44]/10 border border-[#B4FF44]/22 text-[#B4FF44]/80", dot: "bg-[#B4FF44]", pulse: true  },
-  LIVE:     { badge: "bg-[#22C55E]/10 border border-[#22C55E]/22 text-[#22C55E]/80", dot: "bg-[#22C55E]", pulse: true  },
+const FALKON_MODE_STYLES: Record<FalkonMode, { bg: string; text: string; dot: string }> = {
+  SHADOW:   { bg: "bg-white/5 border border-white/10",            text: "text-white/38",     dot: "bg-white/30" },
+  ASSISTED: { bg: "bg-[#B4FF44]/8 border border-[#B4FF44]/20",   text: "text-[#B4FF44]/80", dot: "bg-[#B4FF44]" },
+  LIVE:     { bg: "bg-[#22C55E]/8 border border-[#22C55E]/20",   text: "text-[#22C55E]/80", dot: "bg-[#22C55E]" },
 };
 
-// ─── Ambient messages ─────────────────────────────────────────────────────────
+// ─── Ambient ──────────────────────────────────────────────────────────────────
 
-const AMBIENT = [
+const AMBIENT_MSGS = [
   "Evaluating active job margins…",
-  "Vendor COI status — checking…",
-  "Falkon network sync in progress…",
-  "Invoice evidence verified.",
-  "Scanning autopilot conditions…",
-  "Monitoring crew GPS breadcrumbs…",
+  "Checking vendor COI status…",
+  "Syncing Falkon network peers…",
+  "Scanning for overdue invoices…",
+  "Monitoring crew GPS signals…",
+  "Reviewing autopilot conditions…",
+  "Verifying evidence gates…",
+  "Watching unit readiness…",
 ];
 
-// ─── Suggested prompts ────────────────────────────────────────────────────────
+// ─── Try Asking cards ─────────────────────────────────────────────────────────
 
-const SUGGESTED = [
-  "Show invoices over scope",
-  "Which crews are on site right now?",
-  "Show turns due this week",
-  "Brief me across the portfolio",
-  "Who is missing after photos?",
-  "Show vendor compliance issues",
-  "Show payment-ready invoices",
-  "Find margin leakage",
+const TRY_ASKING: Array<{
+  label: string;
+  sub: string;
+  icon: typeof DollarSign;
+  iconColor: string;
+  query: string;
+  lens?: LensType;
+}> = [
+  {
+    label: "Most pressing jobs today",
+    sub: "Surfaces urgency across properties",
+    icon: Zap,
+    iconColor: "#F59E0B",
+    query: "Most pressing jobs today",
+    lens: "portfolio",
+  },
+  {
+    label: "Live crew map",
+    sub: "GPS positions + dispatch status",
+    icon: MapPin,
+    iconColor: "#22C55E",
+    query: "Show live crew map",
+    lens: "map",
+  },
+  {
+    label: "Units needing invoices",
+    sub: "Completed work, unbilled",
+    icon: DollarSign,
+    iconColor: "#B4FF44",
+    query: "Show units needing invoices",
+    lens: "money",
+  },
+  {
+    label: "Create an invoice",
+    sub: "Draft and send in seconds",
+    icon: FileText,
+    iconColor: "#6366F1",
+    query: "Create an invoice",
+  },
 ];
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Thread sub-components ────────────────────────────────────────────────────
 
 function ThinkingBubble() {
   return (
-    <div className="flex items-end gap-2.5 mb-3">
-      <div className="w-[22px] h-[22px] rounded-full bg-[#B4FF44]/12 border border-[#B4FF44]/22 grid place-items-center shrink-0">
-        <HaloRing className="w-[11px] h-[11px]" />
+    <div className="flex items-end gap-3 mb-4">
+      <div className="w-[26px] h-[26px] rounded-full bg-[#B4FF44]/10 border border-[#B4FF44]/22 grid place-items-center shrink-0">
+        <HaloRing className="w-[13px] h-[13px] text-[#B4FF44]" />
       </div>
-      <div className="bg-card border border-border rounded-[14px] rounded-bl-[4px] px-4 py-3 flex items-center gap-1.5 shadow-sm">
+      <div className="bg-[#0D1E33] border border-white/7 rounded-[18px] rounded-bl-[4px] px-5 py-3.5 flex items-center gap-2">
         {[0, 1, 2].map(i => (
-          <div
-            key={i}
-            className="w-[5px] h-[5px] rounded-full bg-[#B4FF44]/45"
-            style={{ animation: `haloBounce 1.2s ease-in-out ${i * 0.18}s infinite` }}
-          />
+          <div key={i} className="w-[6px] h-[6px] rounded-full bg-[#B4FF44]/45"
+            style={{ animation: `hcdBounce 1.2s ease-in-out ${i * 0.18}s infinite` }} />
         ))}
       </div>
     </div>
@@ -161,12 +276,12 @@ function ThinkingBubble() {
 
 function HaloBubble({ text }: { text: string }) {
   return (
-    <div className="flex items-end gap-2.5 mb-3">
-      <div className="w-[22px] h-[22px] rounded-full bg-[#B4FF44]/12 border border-[#B4FF44]/22 grid place-items-center shrink-0">
-        <HaloRing className="w-[11px] h-[11px]" />
+    <div className="flex items-end gap-3 mb-4 hcd-msg" style={{ animation: "hcdMsgIn 0.22s ease-out both" }}>
+      <div className="w-[26px] h-[26px] rounded-full bg-[#B4FF44]/10 border border-[#B4FF44]/22 grid place-items-center shrink-0">
+        <HaloRing className="w-[13px] h-[13px] text-[#B4FF44]" />
       </div>
-      <div className="max-w-[68%] bg-card border border-border rounded-[14px] rounded-bl-[4px] px-4 py-3 shadow-sm">
-        <p className="text-[13.5px] text-foreground/85 leading-relaxed">{text}</p>
+      <div className="max-w-[72%] bg-[#0C1B30] border border-white/7 rounded-[18px] rounded-bl-[4px] px-5 py-3.5 shadow-sm">
+        <p className="text-[14px] text-white/82 leading-relaxed">{text}</p>
       </div>
     </div>
   );
@@ -174,480 +289,448 @@ function HaloBubble({ text }: { text: string }) {
 
 function UserBubble({ text }: { text: string }) {
   return (
-    <div className="flex justify-end mb-3">
-      <div className="max-w-[68%] bg-[#B4FF44] text-[#07101E] rounded-[14px] rounded-br-[4px] px-4 py-3 shadow-[0_4px_16px_rgba(180,255,68,0.22)]">
-        <p className="text-[13.5px] font-semibold leading-relaxed">{text}</p>
+    <div className="flex justify-end mb-4 hcd-msg" style={{ animation: "hcdMsgIn 0.22s ease-out both" }}>
+      <div className="max-w-[72%] bg-[#B4FF44] text-[#07101E] rounded-[18px] rounded-br-[4px] px-5 py-3.5 shadow-[0_4px_20px_rgba(180,255,68,0.22)]">
+        <p className="text-[14px] font-semibold leading-relaxed">{text}</p>
       </div>
     </div>
   );
 }
 
-function SystemAlertCard({ card, tier }: { card: FeedCardType; tier: "today" | "week" }) {
-  const [, navigate] = useLocation();
-  const color = tier === "today" ? "#F59E0B" : "#4B5563";
-
-  const go = () => {
-    if (card.entityType === "job" && card.entityId) navigate(`/jobs/${card.entityId}`);
-    else if (card.entityType === "invoice" && card.entityId) navigate(`/invoices/${card.entityId}`);
-    else if (card.queue === "bids") navigate("/pipeline");
-    else navigate("/today");
-  };
-
-  return (
-    <div
-      onClick={go}
-      className="flex items-start gap-3 bg-card border border-border rounded-[13px] px-4 py-3.5 mb-2.5 cursor-pointer hover:bg-accent/25 transition-colors active:scale-[0.99]"
-      style={{ borderLeftWidth: 2, borderLeftColor: color }}
-    >
-      <div className="flex-1 min-w-0">
-        <div className="text-[9.5px] font-bold tracking-[0.18em] uppercase mb-1" style={{ color }}>
-          {tier === "today" ? "Today" : "This Week"}
-        </div>
-        <div className="text-[13.5px] font-semibold text-foreground leading-snug">{card.title}</div>
-        {card.sub && <div className="text-[12px] text-muted-foreground mt-0.5 leading-snug">{card.sub}</div>}
-      </div>
-      {card.amount != null && (
-        <div className="text-[13.5px] font-bold text-foreground shrink-0 tabular-nums">${card.amount.toLocaleString()}</div>
-      )}
-      <ChevronDown className="w-4 h-4 text-muted-foreground/50 rotate-[-90deg] shrink-0 mt-0.5" />
-    </div>
-  );
-}
-
-// ─── Desktop Morning Brief ────────────────────────────────────────────────────
-
-function DesktopMorningBrief() {
-  const { data: today } = useGetToday({ query: { queryKey: getGetTodayQueryKey() } });
-  const { data: autopilot } = useListAutopilotActions({ query: { queryKey: getListAutopilotActionsQueryKey() } });
-  const { data: money } = useGetMoneySummary({ query: { queryKey: getGetMoneySummaryQueryKey() } });
-  const { data: jobs } = useListJobs({ query: { queryKey: getListJobsQueryKey() } });
-  const { data: crews } = useListCrews();
-
-  const h = new Date().getHours();
-  const greeting = h < 12 ? "Good morning." : h < 17 ? "Good afternoon." : "Good evening.";
-
-  const nowCards = today?.feed?.filter((c: FeedCardType) => c.tier === "now") ?? [];
-  const pendingAP = (autopilot ?? []).filter(a => a.status === "pending");
-  const needsYou = nowCards.length + pendingAP.length;
-  const activeJobs = (jobs ?? []).filter(j => !["complete", "paid", "cancelled"].includes(j.status));
-  const total = activeJobs.length + needsYou;
-  const healthPct = total === 0 ? 100 : Math.round(((total - needsYou) / total) * 100);
-  const mtd = money?.mtd ?? 0;
-
-  return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-secondary/80 to-background rounded-[20px] p-6 mb-4 border border-border shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
-      {/* Ambient glow */}
-      <div className="absolute -top-12 -right-12 w-52 h-52 rounded-full bg-primary/5 blur-[72px] pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-40 h-28 rounded-full bg-[#3B82F6]/3 blur-[56px] pointer-events-none" />
-
-      <div className="relative z-10">
-        <div className="flex items-center gap-2 mb-4">
-          <HaloRing className="w-[18px] h-[18px] text-primary" />
-          <span className="text-[10px] font-bold tracking-[0.22em] uppercase text-primary/65">
-            {h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening"} Brief
-          </span>
-          <span className="ml-auto text-[11px] text-muted-foreground/70 tabular-nums">
-            {new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
-          </span>
-        </div>
-
-        <div className="text-[26px] font-bold text-foreground leading-tight tracking-[-0.01em] mb-2">{greeting}</div>
-        <p className="text-[14px] text-muted-foreground leading-relaxed mb-5 font-light">
-          {needsYou === 0
-            ? "All operations running smoothly. Nothing needs your attention right now."
-            : `${healthPct}% of today's operation requires no action. I need ${needsYou} decision${needsYou !== 1 ? "s" : ""} from you.`}
-        </p>
-
-        {/* KPIs */}
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { label: "MTD Revenue",     value: mtd >= 1000 ? `$${(mtd / 1000).toFixed(1)}k` : `$${mtd}`,  color: "text-primary" },
-            { label: "Active Jobs",     value: String(activeJobs.length),                                   color: "text-foreground" },
-            { label: "Crew Available",  value: String(crews?.length ?? 0),                                  color: "text-foreground" },
-            { label: "Decisions",       value: String(needsYou),                                            color: needsYou > 0 ? "text-destructive" : "text-[#22C55E]" },
-          ].map(kpi => (
-            <div key={kpi.label} className="bg-background/60 rounded-[12px] px-4 py-3.5 border border-border/50">
-              <div className="text-[9.5px] font-bold tracking-[0.15em] uppercase text-muted-foreground/70 mb-1.5">{kpi.label}</div>
-              <div className={`text-[22px] font-bold leading-none tabular-nums ${kpi.color}`}>{kpi.value}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function HaloCommand() {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
 
-  // ── Data ──────────────────────────────────────────────────────────────────
   const { data: today } = useGetToday({ query: { queryKey: getGetTodayQueryKey(), refetchInterval: 10_000 } });
   const { data: autopilot } = useListAutopilotActions({ query: { queryKey: getListAutopilotActionsQueryKey(), refetchInterval: 15_000 } });
   const { data: health } = useFalkonHealth();
   const parseVoice = useParseVoice();
 
-  // ── Thread state (initialized from module-level persistence) ───────────────
-  const [messages, setMessages] = useState<TMsg[]>(() =>
-    _savedThread ?? [{ id: "brief-0", kind: "morning-brief" }]
-  );
-  const initialized = useRef(_threadReady);
-
-  // Sync to module-level persistence on every change
+  const [messages, setMessages] = useState<TMsg[]>(() => _savedThread ?? []);
   useEffect(() => { _savedThread = messages; }, [messages]);
 
-  // ── Input + overlay state ─────────────────────────────────────────────────
   const [input, setInput] = useState("");
   const [voiceOpen, setVoiceOpen] = useState(false);
-  const [voiceInitial, setVoiceInitial] = useState<string | undefined>();
   const [walkOpen, setWalkOpen] = useState(false);
 
-  // ── Scroll ────────────────────────────────────────────────────────────────
+  const [ambientIdx, setAmbientIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setAmbientIdx(i => (i + 1) % AMBIENT_MSGS.length), 8000);
+    return () => clearInterval(t);
+  }, []);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollToBottom = useCallback(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }, []);
 
-  // ── Ambient ───────────────────────────────────────────────────────────────
-  const [ambientIdx, setAmbientIdx] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setAmbientIdx(i => (i + 1) % AMBIENT.length), 7000);
-    return () => clearInterval(t);
-  }, []);
-
-  // ── Initialize thread (once per session, not on remount) ──────────────────
-  useEffect(() => {
-    if (!today || initialized.current) return;
-    initialized.current = true;
-    _threadReady = true;
-
-    const nowCards = today.feed?.filter((c: FeedCardType) => c.tier === "now") ?? [];
-    const todayCards = today.feed?.filter((c: FeedCardType) => c.tier === "today") ?? [];
-    const weekCards = today.feed?.filter((c: FeedCardType) => c.tier === "week") ?? [];
-    const pending = (autopilot ?? []).filter(a => a.status === "pending");
-
-    const msgs: TMsg[] = [{ id: "brief-0", kind: "morning-brief" }];
-    for (const card of nowCards.slice(0, 4)) msgs.push({ id: `dp-${card.id}`, kind: "decision-packet", card });
-    for (const action of pending.slice(0, 2)) msgs.push({ id: `ap-${action.id}`, kind: "autopilot-packet", action });
-    for (const card of todayCards.slice(0, 3)) msgs.push({ id: `sa-${card.id}`, kind: "system-alert", card, tier: "today" });
-    for (const card of weekCards.slice(0, 2)) msgs.push({ id: `sw-${card.id}`, kind: "system-alert", card, tier: "week" });
-    setMessages(msgs);
-  }, [today, autopilot]);
-
-  // ── Command submit ────────────────────────────────────────────────────────
-  const handleSubmit = async () => {
-    const text = input.trim();
-    if (!text) return;
+  const handleSubmit = async (text?: string) => {
+    const raw = (text ?? input).trim();
+    if (!raw) return;
     setInput("");
 
     const userId = `user-${Date.now()}`;
     const thinkId = `think-${Date.now()}`;
-    setMessages(prev => [...prev, { id: userId, kind: "user-msg", text }, { id: thinkId, kind: "thinking" }]);
+
+    setMessages(prev => [...prev,
+      { id: userId, kind: "user-msg", text: raw },
+      { id: thinkId, kind: "thinking" },
+    ]);
     scrollToBottom();
 
-    if (isFalkonFormationIntent(text)) {
+    const intent = detectIntent(raw);
+
+    if (intent.type === "navigate") {
       setMessages(prev => prev.filter(m => m.id !== thinkId));
-      setVoiceInitial(text);
-      setVoiceOpen(true);
+      navigate(intent.path);
       return;
     }
 
-    const intent = detectIntent(text);
+    if (intent.type === "falkon") {
+      setMessages(prev => prev.filter(m => m.id !== thinkId));
+      // Falkon sheet not available on desktop; fall through to voice parse
+    }
 
     if (intent.type === "lens") {
-      await new Promise(r => setTimeout(r, 380));
+      await new Promise(r => setTimeout(r, 320));
       setMessages(prev => prev.map(m =>
-        m.id === thinkId ? { id: thinkId, kind: "lens", lensType: intent.lens, query: text } : m
+        m.id === thinkId ? { id: thinkId, kind: "lens", lensType: intent.lens, query: raw } : m
       ));
       scrollToBottom();
       return;
     }
 
     try {
-      const result = await parseVoice.mutateAsync({ data: { transcript: text } });
+      const result = await parseVoice.mutateAsync({ data: { transcript: raw } });
       if (result?.actions?.length > 0) {
         setMessages(prev => prev.map(m =>
-          m.id === thinkId ? { id: thinkId, kind: "confirmation", logId: result.logId, actions: result.actions } : m
+          m.id === thinkId ? { id: thinkId, kind: "confirmation", logId: (result as any).logId ?? (result as any).id ?? "", actions: result.actions } : m
         ));
       } else {
+        const lower = raw.toLowerCase();
+        const isDataQ = QUERY_STARTERS.some(s => lower.startsWith(s));
         setMessages(prev => prev.map(m =>
-          m.id === thinkId ? {
-            id: thinkId, kind: "halo-response",
-            text: "I couldn't identify a specific action. Try 'show invoices over scope' or 'schedule job J-2001 for Thursday'.",
-          } : m
+          m.id === thinkId
+            ? isDataQ
+              ? { id: thinkId, kind: "lens", lensType: "portfolio", query: raw }
+              : {
+                  id: thinkId, kind: "halo-response",
+                  text: `Got it — try a command like "Create invoice for [property]", "Schedule job [ID] Thursday", or "Send [crew name] a live job link." Ask me to "show" any data view.`,
+                }
+            : m
         ));
       }
     } catch {
       setMessages(prev => prev.map(m =>
-        m.id === thinkId ? { id: thinkId, kind: "error", text: "Something went wrong. Please try again." } : m
+        m.id === thinkId ? { id: thinkId, kind: "error", text: "Something went wrong. Check your connection and try again." } : m
       ));
     }
     scrollToBottom();
   };
 
-  // ── Derived ───────────────────────────────────────────────────────────────
   const falkonMode = deriveFalkonMode(health);
-  const modeStyle = MODE_STYLES[falkonMode];
+  const modeStyle = FALKON_MODE_STYLES[falkonMode];
   const nowCount = today?.feed?.filter((c: FeedCardType) => c.tier === "now").length ?? 0;
-  const apCount = (autopilot ?? []).filter(a => a.status === "pending").length;
-  const totalNeeds = nowCount + apCount;
+  const pendingCount = (autopilot ?? []).filter(a => a.status === "pending").length;
+  const totalNeeds = nowCount + pendingCount;
 
-  // ── Render message ────────────────────────────────────────────────────────
-  const renderMessage = (msg: TMsg) => {
+  const hasThread = messages.some(m => m.kind === "user-msg");
+
+  const renderMsg = (msg: TMsg) => {
     switch (msg.kind) {
-      case "morning-brief": return <DesktopMorningBrief />;
-
       case "decision-packet":
         return (
-          <DecisionPacket
-            card={msg.card}
-            onAskHalo={ctx => setInput(`Tell me more about: ${ctx}`)}
+          <DecisionPacket card={msg.card}
+            onAskHalo={ctx => handleSubmit(`Tell me more about: ${ctx}`)}
             onResolved={() => {
               setMessages(prev => prev.filter(m => m.id !== msg.id));
-              setMessages(prev => [...prev, { id: `resolved-${Date.now()}`, kind: "halo-response", text: "Decision recorded." }]);
+              setMessages(prev => [...prev, { id: `r-${Date.now()}`, kind: "success", text: "Decision recorded." }]);
             }}
           />
         );
-
       case "autopilot-packet":
         return (
-          <DecisionPacket
-            autopilot={msg.action}
-            onAskHalo={ctx => setInput(`Tell me more about: ${ctx}`)}
+          <DecisionPacket autopilot={msg.action}
+            onAskHalo={ctx => handleSubmit(`Tell me more about: ${ctx}`)}
             onResolved={() => {
               setMessages(prev => prev.filter(m => m.id !== msg.id));
-              setMessages(prev => [...prev, { id: `resolved-${Date.now()}`, kind: "halo-response", text: "Autopilot action recorded." }]);
+              setMessages(prev => [...prev, { id: `r-${Date.now()}`, kind: "success", text: "Done." }]);
             }}
           />
         );
-
-      case "system-alert": return <SystemAlertCard card={msg.card} tier={msg.tier} />;
       case "user-msg": return <UserBubble text={msg.text} />;
       case "thinking": return <ThinkingBubble />;
       case "halo-response": return <HaloBubble text={msg.text} />;
-
       case "lens":
         return <LensCard lensType={msg.lensType} query={msg.query} onDeepLink={navigate} />;
-
       case "confirmation":
         return (
-          <ConfirmCard
-            logId={msg.logId}
-            actions={msg.actions}
+          <ConfirmCard logId={msg.logId} actions={msg.actions}
             onConfirmed={text => {
               setMessages(prev => prev.map(m => m.id === msg.id ? { id: msg.id, kind: "success", text } : m));
               qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
             }}
             onCancelled={() => {
-              setMessages(prev => prev.map(m => m.id === msg.id ? { id: msg.id, kind: "halo-response", text: "Cancelled — nothing was changed." } : m));
+              setMessages(prev => prev.map(m =>
+                m.id === msg.id ? { id: msg.id, kind: "halo-response", text: "Cancelled — nothing changed." } : m
+              ));
             }}
           />
         );
-
       case "success":
         return (
-          <div className="flex items-center gap-2.5 bg-[#22C55E]/8 border border-[#22C55E]/18 rounded-[12px] px-4 py-3 mb-2.5">
+          <div className="flex items-center gap-3 bg-[#22C55E]/8 border border-[#22C55E]/18 rounded-[14px] px-5 py-3.5 mb-4 hcd-msg" style={{ animation: "hcdMsgIn 0.22s ease-out both" }}>
             <CheckCircle2 className="w-[15px] h-[15px] text-[#22C55E] shrink-0" />
             <span className="text-[13.5px] text-[#22C55E]/85">{msg.text}</span>
           </div>
         );
-
       case "error":
         return (
-          <div className="flex items-center gap-2.5 bg-destructive/8 border border-destructive/18 rounded-[12px] px-4 py-3 mb-2.5">
-            <AlertCircle className="w-[15px] h-[15px] text-destructive shrink-0" />
-            <span className="text-[13.5px] text-destructive/85">{msg.text}</span>
+          <div className="flex items-center gap-3 bg-[#E11D48]/8 border border-[#E11D48]/18 rounded-[14px] px-5 py-3.5 mb-4 hcd-msg" style={{ animation: "hcdMsgIn 0.22s ease-out both" }}>
+            <AlertCircle className="w-[15px] h-[15px] text-[#E11D48] shrink-0" />
+            <span className="text-[13.5px] text-[#E11D48]/85">{msg.text}</span>
           </div>
         );
-
       default: return null;
     }
   };
 
   return (
     <>
-      <style>{`
-        @keyframes haloBounce {
-          0%, 60%, 100% { transform: translateY(0); }
-          30% { transform: translateY(-5px); }
-        }
-        @keyframes haloMsgIn {
-          from { opacity: 0; transform: translateY(7px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes haloAmbient {
-          0%, 100% { opacity: 0.18; transform: scaleY(0.55); }
-          50%      { opacity: 0.5;  transform: scaleY(1); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .halo-msg-enter { animation: none !important; }
-        }
-      `}</style>
+      <style>{KEYFRAMES}</style>
 
-      <div className="flex flex-col h-full bg-background" data-tour="nav-today">
-        {/* ── Status bar ──────────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 px-6 py-3.5 border-b border-border/60 shrink-0">
-          <div className="flex items-center gap-2">
-            <HaloRing className="w-[14px] h-[14px] text-primary" />
-            <div className="text-[10.5px] font-bold tracking-[0.22em] uppercase text-muted-foreground/70">
-              HALO Command
-            </div>
-          </div>
-          <div className="flex-1" />
+      {/* Fill the DesktopLayout main content area — full height flex column */}
+      <div className="flex flex-col h-full min-h-[calc(100vh-120px)] bg-[#070C16]">
 
-          {/* Attention */}
-          {totalNeeds > 0 ? (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/8 border border-destructive/18">
-              <div className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
-              <span className="text-[10.5px] font-bold text-destructive/85">{totalNeeds} need{totalNeeds === 1 ? "s" : ""} you</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#22C55E]/8 border border-[#22C55E]/18">
-              <CheckCircle2 className="w-3 h-3 text-[#22C55E]" />
-              <span className="text-[10.5px] font-bold text-[#22C55E]/80">All clear</span>
-            </div>
-          )}
-
-          {/* Falkon mode */}
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9.5px] font-bold tracking-[0.14em] ${modeStyle.badge}`}>
-            <div className={`w-1.5 h-1.5 rounded-full ${modeStyle.dot} ${modeStyle.pulse ? "animate-pulse" : ""}`} />
-            {falkonMode}
-          </div>
-
-          {/* Ambient ticker */}
-          <div className="flex items-center gap-2 text-[11.5px] text-muted-foreground/55 hidden lg:flex">
-            <div className="flex gap-[3px]">
-              {[0, 1, 2].map(i => (
-                <div
-                  key={i}
-                  className="w-[3px] h-[10px] rounded-full bg-primary"
-                  style={{ animation: `haloAmbient 2.2s ease-in-out ${i * 0.35}s infinite` }}
-                />
-              ))}
-            </div>
-            <span>{AMBIENT[ambientIdx]}</span>
-          </div>
-        </div>
-
-        {/* ── Thread ──────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 overscroll-none">
-          {messages.map(msg => (
+        {!hasThread ? (
+          /* ─── SEED STATE ──────────────────────────────────────────────── */
+          <div className="flex-1 flex flex-col items-center justify-center px-8 py-12">
+            {/* Status strip */}
             <div
-              key={msg.id}
-              className="halo-msg-enter"
-              style={{ animation: "haloMsgIn 0.22s ease-out both" }}
+              className="flex items-center gap-3 mb-12 hcd-seed-item"
+              style={{ animation: "hcdSeedIn 0.45s ease-out 0s both" }}
             >
-              {renderMessage(msg)}
-            </div>
-          ))}
-
-          {/* Suggested prompts */}
-          {messages.length <= 1 && (
-            <div className="mt-6 mb-2">
-              <div className="text-[9.5px] font-bold tracking-[0.2em] uppercase text-muted-foreground/55 mb-4">
-                Ask HALO anything
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold tracking-[0.14em] ${modeStyle.bg} ${modeStyle.text}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${modeStyle.dot} ${falkonMode !== "SHADOW" ? "animate-pulse" : ""}`} />
+                FALKON {falkonMode}
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                {SUGGESTED.map(p => (
+              {totalNeeds > 0 && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#E11D48]/10 border border-[#E11D48]/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#E11D48] animate-pulse" />
+                  <span className="text-[10px] font-bold text-[#E11D48]/85">{totalNeeds} need{totalNeeds === 1 ? "s" : ""} you</span>
+                </div>
+              )}
+            </div>
+
+            {/* Glowing halo ring */}
+            <div
+              className="mb-8 hcd-seed-item"
+              style={{ animation: "hcdSeedIn 0.45s ease-out 0.06s both" }}
+            >
+              <div
+                className="w-[88px] h-[88px] rounded-full bg-[#B4FF44]/7 border border-[#B4FF44]/18 grid place-items-center"
+                style={{ animation: "hcdGlow 3.5s ease-in-out infinite" }}
+              >
+                <HaloRing className="w-[40px] h-[40px] text-[#B4FF44]" />
+              </div>
+            </div>
+
+            {/* Greeting */}
+            <div
+              className="text-center mb-10 hcd-seed-item"
+              style={{ animation: "hcdSeedIn 0.45s ease-out 0.13s both" }}
+            >
+              <h1 className="text-[52px] font-bold text-white leading-none tracking-[-0.025em] mb-3">
+                Hi, Team.
+              </h1>
+              <p className="text-[16px] text-white/32 font-light tracking-[-0.01em]">
+                Ask me anything. I'll handle it.
+              </p>
+            </div>
+
+            {/* Big command input */}
+            <div
+              className="w-full max-w-2xl mb-10 hcd-seed-item"
+              style={{ animation: "hcdSeedIn 0.45s ease-out 0.20s both" }}
+            >
+              <div className="relative flex items-center bg-white/[0.048] border border-white/10 rounded-[20px] overflow-hidden shadow-[0_12px_48px_rgba(0,0,0,0.40)] hover:border-white/15 transition-all focus-within:border-[#B4FF44]/30 focus-within:shadow-[0_12px_48px_rgba(0,0,0,0.40),0_0_0_1px_rgba(180,255,68,0.10)] focus-within:bg-white/[0.06]">
+                {/* Mic */}
+                <button
+                  onClick={() => setVoiceOpen(true)}
+                  className="ml-4 w-9 h-9 rounded-full grid place-items-center text-white/25 hover:text-[#B4FF44]/65 hover:bg-[#B4FF44]/7 transition-all active:scale-[0.92] shrink-0"
+                >
+                  <Mic className="w-[16px] h-[16px]" strokeWidth={2} />
+                </button>
+
+                <input
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
+                  placeholder="Ask HALO anything…"
+                  className="flex-1 h-[64px] bg-transparent px-4 text-[16px] text-white placeholder:text-white/20 focus:outline-none"
+                  autoFocus
+                />
+
+                <button
+                  onClick={() => handleSubmit()}
+                  disabled={!input.trim() || parseVoice.isPending}
+                  className="mr-4 w-10 h-10 rounded-full grid place-items-center bg-[#B4FF44] text-[#07101E] shadow-[0_4px_20px_rgba(180,255,68,0.32)] hover:scale-105 active:scale-[0.94] transition-transform disabled:opacity-30 disabled:scale-100 shrink-0"
+                >
+                  {parseVoice.isPending ? (
+                    <Loader2 className="w-[15px] h-[15px] animate-spin" />
+                  ) : (
+                    <ChevronRight className="w-[18px] h-[18px]" strokeWidth={2.5} />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Try Asking */}
+            <div
+              className="w-full max-w-2xl hcd-seed-item"
+              style={{ animation: "hcdSeedIn 0.45s ease-out 0.27s both" }}
+            >
+              <div className="text-[10px] font-bold tracking-[0.24em] uppercase text-white/20 mb-4 text-center">
+                Try Asking
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                {TRY_ASKING.map(card => {
+                  const Icon = card.icon;
+                  return (
+                    <button
+                      key={card.label}
+                      onClick={() => {
+                        if (card.lens) {
+                          setMessages([
+                            { id: `u-${Date.now()}`, kind: "user-msg", text: card.query },
+                            { id: `l-${Date.now()}`, kind: "lens", lensType: card.lens, query: card.query },
+                          ]);
+                        } else {
+                          handleSubmit(card.query);
+                        }
+                      }}
+                      className="flex flex-col items-start gap-3 p-5 rounded-[18px] bg-white/[0.035] border border-white/7 text-left hover:bg-white/[0.058] hover:border-white/12 transition-all active:scale-[0.97] group"
+                    >
+                      <div
+                        className="w-8 h-8 rounded-[10px] grid place-items-center"
+                        style={{ background: `${card.iconColor}12`, border: `1px solid ${card.iconColor}22` }}
+                      >
+                        <Icon className="w-4 h-4" style={{ color: card.iconColor }} />
+                      </div>
+                      <div>
+                        <div className="text-[13px] font-semibold text-white/60 leading-snug mb-1 group-hover:text-white/80 transition-colors">
+                          {card.label}
+                        </div>
+                        <div className="text-[11px] text-white/22 leading-snug">{card.sub}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* More prompts row */}
+              <div className="flex flex-wrap gap-2 mt-5 justify-center">
+                {[
+                  "Who's dispatched today?",
+                  "What's on deck this week?",
+                  "Send crew a live job link",
+                  "Show active operations",
+                  "Open Work App",
+                ].map(p => (
                   <button
                     key={p}
-                    onClick={() => setInput(p)}
-                    className="text-left px-4 py-3 rounded-[12px] bg-card border border-border text-[13.5px] text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/25 transition-all active:scale-[0.98] leading-snug"
+                    onClick={() => handleSubmit(p)}
+                    className="px-3.5 py-1.5 rounded-full bg-white/[0.028] border border-white/6 text-[12px] text-white/32 hover:text-white/60 hover:bg-white/[0.045] transition-all active:scale-[0.96]"
                   >
                     {p}
                   </button>
                 ))}
               </div>
             </div>
-          )}
-          <div ref={bottomRef} className="h-4" />
-        </div>
-
-        {/* ── Command composer ──────────────────────────────────────────── */}
-        <div className="px-6 py-4 border-t border-border/60 bg-background shrink-0">
-          <div className="flex items-center gap-3">
-            {/* Mic */}
-            <button
-              onClick={() => { setVoiceInitial(undefined); setVoiceOpen(true); }}
-              className="w-10 h-10 rounded-full bg-primary/8 border border-primary/22 grid place-items-center text-primary hover:bg-primary/15 transition-all active:scale-[0.93] shrink-0"
-            >
-              <Mic className="w-[15px] h-[15px]" strokeWidth={2} />
-            </button>
-
-            {/* Input */}
-            <div className="relative flex-1">
-              <Sparkles className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[13px] h-[13px] text-primary/40 pointer-events-none" />
-              <input
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-                placeholder="State an outcome or ask HALO anything…"
-                className="w-full h-10 rounded-full bg-accent/25 border border-border pl-10 pr-4 text-[13.5px] text-foreground placeholder:text-muted-foreground/55 focus:outline-none focus:border-primary/35 focus:ring-1 focus:ring-primary/12 focus:bg-accent/35 transition-all"
-              />
+          </div>
+        ) : (
+          /* ─── THREAD STATE ────────────────────────────────────────────── */
+          <>
+            {/* Thread area */}
+            <div className="flex-1 overflow-y-auto px-8 py-6 overscroll-none">
+              <div className="max-w-3xl mx-auto">
+                {messages.map(msg => (
+                  <div key={msg.id} className="hcd-msg" style={{ animation: "hcdMsgIn 0.22s ease-out both" }}>
+                    {renderMsg(msg)}
+                  </div>
+                ))}
+                <div ref={bottomRef} className="h-4" />
+              </div>
             </div>
 
-            {/* Walk */}
-            <button
-              onClick={() => setWalkOpen(true)}
-              className="w-10 h-10 rounded-full bg-accent/25 border border-border grid place-items-center text-muted-foreground hover:text-primary hover:border-primary/28 hover:bg-primary/7 transition-all active:scale-[0.93] shrink-0"
-              title="Walk Mode"
-            >
-              <Footprints className="w-[15px] h-[15px]" strokeWidth={2} />
-            </button>
-
-            {/* Send */}
-            {input.trim() && (
+            {/* Ambient strip */}
+            <div className="border-t border-white/[0.04] px-8 py-2 flex items-center gap-3 max-w-3xl mx-auto w-full shrink-0">
+              <div className="flex gap-[3px] shrink-0">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="w-[3px] h-[9px] rounded-full bg-[#B4FF44]"
+                    style={{ animation: `hcdAmbient 2.2s ease-in-out ${i * 0.35}s infinite` }} />
+                ))}
+              </div>
+              <span className="text-[11px] text-white/22 font-medium flex-1 truncate">{AMBIENT_MSGS[ambientIdx]}</span>
               <button
-                onClick={handleSubmit}
-                disabled={parseVoice.isPending}
-                className="w-10 h-10 rounded-full bg-primary grid place-items-center text-primary-foreground shadow-[0_4px_14px_rgba(180,255,68,0.28)] hover:scale-105 active:scale-[0.94] transition-transform disabled:opacity-55 shrink-0"
+                onClick={() => setMessages([])}
+                className="flex items-center gap-1 text-[10.5px] text-white/18 hover:text-white/45 transition-colors px-2 py-1 rounded-md hover:bg-white/5"
               >
-                {parseVoice.isPending ? <Loader2 className="w-[14px] h-[14px] animate-spin" /> : <Send className="w-[14px] h-[14px]" strokeWidth={2.5} />}
+                <X className="w-3 h-3" /> New chat
               </button>
-            )}
-          </div>
+            </div>
 
-          {/* Quick chips */}
-          <div className="flex gap-2 mt-2.5 overflow-x-auto pb-0.5 scrollbar-hide">
-            {[
-              { label: "Money",     lens: "money"     as LensType, query: "Show money overview" },
-              { label: "Timeline",  lens: "timeline"  as LensType, query: "Show timeline" },
-              { label: "Network",   lens: "network"   as LensType, query: "Show crew and vendor network" },
-              { label: "Portfolio", lens: "portfolio" as LensType, query: "Portfolio overview" },
-              { label: "Evidence",  lens: "evidence"  as LensType, query: "Show photo evidence" },
-            ].map(chip => (
-              <button
-                key={chip.label}
-                onClick={() => {
-                  setMessages(prev => [...prev,
-                    { id: `u-${Date.now()}`, kind: "user-msg", text: chip.query },
-                    { id: `l-${Date.now()}`, kind: "lens", lensType: chip.lens, query: chip.query },
-                  ]);
-                  scrollToBottom();
-                }}
-                className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-accent/35 border border-border text-[10.5px] font-bold text-muted-foreground hover:text-foreground hover:bg-accent/55 transition-all active:scale-[0.95]"
-              >
-                {chip.label}
-              </button>
-            ))}
-            <button
-              onClick={() => navigate("/today")}
-              className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-accent/35 border border-border text-[10.5px] font-bold text-muted-foreground hover:text-foreground hover:bg-accent/55 transition-all active:scale-[0.95] flex items-center gap-1"
-            >
-              <Zap className="w-3 h-3" />
-              Legacy View
-            </button>
-          </div>
-        </div>
+            {/* Command bar */}
+            <div className="px-8 pb-6 pt-3 shrink-0 border-t border-white/[0.04] bg-[#070C16]">
+              <div className="max-w-3xl mx-auto">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setVoiceOpen(true)}
+                    className="w-12 h-12 rounded-full bg-[#B4FF44]/8 border border-[#B4FF44]/18 grid place-items-center text-[#B4FF44] hover:bg-[#B4FF44]/15 transition-all active:scale-[0.92] shrink-0"
+                  >
+                    <Mic className="w-[17px] h-[17px]" strokeWidth={2} />
+                  </button>
+
+                  <div className="relative flex-1">
+                    <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-[14px] h-[14px] text-[#B4FF44]/35 pointer-events-none" />
+                    <input
+                      value={input}
+                      onChange={e => setInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
+                      placeholder="Ask HALO anything…"
+                      className="w-full h-12 rounded-full bg-white/5 border border-white/8 pl-[38px] pr-5 text-[14px] text-white placeholder:text-white/22 focus:outline-none focus:border-[#B4FF44]/35 focus:ring-1 focus:ring-[#B4FF44]/12 focus:bg-white/6 transition-all"
+                    />
+                  </div>
+
+                  {input.trim() ? (
+                    <button
+                      onClick={() => handleSubmit()}
+                      disabled={parseVoice.isPending}
+                      className="w-12 h-12 rounded-full bg-[#B4FF44] grid place-items-center text-[#07101E] shadow-[0_4px_18px_rgba(180,255,68,0.28)] hover:scale-105 active:scale-[0.94] transition-transform disabled:opacity-50 shrink-0"
+                    >
+                      {parseVoice.isPending ? <Loader2 className="w-[15px] h-[15px] animate-spin" /> : <Send className="w-[15px] h-[15px]" strokeWidth={2.5} />}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setWalkOpen(true)}
+                      className="w-12 h-12 rounded-full bg-white/5 border border-white/8 grid place-items-center text-white/35 hover:text-[#B4FF44] hover:border-[#B4FF44]/22 hover:bg-[#B4FF44]/6 transition-all active:scale-[0.92] shrink-0"
+                      title="Walk Mode"
+                    >
+                      <Footprints className="w-[17px] h-[17px]" strokeWidth={2} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick lens chips + Work App */}
+                <div className="flex gap-2 mt-3 overflow-x-auto pb-0.5 scrollbar-hide items-center">
+                  {(
+                    [
+                      { label: "Money",     lens: "money"     as LensType, query: "Show money overview" },
+                      { label: "Jobs",      lens: "timeline"  as LensType, query: "Show job timeline" },
+                      { label: "Crew",      lens: "network"   as LensType, query: "Show crew and dispatch" },
+                      { label: "Portfolio", lens: "portfolio" as LensType, query: "Portfolio overview" },
+                      { label: "Evidence",  lens: "evidence"  as LensType, query: "Show photo evidence" },
+                      { label: "Map",       lens: "map"       as LensType, query: "Live crew map" },
+                    ] as const
+                  ).map(chip => (
+                    <button
+                      key={chip.label}
+                      onClick={() => {
+                        setMessages(prev => [...prev,
+                          { id: `u-${Date.now()}`, kind: "user-msg", text: chip.query },
+                          { id: `l-${Date.now()}`, kind: "lens", lensType: chip.lens, query: chip.query },
+                        ]);
+                        scrollToBottom();
+                      }}
+                      className="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/7 text-[11px] font-bold text-white/35 hover:text-white/65 hover:bg-white/8 transition-all active:scale-[0.95]"
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+
+                  <div className="w-px h-5 bg-white/[0.07] mx-1 shrink-0" />
+
+                  {/* Work App shortcut */}
+                  <button
+                    onClick={() => navigate("/work")}
+                    className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/[0.028] border border-white/6 text-[11px] font-medium text-white/28 hover:text-white/55 hover:bg-white/[0.045] transition-all active:scale-[0.95]"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Work App
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* ── Overlays ─────────────────────────────────────────────────── */}
+      {/* ── Overlays ──────────────────────────────────────────────────────── */}
       <VoiceCaptureDialog
         open={voiceOpen}
-        onOpenChange={o => { setVoiceOpen(o); if (!o) setVoiceInitial(undefined); }}
-        initialText={voiceInitial}
+        onOpenChange={setVoiceOpen}
       />
 
       {walkOpen && (
@@ -657,7 +740,7 @@ export default function HaloCommand() {
             setMessages(prev => [...prev, {
               id: `walk-${Date.now()}`,
               kind: "halo-response",
-              text: `Walk captured: ${summary}. ${items.length} item${items.length !== 1 ? "s" : ""} recorded — open the Walk app to create jobs.`,
+              text: `Walk captured ${items.length} item${items.length !== 1 ? "s" : ""}. ${summary}`,
             }]);
             scrollToBottom();
           }}
