@@ -203,8 +203,16 @@ function PhotoThumb({
         source={{ uri: `https://${DOMAIN}/api/storage${photo.storagePath}` }}
         style={{ width: '100%', height: '100%' }}
         resizeMode="cover"
+        accessible
+        accessibilityLabel="Uploaded job photo"
       />
-      <Pressable style={thumb.del} onPress={() => onDelete(photo.id)} hitSlop={6}>
+      <Pressable
+        style={thumb.del}
+        onPress={() => onDelete(photo.id)}
+        hitSlop={6}
+        accessibilityLabel="Delete photo"
+        accessibilityRole="button"
+      >
         {deletingId === photo.id ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (

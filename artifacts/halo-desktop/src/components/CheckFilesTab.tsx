@@ -123,14 +123,16 @@ export function CheckFilesTab() {
                   <tr key={c.id} className="border-b border-border/60" data-testid={`row-check-${c.id}`}>
                     <td className="py-2 pr-3">
                       <button
+                        type="button"
                         onClick={() => c.checkImagePath && setViewer(c)}
                         className="w-[76px] h-[48px] border border-border bg-muted/30 overflow-hidden flex items-center justify-center hover:opacity-80"
+                        aria-label={c.checkImagePath ? `View check image for ${c.payerName ?? "this check"}` : "No check image on file"}
                         title={c.checkImagePath ? "View check image" : "No image on file"}
                       >
                         {c.checkImagePath ? (
                           <img
                             src={`/api/storage${c.checkImagePath}`}
-                            alt="Check"
+                            alt={`Check from ${c.payerName ?? "unknown payer"}`}
                             className="w-full h-full object-cover"
                             loading="lazy"
                           />

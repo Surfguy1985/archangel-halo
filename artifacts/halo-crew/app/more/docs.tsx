@@ -131,7 +131,7 @@ function W9Modal({
       <View style={[m.container, { paddingTop: insets.top }]}>
         {/* Header */}
         <View style={m.header}>
-          <TouchableOpacity onPress={onClose} style={m.closeBtn}>
+          <TouchableOpacity onPress={onClose} style={m.closeBtn} accessibilityLabel="Close" accessibilityRole="button">
             <Ionicons name="close" size={22} color="#8CA0B9" />
           </TouchableOpacity>
           <Text style={m.title}>W-9 Tax Form</Text>
@@ -396,7 +396,7 @@ function BankModal({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={[m.container, { paddingTop: insets.top }]}>
         <View style={m.header}>
-          <TouchableOpacity onPress={onClose} style={m.closeBtn}>
+          <TouchableOpacity onPress={onClose} style={m.closeBtn} accessibilityLabel="Close" accessibilityRole="button">
             <Ionicons name="close" size={22} color="#8CA0B9" />
           </TouchableOpacity>
           <Text style={m.title}>Bank Account</Text>

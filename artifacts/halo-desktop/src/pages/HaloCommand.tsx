@@ -269,7 +269,7 @@ function HaloAnswerBubble({ text, sources, followUps, onFollowUp }: {
       {followUps && followUps.length > 0 && (
         <div className="flex gap-2 flex-wrap mt-2 ml-[34px]">
           {followUps.slice(0, 3).map((q, i) => (
-            <button key={i} onClick={() => onFollowUp(q)}
+            <button type="button" key={i} onClick={() => onFollowUp(q)}
               className="text-[11.5px] font-medium text-white/38 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/6 hover:text-white/60 hover:bg-white/[0.07] transition-all active:scale-[0.97]">
               {q}
             </button>
@@ -283,7 +283,7 @@ function HaloAnswerBubble({ text, sources, followUps, onFollowUp }: {
 function PanelOpenedChip({ panel, label, onReopen }: { panel: PanelType; label: string; onReopen: () => void }) {
   return (
     <div className="flex mb-4" style={{ animation: "dcIn 0.2s ease-out both" }}>
-      <button onClick={onReopen}
+      <button type="button" onClick={onReopen}
         className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] transition-all">
         <span className="text-[12px]">{PANEL_ICONS[panel]}</span>
         <span className="text-[12px] text-white/45">{label} — click to reopen</span>
@@ -384,6 +384,7 @@ function SeedCard({ card, onSubmit }: { card: typeof SEED_CARDS[number]; onSubmi
   const [hov, setHov] = useState(false);
   return (
     <button
+      type="button"
       onClick={() => onSubmit(card.prompt)}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
@@ -626,7 +627,15 @@ export default function HaloCommand() {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(plan),
               });
-              setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "done" as const, result: r.result } : m));
+              const exData = parseExchangeResult(r.result);
+              if (exData) {
+                setMessages(prev => [
+                  ...prev.map(m => m.id === planId ? { ...m as any, status: "done" as const } : m),
+                  { id: `ex-${Date.now()}`, ...exData },
+                ]);
+              } else {
+                setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "done" as const, result: r.result } : m));
+              }
             } catch (err) {
               const apiErr = err instanceof ApiFetchError ? err : null;
               if (apiErr?.status === 403 && (apiErr.body as any)?.gateBlocked) {
