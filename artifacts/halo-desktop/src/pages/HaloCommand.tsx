@@ -69,6 +69,14 @@ import type { VoiceAction } from "@workspace/api-client-react";
 
 // ─── Thread message types ─────────────────────────────────────────────────────
 
+/** Structured action plan from commandBrain — wired to ASSISTED auto-execution */
+interface ActionPlanData {
+  description: string;
+  risk: "auto" | "review" | "block";
+  capability?: string;
+  params?: Record<string, unknown>;
+}
+
 type TMsg =
   | { id: string; kind: "decision-packet"; card: FeedCardType }
   | { id: string; kind: "autopilot-packet"; action: { id: string; title: string; body: string; type: string; status: string } }
@@ -80,6 +88,7 @@ type TMsg =
   | { id: string; kind: "success"; text: string }
   | { id: string; kind: "error"; text: string }
   | { id: string; kind: "halo-answer"; text: string; sources?: Array<{ label: string; value: string }>; followUps?: string[]; shadowLabel?: string }
+  | { id: string; kind: "action-plan"; plan: ActionPlanData; status: "pending" | "executing" | "done" | "error" | "declined"; result?: string }
   // Structured rich messages injected by the command brain
   | { id: string; kind: "briefing"; data: BriefingData };
 
@@ -376,6 +385,94 @@ function HaloAnswerBubble({
   );
 }
 
+// ─── ActionPlanCard (desktop) ─────────────────────────────────────────────────
+
+function ActionPlanCard({
+  msg,
+  falkonMode,
+  onExecute,
+  onDecline,
+}: {
+  msg: { plan: ActionPlanData; status: string; result?: string };
+  falkonMode: FalkonMode;
+  onExecute: () => void;
+  onDecline: () => void;
+}) {
+  const isShadow = falkonMode === "SHADOW";
+  const isBlock = msg.plan.risk === "block";
+
+  if (msg.status === "executing") {
+    return (
+      <div className="flex items-center gap-3 bg-[#B4FF44]/6 border border-[#B4FF44]/15 rounded-[14px] px-5 py-3.5 mb-3">
+        <Loader2 className="w-4 h-4 text-[#B4FF44] animate-spin shrink-0" />
+        <div>
+          <span className="text-[13px] text-[#B4FF44]/80 font-medium">Executing…</span>
+          <p className="text-[11.5px] text-white/35 mt-0.5">{msg.plan.description}</p>
+        </div>
+      </div>
+    );
+  }
+  if (msg.status === "done") {
+    return (
+      <div className="flex items-center gap-3 bg-[#22C55E]/7 border border-[#22C55E]/18 rounded-[14px] px-5 py-3.5 mb-3">
+        <CheckCircle2 className="w-4 h-4 text-[#22C55E] shrink-0" />
+        <div>
+          <span className="text-[13px] text-[#22C55E]/90 font-medium">Done</span>
+          <p className="text-[11.5px] text-white/40 mt-0.5">{msg.result ?? msg.plan.description}</p>
+        </div>
+      </div>
+    );
+  }
+  if (msg.status === "error") {
+    return (
+      <div className="flex items-center gap-3 bg-[#E11D48]/8 border border-[#E11D48]/18 rounded-[14px] px-5 py-3.5 mb-3">
+        <AlertCircle className="w-4 h-4 text-[#E11D48] shrink-0" />
+        <span className="text-[13px] text-[#E11D48]/85">Action failed — try again or handle manually.</span>
+      </div>
+    );
+  }
+  if (msg.status === "declined") {
+    return <div className="mb-3"><span className="text-[12px] text-white/25">Cancelled — no changes made.</span></div>;
+  }
+
+  // pending
+  const riskColor = isBlock ? "#E11D48" : msg.plan.risk === "review" ? "#F59E0B" : "#B4FF44";
+  const riskLabel = isBlock ? "BLOCKED" : msg.plan.risk === "review" ? "NEEDS APPROVAL" : isShadow ? "SHADOW" : "READY";
+  const borderCls = isShadow ? "bg-amber-950/30 border-amber-500/20" : isBlock ? "bg-[#E11D48]/8 border-[#E11D48]/20" : "bg-[#0A1628] border-white/8";
+
+  return (
+    <div className={`rounded-[18px] px-5 py-4 mb-3 border ${borderCls}`}>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-[9.5px] font-bold tracking-[0.18em] uppercase px-2.5 py-0.5 rounded-md border"
+          style={{ background: `${riskColor}15`, borderColor: `${riskColor}30`, color: riskColor }}>
+          {riskLabel}
+        </span>
+        {!isShadow && !isBlock && falkonMode === "ASSISTED" && (
+          <span className="text-[10.5px] text-white/25">Falkon ASSISTED</span>
+        )}
+      </div>
+      <p className="text-[14px] text-white/75 leading-relaxed mb-4">{msg.plan.description}</p>
+      {!isBlock && !isShadow && (
+        <div className="flex gap-2.5">
+          <button type="button" onClick={onExecute}
+            className="flex-1 h-10 rounded-[11px] bg-[#B4FF44] text-[#07101E] text-[13px] font-bold hover:bg-[#c8ff6e] active:scale-[0.97] transition-all">
+            {msg.plan.risk === "review" ? "Approve & Execute" : "Execute"}
+          </button>
+          <button type="button" onClick={onDecline}
+            className="h-10 px-5 rounded-[11px] bg-white/5 border border-white/8 text-[13px] text-white/45 hover:text-white/70 hover:bg-white/8 active:scale-[0.97] transition-all">
+            Cancel
+          </button>
+        </div>
+      )}
+      {(isShadow || isBlock) && (
+        <p className="text-[11.5px] text-white/28 mt-1.5">
+          {isShadow ? "Switch to ASSISTED mode to execute this action." : "Contact your administrator to enable this action."}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function HaloCommand() {
@@ -624,6 +721,26 @@ export default function HaloCommand() {
               ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, shadowLabel: brainResult.shadowLabel, followUps: brainResult.suggestedFollowUps }
               : m
           ));
+          const plan = brainResult.actionPlan as ActionPlanData | undefined;
+          if (plan) {
+            const planId = `plan-${Date.now()}`;
+            if (plan.risk === "auto" && falkonMode === "ASSISTED") {
+              setMessages(prev => [...prev, { id: planId, kind: "action-plan" as const, plan, status: "executing" as const }]);
+              scrollToBottom();
+              try {
+                const execResult = await apiFetch("/api/command/actions/execute", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(plan),
+                });
+                setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "done" as const, result: execResult.result } : m));
+              } catch {
+                setMessages(prev => prev.map(m => m.id === planId ? { ...m as any, status: "error" as const } : m));
+              }
+            } else {
+              setMessages(prev => [...prev, { id: planId, kind: "action-plan" as const, plan, status: "pending" as const }]);
+            }
+          } else {
           try {
             const vr = await parseVoice.mutateAsync({ data: { transcript: raw } });
             if (vr?.actions?.length > 0) {
@@ -635,6 +752,7 @@ export default function HaloCommand() {
               }]);
             }
           } catch { /* non-fatal */ }
+          }
         } else {
           setMessages(prev => prev.map(m =>
             m.id === thinkId
@@ -764,6 +882,38 @@ export default function HaloCommand() {
             <span className="text-[13.5px] text-[#E11D48]/85">{msg.text}</span>
           </div>
         );
+      case "action-plan": {
+        const planMsg = msg;
+        return (
+          <ActionPlanCard
+            msg={planMsg}
+            falkonMode={falkonMode}
+            onExecute={async () => {
+              setMessages(prev => prev.map(m => m.id === planMsg.id ? { ...m as any, status: "executing" as const } : m));
+              try {
+                const r = await apiFetch("/api/command/actions/execute", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(planMsg.plan),
+                });
+                setMessages(prev => prev.map(m =>
+                  m.id === planMsg.id ? { ...m as any, status: "done" as const, result: r.result } : m
+                ));
+                qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+              } catch {
+                setMessages(prev => prev.map(m =>
+                  m.id === planMsg.id ? { ...m as any, status: "error" as const } : m
+                ));
+              }
+            }}
+            onDecline={() => {
+              setMessages(prev => prev.map(m =>
+                m.id === planMsg.id ? { ...m as any, status: "declined" as const } : m
+              ));
+            }}
+          />
+        );
+      }
       case "briefing":
         return (
           <BriefingCard

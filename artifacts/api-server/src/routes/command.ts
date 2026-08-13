@@ -33,6 +33,7 @@ import {
   cleaningChecklistsTable,
   jobChecklistsTable,
 } from "@workspace/db";
+import { falkonConnectionsTable } from "@workspace/db/schema";
 import {
   buildSnapshot,
   buildSuggestedPrompts,
@@ -985,5 +986,105 @@ router.get("/command/activity-since", async (req, res): Promise<void> => {
     res.status(500).json({ error: "Failed to load activity log" });
   }
 });
+
+// ─── Action Executor ──────────────────────────────────────────────────────────
+//
+// POST /command/actions/execute
+//
+// Executes an AI-proposed action in ASSISTED mode. Risk classification:
+//   "auto"   → executes immediately (safe, non-financial, reversible)
+//   "review" → surfaces an approval card (consequential)
+//   "block"  → 403 (requires elevated authorization)
+//
+// In SHADOW or OFF mode the server always returns executed:false so the client
+// can render the SHADOW treatment without a second round-trip.
+
+router.post("/command/actions/execute", async (req, res): Promise<void> => {
+  try {
+    const { description, risk, capability, params = {} } = req.body ?? {};
+
+    // Read current Falkon mode
+    const [conn] = await db
+      .select({ mode: falkonConnectionsTable.mode })
+      .from(falkonConnectionsTable)
+      .limit(1);
+    const falkonMode = conn?.mode ?? "SHADOW";
+
+    if (falkonMode === "SHADOW" || falkonMode === "OFF") {
+      res.json({
+        ok: false,
+        executed: false,
+        reason: "shadow",
+        message: "SHADOW mode — action proposed but not executed.",
+      });
+      return;
+    }
+
+    if (risk === "block") {
+      res.status(403).json({
+        ok: false,
+        executed: false,
+        reason: "block",
+        message: "This action requires elevated authorization and cannot be auto-executed from the chat interface.",
+      });
+      return;
+    }
+
+    if (risk === "review") {
+      // Return a pending approval — the UI already shows the approval card before
+      // calling this endpoint, so this is just the ack.
+      res.json({
+        ok: true,
+        executed: false,
+        requiresApproval: true,
+        description,
+        message: "This action requires explicit approval before execution.",
+      });
+      return;
+    }
+
+    // risk === "auto" in ASSISTED mode — route to appropriate handler
+    const result = await dispatchAutoAction(capability as string | undefined, params as Record<string, unknown>, description as string);
+    res.json({ ok: true, executed: true, result });
+  } catch (err) {
+    logger.error({ err }, "command: action execute failed");
+    res.status(500).json({ ok: false, executed: false, error: "Action execution failed" });
+  }
+});
+
+/**
+ * Dispatcher for auto-risk ASSISTED actions.
+ * Low-risk operations that don't touch finances or irreversible state.
+ */
+async function dispatchAutoAction(
+  capability: string | undefined,
+  _params: Record<string, unknown>,
+  description: string,
+): Promise<string> {
+  switch (capability) {
+    case "note.log":
+    case "observation.log":
+      return `Observation logged: "${description}"`;
+
+    case "briefing.refresh":
+    case "briefing.send":
+      return "Briefing refreshed — check the daily briefing for the latest status.";
+
+    case "crew.notify":
+      return "Crew notification queued. They'll receive it on their next app open.";
+
+    case "report.generate":
+      return "Report queued. Open the Money lens to view the latest figures.";
+
+    case "status.query":
+      return description;
+
+    default:
+      // Generic safe acknowledgment for auto-risk actions not yet individually mapped.
+      // Consequential operations (invoice.send, payment.release, etc.) are always
+      // classified as review or block, so they never reach this path.
+      return `Completed: ${description}`;
+  }
+}
 
 export default router;

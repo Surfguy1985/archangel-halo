@@ -75,6 +75,14 @@ import type { VoiceAction } from "@workspace/api-client-react";
 
 // ─── Thread message types ─────────────────────────────────────────────────────
 
+/** Structured action plan from commandBrain — wired to ASSISTED auto-execution */
+interface ActionPlanData {
+  description: string;
+  risk: "auto" | "review" | "block";
+  capability?: string;
+  params?: Record<string, unknown>;
+}
+
 type TMsg =
   | { id: string; kind: "decision-packet"; card: FeedCardType }
   | { id: string; kind: "autopilot-packet"; action: { id: string; title: string; body: string; type: string; status: string } }
@@ -87,6 +95,7 @@ type TMsg =
   | { id: string; kind: "error"; text: string }
   | { id: string; kind: "walk-result"; items: { id: string; description: string }[]; summary: string }
   | { id: string; kind: "halo-answer"; text: string; sources?: Array<{ label: string; value: string }>; followUps?: string[]; shadowLabel?: string }
+  | { id: string; kind: "action-plan"; plan: ActionPlanData; status: "pending" | "executing" | "done" | "error" | "declined"; result?: string }
   // Structured rich messages injected by the command brain
   | { id: string; kind: "briefing"; data: BriefingData };
 
@@ -418,6 +427,115 @@ function HaloAnswerBubble({
   );
 }
 
+// ─── ActionPlanCard — ASSISTED auto-execution + approval card ────────────────
+
+function ActionPlanCard({
+  msg,
+  falkonMode,
+  onExecute,
+  onDecline,
+}: {
+  msg: { plan: ActionPlanData; status: string; result?: string };
+  falkonMode: FalkonMode;
+  onExecute: () => void;
+  onDecline: () => void;
+}) {
+  const isShadow = falkonMode === "SHADOW";
+  const isBlock = msg.plan.risk === "block";
+
+  if (msg.status === "executing") {
+    return (
+      <div className="flex items-center gap-2.5 bg-[#B4FF44]/6 border border-[#B4FF44]/15 rounded-[13px] px-4 py-3 mb-2.5 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
+        <Loader2 className="w-3.5 h-3.5 text-[#B4FF44] animate-spin shrink-0" />
+        <div>
+          <span className="text-[12.5px] text-[#B4FF44]/80 font-medium">Executing…</span>
+          <p className="text-[11px] text-white/35 mt-0.5">{msg.plan.description}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (msg.status === "done") {
+    return (
+      <div className="flex items-center gap-2.5 bg-[#22C55E]/7 border border-[#22C55E]/18 rounded-[13px] px-4 py-3 mb-2.5 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
+        <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E] shrink-0" />
+        <div>
+          <span className="text-[12.5px] text-[#22C55E]/90 font-medium">Done</span>
+          <p className="text-[11px] text-white/40 mt-0.5">{msg.result ?? msg.plan.description}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (msg.status === "error") {
+    return (
+      <div className="flex items-center gap-2.5 bg-[#E11D48]/8 border border-[#E11D48]/18 rounded-[13px] px-4 py-3 mb-2.5 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
+        <AlertCircle className="w-3.5 h-3.5 text-[#E11D48] shrink-0" />
+        <span className="text-[12.5px] text-[#E11D48]/85">Action failed — try again or handle manually.</span>
+      </div>
+    );
+  }
+
+  if (msg.status === "declined") {
+    return (
+      <div className="flex items-center gap-1.5 mb-2.5 hc-msg" style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
+        <span className="text-[11.5px] text-white/25">Cancelled — no changes made.</span>
+      </div>
+    );
+  }
+
+  // pending
+  const riskColor = isBlock ? "#E11D48" : msg.plan.risk === "review" ? "#F59E0B" : "#B4FF44";
+  const riskLabel = isBlock ? "BLOCKED" : msg.plan.risk === "review" ? "NEEDS APPROVAL" : isShadow ? "SHADOW" : "READY";
+  const borderCls = isShadow
+    ? "bg-amber-950/30 border-amber-500/20"
+    : isBlock
+    ? "bg-[#E11D48]/8 border-[#E11D48]/20"
+    : "bg-[#0A1628] border-white/8";
+
+  return (
+    <div className={`rounded-[16px] px-4 py-3.5 mb-2.5 border ${borderCls} hc-msg`} style={{ animation: "hcMsgIn 0.22s ease-out both" }}>
+      <div className="flex items-center gap-2 mb-2.5">
+        <span
+          className="text-[9px] font-bold tracking-[0.18em] uppercase px-2 py-0.5 rounded border"
+          style={{ background: `${riskColor}15`, borderColor: `${riskColor}30`, color: riskColor }}
+        >
+          {riskLabel}
+        </span>
+        {!isShadow && !isBlock && falkonMode === "ASSISTED" && (
+          <span className="text-[10px] text-white/25">Falkon ASSISTED</span>
+        )}
+      </div>
+      <p className="text-[13px] text-white/75 leading-relaxed mb-3">{msg.plan.description}</p>
+      {!isBlock && !isShadow && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onExecute}
+            className="flex-1 h-9 rounded-[10px] bg-[#B4FF44] text-[#07101E] text-[12px] font-bold hover:bg-[#c8ff6e] active:scale-[0.97] transition-all"
+          >
+            {msg.plan.risk === "review" ? "Approve & Execute" : "Execute"}
+          </button>
+          <button
+            type="button"
+            onClick={onDecline}
+            className="h-9 px-4 rounded-[10px] bg-white/5 border border-white/8 text-[12px] text-white/45 hover:text-white/70 hover:bg-white/8 active:scale-[0.97] transition-all"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      {(isShadow || isBlock) && (
+        <p className="text-[11px] text-white/28 mt-1">
+          {isShadow
+            ? "Switch to ASSISTED mode to execute this action."
+            : "Contact your administrator to enable this action."}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function HaloCommand() {
@@ -685,18 +803,51 @@ export default function HaloCommand() {
               ? { id: thinkId, kind: "halo-answer" as const, text: brainResult.text, shadowLabel: brainResult.shadowLabel, followUps: brainResult.suggestedFollowUps }
               : m
           ));
-          // Also call voice parse so ConfirmCard can execute the action
-          try {
-            const vr = await parseVoice.mutateAsync({ data: { transcript: raw } });
-            if (vr?.actions?.length > 0) {
+
+          // ── ASSISTED action routing ───────────────────────────────────────
+          const plan = brainResult.actionPlan as ActionPlanData | undefined;
+          if (plan) {
+            const planId = `plan-${Date.now()}`;
+            if (plan.risk === "auto" && falkonMode === "ASSISTED") {
+              // Auto-execute immediately — inject executing card, fire API
               setMessages(prev => [...prev, {
-                id: `conf-${Date.now()}`,
-                kind: "confirmation" as const,
-                logId: (vr as any).logId ?? "",
-                actions: vr.actions,
+                id: planId, kind: "action-plan" as const, plan, status: "executing" as const,
+              }]);
+              scrollToBottom();
+              try {
+                const execResult = await apiFetch("/api/command/actions/execute", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(plan),
+                });
+                setMessages(prev => prev.map(m =>
+                  m.id === planId ? { ...m as any, status: "done" as const, result: execResult.result } : m
+                ));
+              } catch {
+                setMessages(prev => prev.map(m =>
+                  m.id === planId ? { ...m as any, status: "error" as const } : m
+                ));
+              }
+            } else {
+              // Review, block, or SHADOW — show pending approval card
+              setMessages(prev => [...prev, {
+                id: planId, kind: "action-plan" as const, plan, status: "pending" as const,
               }]);
             }
-          } catch { /* non-fatal */ }
+          } else {
+            // Fallback: legacy voice parse for ConfirmCard
+            try {
+              const vr = await parseVoice.mutateAsync({ data: { transcript: raw } });
+              if (vr?.actions?.length > 0) {
+                setMessages(prev => [...prev, {
+                  id: `conf-${Date.now()}`,
+                  kind: "confirmation" as const,
+                  logId: (vr as any).logId ?? "",
+                  actions: vr.actions,
+                }]);
+              }
+            } catch { /* non-fatal */ }
+          }
         } else {
           // type: 'answer' or 'error'
           setMessages(prev => prev.map(m =>
@@ -833,6 +984,38 @@ export default function HaloCommand() {
             <span className="text-[13px] text-[#E11D48]/85">{msg.text}</span>
           </div>
         );
+      case "action-plan": {
+        const planMsg = msg;
+        return (
+          <ActionPlanCard
+            msg={planMsg}
+            falkonMode={falkonMode}
+            onExecute={async () => {
+              setMessages(prev => prev.map(m => m.id === planMsg.id ? { ...m as any, status: "executing" as const } : m));
+              try {
+                const r = await apiFetch("/api/command/actions/execute", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(planMsg.plan),
+                });
+                setMessages(prev => prev.map(m =>
+                  m.id === planMsg.id ? { ...m as any, status: "done" as const, result: r.result } : m
+                ));
+                qc.invalidateQueries({ queryKey: getGetTodayQueryKey() });
+              } catch {
+                setMessages(prev => prev.map(m =>
+                  m.id === planMsg.id ? { ...m as any, status: "error" as const } : m
+                ));
+              }
+            }}
+            onDecline={() => {
+              setMessages(prev => prev.map(m =>
+                m.id === planMsg.id ? { ...m as any, status: "declined" as const } : m
+              ));
+            }}
+          />
+        );
+      }
       case "walk-result":
         return <WalkResultCard items={msg.items} summary={msg.summary} />;
       case "briefing":
@@ -934,8 +1117,16 @@ export default function HaloCommand() {
                 Hi, Team.
               </h1>
               <p className="text-[14px] text-white/35 font-medium">
-                Ask me anything. I'll handle it.
+                {falkonMode === "ASSISTED"
+                  ? "Auto-pilot active. Safe actions execute automatically."
+                  : "Ask me anything. I'll handle it."}
               </p>
+              {falkonMode === "ASSISTED" && (
+                <div className="flex items-center justify-center gap-1.5 mt-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#B4FF44] animate-pulse" />
+                  <span className="text-[10.5px] font-bold tracking-[0.14em] text-[#B4FF44]/65 uppercase">Falkon ASSISTED</span>
+                </div>
+              )}
             </div>
 
             {/* Big command input */}
@@ -1049,20 +1240,25 @@ export default function HaloCommand() {
                 </div>
               ))}
 
-              {/* Inline prompt suggestions in thread (after each HALO response) */}
-              {messages.length > 0 && messages[messages.length - 1]?.kind !== "thinking" && (
-                <div className="flex gap-2 flex-wrap mt-2 mb-1">
-                  {["Show all jobs", "Live crew map", "Money overview", "Units needing invoices"].map(p => (
-                    <button
-                      key={p}
-                      onClick={() => handleSubmit(p)}
-                      className="text-[11px] font-medium text-white/35 px-3 py-1.5 rounded-full bg-white/[0.028] border border-white/6 hover:text-white/60 hover:bg-white/[0.05] transition-all active:scale-[0.96]"
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* Inline follow-up chips — only show after a HALO answer with suggestions */}
+              {(() => {
+                const last = [...messages].reverse().find(m => m.kind === "halo-answer");
+                const followUps = last?.kind === "halo-answer" ? last.followUps : undefined;
+                if (!followUps || followUps.length === 0) return null;
+                return (
+                  <div className="flex gap-2 flex-wrap mt-1 mb-1">
+                    {followUps.slice(0, 3).map((p: string) => (
+                      <button
+                        key={p}
+                        onClick={() => handleSubmit(p)}
+                        className="text-[11px] font-medium text-white/35 px-3 py-1.5 rounded-full bg-white/[0.028] border border-white/6 hover:text-white/60 hover:bg-white/[0.05] transition-all active:scale-[0.96]"
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
 
               <div ref={bottomRef} className="h-3" />
             </div>

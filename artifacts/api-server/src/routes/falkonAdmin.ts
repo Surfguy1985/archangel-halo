@@ -1318,6 +1318,27 @@ falkonAdminRouter.post("/falkon/admin/verify/all", async (_req, res) => {
       await db.execute(
         sql`UPDATE falkon_connections SET status = 'verified', verified_at = now(), updated_at = now() WHERE id = (SELECT id FROM falkon_connections LIMIT 1)`,
       );
+      // ── Auto-promote SHADOW → ASSISTED now that all 7 gates pass ────────────
+      // We promote here so the normal operating experience is Falkon-powered
+      // immediately after a successful verification without requiring a separate
+      // UI action. LIVE is still hard-blocked.
+      try {
+        const [postConn] = await db
+          .select({ id: falkonConnectionsTable.id, mode: falkonConnectionsTable.mode })
+          .from(falkonConnectionsTable)
+          .limit(1);
+        if (postConn && (postConn.mode === "SHADOW" || postConn.mode === "OFF") && getPublicKeyPem()) {
+          await db.execute(
+            sql`UPDATE falkon_connections SET mode = 'ASSISTED', updated_at = now() WHERE id = ${postConn.id}::uuid`,
+          );
+          logger.info("falkon: auto-promoted SHADOW → ASSISTED after verification");
+          void runBootstrapAll().catch((err) =>
+            logger.error({ err }, "falkon: post-verify auto-promote bootstrap failed"),
+          );
+        }
+      } catch (promoteErr) {
+        logger.warn({ promoteErr }, "falkon: auto-promote after verify/all failed — manual promote still available");
+      }
     } else {
       // Any gate failure demotes/clears a previously verified connection so stale callers can't
       // rely on a connection status that no longer holds.

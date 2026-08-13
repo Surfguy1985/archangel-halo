@@ -73,6 +73,20 @@ export interface BusinessSnapshot {
 
 export type BrainResponseType = "answer" | "lens" | "voice_action" | "error";
 
+/** Risk classification for ASSISTED mode auto-execution */
+export type ActionRisk = "auto" | "review" | "block";
+
+export interface ActionPlan {
+  /** Plain-English description of exactly what will happen */
+  description: string;
+  /** auto = safe to execute immediately in ASSISTED; review = requires explicit human approval; block = not permitted from this surface */
+  risk: ActionRisk;
+  /** HALO capability key, e.g. "invoice.send", "job.create", "crew.schedule", "payment.release" */
+  capability?: string;
+  /** Key parameters the executor will use */
+  params?: Record<string, unknown>;
+}
+
 export interface BrainResponse {
   /** How the front-end should render this message */
   type: BrainResponseType;
@@ -88,6 +102,8 @@ export interface BrainResponse {
   sources?: Array<{ label: string; value: string }>;
   /** 2-3 suggested follow-up prompts shown as tappable chips */
   suggestedFollowUps?: string[];
+  /** Set when type === 'voice_action' — structured action plan for ASSISTED auto-execution or approval */
+  actionPlan?: ActionPlan;
 }
 
 export interface ConversationMessage {
@@ -232,9 +248,9 @@ export function buildSystemPrompt(
 
   const shadowNote =
     snapshot.falkonMode === "SHADOW" || snapshot.falkonMode === "OFF"
-      ? "\n\n⚠️ FALKON MODE: SHADOW — Any proposed actions are NOT executed. Always prefix proposed actions with '[SHADOW — proposed, not executed]'."
+      ? "\n\n⚠️ FALKON MODE: SHADOW — Proposed actions are NOT executed. Set shadowLabel for any voice_action. Always include actionPlan even in SHADOW so the user can see what would happen."
       : snapshot.falkonMode === "ASSISTED"
-      ? "\n\n⚠️ FALKON MODE: ASSISTED — Low-risk actions may execute automatically; consequential actions require explicit human approval."
+      ? "\n\n✅ FALKON MODE: ASSISTED — Auto-pilot is active. Low-risk (auto) actions execute immediately without asking. Consequential (review) actions surface an approval card. Never set shadowLabel. Classify every voice_action with the correct risk level in actionPlan."
       : "";
 
   const economicsCtx = [
@@ -340,20 +356,30 @@ const BRAIN_RESPONSE_SCHEMA = `{
   "type": "answer" | "lens" | "voice_action" | "error",
   "text": "string — your natural language response, always present",
   "lensKind": "portfolio" | "timeline" | "money" | "evidence" | "network" | "map" | "property_status" | "turn_timeline" | "budget_breakdown" | "crew_map" | "invoice_detail" | "vendor_profile" | "photo_evidence" | "inspection_checklist" | null,
-  "entityId": "string UUID or null — required when lensKind is entity-scoped (property_status/turn_timeline/budget_breakdown/invoice_detail/vendor_profile/photo_evidence/inspection_checklist); the entity's database UUID",
+  "entityId": "string UUID or null — required when lensKind is entity-scoped",
   "shadowLabel": "string or null — set only for proposed actions in SHADOW mode",
   "sources": [{ "label": "string", "value": "string" }] | null,
-  "suggestedFollowUps": ["string", "string"] — exactly 2-3 relevant next questions
+  "suggestedFollowUps": ["string", "string"] — exactly 2-3 relevant next questions,
+  "actionPlan": {
+    "description": "string — one sentence describing exactly what will happen",
+    "risk": "auto" | "review" | "block",
+    "capability": "string — HALO operation key e.g. invoice.send, job.create, crew.schedule, expense.approve, payment.release, note.log",
+    "params": {}
+  } | null
 }
 
 Rules:
 - type "answer" → text response to a data query or question
 - type "lens" → user wants to see a visual data view; set lensKind to the most relevant lens
-- type "voice_action" → user wants to CREATE, SCHEDULE, SEND, APPROVE, or DELETE something — describe the proposed action in text; front-end will open the action flow
+- type "voice_action" → user wants to CREATE, SCHEDULE, SEND, APPROVE, or DELETE something; always include actionPlan
 - type "error" → only for missing data or genuine inability to answer
 - shadowLabel: if falkon mode is SHADOW and type is "voice_action", set to "SHADOW — proposed, not executed"
-- sources: cite 2–4 specific data points from the snapshot (e.g. { label: "Open jobs", value: "7" })
-- suggestedFollowUps: always include 2–3 context-aware follow-up prompts`;
+- sources: cite 2–4 specific data points from the snapshot
+- suggestedFollowUps: always include 2–3 context-aware follow-up prompts
+- actionPlan.risk classification:
+    "auto"   → safe, non-financial, reversible: note.log, observation.log, draft creation, status queries
+    "review" → consequential: invoice.send, job.create, job.status.update, crew.schedule, expense.approve, change_order.create
+    "block"  → irreversible or high-stakes: payment.release, record.delete, compliance.suspend, unit.ready`;
 
 // ─── Core multi-turn brain function ───────────────────────────────────────────
 
@@ -413,6 +439,7 @@ export async function runCommandBrain(
       shadowLabel: parsed.shadowLabel ?? undefined,
       sources: parsed.sources ?? undefined,
       suggestedFollowUps: parsed.suggestedFollowUps ?? undefined,
+      actionPlan: parsed.actionPlan ?? undefined,
     };
   } catch (err) {
     logger.warn({ err }, "commandBrain: AI call failed");
