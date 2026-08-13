@@ -53,6 +53,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { attachBoardStream, emitBoardEvent } from "../lib/boardEvents";
 import { emitFalkonEvent } from "../lib/falkonEmit";
+import { startMakeReadyExecution } from "../lib/falkonMakeReady";
 import { raiseClientCard, webhookUrlProblem, ACTION_STATE_KEYS } from "../lib/clientBoard";
 import { resolveViewer, notifyClientBoard, threadKeysFor, threadMessageDto } from "./clientBoard";
 import { hashPassword, newTempPassword, emailCredentials } from "./admin";
@@ -1122,6 +1123,9 @@ router.post("/client/:token/board/cards/:cardId/action", limits.cardAction, asyn
               approvedAt: nowIso,
               source: "client_board",
             });
+            // Falkon Make-Ready: auto-start an execution so dispatch can track
+            // this unit through the 12-phase pipeline without manual setup.
+            void startMakeReadyExecution(jobId);
           }
         }
       } else {

@@ -466,6 +466,115 @@ export async function advanceExecution(
 }
 
 // ---------------------------------------------------------------------------
+// Start make-ready execution for a walk-approved job
+// ---------------------------------------------------------------------------
+
+/**
+ * Upserts a falkon_execution for the job's unit so the Make-Ready board
+ * auto-populates when a walk is approved.  Call fire-and-forget; never throws.
+ *
+ * Idempotent: if an active/pending execution already exists for this job the
+ * function returns its id without creating a duplicate.
+ */
+export async function startMakeReadyExecution(jobId: string): Promise<string | null> {
+  try {
+    // Look up the job to get propertyId + unitNo.
+    const [job] = await db
+      .select({
+        id: jobsTable.id,
+        propertyId: jobsTable.propertyId,
+        unitNo: jobsTable.unitNo,
+        jobNo: jobsTable.jobNo,
+      })
+      .from(jobsTable)
+      .where(eq(jobsTable.id, jobId))
+      .limit(1);
+
+    if (!job) {
+      logger.warn({ jobId }, "falkon startMakeReadyExecution: job not found");
+      return null;
+    }
+
+    if (!job.unitNo) {
+      logger.warn({ jobId }, "falkon startMakeReadyExecution: job has no unitNo — skipping");
+      return null;
+    }
+
+    const propertyId = job.propertyId;
+    const unitLabel = job.unitNo;
+
+    // Guard: if an execution for this job already exists, return it.
+    const existingExec = await db.execute(
+      sql`SELECT id FROM falkon_executions WHERE job_id = ${jobId}::uuid LIMIT 1`,
+    );
+    const existingRow = ((existingExec as any).rows?.[0] ?? (existingExec as any)[0]);
+    if (existingRow?.id) {
+      logger.info({ jobId, executionId: existingRow.id }, "falkon startMakeReadyExecution: execution already exists");
+      return existingRow.id as string;
+    }
+
+    // Read current gateway mode (default SHADOW).
+    const connRow = await db.execute(
+      sql`SELECT mode FROM falkon_connections LIMIT 1`,
+    );
+    const conn = ((connRow as any).rows?.[0] ?? (connRow as any)[0]);
+    const mode = (conn?.mode as string | undefined) ?? "SHADOW";
+
+    // Upsert falkon_unit for (propertyId, unitLabel).
+    const existingUnit = await db
+      .select({ id: falkonUnitsTable.id })
+      .from(falkonUnitsTable)
+      .where(
+        sql`${falkonUnitsTable.propertyId} = ${propertyId}::uuid
+          AND ${falkonUnitsTable.unitLabel} = ${unitLabel}`,
+      )
+      .limit(1);
+
+    let unitId: string;
+    if (existingUnit.length > 0) {
+      unitId = existingUnit[0]!.id;
+      // Update currentJobId to reflect the newly approved job.
+      await db.execute(
+        sql`UPDATE falkon_units
+            SET current_job_id = ${jobId}::uuid, status = 'needs_turn', updated_at = now()
+            WHERE id = ${unitId}::uuid`,
+      );
+    } else {
+      const rows = await db.execute(
+        sql`INSERT INTO falkon_units
+              (id, property_id, unit_label, status, current_job_id, created_at, updated_at)
+            VALUES
+              (gen_random_uuid(), ${propertyId}::uuid, ${unitLabel}, 'needs_turn',
+               ${jobId}::uuid, now(), now())
+            RETURNING id`,
+      );
+      unitId = ((rows as any).rows?.[0] ?? (rows as any)[0]).id as string;
+    }
+
+    // Create the execution record.
+    const execRows = await db.execute(
+      sql`INSERT INTO falkon_executions
+            (id, property_id, unit_id, unit_label, job_id, phase, status,
+             mode_at_start, started_at, created_at, updated_at)
+          VALUES
+            (gen_random_uuid(), ${propertyId}::uuid, ${unitId}::uuid, ${unitLabel},
+             ${jobId}::uuid, 'needs_turn', 'active', ${mode}, now(), now(), now())
+          RETURNING id`,
+    );
+    const executionId = ((execRows as any).rows?.[0] ?? (execRows as any)[0]).id as string;
+
+    logger.info(
+      { jobId, jobNo: job.jobNo, unitLabel, executionId, mode },
+      "falkon startMakeReadyExecution: execution started",
+    );
+    return executionId;
+  } catch (err) {
+    logger.error({ err, jobId }, "falkon startMakeReadyExecution failed");
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Haversine distance (metres)
 // ---------------------------------------------------------------------------
 

@@ -71,6 +71,7 @@ import { computeUnitStatuses, normUnit } from "./clientCms";
 import { acceptWorkRequest } from "./workRequests";
 import { emitBoardEvent } from "../lib/boardEvents";
 import { emitFalkonEvent } from "../lib/falkonEmit";
+import { startMakeReadyExecution } from "../lib/falkonMakeReady";
 import { deriveLaneWaybill, waybillCodeFor } from "../lib/waybill";
 
 // Every projected card gets a network waybill: the FLK code is deterministic
@@ -1943,6 +1944,9 @@ const ACTIONS: Record<
         approvedBy: ctx.viewer.name ?? "Property Manager",
         approvedAt: new Date().toISOString(),
       });
+      // Falkon Make-Ready: auto-start an execution so dispatch can track
+      // this unit through the 12-phase pipeline without manual setup.
+      void startMakeReadyExecution(jobId);
       return {
         ok: true,
         blocked: false,
